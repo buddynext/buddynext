@@ -52,7 +52,7 @@ What changes when you restrict someone:
 
 ### Managing your blocked and muted lists
 
-Everything you have blocked, muted, or restricted is listed in one place in your profile settings, so you never have to revisit the other person's profile to undo an action. Open **Settings > Privacy** and find **Blocked, restricted & muted**, then remove anyone from it to unblock, unmute, or unrestrict them. This is also where the block confirmation dialog points you when it says you can reverse a block later.
+Everything you have blocked, muted, or restricted is listed in one place in your profile settings, so you never have to revisit the other person's profile to undo an action. Open **Settings > Privacy** and find **Blocked, restricted & muted**, then remove anyone from it to unblock, unmute, or unrestrict them. This is also where the block confirmation dialog points you when it says you can reverse a block later. Removing someone confirms it with a short message, and when the list becomes empty it says so straight away. If the removal cannot go through, the message gives the reason and the person stays on the list.
 
 
 ## Setting it up (for owners)

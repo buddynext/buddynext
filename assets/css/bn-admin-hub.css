@@ -660,9 +660,12 @@
 .bn-hub-nav-group__name {
 	min-width: 0;
 	margin-inline-end: auto; /* icon + name sit left; chevron pushed to the right */
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	/* Wrap between words, never truncate: "Integration Settings" read "INTEGRATION
+	   SETTI…" with no way to see the rest. `anywhere` split words that would have fit
+	   a line; `break-word` only splits a word longer than the whole line, and
+	   translations can have those, where hyphens make the split readable. */
+	overflow-wrap: break-word;
+	hyphens: auto;
 }
 .bn-hub-nav-group__label svg,
 .bn-hub-nav-group__icon,
@@ -697,6 +700,14 @@
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-medium, 500);
 	line-height: 1.3;
+}
+/* Touch (iPad included) and narrow screens: nav links and the header Search /
+   Docs buttons meet the 40px tap floor; a mouse keeps the compact desktop rail. */
+@media (pointer: coarse), (max-width: 782px) {
+	.bn-hub-nav-link,
+	.bn-hub-nav-group__label,
+	.bn-admin-hub__brand-search,
+	.bn-admin-hub__brand-link { box-sizing: border-box; min-block-size: var(--bn-tap, 40px); }
 }
 .bn-hub-nav-link:hover { background: var(--bn-sunken); color: var(--bn-ink); }
 .bn-hub-nav-link:focus-visible {
@@ -742,7 +753,7 @@
    instead of stacking the full nav above the content, which buried every
    screen below the fold on tablets. */
 @media ( max-width: 1024px ) {
-	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 200px minmax( 0, 1fr ); }
+	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 216px minmax( 0, 1fr ); } /* MONETIZATION fits beside the icons with a classic 15px scrollbar. */
 	.bn-hub-nav-link { padding-inline-start: var(--bn-s4, 16px); }
 }
 
@@ -771,6 +782,36 @@
 	   whole page to grow into. overflow-y goes back with it, or the ceiling's
 	   absence just clips. */
 	.bn-admin-hub__panel { position: static; max-height: none; overflow-y: visible; }
+
+	/* One "Section › Tab" button instead of a screen of nav (JS adds .has-toggle,
+	   so without JS the list simply stays open). */
+	.bn-hub-nav-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--bn-s2, 8px);
+		inline-size: 100%;
+		min-block-size: var(--bn-tap, 40px);
+		padding: var(--bn-s2, 8px) var(--bn-s3, 12px);
+		border: 0;
+		border-radius: var(--bn-r-md, 8px);
+		background: none;
+		color: var(--bn-ink);
+		font: inherit;
+		font-weight: 600;
+		text-align: start;
+		cursor: pointer;
+	}
+	.bn-hub-nav-toggle:focus-visible { outline: 2px solid var(--bn-accent); outline-offset: 2px; }
+	.bn-hub-nav-toggle__chevron { flex: none; inline-size: 16px; block-size: 16px; transition: transform 0.15s ease; }
+	.bn-admin-hub__panel.is-open .bn-hub-nav-toggle__chevron { transform: rotate( 180deg ); }
+	.bn-admin-hub__panel.has-toggle:not( .is-open ) .bn-hub-nav-list { display: none; }
+	.bn-admin-hub__panel.is-open .bn-hub-nav-list { margin-block-start: var(--bn-s2, 8px); }
+}
+
+/* Wider screens keep the rail; the phone toggle never shows. */
+@media ( min-width: 783px ) {
+	.bn-hub-nav-toggle { display: none; }
 }
 
 /* --------------------------------------------------------------------------
@@ -903,6 +944,10 @@
 	gap: var(--bn-a-s3);
 }
 
+.bn-demo-promo__form {
+	flex: none;
+}
+
 /* Head actions (the welcome card's "Run guided setup"). The head is already a
    space-between row, so this only has to refuse to shrink - without it the
    button wraps its label at narrow admin widths while the heading keeps its
@@ -972,6 +1017,7 @@
 
 .bn-setup-step {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-a-s3);
 	padding: var(--bn-a-s2) var(--bn-a-s2);
@@ -1007,7 +1053,9 @@
 .bn-setup-step__body {
 	display: flex;
 	flex-direction: column;
-	flex: 1 1 auto;
+	/* A real basis: a step with several buttons wraps them under its text instead of
+	   squeezing the text to a 16px column (iPad). */
+	flex: 1 1 14rem;
 	min-width: 0;
 }
 
@@ -1048,9 +1096,11 @@
    owner who runs another theme. */
 .bn-setup-step__actions {
 	display: inline-flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-a-s2);
 	flex-shrink: 0;
+	max-width: 100%;
 }
 
 .bn-setup-step__ack {
@@ -1079,14 +1129,28 @@
 	font-weight: var(--bn-a-fw-semibold);
 }
 
+/* Phones: the check keeps its own column and the text and action share the
+   second, so the check stays beside the title. A wrapping flex row dropped
+   the whole text block under the check, and the theme step's three buttons
+   ran off the screen. */
 @media (max-width: 640px) {
 	.bn-setup-step {
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: 22px minmax(0, 1fr);
+		column-gap: var(--bn-a-s3);
+		row-gap: var(--bn-a-s2);
+		align-items: start;
 	}
 
 	.bn-setup-step__cta,
-	.bn-setup-step__status {
-		margin-inline-start: calc(22px + var(--bn-a-s3));
+	.bn-setup-step__status,
+	.bn-setup-step__actions {
+		grid-column: 2;
+		justify-self: start;
+	}
+
+	.bn-setup-step__actions {
+		flex-wrap: wrap;
 	}
 }
 

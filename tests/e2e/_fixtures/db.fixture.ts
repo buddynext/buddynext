@@ -103,7 +103,7 @@ export async function seedLoginUser(login: string = LOGIN_MEMBER): Promise<strin
         `$uid = $u ? (int) $u->ID : (int) wp_create_user($login, ${JSON.stringify(LOGIN_PASSWORD)}, $login . '@bn-e2e.test');`,
         `wp_set_password(${JSON.stringify(LOGIN_PASSWORD)}, $uid);`,
         `update_user_meta($uid, 'buddynext_email_verified', '1');`,
-        `delete_user_meta($uid, 'buddynext_verify_pending');`,
+        `delete_user_meta($uid, 'buddynext_signup_awaiting_verify');`,
         `echo $uid;`,
     ].join(' ');
     await wp(['eval', php]);
@@ -117,7 +117,7 @@ export async function seedVerifyToken(userLogin: string): Promise<string> {
         `$uid = $u ? (int) $u->ID : (int) wp_create_user($login, ${JSON.stringify(VERIFY_PASSWORD)}, $login . '@bn-e2e.test');`,
         `wp_set_password(${JSON.stringify(VERIFY_PASSWORD)}, $uid);`,
         `delete_user_meta($uid, 'buddynext_email_verified');`,
-        `delete_user_meta($uid, 'buddynext_verify_pending');`,
+        `delete_user_meta($uid, 'buddynext_signup_awaiting_verify');`,
         `global $wpdb; $wpdb->delete($wpdb->prefix . 'bn_verify_tokens', array('user_id' => $uid));`,
         `echo (new \\BuddyNext\\Auth\\VerificationService())->create_token($uid);`,
     ].join(' ');

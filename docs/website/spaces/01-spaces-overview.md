@@ -21,7 +21,7 @@ For the site owner, spaces turn one busy feed into a set of self-running rooms. 
 
 ### Browse the spaces directory
 
-The Spaces directory is the front door. It lists every space a member is allowed to see (secret spaces stay hidden), with search, category, and type filters plus sorting so a member can find the right group fast even when there are hundreds.
+The Spaces directory is the front door. It lists every space a member is allowed to see (secret spaces stay hidden), with search, category, and type filters plus sorting so a member can find the right group fast even when there are hundreds. Search, category, sort and the sub-spaces filter work together: searching inside a category keeps that category, and the page count and total always match what you searched for.
 
 
 ### Filter by category
@@ -45,7 +45,7 @@ How a member joins depends on the space type:
 - **Private space** - clicking sends a join request. The space owner or a moderator approves or declines it. A member can cancel a pending request before it is answered.
 - **Secret space** - there is no join button, because the space is hidden. A member can only get in through an invite from the owner.
 
-A member can leave any space they have joined at any time from the space page.
+A member can leave any space they have joined at any time from the space page or from its card in the directory. BuddyNext asks you to confirm first. After you leave, the page redraws as it looks to a non-member. If the space refuses the request, a message says why and you stay a member. Moderators can leave too; only the owner has to transfer the space first. Cancelling a join request or declining an invitation is not counted as leaving.
 
 ### Post in a space feed
 

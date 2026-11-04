@@ -387,14 +387,8 @@ class AppConfigController {
 	 * @return array{app_name:string,accent_color:string,logo_url:string,login_bg_url:string,color_scheme_default:string}
 	 */
 	private function branding(): array {
-		$accent = (string) sanitize_hex_color( (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND ) );
-
-		// Appearance's own opt-in rule: empty or the legacy default means the
-		// owner never picked an accent. Pass the absence through rather than
-		// dressing it up as a choice.
-		if ( '#0073aa' === strtolower( $accent ) ) {
-			$accent = '';
-		}
+		// Pass "never picked an accent" through rather than dressing it up as a choice.
+		$accent = \BuddyNext\Theme\Appearance::picked_brand();
 
 		// auto | light | dark. 'auto' means follow the device, which is what the
 		// web does for a visitor who has not chosen — so the app must honour the

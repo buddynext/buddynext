@@ -70,6 +70,20 @@ class MessagesData {
 	}
 
 	/**
+	 * One-click "Turn on" for an owner while WPMediaVerse messaging is off, or
+	 * an empty string when there is nothing to turn on (on already, or a
+	 * WPMediaVerse without the switch door - then settings_url() is the way).
+	 *
+	 * @return string
+	 */
+	public static function turn_on_url(): string {
+		if ( ! self::switched_off() || ! is_callable( array( '\\WPMediaVerse\\Core\\Plugin', 'set_messaging_enabled' ) ) ) {
+			return '';
+		}
+		return wp_nonce_url( admin_url( 'admin-post.php?action=bn_turn_on_messages' ), 'bn_turn_on_messages' );
+	}
+
+	/**
 	 * Where the owner turns messaging on or off.
 	 *
 	 * @return string

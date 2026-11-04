@@ -18,7 +18,7 @@ No. Running BuddyNext alongside BuddyPress or BuddyBoss is **not supported**. Tr
 
 BuddyNext keeps all of its information in its own storage and does not read from or write to BuddyPress, so activating one does not change the other's data. But two community systems means two activity feeds, two member directories, two sets of profile pages, and two messaging inboxes. That is confusing for members, double the work for you, and it is a setup we do not test or help with. Pick BuddyNext and commit to it.
 
-The move itself needs no overlap. The BuddyNext Importer reads your old BuddyPress or BuddyBoss data straight from the database and writes it into BuddyNext. Rehearse it on a staging copy, then do it on the live site and retire the old plugin. See Moving Your Existing Members and Content.
+The move itself needs no overlap. The [BuddyNext Importer](https://github.com/buddynext/buddynext-importer/releases/latest) (free) reads your old BuddyPress or BuddyBoss data straight from the database and writes it into BuddyNext. Rehearse it on a staging copy, then do it on the live site and retire the old plugin. See Moving Your Existing Members and Content.
 
 ## Where your data lives
 

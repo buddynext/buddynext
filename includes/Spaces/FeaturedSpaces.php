@@ -132,8 +132,50 @@ class FeaturedSpaces {
 	}
 
 	/**
-	 * Filter a list of ids down to spaces that still exist and are not archived,
-	 * preserving the input order.
+	 * The ids, in order, that can be featured (one query for the whole list).
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param int[] $ids Candidate ids.
+	 * @return int[]
+	 */
+	public static function featurable( array $ids ): array {
+		return self::keep_live( array_values( array_filter( array_map( 'absint', $ids ) ) ) );
+	}
+
+	/**
+	 * Feature several spaces and report what became of each one.
+	 *
+	 * The counts are measured against the stored list rather than taken as a net
+	 * change, because set_ids() also prunes stale ids: pruning one and adding one
+	 * nets to zero while one space was in fact featured.
+	 *
+	 * @param int[] $ids Requested space ids.
+	 * @return array{done:int,skipped:int,over_cap:int,already:int} done = newly
+	 *         featured, skipped = not eligible (sub-space, archived, gone),
+	 *         over_cap = eligible but past the limit, already = featured before.
+	 */
+	public static function add_many( array $ids ): array {
+		$ids      = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+		$eligible = self::featurable( $ids );
+		$current  = self::get_ids();
+		$already  = array_intersect( $eligible, $current );
+		$stored   = self::set_ids( array_merge( $current, $eligible ) );
+		$added    = count( array_diff( $stored, $current ) );
+
+		return array(
+			'done'     => $added,
+			'skipped'  => count( $ids ) - count( $eligible ),
+			'over_cap' => count( $eligible ) - count( $already ) - $added,
+			'already'  => count( $already ),
+		);
+	}
+
+	/**
+	 * Filter a list of ids down to spaces that still exist, are not archived and
+	 * are top-level, preserving the input order. Every featured surface lists
+	 * top-level spaces only, so a featured sub-space would take a slot and never
+	 * show.
 	 *
 	 * @param int[] $ids Candidate ids.
 	 * @return int[]
@@ -149,7 +191,7 @@ class FeaturedSpaces {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $placeholders is a run of %d built above and every id is bound by prepare().
 		$live = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE is_archived = 0 AND id IN ({$placeholders})",
+				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE is_archived = 0 AND ( parent_id IS NULL OR parent_id = 0 ) AND id IN ({$placeholders})",
 				...$ids
 			)
 		);

@@ -16,7 +16,7 @@ Most members will follow many people (open, one-way) and connect with a smaller,
 
 ### Send a connection request
 
-Open a member's profile and select the Connect button. By default this is one click: the request is sent immediately and the button changes to Pending. The recipient gets a notification and can accept or decline.
+Open a member's profile and select the Connect button. By default this is one click: the request is sent immediately and the button changes to Requested. The recipient gets a notification and can accept or decline.
 
 You can also send a request from a member card in the directory, in followers and following lists, or in sidebars - the connect control behaves the same everywhere.
 
@@ -31,7 +31,7 @@ When someone sends you a connection request, you get a notification that links t
 
 ### Withdraw a request you sent
 
-If you sent a request that has not been answered yet, your button shows Pending. Select it to withdraw the request before the other member acts on it. The pending request is removed and the button returns to Connect.
+If you sent a request that has not been answered yet, your button shows Requested. Select it to withdraw the request before the other member acts on it. The pending request is removed and the button returns to Connect.
 
 ### Disconnect
 
@@ -66,7 +66,7 @@ Connections work out of the box with no required configuration. The connect flow
 
 The Connect control renders automatically in profile context - the profile header and member cards - so members get the connect control without any setup. The standalone Connect button block is no longer offered in the block inserter.
 
-The control reflects the current state for the viewer: Connect, Pending (request sent), Accept / Decline (request received), or Connected. It respects the connection-note setting, so when the note step is off the button is one click.
+The control reflects the current state for the viewer: Connect, Requested (request sent), Accept / Decline (request received), or Connected. It respects the connection-note setting, so when the note step is off the button is one click.
 
 ## Related
 

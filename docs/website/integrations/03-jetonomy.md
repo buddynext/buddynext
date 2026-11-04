@@ -59,11 +59,15 @@ Once Jetonomy is active, it gets a card on the **Integration Settings** screen, 
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation (Jetonomy card) | Shows the Discussions link in the left rail and the Discussions tab on member profiles. Turning it off also hides the space Discussions tab and stops Jetonomy notifications reaching the bell. | On |
+| Show in navigation (Jetonomy card) | Shows the Discussions link in the left rail and the Discussions tab on member profiles. Turning it off also hides the space Discussions tab. Jetonomy notifications still reach the bell. | On |
 | Post to the activity feed (Jetonomy card) | When on, a new discussion started in a public space appears as a card in the BuddyNext activity feed, linking back to the full thread. Only public discussions in public, published topics are surfaced; private spaces and private topics are never mirrored. | On |
 | Include in search (Jetonomy card) | When on, discussions are indexed for BuddyNext's community search, so members find them alongside posts, members, and spaces. Switching it off also removes the discussions already in the search index. | On |
 
 All three switches are on by default - when Jetonomy is active, new public discussions flow into the feed and into search automatically. The feed and search switches are independent: you can keep discussions searchable while keeping them out of the feed, or the reverse. A space owner can also keep a space's activity out of the main feed with **Share activity to the main feed** under **Manage space > Integrations**.
+
+### Suspensions and blocks
+
+A member suspended in BuddyNext keeps reading the forum but cannot post, reply or vote until the suspension ends. People a member has blocked in BuddyNext are hidden from that member's forum lists and notifications. This needs a recent Jetonomy (2.0.7 or later); an older Jetonomy ignores it. Muting and restricting do not carry over.
 
 ### Per-space forum
 
@@ -71,6 +75,7 @@ Each space owner decides whether their space has a discussion. Under **Manage sp
 
 ## Good to know
 
+- **Emoji and accented titles open correctly.** Links to discussions with emoji or accented characters in the title open from the feed, search, notifications and profile tab.
 - **Forums never leak private content into the feed.** Only public, published discussions in public spaces become feed cards. A discussion in a private or secret space, or a topic marked private, stays out of the public feed and Explore even when feed sync is on.
 - **Deleting a discussion cleans up after itself.** When a discussion is removed, its feed card and its search entry are removed too, so the feed never points at a thread that no longer exists.
 - **Discussions are searchable.** New discussions are indexed for BuddyNext's unified search, so members find them alongside posts, members, and spaces. This is independent of feed sync - each has its own switch on the Jetonomy card. If you turn search indexing off, the discussions already indexed are removed too, so search does not keep answering with results you have just switched off.
@@ -83,11 +88,11 @@ Each space owner decides whether their space has a discussion. Under **Manage sp
 
 The free Jetonomy companion delivers everything described above: the Discussions area, per-space forums, threaded replies, voting, mentions, reply notifications, feed sync, and the two-way sync between feed comments and forum replies.
 
-Jetonomy's own paid plan extends the forum engine itself (for example its private-messaging extension). Inside a BuddyNext community, direct messaging is owned by BuddyNext through the WPMediaVerse companion, so when BuddyNext messaging is available it takes over the Messages area and Jetonomy's messaging extension steps aside - members get one consistent inbox rather than two. See WPMediaVerse and Direct Messaging for how messaging is provided.
+Jetonomy's own paid plan extends the forum engine itself (for example its private-messaging extension). Inside a BuddyNext community, direct messaging is owned by BuddyNext through the MediaVerse companion, so when BuddyNext messaging is available it takes over the Messages area and Jetonomy's messaging extension steps aside - members get one consistent inbox rather than two. See MediaVerse and Direct Messaging for how messaging is provided.
 
 ## Related
 
 - [Integrations Overview](01-overview.md) - how every companion plugin connects.
 - [Space Forum](../spaces/09-space-forum.md) - the per-space forum this integration adds.
 - [Activity Feed](../community/01-activity-feed.md) - where new discussions appear as cards.
-- [WPMediaVerse](02-wpmediaverse.md) - the companion that owns direct messaging.
+- [MediaVerse](02-wpmediaverse.md) - the companion that owns direct messaging.

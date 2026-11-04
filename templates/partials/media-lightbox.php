@@ -138,6 +138,7 @@ $bn_lb_can_interact = is_user_logged_in();
 					/*
 					 * Overflow: the secondary + moderation actions behind one ⋯ button.
 					 *   Edit   — shown when the engine's can_edit says this viewer may.
+					 *   Delete — shown when the engine's can_delete says this viewer may.
 					 *   Unlink — space owner/moderator only; returns a member's item to
 					 *            their own drive (not a delete). JS gates on a BN space
 					 *            context check. See SpaceController::media_space_context.
@@ -154,6 +155,9 @@ $bn_lb_can_interact = is_user_logged_in();
 						<div class="bn-lightbox__menu" data-bn-lb-menu role="menu" hidden>
 							<button type="button" class="bn-lightbox__menu-item" data-bn-lb-edit hidden role="menuitem">
 								<?php buddynext_icon( 'edit' ); ?><span><?php esc_html_e( 'Edit', 'buddynext' ); ?></span>
+							</button>
+							<button type="button" class="bn-lightbox__menu-item bn-lightbox__menu-item--danger" data-bn-lb-delete hidden role="menuitem">
+								<?php buddynext_icon( 'trash' ); ?><span><?php esc_html_e( 'Delete', 'buddynext' ); ?></span>
 							</button>
 							<button type="button" class="bn-lightbox__menu-item" data-bn-lb-unlink hidden role="menuitem">
 								<?php buddynext_icon( 'log-out' ); ?><span><?php esc_html_e( 'Remove from space', 'buddynext' ); ?></span>

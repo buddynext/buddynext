@@ -72,191 +72,6 @@ function bnArmLoadMore() {
  * store file (tabs.js, share-modal.js, …) reads one instance. The dictionary is
  * still read once from the buddynext/feed state below and handed to setI18N(). */
 
-/* ── Infinite-scroll trigger for the home + explore feeds ──────────────────
-   Watches every `[data-bn-infinite-feed]` sentinel. When it scrolls into the
-   IntersectionObserver root margin, the next page is fetched as pre-rendered
-   HTML from the matching `/feed/{scope}/page` endpoint and appended to the
-   feed list — no full-page reload, no client-side card duplication.
-
-   Required data attributes on the sentinel:
-	 data-bn-infinite-feed   "home" | "explore"  (scope identifier)
-	 data-bn-feed-target     CSS selector for the container to append into
-	 data-next-cursor        Server-issued cursor for the next page
-	 data-rest-url           Absolute URL of the page endpoint
-	 data-rest-nonce         Valid wp_rest nonce
-	 data-filter             (home only) active filter tab
-	 data-per-page           Items per page
-
-   The response HTML is generated server-side by render_items_html() in
-   FeedController which delegates to the canonical partials/post-card.php
-   template — the same escape-on-output pipeline that produces first-paint
-   cards. The payload is parsed via DOMParser (an inert parser per HTML5
-   spec — <script> elements are NOT executed) and each parsed node is then
-   appended individually using createElement/appendChild semantics. This
-   matches WPCS escape-on-output guarantees. */
-( function () {
-	function buildUrl( base, params ) {
-		var separator = base.indexOf( '?' ) === -1 ? '?' : '&';
-		var qs        = Object.keys( params )
-			.filter( function ( k ) { return params[ k ] != null && params[ k ] !== ''; } )
-			.map( function ( k ) {
-				return encodeURIComponent( k ) + '=' + encodeURIComponent( params[ k ] );
-			} )
-			.join( '&' );
-		return qs ? base + separator + qs : base;
-	}
-
-	function showSpinner( trigger, show ) {
-		var spinner = trigger.querySelector( '.bn-load-more__spinner' );
-		if ( spinner ) {
-			spinner.hidden = ! show;
-		}
-	}
-
-	function appendParsedHtml( listEl, htmlString ) {
-		// DOMParser produces a fully-inert document (HTML5 spec — scripts are
-		// not executed). Each parsed body child node is then moved into the
-		// live list via appendChild, which preserves element identity without
-		// triggering any HTML-string parser on a live node.
-		var doc   = new DOMParser().parseFromString( htmlString, 'text/html' );
-		var nodes = Array.prototype.slice.call( doc.body.childNodes );
-		for ( var i = 0; i < nodes.length; i++ ) {
-			// A post already on screen (placed at the top by the new-posts pill)
-			// is not drawn a second time when its page arrives.
-			var postId = nodes[ i ].dataset ? nodes[ i ].dataset.postId : '';
-			if ( postId && listEl.querySelector( '[data-post-id="' + String( postId ).replace( /[^0-9]/g, '' ) + '"]' ) ) {
-				continue;
-			}
-			listEl.appendChild( nodes[ i ] );
-		}
-	}
-
-	function replaceWithEndMarker( trigger ) {
-		var endMarker = document.createElement( 'div' );
-		endMarker.className = 'bn-feed-end';
-		endMarker.setAttribute( 'role', 'status' );
-		var text = document.createElement( 'span' );
-		text.className   = 'bn-feed-end__text';
-		text.textContent = t( 'feedEnd', "You've reached the end." );
-		endMarker.appendChild( text );
-		if ( trigger.parentNode ) {
-			trigger.parentNode.replaceChild( endMarker, trigger );
-		}
-	}
-
-	function showError( trigger, restartFn ) {
-		// Inline retry control — lets the user recover without a page reload.
-		while ( trigger.firstChild ) {
-			trigger.removeChild( trigger.firstChild );
-		}
-		var btn = document.createElement( 'button' );
-		btn.type            = 'button';
-		btn.className       = 'bn-btn bn-load-more__btn';
-		btn.dataset.variant = 'secondary';
-		btn.textContent     = t( 'retry', 'Retry' );
-		btn.addEventListener( 'click', function () {
-			trigger.removeChild( btn );
-			restartFn();
-		} );
-		trigger.appendChild( btn );
-	}
-
-	function fetchNextPage( trigger, observer ) {
-		var cursor    = trigger.dataset.nextCursor || '';
-		var restUrl   = trigger.dataset.restUrl || '';
-		var restNonce = trigger.dataset.restNonce || '';
-		var perPage   = trigger.dataset.perPage || '';
-		var filter    = trigger.dataset.filter || '';
-		var target    = trigger.dataset.bnFeedTarget || '';
-
-		if ( ! cursor || ! restUrl ) {
-			observer.disconnect();
-			replaceWithEndMarker( trigger );
-			return;
-		}
-
-		var listEl = target ? document.querySelector( target ) : null;
-		if ( ! listEl ) {
-			observer.disconnect();
-			return;
-		}
-
-		showSpinner( trigger, true );
-
-		var params = { cursor: cursor };
-		if ( perPage ) { params.per_page = perPage; }
-		if ( filter )  { params.filter = filter; }
-
-		restFetch( buildUrl( restUrl, params ), { nonce: restNonce, toastOnError: false } )
-			.then( function ( res ) {
-				if ( ! res.ok ) {
-					throw new Error( 'http_' + res.status );
-				}
-				var data = res.data;
-				showSpinner( trigger, false );
-
-				var html = ( data && typeof data.html === 'string' ) ? data.html : '';
-				if ( html ) {
-					appendParsedHtml( listEl, html );
-				}
-
-				if ( data && data.next_cursor ) {
-					trigger.dataset.nextCursor = data.next_cursor;
-				} else {
-					observer.disconnect();
-					replaceWithEndMarker( trigger );
-				}
-			} )
-			.catch( function () {
-				showSpinner( trigger, false );
-				observer.disconnect();
-				// Allow the manual retry to re-attach a fresh observer.
-				delete trigger.dataset.bnInfiniteWired;
-				showError( trigger, function () { startObserver( trigger ); } );
-			} );
-	}
-
-	function startObserver( trigger ) {
-		if ( ! ( 'IntersectionObserver' in window ) ) {
-			return;
-		}
-		// Guard so a trigger that survives a client-side navigation isn't
-		// observed twice (a duplicate observer would double-fetch the next
-		// page). The error-retry path clears the flag before re-calling.
-		if ( trigger.dataset.bnInfiniteWired ) {
-			return;
-		}
-		trigger.dataset.bnInfiniteWired = '1';
-
-		var loading = false;
-
-		var observer = new IntersectionObserver( function ( entries ) {
-			if ( ! entries[ 0 ].isIntersecting || loading ) {
-				return;
-			}
-			loading = true;
-			fetchNextPage( trigger, observer );
-			// Reset the in-flight flag after a short tick so subsequent
-			// intersects can chain — the cursor will be refreshed by then.
-			setTimeout( function () { loading = false; }, 250 );
-		}, { rootMargin: '400px' } );
-
-		observer.observe( trigger );
-	}
-
-	function init() {
-		var triggers = document.querySelectorAll( '[data-bn-infinite-feed]' );
-		if ( ! triggers.length ) {
-			return;
-		}
-		Array.prototype.forEach.call( triggers, function ( trigger ) {
-			startObserver( trigger );
-		} );
-	}
-
-	onNavReady( init );
-} )();
-
 // The post-card `openShare` dispatches a `bn-open-share-modal` document event;
 // the share-modal store receives it via its `data-wp-on-document--` directive
 // (actions.receiveOpen), which runs inside the store so it can write the LIVE
@@ -351,12 +166,6 @@ const feedStore = store( 'buddynext/feed', {
 				// the browser can adjust once more after layout.
 				window.scrollTo( 0, scrollY );
 				window.requestAnimationFrame( () => window.scrollTo( 0, scrollY ) );
-
-				// A post the new-posts pill placed at the top is not part of the page the
-				// server just rendered, so the swap keeps it AND draws it again at its
-				// ranked position. One card per post: the first one stays.
-				bnDropRepeatedCards();
-				window.requestAnimationFrame( bnDropRepeatedCards );
 
 				// Same signal a shell navigation emits, so anything that re-initialises on
 				// navigation (nav chevrons, shell offsets) also runs after a feed swap.
@@ -575,19 +384,31 @@ function enhanceCommentForms( root ) {
 	} );
 }
 
-// Comment forms appear after the initial DOM (thread opens, reply
-// composer injected). Watch the body and enhance any new
-// .bn-comment-form__input that lands.
+// Other boxes whose text is saved with @mentions and #hashtags, built by
+// post-card.js when the member opens them: the post edit form and the reply
+// to a comment. They take the typeahead only; the comment box's counter and
+// auto-grow are not theirs (card 10470038669).
+const TYPEAHEAD_FIELDS = '.bn-post-card__edit-input, .bn-comment__reply-input';
+
+function enhanceTypeaheadFields( root ) {
+	( root || document ).querySelectorAll( TYPEAHEAD_FIELDS ).forEach( ( textarea ) => {
+		if ( textarea.dataset.bnTypeahead ) { return; }
+		textarea.dataset.bnTypeahead = '1';
+		attachMentionHashtagTypeahead( textarea );
+	} );
+}
+
+// Comment forms, post edit forms and reply forms appear after the initial DOM
+// (thread opens, Edit or Reply clicked). Watch the body and enhance any that land.
 if ( typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' ) {
 	const cmtObserver = new MutationObserver( ( mutations ) => {
 		mutations.forEach( ( m ) => {
 			m.addedNodes.forEach( ( n ) => {
-				if ( n.nodeType !== 1 ) { return; }
-				if ( n.classList && n.classList.contains( 'bn-comment-form__input' ) ) {
-					enhanceCommentForms( n.parentElement );
-				} else if ( n.querySelector ) {
-					enhanceCommentForms( n );
-				}
+				if ( n.nodeType !== 1 || ! n.querySelectorAll ) { return; }
+				// The parent, so a textarea added on its own is found as well.
+				const scope = n.parentElement || n;
+				enhanceCommentForms( scope );
+				enhanceTypeaheadFields( scope );
 			} );
 		} );
 	} );
@@ -1051,25 +872,6 @@ function bnPillRender() {
 	}
 }
 
-/**
- * Keep one card per post in the feed list: the first.
- *
- * @return {void}
- */
-function bnDropRepeatedCards() {
-	const list = document.querySelector( '.bn-feed-list' );
-	if ( ! list ) { return; }
-	const seen = new Set();
-	list.querySelectorAll( ':scope > [data-post-id]' ).forEach( ( card ) => {
-		const id = card.dataset.postId;
-		if ( seen.has( id ) ) {
-			card.remove();
-		} else {
-			seen.add( id );
-		}
-	} );
-}
-
 // Most posts one click places in the list. Mirrors FeedService::NEW_ITEMS_LIMIT.
 const BN_PILL_INLINE_MAX = 20;
 
@@ -1079,45 +881,42 @@ const BN_PILL_INLINE_MAX = 20;
    It used to reload the page. On For you a reload re-ranks: a post from someone
    the member is not connected to sits below every connection's post, often off
    page one, so the pill said "1 new post", the member clicked, and nothing new
-   was there. The server returns exactly the posts the count was made from.
-   A long backlog, or any failure, still reloads.
+   was there. So the server renders exactly those posts on top (?new_after=).
+
+   Through the router, never injected: a post card is an Interactivity island and
+   only the router can hydrate one, see the loadMore action. A long backlog, or any
+   failure, is a full page load of the same URL, which draws the same list.
  */
 async function bnPillShowNew() {
 	const feed = bnPill.feed;
-	if ( ! feed || ! bnPill.restUrl || bnPill.baseWatermark <= 0 || bnPill.pendingIds.size > BN_PILL_INLINE_MAX ) {
+	if ( ! feed || bnPill.baseWatermark <= 0 || bnPill.pendingIds.size > BN_PILL_INLINE_MAX ) {
 		window.location.reload();
 		return;
 	}
-	if ( bnPill.pill ) { bnPill.pill.disabled = true; }
+	const url = new URL( window.location.href );
+	url.hash = '';
+	url.searchParams.delete( 'cursor' );
+	url.searchParams.set( 'filter', bnPill.filter );
+	url.searchParams.set( 'new_after', String( bnPill.baseWatermark ) );
+
+	// The pill lives inside the router region: out of the DOM before the swap.
+	bnPill.pendingIds = new Set();
+	bnPillRender();
+
+	if ( ! feed.closest( '[data-wp-router-region]' ) ) {
+		window.location.href = url.href;
+		return;
+	}
 	try {
-		const url = bnPill.restUrl + '/feed/home/page?after_id=' + encodeURIComponent( bnPill.baseWatermark ) +
-			'&filter=' + encodeURIComponent( bnPill.filter );
-		const res = await restFetch( url, { nonce: bnPill.restNonce || '', toastOnError: false } );
-		if ( ! res.ok || ! res.data || typeof res.data.html !== 'string' ) {
-			window.location.reload();
-			return;
-		}
-		// Inert parse, then move the nodes: the same path infinite scroll uses.
-		const doc   = new DOMParser().parseFromString( res.data.html, 'text/html' );
-		const nodes = Array.prototype.slice.call( doc.body.children );
-		// Above the first post card: an announcement or notice keeps its place.
-		const anchor = feed.querySelector( ':scope > [data-post-id]' ) || feed.firstElementChild;
-		let first    = null;
-		nodes.forEach( ( node ) => {
-			const postId = String( node.dataset.postId || '' ).replace( /[^0-9]/g, '' );
-			if ( postId && feed.querySelector( '[data-post-id="' + postId + '"]' ) ) { return; }
-			feed.insertBefore( node, anchor );
-			if ( ! first ) { first = node; }
-		} );
-		bnPill.baseWatermark = Math.max( bnPill.baseWatermark, bnPill.watermark );
-		bnPill.pendingIds    = new Set();
-		bnPillRender();
-		if ( first ) {
-			// To the top of the page: the new cards start right under the composer.
-			window.scrollTo( { top: 0, behavior: window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ? 'auto' : 'smooth' } );
-		}
+		const router = await import( '@wordpress/interactivity-router' );
+		await router.actions.navigate( url.href, { replace: true } );
+		bnPill.feed = document.querySelector( '.bn-feed-list' ) || feed;
+		document.dispatchEvent( new CustomEvent( 'buddynext:navigated', { detail: { href: url.href } } ) );
+		window.requestAnimationFrame( () => bnArmLoadMore() );
+		// To the top of the page: the new cards start right under the composer.
+		window.scrollTo( { top: 0, behavior: window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ? 'auto' : 'smooth' } );
 	} catch ( _e ) {
-		window.location.reload();
+		window.location.href = url.href;
 	}
 }
 
@@ -1277,74 +1076,6 @@ function initRealtimeNewPostsPill() {
 
 onNavReady( initRealtimeNewPostsPill );
 
-/*
-   Realtime comment indicator — listens for `bn:realtime:comment-added`
-   events dispatched by Pro's RealtimeDispatcher when Soketi delivers
-   a `comment.added` message. If the affected post's comment thread
-   is currently open in this tab, increments a discreet "N new" badge
-   above the comment list; click fetches and prepends.
-
-   No-op when no realtime layer is active or the thread isn't open.
-   ---------------------------------------------------------------- */
-function initRealtimeCommentIndicator() {
-	// Flavor B singleton — the delegated document listener queries the DOM
-	// fresh on each event, so it already covers content swapped in by a
-	// client-side navigation. Install it exactly once; any re-run is a no-op.
-	if ( window.__bnCommentIndicatorInited ) { return; }
-	window.__bnCommentIndicatorInited = true;
-
-	document.addEventListener( 'bn:realtime:comment-added', ( e ) => {
-		const postId      = parseInt( e.detail?.post_id, 10 );
-		const commenterId = parseInt( e.detail?.user_id, 10 );
-		if ( ! postId ) { return; }
-		const list = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
-		if ( ! list || list.children.length === 0 ) {
-			// Thread not open yet — when the user opens it, the freshest
-			// list will be fetched from REST and the new comment will be
-			// included naturally. No need to do anything here.
-			return;
-		}
-		// Skip the viewer's own comment (already inserted optimistically
-		// by submitComment). Resolve current user via the closest
-		// post-card context.
-		const card = list.closest( '[data-wp-interactive="buddynext/post-card"]' );
-		if ( card ) {
-			try {
-				const ctx = JSON.parse( card.dataset.wpContext || '{}' );
-				if ( parseInt( ctx.currentUserId, 10 ) === commenterId ) { return; }
-			} catch ( _e ) {}
-		}
-
-		let pill = list.previousElementSibling;
-		if ( ! pill || ! pill.classList.contains( 'bn-comment-new-pill' ) ) {
-			pill = document.createElement( 'button' );
-			pill.type = 'button';
-			pill.className = 'bn-comment-new-pill';
-			pill.setAttribute( 'role', 'status' );
-			pill.setAttribute( 'aria-live', 'polite' );
-			pill.dataset.count = '0';
-			pill.addEventListener( 'click', () => {
-				// Trigger a refetch of the thread by clicking the comment
-				// toggle twice (close + reopen). Cheap and reliable.
-				const cardEl    = list.closest( '[data-wp-interactive="buddynext/post-card"]' );
-				const commentTriggers = cardEl?.querySelectorAll( '[aria-label*="comment" i]' );
-				if ( commentTriggers && commentTriggers.length > 0 ) {
-					commentTriggers[ 0 ].click();
-					setTimeout( () => commentTriggers[ 0 ].click(), 50 );
-				} else {
-					window.location.reload();
-				}
-				pill.remove();
-			} );
-			list.parentElement.insertBefore( pill, list );
-		}
-		const n = parseInt( pill.dataset.count, 10 ) + 1;
-		pill.dataset.count = String( n );
-		pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment: show' ) : fmt( t( 'manyNewComments', '%d new comments: show' ), n );
-	} );
-}
-
-onNavReady( initRealtimeCommentIndicator, { once: true } );
 
 /* ── Emoji insert picker (composer + comment editor) ─────────────────────
  * Inserts a Unicode emoji at the caret of a target textarea/input. The

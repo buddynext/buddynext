@@ -142,6 +142,32 @@ final class HeadMeta {
 		add_filter( 'wpseo_canonical', $canonical );
 		add_filter( 'rank_math/frontend/canonical', $canonical );
 
+		// One set of Open Graph and Twitter tags per page. Yoast and Rank Math
+		// print theirs before ours and describe the page the route is mapped to
+		// (the members hub, the home page), and scrapers take the first og:url as
+		// the object, so a shared profile or post opened as the hub. Their
+		// description, robots and schema output are left alone. A site that wants
+		// the SEO plugin to own these tags returns [] from buddynext_head_meta,
+		// which skips this whole block.
+		add_action(
+			'rank_math/head',
+			static function (): void {
+				remove_all_actions( 'rank_math/opengraph/facebook' );
+				remove_all_actions( 'rank_math/opengraph/twitter' );
+			},
+			1
+		);
+		add_filter(
+			'wpseo_frontend_presenters',
+			static fn( $presenters ) => array_values(
+				array_filter(
+					(array) $presenters,
+					static fn( $presenter ): bool => ! is_object( $presenter )
+						|| ! preg_match( '/\\\\(Open_Graph|Twitter)\\\\/', get_class( $presenter ) )
+				)
+			)
+		);
+
 		/*
 		 * Two guards, for two different ways this emitter used to take a title
 		 * that was not its to take.

@@ -139,7 +139,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	private function publish_jt_post( int $post_id, int $space_id = 0 ): void {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $space_id, 'status' => 'publish' ), array( 'id' => $post_id ) );
+		$wpdb->update(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'space_id' => $space_id,
+				'status'   => 'publish',
+			),
+			array( 'id' => $post_id )
+		);
 		do_action( 'jetonomy_post_publish_transition', $post_id, 1, '' );
 	}
 
@@ -218,7 +225,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$still_there = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s", $expected_url )
 		);
-		$published = (int) $wpdb->get_var(
+		$published   = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s AND status = 'published'", $expected_url )
 		);
 		$this->assertSame( 1, $still_there, 'the card row is preserved on a soft delete (withdrawn, not removed)' );
@@ -236,7 +243,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$this->seed_jt_space( 11, 'approvals' );
 		$this->seed_jt_post( 60, $this->author_id, 'Pending', 'Body', 'pending-thread' );
-		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 11, 'status' => 'pending' ), array( 'id' => 60 ) );
+		$wpdb->update(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'space_id' => 11,
+				'status'   => 'pending',
+			),
+			array( 'id' => 60 )
+		);
 		$url  = home_url( '/community' ) . '/s/approvals/t/pending-thread/';
 		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT id, status FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
 
@@ -269,7 +283,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->publish_jt_post( 70, 12 );
 		$wpdb->insert(
 			$wpdb->prefix . 'jt_replies',
-			array( 'id' => 700, 'post_id' => 70, 'author_id' => $this->user_id, 'content' => '<p>A forum reply</p>', 'content_plain' => 'A forum reply' ),
+			array(
+				'id'            => 700,
+				'post_id'       => 70,
+				'author_id'     => $this->user_id,
+				'content'       => '<p>A forum reply</p>',
+				'content_plain' => 'A forum reply',
+			),
 			array( '%d', '%d', '%d', '%s', '%s' )
 		);
 		$comment = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT id, is_deleted, content FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d", 700 ) );
@@ -380,8 +400,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'is_anonymous' => 1 ), array( 'id' => 2601 ) );
 		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
 
-		$hook   = \BuddyNext\Bridges\JetonomyBridge::REPAIR_ANONYMOUS_HOOK;
-		$queued = static function () use ( $hook ): bool {
+		$hook    = \BuddyNext\Bridges\JetonomyBridge::REPAIR_ANONYMOUS_HOOK;
+		$queued  = static function () use ( $hook ): bool {
 			return function_exists( 'as_has_scheduled_action' )
 				? (bool) as_has_scheduled_action( $hook, array(), 'buddynext' )
 				: false !== wp_next_scheduled( $hook );
@@ -434,7 +454,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 27, 'card-only' );
 		$this->seed_jt_post( 270, $this->author_id, 'Card only', 'Body', 'card-only' );
 		$this->publish_jt_post( 270, 27 );
-		$wpdb->delete( $wpdb->prefix . 'bn_search_index', array( 'object_type' => 'discussion', 'object_id' => 270 ) );
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_search_index',
+			array(
+				'object_type' => 'discussion',
+				'object_id'   => 270,
+			)
+		);
 		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 270 ) );
 		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
 		$this->assertSame( 1, $this->discussion_cards( $this->author_id ), 'Fixture: a published card.' );
@@ -457,7 +483,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		// as after search was switched off and time passed.
 		foreach ( array( 280, 281 ) as $topic_id ) {
 			$this->seed_jt_post( $topic_id, $this->author_id, 'Reindex topic ' . $topic_id, 'Body', 'reindex-' . $topic_id );
-			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 28, 'status' => 'publish' ), array( 'id' => $topic_id ) );
+			$wpdb->update(
+				$wpdb->prefix . 'jt_posts',
+				array(
+					'space_id' => 28,
+					'status'   => 'publish',
+				),
+				array( 'id' => $topic_id )
+			);
 		}
 		$indexed = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id IN ( 280, 281 )" );
 		$this->assertSame( 0, $indexed(), 'Fixture: not indexed.' );
@@ -479,7 +512,10 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 23, 'anon-replies' );
 		$this->seed_jt_post( 230, $this->author_id, 'Thread', 'Body', 'anon-reply-thread' );
 		$this->publish_jt_post( 230, 23 );
-		foreach ( array( 2301 => 'is_anonymous', 2302 => 'is_private' ) as $reply_id => $flag ) {
+		foreach ( array(
+			2301 => 'is_anonymous',
+			2302 => 'is_private',
+		) as $reply_id => $flag ) {
 			$wpdb->insert(
 				$wpdb->prefix . 'jt_replies',
 				array(
@@ -509,7 +545,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 24, 'public-forum' );
 		$this->seed_jt_space( 25, 'private-forum' );
 		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'private' ), array( 'id' => 25 ) );
-		foreach ( array( 240 => 24, 241 => 24, 242 => 24, 243 => 25 ) as $post_id => $forum_id ) {
+		foreach ( array(
+			240 => 24,
+			241 => 24,
+			242 => 24,
+			243 => 25,
+		) as $post_id => $forum_id ) {
 			$this->seed_jt_post( $post_id, $this->author_id, 'Topic ' . $post_id, 'Body', 'topic-' . $post_id );
 			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $forum_id ), array( 'id' => $post_id ) );
 		}
@@ -547,7 +588,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$commenter = self::factory()->user->create();
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
-			array( 'object_type' => 'post', 'object_id' => $card_id, 'user_id' => $commenter, 'content' => 'great thread' ),
+			array(
+				'object_type' => 'post',
+				'object_id'   => $card_id,
+				'user_id'     => $commenter,
+				'content'     => 'great thread',
+			),
 			array( '%s', '%d', '%d', '%s' )
 		);
 		$this->assertGreaterThan( 0, (int) $wpdb->insert_id );
@@ -585,7 +631,18 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT status, link_meta FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
 
 		// A card from before the post_id stamp: matched by URL and stamped.
-		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'link_meta' => wp_json_encode( array( 'url' => $url, 'title' => 'Old' ) ) ), array( 'link_url' => $url ) );
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'link_meta' => wp_json_encode(
+					array(
+						'url'   => $url,
+						'title' => 'Old',
+					)
+				),
+			),
+			array( 'link_url' => $url )
+		);
 		$this->assertSame( $url, $this->bridge->verify_discussion_card( $url, array() ) );
 		$this->assertSame( 50, (int) ( json_decode( $card()->link_meta, true )['post_id'] ?? 0 ), 'an unstamped card is stamped' );
 
@@ -649,7 +706,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function test_discussion_choice_round_trip_keeps_one_discussion(): void {
 		global $wpdb;
 		$owner    = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Choice', 'slug' => 'choice-' . wp_rand( 1000, 9999 ) ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Choice',
+				'slug' => 'choice-' . wp_rand( 1000, 9999 ),
+			)
+		);
 
 		$this->assertTrue( $this->bridge->apply_discussion_choice( $space_id, true, 0, $owner ) );
 		$first = $this->bridge->space_discussion_status( $space_id );
@@ -677,7 +740,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$owner    = self::factory()->user->create();
 		$member   = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Trail runners', 'slug' => 'trail-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Trail runners',
+				'slug' => 'trail-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
 		buddynext_service( 'space_members' )->join( $space_id, $member );
 		$this->bridge->apply_discussion_choice( $space_id, true, 0, $owner );
 		$forum_id = $this->bridge->space_discussion_status( $space_id )['forum_id'];
@@ -703,7 +773,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	 */
 	public function test_discussion_route_is_for_space_managers(): void {
 		$owner    = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Gate', 'slug' => 'gate-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Gate',
+				'slug' => 'gate-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
 		$request  = new \WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $space_id . '/discussion' );
 		$request->set_url_params( array( 'id' => $space_id ) );
 
@@ -744,9 +821,23 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$spaces->ban_from_space( $open, $banned, $owner );
 
 		foreach ( array_merge( $members, array( $banned, 999999 ) ) as $user_id ) {
-			$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $user_id, 'source' => 'manual' ) );
+			$wpdb->insert(
+				$wpdb->prefix . 'jt_space_members',
+				array(
+					'space_id' => 7,
+					'user_id'  => $user_id,
+					'source'   => 'manual',
+				)
+			);
 		}
-		$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $by_tier, 'source' => 'tier' ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_space_members',
+			array(
+				'space_id' => 7,
+				'user_id'  => $by_tier,
+				'source'   => 'tier',
+			)
+		);
 
 		// Not linked to forum 7: nothing is copied.
 		$this->bridge->copy_forum_members( $open, 7, 0 );
@@ -841,6 +932,113 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 1, $count );
 	}
+
+	/**
+	 * A non-ASCII slug is used as stored. sanitize_title() keeps it percent-
+	 * encoded already; encoding again (%f0 -> %25f0) opened "Topic not found".
+	 */
+	public function test_discussion_link_never_double_encodes_a_slug(): void {
+		$url = $this->bridge->discussion_permalink( 'caf%c3%a9-club', 'helped-you-today-%f0%9f%8c%bf' );
+
+		$this->assertStringContainsString( '/s/caf%c3%a9-club/t/helped-you-today-%f0%9f%8c%bf/', $url );
+		$this->assertStringNotContainsString( '%25', $url );
+		$this->assertStringEndsWith( '/s/plain/t/plain-title/', $this->bridge->discussion_permalink( 'plain', 'plain-title' ) );
+	}
+
+	/**
+	 * v72 repairs feed cards saved with the double-encoded link, and leaves any
+	 * link outside Jetonomy's base alone even when it contains %25.
+	 */
+	public function test_migration_repairs_saved_double_encoded_links_only(): void {
+		global $wpdb;
+		$base    = trailingslashit( home_url( '/community' ) ) . 's/';
+		$broken  = $base . 'club/t/today-%25f0%259f%258c%25bf/';
+		$outside = 'https://example.com/report?q=100%25';
+		$ids     = array();
+		foreach ( array( $broken, $outside ) as $link ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_posts',
+				array(
+					'user_id'    => $this->author_id,
+					'type'       => 'link',
+					'content'    => 'Card',
+					'link_url'   => $link,
+					'link_meta'  => wp_json_encode(
+						array(
+							'url'   => $link,
+							'title' => '100%25 sure',
+						)
+					),
+					'privacy'    => 'public',
+					'status'     => 'published',
+					'created_at' => current_time( 'mysql', true ),
+					'updated_at' => current_time( 'mysql', true ),
+				)
+			);
+			$ids[] = (int) $wpdb->insert_id;
+		}
+
+		$method = new \ReflectionMethod( Installer::class, 'maybe_migrate_jetonomy_link_encoding' );
+		$method->setAccessible( true );
+		$method->invoke( null );
+
+		$fixed = $wpdb->get_row( $wpdb->prepare( "SELECT link_url, link_meta FROM {$wpdb->prefix}bn_posts WHERE id = %d", $ids[0] ) );
+		$this->assertSame( $base . 'club/t/today-%f0%9f%8c%bf/', $fixed->link_url );
+		$meta = json_decode( $fixed->link_meta, true );
+		$this->assertSame( $base . 'club/t/today-%f0%9f%8c%bf/', $meta['url'] );
+		$this->assertSame( '100%25 sure', $meta['title'], 'only url fields change' );
+
+		$this->assertSame( $outside, $wpdb->get_var( $wpdb->prepare( "SELECT link_url FROM {$wpdb->prefix}bn_posts WHERE id = %d", $ids[1] ) ) );
+	}
+
+	/**
+	 * A space's "who can post" holds in its linked forum, without demoting anyone.
+	 *
+	 * @return void
+	 */
+	public function test_who_can_post_is_carried_to_the_linked_forum(): void {
+		$owner    = self::factory()->user->create();
+		$space_id = (int) buddynext_service( 'spaces' )->create(
+			$owner,
+			array(
+				'name' => 'Posting Rule',
+				'slug' => 'posting-rule',
+				'type' => 'open',
+			)
+		);
+		$forum_id = 987654;
+		update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+		$read = static fn(): string => (string) ( \Jetonomy\Models\Space::get_settings( $forum_id )['who_can_post'] ?? '' );
+
+		update_space_meta( $space_id, 'who_can_post', 'mods' );
+		$bridge = new JetonomyBridge();
+
+		// An unrelated save does not touch the forum.
+		$bridge->sync_discussion_posting( $space_id, array( 'name' => 'x' ) );
+		$this->assertSame( '', $read() );
+
+		$bridge->sync_discussion_posting( $space_id, array( 'who_can_post' => 'mods' ) );
+		$this->assertSame( 'moderators', $read() );
+
+		update_space_meta( $space_id, 'who_can_post', 'owner' );
+		$bridge->sync_discussion_posting( $space_id, array( 'who_can_post' => 'owner' ) );
+		$this->assertSame( 'admins', $read() );
+
+		update_space_meta( $space_id, 'who_can_post', 'members' );
+		$bridge->sync_discussion_posting( $space_id, array( 'who_can_post' => 'members' ) );
+		$this->assertSame( '', $read() );
+
+		// A space restricted before this shipped gets the rule once, on an admin load.
+		update_space_meta( $space_id, 'who_can_post', 'mods' );
+		delete_option( 'buddynext_discussion_posting_synced' );
+		$bridge->backfill_discussion_posting();
+		$this->assertSame( 'moderators', $read() );
+
+		// ...and only once.
+		\Jetonomy\Models\Space::$settings[ $forum_id ] = array();
+		$bridge->backfill_discussion_posting();
+		$this->assertSame( '', $read() );
+	}
 }
 
 namespace Jetonomy\Models;
@@ -863,6 +1061,45 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => (string) ( $data['slug'] ?? '' ) ), array( '%s' ) );
 			return (int) $wpdb->insert_id;
+		}
+
+		/**
+		 * Settings written through update(), by forum id.
+		 *
+		 * @var array<int,array<string,mixed>>
+		 */
+		public static array $settings = array();
+
+		/**
+		 * Read a forum's settings.
+		 *
+		 * @param int $id Forum id.
+		 * @return array<string,mixed>
+		 */
+		public static function get_settings( int $id ): array {
+			return self::$settings[ $id ] ?? array();
+		}
+
+		/**
+		 * Merge settings the way the model does: an empty value removes the key.
+		 *
+		 * @param int                 $id       Forum id.
+		 * @param array<string,mixed> $incoming Settings to merge.
+		 * @return array<string,mixed>
+		 */
+		public static function merge_settings( int $id, array $incoming ): array {
+			return array_filter( array_merge( self::get_settings( $id ), $incoming ), static fn( $v ) => '' !== $v );
+		}
+
+		/**
+		 * Update a forum.
+		 *
+		 * @param int                 $id   Forum id.
+		 * @param array<string,mixed> $data Columns to write.
+		 * @return void
+		 */
+		public static function update( int $id, array $data ): void {
+			self::$settings[ $id ] = (array) json_decode( (string) ( $data['settings'] ?? '{}' ), true );
 		}
 	}
 }

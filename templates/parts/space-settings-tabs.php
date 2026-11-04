@@ -80,14 +80,14 @@ do_action( 'buddynext_part_space_settings_tabs_before', $args );
 ?>
 <?php
 /*
- * .bn-navgroup opts this strip into the shared overflow chevrons (shell/extras.js),
- * the same affordance the Settings hub uses. The script is already enqueued on every
- * hub and selects `.bn-navgroup > .bn-tabs` — it was simply finding nothing here, so
- * a space with the full tab set silently hid its last tabs: measured at 1440px,
- * scrollWidth 955 vs clientWidth 780, with "Notifications" clipped and "Danger zone"
- * entirely invisible and unreachable. Worse on mobile.
+ * .bn-navgroup opts this strip into the shared fit-or-fold "More" (shell/extras.js),
+ * the same behaviour every primary tab bar has: tabs that do not fit fold into More.
+ * The script selects `.bn-navgroup > .bn-tabs`; without the wrapper it found nothing
+ * here, so a space with the full tab set silently hid its last tabs: measured at
+ * 1440px, scrollWidth 955 vs clientWidth 780, with "Notifications" clipped and
+ * "Danger zone" entirely invisible and unreachable. Worse on mobile.
  *
- * It must stay a DIRECT parent of the nav — extras.js re-checks parentElement.
+ * It must stay the DIRECT parent of the nav.
  */
 ?>
 <div class="bn-navgroup">

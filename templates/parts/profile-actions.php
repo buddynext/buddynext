@@ -90,7 +90,16 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 	$bn_pa_can_edit_own = ! function_exists( 'buddynext_can' )
 		|| buddynext_can( $bn_pa_viewer, 'buddynext-profile/edit-own' );
 	?>
-	<div class="bn-pf-actions">
+	<?php
+	/*
+	 * Share sits in the row while it fits (owner, 2026-11-04): a "More" that holds
+	 * only the two share actions hid them behind a click on a desktop with room to
+	 * spare. data-bn-fit (shell/extras.js) folds them into More, from the end,
+	 * only when the row runs out of room, and hides More when nothing is folded.
+	 * The menu keeps its own copies so their Interactivity actions stay bound.
+	 */
+	?>
+	<div class="bn-pf-actions" data-bn-fit>
 		<?php if ( $bn_pa_can_edit_own ) : ?>
 		<a class="bn-btn" data-variant="primary" data-size="sm"
 			href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>">
@@ -98,6 +107,19 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 			<span><?php esc_html_e( 'Edit profile', 'buddynext' ); ?></span>
 		</a>
 		<?php endif; ?>
+		<button class="bn-btn" type="button" data-variant="secondary" data-size="sm"
+			data-bn-fit-item="share"
+			data-share-url="<?php echo esc_attr( $bn_pa_profile_url ); ?>"
+			data-wp-on--click="actions.shareProfile">
+			<?php buddynext_icon( 'share-2' ); ?>
+			<span><?php esc_html_e( 'Share profile', 'buddynext' ); ?></span>
+		</button>
+		<a class="bn-btn" data-variant="secondary" data-size="sm"
+			data-bn-fit-item="mention"
+			href="<?php echo esc_url( $bn_pa_mention_url ); ?>">
+			<?php buddynext_icon( 'message-circle' ); ?>
+			<span><?php esc_html_e( 'Share to feed', 'buddynext' ); ?></span>
+		</a>
 		<?php
 		buddynext_get_template(
 			'parts/profile-actions-overflow.php',
@@ -106,6 +128,7 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 				'mention_url' => $bn_pa_mention_url,
 				'show_safety' => false,
 				'edit_url'    => '',
+				'fit'         => true,
 			)
 		);
 		?>
@@ -238,6 +261,17 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 		}
 		?>
 
+		<?php
+		$bn_pa_social = buddynext_service( 'privacy' )->social_state_for( $bn_pa_viewer, array( $bn_pa_uid ) )[ $bn_pa_uid ];
+		buddynext_get_template(
+			'partials/social-upgrade-link.php',
+			array(
+				'url'   => $bn_pa_social['upgrade_url'],
+				'label' => $bn_pa_social['upgrade_label'],
+			)
+		);
+		?>
+
 		<?php // Connection state. No shared partial models this one, so it stays on the profile store. ?>
 		<?php if ( $bn_pa_can_conn || $bn_pa_connected || $bn_pa_conn_pend || $bn_pa_conn_recv ) : ?>
 			<button class="bn-btn" data-variant="secondary" data-size="sm"
@@ -289,11 +323,12 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 		buddynext_get_template(
 			'parts/profile-actions-overflow.php',
 			array(
-				'profile_url' => $bn_pa_profile_url,
-				'mention_url' => $bn_pa_mention_url,
-				'show_safety' => true,
-				'edit_url'    => $bn_pa_can_edit ? \BuddyNext\Core\PageRouter::edit_profile_url( $bn_pa_uid ) : '',
-				'message_url' => $bn_pa_message_url,
+				'profile_url'  => $bn_pa_profile_url,
+				'mention_url'  => $bn_pa_mention_url,
+				'show_safety'  => true,
+				'edit_url'     => $bn_pa_can_edit ? \BuddyNext\Core\PageRouter::edit_profile_url( $bn_pa_uid ) : '',
+				'message_url'  => $bn_pa_message_url,
+				'has_reported' => buddynext_service( 'moderation' )->user_has_reported( get_current_user_id(), 'user', (int) $bn_pa_uid ),
 			)
 		);
 		?>

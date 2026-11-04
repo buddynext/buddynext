@@ -95,7 +95,7 @@ class AddonApiContractTest extends WP_UnitTestCase {
 			'SpaceLinkService::leave_from_source(int $space_id, int $user_id, string $source, string $type, int $object_id): bool',
 			'SpaceLinkService::backfill(int $space_id, string $source, string $type, int $object_id, int $after=): int',
 			'SpaceLinkService::run_backfill_chunk(mixed $space_id=, mixed $source=, mixed $type=, mixed $object_id=, mixed $after=): void',
-			'IntegrationActivity::publish(int $member_id, string $content, string $link_url, string $link_title=, string $type=, string $excerpt=, int $space_id=, array $meta=): mixed static',
+			'IntegrationActivity::publish(int $member_id, string $content, string $link_url, string $link_title=, string $type=, string $excerpt=, int $space_id=, array $meta=, ?string $created_at=): mixed static',
 			'IntegrationActivity::remove(string $link_url, string $type=): int static',
 			'IntegrationActivity::withdraw(string $link_url, string $type=): bool static',
 			'IntegrationActivity::restore(string $link_url, string $type=): bool static',

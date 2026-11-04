@@ -66,7 +66,15 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 		 * "Profile URL" with no help text, so a member renamed their URL and their
 		 * @handle changed underneath them with nothing on screen saying so.
 		 */
-		?>
+		/** This filter is documented in includes/Profile/ProfileController.php */
+		if ( ! (bool) apply_filters( 'buddynext_members_can_change_handle', true, $user_id ) ) :
+			?>
+			<div class="bn-ep-field bn-ep-field--full bn-ep-slug-row">
+				<span class="bn-ep-label"><?php esc_html_e( 'Handle', 'buddynext' ); ?></span>
+				<p class="bn-ep-hint"><?php esc_html_e( 'Your profile address and your @mention name. Handles cannot be changed on this community.', 'buddynext' ); ?></p>
+				<p><?php echo esc_html( $people_url_base ); ?>/<strong><?php echo esc_html( $profile_slug ); ?></strong></p>
+			</div>
+		<?php else : ?>
 		<div class="bn-ep-field bn-ep-field--full bn-ep-slug-row">
 			<label class="bn-ep-label" for="bn-ep-slug">
 				<?php esc_html_e( 'Handle', 'buddynext' ); ?>
@@ -114,6 +122,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 				</button>
 			</div>
 		</div>
+		<?php endif; ?>
 
 		<?php
 		// Pending-email notice block (only when there's a pending change).

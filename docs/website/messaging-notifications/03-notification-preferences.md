@@ -27,7 +27,7 @@ Notifications can reach a member through more than one channel, and each is cont
 
 | Channel | What it delivers | Default |
 |---|---|---|
-| On-site | The in-app notification on the bell and Notifications page | On |
+| On-site | The in-app notification on the bell and Notifications page. Turning it off only clears the bell: email, push and digests keep going | On |
 | Email | A transactional email for the event, at the member's chosen frequency (the switch reads "Send transactional and digest emails") | On |
 | Push (Pro) | A web push alert to the browser, even when the tab is closed | On when Pro push is active |
 | Sound ("Play a sound") | A short sound when a new notification arrives while the member has the tab open | Off |

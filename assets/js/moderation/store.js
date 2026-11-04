@@ -5,7 +5,7 @@
  */
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnPrompt, bnReloadWithToast, bnSuspendDialog, bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -16,6 +16,16 @@ import { restFetch } from '@buddynext/rest-client';
  * the state is absent. fmt() fills sprintf-style '%s'/'%d' placeholders. */
 let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+
+/* The note field on both appeal decisions, matching wp-admin's appeal queue. */
+function appealNoteField() {
+	return {
+		inputType: 'text',
+		maxLength: 500,
+		placeholder: t( 'appealNotePlaceholder', 'Optional note' ),
+		inputLabel: t( 'appealNoteLabel', 'Note for the member (optional)' ),
+	};
+}
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
 
 /**
@@ -32,6 +42,53 @@ function dropReportRow( reportId ) {
 	row.remove();
 	document.querySelectorAll( '[data-bn-open-reports]' ).forEach( ( el ) => {
 		el.textContent = String( Math.max( 0, ( parseInt( el.textContent, 10 ) || 0 ) - 1 ) );
+	} );
+	// A space's tab pages its reports: an emptied page has the next ones behind it.
+	if ( row.matches( '.bn-space-mod__report' ) && ! document.querySelector( '.bn-space-mod__report' ) ) {
+		window.location.reload();
+	}
+}
+
+/**
+ * Report a failed row action. 404/409 mean another moderator got there first, so
+ * the row is stale: every retry would fail the same way, take it off the page.
+ *
+ * @param {Object}        res      restFetch result.
+ * @param {number|string} reportId Report id.
+ * @param {string}        fallback Text for a retryable failure.
+ */
+function reportActionFailed( res, reportId, fallback ) {
+	if ( 404 === res.status || 409 === res.status ) {
+		dropReportRow( reportId );
+	}
+	toastRestError( res, fallback );
+}
+
+/**
+ * A join request another moderator already handled answers 404: reload so the
+ * stale row goes, with the server's reason, instead of a retry that cannot work.
+ *
+ * @param {Object} res      restFetch result.
+ * @param {string} fallback Text for a retryable failure.
+ */
+function joinRequestFailed( res, fallback ) {
+	if ( 404 === res.status || 409 === res.status ) {
+		bnReloadWithToast( restError( res ), { tone: 'info' } );
+		return;
+	}
+	toastRestError( res, fallback );
+}
+
+/**
+ * A suspension resolves every open report ABOUT the member (ModerationService::
+ * resolve_open_user_reports), so those profile-report rows are finished. A report on
+ * their post stays open: the post still needs a decision.
+ *
+ * @param {number|string} userId Suspended member.
+ */
+function dropMemberReportRows( userId ) {
+	document.querySelectorAll( '[data-bn-reported-member="' + userId + '"]' ).forEach( ( row ) => {
+		dropReportRow( row.dataset.reportId );
 	} );
 }
 
@@ -96,7 +153,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				dropReportRow( ctx.reportId );
 			} else {
-				bnToast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), { tone: 'danger' } );
+				reportActionFailed( res, ctx.reportId, t( 'dismissFailed', 'Could not dismiss the report. Try again.' ) );
 			}
 		},
 
@@ -122,7 +179,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				dropReportRow( ctx.reportId );
 				bnToast( t( 'contentRemoved', 'Content removed' ), { tone: 'success' } );
 			} else {
-				bnToast( t( 'removeContentFailed', 'Could not remove the content. Try again.' ), { tone: 'danger' } );
+				reportActionFailed( res, ctx.reportId, t( 'removeContentFailed', 'Could not remove the content. Try again.' ) );
 			}
 		},
 
@@ -141,7 +198,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				dropReportRow( ctx.reportId );
 				bnToast( t( 'reportResolved', 'Report resolved' ), { tone: 'success' } );
 			} else {
-				bnToast( t( 'resolveFailed', 'Could not resolve the report. Try again.' ), { tone: 'danger' } );
+				reportActionFailed( res, ctx.reportId, t( 'resolveFailed', 'Could not resolve the report. Try again.' ) );
 			}
 		},
 
@@ -160,8 +217,12 @@ const moderationStore = store( 'buddynext/moderation', {
 				ctx.escalated      = true;
 				ctx.moreMenuOpen   = false;
 				bnToast( t( 'reportEscalated', 'Report escalated' ), { tone: 'success' } );
+			} else if ( 409 === res.status ) {
+				// Another moderator escalated or closed it: the row may still be open
+				// but flagged, so redraw it instead of guessing which.
+				bnReloadWithToast( restError( res ), { tone: 'info' } );
 			} else {
-				bnToast( t( 'escalateFailed', 'Could not escalate the report. Try again.' ), { tone: 'danger' } );
+				reportActionFailed( res, ctx.reportId, t( 'escalateFailed', 'Could not escalate the report. Try again.' ) );
 			}
 		},
 
@@ -210,7 +271,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				ctx.cwHasWarning = true;
 				bnToast( t( 'cwAdded', 'Content warning applied' ), { tone: 'success' } );
 			} else {
-				bnToast( t( 'cwFailed', 'Could not update the content warning. Try again.' ), { tone: 'danger' } );
+				toastRestError( res, t( 'cwFailed', 'Could not update the content warning. Try again.' ) );
 			}
 		},
 
@@ -228,7 +289,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				ctx.cwHasWarning = false;
 				bnToast( t( 'cwCleared', 'Content warning cleared' ), { tone: 'success' } );
 			} else {
-				bnToast( t( 'cwFailed', 'Could not update the content warning. Try again.' ), { tone: 'danger' } );
+				toastRestError( res, t( 'cwFailed', 'Could not update the content warning. Try again.' ) );
 			}
 		},
 
@@ -251,7 +312,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				body: { message, space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
-			bnToast( res.ok ? t( 'warningSent', 'Warning sent.' ) : ( ( res.data && res.data.message ) || t( 'warnUserFailed', 'Could not warn the user.' ) ), { tone: res.ok ? 'success' : 'danger' } );
+			bnToast( res.ok ? t( 'warningSent', 'Warning sent.' ) : restError( res, t( 'warnUserFailed', 'Could not warn the user.' ) ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* strikeUser() {
@@ -273,8 +334,14 @@ const moderationStore = store( 'buddynext/moderation', {
 				// the Reverse control appears — the admin who just struck someone by
 				// mistake must be able to undo it without hunting for a reload.
 				ctx.strikes = ( parseInt( ctx.strikes || 0, 10 ) || 0 ) + 1;
+				// This strike may have tripped automatic suspension.
+				if ( res.data && res.data.suspended ) {
+					dropMemberReportRows( ctx.userId );
+				}
+				bnToast( t( 'strikeIssued', 'Strike issued.' ), { tone: 'success' } );
+			} else {
+				toastRestError( res, t( 'strikeUserFailed', 'Could not issue a strike.' ) );
 			}
-			bnToast( res.ok ? t( 'strikeIssued', 'Strike issued.' ) : t( 'strikeUserFailed', 'Could not issue a strike.' ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		/**
@@ -304,7 +371,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			} );
 
 			if ( ! list.ok ) {
-				const lmsg = ( list.data && list.data.message ) ? list.data.message : t( 'reverseStrikeFailed', 'Could not reverse the strike. Try again.' );
+				const lmsg = restError( list, t( 'reverseStrikeFailed', 'Could not reverse the strike. Try again.' ) );
 				bnToast( lmsg, { tone: 'danger' } );
 				return;
 			}
@@ -329,7 +396,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				ctx.strikes = Math.max( 0, strikes.length - 1 );
 				bnToast( t( 'strikeReversed', 'Strike reversed' ), { tone: 'success' } );
 			} else {
-				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'reverseStrikeFailed', 'Could not reverse the strike. Try again.' );
+				const emsg = restError( res, t( 'reverseStrikeFailed', 'Could not reverse the strike. Try again.' ) );
 				bnToast( emsg, { tone: 'danger' } );
 			}
 		},
@@ -370,8 +437,13 @@ const moderationStore = store( 'buddynext/moderation', {
 				body,
 				toastOnError: false,
 			} );
-			const emsg = ( ! res.ok && res.data && res.data.message ) ? res.data.message : t( 'suspendUserFailed', 'Could not suspend the user.' );
-			bnToast( res.ok ? t( 'userSuspended', 'Member suspended.' ) : emsg, { tone: res.ok ? 'success' : 'danger' } );
+			if ( res.ok ) {
+				ctx.moreMenuOpen = false;
+				dropMemberReportRows( ctx.userId );
+				bnToast( t( 'userSuspended', 'Member suspended.' ), { tone: 'success' } );
+			} else {
+				toastRestError( res, t( 'suspendUserFailed', 'Could not suspend the user.' ) );
+			}
 		},
 
 		/* ── Account-status (member-facing) ────────────────────────── */
@@ -399,7 +471,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				// Reload so the banner re-renders in its "under review" state.
 				bnReloadWithToast( t( 'appealSubmitted', 'Your appeal has been submitted.' ), { tone: 'success' } );
 			} else {
-				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'appealSubmitFailed', 'Could not submit your appeal. Try again.' );
+				const emsg = restError( res, t( 'appealSubmitFailed', 'Could not submit your appeal. Try again.' ) );
 				bnToast( emsg, { tone: 'danger' } );
 			}
 		},
@@ -409,20 +481,21 @@ const moderationStore = store( 'buddynext/moderation', {
 		* approveAppeal() {
 			const ctx = getContext();
 			if ( ! ctx.appealId || ! ctx.restNonce ) { return; }
-			const ok = yield bnConfirm( {
+			const note = yield bnPrompt( {
+				...appealNoteField(),
 				title: t( 'approveAppealTitle', 'Approve this appeal?' ),
 				body: t( 'approveAppealBody', 'The member’s suspension will be lifted and they will be notified.' ),
 				confirmLabel: t( 'approveLabel', 'Approve' ),
 				// Approving an appeal lifts a suspension; it is not a destructive action.
 				tone: 'default',
 			} );
-			if ( ! ok ) { return; }
-			// Real route: POST /appeals/{id}/resolve { decision }.
+			if ( null === note ) { return; }
+			// Real route: POST /appeals/{id}/resolve { decision, reviewer_note }.
 			const res = yield restFetch( 'appeals/' + ctx.appealId + '/resolve', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { decision: 'approved' },
+				body: { decision: 'approved', reviewer_note: note.trim() },
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
@@ -430,7 +503,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {
-				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'approveAppealFailed', 'Could not approve the appeal. Try again.' );
+				const emsg = restError( res, t( 'approveAppealFailed', 'Could not approve the appeal. Try again.' ) );
 				bnToast( emsg, { tone: 'danger' } );
 			}
 		},
@@ -438,18 +511,19 @@ const moderationStore = store( 'buddynext/moderation', {
 		* denyAppeal() {
 			const ctx = getContext();
 			if ( ! ctx.appealId || ! ctx.restNonce ) { return; }
-			const ok = yield bnConfirm( {
+			const note = yield bnPrompt( {
+				...appealNoteField(),
 				title: t( 'denyAppealTitle', 'Deny this appeal?' ),
 				body: t( 'denyAppealBody', 'The suspension stays in place. The member will be notified of the decision.' ),
 				confirmLabel: t( 'denyLabel', 'Deny' ),
 				tone: 'danger',
 			} );
-			if ( ! ok ) { return; }
+			if ( null === note ) { return; }
 			const res = yield restFetch( 'appeals/' + ctx.appealId + '/resolve', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { decision: 'denied' },
+				body: { decision: 'denied', reviewer_note: note.trim() },
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
@@ -457,7 +531,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {
-				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'denyAppealFailed', 'Could not deny the appeal. Try again.' );
+				const emsg = restError( res, t( 'denyAppealFailed', 'Could not deny the appeal. Try again.' ) );
 				bnToast( emsg, { tone: 'danger' } );
 			}
 		},
@@ -481,7 +555,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				dropReportRow( ctx.reportId );
 			} else {
-				bnToast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), { tone: 'danger' } );
+				reportActionFailed( res, ctx.reportId, t( 'dismissFailed', 'Could not dismiss the report. Try again.' ) );
 			}
 		},
 
@@ -500,7 +574,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				body: { message, space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
-			bnToast( res.ok ? t( 'memberWarned', 'Warning sent.' ) : ( ( res.data && res.data.message ) || t( 'warnMemberFailed', 'Could not warn the member.' ) ), { tone: res.ok ? 'success' : 'danger' } );
+			bnToast( res.ok ? t( 'memberWarned', 'Warning sent.' ) : restError( res, t( 'warnMemberFailed', 'Could not warn the member.' ) ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* removeFromSpace() {
@@ -524,7 +598,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				window.location.reload();
 			} else {
-				bnToast( ( res.data && res.data.message ) || t( 'removeFromSpaceFailed', 'Could not remove the member from this space. Try again.' ), { tone: 'danger' } );
+				toastRestError( res, t( 'removeFromSpaceFailed', 'Could not remove the member from this space. Try again.' ) );
 			}
 		},
 
@@ -542,7 +616,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				window.location.reload();
 			} else {
-				bnToast( t( 'approveRequestFailed', 'Could not approve the join request. Try again.' ), { tone: 'danger' } );
+				joinRequestFailed( res, t( 'approveRequestFailed', 'Could not approve the join request. Try again.' ) );
 			}
 		},
 
@@ -561,7 +635,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				window.location.reload();
 			} else {
-				bnToast( t( 'declineRequestFailed', 'Could not decline the join request. Try again.' ), { tone: 'danger' } );
+				joinRequestFailed( res, t( 'declineRequestFailed', 'Could not decline the join request. Try again.' ) );
 			}
 		},
 	},

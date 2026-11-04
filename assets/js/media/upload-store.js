@@ -376,7 +376,7 @@ function emptyState() {
  * is a <button>, so the delete control must be a SIBLING overlay, not a child. */
 function enhanceOwnerTiles() {
 	const region = regionEl();
-	if ( ! region || region.getAttribute( 'data-bn-owner' ) !== '1' ) {
+	if ( ! region || region.getAttribute( 'data-bn-owner' ) !== '1' || region.getAttribute( 'data-bn-can-delete' ) !== '1' ) {
 		return;
 	}
 	region.querySelectorAll( '.bn-media-gallery > .bn-media-tile[data-bn-media-id]' ).forEach( ( tile ) => {
@@ -417,7 +417,7 @@ function bindRegionDelete() {
 		// A photo shared into a space is still the member's to delete, but it is
 		// also sitting in somebody's shared album. Say so BEFORE the delete, or
 		// the space's gallery quietly develops holes and nobody knows why.
-		let body = t( 'confirmDeleteBody', 'This cannot be undone.' );
+		let body = t( 'confirmDeleteBody', '' );
 		try {
 			const usage = await restFetch( '/me/media/' + id + '/usage', {
 				method: 'GET', nonce: cfg.nonce, toastOnError: false,
@@ -426,9 +426,11 @@ function bindRegionDelete() {
 				? usage.data.space_albums
 				: [];
 			if ( albums.length ) {
-				body = t( 'confirmDeleteInSpaces', 'It will also be removed from these space albums: %s' )
-					.replace( '%s', albums.map( ( a ) => a.title ).join( ', ' ) )
-					+ ' ' + body;
+				body += ' ' + t( 'confirmDeleteInSpaces', 'It will also be removed from these space albums: %s' )
+					.replace( '%s', albums.map( ( a ) => a.title ).join( ', ' ) );
+			}
+			if ( usage.ok && usage.data && usage.data.in_post ) {
+				body += ' ' + t( 'confirmDeleteInPost', '' );
 			}
 		} catch ( e ) {
 			// The warning is a courtesy; never block a delete because it failed.

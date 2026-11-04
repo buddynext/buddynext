@@ -17,8 +17,9 @@ Everything is under **BuddyNext > Spaces > Directory**.
 ### Featuring a space
 
 - From the **"…" menu** on any space row, choose **Feature** (or **Unfeature**). Featured spaces show a **Featured** badge, and a **Featured (n)** filter shows just them.
+- Only top-level spaces can be featured. A sub-space has no **Feature** action in its row menu, and trying to feature one directly explains why not.
 - You can feature **up to 6** spaces. Trying to feature a 7th tells you to unfeature one first.
-- Select several rows and use the **bulk action** to feature or unfeature them together.
+- Select several rows and use the **bulk action** to feature or unfeature them together. The result notice counts what happened, and at the cap it names the limit and how many spaces were skipped. Sub-spaces in the selection are skipped too, and the notice counts them.
 
 ### Ordering them
 

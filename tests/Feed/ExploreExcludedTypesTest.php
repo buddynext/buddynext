@@ -25,8 +25,20 @@ class ExploreExcludedTypesTest extends \WP_UnitTestCase {
 		Installer::run();
 		global $wpdb;
 		$author = self::factory()->user->create();
-		foreach ( array( 'doc' => 'document', 'text' => 'text' ) as $key => $type ) {
-			$wpdb->insert( $wpdb->prefix . 'bn_posts', array( 'user_id' => $author, 'type' => $type, 'content' => "Explore {$type}", 'status' => 'published', 'privacy' => 'public' ) );
+		foreach ( array(
+			'doc'  => 'document',
+			'text' => 'text',
+		) as $key => $type ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_posts',
+				array(
+					'user_id' => $author,
+					'type'    => $type,
+					'content' => "Explore {$type}",
+					'status'  => 'published',
+					'privacy' => 'public',
+				)
+			);
 			$this->$key = (int) $wpdb->insert_id;
 		}
 	}
@@ -49,6 +61,29 @@ class ExploreExcludedTypesTest extends \WP_UnitTestCase {
 		$this->assertNotContains( $this->doc, $ids );
 	}
 
+	public function test_a_card_whose_partner_is_gone_stays_off_explore(): void {
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'user_id' => self::factory()->user->create(),
+				'type'    => 'course',
+				'content' => 'completed a course',
+				'status'  => 'published',
+				'privacy' => 'public',
+			)
+		);
+		$card = (int) $wpdb->insert_id;
+
+		$this->assertNotContains( $card, $this->explore_ids(), 'no renderer: nothing to show' );
+
+		$renderer = static fn() => '<div>card</div>';
+		add_filter( 'buddynext_render_post_body_course', $renderer );
+		$ids      = $this->explore_ids();
+		remove_filter( 'buddynext_render_post_body_course', $renderer );
+		$this->assertContains( $card, $ids, 'with its partner back it returns' );
+	}
+
 	public function test_filter_opts_documents_back_in(): void {
 		add_filter( 'buddynext_explore_excluded_post_types', '__return_empty_array' );
 		$this->assertContains( $this->doc, $this->explore_ids() );
@@ -58,7 +93,7 @@ class ExploreExcludedTypesTest extends \WP_UnitTestCase {
 	public function test_hostile_filter_value_cannot_break_the_query(): void {
 		$hostile = static fn(): array => array( "document') OR 1=1 -- ", 'text' );
 		add_filter( 'buddynext_explore_excluded_post_types', $hostile );
-		$ids = $this->explore_ids();
+		$ids     = $this->explore_ids();
 		remove_filter( 'buddynext_explore_excluded_post_types', $hostile );
 		$this->assertNotContains( $this->text, $ids, 'a real type in the list is still excluded' );
 		$this->assertContains( $this->doc, $ids, 'the injected text is sanitized to a harmless key, not SQL' );

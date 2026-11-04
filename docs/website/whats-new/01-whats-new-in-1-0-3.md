@@ -18,7 +18,7 @@ What members can do:
 
 For a site owner, member media is some of the most engaging content a community can have - it gives people a reason to come back, and because every upload carries its own privacy setting, members stay in control without the owner having to police a free-for-all.
 
-Profile media relies on the **WPMediaVerse** companion plugin being active; once it is, the Media tab appears automatically with nothing else to switch on. For the full walkthrough, see the Profile Media and Albums page in the Members section.
+Profile media relies on the **MediaVerse** companion plugin being active; once it is, the Media tab appears automatically with nothing else to switch on. For the full walkthrough, see the Profile Media and Albums page in the Members section.
 
 ## Faster and steadier at scale
 

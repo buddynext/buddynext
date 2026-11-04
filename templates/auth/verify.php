@@ -45,19 +45,10 @@ if ( '1' === $bn_email_changed_param ) {
 	$bn_verify_state = 'success';
 } elseif ( '0' === $bn_verified_param ) {
 	$bn_verify_state = 'error';
-} elseif ( $bn_verify_current_user > 0 ) {
-	$bn_already_verified = (bool) get_user_meta( $bn_verify_current_user, 'buddynext_email_verified', true );
-	if ( $bn_already_verified ) {
-		wp_safe_redirect( \BuddyNext\Core\PageRouter::activity_url() );
-		exit;
-	}
-	$bn_verify_state = 'pending';
-} elseif ( '' !== $bn_email_hint ) {
-	// Guest who just signed up — they have an email hint but no session.
-	$bn_verify_state = 'pending';
 } else {
-	wp_safe_redirect( \BuddyNext\Core\PageRouter::login_url( '' ) );
-	exit;
+	// An unverified member, or a guest who just signed up with an email hint.
+	// PageRouter::pre_output_redirect() has already sent everyone else away.
+	$bn_verify_state = 'pending';
 }
 
 $bn_verify_user  = $bn_verify_current_user > 0 ? get_userdata( $bn_verify_current_user ) : false;
@@ -82,6 +73,10 @@ if ( 'success' === $bn_verify_state && ! buddynext_feature_enabled( 'onboarding'
 $bn_auth_url     = \BuddyNext\Core\PageRouter::login_url( '' );
 $bn_rest_root    = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $bn_resend_nonce = wp_create_nonce( 'wp_rest' );
+
+// Sending a new link needs an account session, so a guest signs in and lands back
+// here, where the Resend control is.
+$bn_verify_signin_url = \BuddyNext\Core\PageRouter::login_url( \BuddyNext\Core\PageRouter::verify_url() );
 
 // Ensure the auth bundle CSS is enqueued — verify.php may render via
 // the hub bundle path which auto-enqueues bn-auth, but defending against
@@ -194,7 +189,13 @@ wp_enqueue_style( 'bn-auth' );
 				</div>
 				<h1 class="bn-auth-title"><?php esc_html_e( 'This link expired or is invalid', 'buddynext' ); ?></h1>
 				<p class="bn-auth-sub">
-					<?php esc_html_e( 'Verification links expire after 48 hours. Request a fresh link below.', 'buddynext' ); ?>
+					<?php
+					if ( $bn_verify_current_user > 0 ) {
+						esc_html_e( 'Verification links expire after 48 hours. Request a fresh link below.', 'buddynext' );
+					} else {
+						esc_html_e( 'Verification links expire after 48 hours. Sign in to get a fresh link.', 'buddynext' );
+					}
+					?>
 				</p>
 
 				<div class="bn-badge bn-verify-feedback" role="status" aria-live="polite"
@@ -225,8 +226,8 @@ wp_enqueue_style( 'bn-auth' );
 				<?php else : ?>
 					<div class="bn-verify-actions">
 						<a class="bn-btn" data-variant="primary" data-size="lg"
-							href="<?php echo esc_url( $bn_auth_url ); ?>">
-							<?php esc_html_e( 'Back to sign in', 'buddynext' ); ?>
+							href="<?php echo esc_url( $bn_verify_signin_url ); ?>">
+							<?php esc_html_e( 'Sign in', 'buddynext' ); ?>
 						</a>
 					</div>
 				<?php endif; ?>
@@ -279,9 +280,10 @@ wp_enqueue_style( 'bn-auth' );
 				</p>
 
 				<?php
-				// Say so before it happens: an account that never verifies is deleted
-				// by the cleanup job (CronService::purge_stale_unverified()).
-				$bn_verify_purge_days = (bool) get_option( 'buddynext_email_verify', false ) ? \BuddyNext\Core\CronService::unverified_purge_days() : 0;
+				// Say so before it happens: an account that signed up here and never
+				// verifies is deleted by the cleanup job
+				// (CronService::purge_stale_unverified()). Nobody else is at risk.
+				$bn_verify_purge_days = ( \BuddyNext\Auth\VerificationService::is_required() && '' !== (string) get_user_meta( $bn_verify_current_user, 'buddynext_signup_awaiting_verify', true ) ) ? \BuddyNext\Core\CronService::unverified_purge_days() : 0;
 				if ( $bn_verify_purge_days > 0 ) :
 					?>
 					<p class="bn-auth-sub">
@@ -317,6 +319,16 @@ wp_enqueue_style( 'bn-auth' );
 								<?php esc_html_e( 'Sending...', 'buddynext' ); ?>
 							</span>
 						</button>
+					</div>
+				<?php else : ?>
+					<p class="bn-auth-sub">
+						<?php esc_html_e( "Didn't receive it? Sign in to get a new link.", 'buddynext' ); ?>
+					</p>
+					<div class="bn-verify-actions">
+						<a class="bn-btn" data-variant="ghost" data-size="lg"
+							href="<?php echo esc_url( $bn_verify_signin_url ); ?>">
+							<?php esc_html_e( 'Sign in', 'buddynext' ); ?>
+						</a>
 					</div>
 				<?php endif; ?>
 			</div>

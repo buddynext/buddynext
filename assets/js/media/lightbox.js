@@ -26,6 +26,8 @@
 	var gallery = [];   // [{id,type,src,poster,alt}]
 	var index = 0;
 	var lastFocus = null;
+	// Releases the Tab trap set on open (aria-modal: Tab must stay in the viewer).
+	var releaseTrap = null;
 	var current = null; // current media id
 
 	function shell() {
@@ -45,6 +47,7 @@
 			input:    overlay.querySelector( '[data-bn-lb-comment-input]' ),
 			save:     overlay.querySelector( '[data-bn-lb-save]' ),
 			edit:     overlay.querySelector( '[data-bn-lb-edit]' ),
+			del:      overlay.querySelector( '[data-bn-lb-delete]' ),
 			unlink:   overlay.querySelector( '[data-bn-lb-unlink]' ),
 			more:     overlay.querySelector( '[data-bn-lb-more]' ),
 			moreWrap: overlay.querySelector( '[data-bn-lb-more-wrap]' ),
@@ -79,6 +82,7 @@
 		}
 		if ( panel.block ) { panel.block.addEventListener( 'click', blockAuthor ); }
 		if ( panel.edit ) { panel.edit.addEventListener( 'click', openEditPanel ); }
+		if ( panel.del ) { panel.del.addEventListener( 'click', deleteCurrent ); }
 		// Choosing any item closes the menu first (capture phase) and parks focus on
 		// the ⋯ trigger, so a dialog the item opens records a visible opener to
 		// return focus to instead of a menu item that is now hidden.
@@ -257,6 +261,34 @@
 		overlay.classList.toggle( 'bn-lightbox--dm', !! item.dm );
 	}
 
+	// One rule for the Download link and the native player menu, on open and after Save.
+	function applyDownload( m, isDM ) {
+		var canDownload = false !== m.allow_download;
+		var dl = isDM ? panel.dmDownload : panel.download;
+		if ( dl ) {
+			dl.hidden = ! canDownload;
+			if ( canDownload && m.file_url ) { dl.setAttribute( 'href', m.file_url ); }
+		}
+		setNoDownload( stage && stage.querySelector( 'video, audio' ), ! canDownload );
+	}
+
+	function setNoDownload( player, noDownload ) {
+		if ( ! player ) { return; }
+		if ( noDownload ) { player.setAttribute( 'controlsList', 'nodownload' ); } else { player.removeAttribute( 'controlsList' ); }
+	}
+
+	// After an owner saves: the item in the viewer and every tile of it on this page
+	// follow, so stepping away and back, or playing the tile inline, tells the same story.
+	function syncTileDownload( id, noDownload ) {
+		gallery.forEach( function ( item ) {
+			if ( item.id === id ) { item.noDownload = noDownload; }
+		} );
+		document.querySelectorAll( '.bn-media-tile[data-bn-media-id="' + id + '"]' ).forEach( function ( tile ) {
+			if ( noDownload ) { tile.setAttribute( 'data-no-download', '1' ); } else { tile.removeAttribute( 'data-no-download' ); }
+			setNoDownload( tile.querySelector( 'audio' ), noDownload );
+		} );
+	}
+
 	// ── Panel ───────────────────────────────────────────────────────────────
 	function clear( node ) { if ( node ) { while ( node.firstChild ) { node.removeChild( node.firstChild ); } } }
 
@@ -296,14 +328,7 @@
 			// BuddyNext owns the UX and must not send users into the engine UI.
 			// The engine's answer (site switch + the owner's per-item opt-out) decides
 			// whether Download exists at all, and the native player's own save menu.
-			var canDownload = false !== m.allow_download;
-			var dl = isDM ? panel.dmDownload : panel.download;
-			if ( dl ) {
-				dl.hidden = ! canDownload;
-				if ( canDownload && m.file_url ) { dl.setAttribute( 'href', m.file_url ); }
-			}
-			var player = stage && stage.querySelector( 'video, audio' );
-			if ( player && ! canDownload ) { player.setAttribute( 'controlsList', 'nodownload' ); }
+			applyDownload( m, isDM );
 		} ).catch( function () { contextDone(); } );
 
 		// DM media: no favorite / reactions / comments / view tracking. The image
@@ -412,11 +437,63 @@
 				if ( res && res.ok ) {
 					if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.unlinkDone || 'Removed from the space', { tone: 'success' } ); }
 					close();
-				} else if ( typeof window.bnToast === 'function' ) {
-					window.bnToast( I18N.unlinkFail || 'Could not remove it from the space. Try again.', { tone: 'danger' } );
+				} else {
+					window.buddynextRest.toastRestError( res, I18N.unlinkFail || 'Could not remove it from the space. Try again.' );
 				}
 			} );
 		} );
+	}
+
+	// Owner Delete: confirm, delete, then take the item out of the viewer and the page.
+	function deleteCurrent() {
+		if ( ! current || 'function' !== typeof window.bnConfirm ) { return; }
+		var id = current;
+
+		// Same warning as the tile's Remove. A courtesy: it never blocks the delete.
+		window.buddynextRest.restFetch( '/me/media/' + id + '/usage', {
+			nonce: cfg.nonce || '', method: 'GET', toastOnError: false,
+		} ).catch( function () { return null; } ).then( function ( usage ) {
+			var albums = ( usage && usage.ok && usage.data && Array.isArray( usage.data.space_albums ) ) ? usage.data.space_albums : [];
+			var body   = [ I18N.deleteBody || '' ];
+			if ( albums.length ) {
+				body.push( ( I18N.deleteInSpaces || 'It will also be removed from these space albums: %s' ).replace( '%s', albums.map( function ( a ) { return a.title; } ).join( ', ' ) ) );
+			}
+			if ( usage && usage.ok && usage.data && usage.data.in_post ) { body.push( I18N.deleteInPost || '' ); }
+			return window.bnConfirm( { title: I18N.deleteConfirm || 'Delete this media?', body: body.join( ' ' ), confirmLabel: I18N.deleteAction || 'Delete', tone: 'danger' } );
+		} ).then( function ( ok ) {
+			if ( ! ok ) { return; }
+			// BuddyNext's route, not the engine's: that one deletes for good.
+			window.buddynextRest.restFetch( '/me/media/' + id, {
+				nonce: cfg.nonce || '', method: 'DELETE', toastOnError: false,
+			} ).then( function ( res ) {
+				if ( ! res || ! res.ok ) { throw res; }
+				removeDeleted( id );
+				if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.deleteDone || 'Media deleted', { tone: 'success' } ); }
+			} ).catch( function ( res ) {
+				window.buddynextRest.toastRestError( res, I18N.deleteFail || 'Could not delete this media. Try again.' );
+			} );
+		} );
+	}
+
+	// The server has already taken the item out of its post, and hidden the post if that
+	// left it with no media, so the page follows without a reload.
+	function removeDeleted( id ) {
+		document.querySelectorAll( '.bn-media-tile[data-bn-media-id="' + id + '"]' ).forEach( function ( tile ) {
+			var card = tile.closest( '.bn-post-card' );
+			var grid = tile.closest( '.bn-post-card__media-grid' );
+			( tile.closest( '.bn-media-cell' ) || tile ).remove();
+			if ( card && ! card.querySelector( '.bn-media-tile' ) ) {
+				card.remove();
+			} else if ( grid ) {
+				grid.className = grid.className.replace( /bn-post-card__media-grid--\d+/, 'bn-post-card__media-grid--' + Math.min( grid.querySelectorAll( '.bn-media-tile' ).length, 4 ) );
+			}
+		} );
+
+		gallery = gallery.filter( function ( item ) { return item.id !== id; } );
+		if ( ! gallery.length ) { close(); return; }
+		index = index % gallery.length;
+		renderMedia();
+		if ( gallery[ index ].id ) { loadPanel( gallery[ index ].id ); }
 	}
 
 	function applyAbuseControls( m ) {
@@ -439,6 +516,8 @@
 		// owner true, another member false, anonymous false. Re-deriving "is this
 		// mine" here would be a second copy of a rule the server already answers.
 		if ( panel.edit ) { panel.edit.hidden = ! ( LOGGED_IN && m && m.can_edit ); }
+		// Delete likewise: can_delete mirrors the permission check on DELETE /media/{id}.
+		if ( panel.del ) { panel.del.hidden = ! ( LOGGED_IN && m && m.can_delete ) || 'function' !== typeof window.bnConfirm; }
 		// Save bookmarks the POST this photo belongs to, so it lands in the same
 		// saved list the feed card's Save writes to. Media with no post parent -
 		// the library, DM media - has nothing to bookmark, so the control does not
@@ -687,8 +766,8 @@
 				json: { reason: result.reason, details: result.notes || '' },
 			} ).then( function () {
 				notify( __( 'Thanks, this has been sent to the moderators.', 'buddynext' ), 'success' );
-			} ).catch( function () {
-				notify( __( 'Could not send that report. Try again.', 'buddynext' ), 'error' );
+			} ).catch( function ( res ) {
+				notify( window.buddynextRest.restError( res, __( 'Could not send that report. Try again.', 'buddynext' ) ), 'error' );
 			} );
 		} );
 	}
@@ -731,8 +810,8 @@
 				if ( ! res.ok ) { throw res; }
 				notify( __( 'Blocked. You will not see their content.', 'buddynext' ), 'success' );
 				close();
-			} ).catch( function () {
-				notify( __( 'Could not block that member. Try again.', 'buddynext' ), 'error' );
+			} ).catch( function ( res ) {
+				notify( window.buddynextRest.restError( res, __( 'Could not block that member. Try again.', 'buddynext' ) ), 'error' );
 			} );
 		} );
 	}
@@ -1091,6 +1170,11 @@
 		host.appendChild( field( __( 'Description' ), desc ) );
 		host.appendChild( field( __( 'Privacy' ), privacy ) );
 		host.appendChild( field( __( 'Allow downloads' ), dl ) );
+		// Say what the switch can and cannot do, so an owner does not rely on it as protection.
+		var dlHint = document.createElement( 'p' );
+		dlHint.className = 'bn-lightbox__field-hint';
+		dlHint.textContent = __( 'Off removes the Download button and the player\'s download option. It cannot stop someone who can play or view it from saving or recording it.' );
+		host.appendChild( dlHint );
 
 		var actions = document.createElement( 'div' );
 		actions.className = 'bn-lightbox__panel-actions';
@@ -1104,7 +1188,11 @@
 					allow_download: dl.checked,
 				},
 			} ).then( function ( updated ) {
-				if ( updated && updated.id ) { currentMedia = updated; }
+				if ( updated && updated.id ) {
+					currentMedia = updated;
+					applyDownload( updated, false );
+					syncTileDownload( parseInt( updated.id, 10 ), false === updated.allow_download );
+				}
 				closeExtraPanel();
 			} ).catch( function () {} );
 		} ) );
@@ -1195,6 +1283,7 @@
 		if ( gallery[ index ].id ) { loadPanel( gallery[ index ].id ); }
 		overlay.hidden = false;
 		document.body.classList.add( 'bn-lightbox-open' );
+		if ( ! releaseTrap && 'function' === typeof window.bnTrapFocus ) { releaseTrap = window.bnTrapFocus( overlay ); }
 		var closeBtn = overlay.querySelector( '[data-bn-lb-close].bn-lightbox__close' );
 		if ( closeBtn ) { closeBtn.focus(); }
 	}
@@ -1203,6 +1292,7 @@
 		if ( ! overlay ) { return; }
 		overlay.hidden = true;
 		document.body.classList.remove( 'bn-lightbox-open' );
+		if ( releaseTrap ) { releaseTrap(); releaseTrap = null; }
 		clear( stage ); // stop video playback
 		gallery = [];
 		current = null;
@@ -1222,6 +1312,16 @@
 	function isOpenableType( type ) {
 		return 'image' === type || 'video' === type || 'audio' === type;
 	}
+
+	// Downloads off: our players (tiles, this viewer, DMs) carry
+	// controlsList="nodownload", which drops Download from the browser's player
+	// menu; refuse the right-click menu on them too, so "Save audio as" is not
+	// one click away. A deterrent - anyone who can play the file can record it.
+	document.addEventListener( 'contextmenu', function ( e ) {
+		if ( e.target.closest && e.target.closest( 'audio[controlslist~="nodownload"], video[controlslist~="nodownload"]' ) ) {
+			e.preventDefault();
+		}
+	} );
 
 	// Delegated open. Audio keeps its inline native player, so a click on that
 	// player must PLAY, not open — skip clicks that land inside an <audio>/<video>

@@ -30,7 +30,7 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 2. Click **Activate**.
 3. On activation, BuddyNext sets everything up for you automatically:
    - Prepares the storage it needs for the feed, spaces, members, messaging, notifications, and moderation.
-   - Creates the community pages (Activity, Members, Spaces, Notifications and Login, plus Messages when WPMediaVerse is active) with clean, readable links. Profiles, search and onboarding live under these addresses and need no page of their own.
+   - Creates the community pages (Activity, Members, Spaces, Notifications and Login, plus Messages when MediaVerse is active) with clean, readable links. Profiles, search and onboarding live under these addresses and need no page of their own.
    - Makes sure every community link works immediately.
 4. The free plugin activates itself, so it is fully working the moment it is active. There is no key to enter for the free version.
 
@@ -46,6 +46,10 @@ Pro is a separate plugin that you install on top of the free one. It is not in t
 4. Click **Activate**.
 5. Go to **BuddyNext > Get Started > License**, paste your Pro license key, and activate it. The License tab appears only once Pro is active.
 
+Licence checks and update checks go to `updates.wbcomdesigns.com` and fall back to `wbcomdesigns.com` on their own if that address cannot be reached. If your firewall limits outgoing requests, allow both addresses.
+
+Before an update of BuddyNext or BuddyNext Pro installs, BuddyNext checks that the package carries Wbcom's release signature. The result is recorded and the update installs either way; nothing for you to set up.
+
 > **Note:** The license key gates **updates only**. It never unlocks or locks features. Pro is fully functional after activation, and the key simply lets your site receive Pro updates. Keep it active so you get security and feature updates.
 
 ## Optional companion plugins
@@ -54,29 +58,29 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 
 | Companion | What it adds | Required for |
 |-----------|--------------|--------------|
-| **WPMediaVerse** | Direct messaging engine and photo/file uploads | The Messages tab and image posts. The DM tab is hidden until this is active. |
+| **MediaVerse** | Direct messaging engine and photo/file uploads | The Messages tab and image posts. The DM tab is hidden until this is active. |
 | **Jetonomy** | Discussions and forums | The optional Forum tab inside spaces |
 | **WB Gamification** | Points, badges, and levels | Member rewards and reputation |
-| **Career Board** | A jobs and applications board | Posting and applying to jobs in your community |
+| **WP Career Board** | A jobs and applications board | Posting and applying to jobs in your community |
 | **Learnomy** | Courses, lessons, and quizzes (a full LMS) | Completed courses and certificates shown on member profiles |
-| **Listora** | Directory listings members can publish | Member listings surfaced in the feed and on profiles |
+| **WB Listora** | Directory listings members can publish | Member listings surfaced in the feed and on profiles |
 | **Eventonomy** | Events, RSVPs, and calendars | Events as feed cards and attended events on member profiles |
 | **WB Member Blog** | Front-end post publishing without wp-admin | The Articles tab on member profiles and article cards in the feed |
 
-> **Note:** Career Board, Listora, Learnomy and Eventonomy work on their own as plugins, but their community surfacing (feed cards, profile tabs, search) comes from bridges that ship in BuddyNext Pro. WPMediaVerse, Jetonomy, WB Gamification and WB Member Blog surface with BuddyNext Free.
+> **Note:** WP Career Board, WB Listora, Learnomy and Eventonomy work on their own as plugins, but their community surfacing (feed cards, profile tabs, search) comes from bridges that ship in BuddyNext Pro. MediaVerse, Jetonomy, WB Gamification and WB Member Blog surface with BuddyNext Free.
 
-> **Tip:** WPMediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started. BuddyNext Pro does not bundle WPMediaVerse; it is a separate plugin with its own editions.
+> **Tip:** MediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started. BuddyNext Pro does not bundle MediaVerse; it is a separate plugin with its own editions.
 
 ## Good to know
 
 - **Order matters.** Install and activate the free plugin first, then Pro, then any companions. Pro requires the free plugin to be active.
 - **No build step.** BuddyNext and Pro ship with everything they need. You never have to run a build command or install developer dependencies.
-- **Companions are independent.** Removing a companion only disables the feature it powered (for example, deactivating WPMediaVerse hides the Messages tab). The rest of BuddyNext keeps working.
+- **Companions are independent.** Removing a companion only disables the feature it powered (for example, deactivating MediaVerse hides the Messages tab). The rest of BuddyNext keeps working.
 - **Updates.** Free updates arrive like any WordPress plugin. Pro updates require an active license key entered under Get Started > License.
 
 ## What's next
 
 Not sure which theme to use with BuddyNext - BuddyX, BuddyX Pro, or Reign? BuddyNext works with any theme, so this is a quick, no-wrong-answer decision: see [Choosing Your Theme](02a-choosing-a-theme.md).
 
-After activation, the **Setup Wizard** runs on first visit and walks you through naming your community, choosing default pages, and configuring member registration and onboarding. Reopen it any time at `wp-admin/admin.php?page=buddynext-setup` to revisit those choices. If you leave it unfinished, a **Run the setup wizard** link stays in the wp-admin notices.
+After activation, the **Setup Wizard** runs on first visit and walks you through naming your community, choosing default pages, and configuring member registration and onboarding. Reopen it any time at `wp-admin/admin.php?page=buddynext-setup` to revisit those choices. If you leave it unfinished, a **Run the setup wizard** reminder shows on the Dashboard and on BuddyNext screens until you finish it or choose **Hide this message**.
 

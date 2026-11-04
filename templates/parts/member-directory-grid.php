@@ -83,8 +83,7 @@ $bn_class   = trim(
 
 // Owner-configurable desktop column count (Settings > General > Member directory).
 // 'auto' keeps the responsive auto-fill; 2/3/4 cap the desktop row via [data-cols].
-$bn_md_cols = (string) get_option( 'buddynext_member_dir_columns', '3' );
-$bn_md_cols = in_array( $bn_md_cols, array( '2', '3', '4' ), true ) ? $bn_md_cols : 'auto';
+$bn_md_cols = \BuddyNext\Admin\Settings::dir_columns( 'buddynext_member_dir_columns' );
 
 $bn_members       = (array) $args['members'];
 $bn_viewer_id     = (int) $args['viewer_id'];
@@ -112,23 +111,23 @@ if ( ! empty( $bn_member_ids ) ) {
 	update_meta_cache( 'user', $bn_member_ids );
 }
 
-$bn_status_map    = array();
-$bn_following_map = array();
-$bn_mutual_map    = array();
-$bn_muted_set     = array();
+$bn_social       = buddynext_service( 'privacy' )->social_state_for( $bn_viewer_id, $bn_member_ids );
+$bn_mutual_map   = array();
+$bn_muted_set    = array();
+$bn_reported_map = array();
 if ( $bn_viewer_id > 0 && ! empty( $bn_member_ids ) && function_exists( 'buddynext_service' ) ) {
 	$bn_conn_service = buddynext_service( 'connections' );
-	$bn_status_map   = $bn_conn_service->statuses_for( $bn_viewer_id, $bn_member_ids );
 	// Only when the caller has NOT supplied its own mutual map. The directory passes
 	// mutual_ids_fn (see :135, which prefers it), so this ran a full derived-table join over
 	// the viewer's entire peer set on every directory page view and threw the result away.
 	if ( ! is_callable( $args['mutual_ids_fn'] ?? null ) ) {
 		$bn_mutual_map = $bn_conn_service->mutual_ids_for( $bn_viewer_id, $bn_member_ids );
 	}
-	$bn_following_map  = buddynext_service( 'follows' )->following_map( $bn_viewer_id, $bn_member_ids );
 	$bn_blocks_service = buddynext_service( 'blocks' );
 	$bn_blocks_service->prime_restricted_cache( $bn_viewer_id, $bn_member_ids );
 	$bn_muted_set = array_fill_keys( $bn_blocks_service->muted_users( $bn_viewer_id ), true );
+	// One query for the page: which of these members the viewer already reported.
+	$bn_reported_map = buddynext_service( 'moderation' )->user_reported_map( $bn_viewer_id, 'user', $bn_member_ids );
 }
 
 // Per-member state is read straight from the relevant services here, so a
@@ -153,7 +152,7 @@ $bn_initials_fn     = is_callable( $args['initials_fn'] )
 	? $args['initials_fn']
 	: static fn( string $name ): string => \BuddyNext\Profile\AvatarService::initials_for( $name );
 $bn_is_online_fn    = is_callable( $args['is_online_fn'] ) ? $args['is_online_fn'] : static fn( int $uid ): bool => (bool) buddynext_service( 'blocks' )->is_user_online( $bn_viewer_id, $uid );
-$bn_is_following_fn = is_callable( $args['is_following_fn'] ) ? $args['is_following_fn'] : static fn( int $uid ): bool => ! empty( $bn_following_map[ $uid ] );
+$bn_is_following_fn = is_callable( $args['is_following_fn'] ) ? $args['is_following_fn'] : static fn( int $uid ): bool => ! empty( $bn_social[ $uid ]['is_following'] );
 $bn_mutual_fn       = is_callable( $args['mutual_ids_fn'] ) ? $args['mutual_ids_fn'] : static function ( int $a, int $b ) use ( $bn_mutual_map ): array {
 	return (array) ( $bn_mutual_map[ $b ] ?? array() );
 };
@@ -168,15 +167,14 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 	data-wp-on--click="actions.onGridClick"
 	<?php echo empty( $bn_members ) ? 'hidden' : ''; ?>
 >
-	<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_members, 'ID' ) ); ?>
+	<?php
+	\BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_members, 'ID' ) );
+	$bn_identity = buddynext_service( 'profiles' )->card_identity_for( $bn_viewer_id, wp_list_pluck( $bn_members, 'ID' ) );
+	?>
 	<?php foreach ( $bn_members as $bn_member_obj ) : ?>
 		<?php
 		$bn_member_id    = (int) $bn_member_obj->ID;
 		$bn_display_name = (string) $bn_member_obj->display_name;
-		$bn_bio          = (string) get_user_meta( $bn_member_id, 'bn_field_bio', true );
-		if ( '' === $bn_bio ) {
-			$bn_bio = (string) get_user_meta( $bn_member_id, 'description', true );
-		}
 		$bn_profile_url  = \BuddyNext\Core\PageRouter::profile_url( $bn_member_id );
 		$bn_cover_url    = buddynext_user_cover_url( $bn_member_id );
 		$bn_avatar_url   = (string) get_avatar_url( $bn_member_id, array( 'size' => 96 ) );
@@ -200,7 +198,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		// Direction-aware status from the primed map: 'accepted', 'pending-sent',
 		// 'pending-received', another raw status, or null. Degree mirrors
 		// connection_degree(): connected => 1, share a mutual => 2, else 3.
-		$bn_status     = $bn_status_map[ $bn_member_id ] ?? null;
+		$bn_status     = $bn_social[ $bn_member_id ]['connection'] ?? null;
 		$bn_degree     = ( $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id )
 			? ( 'accepted' === $bn_status ? 1 : ( ! empty( $bn_mutual_ids ) ? 2 : 3 ) )
 			: 0;
@@ -243,9 +241,11 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'member'                 => $bn_member_obj,
 				'viewer_id'              => $bn_viewer_id,
 				'is_following'           => $bn_is_following,
+				'social'                 => $bn_social[ $bn_member_id ] ?? null,
 				'connection_state'       => $bn_conn_state,
 				'connection_status'      => null === $bn_conn_status ? 'none' : (string) $bn_conn_status,
 				'is_muted'               => $bn_is_muted,
+				'has_reported'           => ! empty( $bn_reported_map[ $bn_member_id ] ),
 				'mutual_count'           => $bn_mutual,
 				'mutual_avatars'         => $bn_mutual_avatars,
 				'degree'                 => $bn_degree,
@@ -255,7 +255,8 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'member_type_color'      => $bn_type_color,
 				'member_type_text_color' => $bn_type_text,
 				'avatar_tone'            => $bn_avatar_tone,
-				'bio'                    => $bn_bio,
+				'headline'               => (string) ( $bn_identity[ $bn_member_id ]['headline'] ?? '' ),
+				'bio'                    => (string) ( $bn_identity[ $bn_member_id ]['bio'] ?? '' ),
 				'profile_url'            => $bn_profile_url,
 				'cover_url'              => $bn_cover_url,
 				'avatar_url'             => $bn_avatar_url,

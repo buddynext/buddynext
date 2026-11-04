@@ -42,15 +42,16 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'key'         => isset( $key ) ? (string) $key : '',
-	'label'       => isset( $label ) ? (string) $label : '',
-	'description' => isset( $description ) ? (string) $description : '',
-	'value'       => isset( $value ) ? $value : '',
-	'options'     => isset( $options ) && is_array( $options ) ? $options : array(),
-	'input_id'    => isset( $input_id ) ? (string) $input_id : '',
-	'label_id'    => isset( $label_id ) ? (string) $label_id : '',
-	'disabled'    => isset( $disabled ) ? (bool) $disabled : false,
-	'classes'     => isset( $classes ) ? (array) $classes : array(),
+	'key'          => isset( $key ) ? (string) $key : '',
+	'label'        => isset( $label ) ? (string) $label : '',
+	'description'  => isset( $description ) ? (string) $description : '',
+	'value'        => isset( $value ) ? $value : '',
+	'options'      => isset( $options ) && is_array( $options ) ? $options : array(),
+	'input_id'     => isset( $input_id ) ? (string) $input_id : '',
+	'label_id'     => isset( $label_id ) ? (string) $label_id : '',
+	'disabled'     => isset( $disabled ) ? (bool) $disabled : false,
+	'option_hints' => isset( $option_hints ) && is_array( $option_hints ) ? $option_hints : array(),
+	'classes'      => isset( $classes ) ? (array) $classes : array(),
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -108,6 +109,9 @@ if ( $bn_is_select ) :
 			name="<?php echo esc_attr( $bn_key ); ?>"
 			<?php if ( '' !== (string) $args['description'] ) : ?>
 			aria-describedby="<?php echo esc_attr( $bn_input_id ); ?>-desc"
+			<?php endif; ?>
+			<?php if ( ! empty( $args['option_hints'] ) ) : ?>
+			data-bn-option-hints="<?php echo esc_attr( (string) wp_json_encode( $args['option_hints'] ) ); ?>"
 			<?php endif; ?>
 			data-wp-on--change="actions.savePrivacyField">
 			<?php foreach ( (array) $args['options'] as $bn_opt_key => $bn_opt_label ) : ?>

@@ -97,7 +97,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 
 ## Messaging and notifications
 
-- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) **(Free)** - powered by the WPMediaVerse companion
+- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) **(Free)** - powered by the MediaVerse companion
 - [Notifications](../messaging-notifications/02-notifications.md) **(Free)**
 - [Notification Preferences](../messaging-notifications/03-notification-preferences.md) **(Free)**
 - [Email System](../messaging-notifications/04-email-system.md) **(Free)**
@@ -163,12 +163,12 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 ## Integrations
 
 - [Integrations Overview](../integrations/01-overview.md) **(Free)**
-- [WPMediaVerse](../integrations/02-wpmediaverse.md) - media and messaging **(Free)**
+- [MediaVerse](../integrations/02-wpmediaverse.md) - media and messaging **(Free)**
 - [Jetonomy](../integrations/03-jetonomy.md) - space forums **(Free)**
-- [Gamification Add-on](../integrations/04-gamification-addon.md) - points and badges **(Free)**
-- [Career Board](../integrations/05-career-board.md) - jobs board **(Free)**
+- [WB Gamification](../integrations/04-gamification-addon.md) - points and badges **(Free)**
+- [WP Career Board](../integrations/05-career-board.md) - jobs board **(Free)**
 - [Outbound Webhooks](../integrations/06-outbound-webhooks.md) **(Free)**
-- [Listora](../integrations/07-listora.md) - listings **(Free)**
+- [WB Listora](../integrations/07-listora.md) - listings **(Free)**
 - [Learnomy](../integrations/08-learnomy.md) - courses **(Free)**
 - [Member Blog](../integrations/09-member-blog.md) **(Free)**
 - [Eventonomy](../integrations/10-eventonomy.md) - events and RSVPs **(Free)**
@@ -178,8 +178,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [BuddyNext vs BuddyPress](../migrating-from-buddypress/01-buddynext-vs-buddypress.md) **(Free)**
 - [Concept Glossary](../migrating-from-buddypress/02-concept-glossary.md) **(Free)**
 - [BuddyBoss Feature Parity](../migrating-from-buddypress/03-buddyboss-feature-parity.md) **(Free)**
-- [Migrating Your Data](../migrating-from-buddypress/04-migrating-your-data.md) **(Free)**
-- [BuddyNext Importer on GitHub](https://github.com/buddynext/buddynext-importer) - the free companion plugin that carries your BuddyPress or BuddyBoss data across ([latest zip](https://github.com/buddynext/buddynext-importer/releases/latest)) **(Free)**
+- [Migrating Your Data](../migrating-from-buddypress/04-migrating-your-data.md) **(Free)** - uses the free [BuddyNext Importer](https://github.com/buddynext/buddynext-importer/releases/latest) companion
 - [What Changed for Members](../migrating-from-buddypress/05-what-changed-for-members.md) **(Free)**
 
 ## For developers

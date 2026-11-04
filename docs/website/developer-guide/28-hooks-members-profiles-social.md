@@ -172,7 +172,7 @@ Gamification usually rewards the recipient of engagement (the member whose work 
 | `buddynext_post_reaction_received` | action | A post receives a reaction (only when reactor differs from author) | `int $post_id, int $author_id, int $reactor_id, string $emoji` |
 | `buddynext_post_comment_received` | action | A post receives a comment (only when commenter differs from author) | `int $comment_id, int $post_id, int $author_id, int $commenter_id` |
 | `buddynext_hashtag_used` | action | A native post uses a hashtag (once per tag, `object_type='post'` only) | `string $tag, int $post_id, int $user_id` |
-| `buddynext_dm_sent` | action | A DM is sent (BuddyNext-domain adapter over WPMediaVerse `mvs_message_sent`); once per send with the full clean recipient list | `int $sender_id, int $message_id, int $conversation_id, int[] $recipient_ids` |
+| `buddynext_dm_sent` | action | A DM is sent (BuddyNext-domain adapter over MediaVerse `mvs_message_sent`); once per send with the full clean recipient list | `int $sender_id, int $message_id, int $conversation_id, int[] $recipient_ids` |
 | `buddynext_dm_received` | action | A DM is received (per-recipient mirror of `buddynext_dm_sent`); once per recipient, sender stripped | `int $recipient_id, int $sender_id, int $message_id, int $conversation_id` |
 
 Example - award points to the member who gained the follower (the recipient), not the follower:
@@ -274,9 +274,10 @@ add_action( 'buddynext_after_edit_member_form', function ( int $user_id, WP_User
 | `buddynext_follow_requested` | action | A follow request lands on a private account. | `int $follower_id, int $following_id` |
 | `buddynext_follow_request_approved` | action | An owner approves a pending follow request. | `int $owner_id, int $follower_id` |
 | `buddynext_follow_request_rejected` | action | An owner rejects a pending follow request. | `int $owner_id, int $follower_id` |
-| `buddynext_user_followed_first_time` | action | A user follows someone for the first time, once per user, for onboarding flows. | `int $follower_id, int $following_id` |
+| `buddynext_user_followed_first_time` | action | A user's approved follow count reaches 1, whether they followed a public account or a private account approved their request. For onboarding flows. | `int $follower_id, int $following_id` |
 | `buddynext_can_follow` | filter | Whether an actor may follow a target. Default follows the target's who-can-follow preference. | `bool $can, int $target_id, int $actor_id` |
 | `buddynext_can_connect` | filter | Whether an actor may send a connection request to a target. | `bool $can, int $target_id, int $actor_id` |
+| `buddynext_social_upgrade_url` | filter | A member card asks where to send a viewer whose plan withholds following or connecting. Return a URL only when the plan is the reason; empty hides the action. | `string $url, int $viewer_id` |
 | `buddynext_can_view_connections` | filter | Whether a viewer may see a user's followers and following lists. | `bool $can, int $owner_id, int $viewer_id` |
 | `buddynext_social_denied_error` | filter | A follow or connect is refused and the `WP_Error` is built. Listeners must return a `WP_Error`. | `WP_Error $error, string $action, int $actor_id, int $target_id` (`$action` is `follow` or `connect`) |
 | `buddynext_follow_suggestions` | filter | The "who to follow" id list is built, in rank order. | `int[] $ids, int $user_id` |

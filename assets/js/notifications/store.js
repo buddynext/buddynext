@@ -9,7 +9,7 @@
  * Companion service: includes/Notifications/NotificationMessageService.php.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 
 // Relation-removal handler for the Muted-list sidecard's Unmute button
@@ -314,9 +314,9 @@ const notificationsStore = store( 'buddynext/notifications', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					throw new Error( 'http_' + res.status );
+					throw res;
 				}
-			} catch ( _e ) {
+			} catch ( e ) {
 				if ( wasUnread ) {
 					row.classList.add( 'bn-notif-row--unread' );
 					var pulse2 = row.querySelector( '.bn-notif-row__pulse' );
@@ -326,7 +326,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 					}
 					adjustUnreadTabBadges( ctx, 1, row ? row.dataset.notifType : '' );
 				}
-				toast( t( 'markReadFailed', 'Could not mark this notification as read.' ), 'error' );
+				toastRestError( e, t( 'markReadFailed', 'Could not mark this notification as read.' ) );
 				return;
 			}
 
@@ -371,16 +371,16 @@ const notificationsStore = store( 'buddynext/notifications', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					throw new Error( 'http_' + res.status );
+					throw res;
 				}
-			} catch ( _e ) {
+			} catch ( e ) {
 				if ( ctx ) {
 					ctx.unreadCount = previous;
 				}
 				if ( wasUnread ) {
 					adjustUnreadTabBadges( ctx, 1, row ? row.dataset.notifType : '' );
 				}
-				toast( t( 'markReadFailed', 'Could not mark this notification as read.' ), 'error' );
+				toastRestError( e, t( 'markReadFailed', 'Could not mark this notification as read.' ) );
 			}
 		},
 
@@ -425,9 +425,9 @@ const notificationsStore = store( 'buddynext/notifications', {
 					body: { ids: ids },
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-			} catch ( _e ) {
-				toast( t( 'deleteSelectedFailed', 'Could not delete the notifications. Try again.' ), 'error' );
+				if ( ! res.ok ) { throw res; }
+			} catch ( e ) {
+				toastRestError( e, t( 'deleteSelectedFailed', 'Could not delete the notifications. Try again.' ) );
 				return;
 			}
 
@@ -493,9 +493,9 @@ const notificationsStore = store( 'buddynext/notifications', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					throw new Error( 'http_' + res.status );
+					throw res;
 				}
-			} catch ( _e ) {
+			} catch ( e ) {
 				if ( parent ) {
 					parent.insertBefore( row, nextSibling );
 				}
@@ -503,7 +503,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 				if ( wasUnread ) {
 					adjustUnreadTabBadges( ctx, 1, row.dataset.notifType );
 				}
-				toast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), 'error' );
+				toastRestError( e, t( 'dismissFailed', 'Could not dismiss the report. Try again.' ) );
 				return;
 			}
 			takeFromWeekTile( [ row ] );
@@ -676,7 +676,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 					row.remove();
 				} else {
 					for ( var j = 0; j < buttons.length; j++ ) { buttons[ j ].disabled = false; }
-					toast( t( 'inviteDeclineFailed', 'Could not decline the invitation.' ), 'error' );
+					toastRestError( res, t( 'inviteDeclineFailed', 'Could not decline the invitation.' ) );
 				}
 			} catch ( _e ) {
 				for ( var k = 0; k < buttons.length; k++ ) { buttons[ k ].disabled = false; }

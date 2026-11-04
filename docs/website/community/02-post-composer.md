@@ -19,10 +19,11 @@ For owners, the composer is where you set the tone and the guardrails. Rate limi
 A member types into the composer and clicks **Post**. The post is created and appears in the feed. The composer supports several post types from one box:
 
 - **Text** - the default. Just type and share. @mentions in the text notify the people named.
-- **Photo and media** - attach photos, videos or audio from the **Add photo, video or audio** button. A member can only attach their own media.
-- **Document** - attach a file with the **Attach a document** button. It posts as a document card. Documents are stored by WPMediaVerse.
+- **Photo and media** - attach photos, videos or audio from the **Add photo, video or audio** button. A member can only attach their own media. A post carries at most 4 files; the composer stops at that number and the server holds the same limit. Developers can change it with the `buddynext_max_media_per_post` filter.
+- **Document** - attach a file with the **Attach a document** button. It posts as a document card. Documents are stored by MediaVerse.
 - **Link** - paste a URL into the post. The community fetches the page's title, description, and thumbnail in the background and attaches a preview card. The preview may take a moment to appear after posting.
-- **Poll** - turn the post into a poll with 2 to 5 options, and an optional closing date. Other members vote, with one vote per member per poll.
+- **Poll** - turn the post into a poll with 2 to 5 options, and an optional closing date. The end-time picker starts at the current time. A past time, an invalid time, or a time before the post's own publish time is refused with a message, so a poll never closes before it opens. Other members vote, with one vote per member per poll.
+- **Also add to my story** - with MediaVerse Pro stories on, a public photo or video post from the home feed shows this option. Once the post is live, each photo or video is also added to the member's story. See [MediaVerse](../integrations/02-wpmediaverse.md#stories-on-the-home-feed).
 - **Schedule** - pick a future date and time. The post is held and published automatically when that time arrives; it stays out of the feed until then. The control is labelled with your site's timezone (for example "Publish at (Europe/Berlin)"), so the time you type is the time the post card will show.
 
 
@@ -33,7 +34,7 @@ Before posting, a member picks an audience from the privacy menu in the composer
 
 ### Editing and deleting your own posts
 
-A member can edit their own post to fix or update the text, change its audience, and add or remove photos and videos, as long as the edit window is still open (see the settings below). In the edit form, **Add photo or video** uploads more, and the **×** on a thumbnail takes it off the post; a text post that gains a photo becomes a photo post, and one that loses its last photo becomes a text post again. Taking a photo off a post does not delete it: it stays in the member's media library. Edited content is re-scanned by the same content checks that run on a new post, so an edit cannot slip banned words or a blocked link past moderation. A member can delete their own post at any time.
+A member can edit their own post to fix or update the text, change its audience, and add or remove photos and videos, as long as the edit window is still open (see the settings below). In the edit form, **Add photo or video** uploads more, and the **×** on a thumbnail takes it off the post; a text post that gains a photo becomes a photo post, and one that loses its last photo becomes a text post again. Taking a photo off a post does not delete it: it stays in the member's media library. After saving, the post card keeps its paragraphs, @mentions and hashtag links without a reload. Typing `@` or `#` in the edit box shows the same member and hashtag suggestions as the composer. Posts that were published without a caption (a photo, file or link on its own) also offer **Edit**, and the editor adds the caption box. If an older post carries more than 4 files, it stays editable; you just cannot add more. Edited content is re-scanned by the same content checks that run on a new post, so an edit cannot slip banned words or a blocked link past moderation. A member can delete their own post at any time.
 
 ### Rescheduling a post you have queued
 

@@ -8,7 +8,7 @@
  *   .bn-stat / .bn-stat-grid.
  *
  * Variables:
- *   int  $user_id      WordPress user ID (0 = viewed profile from URL context, falls back to current user).
+ *   int  $user_id      WordPress user ID, resolved and privacy-checked by the block.
  *   bool $show_stats   Whether to render follower/following counts (default true).
  *   bool $show_actions Whether to render follow / edit profile actions (default true).
  *
@@ -21,14 +21,6 @@ $user_id      = $user_id ?? 0;
 $show_stats   = isset( $show_stats ) ? (bool) $show_stats : true;
 $show_actions = isset( $show_actions ) ? (bool) $show_actions : true;
 $viewer_id    = get_current_user_id();
-
-if ( ! $user_id ) {
-	$user_id = (int) get_query_var( 'author' );
-}
-
-if ( ! $user_id ) {
-	$user_id = $viewer_id;
-}
 
 if ( ! $user_id ) {
 	return;
@@ -47,7 +39,7 @@ $following_count = $follow_svc->following_count( $user_id );
 
 $bio_fields = array_filter( $profile['fields'] ?? array(), static fn( $f ) => 'bio' === ( $f['field_key'] ?? '' ) );
 $bio_field  = reset( $bio_fields );
-$bio        = $bio_field ? ( $bio_field['value'] ?? '' ) : get_user_meta( $user_id, 'bn_bio', true );
+$bio        = $bio_field ? ( $bio_field['value'] ?? '' ) : ( buddynext_service( 'profiles' )->card_identity_for( $viewer_id, array( $user_id ) )[ $user_id ]['bio'] ?? '' );
 $avatar_url = (string) get_avatar_url( $user_id, array( 'size' => 144 ) );
 ?>
 <section 

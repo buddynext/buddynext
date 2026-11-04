@@ -74,7 +74,7 @@ class RegistrationEmailListener {
 		if ( 'approval' === $reg_mode ) {
 			return;
 		}
-		if ( (bool) get_option( 'buddynext_email_verify', false ) ) {
+		if ( VerificationService::is_required() ) {
 			return;
 		}
 		$this->send_welcome( $user_id );

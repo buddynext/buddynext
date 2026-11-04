@@ -309,10 +309,29 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$html = (string) apply_filters(
 			'buddynext_render_post_body_media',
 			'',
-			array( 'bn_post_type' => 'media', 'post_content' => 'shared a video', 'link_preview' => array() )
+			array(
+				'bn_post_type' => 'media',
+				'post_content' => 'shared a video',
+				'link_preview' => array(),
+			)
 		);
 
 		$this->assertSame( '', $html );
+	}
+
+	/**
+	 * The Media feed switch stops automatic upload cards. A document post is one a
+	 * member wrote, so it still draws its card (here the unavailable line, as no
+	 * document engine runs under test) rather than an empty body.
+	 *
+	 * @return void
+	 */
+	public function test_media_feed_off_keeps_a_members_document_card(): void {
+		update_option( 'buddynext_integration_media_feed', '0' );
+		$html = ( new WPMediaVerseBridge() )->render_document_card( '', array( 'link_meta' => array( 'doc_id' => 7 ) ) );
+		delete_option( 'buddynext_integration_media_feed' );
+
+		$this->assertStringContainsString( 'bn-post-card__bridge-card--document', $html );
 	}
 
 	/**
@@ -326,7 +345,7 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		// Below the REAL server ceiling, whatever this runner's php.ini sets it to
 		// (a bare PHP CLI often defaults upload_max_filesize to 2M) — the point is
 		// the lower of the two numbers, not a specific absolute size.
-		$configured = (int) max( 1, intdiv( wp_max_upload_size(), 2 ) );
+		$configured                          = (int) max( 1, intdiv( wp_max_upload_size(), 2 ) );
 		StubSettingsHelper::$max_upload_size = $configured;
 
 		$this->assertSame( $configured, WPMediaVerseBridge::media_max_bytes() );

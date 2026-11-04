@@ -234,10 +234,11 @@ class CronService {
 	}
 
 	/**
-	 * Delete accounts that registered under email verification and never verified.
+	 * Delete accounts that signed up through BuddyNext and never verified.
 	 *
-	 * Only accounts carrying the buddynext_verify_pending marker (set at token
-	 * creation, cleared on verify) are eligible, so members who registered before
+	 * Only accounts carrying the buddynext_signup_awaiting_verify marker are eligible. Only
+	 * RegistrationService::create() sets it, while verification is on, and verifying
+	 * clears it, so another plugin's sign-ups and members who registered before
 	 * verification was enabled are never touched. An account is deleted only when it
 	 * is past the grace window AND is not an admin AND has no content — belt and
 	 * braces on top of the posting gate. Bounded per run; the marker is cleared for
@@ -246,7 +247,7 @@ class CronService {
 	 * @return void
 	 */
 	private function purge_stale_unverified(): void {
-		if ( ! (bool) get_option( 'buddynext_email_verify', false ) ) {
+		if ( ! \BuddyNext\Auth\VerificationService::is_required() ) {
 			return; // Verification not enforced — nothing to purge.
 		}
 
@@ -262,7 +263,7 @@ class CronService {
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->usermeta}
-				 WHERE meta_key = 'buddynext_verify_pending' AND CAST(meta_value AS UNSIGNED) < %d
+				 WHERE meta_key = 'buddynext_signup_awaiting_verify' AND CAST(meta_value AS UNSIGNED) < %d
 				 ORDER BY user_id ASC
 				 LIMIT 50",
 				$cutoff
@@ -285,7 +286,8 @@ class CronService {
 			 *
 			 * BuddyNext keeps an account that has written a post. Anything else a
 			 * site counts as "this is a real member" belongs here: a purchase, a
-			 * course enrolment, a booking. BuddyNext Pro keeps paying members.
+			 * course enrolment, a booking. BuddyNext Pro keeps paying members. Only
+			 * accounts from BuddyNext's own sign-up reach this filter.
 			 *
 			 * @since 1.2.5
 			 *
@@ -297,7 +299,7 @@ class CronService {
 			if ( user_can( $uid, 'manage_options' )
 				|| (bool) get_user_meta( $uid, 'buddynext_email_verified', true )
 				|| $keep ) {
-				delete_user_meta( $uid, 'buddynext_verify_pending' );
+				delete_user_meta( $uid, 'buddynext_signup_awaiting_verify' );
 				continue;
 			}
 

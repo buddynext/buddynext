@@ -2125,6 +2125,12 @@
                                     },
                                     "parent_id": {
                                         "type": "integer"
+                                    },
+                                    "render": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -2144,6 +2150,18 @@
                 "operationId": "get_comments",
                 "summary": "GET /buddynext/v1/comments",
                 "parameters": [
+                    {
+                        "name": "render",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "html"
+                            ]
+                        }
+                    },
                     {
                         "name": "object_type",
                         "in": "query",
@@ -2210,6 +2228,52 @@
             }
         },
         "/comments/{id}": {
+            "get": {
+                "tags": [
+                    "Feed and Posts"
+                ],
+                "operationId": "get_comments_id_",
+                "summary": "GET /buddynext/v1/comments/{id}",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "render",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "html"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
             "post": {
                 "tags": [
                     "Feed and Posts"
@@ -2263,6 +2327,12 @@
                                 "properties": {
                                     "content": {
                                         "type": "string"
+                                    },
+                                    "render": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -2326,6 +2396,12 @@
                                 "properties": {
                                     "content": {
                                         "type": "string"
+                                    },
+                                    "render": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -2389,6 +2465,12 @@
                                 "properties": {
                                     "content": {
                                         "type": "string"
+                                    },
+                                    "render": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -3944,64 +4026,6 @@
                         "appPassword": []
                     }
                 ]
-            }
-        },
-        "/kudos": {
-            "post": {
-                "tags": [
-                    "Social Graph"
-                ],
-                "operationId": "post_kudos",
-                "summary": "POST /buddynext/v1/kudos",
-                "responses": {
-                    "200": {
-                        "description": "Success.",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/ActionResult"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    },
-                    "400": {
-                        "description": "Invalid or missing parameter."
-                    }
-                },
-                "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "receiver_id": {
-                                        "type": "string"
-                                    },
-                                    "message": {
-                                        "type": "string"
-                                    }
-                                },
-                                "required": [
-                                    "receiver_id"
-                                ]
-                            }
-                        }
-                    }
-                }
             }
         },
         "/link-preview": {
@@ -7831,7 +7855,7 @@
                                     },
                                     "document_id": {
                                         "type": "integer",
-                                        "description": "WPMediaVerse document ID attached from the composer (type=document)."
+                                        "description": "MediaVerse document ID attached from the composer (type=document)."
                                     },
                                     "options": {
                                         "type": "array",
@@ -8869,6 +8893,15 @@
                                     "placeholder": {
                                         "type": "string"
                                     },
+                                    "width": {
+                                        "type": "string",
+                                        "enum": [
+                                            "auto",
+                                            "half",
+                                            "full"
+                                        ],
+                                        "description": "Width on the edit and sign-up forms: auto (by field type), half or full row."
+                                    },
                                     "is_required": {
                                         "type": "boolean",
                                         "default": false
@@ -8970,6 +9003,15 @@
                                     },
                                     "placeholder": {
                                         "type": "string"
+                                    },
+                                    "width": {
+                                        "type": "string",
+                                        "enum": [
+                                            "auto",
+                                            "half",
+                                            "full"
+                                        ],
+                                        "description": "Width on the edit and sign-up forms: auto (by field type), half or full row."
                                     },
                                     "is_required": {
                                         "type": "boolean"
@@ -9202,6 +9244,10 @@
                                     "sort_order": {
                                         "type": "integer",
                                         "default": 0
+                                    },
+                                    "intro": {
+                                        "type": "string",
+                                        "description": "Optional text shown above the group's fields on the edit and sign-up forms."
                                     }
                                 },
                                 "required": [
@@ -9274,6 +9320,10 @@
                                     },
                                     "sort_order": {
                                         "type": "integer"
+                                    },
+                                    "intro": {
+                                        "type": "string",
+                                        "description": "Optional text shown above the group's fields on the edit and sign-up forms."
                                     }
                                 }
                             }
@@ -10827,6 +10877,21 @@
                 ],
                 "operationId": "get_space_categories",
                 "summary": "GET /buddynext/v1/space-categories",
+                "parameters": [
+                    {
+                        "name": "level",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "main",
+                                "sub"
+                            ]
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Success.",
@@ -10840,6 +10905,9 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10911,6 +10979,14 @@
                                     },
                                     "show_in_dir": {
                                         "type": "boolean"
+                                    },
+                                    "level": {
+                                        "type": "string",
+                                        "enum": [
+                                            "both",
+                                            "main",
+                                            "sub"
+                                        ]
                                     },
                                     "sort_order": {
                                         "type": "integer",
@@ -10996,6 +11072,14 @@
                                     "show_in_dir": {
                                         "type": "boolean"
                                     },
+                                    "level": {
+                                        "type": "string",
+                                        "enum": [
+                                            "both",
+                                            "main",
+                                            "sub"
+                                        ]
+                                    },
                                     "sort_order": {
                                         "type": "integer"
                                     }
@@ -11074,6 +11158,14 @@
                                     "show_in_dir": {
                                         "type": "boolean"
                                     },
+                                    "level": {
+                                        "type": "string",
+                                        "enum": [
+                                            "both",
+                                            "main",
+                                            "sub"
+                                        ]
+                                    },
                                     "sort_order": {
                                         "type": "integer"
                                     }
@@ -11151,6 +11243,14 @@
                                     },
                                     "show_in_dir": {
                                         "type": "boolean"
+                                    },
+                                    "level": {
+                                        "type": "string",
+                                        "enum": [
+                                            "both",
+                                            "main",
+                                            "sub"
+                                        ]
                                     },
                                     "sort_order": {
                                         "type": "integer"
@@ -11240,7 +11340,7 @@
                         "name": "paginate",
                         "in": "query",
                         "required": false,
-                        "description": "Set to 1/true/yes to wrap rows with total + total_pages. Ignored on the search path -- see list_spaces().",
+                        "description": "Set to 1/true/yes to wrap rows with total + total_pages, with or without a search.",
                         "schema": {
                             "type": "string"
                         }
@@ -14234,49 +14334,6 @@
                     }
                 },
                 "security": [
-                    {
-                        "cookieAuth": []
-                    },
-                    {
-                        "appPassword": []
-                    }
-                ]
-            }
-        },
-        "/users/{id}/achievements": {
-            "get": {
-                "tags": [
-                    "Members and Profiles"
-                ],
-                "operationId": "get_users_id_achievements",
-                "summary": "GET /buddynext/v1/users/{id}/achievements",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Success.",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Achievement"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid or missing parameter."
-                    }
-                },
-                "security": [
-                    {},
                     {
                         "cookieAuth": []
                     },
@@ -18955,6 +19012,9 @@
                                 "sort_order": {
                                     "type": "integer"
                                 },
+                                "intro": {
+                                    "type": "string"
+                                },
                                 "locked": {
                                     "type": "boolean"
                                 },
@@ -18993,6 +19053,14 @@
                                 },
                                 "placeholder": {
                                     "type": "string"
+                                },
+                                "width": {
+                                    "type": "string",
+                                    "enum": [
+                                        "auto",
+                                        "half",
+                                        "full"
+                                    ]
                                 },
                                 "is_required": {
                                     "type": "boolean"
@@ -19194,6 +19262,9 @@
                                 "sort_order": {
                                     "type": "integer"
                                 },
+                                "intro": {
+                                    "type": "string"
+                                },
                                 "locked": {
                                     "type": "boolean"
                                 },
@@ -19232,6 +19303,14 @@
                                 },
                                 "placeholder": {
                                     "type": "string"
+                                },
+                                "width": {
+                                    "type": "string",
+                                    "enum": [
+                                        "auto",
+                                        "half",
+                                        "full"
+                                    ]
                                 },
                                 "is_required": {
                                     "type": "boolean"
@@ -19404,6 +19483,9 @@
                                 "type_restriction": {
                                     "type": "string"
                                 },
+                                "intro": {
+                                    "type": "string"
+                                },
                                 "fields": {
                                     "type": "array"
                                 }
@@ -19442,6 +19524,9 @@
                                     "type": "integer"
                                 },
                                 "type_restriction": {
+                                    "type": "string"
+                                },
+                                "intro": {
                                     "type": "string"
                                 }
                             }
@@ -19561,7 +19646,19 @@
                     "is_following": {
                         "type": "boolean"
                     },
+                    "is_pending": {
+                        "type": "boolean"
+                    },
+                    "upgrade_url": {
+                        "type": "string"
+                    },
+                    "upgrade_label": {
+                        "type": "string"
+                    },
                     "is_muted": {
+                        "type": "boolean"
+                    },
+                    "has_reported": {
                         "type": "boolean"
                     },
                     "connection": {
@@ -19762,6 +19859,14 @@
                     },
                     "show_in_dir": {
                         "type": "boolean"
+                    },
+                    "level": {
+                        "type": "string",
+                        "enum": [
+                            "both",
+                            "main",
+                            "sub"
+                        ]
                     }
                 }
             },
@@ -23159,6 +23264,9 @@
                     },
                     "self_select": {
                         "type": "boolean"
+                    },
+                    "pick_once": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -23491,59 +23599,6 @@
                                 },
                                 "purpose": {
                                     "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "Achievement": {
-                "type": "object",
-                "properties": {
-                    "has_standing": {
-                        "type": "boolean"
-                    },
-                    "standing": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "icon": {
-                                    "type": "string"
-                                },
-                                "label": {
-                                    "type": "string"
-                                },
-                                "value": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "badges": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string"
-                                },
-                                "name": {
-                                    "type": "string"
-                                },
-                                "image_url": {
-                                    "type": "string",
-                                    "format": "uri"
-                                },
-                                "is_credential": {
-                                    "type": "boolean"
-                                },
-                                "earned_at": {
-                                    "type": "string"
-                                },
-                                "share_url": {
-                                    "type": "string",
-                                    "format": "uri"
                                 }
                             }
                         }

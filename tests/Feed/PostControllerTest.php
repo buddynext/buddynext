@@ -135,11 +135,14 @@ class PostControllerTest extends \WP_UnitTestCase {
 		$post_id = self::$server->dispatch( $create )->get_data()['id'];
 
 		$update = new WP_REST_Request( 'PUT', "/buddynext/v1/posts/{$post_id}" );
-		$update->set_body_params( array( 'content' => 'After' ) );
+		$update->set_body_params( array( 'content' => "After\n\nSecond paragraph" ) );
 		$response = self::$server->dispatch( $update );
 
 		$this->assertSame( 200, $response->get_status() );
-		$this->assertSame( 'After', $response->get_data()['content'] );
+		$this->assertSame( "After\n\nSecond paragraph", $response->get_data()['content'] );
+		// The card swaps in the server's own rendering, so an edit keeps its
+		// paragraphs, mentions and hashtags without a reload (Zoho #42457).
+		$this->assertSame( buddynext_format_content( "After\n\nSecond paragraph" ), $response->get_data()['content_html'] );
 	}
 
 	public function test_update_post_as_non_owner_returns_403(): void {

@@ -193,7 +193,7 @@ class MemberTypeController extends BaseRestController {
 				'icon_svg'    => (string) ( $params['icon_svg'] ?? '' ),
 				'sort_order'  => (int) ( $params['sort_order'] ?? 0 ),
 				'show_in_dir' => ! empty( $params['show_in_dir'] ),
-				'self_select' => ! empty( $params['self_select'] ),
+				'self_select' => MemberTypeService::self_select_mode( $params['self_select'] ?? 0 ),
 			)
 		);
 
@@ -347,9 +347,12 @@ class MemberTypeController extends BaseRestController {
 		 * classification the community controls, which is the whole point of it.
 		 */
 		if ( ! current_user_can( 'manage_options' ) && ! $this->service->may_change_own_type( $user_id ) ) {
+			$bn_held = $this->service->get_user_type( $user_id );
 			return new WP_Error(
 				'forbidden',
-				__( 'Your member type was set by the community. Contact an admin to change it.', 'buddynext' ),
+				2 === (int) ( $bn_held['self_select'] ?? 0 )
+					? __( 'Your member type can only be chosen once. Contact an admin to change it.', 'buddynext' )
+					: __( 'Your member type was set by the community. Contact an admin to change it.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -449,6 +452,8 @@ class MemberTypeController extends BaseRestController {
 			'sort_order'  => (int) ( $type['sort_order'] ?? 0 ),
 			'show_in_dir' => (bool) ( $type['show_in_dir'] ?? true ),
 			'self_select' => (bool) ( $type['self_select'] ?? false ),
+			// The member picks it once; after that only the site team changes it.
+			'pick_once'   => 2 === (int) ( $type['self_select'] ?? 0 ),
 		);
 	}
 }

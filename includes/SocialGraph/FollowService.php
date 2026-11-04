@@ -270,32 +270,48 @@ class FollowService {
 			 */
 			do_action( 'buddynext_follower_gained', $following_id, $follower_id );
 
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$follow_count = (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
-					 WHERE follower_id = %d AND status = 'approved'",
-					$follower_id
-				)
-			);
-
-			if ( 1 === $follow_count ) {
-				/**
-				 * Fires the first time a user follows anyone.
-				 *
-				 * Distinct lifecycle event used by onboarding flows (welcome
-				 * drips, "you've started exploring" milestones). Fires
-				 * exactly once per user — on the row that brings their
-				 * follow count to 1.
-				 *
-				 * @param int $follower_id  The user whose first follow this is.
-				 * @param int $following_id The user being followed.
-				 */
-				do_action( 'buddynext_user_followed_first_time', $follower_id, $following_id );
-			}
+			$this->fire_first_follow( $follower_id, $following_id );
 		}
 
 		return true;
+	}
+
+	/**
+	 * Fire the first-follow hook when this approved edge is the follower's only one.
+	 *
+	 * An edge becomes approved in follow() or, for a private account, when the owner
+	 * approves the request. Without the second, a first follow that waited for
+	 * approval never fired, and a later follow could not either.
+	 *
+	 * @param int $follower_id  The user who follows.
+	 * @param int $following_id The user being followed.
+	 * @return void
+	 */
+	private function fire_first_follow( int $follower_id, int $following_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$follow_count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
+				 WHERE follower_id = %d AND status = 'approved'",
+				$follower_id
+			)
+		);
+
+		if ( 1 === $follow_count ) {
+			/**
+			 * Fires the first time a user follows anyone.
+			 *
+			 * Distinct lifecycle event used by onboarding flows (welcome
+			 * drips, "you've started exploring" milestones). Fires
+			 * on the row that brings their follow count to 1.
+			 *
+			 * @param int $follower_id  The user whose first follow this is.
+			 * @param int $following_id The user being followed.
+			 */
+			do_action( 'buddynext_user_followed_first_time', $follower_id, $following_id );
+		}
 	}
 
 	/**
@@ -1538,6 +1554,7 @@ class FollowService {
 		/** Mirrors the same hooks the public follow() path fires. */
 		do_action( 'buddynext_user_followed', $follower_id, $owner_id );
 		do_action( 'buddynext_follower_gained', $owner_id, $follower_id );
+		$this->fire_first_follow( $follower_id, $owner_id );
 
 		/**
 		 * Fires when an owner approves a pending follow request.

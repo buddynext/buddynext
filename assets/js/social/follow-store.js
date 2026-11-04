@@ -23,9 +23,9 @@
  * the next page render reflects the change without a client refetch.
  */
 
-import { store, getContext } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnResolveConnectNote, bnConfirmDisconnect } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -44,8 +44,18 @@ function fmt( tpl, value ) {
 
 /* -- Helpers ----------------------------------------------------------- */
 
-function ctxNonce( ctx ) {
-	return ( ctx && ctx.nonce ) || '';
+/*
+ * The viewer's REST nonce and base are the same on every follow / connection
+ * button, so AssetService publishes them once as buddynext/follow-button state
+ * instead of in each button's context (a feed byline or member grid repeated
+ * them per button). The ctx argument is kept so callers stay unchanged.
+ */
+function shared() {
+	return store( 'buddynext/follow-button' ).state;
+}
+
+function ctxNonce() {
+	return shared().restNonce || '';
 }
 
 function followLabel( ctx ) {
@@ -88,6 +98,12 @@ function followVariant( ctx ) {
 	return 'primary';
 }
 
+/* A locked profile's follow or connect control: once the viewer is in the audience
+ * there is a whole profile to show, so draw it. */
+function reloadIfLockedProfile( el ) {
+	if ( el && el.closest( '.bn-profile-private' ) ) { window.location.reload(); }
+}
+
 /* -- Follow button store ----------------------------------------------- */
 
 const followButtonStore = store( 'buddynext/follow-button', {
@@ -111,6 +127,7 @@ const followButtonStore = store( 'buddynext/follow-button', {
 			const userId       = ctx.userId;
 			const target       = ctx.targetName || ( '#' + userId );
 			const usePending   = !! ctx.privateFollow && ! wasFollowing && ! wasPending;
+			const button       = getElement().ref;
 
 			ctx.busy = true;
 
@@ -127,27 +144,32 @@ const followButtonStore = store( 'buddynext/follow-button', {
 			try {
 				const res = await restFetch( '/users/' + userId + '/follow', {
 					method:       ( wasFollowing || wasPending ) ? 'DELETE' : 'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
+				// The server has the last word: the account may have gone private (or
+				// public) since this page was drawn.
+				const requested = ! wasFollowing && ! wasPending && !! ( res.data && res.data.pending );
+				if ( ! wasFollowing && ! wasPending ) {
+					ctx.isPending   = requested;
+					ctx.isFollowing = ! requested;
+				}
 				let msg;
 				if ( wasFollowing )      { msg = fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), target ); }
 				else if ( wasPending )   { msg = fmt( t( 'toastRequestCancelled', 'Follow request to @%s cancelled' ), target ); }
-				else if ( usePending )   { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), target ); }
+				else if ( requested )    { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), target ); }
 				else                     { msg = fmt( t( 'toastNowFollowing', 'Now following @%s' ), target ); }
 				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success' } );
-			} catch ( _e ) {
+				if ( ctx.isFollowing ) { reloadIfLockedProfile( button ); }
+			} catch ( e ) {
 				// Roll back.
 				ctx.isFollowing = wasFollowing;
 				ctx.isPending   = wasPending;
-				bnToast(
-					wasFollowing
+				toastRestError( e, wasFollowing
 						? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), target )
-						: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), target ),
-					{ tone: 'danger' }
-				);
+						: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), target ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -228,17 +250,18 @@ store( 'buddynext/follow-requests', {
 			try {
 				const res = await restFetch( '/me/follow-requests/' + ctx.followerId + '/approve', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'approve_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				settleRequest( ctx );
 				bumpMetric( 'followers' );
 				bnToast( fmt( t( 'toastCanFollowYou', '@%s can now follow you' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'success' } );
 				refreshPeopleList();
-			} catch ( _e ) {
-				bnToast( t( 'toastApproveFailed', 'Could not approve request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				if ( 404 === e.status ) { settleRequest( ctx ); }
+				toastRestError( e, t( 'toastApproveFailed', 'Could not approve request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -250,15 +273,16 @@ store( 'buddynext/follow-requests', {
 			try {
 				const res = await restFetch( '/me/follow-requests/' + ctx.followerId + '/reject', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'reject_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				settleRequest( ctx );
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'info' } );
-			} catch ( _e ) {
-				bnToast( t( 'toastDeclineFailed', 'Could not decline request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				if ( 404 === e.status ) { settleRequest( ctx ); }
+				toastRestError( e, t( 'toastDeclineFailed', 'Could not decline request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -286,17 +310,18 @@ store( 'buddynext/connection-requests', {
 			try {
 				const res = await restFetch( '/users/' + ctx.requesterId + '/connect/accept', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				settleRequest( ctx );
 				bumpMetric( 'connections' );
 				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'success' } );
 				refreshPeopleList();
-			} catch ( _e ) {
-				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				if ( 404 === e.status ) { settleRequest( ctx ); }
+				toastRestError( e, t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -308,15 +333,16 @@ store( 'buddynext/connection-requests', {
 			try {
 				const res = await restFetch( '/users/' + ctx.requesterId + '/connect/decline', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				settleRequest( ctx );
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'info' } );
-			} catch ( _e ) {
-				bnToast( t( 'toastDeclineFailed', 'Could not decline request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				if ( 404 === e.status ) { settleRequest( ctx ); }
+				toastRestError( e, t( 'toastDeclineFailed', 'Could not decline request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -369,16 +395,16 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					body:         { note: note },
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastConnectionSent', 'Connection request sent to @%s' ), name ), { tone: 'success' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.status = prev || '';
-				bnToast( t( 'toastCouldNotConnect', 'Could not send connection request. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotConnect', 'Could not send connection request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -394,15 +420,15 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
 					method:       'DELETE',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'withdraw_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastRequestWithdrawn', 'Request to @%s withdrawn' ), name ), { tone: 'info' } );
-			} catch ( _e ) {
-				ctx.status = prev;
-				bnToast( t( 'toastCouldNotWithdraw', 'Could not withdraw request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				ctx.status = 404 === e.status ? '' : prev;
+				toastRestError( e, t( 'toastCouldNotWithdraw', 'Could not withdraw request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -413,20 +439,22 @@ store( 'buddynext/connection-button', {
 			if ( ctx.busy ) { return; }
 			const name = ctx.targetName || ( '#' + ctx.userId );
 			const prev = ctx.status;
+			const button = getElement().ref;
 			ctx.busy   = true;
 			ctx.status = 'accepted';
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect/accept', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), name ), { tone: 'success' } );
-			} catch ( _e ) {
+				reloadIfLockedProfile( button );
+			} catch ( e ) {
 				ctx.status = prev;
-				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -442,15 +470,15 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect/decline', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), name ), { tone: 'info' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.status = prev;
-				bnToast( t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -467,15 +495,15 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
 					method:       'DELETE',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'disconnect_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastDisconnected', 'Disconnected from @%s' ), name ), { tone: 'info' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.status = prev;
-				bnToast( t( 'toastCouldNotDisconnect', 'Could not disconnect. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotDisconnect', 'Could not disconnect. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}

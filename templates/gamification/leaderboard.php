@@ -654,7 +654,7 @@ $period_tabs = array(
 								<?php if ( $ribbon_extra > 0 ) : ?>
 									<span class="bn-lb-ribbon__more" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: number of badges not shown. */ _n( '%d more badge', '%d more badges', $ribbon_extra, 'buddynext' ), $ribbon_extra ) ); ?>">
 										<?php
-										// translators: %d: number of additional badges not shown.
+										// translators: %d: number of further items not shown.
 										echo esc_html( sprintf( __( '+%d', 'buddynext' ), $ribbon_extra ) );
 										?>
 									</span>

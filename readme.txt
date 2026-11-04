@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.7
+Stable tag: 1.2.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -23,7 +23,7 @@ Everything is REST-first, so the same data powers the web experience and the nat
 * Spaces (groups) with membership, roles, and per-space content.
 * Member profiles, a searchable member directory, and unified search across the community.
 * Connections and follows between members.
-* Direct messaging and media (powered by WPMediaVerse).
+* Direct messaging and media (powered by MediaVerse).
 * Notifications and branded transactional email.
 * Member onboarding, invites, and social login.
 * Two-factor authentication (in-house TOTP, optional and opt-in).
@@ -31,13 +31,13 @@ Everything is REST-first, so the same data powers the web experience and the nat
 
 = Built to extend =
 
-BuddyNext is the free community OS. Three core integrations ship as companion plugins - WPMediaVerse (media and messaging), Jetonomy (discussions), and WB Gamification (badges, points, leaderboards) - and the application layer (memberships, monetization, AI, and business integrations) lives in BuddyNext Pro.
+BuddyNext is the free community OS. Three core integrations ship as companion plugins - MediaVerse (media and messaging), Jetonomy (discussions), and WB Gamification (badges, points, leaderboards) - and the application layer (memberships, monetization, AI, and business integrations) lives in BuddyNext Pro.
 
 = Integration requirements =
 
 Each integration needs its plugin at or above the version below. On an older version the parts that need the newer release stay off, and BuddyNext > Integration Settings marks the plugin "Update needed".
 
-* WPMediaVerse 2.6.2 or later - media, files and direct messages.
+* MediaVerse 2.6.2 or later - media, files and direct messages.
 * WB Gamification 1.6.3 or later - points, badges, kudos and leaderboards.
 * WP Career Board 1.4.3 or later - jobs on profiles and in the feed (BuddyNext Pro).
 * Learnomy 1.9.4 or later - courses and certificates (BuddyNext Pro).
@@ -69,9 +69,58 @@ Yes. Network Activate it (BuddyNext first, then Pro). One community runs on the 
 
 = Does messaging require another plugin? =
 
-Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
+Direct messaging and media are powered by the MediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.2.8 - November 2026 =
+
+Owners lay out the profile form, tab bars fold what does not fit into More, every tab is managed in Settings > Navigation, and two QA rounds of fixes. Lockstep with BuddyNext Pro 1.2.8 - install and test both together.
+
+* New      - Each profile field has a Width (Auto, Half row, Full row), so short fields such as ZIP and City can share a row on the profile form and sign-up.
+* New      - A profile field group can carry a short intro, shown above its fields on Edit Profile and sign-up.
+* New      - Profile, space, settings and feed tab bars show every tab that fits and fold only the rest into a More menu.
+* New      - Settings > Navigation lists every profile and space tab members can see, including tabs added by integrations, in the order members see them.
+* New      - The stories bar sits at the top of the home feed, and the composer can also add a post to your story.
+* New      - A space category can be limited to main spaces, subspaces or both.
+* New      - A member type can be set so members pick it once, with a warning before they do.
+* New      - Members can sign in with their @handle on every BuddyNext login form.
+* Improve  - On phones the BuddyNext admin menu folds behind one Section and Tab button.
+* Improve  - A feature with its own settings links to them from Platform > Features, inside the BuddyNext admin.
+* Improve  - Bulk delete asks first and names the count, and Spaces and Members report what really happened, including failures.
+* Improve  - Integration Settings name each companion's next step: Activate, Install or Needs BuddyNext Pro.
+* Improve  - The brand colour flows into emails, the installed app and receipts; with none picked, everything uses the accent your site shows.
+* Improve  - Send test in the email editor sends what is in the editor, even unsaved, and names the address it went to.
+* Improve  - Accounts an administrator creates are verified, and the unverified-account cleanup only touches accounts made on BuddyNext's own sign-up.
+* Improve  - The first page after signing in, signing up or a two-factor step is never served from a page cache.
+* Improve  - Your own profile shows Share profile and Share to feed in the action row while they fit.
+* Improve  - A locked profile says who can see it and offers the Follow, Connect or upgrade that opens it.
+* Improve  - Editing a post keeps its paragraphs, mentions and hashtags, and @mention and #hashtag suggestions appear while editing and replying.
+* Improve  - Leaving a space or withdrawing a join request asks first and says why when it cannot be done.
+* Improve  - Turning In-app notifications off only clears the bell; email, push and digests keep working.
+* Improve  - Unblock, unmute and unrestrict confirm the result.
+* Improve  - The photo viewer keeps keyboard focus, online status reads without colour, and search announces how many results came back.
+* Improve  - Translations are complete for 10 languages.
+* Fix      - With Rank Math or Yoast active, a shared profile or post shows its own link, title and picture instead of the hub or home page.
+* Fix      - A shared member profile uses the cover photo when the profile is public.
+* Fix      - Every profile and space tab can be hidden, renamed and reordered, including Portfolio, About and Network.
+* Fix      - The profile header has even spacing, and a pending connection request keeps the action buttons in place.
+* Fix      - Sidebar Follow buttons are lighter and leave room for the member's name.
+* Fix      - Ending an announcement removes that announcement's card, not the first one on the page.
+* Fix      - The viewer's Delete and a tile's Remove both move media to the trash, and Allow downloads applies without a reload.
+* Fix      - Directory labels and member-type badges stay on cards after a search, filter or page change.
+* Fix      - The stories bar's script loads, so members can add and open stories.
+* Fix      - A password reset that hits the rate limit stays on the form with an error.
+* Security - Space email invites give one neutral answer and are rate limited.
+* Security - Email editor previews run in a sandboxed frame.
+* Security - Updates of BuddyNext and BuddyNext Pro are checked for Wbcom's release signature before they install; the result is logged and the update installs either way.
+* Dev      - New filter `buddynext_max_media_per_post` sets how many files a post may carry (default 4).
+* Dev      - Profile fields carry `width` and groups carry `intro` on the profile-field REST routes, the member profile response and `buddynext_register_profile_field()`.
+* Dev      - Registered profile and space tabs appear in Settings > Navigation automatically; `integration` and `description` label the row.
+* Dev      - Write APIs for joins, bookmarks, shares and last activity take an optional source time for importers.
+* Dev      - Browser event `buddynext:post-counts` pushes new reaction, comment and share totals into post cards.
+* Dev      - Schema updates apply on the first request of any kind, one request at a time, with data migrations queued.
+* Compat   - Tested with WPMediaVerse 2.6.3.
 
 = 1.2.7 - October 2026 =
 

@@ -374,7 +374,7 @@ class OnboardingService {
 		}
 
 		if ( '' !== $bio ) {
-			$bio = sanitize_textarea_field( mb_substr( $bio, 0, 1000 ) );
+			$bio = sanitize_textarea_field( $bio );
 
 			$persisted = false;
 			if ( function_exists( 'buddynext_service' ) ) {

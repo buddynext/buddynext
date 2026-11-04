@@ -19,7 +19,7 @@ All routes live under the `buddynext/v1` namespace. They follow the shared respo
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/spaces` | Public | List spaces with filters/sort (`per_page` capped at 50, default 12). Filters: `type`, `category_id`, `search` (or `q`), `membership`, `mine`, `include_subspaces`, `roots_only`; sorting: `orderby` and `order`; `paginate` returns the paged envelope. |
+| GET | `/spaces` | Public | List spaces with filters/sort (`per_page` capped at 50, default 12). Filters: `type`, `category_id`, `search` (or `q`), `membership`, `mine`, `include_subspaces`, `roots_only`; sorting: `orderby` and `order`; `paginate` returns the paged envelope, with or without `search`. A `search` composes with the other filters and finds sub-spaces unless `roots_only` is set. |
 | POST | `/spaces` | Auth (space-creation role) | Create a space. Caller must hold a role allowed to create spaces. |
 | GET | `/spaces/{id}` | Public | Get a single space by ID. Accepts an optional `invite` token so a visitor holding a valid invite link can read a private space. |
 | GET | `/spaces/slug/{slug}` | Public | The space a shared link points at, with the same response and `invite` handling as `GET /spaces/{id}`. `{slug}` matches `[a-z0-9-]+`. |
@@ -53,7 +53,7 @@ The gating is authored from the Monetization admin (either the Paywall tab's spa
 | POST | `/spaces/{id}/approve-request` | Auth (owner/mod) | Legacy approve route (kept for backwards compatibility). |
 | PUT | `/spaces/{id}/members/{user_id}/role` | Auth (owner/mod) | Change a member's role within the space. |
 | DELETE | `/spaces/{id}/members/{user_id}` | Auth (owner/mod) | Remove a member from the space. |
-| POST | `/spaces/{id}/invite` | Auth (owner/mod) | Invite a user to the space. |
+| POST | `/spaces/{id}/invite` | Auth (owner/mod) | Invite a user to the space. An email address answers `200 {"email_invited": true}` when an invitation goes out, with or without an account behind it. When nothing was sent, an inviter below site level always gets `409 invite_not_sent`, which says nothing about accounts or other spaces, and email invites are limited to 30 email invites an hour (`429 invite_rate_limited`). An @handle or `user_id` answers `200 {"invited": true}` only when a membership row was written. A site administrator or community moderator sees the reason: `409` `already_member` / `already_invited` / `invited_elsewhere` / `existing_member`, `200 {"attached": true}` when an administrator's invite points a pending site invitation at this space, or `502 invite_not_delivered`. |
 | POST | `/spaces/{id}/transfer-ownership` | Auth (owner) | Transfer ownership to another member. |
 | POST | `/spaces/{id}/transfer` | Auth (owner) | Alias of transfer-ownership (used by the space-home action row). |
 

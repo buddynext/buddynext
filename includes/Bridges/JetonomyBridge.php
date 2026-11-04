@@ -184,6 +184,9 @@ class JetonomyBridge {
 		// alone would let the leak back in the first time an owner locks a
 		// space down.
 		add_action( 'buddynext_space_updated', array( $this, 'sync_discussion_visibility' ), 10, 3 );
+		// The space's "who can post" holds in its forum too.
+		add_action( 'buddynext_space_fields_saved', array( $this, 'sync_discussion_posting' ), 10, 2 );
+		add_action( 'admin_init', array( $this, 'backfill_discussion_posting' ) );
 		// One-time copy of an existing forum's members into the space it was linked to.
 		add_action( self::COPY_MEMBERS_HOOK, array( $this, 'copy_forum_members' ), 10, 3 );
 
@@ -221,6 +224,7 @@ class JetonomyBridge {
 		// spaces directory and exits — otherwise the Discussions tab URL
 		// (/spaces/?bn_provision_forum=N) shows the directory instead.
 		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ), 5 );
+		add_action( 'buddynext_part_space_hero_after', array( $this, 'render_provision_failure_notice' ) );
 
 		// BuddyNext owns the member profile: Jetonomy's own profile pages hand over
 		// to it, as its generated links already do (filter_jetonomy_profile_url).
@@ -280,6 +284,48 @@ class JetonomyBridge {
 		add_filter( 'jetonomy_resolve_mention_handles', array( $this, 'filter_jetonomy_resolve_mention_handles' ), 10, 2 );
 		add_filter( 'jetonomy_user_display_name', array( $this, 'filter_jetonomy_user_display_name' ), 10, 2 );
 		add_filter( 'jetonomy_profile_action_url', array( $this, 'filter_jetonomy_profile_action_url' ), 10, 3 );
+
+		// One moderation, not two: a member suspended in BuddyNext is read-only in
+		// the forum (they keep reading, as in BuddyNext, but cannot post, reply or
+		// vote), and someone a member blocked in BuddyNext is blocked there too.
+		// Jetonomy 2.0.7 reads both filters on every permission and block check
+		// (REST included); an older Jetonomy never calls them.
+		add_filter( 'jetonomy_user_is_silenced', array( $this, 'filter_jetonomy_user_is_silenced' ), 10, 2 );
+		add_filter( 'jetonomy_blocked_user_ids', array( $this, 'filter_jetonomy_blocked_user_ids' ), 10, 2 );
+	}
+
+	/**
+	 * A BuddyNext suspension makes the member read-only in the forum (owner
+	 * decision 2026-10-29): a ban would also stop them reading, which a
+	 * BuddyNext suspension does not.
+	 *
+	 * @param bool $silenced Jetonomy's own answer.
+	 * @param int  $user_id  Member being checked.
+	 * @return bool
+	 */
+	public function filter_jetonomy_user_is_silenced( $silenced, $user_id ): bool {
+		if ( (bool) $silenced || (int) $user_id <= 0 ) {
+			return (bool) $silenced;
+		}
+		return (bool) buddynext_service( 'moderation' )->is_suspended( (int) $user_id );
+	}
+
+	/**
+	 * Members the viewer blocked in BuddyNext are blocked in the forum too.
+	 *
+	 * One-way, like a BuddyNext block: only the people the viewer blocked. Mute
+	 * and restrict are not mapped (owner decision pending).
+	 *
+	 * @param int[] $ids       Jetonomy's blocked ids for the viewer.
+	 * @param int   $viewer_id Viewer.
+	 * @return int[]
+	 */
+	public function filter_jetonomy_blocked_user_ids( $ids, $viewer_id ): array {
+		$ids = array_map( 'intval', (array) $ids );
+		if ( (int) $viewer_id <= 0 ) {
+			return $ids;
+		}
+		return array_values( array_unique( array_merge( $ids, buddynext_service( 'blocks' )->blocked_users( (int) $viewer_id ) ) ) );
 	}
 
 	/**
@@ -1011,7 +1057,11 @@ class JetonomyBridge {
 			$base      = home_url( '/' . ltrim( $base_slug, '/' ) ); // bn-route-ok: built from Jetonomy's configured base slug.
 		}
 
-		return rtrim( $base, '/' ) . '/s/' . rawurlencode( $space_slug ) . '/t/' . rawurlencode( $post_slug ) . '/';
+		// Slugs are used as stored, the way Jetonomy's own templates build this link:
+		// sanitize_title() already keeps them URL-safe and stores non-ASCII as
+		// percent-encoded octets, so encoding again turned %f0 into %25f0 and an
+		// emoji or accented title opened "Topic not found".
+		return rtrim( $base, '/' ) . '/s/' . $space_slug . '/t/' . $post_slug . '/';
 	}
 
 	/**
@@ -1089,7 +1139,8 @@ class JetonomyBridge {
 		$settings  = get_option( 'jetonomy_settings', array() );
 		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
 
-		return home_url( '/' . $base_slug . '/s/' . rawurlencode( $jt_slug ) . '/' ); // bn-route-ok: built from Jetonomy's configured base slug.
+		// Used as stored, like discussion_permalink(): the slug is already URL-safe.
+		return home_url( '/' . $base_slug . '/s/' . $jt_slug . '/' ); // bn-route-ok: built from Jetonomy's configured base slug.
 	}
 
 	/**
@@ -1121,6 +1172,13 @@ class JetonomyBridge {
 		}
 		return '1' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
 	}
+
+	/**
+	 * Query arg a failed provision link returns with.
+	 *
+	 * @var string
+	 */
+	private const PROVISION_ERROR_ARG = 'bn_provision_error';
 
 	/**
 	 * Background job: copy a linked forum's members into its space.
@@ -1231,7 +1289,8 @@ class JetonomyBridge {
 				continue;
 			}
 
-			$members->join( $space_id, $user_id ); // A refusal (banned from the space, gated) leaves them out.
+			// A copy of the forum's roster. A refusal (banned from the space, gated) leaves them out.
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $members->join( $space_id, $user_id ) );
 		}
 
 		remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
@@ -1445,15 +1504,20 @@ class JetonomyBridge {
 		$role    = in_array( $bn_role, array( 'owner', 'admin' ), true ) ? 'admin' : ( 'moderator' === $bn_role ? 'moderator' : 'member' );
 		$granted = in_array( (string) $forum_id, (array) get_user_meta( $user_id, self::GRANTED_META, false ), true );
 
-		if ( \Jetonomy\Models\SpaceMember::is_member( $forum_id, $user_id ) ) {
-			if ( $granted ) {
-				\Jetonomy\Models\SpaceMember::set_role( $forum_id, $user_id, $role );
-			} else {
-				\Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ); // Raise only.
+		// A copy of the space's roster, not a second join: nothing rewards it again.
+		\BuddyNext\Feed\IntegrationActivity::as_mirror(
+			static function () use ( $forum_id, $user_id, $role, $granted ): void {
+				if ( \Jetonomy\Models\SpaceMember::is_member( $forum_id, $user_id ) ) {
+					if ( $granted ) {
+						\Jetonomy\Models\SpaceMember::set_role( $forum_id, $user_id, $role );
+					} else {
+						\Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ); // Raise only.
+					}
+				} elseif ( true === \Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ) ) {
+					add_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
+				}
 			}
-		} elseif ( true === \Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ) ) {
-			add_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
-		}
+		);
 		$this->invalidate_member_caches( $user_id );
 	}
 
@@ -1813,6 +1877,80 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Carry a saved "who can post" to the space's linked forum.
+	 *
+	 * Forum roles only say owner, moderator or member, so this is the forum's own
+	 * who_can_post setting rather than a demoted role: replying and voting are not
+	 * what the space restricted. A plan rule added through
+	 * buddynext_space_can_post is not carried.
+	 *
+	 * @param int   $space_id BuddyNext space ID.
+	 * @param array $saved    Saved field key => value.
+	 * @return void
+	 */
+	public function sync_discussion_posting( $space_id, $saved = array() ): void {
+		if ( array_key_exists( 'who_can_post', (array) $saved ) ) {
+			$this->apply_discussion_posting( (int) $space_id, true );
+		}
+	}
+
+	/**
+	 * Write the space's posting rule to its forum, when it differs.
+	 *
+	 * @param int  $space_id  BuddyNext space ID.
+	 * @param bool $may_clear Whether "members" may clear a stricter forum rule. False
+	 *                        when linking: an adopted forum keeps its owner's rule
+	 *                        until the space's setting is actually saved.
+	 * @return void
+	 */
+	private function apply_discussion_posting( int $space_id, bool $may_clear ): void {
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return;
+		}
+
+		$map  = array(
+			'mods'  => 'moderators',
+			'owner' => 'admins',
+		);
+		$want = $map[ (string) buddynext_get_space_field( $space_id, 'who_can_post' ) ] ?? '';
+		$have = (string) ( \Jetonomy\Models\Space::get_settings( $forum_id )['who_can_post'] ?? '' );
+		if ( $want === $have || ( '' === $want && ! $may_clear ) ) {
+			return;
+		}
+
+		\Jetonomy\Models\Space::update(
+			$forum_id,
+			array( 'settings' => wp_json_encode( \Jetonomy\Models\Space::merge_settings( $forum_id, array( 'who_can_post' => $want ) ) ) )
+		);
+	}
+
+	/**
+	 * Once: spaces restricted before the rule was carried still had open forums.
+	 *
+	 * Bounded by the sites own restricted spaces, which is a short list.
+	 *
+	 * @return void
+	 */
+	public function backfill_discussion_posting(): void {
+		if ( get_option( 'buddynext_discussion_posting_synced' ) ) {
+			return;
+		}
+		update_option( 'buddynext_discussion_posting_synced', 1, false );
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_ids = (array) $wpdb->get_col(
+			"SELECT rule.bn_space_id FROM {$wpdb->prefix}bn_space_meta rule
+			 INNER JOIN {$wpdb->prefix}bn_space_meta forum ON forum.bn_space_id = rule.bn_space_id AND forum.meta_key = 'jetonomy_forum_id'
+			 WHERE rule.meta_key = 'who_can_post' AND rule.meta_value IN ( 'mods', 'owner' )"
+		);
+		foreach ( $space_ids as $space_id ) {
+			$this->apply_discussion_posting( (int) $space_id, false );
+		}
+	}
+
+	/**
 	 * Provision (once) the ONE dedicated Jetonomy discussion a BuddyNext space
 	 * owns for its lifetime, and store the permanent link.
 	 *
@@ -1871,6 +2009,7 @@ class JetonomyBridge {
 		if ( $adopted > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $adopted );
 			$this->set_discussion_enabled( $space_id, true );
+			$this->apply_discussion_posting( $space_id, false );
 
 			return $adopted;
 		}
@@ -1892,6 +2031,7 @@ class JetonomyBridge {
 
 		if ( $forum_id > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+			$this->apply_discussion_posting( $space_id, false );
 
 			// Provisioning a forum IS the intent to use it: the Discussions tab
 			// only renders when BOTH a linked forum exists AND the
@@ -2044,26 +2184,75 @@ class JetonomyBridge {
 		// must carry the per-space nonce the Discussions tab link embeds. Capability
 		// alone does not stop CSRF — a moderator could be tricked into loading a
 		// forged URL. Verify the nonce before anything else.
-		$bn_nonce = isset( $_GET['_bnpf'] ) ? sanitize_text_field( wp_unslash( $_GET['_bnpf'] ) ) : '';
-		if ( ! wp_verify_nonce( $bn_nonce, 'bn_provision_forum_' . $space_id ) ) {
-			return;
-		}
-
+		//
 		// Provisioning is also gated to the space's owner/moderator (or a site
 		// admin) — not any logged-in user, who could otherwise provision a forum on
-		// any space by id.
+		// any space by id. Someone who could not use the link anyway hears that, not
+		// that it expired.
+		$bn_nonce = isset( $_GET['_bnpf'] ) ? sanitize_text_field( wp_unslash( $_GET['_bnpf'] ) ) : '';
 		if ( ! $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
-			return;
+			$this->redirect_provision_failure( 'forbidden' );
+		}
+		if ( ! wp_verify_nonce( $bn_nonce, 'bn_provision_forum_' . $space_id ) ) {
+			$this->redirect_provision_failure( 'expired' );
 		}
 
 		$this->provision_space_forum( $space_id );
 		$url = $this->space_forum_url( $space_id );
-		if ( '' !== $url ) {
-			// Land on the new-topic composer so the member who clicked "Start the
-			// first discussion" can write it immediately, not on the empty forum.
-			wp_safe_redirect( trailingslashit( $url ) . 'new/' );
-			exit;
+		if ( '' === $url ) {
+			$this->redirect_provision_failure( 'failed' );
 		}
+
+		// Land on the new-topic composer so the member who clicked "Start the
+		// first discussion" can write it immediately, not on the empty forum.
+		wp_safe_redirect( trailingslashit( $url ) . 'new/' );
+		exit;
+	}
+
+	/**
+	 * Send a failed provision link back to the page it was on, saying why.
+	 *
+	 * Stays on the requested URL instead of building the space's own: a stranger
+	 * holding a crafted id must not be redirected to a hidden space's slug.
+	 *
+	 * @param string $reason expired|forbidden|failed.
+	 * @return never
+	 */
+	private function redirect_provision_failure( string $reason ): never {
+		$here = remove_query_arg( array( 'bn_provision_forum', '_bnpf' ), (string) wp_unslash( $_SERVER['REQUEST_URI'] ?? '/' ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- passed to wp_safe_redirect(), which validates it.
+		wp_safe_redirect( add_query_arg( self::PROVISION_ERROR_ARG, $reason, $here ) );
+		exit;
+	}
+
+	/**
+	 * Show why a provision link failed, under the hero on whichever tab it landed,
+	 * with a fresh link when trying again can work.
+	 *
+	 * @param array $args Hero arguments (space_id).
+	 * @return void
+	 */
+	public function render_provision_failure_notice( $args ): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only, matched against a fixed list.
+		$reason   = isset( $_GET[ self::PROVISION_ERROR_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ self::PROVISION_ERROR_ARG ] ) ) : '';
+		$messages = array(
+			'expired'   => __( 'That link has expired, so no discussion was created.', 'buddynext' ),
+			'failed'    => __( 'The discussion could not be created.', 'buddynext' ),
+			'forbidden' => __( 'Only the space owner or a moderator can start its discussions.', 'buddynext' ),
+		);
+		if ( ! isset( $messages[ $reason ] ) ) {
+			return;
+		}
+
+		$space_id = (int) ( $args['space_id'] ?? 0 );
+		$retry    = $this->can_provision_forum( $space_id, get_current_user_id() ) && 'forbidden' !== $reason;
+		?>
+		<div class="bn-notice bn-notice--error" role="alert">
+			<?php echo esc_html( $messages[ $reason ] ); ?>
+			<?php if ( $retry ) : ?>
+				<a class="bn-notice__cta" href="<?php echo esc_url( $this->provision_forum_url( $space_id ) ); ?>"><?php esc_html_e( 'Try again', 'buddynext' ); ?></a>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/**
@@ -2777,15 +2966,16 @@ class JetonomyBridge {
 		// the content-seam render, same as every other profile tab.
 		$registry->register(
 			array(
-				'id'        => 'discussions',
-				'surface'   => 'profile',
-				'layer'     => 'primary',
-				'label'     => __( 'Discussions', 'buddynext' ),
-				'priority'  => 60,
-				'condition' => $jetonomy_active,
-				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'discussions/',
-				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->discussion_count( $c->subject_id ),
-				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+				'id'          => 'discussions',
+				'surface'     => 'profile',
+				'integration' => 'jetonomy',
+				'layer'       => 'primary',
+				'label'       => __( 'Discussions', 'buddynext' ),
+				'priority'    => 60,
+				'condition'   => $jetonomy_active,
+				'url'         => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'discussions/',
+				'count'       => fn( \BuddyNext\Nav\NavContext $c ): int => $this->discussion_count( $c->subject_id ),
+				'render'      => function ( \BuddyNext\Nav\NavContext $c ): void {
 					$this->render_profile_discussions_panel( $c->subject_id );
 				},
 			)
@@ -2801,20 +2991,21 @@ class JetonomyBridge {
 		// provision trigger. Count badges the linked forum's published thread total.
 		$registry->register(
 			array(
-				'id'        => 'discussions',
-				'surface'   => 'space',
-				'layer'     => 'primary',
-				'label'     => __( 'Discussions', 'buddynext' ),
-				'priority'  => 35,
+				'id'          => 'discussions',
+				'surface'     => 'space',
+				'integration' => 'jetonomy',
+				'layer'       => 'primary',
+				'label'       => __( 'Discussions', 'buddynext' ),
+				'priority'    => 35,
 				// Per-space: only when THIS space's owner has enabled its dedicated
 				// discussion. A space with none (or with it toggled off) shows no tab.
-				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => $jetonomy_active()
+				'condition'   => fn( \BuddyNext\Nav\NavContext $c ): bool => $jetonomy_active()
 					&& $this->space_discussion_enabled( $c->subject_id ),
-				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
+				'url'         => function ( \BuddyNext\Nav\NavContext $c ): string {
 					return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'discussions/';
 				},
-				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->space_discussion_count( $c->subject_id ),
-				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+				'count'       => fn( \BuddyNext\Nav\NavContext $c ): int => $this->space_discussion_count( $c->subject_id ),
+				'render'      => function ( \BuddyNext\Nav\NavContext $c ): void {
 					$this->render_space_discussions_panel( $c->subject_id, $c->viewer_id );
 				},
 			)
@@ -2840,7 +3031,7 @@ class JetonomyBridge {
 				// the partner code at that tag on 2026-10-19 (all present; hook argument
 				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
-				'tested_version'   => '2.0.5',
+				'tested_version'   => '2.0.6', // Verified 2026-11-04 on the 1.2.8 release site against this partner release (functional suite and bridge checks).
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
 				// On 2.0.0 the forum still notifies in its own list and the bell
@@ -2997,13 +3188,9 @@ class JetonomyBridge {
 			return;
 		}
 
-		// Posting permission mirrors the feed composer gate: an active member, on a
-		// non-archived space, whose role meets the space's "who can post" threshold.
-		$status    = $viewer_id > 0 ? (string) ( new \BuddyNext\Spaces\SpaceMemberService() )->get_status( $space_id, $viewer_id ) : '';
-		$is_member = 'active' === $status;
-		$can_post  = $is_member
-			&& empty( $space->is_archived )
-			&& \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $viewer_id );
+		// Same gate as the feed composer: an active member whose role meets the space's
+		// "who can post", or a site admin, on a non-archived space.
+		$can_post = empty( $space->is_archived ) && \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $viewer_id );
 
 		$forum_ctx = $this->space_forum_context( $space_id );
 
@@ -3015,13 +3202,88 @@ class JetonomyBridge {
 				'forum_url'     => (string) $forum_ctx['forum_url'],
 				'forum_linked'  => (bool) $forum_ctx['linked'],
 				'provision_url' => (string) $forum_ctx['provision_url'],
-				'can_post'      => $can_post,
+				'empty_state'   => $this->discussion_empty_state( $space, $viewer_id, $can_post, (string) $forum_ctx['forum_url'] ),
 				// Provisioning (creating the forum) is gated to the space owner /
 				// moderator, unlike posting. The empty-state "Start the first
 				// discussion" CTA must follow provisioning, not posting: a member who
 				// could post but not provision otherwise saw a CTA that failed the
 				// permission check and fell through to All Spaces.
 				'can_provision' => $this->can_provision_forum( $space_id, $viewer_id ),
+			)
+		);
+	}
+
+	/**
+	 * Empty-state arguments for a linked forum with no threads, by what this viewer
+	 * can actually do next: post, log in, join, or nothing yet.
+	 *
+	 * @param object $space     Space row.
+	 * @param int    $viewer_id Viewer (0 = logged out).
+	 * @param bool   $can_post  Whether the viewer may start a discussion.
+	 * @param string $forum_url Linked forum URL.
+	 * @return array<string,mixed> Arguments for parts/empty-state.php.
+	 */
+	private function discussion_empty_state( object $space, int $viewer_id, bool $can_post, string $forum_url ): array {
+		$state = array(
+			'icon'  => 'messages-square',
+			'title' => __( 'No discussions yet', 'buddynext' ),
+			'body'  => __( 'Discussions will appear here once they start.', 'buddynext' ),
+		);
+
+		if ( $can_post && '' !== $forum_url ) {
+			// Straight to the new-topic composer, not the forum landing.
+			return array_merge(
+				$state,
+				array(
+					'body'      => __( 'Be the first to start a conversation in this space.', 'buddynext' ),
+					'cta_url'   => trailingslashit( $forum_url ) . 'new/',
+					'cta_label' => __( 'Start a discussion', 'buddynext' ),
+					'cta_icon'  => 'plus',
+				)
+			);
+		}
+
+		$space_id = (int) $space->id;
+		$members  = new \BuddyNext\Spaces\SpaceMemberService();
+
+		$status = $members->get_status( $space_id, $viewer_id );
+		if ( 'pending' === $status ) {
+			$state['body'] = __( 'You can start a discussion once your join request is approved.', 'buddynext' );
+			return $state;
+		}
+
+		// A member the space restricts, an invitee, or a space that refuses this
+		// viewer (archived, plan gate): joining is not their next step.
+		if ( null !== $status || ! $members->can_join( $space, $viewer_id ) ) {
+			return $state;
+		}
+
+		$method = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $space->type );
+		if ( 'invite' === $method ) {
+			return $state;
+		}
+
+		if ( $viewer_id <= 0 ) {
+			return array_merge(
+				$state,
+				array(
+					'body'      => __( 'Log in to start a discussion in this space.', 'buddynext' ),
+					'cta_url'   => \BuddyNext\Core\PageRouter::login_url( trailingslashit( \BuddyNext\Core\PageRouter::space_url( $space_id ) ) . 'discussions/' ),
+					'cta_label' => __( 'Log in', 'buddynext' ),
+				)
+			);
+		}
+
+		$direct = 'direct' === $method;
+		return array_merge(
+			$state,
+			array(
+				'body'       => $direct
+					? __( 'Join this space to start a discussion.', 'buddynext' )
+					: __( 'Request to join this space to start a discussion.', 'buddynext' ),
+				'cta_action' => $direct ? 'actions.joinSpace' : 'actions.requestJoin',
+				'cta_label'  => $direct ? __( 'Join to start a discussion', 'buddynext' ) : __( 'Request to join', 'buddynext' ),
+				'cta_dialog' => false,
 			)
 		);
 	}

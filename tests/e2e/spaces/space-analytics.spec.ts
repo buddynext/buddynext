@@ -29,13 +29,17 @@ test.describe('spaces / space analytics (J-820)', () => {
 		await page.goto('/wp-admin/admin.php?page=buddynext-engagement&tab=insights', {
 			waitUntil: 'domcontentloaded',
 		});
-		const box = page.locator('.bn-analytics-owner-toggle input[type="checkbox"]');
+		// The standard settings toggle row: the checkbox is visually hidden behind
+		// the switch, so the switch (its label) is what a person clicks.
+		const box = page.locator('#bn-toggle-buddynextpro_space_owner_stats');
 		if ((await box.count()) === 0) {
 			return false;
 		}
 		if ((await box.isChecked()) !== on) {
-			await box.setChecked(on);
-			await page.locator('.bn-analytics-owner-toggle button[type="submit"]').click();
+			await page.locator('label.bn-toggle:has(#bn-toggle-buddynextpro_space_owner_stats)').click();
+			await page
+				.locator('form:has(input[name="action"][value="bnpro_save_space_owner_stats"]) .bn-save-bar button[type="submit"]')
+				.click();
 			await page.waitForLoadState('domcontentloaded');
 		}
 		return true;

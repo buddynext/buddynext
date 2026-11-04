@@ -151,6 +151,15 @@ class WPMediaVerseBridge {
 		// it so an avatar plugin (Jetonomy) costs one query, not one per row.
 		add_action( 'mvs_users_primed', array( \BuddyNext\Profile\AvatarService::class, 'prime' ), 10, 1 );
 
+		// An @handle typed in a MediaVerse mention or document share is a
+		// community handle (custom profile slug included); answer with ours.
+		add_filter(
+			'mvs_resolve_user',
+			static fn( $user, $typed ) => $user instanceof \WP_User ? $user : \BuddyNext\Profile\Handle::user_for_identifier( (string) $typed ),
+			10,
+			2
+		);
+
 		// Space albums decide media privacy themselves — opt out of the engine's
 		// album-privacy inheritance for them.
 		add_filter( 'mvs_album_inherit_privacy', array( $this, 'skip_inherit_for_space_albums' ), 10, 2 );
@@ -228,7 +237,7 @@ class WPMediaVerseBridge {
 		// A document shared from the composer renders as a link-out card. The
 		// post stores only the document id; this seam resolves the card PER VIEWER
 		// so a private document's title is never snapshotted into someone else's
-		// feed. Gated inside on the 'media' integration/feed toggle.
+		// feed.
 		add_filter( 'buddynext_render_post_body_document', array( $this, 'render_document_card' ), 10, 2 );
 
 		// One notification per action (owner decision 2026-09-27): for the types
@@ -348,6 +357,8 @@ class WPMediaVerseBridge {
 		// via the same WPMediaVerse path and then creates its OWN feed post — is
 		// never duplicated.
 		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
+		add_action( 'buddynext_feed_home_before', array( $this, 'render_stories_bar' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_stories_bar_module' ) );
 
 		// Keep an attached media file's engine privacy in step with the privacy of
 		// the post it is attached to — on create AND on edit. See
@@ -488,6 +499,55 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * The stories bar at the top of the home feed, above the composer.
+	 *
+	 * WPMediaVerse Pro's own `mvs/pro-stories` block (bar, viewer and "Your
+	 * story" tile) in a BuddyNext card. Nothing at all - no wrapper, no gap, no
+	 * assets - for a guest or while stories are unavailable.
+	 *
+	 * @return void
+	 */
+	public function render_stories_bar(): void {
+		// Its script module is queued in the head by enqueue_stories_bar_module().
+		if ( ! is_user_logged_in() || ! MediaClient::stories_available() ) {
+			return;
+		}
+		$bar = render_block(
+			array(
+				'blockName'    => 'mvs/pro-stories',
+				'attrs'        => array(),
+				'innerBlocks'  => array(),
+				'innerHTML'    => '',
+				'innerContent' => array(),
+			)
+		);
+		if ( '' === trim( $bar ) ) {
+			return;
+		}
+		echo '<section class="bn-feed-stories" aria-label="' . esc_attr__( 'Stories', 'buddynext' ) . '">' . $bar . '</section>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the block's own render output.
+	}
+
+	/**
+	 * Queue the stories block's script module in the head on the feed hub.
+	 *
+	 * The bar renders mid-page, so the block queued its module after the import
+	 * map had printed in the head without the module's dependencies. The browser
+	 * could not resolve @wpmediaverse/sync-events and the bar's script never ran:
+	 * a blank "Add to your story" label and no way to add a story from the bar.
+	 *
+	 * @return void
+	 */
+	public function enqueue_stories_bar_module(): void {
+		if ( 'feed' !== (string) get_query_var( 'bn_hub', '' ) || ! is_user_logged_in() || ! MediaClient::stories_available() ) {
+			return;
+		}
+		$block = \WP_Block_Type_Registry::get_instance()->get_registered( 'mvs/pro-stories' );
+		foreach ( (array) ( $block->view_script_module_ids ?? array() ) as $module_id ) {
+			wp_enqueue_script_module( (string) $module_id );
+		}
+	}
+
+	/**
 	 * Publish the deferred feed entry for an upload, unless it was already
 	 * surfaced by a BuddyNext post (composer photo/media post or a prior run).
 	 *
@@ -503,6 +563,14 @@ class WPMediaVerseBridge {
 		$media_id = (int) $media_id;
 		$user_id  = (int) $user_id;
 		if ( $media_id <= 0 || $user_id <= 0 || ! buddynext_integration_enabled( 'media', 'feed' ) ) {
+			return;
+		}
+
+		// A story is a 24-hour post of its own, not a feed post: the stories bar's
+		// "Your story" upload goes through mvs/v1/media like any upload, and is
+		// marked a story right after.
+		$repo = MediaClient::repo();
+		if ( is_object( $repo ) && method_exists( $repo, 'get' ) && '1' === (string) $repo->get( $media_id, 'is_story' ) ) {
 			return;
 		}
 
@@ -1879,7 +1947,7 @@ class WPMediaVerseBridge {
 				// contract is docs/architecture/core-contract.md in MediaVerse.
 				'min_version'    => '2.6.2',
 				// Tested against the 2.6.2 branch on 2026-10-11.
-				'tested_version' => '2.6.2',
+				'tested_version' => '2.6.3', // Verified 2026-11-04 on the 1.2.8 release site against this partner release (functional suite and bridge checks).
 				'has_nav'        => true,
 				'nav_label'      => __( 'Media', 'buddynext' ),
 				'has_feed'       => true,
@@ -2618,15 +2686,12 @@ class WPMediaVerseBridge {
 	 * @return array{enabled:bool,accept:string,max_size:int,types:string[]}
 	 */
 	public static function document_composer_config(): array {
-		$off = array(
+		$off  = array(
 			'enabled'  => false,
 			'accept'   => '',
 			'max_size' => 0,
 			'types'    => array(),
 		);
-		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
-			return $off;
-		}
 		$docs = self::documents_config();
 		if ( empty( $docs['enabled'] ) ) {
 			return $off;
@@ -3224,17 +3289,15 @@ class WPMediaVerseBridge {
 	 * document id, asks MVS whether THIS viewer may see it, and renders the
 	 * shared bridge card (icon + "Document" + the real title + a download link)
 	 * when they may — or a neutral, title-less "unavailable" line when they may
-	 * not, so a private document never leaks its name into a feed. Falls back to
-	 * the plain-text body when the integration's feed aspect is off.
+	 * not, so a private document never leaks its name into a feed. A member wrote
+	 * this post themselves, so the Media "Post to the activity feed" switch, which
+	 * only stops automatic upload cards, does not touch it.
 	 *
 	 * @param string              $html Incoming card HTML (default '').
 	 * @param array<string,mixed> $args Post-body args (link_meta, post_content, bn_post_type).
 	 * @return string
 	 */
 	public function render_document_card( string $html, array $args ): string {
-		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
-			return $html;
-		}
 		$meta   = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
 		$doc_id = isset( $meta['doc_id'] ) ? (int) $meta['doc_id'] : 0;
 		if ( $doc_id <= 0 ) {
@@ -3593,7 +3656,7 @@ class WPMediaVerseBridge {
 		// a null container/key must skip the counter, not fatal the sync.
 		$post_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : null;
 		if ( $post_service ) {
-			$post_service->increment_counter( $bn_post_id, 'comment_count' );
+			$post_service->increment_counter( $bn_post_id, 'comment_count', $written );
 		}
 
 		// Fire BuddyNext hook so notifications/webhooks pick it up. Use the

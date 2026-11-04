@@ -9,7 +9,7 @@
  * signup store: same rest() helper, inline field errors, generic messaging.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -95,7 +95,13 @@ const resetStore = store( 'buddynext/auth-reset', {
 				} );
 				const data = r.data;
 				c.submitting = false;
-				// Always a generic success (no account enumeration).
+				// A refusal (the rate limit) is not "the link is on its way": nothing was
+				// sent, so keep the form up. Every accepted request still gets the same
+				// generic success, so this reveals nothing about which accounts exist.
+				if ( ! r.ok ) {
+					c.error = restError( r, t( 'somethingWentWrong', 'Something went wrong. Try again.' ) );
+					return;
+				}
 				c.done = true;
 				c.notice = ( data && data.message ) || t( 'resetLinkSent', 'If an account matches, a reset link is on its way.' );
 			} catch ( _e ) {

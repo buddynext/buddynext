@@ -354,7 +354,7 @@
 
 		list.querySelectorAll( '.bn-companion-install' ).forEach( function ( btn ) {
 			btn.addEventListener( 'click', function () {
-				var row  = btn.closest( '.bn-addon-row' );
+				var row  = btn.closest( '.bn-companion-card' );
 				var msg  = row ? row.querySelector( '.bn-companion-msg' ) : null;
 				var orig = btn.textContent;
 				btn.disabled    = true;

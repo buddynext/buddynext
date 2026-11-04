@@ -59,6 +59,17 @@ use WP_Error;
 class FieldType {
 
 	/**
+	 * Character limits for the built-in plain-text fields. The one source for the
+	 * form's maxlength and the server's refusal.
+	 */
+	public const TEXT_CAPS = array(
+		'bio'      => 1000,
+		'headline' => 160,
+		'location' => 120,
+		'pronouns' => 40,
+	);
+
+	/**
 	 * Built-in type registry.
 	 *
 	 * Keyed by type slug; each entry is:
@@ -885,6 +896,43 @@ class FieldType {
 	}
 
 	/**
+	 * Widths an owner can give a field on the edit and sign-up forms.
+	 *
+	 * 'auto' keeps the by-type layout below, so a site that never sets a width
+	 * renders exactly as before. GitHub #217.
+	 */
+	public const WIDTHS = array( 'auto', 'half', 'full' );
+
+	/**
+	 * A stored width, or 'auto' for anything unknown.
+	 *
+	 * @param mixed $width Raw value from a form, REST or the table.
+	 * @return string One of self::WIDTHS.
+	 */
+	public static function sanitize_width( $width ): string {
+		$width = sanitize_key( (string) $width );
+		return in_array( $width, self::WIDTHS, true ) ? $width : 'auto';
+	}
+
+	/**
+	 * Whether a field takes a full row of the two-column form grid.
+	 *
+	 * The owner's width wins; 'auto' falls back to the control's natural size
+	 * (a paragraph or a group of choices needs the whole row). One rule for the
+	 * Edit Profile form and the sign-up form, so a width means the same on both.
+	 *
+	 * @param array<string,mixed> $field Field definition (type, width).
+	 * @return bool
+	 */
+	public static function is_full_width( array $field ): bool {
+		$width = self::sanitize_width( $field['width'] ?? 'auto' );
+		if ( 'auto' !== $width ) {
+			return 'full' === $width;
+		}
+		return in_array( (string) ( $field['type'] ?? 'text' ), array( 'textarea', 'multiselect', 'radio' ), true );
+	}
+
+	/**
 	 * Whether a type renders ONE labelable control that a `<label for>` may target.
 	 *
 	 * False for the group types: radio, member_type and the multiselect family
@@ -1111,12 +1159,13 @@ class FieldType {
 				// .bn-textarea is the multi-line control (auto height, min 80px,
 				// vertical resize). With .bn-input the field rendered one line tall.
 				return sprintf(
-					'<textarea class="bn-textarea bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s>%3$s</textarea>',
+					'<textarea class="bn-textarea bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s%6$s>%3$s</textarea>',
 					esc_attr( $id ),
 					esc_attr( $name ),
 					esc_textarea( (string) $value ),
 					$required,
-					$placeholder_attr
+					$placeholder_attr,
+					self::maxlength_attr( $field )
 				);
 
 			case 'select':
@@ -1225,15 +1274,45 @@ class FieldType {
 		}
 
 		return sprintf(
-			'<input type="%1$s" class="bn-input bn-field-%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s%7$s />',
+			'<input type="%1$s" class="bn-input bn-field-%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s%7$s%8$s />',
 			esc_attr( $html_type ),
 			esc_attr( $id ),
 			esc_attr( $name ),
 			esc_attr( $value ),
 			'' !== $placeholder ? ' placeholder="' . esc_attr( $placeholder ) . '"' : '',
 			$bounds,
-			$required
+			$required,
+			self::maxlength_attr( $field )
 		);
+	}
+
+	/**
+	 * The most characters a built-in plain-text field holds; 0 when it has no cap.
+	 *
+	 * A built-in key re-typed to a structured type (Location -> Map) stores a
+	 * payload this limit does not describe, so the cap only applies to text and
+	 * textarea.
+	 *
+	 * @param array $field Field definition.
+	 * @return int
+	 */
+	public static function text_cap( array $field ): int {
+		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+		if ( ! in_array( $type, array( 'text', 'textarea' ), true ) ) {
+			return 0;
+		}
+		return self::TEXT_CAPS[ (string) ( $field['field_key'] ?? '' ) ] ?? 0;
+	}
+
+	/**
+	 * The ` maxlength` attribute for a field, or '' when it has no cap.
+	 *
+	 * @param array $field Field definition.
+	 * @return string
+	 */
+	private static function maxlength_attr( array $field ): string {
+		$cap = self::text_cap( $field );
+		return $cap > 0 ? sprintf( ' maxlength="%d"', $cap ) : '';
 	}
 
 	/**
@@ -1335,13 +1414,18 @@ class FieldType {
 		// A type the community assigned (not self-selectable) is a read-only badge with
 		// nothing resubmitted. Same rule as MemberTypeService::may_change_own_type(): a
 		// member whose type is self-selectable gets the choices below, current one ticked.
-		if ( '' !== $current && ! isset( self::member_type_self_select_options()[ $current ] ) ) {
+		$bn_mt_svc  = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+		$bn_mt_type = ( '' !== $current && is_object( $bn_mt_svc ) && method_exists( $bn_mt_svc, 'get_by_slug' ) ) ? $bn_mt_svc->get_by_slug( $current ) : null;
+		$bn_mt_mode = is_array( $bn_mt_type ) ? (int) ( $bn_mt_type['self_select'] ?? 0 ) : 0;
+		if ( '' !== $current && 1 !== $bn_mt_mode ) {
 			$all   = self::member_type_options();
 			$label = $all[ $current ] ?? $current;
 			return sprintf(
 				'<div class="bn-field-membertype is-set"><span class="bn-membertype-badge">%1$s</span> <span class="bn-field-hint">%2$s</span></div>',
 				esc_html( $label ),
-				esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
+				2 === $bn_mt_mode
+					? esc_html__( 'Chosen once: contact an admin to change it.', 'buddynext' )
+					: esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
 			);
 		}
 
@@ -1367,7 +1451,37 @@ class FieldType {
 		}
 		$html .= '</fieldset>';
 
-		return $html;
+		return $html . self::member_type_once_hint();
+	}
+
+	/**
+	 * The warning that some self-selectable types cannot be changed once picked.
+	 *
+	 * @return string Escaped HTML, empty when no type is pick-once.
+	 */
+	public static function member_type_once_hint(): string {
+		$service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+		if ( ! is_object( $service ) || ! method_exists( $service, 'get_all' ) ) {
+			return '';
+		}
+
+		$names = array();
+		foreach ( (array) $service->get_all() as $type ) {
+			if ( 2 === (int) ( $type['self_select'] ?? 0 ) ) {
+				$names[] = (string) ( $type['name'] ?? $type['slug'] ?? '' );
+			}
+		}
+		if ( array() === $names ) {
+			return '';
+		}
+
+		return '<p class="bn-field-hint">' . esc_html(
+			sprintf(
+				/* translators: %s: comma-separated member type names */
+				__( 'Choose carefully: %s can only be picked once. After that, only an admin can change it.', 'buddynext' ),
+				implode( ', ', $names )
+			)
+		) . '</p>';
 	}
 
 	/**

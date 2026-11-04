@@ -70,8 +70,7 @@ $bn_is_space_owner = buddynext_can( $bn_actor_id, 'buddynext-own-space', array( 
 // Services own every read/write below; the template holds no SQL. The settings
 // parts read `$space` as SpaceService::get_object() shapes it, with the category
 // name and slug resolved.
-$bn_space_service    = new \BuddyNext\Spaces\SpaceService();
-$bn_category_service = new \BuddyNext\Spaces\SpaceCategoryService();
+$bn_space_service = new \BuddyNext\Spaces\SpaceService();
 
 $space = $bn_space_service->get_object( $space_id );
 
@@ -79,16 +78,8 @@ if ( ! $space ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
-// Category options for the General panel's <select> — the part reads each row
-// as an object (`->id`, `->name`), so map the service arrays accordingly.
-$categories = array_map(
-	static fn( array $c ): object => (object) array(
-		'id'   => (int) ( $c['id'] ?? 0 ),
-		'name' => (string) ( $c['name'] ?? '' ),
-		'slug' => (string) ( $c['slug'] ?? '' ),
-	),
-	$bn_category_service->get_all()
-);
+// Category options for the General panel's <select>: the same list every picker uses.
+$categories = $bn_space_service->category_choices();
 
 // ── Active settings tab ───────────────────────────────────────────────────────
 // Read the raw value from the URL — validation against the (possibly
@@ -181,7 +172,10 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// saved this tab with the plugin deactivated (e.g. mid-update) — and the
 				// Media tab then stayed gone after reactivation, with nothing to explain
 				// why. Same guard the Discussion block below already uses.
-				if ( \BuddyNext\Media\MediaClient::available() ) {
+				// An integration switched off site-wide renders its switches disabled or
+				// not at all, so its fields are not saved either: the owner's choice is
+				// kept for when the site admin turns it back on.
+				if ( \BuddyNext\Media\MediaClient::available() && buddynext_integration_enabled( 'media', 'nav' ) ) {
 					$bn_integration_values['mvs_media_tab'] = isset( $_POST['mvs_media_tab'] ) ? '1' : '0';
 					// Album creation is open to members unless the owner restricts
 					// it. Stored as the value the permission code reads, not as a
@@ -193,7 +187,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// document drive is present. Guard the write the same way as the
 				// Media toggle above, so saving with Pro deactivated does not zero
 				// the owner's choice.
-				if ( \BuddyNext\Bridges\WPMediaVerseBridge::documents_available() ) {
+				if ( \BuddyNext\Bridges\WPMediaVerseBridge::documents_available() && buddynext_integration_enabled( 'media', 'nav' ) ) {
 					$bn_integration_values['mvs_documents_tab'] = isset( $_POST['mvs_documents_tab'] ) ? '1' : '0';
 				}
 
@@ -207,7 +201,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// the Eventonomy bridge (Pro) is active — so saving this tab with it
 				// absent does not zero the owner's choice, the same guard the toggles
 				// above use for their plugins.
-				if ( null !== $bn_field_registry->get_field( 'events_tab' ) ) {
+				if ( null !== $bn_field_registry->get_field( 'events_tab' ) && buddynext_integration_enabled( 'eventonomy', 'nav' ) ) {
 					$bn_integration_values['events_tab']     = isset( $_POST['events_tab'] ) ? '1' : '0';
 					$bn_integration_values['event_creators'] = isset( $_POST['event_creators_admins'] ) ? 'admins' : 'members';
 				}
@@ -216,7 +210,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// the Listora space-showcase bridge (Pro) is active — so saving this tab
 				// with it absent does not zero the owner's choice, the same guard the
 				// toggles above use for their plugins.
-				if ( null !== $bn_field_registry->get_field( 'listora_listings_tab' ) ) {
+				if ( null !== $bn_field_registry->get_field( 'listora_listings_tab' ) && buddynext_integration_enabled( 'listora', 'nav' ) ) {
 					$bn_integration_values['listora_listings_tab'] = isset( $_POST['listora_listings_tab'] ) ? '1' : '0';
 					$bn_integration_values['listing_creators']     = isset( $_POST['listing_creators_admins'] ) ? 'admins' : 'members';
 				}
@@ -242,7 +236,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// - first enable : create a new dedicated discussion, OR (initial
 				// setup only) link one the caller is allowed to.
 				// - later on/off : just flip the enabled flag; same discussion.
-				if ( class_exists( 'Jetonomy\\Jetonomy' ) && 'error' !== $save_notice ) {
+				if ( class_exists( 'Jetonomy\\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'nav' ) && 'error' !== $save_notice ) {
 					$bn_disc_result = ( new \BuddyNext\Bridges\JetonomyBridge() )->apply_discussion_choice(
 						$space_id,
 						isset( $_POST['bn_discussion_enabled'] ),
@@ -1093,6 +1087,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					data-variant="ghost"
 					data-size="md"
 					data-bn-savebar-cancel
+					data-wp-bind--hidden="state.savebarDirtyHidden"
 					data-wp-on--click="actions.savebarCancel"
 				><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 				<button

@@ -30,7 +30,7 @@ The app experience is active by default on the front end and needs no admin acti
 
 | What it covers | What it does | Default |
 |---|---|---|
-| App name and details | The name, description, and colours members see when they install and launch the app. | Your WordPress site title and tagline, a white background and a blue (#0073aa) theme colour |
+| App name and details | The name, description, and colours members see when they install and launch the app. | Your community name and tagline. The theme colour follows your brand colour, and the splash background follows your default colour scheme (dark for Dark, light otherwise) |
 | App icon | The home-screen icon members tap to open the community. | Your WordPress Site Icon, or a BuddyNext icon shipped with the plugin when none is set |
 | Launch window | How the app opens once installed. | Its own full-screen window, in portrait |
 | Offline shell | Whether the app opens to a cached home screen when there is no connection. | On |

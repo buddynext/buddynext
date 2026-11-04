@@ -1,9 +1,9 @@
 /**
- * BuddyNext post-card store and comment renderer.
+ * BuddyNext post-card store and comment controls.
  *
  * Split out of feed/store.js: registers buddynext/post-card - reactions, the
- * reaction-summary popover, comment threads (buildCommentNode, up to
- * COMMENT_MAX_DEPTH), bookmark, share trigger, delete, pin, report, and the
+ * reaction-summary popover, comment threads (server-rendered by
+ * templates/parts/comment.php; the controls are delegated below), bookmark, share trigger, delete, pin, report, and the
  * schedule/reschedule controls on a member's own cards. Every helper here is used
  * only by this store; the two it shared with the feed store (escapeHtml) and with
  * the composer (the site-timezone + field helpers) live in ./shared.js.
@@ -16,11 +16,19 @@
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
 import { uploadMedia, validateMedia } from '@buddynext/upload-core';
-import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue } from '@buddynext/feed-shared';
+import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
-import { initials as initialsFor } from '@buddynext/initials';
+
+/**
+ * Per-viewer values every post card shares (viewerId, restNonce, restUrl,
+ * canUploadMedia, reactDefaultLabel), published once by AssetService as the
+ * buddynext/post-card state instead of in each card's context.
+ *
+ * @return {Object} The post-card store state.
+ */
+const viewer = () => store( 'buddynext/post-card' ).state;
 
 /**
  * Neutral reaction glyph for a slug with no vendored emoji asset. Mirrors the SSR
@@ -46,11 +54,6 @@ const BN_ICON = ( inner ) =>
 	'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
 	'stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
 const BN_ICONS = {
-	reply:  BN_ICON( '<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>' ),
-	edit:   BN_ICON( '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>' ),
-	delete: BN_ICON( '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>' ),
-	pin:    BN_ICON( '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>' ),
-	report: BN_ICON( '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>' ),
 	send:   BN_ICON( '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>' ),
 	check:  BN_ICON( '<path d="M20 6 9 17l-5-5"/>' ),
 	x:      BN_ICON( '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>' ),
@@ -215,96 +218,6 @@ function resolveReactionSet( list ) {
 }
 
 /**
- * The serialized reaction meta ({slug,label,char,color,emoji_url}) for `type`,
- * resolved from the post card the currently-evaluating directive lives in. Used by
- * the react-trigger icon getters so the button shows the reaction's own mark (SVG
- * emoji or color glyph) for ANY registered reaction, not only the six built-ins.
- *
- * @param {string} type Reaction slug, or falsy for "no reaction".
- * @return {{slug:string,label:string,char:string,color:string,emoji_url:string}|null}
- */
-function reactionMetaFor( type ) {
-	if ( ! type ) {
-		return null;
-	}
-	try {
-		// getContext() is reliable inside a derived-state getter; getElement() is
-		// not (it is for actions/callbacks), so resolve the post's reaction list by
-		// id the same way setReactionIcon() does rather than by DOM proximity.
-		const postId = getContext().postId;
-		const list   = document.querySelector( '.bn-comment-list[data-comment-list="' + postId + '"]' );
-		return resolveReactionSet( list ).find( ( r ) => r.slug === type ) || null;
-	} catch ( _e ) {
-		return null;
-	}
-}
-
-function timeAgo( dateStr ) {
-	// The API returns a naive MySQL UTC datetime ("YYYY-MM-DD HH:MM:SS", no zone).
-	// `new Date()` parses a space-separated, zoneless string as LOCAL time, which
-	// shifts the result by the viewer's UTC offset (a fresh comment shows "5h ago"
-	// for a UTC+5 browser). Normalise to ISO-8601 UTC so the instant is correct in
-	// every timezone. Server stores UTC via current_time('mysql', true).
-	const raw = String( dateStr );
-	const iso = /[zZ]|[+-]\d\d:?\d\d$/.test( raw ) ? raw : raw.replace( ' ', 'T' ) + 'Z';
-	const secs = Math.floor( ( Date.now() - new Date( iso ).getTime() ) / 1000 );
-	if ( secs < 60 )     return t( 'timeJustNow', 'just now' );
-	if ( secs < 3600 )   return fmt( t( 'timeMinutesAgo', '%dm ago' ), Math.floor( secs / 60 ) );
-	if ( secs < 86400 )  return fmt( t( 'timeHoursAgo', '%dh ago' ), Math.floor( secs / 3600 ) );
-	if ( secs < 604800 ) return fmt( t( 'timeDaysAgo', '%dd ago' ), Math.floor( secs / 86400 ) );
-
-	// Past a week, switch to a calendar date — the same cutoff and shape as the
-	// server-rendered byline (buddynext_time_ago()), so a comment loaded by JS
-	// and one rendered by PHP never read differently.
-	return siteDate( new Date( iso ) );
-}
-
-/**
- * A Date -> an absolute day/month(/year) string in the SITE's timezone.
- *
- * Never the viewer's clock: the offset comes from WP's timezone setting, and the
- * date is then formatted as UTC on the shifted instant so Intl does not apply a
- * second, device-local shift. Month names come from Intl in the page's language,
- * matching what PHP's date_i18n() produces server-side. The year is shown only
- * when it is not the current one.
- *
- * @param {Date} date Instant to format.
- * @return {string} e.g. "20 July" or "11 June 2025".
- */
-function siteDate( date ) {
-	const shifted = new Date( date.getTime() + siteTzOffset() * 1000 );
-	const nowSite = new Date( Date.now() + siteTzOffset() * 1000 );
-	const lang    = document.documentElement.getAttribute( 'lang' ) || undefined;
-
-	const withYear = shifted.getUTCFullYear() !== nowSite.getUTCFullYear();
-	const opts     = { day: 'numeric', month: 'long', timeZone: 'UTC' };
-	if ( withYear ) {
-		opts.year = 'numeric';
-	}
-
-	let parts;
-	try {
-		parts = new Intl.DateTimeFormat( lang, opts ).formatToParts( shifted );
-	} catch ( e ) {
-		// An unusable lang tag must not blank the timestamp.
-		parts = new Intl.DateTimeFormat( undefined, opts ).formatToParts( shifted );
-	}
-
-	// Assembled in PHP's order rather than taking Intl's locale ordering: the
-	// server byline renders 'j F' / 'j F Y' ("8 July", "11 June 2025"), and a
-	// comment row inserted by JS sitting next to a byline rendered by PHP must
-	// not read "July 8". Only the month NAME comes from Intl, which is what we
-	// actually need it for — a translated name matching PHP's date_i18n().
-	const get   = ( type ) => ( parts.find( ( x ) => x.type === type ) || {} ).value || '';
-	const day   = get( 'day' );
-	const month = get( 'month' );
-	const year  = withYear ? ' ' + get( 'year' ) : '';
-
-	return day + ' ' + month + year;
-}
-
-
-/**
  * Mounted post cards, so a reaction made somewhere else on the page (the photo
  * lightbox) can be shown on the card it belongs to.
  *
@@ -331,7 +244,7 @@ function mirrorReaction( card, postId, d ) {
 	card.ctx.reactionType  = type;
 	card.ctx.reactionLabel = type
 		? ( option?.getAttribute( 'title' ) || option?.getAttribute( 'aria-label' ) || type )
-		: ( card.ctx.reactDefaultLabel || 'React' );
+		: ( viewer().reactDefaultLabel || 'React' );
 	updateReactionSummary( card.el, d.body || {} );
 }
 
@@ -348,6 +261,32 @@ document.addEventListener( 'bn:post-reaction', ( event ) => {
 
 	bnMountedCards = bnMountedCards.filter( ( card ) => ! card.el || card.el.isConnected );
 	bnMountedCards.forEach( ( card ) => mirrorReaction( card, postId, d ) );
+} );
+
+/**
+ * A post's totals changed somewhere else (another member, over realtime): show them.
+ *
+ * detail = { postId, reactions, reactionSummary, comments } - the post's stored
+ * totals, not deltas, so a removal, an emoji swap or the actor's own tab all
+ * land on the right number. Only counts change; the viewer's own reaction does
+ * not. BuddyNext Pro's realtime module sends it; anything may.
+ */
+document.addEventListener( 'buddynext:post-counts', ( event ) => {
+	const d      = event.detail || {};
+	const postId = Number( d.postId ) || 0;
+	if ( ! postId ) return;
+
+	bnMountedCards = bnMountedCards.filter( ( card ) => ! card.el || card.el.isConnected );
+	bnMountedCards.forEach( ( card ) => {
+		if ( Number( card.ctx.postId ) !== postId ) return;
+		if ( Number.isFinite( d.reactions ) ) {
+			card.ctx.reactionCount = d.reactions;
+			updateReactionSummary( card.el, { count: d.reactions, summary: d.reactionSummary || [] } );
+		}
+		if ( Number.isFinite( d.comments ) ) {
+			setCommentCount( card.el, d.comments );
+		}
+	} );
 } );
 
 /**
@@ -410,16 +349,13 @@ function updateReactionSummary( cardEl, body ) {
 	);
 }
 
-/**
- * Maximum visual nesting depth. Replies deeper than this are flattened
- * to depth = MAX_DEPTH with an "@parent" mention prefix injected by the
- * server so the conversation stays readable on narrow screens.
- */
-// Maximum reply depth shown in the threaded view. Beyond this, the
-// `Reply` button reuses the deepest ancestor's parent_id so the new
-// reply appears at the cap level (Discord-style fold-back rather than
-// infinite nesting). Server enforces the same cap during list().
+// Thread levels (CommentService::MAX_REPLY_DEPTH). Reply on the deepest level
+// posts to that comment's parent, so the reply lands beside it (fold-back
+// rather than infinite nesting); create() refuses anything deeper.
 const COMMENT_MAX_DEPTH = 5;
+
+// Most comments one click of the realtime pill fetches. Beyond it they arrive through View more.
+const BN_LIVE_COMMENTS_MAX = 20;
 
 // Top-level comments fetched per page (initial load AND each "View more"
 // click). One source so the request size and the `shown = page * perPage`
@@ -559,7 +495,7 @@ function appendResendVerifyButton( container, nonce ) {
 				bnToast( t( 'verifyResent', 'Verification email sent. Check your inbox.' ), { tone: 'success' } );
 			} else {
 				const data = res.data || {};
-				bnToast( data.message || t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
+				toastRestError( res, t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ) );
 			}
 		} catch ( _e ) {
 			bnToast( t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
@@ -570,738 +506,702 @@ function appendResendVerifyButton( container, nonce ) {
 	container.appendChild( btn );
 }
 
-function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth ) {
-	if ( typeof depth !== 'number' ) {
-		// Back-compat: callers that still pass a boolean isReply.
-		depth = depth ? 1 : 0;
-	}
-	const cappedDepth = Math.min( depth, COMMENT_MAX_DEPTH );
+/* ── Comment threads: one server renderer, delegated controls ─────────────
+ * Every comment is rendered on the server (templates/parts/comment.php via
+ * \BuddyNext\Comments\CommentThread): the first page on a post's own page, and
+ * each later page, new comment, reply and edit as HTML the API returns. The
+ * controls carry no Interactivity directives, so HTML added after load works:
+ * the listeners below sit on the document and read the comment's data-*
+ * attributes. Before, the whole comment was built here with per-element
+ * listeners closing over a JSON object, which meant a second renderer that had
+ * drifted (pinned comments lost their badge, edited comments their links).
+ */
 
-	// Let extensions transform the comment data before it renders. Reassigned so
-	// every downstream read uses the filtered object; runs on nested replies too
-	// (buildCommentNode recurses below).
-	comment = bnApplyFilters( 'buddynext.comment', comment, { currentUserId, postId, depth: cappedDepth } );
-
-	const wrap = document.createElement( 'div' );
-	wrap.className = 'bn-comment-card';
-	wrap.dataset.commentId = comment.id;
-	wrap.dataset.depth     = String( cappedDepth );
-	if ( comment.pinned ) {
-		wrap.classList.add( 'bn-comment-card--pinned' );
-	}
-	if ( comment.is_deleted ) {
-		wrap.classList.add( 'bn-comment-card--deleted' );
-	}
-	// Under review: this comment reached the client only because the viewer is its
-	// author or a moderator (the server drops it for everyone else). Keep the
-	// content, mark it, and freeze its actions below.
-	if ( comment.is_hidden ) {
-		wrap.classList.add( 'bn-comment-card--under-review' );
-	}
-
-	// Avatar: the member's avatar image when the REST payload provides one
-	// (author_avatar_url, BN-managed via AvatarService), with the initials circle
-	// as the fallback — mirroring how post bylines render. Previously comments
-	// only ever showed initials, so a member's real avatar never appeared.
-	const avatar = document.createElement( 'div' );
-	avatar.className = 'bn-comment__avatar';
-	avatar.setAttribute( 'aria-hidden', 'true' );
-	const initials = initialsFor( comment.author_name );
-	if ( comment.author_avatar_url ) {
-		const img = document.createElement( 'img' );
-		img.src    = comment.author_avatar_url;
-		img.alt    = '';
-		img.width  = 32;
-		img.height = 32;
-		img.loading = 'lazy';
-		// Fall back to initials if the avatar URL fails to load.
-		img.addEventListener( 'error', function () {
-			img.remove();
-			avatar.textContent = initials;
-		} );
-		avatar.appendChild( img );
-	} else {
-		avatar.textContent = initials;
-	}
-	wrap.appendChild( avatar );
-
-	const body = document.createElement( 'div' );
-	body.className = 'bn-comment__body';
-
-	// Header: author name + timestamp + pinned badge + edited marker.
-	const header = document.createElement( 'div' );
-	header.className = 'bn-comment__header';
-	const authorSpan = document.createElement( 'span' );
-	authorSpan.className = 'bn-comment__author';
-	authorSpan.textContent = comment.author_name || t( 'user', 'User' );
-	header.appendChild( authorSpan );
-
-	// Server-provided author badges/roles (built via the buddynext_comment_author_meta_html
-	// filter on the REST side, where it is kses_post-escaped). Rendered here so extensions
-	// that add author chips actually appear — previously this field reached the client unused.
-	if ( comment.author_meta_html ) {
-		const authorMeta = document.createElement( 'span' );
-		authorMeta.className = 'bn-comment__author-meta';
-		authorMeta.innerHTML = comment.author_meta_html;
-		header.appendChild( authorMeta );
-	}
-	if ( comment.pinned ) {
-		const pinBadge = document.createElement( 'span' );
-		pinBadge.className = 'bn-comment__pinned-badge';
-		pinBadge.textContent = t( 'pinned', 'Pinned' );
-		header.appendChild( pinBadge );
-	}
-	if ( comment.is_hidden ) {
-		const reviewBadge = document.createElement( 'span' );
-		reviewBadge.className = 'bn-comment__review-badge';
-		reviewBadge.textContent = t( 'commentUnderReview', 'Under review' );
-		header.appendChild( reviewBadge );
-	}
-	const timeEl = document.createElement( 'time' );
-	timeEl.className = 'bn-comment__time';
-	timeEl.textContent = timeAgo( comment.created_at );
-	header.appendChild( timeEl );
-	if ( comment.is_edited && ! comment.is_deleted ) {
-		const editedMark = document.createElement( 'span' );
-		editedMark.className = 'bn-comment__edited';
-		editedMark.textContent = t( 'edited', '(edited)' );
-		header.appendChild( editedMark );
-	}
-	body.appendChild( header );
-
-	// Content paragraph (or placeholder for soft-deleted comments).
-	const para = document.createElement( 'p' );
-	para.className = 'bn-comment__content';
-	if ( comment.is_deleted ) {
-		para.textContent  = t( 'commentDeleted', 'This comment was deleted.' );
-		para.dataset.placeholder = '1';
-	} else if ( comment.content_html ) {
-		// Server-formatted + sanitized markup (escaped user text with @mention
-		// and #hashtag links baked in) — mirrors how post bodies render. Falls
-		// back to plain text if an older response omits content_html.
-		para.innerHTML = comment.content_html;
-	} else {
-		para.textContent = comment.content;
-	}
-	body.appendChild( para );
-
-	// ── Actions row ────────────────────────────────────────────────────────
-	const actions = document.createElement( 'div' );
-	actions.className = 'bn-comment__actions';
-	body.appendChild( actions );
-
-	// A comment under review is frozen the same way a deleted one is: its content
-	// stays visible to the author/moderator, but no edit, delete, pin, reply or
-	// report control renders on it while a moderator decides (the server enforces
-	// the same in InteractionGuard, so a hand-built request is refused too).
-	const isFrozen    = comment.is_deleted || comment.is_hidden;
-	const isOwn       = parseInt( comment.user_id, 10 ) === currentUserId;
-	const canEdit     = ( comment.can_edit ?? isOwn ) && ! isFrozen;
-	const canDelete   = ( comment.can_delete ?? isOwn ) && ! isFrozen;
-	const canPin      = !! comment.can_pin && ! isFrozen;
-	// Reply is allowed at every depth — beyond MAX_DEPTH the new reply
-	// attaches to the deepest visible ancestor (fold-back) so the indent
-	// doesn't keep growing. The server flattens consistently when listing.
-	const canReply    = currentUserId > 0 && ! isFrozen;
-	const canReport   = currentUserId > 0 && ! isOwn && ! isFrozen;
-
-	// React button — opens a 6-emoji picker on hover or click. Matches the
-	// post-card reaction picker (templates/parts/post-actions.php). Emoji
-	// SVGs are served from the vendor base URL exposed on the
-	// .bn-comment-list[data-emoji-base] attribute (set by
-	// templates/parts/post-comments-list.php).
-	let reactBtn = null;
-	// Reactions are a site-owner feature toggle (Settings → Features). When the
-	// owner disables it the comment list carries data-reactions-enabled="0" and
-	// no per-comment React control renders — matching the post-card gate and the
-	// REST toggle 403.
-	const bnReactList    = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
-	const bnReactionsOn  = ! bnReactList || bnReactList.dataset.reactionsEnabled !== '0';
-	if ( ! isFrozen && bnReactionsOn ) {
-		// Resolve the owner-enabled reaction set (and each slug's label/glyph) via
-		// the comment-list container keyed by postId. wrap.closest() can't be used
-		// here because the wrap is not yet attached to the DOM at this point.
-		const list      = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
-		const REACTIONS = resolveReactionSet( list );
-		const REACTION_META   = Object.fromEntries( REACTIONS.map( ( r ) => [ r.slug, r ] ) );
-		const REACTION_LABELS = Object.fromEntries( REACTIONS.map( ( r ) => [ r.slug, r.label ] ) );
-
-		// Render one reaction glyph into `parent`. Prefers the bundled Fluent SVG;
-		// Pro custom slugs have none, so they fall back to a colour-tinted text
-		// glyph (char, else the label's initial) exactly like the post card.
-		const setReactionIcon = ( parent, type, size ) => {
-			parent.replaceChildren();
-			const meta = type ? REACTION_META[ type ] : null;
-			if ( ! meta ) {
-				parent.textContent = '♡';
-				return;
-			}
-			const px = size || 16;
-			if ( meta.emoji_url ) {
-				const img  = document.createElement( 'img' );
-				img.src    = meta.emoji_url;
-				img.alt    = meta.label || '';
-				img.width  = px;
-				img.height = px;
-				parent.appendChild( img );
-				return;
-			}
-			// .bn-reaction-glyph sizes itself to 100% of its parent, which works on
-			// the post card (the parent .bn-reaction-icon is a fixed box) but not
-			// here — neither .bn-comment__like-icon nor .bn-comment__react-option is
-			// sized. Give it an explicit box so it fills the same slot as the emoji.
-			const glyph = document.createElement( 'span' );
-			glyph.className   = 'bn-reaction-glyph';
-			glyph.textContent = meta.char || ( meta.label || meta.slug ).charAt( 0 ).toUpperCase();
-			glyph.style.width  = px + 'px';
-			glyph.style.height = px + 'px';
-			if ( /^#[0-9a-fA-F]{6}$/.test( meta.color ) ) {
-				glyph.style.color = meta.color;
-			}
-			parent.appendChild( glyph );
-		};
-
-		// Tint the react button with the chosen reaction's own colour. The colour
-		// already ships in the serialised reaction set the list carries, so this
-		// covers every registered reaction — the stylesheet used to hardcode a tint
-		// for five built-in slugs, which left a custom reaction rendering in the
-		// default colour on a comment while the post trigger carried its artwork.
-		// Same #rrggbb validation the glyph above uses; anything else falls back to
-		// the generic reacted colour in CSS.
-		const setReactionTint = ( btn, type ) => {
-			const meta = type ? REACTION_META[ type ] : null;
-			const hex  = meta && /^#[0-9a-fA-F]{6}$/.test( meta.color ) ? meta.color : '';
-			btn.style.setProperty( '--bn-comment-reaction-color', hex );
-		};
-
-		const wrapBtn = document.createElement( 'span' );
-		wrapBtn.className = 'bn-comment__react-wrap';
-
-		reactBtn = document.createElement( 'button' );
-		reactBtn.type = 'button';
-		reactBtn.className = 'bn-comment__like-btn';
-		// Default to the first ENABLED slug, not a hardcoded 'like' — the owner can
-		// disable 'like', in which case it has no glyph or label to render.
-		const defaultReaction = REACTIONS.length ? REACTIONS[ 0 ].slug : 'like';
-		reactBtn.dataset.reaction = comment.viewer_liked ? ( comment.viewer_reaction || defaultReaction ) : '';
-		// Explicit binary state hook ("0"/"1") — distinct from aria-pressed so the
-		// liked state is always a defined attribute, never an empty string.
-		reactBtn.dataset.liked = comment.viewer_liked ? '1' : '0';
-		reactBtn.setAttribute( 'aria-pressed', comment.viewer_liked ? 'true' : 'false' );
-
-		const reactIcon = document.createElement( 'span' );
-		reactIcon.className = 'bn-comment__like-icon';
-		setReactionIcon( reactIcon, reactBtn.dataset.reaction );
-		setReactionTint( reactBtn, reactBtn.dataset.reaction );
-
-		const reactLabel = document.createElement( 'span' );
-		reactLabel.className = 'bn-comment__like-label';
-		reactLabel.textContent = reactBtn.dataset.reaction
-			? ( REACTION_LABELS[ reactBtn.dataset.reaction ] || t( 'react', 'React' ) )
-			: t( 'react', 'React' );
-
-		const reactCount = document.createElement( 'span' );
-		reactCount.className = 'bn-comment__like-count';
-		reactCount.textContent = String( comment.like_count || 0 );
-
-		reactBtn.appendChild( reactIcon );
-		reactBtn.appendChild( document.createTextNode( ' ' ) );
-		reactBtn.appendChild( reactLabel );
-		reactBtn.appendChild( document.createTextNode( ' ' ) );
-		reactBtn.appendChild( reactCount );
-
-		// Reaction picker dropdown — one option per owner-enabled reaction.
-		const picker = document.createElement( 'div' );
-		picker.className = 'bn-comment__react-picker';
-		picker.hidden = true;
-		picker.setAttribute( 'role', 'toolbar' );
-		picker.setAttribute( 'aria-label', t( 'chooseReaction', 'Choose reaction' ) );
-		REACTIONS.forEach( ( reaction ) => {
-			const type = reaction.slug;
-			const opt = document.createElement( 'button' );
-			opt.type = 'button';
-			opt.className = 'bn-comment__react-option';
-			opt.setAttribute( 'aria-label', reaction.label );
-			opt.title = reaction.label;
-			opt.dataset.reaction = type;
-			setReactionIcon( opt, type, 28 );
-			// Keyboard activation only: mouse/touch selection is handled by the
-			// picker-level 'pointerdown' listener below (so the choice lands before
-			// any blur-driven close). `e.detail === 0` distinguishes a keyboard
-			// Enter/Space click from a synthetic pointer click, avoiding a
-			// double-toggle on pointer devices.
-			opt.addEventListener( 'click', ( e ) => {
-				if ( 0 === e.detail ) {
-					sendReaction( type );
-				}
-			} );
-			picker.appendChild( opt );
-		} );
-
-		wrapBtn.appendChild( reactBtn );
-		wrapBtn.appendChild( picker );
-
-		let hoverTimer = null;
-		// Unhide first, THEN clamp: a hidden element has no measurable box, so a
-		// clamp computed before this would read zeroes and do nothing. The picker
-		// is `inset-inline-start: 0` on its wrapper, so on a narrow screen a
-		// nested reply's indentation pushes it off the end edge with the later
-		// reactions unreachable -- the same overflow the post-card picker already
-		// guards against, now through the same helper.
-		const openPicker  = () => {
-			clearTimeout( hoverTimer );
-			picker.hidden = false;
-			bnClampPopoverToViewport( picker );
-		};
-		const closePicker = () => { hoverTimer = setTimeout( () => { picker.hidden = true; }, 200 ); };
-		// Hover reveal for pointer devices. Touch devices never fire these, so the
-		// click handler below also opens the picker — otherwise the six specific
-		// reactions would be unreachable on mobile (only a default like worked).
-		wrapBtn.addEventListener( 'mouseenter', openPicker );
-		wrapBtn.addEventListener( 'mouseleave', closePicker );
-		wrapBtn.addEventListener( 'focusin', openPicker );
-		wrapBtn.addEventListener( 'focusout', closePicker );
-
-		// Click on the React button:
-		//   • picker already open  → quick-toggle a default like / clear current.
-		//   • picker closed (touch or no-hover) → open it so the user can pick one
-		//     of the six reactions. A second click then quick-toggles.
-		reactBtn.addEventListener( 'click', ( e ) => {
-			e.preventDefault();
-			if ( picker.hidden ) {
-				if ( currentUserId <= 0 ) {
-					sendReaction( defaultReaction ); // surfaces the sign-in toast.
-					return;
-				}
-				openPicker();
-				return;
-			}
-			// The first ENABLED reaction, never a hardcoded 'like'. The server's
-			// coerce_to_enabled() would store the right slug anyway, so this was only
-			// ever cosmetic — but on a site where the owner has disabled Like, the
-			// button painted the generic glyph for a beat before the response landed.
-			sendReaction( reactBtn.dataset.reaction ? null : defaultReaction );
-		} );
-
-		// Selecting an emoji must fire even if a blur/leave would otherwise hide the
-		// picker first — pointerdown lands before the close timer, so the choice is
-		// never swallowed. (The per-option 'click' binding above still covers
-		// keyboard activation.)
-		picker.addEventListener( 'pointerdown', ( e ) => {
-			const opt = e.target.closest( '.bn-comment__react-option' );
-			if ( ! opt ) { return; }
-			e.preventDefault();
-			clearTimeout( hoverTimer );
-			sendReaction( opt.dataset.reaction );
-		} );
-
-		// Close the picker when focus/pointer moves elsewhere on the page so an
-		// opened-by-click picker (touch) does not get stuck open.
-		document.addEventListener( 'click', ( e ) => {
-			if ( ! picker.hidden && ! wrapBtn.contains( e.target ) ) {
-				picker.hidden = true;
-			}
-		} );
-
-		async function sendReaction( type ) {
-			if ( currentUserId <= 0 ) {
-				bnToast( t( 'signInToReact', 'Sign in to react to comments.' ), { tone: 'info' } );
-				return;
-			}
-			picker.hidden = true;
-			const prev = reactBtn.dataset.reaction;
-			const next = ( null === type || prev === type ) ? '' : type;
-			// Optimistic UI.
-			reactBtn.dataset.reaction = next;
-			reactBtn.dataset.liked = next ? '1' : '0';
-			reactBtn.setAttribute( 'aria-pressed', next ? 'true' : 'false' );
-			setReactionIcon( reactIcon, next );
-			setReactionTint( reactBtn, next );
-			reactLabel.textContent = next ? ( REACTION_LABELS[ next ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
-			const cur = parseInt( reactCount.textContent || '0', 10 );
-			let delta = 0;
-			if ( ! prev && next ) { delta = 1; }
-			else if ( prev && ! next ) { delta = -1; }
-			reactCount.textContent = String( Math.max( 0, cur + delta ) );
-
-			try {
-				const res = await restFetch( '/reactions/toggle', {
-					method:  'POST',
-					nonce,
-					toastOnError: false,
-					body:    {
-						object_type: 'comment',
-						object_id:   comment.id,
-						emoji:       next || prev || 'like',
-					},
-				} );
-				if ( ! res.ok ) {
-					const err = new Error( 'reaction failed' );
-					err.bnResponse = res;
-					throw err;
-				}
-			} catch ( _e ) {
-				// Rollback to prev.
-				reactBtn.dataset.reaction = prev;
-				reactBtn.dataset.liked = prev ? '1' : '0';
-				reactBtn.setAttribute( 'aria-pressed', prev ? 'true' : 'false' );
-				setReactionIcon( reactIcon, prev );
-				setReactionTint( reactBtn, prev );
-				reactLabel.textContent = prev ? ( REACTION_LABELS[ prev ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
-				reactCount.textContent = String( cur );
-				reactionFailureToast( _e && _e.bnResponse, t( 'reactionUpdateFailed', 'Could not update your reaction. Try again.' ) );
-			}
-		}
-
-		actions.appendChild( wrapBtn );
-	}
-
-	// Reply button.
-	if ( canReply ) {
-		const replyBtn = document.createElement( 'button' );
-		replyBtn.type = 'button';
-		replyBtn.className = 'bn-comment__reply-btn';
-		setCommentAction( replyBtn, 'reply', t( 'reply', 'Reply' ) );
-		actions.appendChild( replyBtn );
-	}
-
-	// Edit button — opens inline editor.
-	if ( canEdit ) {
-		const editBtn = document.createElement( 'button' );
-		editBtn.type = 'button';
-		editBtn.className = 'bn-comment__edit-btn';
-		setCommentAction( editBtn, 'edit', t( 'edit', 'Edit' ) );
-		editBtn.addEventListener( 'click', () => {
-			if ( body.querySelector( '.bn-comment__edit-form' ) ) {
-				return;
-			}
-			const editForm = document.createElement( 'div' );
-			editForm.className = 'bn-comment__edit-form';
-			const ta = document.createElement( 'textarea' );
-			ta.className = 'bn-comment-form__input';
-			ta.value = para.textContent || '';
-			ta.rows = 2;
-			const saveBtn = document.createElement( 'button' );
-			saveBtn.type = 'button';
-			saveBtn.className = 'bn-comment-form__submit';
-			// Circular icon submit (the class sizes a 40px circle around a 16px
-			// glyph) - a text word crammed into that circle was the old look.
-			saveBtn.innerHTML = BN_ICONS.check;
-			saveBtn.setAttribute( 'aria-label', t( 'save', 'Save' ) );
-			const cancelBtn = document.createElement( 'button' );
-			cancelBtn.type = 'button';
-			cancelBtn.className = 'bn-comment__reply-cancel';
-			setCommentAction( cancelBtn, 'x', t( 'cancel', 'Cancel' ) );
-			editForm.appendChild( ta );
-			// Footer action row so the emoji trigger + Save + Cancel sit on one
-			// line instead of each stretching full-width down the column (the
-			// edit-form is flex-direction:column, so bare children stretch).
-			const editActions = document.createElement( 'div' );
-			editActions.className = 'bn-comment__edit-actions';
-			// Emoji insert — shown only when the site-owner emoji picker is
-			// enabled (bnEmojiTrigger reads the option from bnShellData). The
-			// shared initEmojiPicker() handler wires the click + insertion into
-			// this specific editor's textarea.
-			const emojiBtn = bnEmojiTrigger( ta, 'bn-comment-edit-' + comment.id );
-			if ( emojiBtn ) {
-				editActions.appendChild( emojiBtn );
-			}
-			editActions.appendChild( saveBtn );
-			editActions.appendChild( cancelBtn );
-			editForm.appendChild( editActions );
-			para.hidden = true;
-			body.insertBefore( editForm, actions );
-			ta.focus();
-			cancelBtn.addEventListener( 'click', () => {
-				editForm.remove();
-				para.hidden = false;
-			} );
-			saveBtn.addEventListener( 'click', async () => {
-				const next = ta.value.trim();
-				if ( ! next ) {
-					return;
-				}
-				try {
-					const res = await restFetch( '/comments/' + comment.id, {
-						method:  'PUT',
-						nonce,
-						toastOnError: false,
-						body:    { content: next },
-					} );
-					if ( res.ok ) {
-						const updated = res.data;
-						para.textContent = updated.content;
-						// The server decides: an unchanged save is not an edit.
-						if ( updated.is_edited && ! body.querySelector( '.bn-comment__edited' ) ) {
-							const editedMark = document.createElement( 'span' );
-							editedMark.className = 'bn-comment__edited';
-							editedMark.textContent = t( 'edited', '(edited)' );
-							header.appendChild( editedMark );
-						}
-						editForm.remove();
-						para.hidden = false;
-						bnToast( t( 'commentUpdated', 'Comment updated' ), { tone: 'success' } );
-					} else {
-						bnToast( t( 'commentUpdateFailed', 'Could not update comment. Try again.' ), { tone: 'danger' } );
-					}
-				} catch ( _e ) {
-					bnToast( t( 'commentUpdateFailed', 'Could not update comment. Try again.' ), { tone: 'danger' } );
-				}
-			} );
-		} );
-		actions.appendChild( editBtn );
-	}
-
-	// Delete button.
-	if ( canDelete ) {
-		const delBtn = document.createElement( 'button' );
-		delBtn.type = 'button';
-		delBtn.className = 'bn-comment__delete-btn';
-		setCommentAction( delBtn, 'delete', t( 'delete', 'Delete' ) );
-		delBtn.addEventListener( 'click', async () => {
-			const ok = await bnConfirm( {
-				title: t( 'deleteCommentTitle', 'Delete this comment?' ),
-				body: t( 'cannotBeUndone', 'This cannot be undone.' ),
-				confirmLabel: t( 'delete', 'Delete' ),
-				tone: 'danger',
-			} );
-			if ( ! ok ) {
-				return;
-			}
-			const res = await restFetch( '/comments/' + comment.id, {
-				method: 'DELETE', nonce, toastOnError: false,
-			} );
-			if ( res.ok ) {
-				// Soft-delete: replace text + grey out, preserve thread.
-				wrap.classList.add( 'bn-comment-card--deleted' );
-				para.textContent = t( 'commentDeleted', 'This comment was deleted.' );
-				para.dataset.placeholder = '1';
-				para.hidden = false;
-				actions.remove();
-				adjustCommentCount( postId, -1 );
-				bnToast( t( 'commentDeletedToast', 'Comment deleted' ), { tone: 'success' } );
-			} else {
-				bnToast( t( 'commentDeleteFailed', 'Could not delete comment. Try again.' ), { tone: 'danger' } );
-			}
-		} );
-		actions.appendChild( delBtn );
-	}
-
-	// Pin button (moderators only).
-	if ( canPin ) {
-		const pinBtn = document.createElement( 'button' );
-		pinBtn.type = 'button';
-		pinBtn.className = 'bn-comment__pin-btn';
-		setCommentAction( pinBtn, 'pin', comment.pinned ? t( 'unpin', 'Unpin' ) : t( 'pin', 'Pin' ) );
-		pinBtn.addEventListener( 'click', async () => {
-			const wasPinned = wrap.classList.contains( 'bn-comment-card--pinned' );
-			try {
-				const res = await restFetch( '/comments/' + comment.id + '/pin', {
-					method:  wasPinned ? 'DELETE' : 'POST',
-					nonce,
-					toastOnError: false,
-				} );
-				if ( res.ok ) {
-					wrap.classList.toggle( 'bn-comment-card--pinned', ! wasPinned );
-					setCommentActionLabel( pinBtn, wasPinned ? t( 'pin', 'Pin' ) : t( 'unpin', 'Unpin' ) );
-					const existing = header.querySelector( '.bn-comment__pinned-badge' );
-					if ( wasPinned && existing ) {
-						existing.remove();
-					} else if ( ! wasPinned && ! existing ) {
-						const pinBadge = document.createElement( 'span' );
-						pinBadge.className = 'bn-comment__pinned-badge';
-						pinBadge.textContent = t( 'pinned', 'Pinned' );
-						header.insertBefore( pinBadge, timeEl );
-					}
-					bnToast( wasPinned ? t( 'commentUnpinned', 'Comment unpinned' ) : t( 'commentPinned', 'Comment pinned' ), { tone: 'success' } );
-				} else {
-					bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
-				}
-			} catch ( _e ) {
-				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
-			}
-		} );
-		actions.appendChild( pinBtn );
-	}
-
-	// Report button — visible for non-owner comments.
-	if ( canReport ) {
-		const reportBtn = document.createElement( 'button' );
-		reportBtn.type = 'button';
-		reportBtn.className = 'bn-comment__report-btn';
-		setCommentAction( reportBtn, 'report', t( 'report', 'Report' ) );
-		// Keep the more descriptive aria-label (setCommentAction sets a terse one).
-		reportBtn.setAttribute( 'aria-label', t( 'reportComment', 'Report this comment' ) );
-		reportBtn.addEventListener( 'click', async () => {
-			const result = await bnReportDialog( {
-				title: t( 'reportComment', 'Report this comment' ),
-			} );
-			if ( result === null ) {
-				return;
-			}
-			try {
-				const res = await restFetch( '/reports', {
-					method:  'POST',
-					nonce,
-					toastOnError: false,
-					body:    {
-						object_type: 'comment',
-						object_id:   comment.id,
-						reason:      result.reason,
-						notes:       result.notes,
-					},
-				} );
-				// Reflect the resolved state on the control (mirrors the post-level
-				// report, which flips to "Reported"): disable + relabel so the user
-				// sees it landed instead of a button that re-opens the dialog.
-				const markReported = () => {
-					reportBtn.disabled = true;
-					reportBtn.classList.add( 'is-reported' );
-					setCommentActionLabel( reportBtn, t( 'reported', 'Reported' ) );
-				};
-				if ( res.ok || res.status === 201 ) {
-					markReported();
-					bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
-				} else if ( res.status === 409 ) {
-					// Already reported — show it as resolved, not a failure to retry.
-					markReported();
-					const data = res.data || {};
-					bnToast( data.message || t( 'reportAlready', 'You already reported this.' ), { tone: 'info' } );
-				} else {
-					// Surface the server's reason instead of a generic failure the
-					// user reads as "retry".
-					const data = res.data || {};
-					bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
-				}
-			} catch ( _e ) {
-				bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
-			}
-		} );
-		actions.appendChild( reportBtn );
-	}
-
-	// ── Reply form + nested replies ────────────────────────────────────────
-	let repliesEl = null;
-	if ( canReply ) {
-		const replyForm = document.createElement( 'div' );
-		replyForm.className = 'bn-comment__reply-form';
-		replyForm.hidden = true;
-
-		const replyTextarea = document.createElement( 'textarea' );
-		// Dedicated reply class (shares the input rule via a comma selector in
-		// bn-feed.css) so it no longer collides with the post-level comment
-		// input's class.
-		replyTextarea.className = 'bn-comment__reply-input';
-		replyTextarea.placeholder = t( 'writeReply', 'Write a reply...' );
-		replyTextarea.rows = 1;
-		replyForm.appendChild( replyTextarea );
-
-		const replySubmit = document.createElement( 'button' );
-		replySubmit.type = 'button';
-		replySubmit.className = 'bn-comment-form__submit';
-		replySubmit.setAttribute( 'aria-label', t( 'postReply', 'Post reply' ) );
-		// Circular send-icon submit, matching the main comment composer, instead of
-		// the word "Reply" squeezed into the 40px circle.
-		replySubmit.innerHTML = BN_ICONS.send;
-		replyForm.appendChild( replySubmit );
-
-		const replyCancel = document.createElement( 'button' );
-		replyCancel.type = 'button';
-		replyCancel.className = 'bn-comment__reply-cancel';
-		setCommentAction( replyCancel, 'x', t( 'cancel', 'Cancel' ) );
-		replyForm.appendChild( replyCancel );
-
-		body.appendChild( replyForm );
-
-		actions.querySelector( '.bn-comment__reply-btn' )?.addEventListener( 'click', () => {
-			replyForm.hidden = ! replyForm.hidden;
-			if ( ! replyForm.hidden ) {
-				replyTextarea.focus();
-			}
-		} );
-		replyCancel.addEventListener( 'click', () => { replyForm.hidden = true; } );
-
-		replySubmit.addEventListener( 'click', async () => {
-			const content = replyTextarea.value.trim();
-			if ( ! content ) {
-				return;
-			}
-			try {
-				const res = await restFetch( '/comments', {
-					method:  'POST',
-					nonce,
-					toastOnError: false,
-					body:    { object_type: 'post', object_id: postId, content, parent_id: comment.id },
-				} );
-				if ( res.ok ) {
-					const reply = res.data;
-					if ( ! repliesEl ) {
-						repliesEl = document.createElement( 'div' );
-						repliesEl.className = 'bn-comment__replies';
-						body.appendChild( repliesEl );
-					}
-					repliesEl.appendChild( buildCommentNode( reply, currentUserId, postId, restUrl, nonce, cappedDepth + 1 ) );
-					clearField( replyTextarea );
-					replyForm.hidden = true;
-					adjustCommentCount( postId, 1 );
-				} else {
-					const data = res.data || {};
-					if ( 'email_unverified' === data.code ) {
-						// Blocked because the member has not verified their email.
-						// Show the reason inline with a Resend link (mirrors the
-						// composer) so they can fix it without leaving the thread.
-						let errEl = replyForm.querySelector( '.bn-comment-submit-error' );
-						if ( ! errEl ) {
-							errEl = document.createElement( 'div' );
-							errEl.className = 'bn-comment-submit-error';
-							errEl.setAttribute( 'role', 'alert' );
-							replyForm.insertBefore( errEl, replyForm.firstChild );
-						}
-						while ( errEl.firstChild ) { errEl.removeChild( errEl.firstChild ); }
-						const span = document.createElement( 'span' );
-						span.textContent = data.message || t( 'replyFailed', 'Could not post reply. Try again.' );
-						errEl.appendChild( span );
-						appendResendVerifyButton( errEl, nonce );
-					} else {
-						bnToast( data.message || t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
-					}
-				}
-			} catch ( _e ) {
-				bnToast( t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
-			}
-		} );
-	}
-
-	// Render nested replies recursively.
-	const replies = comment.replies || [];
-	if ( replies.length > 0 ) {
-		repliesEl = document.createElement( 'div' );
-		repliesEl.className = 'bn-comment__replies';
-		replies.forEach( ( r ) => {
-			repliesEl.appendChild( buildCommentNode( r, currentUserId, postId, restUrl, nonce, cappedDepth + 1 ) );
-		} );
-		body.appendChild( repliesEl );
-	}
-
-	wrap.appendChild( body );
-
-	// Final hook: extensions can decorate (or replace) the rendered comment node.
-	return bnApplyFilters( 'buddynext.commentNode', wrap, comment, { currentUserId, postId, depth: cappedDepth } );
+/**
+ * The thread container a control belongs to, and its post id.
+ *
+ * @param {Element} el Any element inside a comment list.
+ * @return {{ listEl: Element|null, postId: number }}
+ */
+function commentScope( el ) {
+	const listEl = el ? el.closest( '.bn-comment-list' ) : null;
+	return { listEl, postId: listEl ? Number( listEl.dataset.commentList ) || 0 : 0 };
 }
 
-function adjustCommentCount( postId, delta ) {
-	const card = document.querySelector( 'article[data-post-id="' + postId + '"]' );
+/**
+ * The comment card's own (not a nested reply's) child element.
+ *
+ * @param {Element} card     .bn-comment-card.
+ * @param {string}  selector Child selector inside the card's body.
+ * @return {Element|null}
+ */
+function commentPart( card, selector ) {
+	return card.querySelector( ':scope > .bn-comment__body > ' + selector );
+}
+
+/**
+ * Add one comment the API returned (with its rendered `html`) to a container.
+ *
+ * The comment still passes the `buddynext.commentNode` filter with its data, as
+ * the client renderer used to; `buddynext.comment` (data before rendering) is
+ * now the PHP filter `buddynext_comment_render_data`.
+ *
+ * @param {Element} container Where to append.
+ * @param {Object}  comment   API comment with `html`.
+ * @param {Object}  extra     Filter context.
+ * @return {Element|null} The inserted comment card.
+ */
+function bnInsertComment( container, comment, extra ) {
+	const tpl = document.createElement( 'template' );
+	// Server-rendered and escaped by parts/comment.php.
+	tpl.innerHTML = ( comment && comment.html ) || '';
+	const node = tpl.content.firstElementChild;
+	if ( ! node ) {
+		return null;
+	}
+	const out = bnApplyFilters( 'buddynext.commentNode', node, comment, extra ) || node;
+	container.appendChild( out );
+	return out;
+}
+
+/*
+   Realtime "N new comments" pill. BuddyNext Pro's realtime module sends
+   bn:realtime:comment-added. Clicking the pill fetches those comments and places them:
+   a thread is oldest first and paged, so reloading it showed page one, without them.
+ */
+async function bnShowLiveComments( list, ids ) {
+	const postId = Number( list.dataset.commentList ) || 0;
+	const res    = await Promise.all( ids.map( ( id ) => restFetch( '/comments/' + id + '?render=html', { nonce: viewer().restNonce, toastOnError: false } ) ) );
+	let first    = null;
+	res.forEach( ( { ok, data } ) => {
+		if ( ! ok || ! data || list.querySelector( '[data-comment-id="' + Number( data.id ) + '"]' ) ) {
+			return; // Hidden from this viewer, or already on screen.
+		}
+		let node = null;
+		if ( data.parent_id ) {
+			// A reply joins its parent; a parent on an unloaded page brings it along later.
+			const host = list.querySelector( '[data-comment-id="' + Number( data.parent_id ) + '"]' );
+			if ( host ) {
+				let replies = commentPart( host, '.bn-comment__replies' );
+				if ( ! replies ) {
+					replies = document.createElement( 'div' );
+					replies.className = 'bn-comment__replies';
+					host.querySelector( ':scope > .bn-comment__body' ).appendChild( replies );
+				}
+				const depth = Number( host.dataset.depth || 0 ) + 1;
+				node = bnInsertComment( replies, data, { postId, depth } );
+				if ( node ) {
+					node.dataset.depth = String( depth );
+				}
+			}
+		} else {
+			node = bnInsertComment( list, data, { postId, depth: 0 } );
+			if ( node ) {
+				node.dataset.bnLive = '1';
+			}
+		}
+		first = first || node;
+	} );
+	first?.scrollIntoView( { block: 'nearest' } );
+}
+
+document.addEventListener( 'bn:realtime:comment-added', ( e ) => {
+	const postId      = parseInt( e.detail?.post_id, 10 );
+	const commenterId = parseInt( e.detail?.user_id, 10 );
+	const commentId   = parseInt( e.detail?.comment_id, 10 );
+	if ( ! postId || ! commentId ) { return; }
+	const list = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
+	if ( ! list || list.children.length === 0 ) {
+		// Thread not open yet: opening it fetches the fresh list.
+		return;
+	}
+	// The viewer's own comment is already in place.
+	if ( parseInt( viewer().viewerId, 10 ) === commenterId ) { return; }
+
+	let pill = list.previousElementSibling;
+	if ( ! pill || ! pill.classList.contains( 'bn-comment-new-pill' ) ) {
+		pill = document.createElement( 'button' );
+		pill.type = 'button';
+		pill.className = 'bn-comment-new-pill';
+		pill.setAttribute( 'role', 'status' );
+		pill.setAttribute( 'aria-live', 'polite' );
+		pill.dataset.ids = '';
+		pill.addEventListener( 'click', () => {
+			const ids = pill.dataset.ids.split( ',' ).filter( Boolean ).slice( 0, BN_LIVE_COMMENTS_MAX );
+			pill.remove();
+			bnShowLiveComments( list, ids );
+		} );
+		list.parentElement.insertBefore( pill, list );
+	}
+	const ids = pill.dataset.ids ? pill.dataset.ids.split( ',' ) : [];
+	ids.push( String( commentId ) );
+	pill.dataset.ids = ids.join( ',' );
+	const n = ids.length;
+	pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment: show' ) : fmt( t( 'manyNewComments', '%d new comments: show' ), n );
+} );
+
+/* Reaction control ------------------------------------------------------- */
+
+function commentReactionMeta( listEl ) {
+	const set = resolveReactionSet( listEl );
+	return {
+		meta: Object.fromEntries( set.map( ( r ) => [ r.slug, r ] ) ),
+		fallback: set.length ? set[ 0 ].slug : 'like',
+	};
+}
+
+// One glyph: the bundled emoji, else the owner's character in its colour - the
+// same output parts/comment.php gives a reaction on first render.
+function paintReactionGlyph( parent, meta, size ) {
+	parent.replaceChildren();
+	if ( ! meta ) {
+		parent.textContent = '♡';
+		return;
+	}
+	if ( meta.emoji_url ) {
+		const img  = document.createElement( 'img' );
+		img.src    = meta.emoji_url;
+		img.alt    = meta.label || '';
+		img.width  = size;
+		img.height = size;
+		parent.appendChild( img );
+		return;
+	}
+	const glyph = document.createElement( 'span' );
+	glyph.className    = 'bn-reaction-glyph';
+	glyph.textContent  = meta.char || ( meta.label || meta.slug ).charAt( 0 ).toUpperCase();
+	glyph.style.width  = size + 'px';
+	glyph.style.height = size + 'px';
+	if ( /^#[0-9a-fA-F]{6}$/.test( meta.color ) ) {
+		glyph.style.color = meta.color;
+	}
+	parent.appendChild( glyph );
+}
+
+function paintCommentReaction( btn, slug, listEl ) {
+	const meta = slug ? commentReactionMeta( listEl ).meta[ slug ] || null : null;
+	btn.dataset.reaction = slug;
+	btn.dataset.liked    = slug ? '1' : '0';
+	btn.setAttribute( 'aria-pressed', slug ? 'true' : 'false' );
+	paintReactionGlyph( btn.querySelector( '.bn-comment__like-icon' ), meta, 16 );
+	const hex = meta && /^#[0-9a-fA-F]{6}$/.test( meta.color ) ? meta.color : '';
+	if ( hex ) {
+		btn.style.setProperty( '--bn-comment-reaction-color', hex );
+	} else {
+		btn.style.removeProperty( '--bn-comment-reaction-color' );
+	}
+	btn.querySelector( '.bn-comment__like-label' ).textContent = meta ? meta.label : t( 'react', 'React' );
+}
+
+const bnPickerTimers = new WeakMap();
+
+function openCommentPicker( wrap ) {
+	clearTimeout( bnPickerTimers.get( wrap ) );
+	const picker = wrap.querySelector( '.bn-comment__react-picker' );
+	if ( picker ) {
+		// Unhide, then clamp: a hidden element has no box to measure.
+		picker.hidden = false;
+		bnClampPopoverToViewport( picker );
+	}
+}
+
+function closeCommentPickerSoon( wrap ) {
+	bnPickerTimers.set( wrap, setTimeout( () => {
+		const picker = wrap.querySelector( '.bn-comment__react-picker' );
+		if ( picker ) {
+			picker.hidden = true;
+		}
+	}, 200 ) );
+}
+
+async function sendCommentReaction( btn, type ) {
+	if ( viewer().viewerId <= 0 ) {
+		bnToast( t( 'signInToReact', 'Sign in to react to comments.' ), { tone: 'info' } );
+		return;
+	}
+	const wrap   = btn.closest( '.bn-comment__react-wrap' );
+	const picker = wrap && wrap.querySelector( '.bn-comment__react-picker' );
+	if ( picker ) {
+		picker.hidden = true;
+	}
+	const { listEl } = commentScope( btn );
+	const card    = btn.closest( '.bn-comment-card' );
+	const countEl = btn.querySelector( '.bn-comment__like-count' );
+	const prev    = btn.dataset.reaction || '';
+	const next    = ( null === type || prev === type ) ? '' : type;
+	const cur     = parseInt( countEl.textContent || '0', 10 );
+	const delta   = ! prev && next ? 1 : ( prev && ! next ? -1 : 0 );
+
+	// Optimistic, rolled back on failure.
+	paintCommentReaction( btn, next, listEl );
+	countEl.textContent = String( Math.max( 0, cur + delta ) );
+	try {
+		const res = await restFetch( '/reactions/toggle', {
+			method:  'POST',
+			nonce:   viewer().restNonce,
+			toastOnError: false,
+			body:    { object_type: 'comment', object_id: Number( card.dataset.commentId ), emoji: next || prev || 'like' },
+		} );
+		if ( ! res.ok ) {
+			const err = new Error( 'reaction failed' );
+			err.bnResponse = res;
+			throw err;
+		}
+	} catch ( e ) {
+		paintCommentReaction( btn, prev, listEl );
+		countEl.textContent = String( cur );
+		reactionFailureToast( e && e.bnResponse, t( 'reactionUpdateFailed', 'Could not update your reaction. Try again.' ) );
+	}
+}
+
+/* Reply ------------------------------------------------------------------ */
+
+function toggleReplyForm( card ) {
+	const body = card.querySelector( ':scope > .bn-comment__body' );
+	let form   = commentPart( card, '.bn-comment__reply-form' );
+	if ( ! form ) {
+		form = document.createElement( 'div' );
+		form.className = 'bn-comment__reply-form';
+		form.hidden    = true;
+		const ta = document.createElement( 'textarea' );
+		ta.className   = 'bn-comment__reply-input';
+		ta.placeholder = t( 'writeReply', 'Write a reply...' );
+		ta.rows        = 1;
+		const submit = document.createElement( 'button' );
+		submit.type      = 'button';
+		submit.className = 'bn-comment-form__submit';
+		submit.setAttribute( 'aria-label', t( 'postReply', 'Post reply' ) );
+		submit.innerHTML = BN_ICONS.send;
+		const cancel = document.createElement( 'button' );
+		cancel.type      = 'button';
+		cancel.className = 'bn-comment__reply-cancel';
+		setCommentAction( cancel, 'x', t( 'cancel', 'Cancel' ) );
+		form.append( ta, submit, cancel );
+		// Above the replies, where the client renderer put it.
+		body.insertBefore( form, commentPart( card, '.bn-comment__replies' ) );
+	}
+	form.hidden = ! form.hidden;
+	if ( ! form.hidden ) {
+		form.querySelector( 'textarea' ).focus();
+	}
+}
+
+async function submitReply( form ) {
+	const card    = form.closest( '.bn-comment-card' );
+	const ta      = form.querySelector( 'textarea' );
+	const content = ta.value.trim();
+	const { postId } = commentScope( form );
+	if ( ! content || ! postId ) {
+		return;
+	}
+	// The server refuses a reply below the deepest level, so a reply there
+	// joins that level: it goes to the same parent, as a sibling.
+	const atCap = Number( card.dataset.depth || 0 ) >= COMMENT_MAX_DEPTH - 1;
+	const host  = ( atCap && card.parentElement.closest( '.bn-comment-card' ) ) || card;
+	try {
+		const res = await restFetch( '/comments', {
+			method:  'POST',
+			nonce:   viewer().restNonce,
+			toastOnError: false,
+			body:    { object_type: 'post', object_id: postId, content, parent_id: Number( host.dataset.commentId ), render: 'html' },
+		} );
+		if ( res.ok ) {
+			let replies = commentPart( host, '.bn-comment__replies' );
+			if ( ! replies ) {
+				replies = document.createElement( 'div' );
+				replies.className = 'bn-comment__replies';
+				host.querySelector( ':scope > .bn-comment__body' ).appendChild( replies );
+			}
+			const depth = Number( host.dataset.depth || 0 ) + 1;
+			const node  = bnInsertComment( replies, res.data, { postId, depth } );
+			if ( node ) {
+				node.dataset.depth = String( depth );
+			}
+			clearField( ta );
+			form.hidden = true;
+			showStoredCommentCount( postId, res.data );
+			return;
+		}
+		const data = res.data || {};
+		if ( 'email_unverified' === data.code ) {
+			// The reason inline, with a Resend link, so they can fix it here.
+			let errEl = form.querySelector( '.bn-comment-submit-error' );
+			if ( ! errEl ) {
+				errEl = document.createElement( 'div' );
+				errEl.className = 'bn-comment-submit-error';
+				errEl.setAttribute( 'role', 'alert' );
+				form.insertBefore( errEl, form.firstChild );
+			}
+			errEl.replaceChildren();
+			const span = document.createElement( 'span' );
+			span.textContent = restError( res, t( 'replyFailed', 'Could not post reply. Try again.' ) );
+			errEl.appendChild( span );
+			appendResendVerifyButton( errEl, viewer().restNonce );
+		} else {
+			toastRestError( res, t( 'replyFailed', 'Could not post reply. Try again.' ) );
+		}
+	} catch ( _e ) {
+		bnToast( t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
+	}
+}
+
+/* Edit ------------------------------------------------------------------- */
+
+function openCommentEditor( card ) {
+	if ( commentPart( card, '.bn-comment__edit-form' ) ) {
+		return;
+	}
+	const para = commentPart( card, '.bn-comment__content' );
+	const form = document.createElement( 'div' );
+	form.className = 'bn-comment__edit-form';
+	const ta = document.createElement( 'textarea' );
+	ta.className = 'bn-comment-form__input';
+	ta.value     = para ? para.textContent || '' : '';
+	ta.rows      = 2;
+	const save = document.createElement( 'button' );
+	save.type      = 'button';
+	save.className = 'bn-comment-form__submit';
+	save.innerHTML = BN_ICONS.check;
+	save.setAttribute( 'aria-label', t( 'save', 'Save' ) );
+	const cancel = document.createElement( 'button' );
+	cancel.type      = 'button';
+	cancel.className = 'bn-comment__reply-cancel';
+	setCommentAction( cancel, 'x', t( 'cancel', 'Cancel' ) );
+	const row = document.createElement( 'div' );
+	row.className = 'bn-comment__edit-actions';
+	// Emoji insert, when the owner turned the emoji picker on.
+	const emoji = bnEmojiTrigger( ta, 'bn-comment-edit-' + card.dataset.commentId );
+	if ( emoji ) {
+		row.appendChild( emoji );
+	}
+	row.append( save, cancel );
+	form.append( ta, row );
+	if ( para ) {
+		para.hidden = true;
+	}
+	card.querySelector( ':scope > .bn-comment__body' ).insertBefore( form, commentPart( card, '.bn-comment__actions' ) );
+	ta.focus();
+}
+
+function closeCommentEditor( form ) {
+	const card = form.closest( '.bn-comment-card' );
+	const para = commentPart( card, '.bn-comment__content' );
+	form.remove();
+	if ( para ) {
+		para.hidden = false;
+	}
+}
+
+async function saveCommentEdit( form ) {
+	const card = form.closest( '.bn-comment-card' );
+	const next = form.querySelector( 'textarea' ).value.trim();
+	if ( ! next ) {
+		return;
+	}
+	try {
+		const res = await restFetch( '/comments/' + card.dataset.commentId, {
+			method:  'PUT',
+			nonce:   viewer().restNonce,
+			toastOnError: false,
+			body:    { content: next, render: 'html' },
+		} );
+		if ( ! res.ok ) {
+			toastRestError( res, t( 'commentUpdateFailed', 'Could not update comment. Try again.' ) );
+			return;
+		}
+		// The server's formatted text, so @mentions and #hashtags stay links.
+		const para = commentPart( card, '.bn-comment__content' );
+		if ( para ) {
+			para.innerHTML = res.data.content_html || '';
+		}
+		const header = commentPart( card, '.bn-comment__header' );
+		// The server decides: an unchanged save is not an edit.
+		if ( res.data.is_edited && header && ! header.querySelector( '.bn-comment__edited' ) ) {
+			const mark = document.createElement( 'span' );
+			mark.className   = 'bn-comment__edited';
+			mark.textContent = t( 'edited', '(edited)' );
+			header.appendChild( mark );
+		}
+		closeCommentEditor( form );
+		bnToast( t( 'commentUpdated', 'Comment updated' ), { tone: 'success' } );
+	} catch ( _e ) {
+		bnToast( t( 'commentUpdateFailed', 'Could not update comment. Try again.' ), { tone: 'danger' } );
+	}
+}
+
+/* Delete, pin, report ------------------------------------------------------ */
+
+async function deleteComment( card ) {
+	const ok = await bnConfirm( {
+		title: t( 'deleteCommentTitle', 'Delete this comment?' ),
+		body: t( 'cannotBeUndone', 'This cannot be undone.' ),
+		confirmLabel: t( 'delete', 'Delete' ),
+		tone: 'danger',
+	} );
+	if ( ! ok ) {
+		return;
+	}
+	const { postId } = commentScope( card );
+	const res = await restFetch( '/comments/' + card.dataset.commentId, { method: 'DELETE', nonce: viewer().restNonce, toastOnError: false } );
+	if ( ! res.ok ) {
+		toastRestError( res, t( 'commentDeleteFailed', 'Could not delete comment. Try again.' ) );
+		return;
+	}
+	// Soft delete: the thread keeps its shape; the text becomes a placeholder.
+	card.classList.add( 'bn-comment-card--deleted' );
+	const para = commentPart( card, '.bn-comment__content' );
+	if ( para ) {
+		para.textContent         = t( 'commentDeleted', 'This comment was deleted.' );
+		para.dataset.placeholder = '1';
+		para.hidden              = false;
+	}
+	commentPart( card, '.bn-comment__actions' )?.remove();
+	showStoredCommentCount( postId, res.data );
+	bnToast( t( 'commentDeletedToast', 'Comment deleted' ), { tone: 'success' } );
+}
+
+/**
+ * Draw one comment card as pinned or not: card class, Pinned badge, Pin/Unpin label.
+ *
+ * @param {HTMLElement}      card   Comment card.
+ * @param {boolean}          pinned Pinned state to draw.
+ * @param {HTMLElement|null} btn    The card's pin control, absent for a viewer who cannot pin.
+ */
+function paintCommentPin( card, pinned, btn ) {
+	card.classList.toggle( 'bn-comment-card--pinned', pinned );
+	if ( btn ) {
+		setCommentActionLabel( btn, pinned ? t( 'unpin', 'Unpin' ) : t( 'pin', 'Pin' ) );
+	}
+	const header = commentPart( card, '.bn-comment__header' );
+	const badge  = header && header.querySelector( '.bn-comment__pinned-badge' );
+	if ( ! pinned && badge ) {
+		badge.remove();
+	} else if ( pinned && header && ! badge ) {
+		const pin = document.createElement( 'span' );
+		pin.className   = 'bn-comment__pinned-badge';
+		pin.textContent = t( 'pinned', 'Pinned' );
+		header.insertBefore( pin, header.querySelector( '.bn-comment__time' ) );
+	}
+}
+
+async function toggleCommentPin( card, btn ) {
+	const wasPinned = card.classList.contains( 'bn-comment-card--pinned' );
+	try {
+		const res = await restFetch( '/comments/' + card.dataset.commentId + '/pin', {
+			method: wasPinned ? 'DELETE' : 'POST', nonce: viewer().restNonce, toastOnError: false,
+		} );
+		if ( ! res.ok ) {
+			toastRestError( res, t( 'pinStatusFailed', 'Could not change pin status. Try again.' ) );
+			return;
+		}
+		paintCommentPin( card, ! wasPinned, btn );
+		// A post holds one pinned comment, so pinning this one replaced any other.
+		if ( ! wasPinned ) {
+			card.closest( '[data-comment-list]' )?.querySelectorAll( '.bn-comment-card--pinned' ).forEach( ( other ) => {
+				if ( other !== card ) {
+					paintCommentPin( other, false, commentPart( other, '.bn-comment__actions' )?.querySelector( '.bn-comment__pin-btn' ) );
+				}
+			} );
+		}
+		bnToast( wasPinned ? t( 'commentUnpinned', 'Comment unpinned' ) : t( 'commentPinned', 'Comment pinned' ), { tone: 'success' } );
+	} catch ( _e ) {
+		bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
+	}
+}
+
+async function reportComment( card, btn ) {
+	const result = await bnReportDialog( { title: t( 'reportComment', 'Report this comment' ) } );
+	if ( null === result ) {
+		return;
+	}
+	try {
+		const res = await restFetch( '/reports', {
+			method:  'POST',
+			nonce:   viewer().restNonce,
+			toastOnError: false,
+			body:    { object_type: 'comment', object_id: Number( card.dataset.commentId ), reason: result.reason, notes: result.notes },
+		} );
+		const data = res.data || {};
+		// 409 = already reported: the report is on file, so show it as reported too.
+		if ( ! res.ok && 409 !== res.status ) {
+			toastRestError( res, t( 'reportFailed', 'Could not submit report. Try again.' ) );
+			return;
+		}
+		// The control shows the report landed, like the post-level Report.
+		btn.disabled = true;
+		setCommentActionLabel( btn, t( 'reported', 'Reported' ) );
+		bnToast( res.ok ? t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ) : ( data.message || t( 'reportAlready', 'You already reported this.' ) ), { tone: res.ok ? 'success' : 'info' } );
+	} catch ( _e ) {
+		bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+	}
+}
+
+/* Delegated listeners (installed once) ------------------------------------ */
+
+document.addEventListener( 'click', ( e ) => {
+	const target = e.target instanceof Element ? e.target : null;
+	if ( ! target ) {
+		return;
+	}
+	// A picker opened by tap closes when the tap lands elsewhere.
+	document.querySelectorAll( '.bn-comment__react-picker:not([hidden])' ).forEach( ( picker ) => {
+		if ( ! picker.parentElement.contains( target ) ) {
+			picker.hidden = true;
+		}
+	} );
+	const { listEl } = commentScope( target );
+	if ( ! listEl ) {
+		return;
+	}
+	let el;
+	if ( ( el = target.closest( '.bn-comment__like-btn' ) ) ) {
+		e.preventDefault();
+		const picker   = el.closest( '.bn-comment__react-wrap' ).querySelector( '.bn-comment__react-picker' );
+		const fallback = commentReactionMeta( listEl ).fallback;
+		// Closed picker (touch, keyboard): open it; a guest gets the sign-in note.
+		// Open picker: quick-toggle the first enabled reaction or clear mine.
+		if ( picker && picker.hidden ) {
+			if ( viewer().viewerId <= 0 ) {
+				sendCommentReaction( el, fallback );
+			} else {
+				openCommentPicker( el.closest( '.bn-comment__react-wrap' ) );
+			}
+			return;
+		}
+		sendCommentReaction( el, el.dataset.reaction ? null : fallback );
+		return;
+	}
+	if ( ( el = target.closest( '.bn-comment__react-option' ) ) ) {
+		// Keyboard activation only; pointer picks are handled on pointerdown.
+		if ( 0 === e.detail ) {
+			sendCommentReaction( el.closest( '.bn-comment__react-wrap' ).querySelector( '.bn-comment__like-btn' ), el.dataset.reaction );
+		}
+		return;
+	}
+	if ( ( el = target.closest( '.bn-comment-loadmore' ) ) ) {
+		bnLoadMoreComments( listEl, el );
+		return;
+	}
+	const card = target.closest( '.bn-comment-card' );
+	if ( ! card ) {
+		return;
+	}
+	if ( ( el = target.closest( '.bn-comment__reply-form' ) ) ) {
+		if ( target.closest( '.bn-comment__reply-cancel' ) ) {
+			el.hidden = true;
+		} else if ( target.closest( '.bn-comment-form__submit' ) ) {
+			submitReply( el );
+		}
+		return;
+	}
+	if ( ( el = target.closest( '.bn-comment__edit-form' ) ) ) {
+		if ( target.closest( '.bn-comment__reply-cancel' ) ) {
+			closeCommentEditor( el );
+		} else if ( target.closest( '.bn-comment-form__submit' ) ) {
+			saveCommentEdit( el );
+		}
+		return;
+	}
+	if ( target.closest( '.bn-comment__reply-btn' ) ) {
+		toggleReplyForm( card );
+	} else if ( target.closest( '.bn-comment__edit-btn' ) ) {
+		openCommentEditor( card );
+	} else if ( target.closest( '.bn-comment__delete-btn' ) ) {
+		deleteComment( card );
+	} else if ( ( el = target.closest( '.bn-comment__pin-btn' ) ) ) {
+		toggleCommentPin( card, el );
+	} else if ( ( el = target.closest( '.bn-comment__report-btn' ) ) ) {
+		reportComment( card, el );
+	}
+} );
+
+// Picking a reaction must land before a blur/leave closes the picker.
+document.addEventListener( 'pointerdown', ( e ) => {
+	const opt = e.target instanceof Element ? e.target.closest( '.bn-comment-list .bn-comment__react-option' ) : null;
+	if ( ! opt ) {
+		return;
+	}
+	e.preventDefault();
+	const wrap = opt.closest( '.bn-comment__react-wrap' );
+	clearTimeout( bnPickerTimers.get( wrap ) );
+	sendCommentReaction( wrap.querySelector( '.bn-comment__like-btn' ), opt.dataset.reaction );
+} );
+
+// Hover and focus reveal the picker on pointer and keyboard devices.
+const bnPickerWrapFrom = ( e ) => ( e.target instanceof Element ? e.target.closest( '.bn-comment-list .bn-comment__react-wrap' ) : null );
+const bnLeftWrap       = ( wrap, related ) => ! ( related instanceof Node && wrap.contains( related ) );
+document.addEventListener( 'mouseover', ( e ) => {
+	const wrap = bnPickerWrapFrom( e );
+	if ( wrap && bnLeftWrap( wrap, e.relatedTarget ) ) {
+		openCommentPicker( wrap );
+	}
+} );
+document.addEventListener( 'mouseout', ( e ) => {
+	const wrap = bnPickerWrapFrom( e );
+	if ( wrap && bnLeftWrap( wrap, e.relatedTarget ) ) {
+		closeCommentPickerSoon( wrap );
+	}
+} );
+document.addEventListener( 'focusin', ( e ) => {
+	const wrap = bnPickerWrapFrom( e );
+	if ( wrap ) {
+		openCommentPicker( wrap );
+	}
+} );
+document.addEventListener( 'focusout', ( e ) => {
+	const wrap = bnPickerWrapFrom( e );
+	if ( wrap && bnLeftWrap( wrap, e.relatedTarget ) ) {
+		closeCommentPickerSoon( wrap );
+	}
+} );
+
+// An avatar that fails to load falls back to the initials the server put on it.
+document.addEventListener( 'error', ( e ) => {
+	const img = e.target;
+	if ( ! ( img instanceof HTMLImageElement ) || ! img.parentElement || ! img.parentElement.classList.contains( 'bn-comment__avatar' ) ) {
+		return;
+	}
+	const avatar = img.parentElement;
+	const letters = img.dataset.bnInitials || '';
+	img.remove();
+	avatar.textContent = letters;
+}, true );
+
+/**
+ * Show the total the server returned for a comment add or delete.
+ *
+ * The total, never +1 or -1: a realtime event can reach this tab before the response.
+ *
+ * @param {number} postId Post id.
+ * @param {Object} data   Response with `comment_count`.
+ * @return {void}
+ */
+function showStoredCommentCount( postId, data ) {
+	if ( Number.isFinite( data?.comment_count ) ) {
+		setCommentCount( document.querySelector( 'article[data-post-id="' + postId + '"]' ), data.comment_count );
+	}
+}
+
+/**
+ * Show a post card's comment count.
+ *
+ * Single source of truth for the comment count: every add (top-level + reply),
+ * delete and realtime update routes through here, so it owns the visible chip,
+ * its hidden state, and the button's accessible name in lock-step. (Delete is a
+ * vanilla-JS handler with no Interactivity context, so a reactive binding could
+ * never stay in sync with it.)
+ *
+ * @param {Element|null} card The post card article.
+ * @param {number}       n    Comment count.
+ * @return {void}
+ */
+function setCommentCount( card, n ) {
 	const btn  = card?.querySelector( '[data-wp-on--click="actions.openComments"]' );
 	const span = btn?.querySelector( '.bn-post-card__action-count' );
 	if ( ! span || ! btn ) {
 		return;
 	}
-	// Single source of truth for the comment count: every add (top-level +
-	// reply) and delete routes through here, so it owns the visible chip, its
-	// hidden state, and the button's accessible name in lock-step. (Delete is
-	// a vanilla-JS handler with no Interactivity context, so a reactive
-	// binding could never stay in sync with it.)
-	const n = Math.max( 0, parseInt( span.textContent || '0', 10 ) + delta );
+	n = Math.max( 0, n );
 	span.textContent = String( n );
 	span.hidden = ( 0 === n );
 	btn.setAttribute( 'aria-label', 1 === n ? t( 'oneComment', '1 comment' ) : fmt( t( 'manyComments', '%d comments' ), n ) );
@@ -1369,46 +1269,59 @@ function buildReactorRow( r, emojiBase ) {
  * @param {Object}  ctx    Post-card context (ids, nonce, restUrl).
  * @return {void}
  */
-function bnRenderCommentPage( listEl, data, ctx ) {
+function bnRenderCommentPage( listEl, data ) {
 	const items   = data.items || [];
 	const total   = Number( data.total ) || items.length;
 	const page    = Number( data.page ) || Number( listEl.dataset.page ) || 1;
-	const perPage = Number( data.per_page ) || COMMENT_FIRST_PAGE;
+	const perPage = Number( data.per_page ) || bnCommentPageSize( listEl );
+	const postId  = Number( listEl.dataset.commentList ) || 0;
 
 	// Drop any prior load-more button and truncation notice before appending
 	// this page's items (both are re-derived from the response below).
-	const oldBtn = listEl.querySelector( '.bn-comment-loadmore' );
-	if ( oldBtn ) listEl.removeChild( oldBtn );
-	const oldNote = listEl.querySelector( '.bn-comment-truncated' );
-	if ( oldNote ) listEl.removeChild( oldNote );
+	listEl.querySelector( ':scope > .bn-comment-loadmore' )?.remove();
+	listEl.querySelector( ':scope > .bn-comment-truncated' )?.remove();
 
-	items.forEach( ( comment ) => {
-		listEl.appendChild(
-			buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
-		);
-	} );
+	// A comment already on screen (the member's own new one, or a pin set while they
+	// read) is not drawn twice when its page arrives.
+	// Older pages go above any comment the realtime pill already placed at the end.
+	const live = listEl.querySelector( ':scope > [data-bn-live]' );
+	items
+		.filter( ( comment ) => ! listEl.querySelector( ':scope > [data-comment-id="' + Number( comment.id ) + '"]' ) )
+		.forEach( ( comment ) => {
+			const node = bnInsertComment( listEl, comment, { postId, depth: 0 } );
+			if ( node && live ) {
+				listEl.insertBefore( node, live );
+			}
+		} );
 
 	const shown = page * perPage;
 	if ( shown < total ) {
-		const remaining = total - shown;
 		const btn = document.createElement( 'button' );
-		btn.type      = 'button';
-		btn.className = 'bn-comment-loadmore';
-		btn.textContent = t( 'viewMoreComments', 'View more comments' ) + ' (' + remaining + ')';
-		btn.addEventListener( 'click', () => bnLoadMoreComments( listEl, ctx, btn ) );
-		listEl.appendChild( btn );
+		btn.type        = 'button';
+		btn.className   = 'bn-comment-loadmore';
+		btn.textContent = fmt( t( 'viewMoreCommentsCount', 'View more comments (%d)' ), total - shown );
+		listEl.insertBefore( btn, live );
 	}
 
-	// The server caps how many deep replies one page loads and flags it with
-	// replies_truncated; surface it so a capped thread is not presented as the
-	// whole conversation (the flag was otherwise read by nothing).
+	// The server caps how many deep replies one page loads and flags it; say so,
+	// so a capped thread is not presented as the whole conversation.
 	if ( data.replies_truncated ) {
 		const note = document.createElement( 'p' );
 		note.className = 'bn-comment-truncated';
 		note.setAttribute( 'role', 'note' );
-		note.textContent = t( 'repliesTruncated', 'Some replies aren’t shown.' );
+		note.textContent = t( 'repliesTruncated', "Some replies aren't shown." );
 		listEl.appendChild( note );
 	}
+}
+
+/**
+ * Top-level comments per page, as the server published it on the list.
+ *
+ * @param {Element} listEl The [data-comment-list] container.
+ * @return {number}
+ */
+function bnCommentPageSize( listEl ) {
+	return Number( listEl.dataset.perPage ) || COMMENT_FIRST_PAGE;
 }
 
 /**
@@ -1419,19 +1332,19 @@ function bnRenderCommentPage( listEl, data, ctx ) {
  * @param {Element} btn    The load-more button (disabled while fetching).
  * @return {Promise<void>}
  */
-async function bnLoadMoreComments( listEl, ctx, btn ) {
+async function bnLoadMoreComments( listEl, btn ) {
 	const nextPage = ( Number( listEl.dataset.page ) || 1 ) + 1;
 	btn.disabled    = true;
 	btn.textContent = t( 'loadingComments', 'Loading…' );
 
 	try {
 		const res = await restFetch(
-			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=' + COMMENT_FIRST_PAGE + '&page=' + nextPage,
-			{ nonce: ctx.reactNonce, toastOnError: false }
+			'/comments?object_type=post&object_id=' + listEl.dataset.commentList + '&per_page=' + bnCommentPageSize( listEl ) + '&page=' + nextPage + '&render=html',
+			{ nonce: viewer().restNonce, toastOnError: false }
 		);
 		if ( res.ok ) {
 			listEl.dataset.page = String( nextPage );
-			bnRenderCommentPage( listEl, res.data, ctx );
+			bnRenderCommentPage( listEl, res.data );
 		} else {
 			btn.disabled    = false;
 			btn.textContent = t( 'retry', 'Retry' );
@@ -1467,8 +1380,8 @@ function* bnLoadComments( ctx ) {
 
 	try {
 		const res = yield restFetch(
-			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=' + COMMENT_FIRST_PAGE + '&page=1',
-			{ nonce: ctx.reactNonce, toastOnError: false }
+			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=' + bnCommentPageSize( listEl ) + '&page=1&render=html',
+			{ nonce: viewer().restNonce, toastOnError: false }
 		);
 		while ( listEl.firstChild ) {
 			listEl.removeChild( listEl.firstChild );
@@ -1476,7 +1389,7 @@ function* bnLoadComments( ctx ) {
 		if ( res.ok ) {
 			listEl.dataset.loaded = '1';
 			listEl.dataset.page   = '1';
-			bnRenderCommentPage( listEl, res.data, ctx );
+			bnRenderCommentPage( listEl, res.data );
 		} else {
 			const err = document.createElement( 'div' );
 			err.className = 'bn-comment-error';
@@ -1581,7 +1494,7 @@ store( 'buddynext/post-card', {
 		get reactionLabel() {
 			try {
 				const ctx = getContext();
-				return ctx.reactionLabel || ctx.reactDefaultLabel || t( 'react', 'React' );
+				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'react', 'React' );
 			} catch ( _e ) { return t( 'react', 'React' ); }
 		},
 		get pollOptionPctText() {
@@ -1850,12 +1763,12 @@ store( 'buddynext/post-card', {
 			// follows the type: the chosen reaction's name, or the default when
 			// toggling the reaction off.
 			ctx.reactionType  = newType;
-			ctx.reactionLabel = newType ? label : ( ctx.reactDefaultLabel || 'React' );
+			ctx.reactionLabel = newType ? label : ( viewer().reactDefaultLabel || 'React' );
 
 			try {
 				const res = yield restFetch( '/reactions/toggle', {
 					method:  'POST',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 					body:    { object_type: 'post', object_id: ctx.postId, emoji: newType },
 				} );
@@ -1884,7 +1797,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/bookmark', {
 					method,
-					nonce: ctx.bookmarkNonce,
+					nonce: viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
@@ -1895,11 +1808,9 @@ store( 'buddynext/post-card', {
 					// gives one (the attempted action decides the fallback wording).
 					const wanted = ! prev;
 					ctx.bookmarked = prev;
-					const data     = res.data || {};
-					const fallback = wanted
+					toastRestError( res, wanted
 						? t( 'bookmarkAddFailed', 'Could not save this post. Try again.' )
-						: t( 'bookmarkRemoveFailed', 'Could not remove this post from saved. Try again.' );
-					bnToast( data.message || fallback, { tone: 'danger' } );
+						: t( 'bookmarkRemoveFailed', 'Could not remove this post from saved. Try again.' ) );
 				}
 			} catch ( _e ) {
 				const wanted   = ! prev;
@@ -1959,7 +1870,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch(
 					'/reactions/list?object_type=' + encodeURIComponent( objectType ) + '&object_id=' + encodeURIComponent( objectId ) + '&limit=100',
-					{ nonce: ctx.reactNonce, toastOnError: false }
+					{ nonce: viewer().restNonce, toastOnError: false }
 				);
 				while ( listEl.firstChild ) { listEl.removeChild( listEl.firstChild ); }
 				if ( res.ok ) {
@@ -2066,7 +1977,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId, {
 					method:  'DELETE',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
@@ -2086,7 +1997,7 @@ store( 'buddynext/post-card', {
 					// permission or moderation-lock message) over the generic one.
 					const data = res.data || {};
 					bnToast(
-						data.message || t( 'postDeleteFailed', 'Could not delete this post. Try again.' ),
+						restError( res, t( 'postDeleteFailed', 'Could not delete this post. Try again.' ) ),
 						{ tone: 'danger' }
 					);
 				}
@@ -2126,8 +2037,8 @@ store( 'buddynext/post-card', {
 						permalink,
 						author,
 						excerpt,
-						nonce:     ctx.shareNonce,
-						restUrl:   ctx.restUrl,
+						nonce:     viewer().restNonce,
+						restUrl:   viewer().restUrl,
 						canRepost: !! btn && '1' === btn.getAttribute( 'data-can-repost' ),
 						shareable: !! btn && '1' === btn.getAttribute( 'data-shareable' ),
 					},
@@ -2143,7 +2054,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/share', {
 					method:  'POST',
-					nonce:   ctx.shareNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
@@ -2151,7 +2062,7 @@ store( 'buddynext/post-card', {
 					ctx.shareShared = false;
 					// Surface the server's reason (e.g. already_shared) instead of
 					// failing silently — the guard is correct, the UX was mute.
-					const msg = ( res.data && res.data.message ) || t( 'shareFailed', 'Could not share this post. Try again.' );
+					const msg = restError( res, t( 'shareFailed', 'Could not share this post. Try again.' ) );
 					if ( window.bnToast ) { window.bnToast( msg, 'error' ); }
 				}
 			} catch ( _e ) {
@@ -2171,7 +2082,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/reports', {
 					method:  'POST',
-					nonce:   ctx.reportNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 					body:    {
 						object_type: 'post',
@@ -2223,7 +2134,7 @@ store( 'buddynext/post-card', {
 					// Surface the server's reason instead of a generic failure.
 					const data = res.data || {};
 					bnToast(
-						data.message || t( 'reportFailed', 'Could not submit report. Try again.' ),
+						restError( res, t( 'reportFailed', 'Could not submit report. Try again.' ) ),
 						{ tone: 'danger' }
 					);
 				}
@@ -2247,8 +2158,9 @@ store( 'buddynext/post-card', {
 				return;
 			}
 
-			const contentEl = card.querySelector( '.bn-post-card__content' );
-			if ( ! contentEl ) {
+			let contentEl = card.querySelector( '.bn-post-card__content' );
+			const bodyEl  = card.querySelector( '.bn-post-card__body' );
+			if ( ! contentEl && ! bodyEl ) {
 				bnToast( t( 'postNotEditable', 'This post cannot be edited.' ), { tone: 'info' } );
 				return;
 			}
@@ -2261,9 +2173,10 @@ store( 'buddynext/post-card', {
 			let postType    = '';
 			let postSpaceId = 0;
 			let mediaItems  = [];
+			let hasLink     = false;
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId, {
-					nonce: ctx.reactNonce,
+					nonce: viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
@@ -2276,9 +2189,16 @@ store( 'buddynext/post-card', {
 					postType    = ( data && data.type ) ? String( data.type ) : '';
 					postSpaceId = ( data && data.space_id ) ? parseInt( data.space_id, 10 ) || 0 : 0;
 					mediaItems  = ( data && Array.isArray( data.media ) ) ? data.media : [];
+					hasLink     = !! ( data && data.link_url );
 				}
 			} catch ( _e ) {
 				// Fall back to the visible text if the fetch fails.
+			}
+			// A caption-less photo, file or link has no text node yet: give the caption one.
+			if ( ! contentEl ) {
+				contentEl = document.createElement( 'div' );
+				contentEl.className = 'bn-post-card__content';
+				bodyEl.prepend( contentEl );
 			}
 			if ( '' === rawContent ) {
 				rawContent = ( contentEl.textContent || '' ).trim();
@@ -2386,13 +2306,35 @@ store( 'buddynext/post-card', {
 				addBtn.addEventListener( 'click', () => picker.click() );
 
 				picker.addEventListener( 'change', async () => {
-					const files = Array.from( picker.files || [] );
+					let files = Array.from( picker.files || [] );
 					picker.value = '';
+					// The composer's limits. Files still uploading count, and an older post
+					// over the cap can remove files but not add them.
+					const maxMedia  = Number( viewer().mediaMaxCount );
+					const maxSizeMB = Number( viewer().mediaMaxMB ) || 0;
+					const remaining = maxMedia - mediaIds.length - uploading;
+					if ( remaining <= 0 ) {
+						bnToast( fmt( t( 'maxImagesPerPost', 'You can attach at most %d files per post.' ), maxMedia ), { tone: 'info' } );
+						return;
+					}
+					if ( files.length > remaining ) {
+						bnToast(
+							1 === remaining
+								? t( 'oneMoreImage', 'Only 1 more file can be added.' )
+								: fmt( t( 'moreImages', 'Only %d more files can be added.' ), remaining ),
+							{ tone: 'info' }
+						);
+						files = files.slice( 0, remaining );
+					}
 					// Two passes, as in the composer: every picked file gets its tile and
 					// a "Waiting" pill at once, then each upload shows its percentage.
 					const jobs = [];
 					for ( const file of files ) {
-						const invalid = validateMedia( file, { badTypeMsg: t( 'mediaBadType', 'Only images, video and audio can be attached.' ) } );
+						const invalid = validateMedia( file, {
+							maxSizeMB,
+							badTypeMsg:  t( 'mediaBadType', 'Only images, video and audio can be attached.' ),
+							tooLargeMsg: fmt( t( 'mediaTooLarge', 'File is larger than the %d MB allowed.' ), maxSizeMB ),
+						} );
 						if ( invalid ) {
 							bnToast( invalid, { tone: 'danger' } );
 							continue;
@@ -2417,7 +2359,7 @@ store( 'buddynext/post-card', {
 						// Staged private like the composer's uploads; the post's own
 						// privacy is applied to it when the edit is saved.
 						const out = await uploadMedia( file, {
-							nonce: ctx.reactNonce,
+							nonce: viewer().restNonce,
 							privacy: 'private',
 							spaceId: postSpaceId,
 							onProgress: ( percent ) => {
@@ -2442,7 +2384,7 @@ store( 'buddynext/post-card', {
 
 				mediaRow.appendChild( tiles );
 				// Removing is always allowed; adding only where the site lets this member upload.
-				if ( ctx.canUploadMedia ) {
+				if ( viewer().canUploadMedia ) {
 					mediaRow.appendChild( addBtn );
 					mediaRow.appendChild( picker );
 				}
@@ -2522,6 +2464,10 @@ store( 'buddynext/post-card', {
 			const teardown = () => {
 				form.remove();
 				contentEl.hidden = false;
+				// Still no caption: leave no empty box behind on the card.
+				if ( '' === contentEl.textContent.trim() ) {
+					contentEl.remove();
+				}
 			};
 
 			cancelBtn.addEventListener( 'click', () => {
@@ -2537,7 +2483,8 @@ store( 'buddynext/post-card', {
 			saveBtn.addEventListener( 'click', async () => {
 				const next         = ta.value.trim();
 				const mediaChanged = mediaIds.join( ',' ) !== mediaStart;
-				if ( '' === next && ! mediaIds.length ) {
+				const hasAttachment = mediaIds.length > 0 || 'file' === postType || ( 'link' === postType && hasLink && ! removePreview );
+				if ( '' === next && ! hasAttachment ) {
 					bnToast( t( 'postContentEmpty', 'Post content cannot be empty.' ), { tone: 'info' } );
 					return;
 				}
@@ -2565,7 +2512,7 @@ store( 'buddynext/post-card', {
 				try {
 					const res = await restFetch( '/posts/' + ctx.postId, {
 						method:  'PUT',
-						nonce:   ctx.reactNonce,
+						nonce:   viewer().restNonce,
 						toastOnError: false,
 						body:    payload,
 					} );
@@ -2579,9 +2526,11 @@ store( 'buddynext/post-card', {
 						bnReloadWithToast( t( 'postUpdated', 'Post updated' ), 'success' );
 						return;
 					}
-					// Reflect the saved text immediately (line breaks preserved). Full
-					// mention/hashtag formatting re-applies on the next page load.
-					contentEl.textContent = next;
+					// Show the saved text as the server renders it: its formatted HTML
+					// (mentions and hashtags linked), each line break a <br> like the
+					// template's nl2br(). textContent left raw newlines, which collapsed
+					// every paragraph into one until a reload (Zoho #42457).
+					contentEl.innerHTML = String( ( res.data && res.data.content_html ) || '' ).replace( /\r?\n/g, '<br>\n' );
 					// The server has cleared link_url/link_meta, so drop the card for
 					// real rather than leaving it hidden until the next page load.
 					if ( previewEl && removePreview ) {
@@ -2589,7 +2538,7 @@ store( 'buddynext/post-card', {
 					}
 					// The server decides: edited_at stays empty for an unchanged
 					// save or an audience-only change.
-					if ( res.data && res.data.edited_at && ! card.querySelector( '.bn-post-card__edited' ) ) {
+					if ( next && res.data && res.data.edited_at && ! card.querySelector( '.bn-post-card__edited' ) ) {
 						const mark = document.createElement( 'span' );
 						mark.className = 'bn-post-card__edited';
 						mark.textContent = t( 'editedSpaced', ' (edited)' );
@@ -2612,23 +2561,14 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/pin', {
 					method:  prev ? 'DELETE' : 'POST',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					bnToast( ctx.isPinned ? t( 'postPinned', 'Post pinned' ) : t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
 				} else {
 					ctx.isPinned = prev;
-					let message = prev ? t( 'postUnpinFailed', 'Could not unpin this post. Try again.' ) : t( 'postPinFailed', 'Could not pin this post. Try again.' );
-					try {
-						const data = res.data;
-						if ( data && data.message ) {
-							message = data.message;
-						}
-					} catch ( _err ) {
-						// Non-JSON body - keep the generic fallback message.
-					}
-					bnToast( message, { tone: 'danger' } );
+					toastRestError( res, prev ? t( 'postUnpinFailed', 'Could not unpin this post. Try again.' ) : t( 'postPinFailed', 'Could not pin this post. Try again.' ) );
 				}
 			} catch ( _e ) {
 				ctx.isPinned = prev;
@@ -2643,17 +2583,13 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/pin', {
 					method:  'DELETE',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					bnReloadWithToast( t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
 				} else {
-					let message = t( 'postUnpinFailed', 'Could not unpin this post. Try again.' );
-					if ( res.data && res.data.message ) {
-						message = res.data.message;
-					}
-					bnToast( message, { tone: 'danger' } );
+					toastRestError( res, t( 'postUnpinFailed', 'Could not unpin this post. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
@@ -2729,7 +2665,7 @@ store( 'buddynext/post-card', {
 				// retry until the member verifies, so offer a Resend link instead
 				// of a dead Retry - mirroring the composer's affordance.
 				if ( 'email_unverified' === code ) {
-					appendResendVerifyButton( alertEl, ctx.reactNonce );
+					appendResendVerifyButton( alertEl, viewer().restNonce );
 				} else if ( appealUrl ) {
 					// A suspension cannot be retried away. Offer the appeal page
 					// instead of a control that is guaranteed to fail.
@@ -2742,22 +2678,20 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/comments', {
 					method:  'POST',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
-					body:    { object_type: 'post', object_id: ctx.postId, content },
+					body:    { object_type: 'post', object_id: ctx.postId, content, render: 'html' },
 				} );
 				if ( res.ok ) {
 					// Clear any stale error alert from a previous failed attempt.
 					inputEl?.closest( '.bn-post-card__comments' )?.querySelector( '.bn-comment-submit-error' )?.remove();
-					const comment       = res.data;
-					comment.author_name = comment.author_name || t( 'you', 'You' );
-					const listEl        = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
+					const listEl = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
 					if ( listEl ) {
 						listEl.dataset.loaded = '1';
-						listEl.appendChild( buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 ) );
+						bnInsertComment( listEl, res.data, { postId: ctx.postId, depth: 0 } );
 					}
 					clearField( inputEl );
-					adjustCommentCount( ctx.postId, 1 );
+					showStoredCommentCount( ctx.postId, res.data );
 					if ( window.bnToast ) { window.bnToast( t( 'commentAdded', 'Comment added' ) ); }
 				} else {
 					// Surface the server's actual reason — create() now preserves
@@ -2765,7 +2699,7 @@ store( 'buddynext/post-card', {
 					// instead of flattening to a generic 400. Fall back only when
 					// the response carries no message.
 					showInlineError(
-						( res.data && res.data.message ) ? String( res.data.message ) : t( 'commentPostFailed', 'Could not post your comment. Try again.' ),
+						restError( res, t( 'commentPostFailed', 'Could not post your comment. Try again.' ) ),
 						res.data && res.data.code,
 						res.data && res.data.data && res.data.data.appeal_url
 					);
@@ -2785,7 +2719,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/vote', {
 					method:  'POST',
-					nonce:   ctx.pollNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 					body:    { option_id: optionId },
 				} );
@@ -2812,7 +2746,7 @@ store( 'buddynext/post-card', {
 					// (card 10264293681 RFT round 4).
 					const data = res.data || {};
 					bnToast(
-						data.message || t( 'voteFailed', 'Could not record your vote. Try again.' ),
+						restError( res, t( 'voteFailed', 'Could not record your vote. Try again.' ) ),
 						{ tone: 'danger' }
 					);
 				}
@@ -2826,7 +2760,7 @@ store( 'buddynext/post-card', {
 			try {
 				res = yield restFetch( '/feed/announcements/' + ctx.postId + '/dismiss', {
 					method:  'POST',
-					nonce:   ctx.dismissNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 			} catch ( _e ) {
@@ -2843,10 +2777,7 @@ store( 'buddynext/post-card', {
 					'.bn-post-card--announcement[data-post-id="' + ctx.postId + '"]'
 				)?.remove();
 			} else {
-				bnToast(
-					t( 'announcementDismissFailed', 'Could not dismiss this announcement. Try again.' ),
-					{ tone: 'danger' }
-				);
+				toastRestError( res, t( 'announcementDismissFailed', 'Could not dismiss this announcement. Try again.' ) );
 			}
 		},
 		// Admin-only: end the announcement for everyone (expire its pin now).
@@ -2855,16 +2786,16 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/feed/announcements/' + ctx.postId + '/end', {
 					method:  'POST',
-					nonce:   ctx.dismissNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				// Only drop the banner once the server confirms the end —
 				// removing it on a 403/404/500 gave a false sense of success.
 				if ( res.ok ) {
-					document.querySelector( '.bn-post-card--announcement' )?.remove();
+					document.querySelectorAll( '.bn-post-card--announcement[data-post-id="' + ctx.postId + '"]' ).forEach( ( el ) => el.remove() );
 					bnToast( t( 'announcementEnded', 'Announcement ended' ), { tone: 'success' } );
 				} else {
-					bnToast( t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ), { tone: 'danger' } );

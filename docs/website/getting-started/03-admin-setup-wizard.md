@@ -2,18 +2,18 @@
 
 The Setup Wizard is the first thing BuddyNext shows you after the plugin is active, and it is the fastest way to a working community. In a few minutes it walks you through the handful of decisions that turn a fresh install into a real place to invite people: what to call it, how people join, what profiles look like, how spaces are organized, and which pages members visit. Every choice comes with a sensible default, so you can click straight through and still end up with a complete, usable community - then fine-tune later if you want to.
 
-![Step 1 of the Setup Wizard: community name and brand colour, with the seven-step progress bar](../images/setup-wizard-branding.webp)
+![Step 1 of the Setup Wizard: community name and brand colour, with the progress bar](../images/setup-wizard-branding.webp)
 
 ## What it is
 
-The wizard is a seven-step guided setup that opens automatically the first time BuddyNext is active. Until you finish it, a **Run the setup wizard** link stays in the wp-admin notice area; you can also reach it directly at `wp-admin/admin.php?page=buddynext-setup`. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
+The wizard is a guided setup of seven built-in steps (BuddyNext Pro and add-ons can add their own) that opens automatically the first time BuddyNext is active. Until you finish it, a **Run the setup wizard** reminder shows on the Dashboard and on BuddyNext screens. Choose **Hide this message** to stop seeing it (it hides for you only; other admins still see it). You can also reach it directly at `wp-admin/admin.php?page=buddynext-setup`. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
 
 You stay in control of the pace:
 
 - **Continue** saves the current step and moves on.
 - **Back** returns to the previous step without saving the current one.
 - **Skip this step** moves on without changing anything on that step.
-- **Save & exit** leaves the wizard and returns you to the dashboard. You can come back any time.
+- **Save & exit** saves the current step, as Continue does, and returns you to the dashboard with a confirmation. You can come back any time and pick up on the same step.
 
 > **Note:** Nothing on this wizard is permanent. Every step names the admin section where you can change that setting later, and re-running the wizard never creates duplicate pages, categories, or profile groups.
 
@@ -25,7 +25,7 @@ A community has a lot of moving parts - registration rules, profile fields, noti
 
 | Step | Screen | What you decide |
 |------|--------|-----------------|
-| 1 | **Branding** | Your community name and a single brand color. The name appears in headers, emails, and the browser tab. The color drives primary buttons, links, and focus states. |
+| 1 | **Branding** | Your community name and a single brand color. The name appears in headers, emails, and the browser tab. The color drives primary buttons, links, and focus states. Leave the swatch as it is and nothing is stored, so your theme's accent stays in charge. |
 | 2 | **Registration** | How new members get in (see the registration modes below) and whether to require email verification before a member can post or react. |
 | 3 | **Profile Fields** | A review of the profile groups your community will start with - Headline, bio, location, website, and pronouns, plus extras such as Social Links, Work Experience, Education, and Skills. This step lists them so you know what members will fill in; you shape the actual fields later under Members > Directory > Profile Fields. (Interests are added automatically from your space categories.) |
 | 4 | **Spaces** | Starter categories for organizing spaces. Comes pre-filled with General, Announcements, Help & Support, and Off-topic. Edit the comma-separated list or clear it to set categories up later. |

@@ -18,10 +18,15 @@
  *
  * @var string $profile_url Absolute URL of the profile (copy-link target).
  * @var string $mention_url Compose URL that mentions this member (share to feed).
+ * @var bool   $has_reported Whether the viewer has already reported this member.
  * @var bool   $show_safety Render Mute / Restrict / Block / Report. Requires an
  *                          account to act on, so it is off for logged-out
  *                          visitors and meaningless on your own profile.
  * @var string $edit_url    Non-empty renders "Edit profile" (moderator capability).
+ * @var bool   $fit         The row shows Share inline and folds it here only when
+ *                          it does not fit (shell/extras.js data-bn-fit): the share
+ *                          items become copies, hidden until folded, and the menu
+ *                          hides itself when nothing is folded.
  * @var string $message_url Non-empty renders "Message" as the first item, shown
  *                          ONLY below 640px. Above that the row shows Message as
  *                          its own control and this copy stays hidden — see
@@ -38,12 +43,14 @@ $bn_ov_profile = isset( $profile_url ) ? (string) $profile_url : '';
 // redirects a guest to explore with the mention dropped and no composer to use
 // (card 10297709530). Empty it for guests so the item is hidden, exactly as Block,
 // Report and Message already are; a guest keeps "Share profile", which works for them.
-$bn_ov_mention = ( isset( $mention_url ) && is_user_logged_in() ) ? (string) $mention_url : '';
-$bn_ov_safety  = ! empty( $show_safety );
-$bn_ov_edit    = isset( $edit_url ) ? (string) $edit_url : '';
-$bn_ov_message = isset( $message_url ) ? (string) $message_url : '';
+$bn_ov_mention  = ( isset( $mention_url ) && is_user_logged_in() ) ? (string) $mention_url : '';
+$bn_ov_safety   = ! empty( $show_safety );
+$bn_ov_edit     = isset( $edit_url ) ? (string) $edit_url : '';
+$bn_ov_message  = isset( $message_url ) ? (string) $message_url : '';
+$bn_ov_reported = ! empty( $has_reported );
+$bn_ov_fit      = ! empty( $fit );
 ?>
-<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen" data-wp-class--is-flipped="context.moreMenuFlip">
+<div class="bn-more-menu-wrap"<?php echo $bn_ov_fit ? ' data-bn-fit-more hidden' : ''; ?> data-wp-class--is-open="context.moreMenuOpen" data-wp-class--is-flipped="context.moreMenuFlip">
 	<button class="bn-btn bn-pf-more-trigger"
 		data-variant="secondary"
 		data-size="sm"
@@ -91,6 +98,7 @@ $bn_ov_message = isset( $message_url ) ? (string) $message_url : '';
 			<button class="bn-more-menu-item"
 				type="button"
 				role="menuitem"
+				<?php echo $bn_ov_fit ? 'data-bn-fit-copy="share" hidden' : ''; ?>
 				data-share-url="<?php echo esc_attr( $bn_ov_profile ); ?>"
 				data-wp-on--click="actions.shareProfile">
 				<?php buddynext_icon( 'share-2' ); ?>
@@ -99,7 +107,7 @@ $bn_ov_message = isset( $message_url ) ? (string) $message_url : '';
 		<?php endif; ?>
 
 		<?php if ( '' !== $bn_ov_mention ) : ?>
-			<a class="bn-more-menu-item" role="menuitem" href="<?php echo esc_url( $bn_ov_mention ); ?>">
+			<a class="bn-more-menu-item" role="menuitem" <?php echo $bn_ov_fit ? 'data-bn-fit-copy="mention" hidden' : ''; ?> href="<?php echo esc_url( $bn_ov_mention ); ?>">
 				<?php buddynext_icon( 'message-circle' ); ?>
 				<span><?php esc_html_e( 'Share to feed', 'buddynext' ); ?></span>
 			</a>
@@ -132,11 +140,23 @@ $bn_ov_message = isset( $message_url ) ? (string) $message_url : '';
 				data-wp-text="state.blockLabel">
 				<?php esc_html_e( 'Block', 'buddynext' ); ?>
 			</button>
-			<button class="bn-more-menu-item"
-				role="menuitem"
-				data-wp-on--click="actions.openReport">
-				<?php esc_html_e( 'Report', 'buddynext' ); ?>
-			</button>
+			<span class="bn-report-slot" data-bn-report-slot role="none">
+				<button class="bn-more-menu-item"
+					role="menuitem"
+					data-bn-report
+					data-wp-on--click="actions.openReport"
+					<?php echo $bn_ov_reported ? 'hidden' : ''; ?>>
+					<?php esc_html_e( 'Report', 'buddynext' ); ?>
+				</button>
+				<span class="bn-more-menu-item bn-more-menu-item--reported"
+					role="menuitem"
+					aria-disabled="true"
+					aria-label="<?php esc_attr_e( 'You reported this member', 'buddynext' ); ?>"
+					data-bn-reported
+					<?php echo $bn_ov_reported ? '' : 'hidden'; ?>>
+					<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Reported', 'buddynext' ); ?>
+				</span>
+			</span>
 		<?php endif; ?>
 	</div>
 </div>

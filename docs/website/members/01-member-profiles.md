@@ -22,7 +22,13 @@ Every member has a profile page at their own address. Open any member's profile 
 
 What you see on someone else's profile depends on your relationship with them. Each field can be set to show to everyone (Public), to logged-in members only (Members only), to followers only, to connections only, or to no one but the member (Only me). If a field is hidden from you, it simply does not appear. The group a field belongs to sets the ceiling, and each member picks their own field's audience up to that ceiling; new fields start at Members only.
 
-Your own profile shows you an Edit Profile entry point so you can update any part of it.
+Your own profile shows you an Edit Profile entry point so you can update any part of it. **Share profile** and **Share to feed** sit beside Edit Profile in the same row while there is room. If the row runs out of space, they fold into a **More** button from the end of the row. When nothing needs to fold, there is no More button. On someone else's profile, **More** always holds Mute, Restrict, Block and Report.
+
+![Your own profile with Share profile and Share to feed beside Edit Profile](../images/profile-own-actions.webp)
+
+**Locked profiles.** When a member limits who can see their profile, other people see a line saying who can see it: "Only followers can see this profile." or "Only connections can see this profile." Below it sits the action that would open it - **Follow**, **Connect** or an upgrade link, only when the site would accept that action. A member who only takes connection requests from followers has to be followed first, so Follow shows. Guests see a **Log in** button. If the viewer is blocked or suspended, the line reads "This profile is private." with no button.
+
+When a connection request is waiting, the header keeps Follow, Message and More in place beside the request instead of pushing them onto a new line, and the spacing under Accept and Decline matches the rest of the header.
 
 ### Editing your display name and bio
 

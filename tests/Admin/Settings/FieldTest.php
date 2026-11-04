@@ -93,7 +93,7 @@ class FieldTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_number_field_clamps_to_declared_bounds(): void {
-		$field = new Field(
+		$field    = new Field(
 			array(
 				'key'  => 'buddynext_members_only_teaser_percent',
 				'type' => 'number',
@@ -163,8 +163,13 @@ class FieldTest extends \WP_UnitTestCase {
 		$key = $field->key;
 		$cb  = $field->sanitizer();
 		add_filter( "sanitize_option_{$key}", $cb, 10, 1 );
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- test harness sets the posted toggle directly.
-		$_POST = $limited ? array( $key . '_limited' => '1' ) : array();
+		// The settings form posts the number beside its checkbox; without the number
+		// the sanitizer treats the call as a direct update_option() (26d20948).
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- test harness sets the posted form directly.
+		$_POST = $limited ? array(
+			$key              => (string) $value,
+			$key . '_limited' => '1',
+		) : array( $key => (string) $value );
 		$out   = (int) apply_filters( "sanitize_option_{$key}", $value );
 		remove_filter( "sanitize_option_{$key}", $cb, 10 );
 		$_POST = array();
@@ -181,10 +186,10 @@ class FieldTest extends \WP_UnitTestCase {
 	public function test_optional_limit_clamps_to_declared_max_when_on(): void {
 		$field = new Field(
 			array(
-				'key' => 'buddynext_data_retention_days',
+				'key'  => 'buddynext_data_retention_days',
 				'type' => 'optional_limit',
-				'min' => 0,
-				'max' => 3650,
+				'min'  => 0,
+				'max'  => 3650,
 			)
 		);
 
@@ -201,10 +206,10 @@ class FieldTest extends \WP_UnitTestCase {
 	public function test_optional_limit_off_stores_zero_and_is_not_clamped(): void {
 		$field = new Field(
 			array(
-				'key' => 'buddynext_reg_rate_limit',
+				'key'  => 'buddynext_reg_rate_limit',
 				'type' => 'optional_limit',
-				'min' => 0,
-				'max' => 100,
+				'min'  => 0,
+				'max'  => 100,
 			)
 		);
 

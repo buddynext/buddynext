@@ -83,6 +83,22 @@ class SearchService {
 	private static ?int $ft_min_token = null;
 
 	/**
+	 * Per-request memo of whether the ft_search FULLTEXT index exists.
+	 *
+	 * @var bool|null
+	 */
+	private static ?bool $has_fulltext = null;
+
+	/**
+	 * While true, search() does not fire buddynext_search_performed. A screen
+	 * that runs one search() per type (grouped search, the /search page) is one
+	 * search for the member, so it runs them quietly and calls announce() once.
+	 *
+	 * @var bool
+	 */
+	private bool $quiet = false;
+
+	/**
 	 * Upsert an object into the search index.
 	 *
 	 * @param string $object_type Type identifier (e.g. 'post', 'user', 'space').
@@ -453,6 +469,9 @@ class SearchService {
 		}
 
 		$type_groups = array();
+		$all_items   = array();
+		$all_total   = 0;
+		$this->set_quiet( true );
 
 		foreach ( (array) $types as $type ) {
 			$type = sanitize_key( (string) $type );
@@ -474,7 +493,21 @@ class SearchService {
 				),
 				'total'   => $result['total'],
 			);
+			$all_items     = array_merge( $all_items, $result['items'] );
+			$all_total    += (int) $result['total'];
 		}
+
+		$this->set_quiet( false );
+		$this->announce(
+			sanitize_text_field( $query ),
+			$viewer_id,
+			'',
+			array(
+				'items' => $all_items,
+				'total' => $all_total,
+			),
+			$per_group
+		);
 
 		return array( 'types' => $type_groups );
 	}
@@ -1453,31 +1486,9 @@ class SearchService {
 		// Note: the filter is already applied above in the driver short-circuit path.
 		// This second call is intentionally skipped here to avoid double-filtering.
 
-		/**
-		 * Fires after a search is performed and results are computed.
-		 *
-		 * Use: Pro saved searches, AI relevance signals. Viewer ID is available
-		 * for personalised logging without altering the returned result set.
-		 *
-		 * @since 1.0.0
-		 *
-		 * @param string $query     Sanitised search query string.
-		 * @param int    $viewer_id Viewing user ID (0 = anonymous).
-		 * @param array  $args      Query args used: per_page, page, type, viewer_id.
-		 * @param array  $results   Result set: items[], total.
-		 */
-		do_action(
-			'buddynext_search_performed',
-			$safe_query,
-			$viewer_id,
-			array(
-				'per_page'  => $per_page,
-				'page'      => $page,
-				'type'      => $type,
-				'viewer_id' => $viewer_id,
-			),
-			$results
-		);
+		if ( ! $this->quiet ) {
+			$this->announce( $safe_query, $viewer_id, $type, $results, $per_page, $page );
+		}
 
 		return $results;
 	}
@@ -1738,16 +1749,15 @@ class SearchService {
 	 * @return array[] Each row: id, name, initials, bio, profile_url, is_following, is_self.
 	 */
 	private function enrich_members( array $user_ids, int $viewer_id ): array {
-		$following = ( $viewer_id > 0 )
-			? buddynext_service( 'follows' )->following_map( $viewer_id, $user_ids )
-			: array();
-
 		// Prime the user + usermeta caches in two batched queries so the loop's
 		// per-row get_userdata() / get_user_meta() reads hit cache (was an N+1).
 		if ( ! empty( $user_ids ) ) {
 			\BuddyNext\Profile\AvatarService::prime( $user_ids );
 			update_meta_cache( 'user', $user_ids );
 		}
+
+		$identity = buddynext_service( 'profiles' )->card_identity_for( $viewer_id, $user_ids );
+		$social   = buddynext_service( 'privacy' )->social_state_for( $viewer_id, $user_ids );
 
 		$rows = array();
 		foreach ( $user_ids as $uid ) {
@@ -1758,12 +1768,12 @@ class SearchService {
 				'id'           => $uid,
 				'name'         => $name,
 				'initials'     => \BuddyNext\Profile\AvatarService::initials_for( $name ),
-				// Read never written: see ProfileService::bios_for(). Members were never indexed by
-				// their bio, so nobody could be found by what they wrote about themselves.
-				'bio'          => buddynext_service( 'profiles' )->bio_for( $uid ),
+				'bio'          => (string) ( $identity[ $uid ]['bio'] ?? '' ),
 				'profile_url'  => (string) \BuddyNext\Core\PageRouter::profile_url( $uid ),
+				'handle'       => \BuddyNext\Core\PageRouter::member_handle( (int) $uid ),
 				'is_self'      => ( $uid === $viewer_id ),
-				'is_following' => ! empty( $following[ $uid ] ),
+				'social'       => $social[ $uid ] ?? \BuddyNext\SocialGraph\PrivacyService::NO_SOCIAL_STATE,
+				'is_following' => ! empty( $social[ $uid ]['is_following'] ),
 			);
 		}
 
@@ -1924,23 +1934,80 @@ class SearchService {
 	 * Check whether the FULLTEXT index exists on the search index table.
 	 *
 	 * Returns false in test environments where the table is a TEMPORARY table
-	 * (which does not support FULLTEXT). The result is not cached because the
-	 * index may be added after initial activation.
+	 * (which does not support FULLTEXT). Memoised per request only, because the
+	 * index may be added after initial activation; one /search page runs search()
+	 * once per type, and INFORMATION_SCHEMA is slow on hosts with many tables.
 	 *
 	 * @return bool True when the ft_search FULLTEXT index is present.
 	 */
 	private function has_fulltext_index(): bool {
+		if ( null !== self::$has_fulltext ) {
+			return self::$has_fulltext;
+		}
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_search_index';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$result = $wpdb->get_var(
+		$result             = $wpdb->get_var(
 			$wpdb->prepare(
 				'SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s',
 				$table,
 				'ft_search'
 			)
 		);
-		return (bool) $result;
+		self::$has_fulltext = (bool) $result;
+		return self::$has_fulltext;
+	}
+
+	/**
+	 * Turn the per-call buddynext_search_performed action off or back on.
+	 *
+	 * @param bool $quiet True to hold the action until announce() is called.
+	 * @return void
+	 */
+	public function set_quiet( bool $quiet ): void {
+		$this->quiet = $quiet;
+	}
+
+	/**
+	 * Fire buddynext_search_performed for one search the member ran.
+	 *
+	 * @param string               $query     Sanitised search query string.
+	 * @param int                  $viewer_id Viewing user ID (0 = anonymous).
+	 * @param string               $type      Searched type; '' for every type at once.
+	 * @param array<string, mixed> $results   Result set: items[], total.
+	 * @param int                  $per_page  Results per page.
+	 * @param int                  $page      1-based page number.
+	 * @return void
+	 */
+	public function announce( string $query, int $viewer_id, string $type, array $results, int $per_page, int $page = 1 ): void {
+		/**
+		 * Fires once after a member's search has run and results are computed.
+		 *
+		 * A screen that searches every type at once (grouped search, the /search
+		 * page) fires it once, with the type the member chose ('' for all).
+		 *
+		 * Use: Pro saved searches, AI relevance signals. Viewer ID is available
+		 * for personalised logging without altering the returned result set.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string $query     Sanitised search query string.
+		 * @param int    $viewer_id Viewing user ID (0 = anonymous).
+		 * @param array  $args      Query args used: per_page, page, type, viewer_id.
+		 * @param array  $results   Result set: items[], total.
+		 */
+		do_action(
+			'buddynext_search_performed',
+			$query,
+			$viewer_id,
+			array(
+				'per_page'  => $per_page,
+				'page'      => $page,
+				'type'      => $type,
+				'viewer_id' => $viewer_id,
+			),
+			$results
+		);
 	}
 
 	/**

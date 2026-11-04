@@ -63,7 +63,7 @@ Standalone routes that do not belong to a domain controller.
 | GET | `/pwa/manifest` | Public | The web app manifest, served as `application/manifest+json` (cached for an hour). |
 | GET | `/pwa/sw` | Public | The service-worker script, served as raw JavaScript with `Service-Worker-Allowed: /`, not JSON. |
 | GET | `/pwa/offline` | Public | The offline fallback page, served as raw HTML. |
-| POST | `/invites/import-csv` | manage_options | Upload a CSV and bulk-create invites. Served by `InviteController`. |
+| POST | `/invites/import-csv` | manage_options | Upload a CSV and bulk-create invites. Returns `imported`, `queued`, `mail_failed`, `skipped`, `reasons` (`already_invited`, `existing_member`, `invalid`), `errors`, `not_read` and `max_rows`. Served by `InviteController`. |
 | POST | `/companions/install` | install_plugins | Install and activate a catalog companion plugin in one step. Body: `slug` (required). Served by `CompanionController`. |
 | GET | `/admin/slug-check` | manage_options | Probe whether a proposed page slug is available. Params: `slug`, `context`. Served by `SlugCheckController`. |
 

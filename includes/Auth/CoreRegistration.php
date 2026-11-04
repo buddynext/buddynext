@@ -51,6 +51,9 @@ class CoreRegistration {
 	 */
 	public function register(): void {
 		add_action( 'login_form_register', array( $this, 'maybe_redirect_to_buddynext' ) );
+		// Multisite's own sign-up page. Logged-in members keep it: there it is where
+		// they create a site, which BuddyNext's sign-up does not do.
+		add_action( 'before_signup_header', array( $this, 'maybe_redirect_network_signup' ) );
 		add_filter( 'registration_errors', array( $this, 'apply_policy' ), 10, 3 );
 		// A network's public signup (wp-signup.php) never reaches registration_errors, so the
 		// same policy has to be asked there too, or opening the network option would bypass it.
@@ -177,7 +180,7 @@ class CoreRegistration {
 		// Same URL the Setup Checklist already uses for this setting.
 		$bn_terms_url = admin_url( 'admin.php?page=buddynext-members&tab=registration' );
 		?>
-		<div class="notice notice-warning is-dismissible">
+		<div class="notice notice-warning">
 			<p>
 				<?php if ( self::terms_page_unreadable() ) : ?>
 					<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but your Terms page is not published.', 'buddynext' ); ?></strong>
@@ -316,7 +319,7 @@ class CoreRegistration {
 			return;
 		}
 		?>
-		<div class="notice notice-error is-dismissible">
+		<div class="notice notice-error">
 			<p>
 				<strong><?php echo esc_html( $state['headline'] ); ?></strong>
 				<?php echo esc_html( $state['explain'] ); ?>
@@ -503,6 +506,20 @@ class CoreRegistration {
 
 		wp_safe_redirect( \BuddyNext\Core\PageRouter::signup_url() );
 		exit;
+	}
+
+	/**
+	 * Send a logged-out visitor on wp-signup.php to the BuddyNext sign-up, the
+	 * same screen and wording as everywhere else, unless the owner opted into the
+	 * core form.
+	 *
+	 * @return void
+	 */
+	public function maybe_redirect_network_signup(): void {
+		if ( is_user_logged_in() ) {
+			return;
+		}
+		$this->maybe_redirect_to_buddynext();
 	}
 
 	/**

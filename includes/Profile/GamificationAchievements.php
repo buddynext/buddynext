@@ -55,7 +55,7 @@ class GamificationAchievements {
 			'buddynext_integrations',
 			static function ( array $items ): array {
 				$items['gamification'] = array(
-					'label'            => __( 'Gamification', 'buddynext' ),
+					'label'            => __( 'WB Gamification', 'buddynext' ),
 					'version'          => defined( 'WB_GAM_VERSION' ) ? WB_GAM_VERSION : null,
 					// Floor: 1.6.3 introduced the toast skip-reason behaviour the
 					// bridge relies on. Tested against 1.6.5: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.

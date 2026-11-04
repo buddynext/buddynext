@@ -70,7 +70,7 @@ class AppearanceTab {
 		$logo   = (string) get_option( 'buddynext_logo_url', '' );
 		$theme  = (string) get_option( 'buddynext_default_theme', 'auto' );
 		$css    = (string) get_option( 'buddynext_custom_css', '' );
-		$brand  = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
+		$brand  = \BuddyNext\Theme\Appearance::display_brand();
 		$themes = array(
 			'auto'  => __( 'Auto (follow the visitor’s device)', 'buddynext' ),
 			'light' => __( 'Light', 'buddynext' ),
@@ -196,7 +196,11 @@ class AppearanceTab {
 		$brand = isset( $_POST['bn_brand_color'] )
 			? Settings::sanitize_brand_color( sanitize_text_field( wp_unslash( $_POST['bn_brand_color'] ) ) )
 			: \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
-		update_option( 'buddynext_brand_color', $brand );
+		// The picker shows the colour the site renders, so a save that leaves it alone is
+		// not a pick: storing it would switch on the accent override.
+		if ( strtolower( $brand ) !== strtolower( \BuddyNext\Theme\Appearance::display_brand() ) ) {
+			update_option( 'buddynext_brand_color', $brand );
+		}
 
 		// Default theme.
 		$theme = isset( $_POST['bn_default_theme'] ) ? sanitize_key( wp_unslash( (string) $_POST['bn_default_theme'] ) ) : 'auto';

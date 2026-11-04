@@ -188,50 +188,10 @@ class ReactionController extends BaseRestController {
 				// chip strip after a toggle without a reload. Mirrors the SSR build
 				// in templates/partials/post-card.php and carries the rendered emoji
 				// markup so the client renders identical chips.
-				'summary'     => $this->reaction_summary( $service, $object_type, $object_id, $count ),
+				'summary'     => $service->summary( $object_type, $object_id, $count ),
 			),
 			200
 		);
-	}
-
-	/**
-	 * Build the per-type reaction summary for the chip strip.
-	 *
-	 * Mirrors the SSR build in templates/partials/post-card.php (top_reactions()
-	 * order + get_counts() totals) and attaches the rendered emoji markup so the
-	 * client can rebuild the .bn-post-card__reaction-summary chips after a toggle
-	 * without re-rendering the whole card. Returns [] when the target has none.
-	 *
-	 * @param ReactionService $service     Reaction service.
-	 * @param string          $object_type Engagement object type.
-	 * @param int             $object_id   Object ID.
-	 * @param int             $count       Current total reaction count.
-	 * @return array<int,array{slug:string,count:int,emoji:string}>
-	 */
-	private function reaction_summary( ReactionService $service, string $object_type, int $object_id, int $count ): array {
-		if ( $count < 1 ) {
-			return array();
-		}
-
-		$order   = $service->top_reactions( $object_type, $object_id, 3 );
-		$counts  = $service->get_counts( $object_type, $object_id );
-		$summary = array();
-
-		foreach ( $order as $slug ) {
-			$slug = sanitize_key( (string) $slug );
-			if ( '' === $slug ) {
-				continue;
-			}
-			$summary[] = array(
-				'slug'  => $slug,
-				'count' => (int) ( $counts[ $slug ] ?? 0 ),
-				'emoji' => function_exists( 'buddynext_get_emoji' )
-					? buddynext_get_emoji( $slug, 'bn-post-card__reaction-emoji', '' )
-					: '',
-			);
-		}
-
-		return $summary;
 	}
 
 	/**
@@ -285,7 +245,7 @@ class ReactionController extends BaseRestController {
 			// media lightbox reads this endpoint when it opens on a photo that is
 			// also a feed post, and without the breakdown it could show a total but
 			// not which reactions made it up.
-			'summary' => $this->reaction_summary( $service, $object_type, $object_id, $count ),
+			'summary' => $service->summary( $object_type, $object_id, $count ),
 		);
 
 		if ( is_user_logged_in() ) {

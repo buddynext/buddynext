@@ -1,7 +1,7 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnMarkReported, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 import { foldAccents } from '@buddynext/slug';
 
@@ -857,7 +857,7 @@ async function doSave( ctx ) {
 			surfaceFieldErrors( json.errors );
 			bnToast( t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
 		} else {
-			bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
+			toastRestError( res, t( 'saveFailed', 'Could not save. Try again.' ) );
 		}
 	} catch ( _e ) {
 		bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
@@ -1222,7 +1222,7 @@ const profileStore = store( 'buddynext/profile', {
 					nonce:        nonce(),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				var data = res.data;
 				var blob = new Blob( [ JSON.stringify( data, null, 2 ) ], { type: 'application/json' } );
 				var url  = URL.createObjectURL( blob );
@@ -1234,8 +1234,8 @@ const profileStore = store( 'buddynext/profile', {
 				document.body.removeChild( a );
 				URL.revokeObjectURL( url );
 				bnToast( t( 'dataExportDownloaded', 'Your data export has downloaded.' ), 'success' );
-			} catch ( _e ) {
-				bnToast( t( 'dataExportFailed', 'Could not export your data. Try again.' ), 'danger' );
+			} catch ( e ) {
+				toastRestError( e, t( 'dataExportFailed', 'Could not export your data. Try again.' ) );
 			} finally {
 				if ( btn ) { btn.disabled = false; }
 			}
@@ -1372,6 +1372,11 @@ const profileStore = store( 'buddynext/profile', {
 		async savePrivacyField( event ) {
 			var sel = event.target;
 			if ( ! sel || ! sel.name ) { return; }
+			// A select whose choices each carry a hint shows the one for the new choice.
+			if ( sel.dataset.bnOptionHints ) {
+				var desc = document.getElementById( sel.id + '-desc' );
+				if ( desc ) { desc.textContent = ( JSON.parse( sel.dataset.bnOptionHints ) || {} )[ sel.value ] || ''; }
+			}
 			var payload = {};
 			payload[ sel.name ] = sel.value;
 			try {
@@ -1381,10 +1386,10 @@ const profileStore = store( 'buddynext/profile', {
 					body:         payload,
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( t( 'prefSaved', 'Preference saved' ), { tone: 'success' } );
-			} catch ( _e ) {
-				bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				toastRestError( e, t( 'saveFailed', 'Could not save. Try again.' ) );
 			}
 		},
 
@@ -1400,7 +1405,7 @@ const profileStore = store( 'buddynext/profile', {
 					nonce:        nonce(),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( t( 'socialUnlinked', 'Account unlinked' ), { tone: 'success' } );
 				var row = btn.closest( '.bn-social-link' );
 				if ( row ) {
@@ -1412,8 +1417,8 @@ const profileStore = store( 'buddynext/profile', {
 					a.textContent = t( 'connect', 'Connect' );
 					btn.replaceWith( a );
 				}
-			} catch ( _e ) {
-				bnToast( t( 'socialUnlinkFailed', 'Could not unlink. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				toastRestError( e, t( 'socialUnlinkFailed', 'Could not unlink. Try again.' ) );
 			}
 		},
 
@@ -1429,17 +1434,41 @@ const profileStore = store( 'buddynext/profile', {
 			// successful save. Stop the change bubbling to the form's markDirty
 			// listener; genuine edits to other fields still set the dirty flag.
 			if ( event && typeof event.stopPropagation === 'function' ) { event.stopPropagation(); }
+
+			var restNonce = nonce(); // Reads the store scope, which ends at the first await.
+
+			// The first pick of a pick-once type is permanent, and this select saves
+			// on change: it needs a yes before it fires, not a hint read afterwards.
+			var picked = sel.options[ sel.selectedIndex ];
+			var once   = !! ( picked && picked.dataset.bnOnce );
+			if ( once && ! await bnConfirm( {
+				title:        fmt( t( 'memberTypeOnceTitle', 'Choose %s?' ), picked.textContent ),
+				body:         t( 'memberTypeOnceBody', 'You can only pick this once. After that, only an admin can change it.' ),
+				confirmLabel: t( 'memberTypeOnceConfirm', 'Choose' ),
+				tone:         'default',
+			} ) ) {
+				sel.value = sel.dataset.bnPrev || '';
+				return;
+			}
+
 			try {
 				var res = await restFetch( '/users/' + userId + '/member-type', {
 					method:       'PUT',
-					nonce:        nonce(),
+					nonce:        restNonce,
 					body:         { type_slug: sel.value },
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
+				if ( once ) {
+					// Redraw as the locked state the server now enforces.
+					bnReloadWithToast( t( 'memberTypeSaved', 'Member type updated' ), { tone: 'success' } );
+					return;
+				}
+				sel.dataset.bnPrev = sel.value;
 				bnToast( t( 'memberTypeSaved', 'Member type updated' ), { tone: 'success' } );
-			} catch ( _e ) {
-				bnToast( t( 'memberTypeFailed', 'Could not update member type' ), { tone: 'danger' } );
+			} catch ( e ) {
+				sel.value = sel.dataset.bnPrev || '';
+				toastRestError( e, t( 'memberTypeFailed', 'Could not update member type' ) );
 			}
 		},
 
@@ -1467,19 +1496,14 @@ const profileStore = store( 'buddynext/profile', {
 					body:         payload,
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) {
-					throw new Error( 'http_' + res.status );
-				}
+				if ( ! res.ok ) { throw res; }
 				bnToast(
 					t( 'prefSaved', 'Preference saved' ),
 					{ tone: 'success' }
 				);
-			} catch ( _e ) {
+			} catch ( e ) {
 				btn.setAttribute( 'aria-checked', prev ? 'true' : 'false' );
-				bnToast(
-					t( 'saveFailed', 'Could not save. Try again.' ),
-					{ tone: 'danger' }
-				);
+				toastRestError( e, t( 'saveFailed', 'Could not save. Try again.' ) );
 			}
 		},
 
@@ -1758,6 +1782,10 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.slugDraft   = res.data.slug;
 					ctx.slugSaved   = true;
 					setTimeout( function () { ctx.slugSaved = false; }, 3000 );
+				} else {
+					toastRestError( res, t( 'saveFailed', 'Could not save. Try again.' ) );
+					// Taken in the meantime: the live check's "available" is out of date.
+					if ( 409 === res.status ) { ctx.slugAvailable = false; }
 				}
 			} )
 			   .finally( function () { ctx.slugSaving = false; } );
@@ -1878,7 +1906,7 @@ const profileStore = store( 'buddynext/profile', {
 					toggleAvatarRemove( false );
 					bnToast( t( 'photoRemoved', 'Profile photo removed' ), { tone: 'success' } );
 				} else {
-					bnToast( t( 'photoRemoveFailed', 'Could not remove your photo. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'photoRemoveFailed', 'Could not remove your photo. Try again.' ) );
 				}
 			} catch ( err ) {
 				bnToast( t( 'photoRemoveFailed', 'Could not remove your photo. Try again.' ), { tone: 'danger' } );
@@ -1911,7 +1939,7 @@ const profileStore = store( 'buddynext/profile', {
 					toggleCoverRemove( false );
 					bnToast( t( 'coverRemoved', 'Cover removed.' ), { tone: 'success' } );
 				} else {
-					bnToast( t( 'coverRemoveFailed', 'Could not remove your cover. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'coverRemoveFailed', 'Could not remove your cover. Try again.' ) );
 				}
 			} catch ( err ) {
 				bnToast( t( 'coverRemoveFailed', 'Could not remove your cover. Try again.' ), { tone: 'danger' } );
@@ -1978,7 +2006,7 @@ const profileStore = store( 'buddynext/profile', {
 					nonce:        ctx.restNonce,
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'follow_failed' ); }
+				if ( ! res.ok ) { throw res; }
 
 				// A PRIVATE account stores the row as pending until the owner
 				// approves it, and the endpoint says so ({ following, pending }).
@@ -2001,11 +2029,11 @@ const profileStore = store( 'buddynext/profile', {
 
 				ctx.followPending = false;
 				bnToast( t( 'followed', 'Followed' ), { tone: 'success' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.isFollowing   = false;
 				ctx.followPending = false;
 				ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
-				bnToast( t( 'couldNotFollow', 'Could not follow. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'couldNotFollow', 'Could not follow. Try again.' ) );
 			}
 		},
 
@@ -2027,14 +2055,14 @@ const profileStore = store( 'buddynext/profile', {
 					nonce:        ctx.restNonce,
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'unfollow_failed' ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast(
 					wasPending
 						? t( 'followRequestWithdrawn', 'Follow request withdrawn' )
 						: t( 'unfollowed', 'Unfollowed' ),
 					{ tone: 'info' }
 				);
-			} catch ( _e ) {
+			} catch ( e ) {
 				// Restore the state we actually came from, not "following" — a failed
 				// withdraw must go back to Requested, not silently promote the viewer
 				// to a follower they never were.
@@ -2044,7 +2072,7 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.isFollowing   = true;
 					ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
 				}
-				bnToast( t( 'couldNotUnfollow', 'Could not unfollow. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'couldNotUnfollow', 'Could not unfollow. Try again.' ) );
 			}
 		},
 
@@ -2065,12 +2093,12 @@ const profileStore = store( 'buddynext/profile', {
 					body:         { note: note },
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'connect_failed' ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( t( 'connectionSent', 'Connection request sent' ), { tone: 'success' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.connectionPending = false;
 				ctx.showConnect       = true;
-				bnToast( t( 'couldNotSendRequest', 'Could not send request' ), { tone: 'danger' } );
+				toastRestError( e, t( 'couldNotSendRequest', 'Could not send request' ) );
 			}
 		},
 
@@ -2086,8 +2114,12 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.connectionPending = false;
 					ctx.showConnect       = true;
 					bnToast( t( 'requestWithdrawn', 'Request withdrawn' ), { tone: 'info' } );
+				} else {
+					connectionActionFailed( ctx, res, t( 'couldNotWithdrawRequest', 'Could not withdraw the request. Try again.' ) );
 				}
-			} catch ( _e ) {}
+			} catch ( e ) {
+				toastRestError( e, t( 'couldNotWithdrawRequest', 'Could not withdraw the request. Try again.' ) );
+			}
 		},
 
 		async acceptRequest() {
@@ -2103,8 +2135,12 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.isConnected        = true;
 					ctx.showConnect        = false;
 					bnToast( t( 'connected', 'Connected' ), { tone: 'success' } );
+				} else {
+					connectionActionFailed( ctx, res, t( 'couldNotAcceptRequest', 'Could not accept the request. Try again.' ) );
 				}
-			} catch ( _e ) {}
+			} catch ( e ) {
+				toastRestError( e, t( 'couldNotAcceptRequest', 'Could not accept the request. Try again.' ) );
+			}
 		},
 
 		async declineRequest() {
@@ -2119,8 +2155,12 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.connectionReceived = false;
 					ctx.showConnect        = true;
 					bnToast( t( 'requestDeclined', 'Request declined.' ), { tone: 'info' } );
+				} else {
+					connectionActionFailed( ctx, res, t( 'couldNotDeclineRequest', 'Could not decline the request. Try again.' ) );
 				}
-			} catch ( _e ) {}
+			} catch ( e ) {
+				toastRestError( e, t( 'couldNotDeclineRequest', 'Could not decline the request. Try again.' ) );
+			}
 		},
 
 		async disconnectUser() {
@@ -2137,8 +2177,12 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.showConnect       = true;
 					ctx.connectionPending = false;
 					bnToast( t( 'disconnected', 'Disconnected' ), { tone: 'info' } );
+				} else {
+					connectionActionFailed( ctx, res, t( 'couldNotDisconnect', 'Could not disconnect. Try again.' ) );
 				}
-			} catch ( _e ) {}
+			} catch ( e ) {
+				toastRestError( e, t( 'couldNotDisconnect', 'Could not disconnect. Try again.' ) );
+			}
 		},
 
 
@@ -2188,11 +2232,11 @@ const profileStore = store( 'buddynext/profile', {
 					nonce:        ctx.restNonce,
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( wasMuted ? t( 'unmuted', 'Unmuted' ) : t( 'muted', 'Muted' ), { tone: 'success' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.isMuted = wasMuted;
-				bnToast( t( 'muteFailed', 'Could not update mute state' ), { tone: 'danger' } );
+				toastRestError( e, t( 'muteFailed', 'Could not update mute state' ) );
 			}
 		},
 
@@ -2208,16 +2252,16 @@ const profileStore = store( 'buddynext/profile', {
 					nonce:        ctx.restNonce,
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'restrict_failed' ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast(
 					wasRestricted
 						? t( 'noLongerRestricted', 'No longer restricted' )
 						: t( 'restricted', 'Restricted. They can still see your profile, but their comments are hidden from others.' ),
 					{ tone: wasRestricted ? 'info' : 'success' }
 				);
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.isRestricted = wasRestricted;
-				bnToast( t( 'restrictFailed', 'Could not update restrict state' ), { tone: 'danger' } );
+				toastRestError( e, t( 'restrictFailed', 'Could not update restrict state' ) );
 			}
 		},
 
@@ -2238,11 +2282,12 @@ const profileStore = store( 'buddynext/profile', {
 		/* Report goes through the shared report dialog, so the reasons and wording match
 		   every other report in the product. */
 		async openReport() {
-			var ctx = getContext();
+			var ctx     = getContext();
+			var trigger = getElement().ref;
 			ctx.moreMenuOpen = false;
 			var result = await bnReportDialog( { title: t( 'reportProfileTitle', 'Report this profile' ) } );
 			if ( ! result ) { return; }
-			await doReport( ctx, result );
+			await doReport( ctx, result, trigger );
 		},
 
 		/* -- Email change ----------------------------------------------- */
@@ -2278,7 +2323,7 @@ const profileStore = store( 'buddynext/profile', {
 				} else if ( res.status === 422 && json && json.errors ) {
 					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
 				} else {
-					bnToast( t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
@@ -2321,7 +2366,7 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.emailVerifyOpen = false;
 					bnToast( json.message || t( 'checkInboxConfirm', 'Check your inbox to confirm.' ), { tone: 'success' } );
 				} else {
-					bnToast( ( json && json.message ) || t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
@@ -2349,7 +2394,7 @@ const profileStore = store( 'buddynext/profile', {
 					// with what the next page load shows.
 					window.setTimeout( function () { window.location.reload(); }, 700 );
 				} else {
-					bnToast( ( json && json.message ) || t( 'verifyConfirmFailed', 'Could not verify. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'verifyConfirmFailed', 'Could not verify. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'verifyConfirmFailed', 'Could not verify. Try again.' ), { tone: 'danger' } );
@@ -2438,7 +2483,7 @@ const profileStore = store( 'buddynext/profile', {
 				} else if ( res.status === 422 && json && json.errors ) {
 					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
 				} else {
-					bnToast( t( 'passwordChangeFailed', 'Could not change password. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'passwordChangeFailed', 'Could not change password. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'passwordChangeFailed', 'Could not change password. Try again.' ), { tone: 'danger' } );
@@ -2458,10 +2503,10 @@ const profileStore = store( 'buddynext/profile', {
 					nonce:        nonce(),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( t( 'signedOutEverywhere', 'Signed out of every other session' ), { tone: 'success' } );
-			} catch ( _e ) {
-				bnToast( t( 'signOutFailed', 'Could not sign out everywhere. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				toastRestError( e, t( 'signOutFailed', 'Could not sign out everywhere. Try again.' ) );
 			} finally {
 				ctx.signOutSubmitting = false;
 			}
@@ -2499,7 +2544,7 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.twofaStage = 'setup';
 					renderTwofaQr( ctx.twofaUri );
 				} else {
-					bnToast( ( json && json.message ) || t( 'twofaSetupFailed', 'Could not start setup. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'twofaSetupFailed', 'Could not start setup. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'twofaSetupFailed', 'Could not start setup. Try again.' ), { tone: 'danger' } );
@@ -2627,11 +2672,11 @@ async function doUnblock( ctx ) {
 			nonce:        ctx.restNonce,
 			toastOnError: false,
 		} );
-		if ( ! res.ok ) { throw new Error( 'unblock_failed' ); }
+		if ( ! res.ok ) { throw res; }
 		bnToast( t( 'unblocked', 'Unblocked' ), { tone: 'info' } );
-	} catch ( _e ) {
+	} catch ( e ) {
 		ctx.isBlocked = wasBlocked;
-		bnToast( t( 'unblockFailed', 'Could not unblock' ), { tone: 'danger' } );
+		toastRestError( e, t( 'unblockFailed', 'Could not unblock' ) );
 	}
 }
 
@@ -2644,21 +2689,39 @@ async function doBlock( ctx ) {
 			nonce:        ctx.restNonce,
 			toastOnError: false,
 		} );
-		if ( ! res.ok ) { throw new Error( 'block_failed' ); }
+		if ( ! res.ok ) { throw res; }
 		ctx.isBlocked = true;
 		bnToast( ( ctx.displayName ? fmt( t( 'memberBlockedNamed', '%s blocked' ), ctx.displayName ) : t( 'memberBlocked', 'Member blocked' ) ), { tone: 'success' } );
 		// After block we redirect to the members directory since the profile is no longer accessible.
 		setTimeout( function () {
 			window.location.href = ( ctx.peopleUrl || '/members/' );
 		}, 800 );
-	} catch ( _e ) {
-		bnToast( t( 'blockFailed', 'Could not block. Try again.' ), { tone: 'danger' } );
+	} catch ( e ) {
+		toastRestError( e, t( 'blockFailed', 'Could not block. Try again.' ) );
 	} finally {
 		ctx.blockSubmitting = false;
 	}
 }
 
-async function doReport( ctx, result ) {
+/**
+ * Report a failed connection action on this profile. A 404 means the other person
+ * already withdrew or handled it, so the buttons are stale: show the real state.
+ *
+ * @param {Object} ctx      Profile context.
+ * @param {Object} res      restFetch result.
+ * @param {string} fallback Text for a retryable failure.
+ */
+function connectionActionFailed( ctx, res, fallback ) {
+	if ( 404 === res.status ) {
+		ctx.connectionPending  = false;
+		ctx.connectionReceived = false;
+		ctx.isConnected        = false;
+		ctx.showConnect        = true;
+	}
+	toastRestError( res, fallback );
+}
+
+async function doReport( ctx, result, trigger ) {
 	if ( ctx.reportSubmitting ) { return; }
 	ctx.reportSubmitting = true;
 	try {
@@ -2673,14 +2736,15 @@ async function doReport( ctx, result ) {
 				notes:       result.notes  || '',
 			},
 		} );
-		if ( ! res.ok && res.status !== 201 ) {
-			// Surface the server's reason, e.g. the 409 "You have already reported this member.",
-			// rather than a generic retry message.
-			var data = res.data || {};
-			bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+		var data = res.data || {};
+		// 409 = already reported: the report is on file, so show it as reported too.
+		if ( ! res.ok && 409 !== res.status ) {
+			toastRestError( res, t( 'reportFailed', 'Could not submit report. Try again.' ) );
 			return;
 		}
-		bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
+		var done = t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' );
+		bnMarkReported( trigger );
+		bnToast( res.ok ? done : ( data.message || done ), { tone: res.ok ? 'success' : 'info' } );
 	} catch ( _e ) {
 		bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 	} finally {

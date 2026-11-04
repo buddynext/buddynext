@@ -68,6 +68,8 @@ The member's billing area shows their current plan, price and interval, status, 
 - **Move to another plan (1.1.6)** - switch to a different paid plan without cancelling first. The page shows every other plan the member could move to, so they pick and confirm from their own billing area. A plan change that starts on a later date shows as "Your plan changes to ... on ..." with a **Cancel this change** button.
 - **Switch to annual / Switch to monthly** - for a plan that offers both prices, the member changes cadence from the same screen. Time already paid for comes with them; nothing is refunded.
 
+When a cancel, checkout, payment-page or plan change fails, the member sees the real reason (for example, that the payment method is not available) instead of a generic error. A coupon they typed stays in the field so they can try again. If the page was open too long and the form went stale, it says "Your session expired, so nothing was changed" and asks them to reload.
+
 To surface a compact version of this plan summary on another page, the shortcode remains available:
 
 ```text
@@ -183,6 +185,8 @@ The full list of perks:
 | Analytics | Personal Analytics | Toggle | Off |
 | Discovery | AI Discovery | Toggle | Off |
 
+> **Note:** When a member's plan does not include **Follow & Connect**, the Follow and Connect buttons on member cards become a link to your plans page (or disappear when nothing can be bought) instead of a dead button.
+
 > **Note:** The **All gated spaces** perk lets a subscriber into every space gated to a paid plan, regardless of which specific plan each space requires. To open only certain spaces, leave it off and use the **Spaces this plan unlocks** picker described below. See [Gated Spaces](02-gated-spaces.md).
 
 > **Note:** **Locked Profile Groups** lists the profile field groups a plan does *not* include. Leave it empty and every group is available.
@@ -215,6 +219,8 @@ Each plan card on the Plans tab carries the controls you need:
 The plan's own edit screen shows the link to share. Members already on the plan keep it whether it is Active or Unlisted, so moving a plan to Unlisted quietly closes it to new sign-ups without disturbing anyone who already pays for it.
 
 The pricing page will render an unlisted plan when the link names it explicitly (`?plan=<id>`), and only that one - every other unlisted plan stays hidden, and a visitor without the link sees nothing extra.
+
+A buy button on a paywall only ever sells a plan that opens that content. An Unlisted plan is offered there only when you attached it to that space or post and no listed plan opens the same content. See [Gated Spaces](02-gated-spaces.md) and [Content Protection](04-content-protection.md).
 
 ### Your pricing page, block by block (1.2.4)
 
@@ -336,7 +342,7 @@ Every charge in a member's payment history has a printable invoice behind it. Th
 The invoice brands itself from settings you have probably already filled in:
 
 - **Your logo.** It uses the logo from **Settings > Appearance** - the same one your community's HTML emails use. Set it once and it appears on both. If you have not set a logo, the invoice prints your site name as a wordmark instead, so it never looks unfinished.
-- **Your brand colour.** The accent on the invoice is your site's brand colour, also from Settings > Appearance.
+- **Your brand colour.** The accent on the invoice is your site's brand colour, also from Settings > Appearance. If you have not picked one, the invoice header uses the accent your site already shows. The **Go to community** button on the purchase receipt email uses the same colour.
 
 Two things about the invoice are worth knowing up front:
 

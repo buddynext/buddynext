@@ -64,7 +64,7 @@ If you would rather jump straight to a setting by name, the admin has a command 
 | Screen | What you configure | Learn more |
 | --- | --- | --- |
 | Features | One on/off switch for each capability, including scheduled posts. Core features are locked on. | [Complete Feature Directory](10-feature-directory.md) |
-| Add-ons | Install and connect companion plugins such as WPMediaVerse, Jetonomy and WB Gamification. | [Installing BuddyNext](02-installation.md) |
+| Add-ons | Install and connect companion plugins such as MediaVerse, Jetonomy and WB Gamification. | [Installing BuddyNext](02-installation.md) |
 | Tools | Health checks, counter repair, cache flush, settings export and import, demo data. | [Tools and Maintenance](08-tools-and-maintenance.md) |
 | Webhooks | Send community events to other systems. | [Tools and Maintenance](08-tools-and-maintenance.md) |
 | Plugin isolation | Which other plugins load on BuddyNext's front-end surfaces. | [Plugin Isolation](08a-plugin-isolation.md) |

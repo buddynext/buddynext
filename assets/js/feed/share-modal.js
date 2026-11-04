@@ -12,7 +12,7 @@
  */
 
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch } from '@buddynext/rest-client';
 import { t, prependFeedCard } from '@buddynext/feed-shared';
 
 // Focus-trap, Escape-to-close and focus-return are handled for EVERY modal by
@@ -126,7 +126,7 @@ store( 'buddynext/share-modal', {
 				}
 				// Show the server's specific reason (e.g. "You have already shared
 				// this post.") inline AND as a toast, not a generic mute failure.
-				ctx.error = ( res.data && res.data.message ) || t( 'repostFailed', 'Could not repost. Try again.' );
+				ctx.error = restError( res, t( 'repostFailed', 'Could not repost. Try again.' ) );
 				if ( window.bnToast ) { window.bnToast( ctx.error, 'error' ); }
 				ctx.busy  = false;
 			} catch ( _e ) {

@@ -25,6 +25,34 @@ use BuddyNext\Moderation\ModerationService;
 class PostService {
 
 	/**
+	 * Default for the most files one post may carry; read it through max_media_per_post().
+	 */
+	public const MAX_MEDIA_PER_POST = 4;
+
+	/**
+	 * Most files one post may carry: the server check, the composer and the edit
+	 * form all read this, so they never disagree.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @return int At least 1.
+	 */
+	public static function max_media_per_post(): int {
+		/**
+		 * Filter the most photos, videos or files one feed post may carry.
+		 *
+		 * The default is 4. A site that wants bigger galleries raises it here
+		 * (Zoho #42456); keep it within what the gallery layout and the upload
+		 * size limits suit.
+		 *
+		 * @since 1.2.8
+		 *
+		 * @param int $max Files per post.
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_max_media_per_post', self::MAX_MEDIA_PER_POST ) );
+	}
+
+	/**
 	 * Set up the post service (no required dependencies at construction time).
 	 */
 	public function __construct() {
@@ -168,7 +196,7 @@ class PostService {
 	 * filter instead of forking the plugin. Only string types are kept, and the
 	 * built-ins can never be removed (a filter may add, not drop, so a misbehaving
 	 * add-on cannot disable a core type). The type still has to be rendered — a
-	 * registered type with no card renderer falls back to the plain text card.
+	 * type added here with no card renderer falls back to the plain text card.
 	 *
 	 * @return string[] The accepted post types.
 	 */
@@ -375,6 +403,10 @@ class PostService {
 					__( 'Polls may have at most 5 options.', 'buddynext' )
 				);
 			}
+			$poll_end_error = $this->poll_end_error( $data['poll_end_date'] ?? '', (string) ( $data['scheduled_at'] ?? '' ) );
+			if ( null !== $poll_end_error ) {
+				return $poll_end_error;
+			}
 		}
 
 		if ( 'announcement' === $type ) {
@@ -521,7 +553,7 @@ class PostService {
 		// media-index ids supplied by the client; without an ownership check a
 		// member could attach another member's (possibly private) media to their
 		// own post. Reject the post if any id is not theirs.
-		$owned_media = $this->authorize_media_ids( (array) ( $data['media_ids'] ?? array() ), $user_id );
+		$owned_media = $this->authorize_media_ids( (array) ( $data['media_ids'] ?? array() ), $user_id, array(), ! empty( $data['uncapped_media'] ) );
 		if ( is_wp_error( $owned_media ) ) {
 			return $owned_media;
 		}
@@ -730,16 +762,7 @@ class PostService {
 		// alive from dead spaces without a GROUP BY over bn_posts at request time.
 		$bn_space_id = (int) ( $data['space_id'] ?? 0 );
 		if ( $bn_space_id > 0 ) {
-			global $wpdb;
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->update(
-				$wpdb->prefix . 'bn_spaces',
-				array( 'last_active_at' => gmdate( 'Y-m-d H:i:s' ) ),
-				array( 'id' => $bn_space_id ),
-				array( '%s' ),
-				array( '%d' )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			buddynext_service( 'spaces' )->touch_activity( $bn_space_id, ! empty( $data['created_at'] ) ? (string) $data['created_at'] : null );
 
 			/**
 			 * Fires when a space's post set changes — a post created in it, or removed
@@ -930,20 +953,38 @@ class PostService {
 	 *
 	 * @param array $media_ids Raw media ids from the request.
 	 * @param int   $user_id   Posting user.
-	 * @return int[]|WP_Error Sanitised owned ids, or WP_Error if one is not owned.
+	 * @param int[] $existing  Ids the post already carries. Without an addition, an older post
+	 *                         over the cap stays editable and loses nothing.
+	 * @param bool  $uncapped  An album share carries the whole album. Set only by the album
+	 *                         route: the posts route builds its data from named parameters.
+	 * @return int[]|WP_Error Sanitised owned ids, or WP_Error if one is not owned or there are too many.
 	 */
-	private function authorize_media_ids( array $media_ids, int $user_id ): array|WP_Error {
+	private function authorize_media_ids( array $media_ids, int $user_id, array $existing = array(), bool $uncapped = false ): array|WP_Error {
 		$ids = array_values( array_unique( array_filter( array_map( 'absint', $media_ids ) ) ) );
 		if ( empty( $ids ) ) {
 			return array();
 		}
 
-		$repo = \BuddyNext\Media\MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'get_author' ) ) {
+		if ( ! self::media_engine_ready() ) {
 			// Engine absent: media cannot be resolved or rendered and ownership
 			// cannot be verified. Drop attachments instead of blocking the post.
 			return array();
 		}
+
+		$max = self::max_media_per_post();
+		if ( ! $uncapped && count( $ids ) > $max && array_diff( $ids, $existing ) ) {
+			return new WP_Error(
+				'too_many_media',
+				sprintf(
+					/* translators: %d: maximum number of files on one post. */
+					__( 'You can attach at most %d files per post.', 'buddynext' ),
+					$max
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		$repo = \BuddyNext\Media\MediaClient::repo();
 
 		/*
 		 * Site admins may attach media they do NOT own (curation / moderation
@@ -978,6 +1019,16 @@ class PostService {
 		}
 
 		return $ids;
+	}
+
+	/**
+	 * Whether media ids can be verified at all.
+	 *
+	 * @return bool
+	 */
+	private static function media_engine_ready(): bool {
+		$repo = \BuddyNext\Media\MediaClient::repo();
+		return $repo && method_exists( $repo, 'get_author' );
 	}
 
 	/**
@@ -1567,16 +1618,45 @@ class PostService {
 		if ( in_array( $type, array( 'text', 'activity', 'announcement' ), true ) ) {
 			return true;
 		}
-		if ( in_array( $type, array( 'photo', 'file', 'link', 'share', 'poll' ), true ) ) {
+		// A caption-less photo, file or link still gets Edit: the editor creates the caption box.
+		if ( in_array( $type, array( 'photo', 'file', 'link' ), true ) ) {
+			return true;
+		}
+		if ( in_array( $type, array( 'share', 'poll' ), true ) ) {
 			return '' !== trim( $content );
 		}
 		// A forum discussion card shows the topic from its forum; edit it there.
 		if ( 'discussion' === $type ) {
 			return false;
 		}
-		// Any other type: a registered renderer owns the body; without one the
-		// template falls back to the plain text body.
-		return ! has_filter( 'buddynext_render_post_body_' . $type );
+		// Any other type: a registered renderer owns the body. Without one, a card
+		// whose partner is gone holds only a system sentence; a type the site added
+		// itself is plain text.
+		return ! has_filter( 'buddynext_render_post_body_' . $type ) && ! self::is_orphaned_card( $type );
+	}
+
+	/**
+	 * Whether a post is a partner's card and that partner is not here to draw it.
+	 *
+	 * Renderers exist only while their plugin runs, so a deactivated partner leaves
+	 * cards holding a verb and a link to a page that no longer resolves. Those show
+	 * a neutral line and cannot be edited. A type added through the allowed-types
+	 * filter with no renderer is the site's own plain text, so it is not an orphan.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param string $type Post type.
+	 * @return bool
+	 */
+	public static function is_orphaned_card( string $type ): bool {
+		if ( 'discussion' === $type ) {
+			return ! has_filter( 'buddynext_discussion_card_url' );
+		}
+		if ( in_array( $type, array( 'text', 'activity', 'announcement', 'photo', 'file', 'link', 'poll', 'share' ), true )
+			|| has_filter( 'buddynext_render_post_body_' . $type ) ) {
+			return false;
+		}
+		return in_array( $type, self::ALLOWED_TYPES, true ) || ! in_array( $type, self::allowed_types(), true );
 	}
 
 	/**
@@ -2173,6 +2253,22 @@ class PostService {
 			}
 		}
 
+		// A partner's card is edited at its source: the body here is a system sentence.
+		// The Edit control already says so; this holds for a direct API call. Staff
+		// keep the wp-admin redaction path, as with the edit window.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+		if ( is_array( $row ) && isset( $data['content'] ) && ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' )
+			&& ! in_array( (string) $row['type'], array( 'share', 'poll' ), true )
+			&& ! self::has_editable_text( (string) $row['type'], (string) $row['content'] ) ) {
+			return new WP_Error(
+				'post_not_editable',
+				__( 'This post cannot be edited.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Enforce the post edit window (buddynext_post_edit_window, minutes): once
 		// a post is older than the window a non-admin can no longer edit it.
 		// 0 = unlimited.
@@ -2182,9 +2278,6 @@ class PostService {
 		// pre-moderation alike: the window guards against rewriting history members
 		// have already read, and neither has been read. An `under_review` post is
 		// NOT exempt, because it was published before it was hidden.
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
 		if ( is_array( $row ) && ! self::within_edit_window( (string) $row['created_at'], (string) $row['status'], $user_id ) ) {
 			return new WP_Error(
 				'edit_window_closed',
@@ -2312,6 +2405,14 @@ class PostService {
 				);
 			}
 
+			$poll_end = (string) ( $current['poll_options'][0]['end_date'] ?? '' );
+			if ( '' !== $poll_end ) {
+				$poll_conflict = $this->poll_opens_after_end( $poll_end, gmdate( 'Y-m-d H:i:s', $ts ) );
+				if ( null !== $poll_conflict ) {
+					return $poll_conflict;
+				}
+			}
+
 			$fields['scheduled_at'] = gmdate( 'Y-m-d H:i:s', $ts );
 			$formats[]              = '%s';
 		}
@@ -2321,18 +2422,20 @@ class PostService {
 		// the post's AUTHOR (a moderator fixing someone's post cannot attach their
 		// own files to it; a site admin keeps create()'s curator exemption).
 		// Removing only detaches: the file stays in its owner's media library.
+		// With the engine off the ids cannot be checked, and dropping them here would wipe
+		// what the post already holds, so the list is left as it is.
 		$media_change = null;
-		if ( array_key_exists( 'media_ids', $data ) ) {
+		if ( array_key_exists( 'media_ids', $data ) && self::media_engine_ready() ) {
 			$media_post = $this->get( $post_id );
 			if ( null === $media_post ) {
 				return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 			}
 			$media_owner = user_can( $user_id, 'manage_options' ) ? $user_id : (int) $media_post['user_id'];
-			$new_media   = $this->authorize_media_ids( (array) $data['media_ids'], $media_owner );
+			$old_media   = array_values( array_map( 'intval', (array) ( $media_post['media_ids'] ?? array() ) ) );
+			$new_media   = $this->authorize_media_ids( (array) $data['media_ids'], $media_owner, $old_media );
 			if ( is_wp_error( $new_media ) ) {
 				return $new_media;
 			}
-			$old_media = array_values( array_map( 'intval', (array) ( $media_post['media_ids'] ?? array() ) ) );
 
 			// The post's type follows what it carries: text gains a photo -> photo,
 			// photo loses its last one -> text. Every other type (poll, event, link,
@@ -3819,12 +3922,13 @@ class PostService {
 	/**
 	 * Increment the share_count for a post (floor 0).
 	 *
-	 * @param int $post_id Target post.
-	 * @param int $delta   +1 or -1.
+	 * @param int         $post_id Target post.
+	 * @param int         $delta   +1 or -1.
+	 * @param string|null $at      UTC time of the share, for a +1. Null means now.
 	 */
-	public function adjust_share_count( int $post_id, int $delta ): void {
+	public function adjust_share_count( int $post_id, int $delta, ?string $at = null ): void {
 		if ( $delta > 0 ) {
-			$this->increment_counter( $post_id, 'share_count' );
+			$this->increment_counter( $post_id, 'share_count', $at );
 		} else {
 			$this->decrement_counter( $post_id, 'share_count' );
 		}
@@ -3844,23 +3948,28 @@ class PostService {
 	 * CommentService, ReactionService and the WPMediaVerse bridge route here
 	 * instead of writing bn_posts directly.
 	 *
-	 * @param int    $post_id Post id.
-	 * @param string $column  One of self::COUNTER_COLUMNS.
+	 * @param int         $post_id Post id.
+	 * @param string      $column  One of self::COUNTER_COLUMNS.
+	 * @param string|null $at      UTC time of the engaging record. Null means now.
 	 */
-	public function increment_counter( int $post_id, string $column ): void {
+	public function increment_counter( int $post_id, string $column, ?string $at = null ): void {
 		if ( $post_id <= 0 || ! in_array( $column, self::COUNTER_COLUMNS, true ) ) {
 			return;
 		}
 
 		global $wpdb;
+		$stamp = \BuddyNext\Core\Backdate::resolve( $at );
 		// A new reaction/comment/share marks the post as freshly active — bump
 		// last_activity_at so the "Active" feed surfaces it. Decrement does not
-		// (removing engagement is not activity).
+		// (removing engagement is not activity). GREATEST: an older backdated
+		// record never moves a post backwards, and a live one still lands on now.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = %s, updated_at = UTC_TIMESTAMP() WHERE id = %d",
-				current_time( 'mysql', true ),
+				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = GREATEST( COALESCE( last_activity_at, %s ), %s ), updated_at = GREATEST( updated_at, %s ) WHERE id = %d",
+				$stamp,
+				$stamp,
+				$stamp,
 				$post_id
 			)
 		);
@@ -4022,6 +4131,11 @@ class PostService {
 		$current = $this->get( $post_id );
 
 		if ( null === $current || ! in_array( (string) ( $current['status'] ?? '' ), array( 'draft', 'scheduled' ), true ) ) {
+			return false;
+		}
+
+		$poll_end = (string) ( $current['poll_options'][0]['end_date'] ?? '' );
+		if ( '' !== $poll_end && null !== $this->poll_opens_after_end( $poll_end, $scheduled_at ) ) {
 			return false;
 		}
 
@@ -4875,6 +4989,61 @@ class PostService {
 	}
 
 	/**
+	 * Why a poll cannot take this end time, or null when it can.
+	 *
+	 * A past deadline publishes a poll nobody can vote on, and a malformed one used to
+	 * be stored as no deadline at all, so the poll silently never closed.
+	 *
+	 * @param mixed  $end_date     Requested UTC "Y-m-d H:i:s" deadline; empty = no deadline.
+	 * @param string $scheduled_at UTC time the post goes live, if it is scheduled.
+	 * @return WP_Error|null
+	 */
+	private function poll_end_error( $end_date, string $scheduled_at = '' ): ?WP_Error {
+		if ( null === $end_date || '' === $end_date ) {
+			return null;
+		}
+
+		$parsed = is_string( $end_date ) ? \DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $end_date, new \DateTimeZone( 'UTC' ) ) : false;
+		if ( false === $parsed || $parsed->format( 'Y-m-d H:i:s' ) !== $end_date ) {
+			return new WP_Error(
+				'invalid_poll_end_date',
+				__( 'That poll end time is not a valid date and time.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		if ( $parsed->getTimestamp() <= time() ) {
+			return new WP_Error(
+				'poll_end_in_past',
+				__( 'Pick a poll end time in the future.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		return $this->poll_opens_after_end( $end_date, $scheduled_at );
+	}
+
+	/**
+	 * Refuse a publish time at or after the poll's deadline: it would go live already closed.
+	 *
+	 * @param string $end_date     UTC poll deadline.
+	 * @param string $scheduled_at UTC time the post goes live ('' = now).
+	 * @return WP_Error|null
+	 */
+	private function poll_opens_after_end( string $end_date, string $scheduled_at ): ?WP_Error {
+		$opens = '' === $scheduled_at ? false : strtotime( $scheduled_at . ' UTC' );
+		if ( false === $opens || $opens < strtotime( $end_date . ' UTC' ) ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'poll_end_before_publish',
+			__( 'The poll would end before the post is published. Pick a later end time or an earlier publish time.', 'buddynext' ),
+			array( 'status' => 422 )
+		);
+	}
+
+	/**
 	 * Insert poll options for a new poll post.
 	 *
 	 * @param int      $post_id  Post ID.
@@ -4887,10 +5056,8 @@ class PostService {
 	private function insert_poll_options( int $post_id, array $options, string $end_date = '' ): void {
 		global $wpdb;
 
-		// Accept only a valid "Y-m-d H:i:s" deadline; anything else stores NULL.
-		$end_value = ( '' !== $end_date && preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $end_date ) )
-			? $end_date
-			: null;
+		// create() has already refused anything but a valid future deadline.
+		$end_value = '' !== $end_date ? $end_date : null;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		foreach ( array_values( $options ) as $i => $raw ) {

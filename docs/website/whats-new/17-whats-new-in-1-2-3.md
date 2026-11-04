@@ -11,7 +11,7 @@ This is a bug-fix release. It fixes directory pagination, log in return links an
 - **Log in return links.** The Log in links on the guest banner, the media lightbox, the profile editor and the login prompt now return members to the page they were on.
 - **Report menu.** Report is no longer styled as a destructive action in the post options menu, matching the profile menu.
 - **Removing a file.** Removing a file no longer promises a 30-day restore that the Files tab does not offer.
-- **Activity feed.** The feed no longer fails on a site running an older WPMediaVerse.
+- **Activity feed.** The feed no longer fails on a site running an older MediaVerse.
 
 ## Fixes for site owners
 

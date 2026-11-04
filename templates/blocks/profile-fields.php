@@ -6,7 +6,7 @@
  * sidebar alongside other v2 surfaces.
  *
  * Variables:
- *   int    $user_id WordPress user ID (0 = current user).
+ *   int    $user_id WordPress user ID, resolved and privacy-checked by the block.
  *   string $group   Field group slug to filter by ('' = all groups).
  *
  * @package BuddyNext
@@ -17,14 +17,6 @@ defined( 'ABSPATH' ) || exit;
 $user_id   = $user_id ?? 0;
 $group     = $group ?? '';
 $viewer_id = get_current_user_id();
-
-if ( ! $user_id ) {
-	$user_id = (int) get_query_var( 'author' );
-}
-
-if ( ! $user_id ) {
-	$user_id = $viewer_id;
-}
 
 if ( ! $user_id ) {
 	return;

@@ -51,7 +51,7 @@ Right after setup, BuddyNext shows a set of one-time backup codes. **Save these 
 3. Open your authenticator app and enter the current 6-digit code. (If you cannot reach the app, enter one of your backup codes instead, or use the email option below.)
 4. Once the code is accepted, you are signed in.
 
-If you cannot use your authenticator or your backup codes, choose the option to **email a code** on the sign-in screen. BuddyNext sends a one-time code to your account's email address; enter it to finish signing in. A mistyped code can be retried while the sign-in session is still active.
+If you cannot use your authenticator or your backup codes, choose the option to **email a code** on the sign-in screen. BuddyNext sends a one-time code to your account's email address; enter it to finish signing in. A mistyped code can be retried while the sign-in session is still active. After the code is accepted, the member lands on a one-time address that page caches do not hold, so the first page is always the logged-in one.
 
 ### Managing or turning off 2FA
 

@@ -39,13 +39,14 @@ For a list, upload a CSV instead of typing each address:
 
 1. On the Invites tab, find **Send bulk invitations**.
 2. Choose a **CSV file** where each line is `email` or `email,first_name`.
-3. Choose **Send invitations**. BuddyNext sends an invitation to each valid address and tells you how many rows were skipped.
+3. Choose **Send invitations**. BuddyNext invites each valid address, then tells you how many invitations were sent or queued and how many rows were skipped, by reason: already invited, existing member, or invalid. An email that cannot be delivered moves the invite to the **Bounced** list, where you can resend it.
 
 A few rules keep a bulk send sane:
 
-- Up to **500 rows** are processed per upload; anything beyond that is ignored.
-- An address that already has a pending invite is **skipped**, so re-uploading a
-  slightly longer list never double-invites the people already on it.
+- Up to **500 rows** are processed per upload. If a file is longer, the notice says
+  how many rows were not read; upload those in a new file without the rows already read.
+- An address that already has a pending invite or an account is **skipped**, so
+  re-uploading a list never double-invites the people already on it.
 - The file type is checked from the file's own bytes, so only a real CSV is
   accepted.
 

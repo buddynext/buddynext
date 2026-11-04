@@ -380,10 +380,12 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             await loginAs(page, A_LOGIN);
             await page.goto(memberUrl(A_LOGIN));
             await expect(page.locator(HERO).first()).toBeVisible();
+            // Attached, not visible: on a narrow screen a tab that does not fit
+            // folds under "More" (shell/extras.js), and folded is still present.
             await expect(
                 page.locator(MEDIA_TAB).first(),
                 'the Media tab is present while the integration is on'
-            ).toBeVisible();
+            ).toBeAttached();
             // EFFECT: the nav the profile route resolves carries the Media tab too.
             expect(await navTabIds(page, A_ID), 'route nav while the integration is on').toContain('media');
 
@@ -422,10 +424,11 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             ]);
             await page.goto(memberUrl(A_LOGIN));
             await expect(page.locator(HERO).first()).toBeVisible();
+            // Attached, not visible: a tab that does not fit folds under "More".
             await expect(
                 page.locator(ABOUT_TAB).first(),
                 'a profile with about content shows the About tab'
-            ).toBeVisible();
+            ).toBeAttached();
             // EFFECT: the route nav and payload agree: A has about content and the tab.
             expect(await navTabIds(page, A_ID), 'route nav for a profile with about content').toContain('about');
             expect((await profileOf(page, A_ID)).json, 'the about content is in the REST payload').toContain('Trail photography and bread baking');

@@ -78,6 +78,8 @@ The feed is available as an editor block, so you can place it on any page or bui
 - **Empty states are per tab.** A brand-new member who follows no one will see the For you tab fall back to a discovery-style view rather than a blank page, while the Following and Network tabs show a friendly "nothing here yet" prompt that points them toward people and spaces to follow. The Spaces tab is empty until they join a space. None of these are errors.
 - **An empty community.** On a fresh install with no posts, the feed correctly shows its empty state. Seed a few posts and follows to see the blended view.
 - **Link previews load shortly after posting.** When a member shares a link, the preview thumbnail and title are fetched in the background, so a freshly posted link may appear for a moment without its preview card before it fills in.
+- **The new-posts pill shows working posts.** Clicking **N new posts** loads the posts from the server, so React, Comment and Save work on them straight away.
+- **A card whose partner plugin is gone stays harmless.** If the plugin that created a feed card (for example a listing, event or course) is removed, the card keeps its title and a neutral line with no dead link, and its automatic sentence cannot be edited.
 - **Moderation is respected everywhere.** Posts from suspended or shadow-banned authors are hidden from the feed, Explore, and permalinks for everyone except the author and moderators, so moderators can still review them.
 
 ## Free vs Pro

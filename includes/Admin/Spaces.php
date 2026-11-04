@@ -141,7 +141,7 @@ class Spaces extends AdminPageBase {
 		wp_enqueue_script(
 			'bn-admin-spaces',
 			$plugin_url . 'assets/js/admin/spaces.js',
-			array( 'wp-i18n', 'bn-admin-more-menu' ),
+			array( 'wp-i18n', 'bn-admin-more-menu', 'bn-admin-dialogs' ),
 			$version,
 			true
 		);
@@ -297,12 +297,33 @@ class Spaces extends AdminPageBase {
 					)
 				)
 			);
+		} elseif ( 'subspace' === sanitize_key( wp_unslash( $_GET['feature_error'] ?? '' ) ) ) {
+			printf(
+				'<div class="bn-notice bn-notice-warning"><p>%s</p></div>',
+				esc_html__( 'Sub-spaces cannot be featured, because featured spaces show top-level spaces only. Feature its parent space instead.', 'buddynext' )
+			);
 		} elseif ( isset( $_GET['featured'] ) ) {
 			$bn_did_feature = '1' === sanitize_text_field( wp_unslash( $_GET['featured'] ) );
 			printf(
 				'<div class="bn-notice bn-notice-success"><p>%s</p></div>',
 				esc_html( $bn_did_feature ? __( 'Space featured.', 'buddynext' ) : __( 'Space unfeatured.', 'buddynext' ) )
 			);
+		} elseif ( 'not_deleted' === sanitize_key( wp_unslash( $_GET['delete_error'] ?? '' ) ) ) {
+			AdminPageBase::render_notice( __( 'The space could not be deleted. It may already be gone.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'delete_error space_id' ) );
+		} elseif ( isset( $_GET['bulk_done'] ) ) {
+			$bn_bulk_notice = self::bulk_notice(
+				sanitize_key( wp_unslash( $_GET['bulk_action'] ?? '' ) ),
+				array(
+					'done'     => absint( wp_unslash( $_GET['bulk_done'] ) ),
+					'skipped'  => absint( wp_unslash( $_GET['bulk_skipped'] ?? 0 ) ),
+					'over_cap' => absint( wp_unslash( $_GET['bulk_over_cap'] ?? 0 ) ),
+					'already'  => absint( wp_unslash( $_GET['bulk_already'] ?? 0 ) ),
+					'failed'   => absint( wp_unslash( $_GET['bulk_failed'] ?? 0 ) ),
+				)
+			);
+			if ( null !== $bn_bulk_notice ) {
+				AdminPageBase::render_notice( $bn_bulk_notice['text'], $bn_bulk_notice['tone'], false, array( 'data-bn-clear-param' => 'bulk_action bulk_done bulk_skipped bulk_over_cap bulk_already bulk_failed' ) );
+			}
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		?>
@@ -645,6 +666,8 @@ class Spaces extends AdminPageBase {
 															<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
 														</button>
 													</form>
+													<?php // Featured lists show top-level spaces only; a sub-space offers Unfeature only if it was featured before 1.2.8. ?>
+													<?php if ( $bn_is_featured || empty( $space['parent_id'] ) ) : ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 														<?php wp_nonce_field( 'bn_feature_space' ); ?>
 														<input type="hidden" name="action" value="bn_feature_space">
@@ -654,6 +677,7 @@ class Spaces extends AdminPageBase {
 															<?php echo $bn_is_featured ? esc_html__( 'Unfeature', 'buddynext' ) : esc_html__( 'Feature', 'buddynext' ); ?>
 														</button>
 													</form>
+													<?php endif; ?>
 													<?php // Change owner opens a small dialog that asks who; the dialog's own form posts bn_transfer_space. ?>
 													<button type="button" class="bn-dropdown-item" role="menuitem"
 															data-bn-owner-trigger
@@ -856,6 +880,19 @@ class Spaces extends AdminPageBase {
 					'nonce'    => 'bn_save_space_category',
 					'edit'     => $bn_edit_cat,
 					'hidden'   => array( 'cat_id' => $bn_edit_cat ? (string) $bn_edit_cat['id'] : '0' ),
+					'selects'  => array(
+						array(
+							'name'    => 'level',
+							'label'   => __( 'Use for', 'buddynext' ),
+							'choices' => array(
+								'both' => __( 'Main spaces and subspaces', 'buddynext' ),
+								'main' => __( 'Main spaces only', 'buddynext' ),
+								'sub'  => __( 'Subspaces only', 'buddynext' ),
+							),
+							'default' => 'both',
+							'hint'    => __( 'Where members can pick this category when they create or edit a space.', 'buddynext' ),
+						),
+					),
 					'toggles'  => array(
 						array(
 							'name'    => 'show_in_dir',
@@ -899,6 +936,7 @@ class Spaces extends AdminPageBase {
 			'icon_svg'    => (string) wp_unslash( $_POST['icon_svg'] ?? '' ), // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- SVG is sanitised via wp_kses inside SpaceCategoryService::validate().
 			'sort_order'  => absint( wp_unslash( $_POST['sort_order'] ?? 0 ) ),
 			'show_in_dir' => ! empty( $_POST['show_in_dir'] ),
+			'level'       => sanitize_key( wp_unslash( $_POST['level'] ?? 'both' ) ),
 		);
 
 		$cat_id = absint( wp_unslash( $_POST['cat_id'] ?? 0 ) );
@@ -1229,10 +1267,78 @@ class Spaces extends AdminPageBase {
 	 * also honours. SpaceService::delete() fires buddynext_space_deleted itself.
 	 *
 	 * @param int $space_id bn_spaces.id.
-	 * @return void
+	 * @return bool|\WP_Error True when the space was deleted, or why it was not.
 	 */
-	public function delete_space( int $space_id ): void {
-		buddynext_service( 'spaces' )->delete( $space_id, get_current_user_id() );
+	public function delete_space( int $space_id ): bool|\WP_Error {
+		return buddynext_service( 'spaces' )->delete( $space_id, get_current_user_id() );
+	}
+
+	/**
+	 * The result notice for a bulk action, from the counts handle_bulk() measured.
+	 *
+	 * Warning tone whenever something ticked did not get the action, so "0 spaces
+	 * featured." can never read as a success.
+	 *
+	 * @param string            $action delete|feature|unfeature.
+	 * @param array<string,int> $counts done, skipped (not eligible), over_cap, already, failed.
+	 * @return array{tone:string,text:string}|null Null for an action with no result to report.
+	 */
+	public static function bulk_notice( string $action, array $counts ): ?array {
+		$done     = (int) ( $counts['done'] ?? 0 );
+		$skipped  = (int) ( $counts['skipped'] ?? 0 );
+		$over_cap = (int) ( $counts['over_cap'] ?? 0 );
+		$already  = (int) ( $counts['already'] ?? 0 );
+		$failed   = (int) ( $counts['failed'] ?? 0 );
+		$parts    = array();
+
+		switch ( $action ) {
+			case 'delete':
+				/* translators: %d: number of spaces deleted. */
+				$parts[] = sprintf( _n( '%d space deleted.', '%d spaces deleted.', $done, 'buddynext' ), $done );
+				if ( $failed > 0 ) {
+					/* translators: %d: number of spaces that could not be deleted. */
+					$parts[] = sprintf( _n( '%d could not be deleted. It may already be gone.', '%d could not be deleted. They may already be gone.', $failed, 'buddynext' ), $failed );
+				}
+				break;
+
+			case 'unfeature':
+				/* translators: %d: number of spaces unfeatured. */
+				$parts[] = sprintf( _n( '%d space unfeatured.', '%d spaces unfeatured.', $done, 'buddynext' ), $done );
+				if ( $already > 0 ) {
+					/* translators: %d: number of selected spaces that were not featured. */
+					$parts[] = sprintf( _n( '%d was not featured.', '%d were not featured.', $already, 'buddynext' ), $already );
+				}
+				break;
+
+			case 'feature':
+				/* translators: %d: number of spaces featured. */
+				$parts[] = sprintf( _n( '%d space featured.', '%d spaces featured.', $done, 'buddynext' ), $done );
+				if ( $over_cap > 0 ) {
+					$parts[] = sprintf(
+						/* translators: 1: maximum number of featured spaces, 2: number of spaces skipped. */
+						_n( 'You can feature up to %1$d spaces, so %2$d was skipped. Unfeature one first.', 'You can feature up to %1$d spaces, so %2$d were skipped. Unfeature one first.', $over_cap, 'buddynext' ),
+						\BuddyNext\Spaces\FeaturedSpaces::limit(),
+						$over_cap
+					);
+				}
+				if ( $already > 0 ) {
+					/* translators: %d: number of selected spaces already featured. */
+					$parts[] = sprintf( _n( '%d was already featured.', '%d were already featured.', $already, 'buddynext' ), $already );
+				}
+				if ( $skipped > 0 ) {
+					/* translators: %d: number of sub-spaces skipped. */
+					$parts[] = sprintf( _n( '%d sub-space was skipped, because featured spaces show top-level spaces only.', '%d sub-spaces were skipped, because featured spaces show top-level spaces only.', $skipped, 'buddynext' ), $skipped );
+				}
+				break;
+
+			default:
+				return null;
+		}
+
+		return array(
+			'tone' => $done < 1 || $skipped + $over_cap + $failed > 0 ? 'warning' : 'success',
+			'text' => implode( ' ', $parts ),
+		);
 	}
 
 	// ── Admin-post handlers ────────────────────────────────────────────────────
@@ -1256,34 +1362,35 @@ class Spaces extends AdminPageBase {
 		$raw_ids = isset( $_POST['ids'] ) ? (array) wp_unslash( $_POST['ids'] ) : array();
 		$ids     = array_values( array_unique( array_filter( array_map( 'absint', $raw_ids ) ) ) );
 
-		$done = 0;
+		$counts = array( 'done' => 0 );
 		if ( 'delete' === $bulk_action && ! empty( $ids ) ) {
+			$counts['failed'] = 0;
 			foreach ( $ids as $sid ) {
-				$this->delete_space( $sid );
-				++$done;
+				// Only a space that is really gone counts as deleted.
+				if ( true === $this->delete_space( $sid ) ) {
+					++$counts['done'];
+				} else {
+					++$counts['failed'];
+				}
 			}
 		} elseif ( 'feature' === $bulk_action && ! empty( $ids ) ) {
-			$current = \BuddyNext\Spaces\FeaturedSpaces::get_ids();
-			$before  = count( $current );
-			// set_ids validates + caps at the limit, so extras beyond the cap drop.
-			\BuddyNext\Spaces\FeaturedSpaces::set_ids( array_merge( $current, $ids ) );
-			$done = max( 0, count( \BuddyNext\Spaces\FeaturedSpaces::get_ids() ) - $before );
+			$counts = \BuddyNext\Spaces\FeaturedSpaces::add_many( $ids );
 		} elseif ( 'unfeature' === $bulk_action && ! empty( $ids ) ) {
 			$current = \BuddyNext\Spaces\FeaturedSpaces::get_ids();
 			\BuddyNext\Spaces\FeaturedSpaces::set_ids( array_values( array_diff( $current, $ids ) ) );
-			$done = count( array_intersect( $current, $ids ) );
+			$counts['done']    = count( array_intersect( $current, $ids ) );
+			$counts['already'] = count( $ids ) - $counts['done'];
 		}
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'        => 'buddynext-spaces',
-					'bulk_action' => $bulk_action,
-					'bulk_done'   => $done,
-				),
-				admin_url( 'admin.php' )
-			)
+		$args = array(
+			'page'        => 'buddynext-spaces',
+			'bulk_action' => $bulk_action,
 		);
+		foreach ( $counts as $key => $count ) {
+			$args[ 'bulk_' . $key ] = $count;
+		}
+
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
 		exit;
 	}
 
@@ -1310,7 +1417,9 @@ class Spaces extends AdminPageBase {
 		if ( $space_id > 0 ) {
 			if ( $feature ) {
 				if ( ! in_array( $space_id, $current, true ) ) {
-					if ( count( $current ) >= \BuddyNext\Spaces\FeaturedSpaces::limit() ) {
+					if ( array() === \BuddyNext\Spaces\FeaturedSpaces::featurable( array( $space_id ) ) ) {
+						$args['feature_error'] = 'subspace';
+					} elseif ( count( $current ) >= \BuddyNext\Spaces\FeaturedSpaces::limit() ) {
 						$args['feature_error'] = 'limit';
 					} else {
 						$current[] = $space_id;
@@ -1415,16 +1524,14 @@ class Spaces extends AdminPageBase {
 		check_admin_referer( 'bn_delete_space' );
 
 		$space_id = absint( wp_unslash( $_POST['space_id'] ?? 0 ) );
-		if ( $space_id > 0 ) {
-			$this->delete_space( $space_id );
-		}
+		$deleted  = $space_id > 0 && true === $this->delete_space( $space_id );
 
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page'     => 'buddynext-spaces',
-					'deleted'  => '1',
-					'space_id' => $space_id,
+					'page'                                => 'buddynext-spaces',
+					$deleted ? 'deleted' : 'delete_error' => $deleted ? '1' : 'not_deleted',
+					'space_id'                            => $space_id,
 				),
 				admin_url( 'admin.php' )
 			)

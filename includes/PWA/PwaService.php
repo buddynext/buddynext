@@ -105,8 +105,8 @@ class PwaService {
 			'description'      => get_bloginfo( 'description' ),
 			'start_url'        => home_url( '/' ),
 			'display'          => 'standalone',
-			'background_color' => '#ffffff',
-			'theme_color'      => '#0073aa',
+			'background_color' => $this->splash_color(),
+			'theme_color'      => \BuddyNext\Theme\Appearance::display_brand(),
 			'orientation'      => 'portrait-primary',
 			'scope'            => home_url( '/' ),
 			'categories'       => array( 'social', 'community' ),
@@ -157,7 +157,20 @@ class PwaService {
 	}
 
 	/**
-	 * Output the <link rel="manifest"> tag in wp_head.
+	 * The installed app's splash colour: the page canvas of the default colour scheme.
+	 *
+	 * A manifest holds real colours and one value only, so these are the hex forms of
+	 * --bn-canvas in bn-base.css, and 'auto' (which only the device can resolve) gets
+	 * the light one.
+	 *
+	 * @return string Hex colour.
+	 */
+	private function splash_color(): string {
+		return 'dark' === get_option( 'buddynext_default_theme', 'auto' ) ? '#15161f' : '#fbfbfd';
+	}
+
+	/**
+	 * Output the <link rel="manifest"> and matching theme-color tags in wp_head.
 	 *
 	 * @return void
 	 */
@@ -167,6 +180,12 @@ class PwaService {
 			'<link rel="manifest" href="%s">' . "\n",
 			esc_url( $url )
 		);
+
+		// From the filtered manifest, so the browser bar and the installed app agree.
+		$theme_color = (string) ( $this->get_manifest()['theme_color'] ?? '' );
+		if ( '' !== $theme_color ) {
+			printf( '<meta name="theme-color" content="%s">' . "\n", esc_attr( $theme_color ) );
+		}
 	}
 
 	// ── Service worker ────────────────────────────────────────────────────────

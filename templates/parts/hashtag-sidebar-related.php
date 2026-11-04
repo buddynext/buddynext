@@ -108,7 +108,7 @@ do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 				<span class="bn-hashtag-related__count">
 					<?php
 					printf(
-						/* translators: %s: post count */
+						/* translators: %s: formatted post count. */
 						esc_html( _n( '%s post', '%s posts', $rel_count, 'buddynext' ) ),
 						esc_html( number_format_i18n( $rel_count ) )
 					);
@@ -137,6 +137,7 @@ do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 						data-variant="<?php echo $rel_following ? 'secondary' : 'primary'; ?>"
 						data-size="xs"
 						type="button"
+						data-wp-key="hashtag-<?php echo esc_attr( (string) $rel_slug ); ?>"
 						data-wp-context="<?php echo esc_attr( (string) $rel_ctx ); ?>"
 						data-wp-on--click="actions.toggleFollowHashtag"
 						data-wp-class--following="context.following"

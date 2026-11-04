@@ -160,7 +160,10 @@ jobs:
     # BuddyX + seeded data, serves it, and runs the effect-based Playwright journeys
     # against it — the real admin/member browser flows, not a DOM presence check.
     name: E2E browser journeys (Playwright)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which this Playwright version does not
+    # support ("Playwright does not support chromium on ubuntu26.04-x64"). Move
+    # back to ubuntu-latest once @playwright/test supports it.
+    runs-on: ubuntu-24.04
     services:
       mysql:
         image: mysql:8.0

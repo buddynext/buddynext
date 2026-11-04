@@ -93,6 +93,8 @@ Two rules that make the difference between a correct client and a plausible one:
 | GET | `/users/{user_id}/labels` | Public | Get a user's labels. |
 | POST, DELETE | `/users/{user_id}/labels/{slug}` | Admin (`manage_options`) | Assign / unassign a label to a user. |
 
+The `labels` array on a member's profile payload carries `slug`, `name`, `color`, `icon`, `text_color` and `icon_svg`. `text_color` is the readable text colour for the chip (empty when the label has no colour). `icon_svg` is the icon markup, empty when the icon slug is not a real icon. A client can draw the same chip the server draws from these two fields.
+
 ### Admin member search
 
 | Method | Path | Auth | Purpose |
@@ -179,6 +181,8 @@ Two rules that make the difference between a correct client and a plausible one:
 | GET, POST | `/me/saved-searches` | Logged in | List and create saved searches. |
 | GET, PUT, DELETE | `/me/saved-searches/{id}` | Logged in | Get, update, or delete a saved search. |
 | POST | `/me/saved-searches/{id}/run` | Logged in | Execute a saved search. |
+
+Errors carry an HTTP status: `404 buddynextpro_not_found` for a search that does not exist, `403 buddynextpro_forbidden` for one that belongs to someone else, `400` for an empty name (`buddynextpro_invalid_name`) or one over 120 characters (`buddynextpro_name_too_long`), and `409` when the member has reached the per-member limit. A storage failure answers `500`.
 
 ### Profile field conditional logic
 

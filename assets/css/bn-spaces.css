@@ -1688,7 +1688,9 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-sh-info {
-	flex: 1;
+	/* A real basis, so the wrapping row drops the actions to their own line on a phone
+	   instead of squeezing the space name to one word per line. */
+	flex: 1 1 12rem;
 	padding-block-start: var(--bn-s2);
 	min-width: 0;
 }
@@ -2079,6 +2081,16 @@ a.bn-sh-statpill:focus-visible {
 	border: 1px solid var(--bn-line);
 	flex-shrink: 0;
 	color: var(--bn-accent-text);
+	overflow: hidden;
+}
+
+/* An uploaded icon fills the 72px preview. Only the fallback svg was sized,
+   so an uploaded image drew at its natural size (512px) over the page. */
+.bn-space-settings__upload-current img {
+	inline-size: 100%;
+	block-size: 100%;
+	object-fit: cover;
+	display: block;
 }
 
 .bn-space-settings__upload-current svg {
@@ -2086,10 +2098,19 @@ a.bn-sh-statpill:focus-visible {
 	block-size: 28px;
 }
 
+/* Upload and Remove side by side, the hint on its own line under them, all
+   aligned to the start edge next to the icon. Stacked full-width buttons left
+   Remove centred under Upload and read as broken. */
 .bn-space-settings__upload-actions {
 	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s1);
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-width: 0;
+}
+
+.bn-space-settings__upload-actions .bn-space-settings__hint {
+	flex-basis: 100%;
 }
 
 .bn-space-settings__cover {
@@ -4184,3 +4205,17 @@ a.bn-sh-statpill:focus-visible {
 		width: 100%;
 	}
 }
+
+/* Space hero: "Reported" replaces the Report button once the viewer has reported the space. */
+.bn-report-slot { display: inline-flex; }
+.bn-reported-label {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	min-block-size: 32px;
+	padding-inline: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	white-space: nowrap;
+}
+.bn-reported-label svg { inline-size: 16px; block-size: 16px; }

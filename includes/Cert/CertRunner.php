@@ -172,12 +172,29 @@ class CertRunner {
 				$route = str_replace( '{post}', (string) $probe, $route );
 			}
 
+			// `requires`: options held at a value for the whole probe, because the gate
+			// opens only when they are on too (verification needs the feature AND
+			// buddynext_email_verify). `preserve`: options a hook may write while the
+			// probe runs (turning buddynext_email_verify on stamps the one-time
+			// buddynext_email_verify_enabled_at). All are put back exactly as found.
+			$requires = isset( $o['requires'] ) && is_array( $o['requires'] ) ? $o['requires'] : array();
+			$held     = array();
+			foreach ( array_merge( array_keys( $requires ), (array) ( $o['preserve'] ?? array() ) ) as $held_name ) {
+				$held[ (string) $held_name ] = $this->snapshot( (string) $held_name, 'option' );
+			}
+			foreach ( $requires as $req_name => $req_value ) {
+				update_option( (string) $req_name, (string) $req_value, false );
+			}
+
 			$snapshot = $this->snapshot( $id, $kind );
 			$this->set_state( $id, $kind, false );
 			$off = $this->dispatch( $route, $method, $params );
 			$this->set_state( $id, $kind, true );
 			$on = $this->dispatch( $route, $method, $params );
 			$this->restore( $id, $kind, $snapshot );
+			foreach ( $held as $held_name => $held_snapshot ) {
+				$this->restore( $held_name, 'option', $held_snapshot );
+			}
 
 			$off_enforced = ( $off['code'] === $off_code );        // disabled code present when OFF.
 			$on_allows    = ( $on['code'] !== $off_code );          // disabled code absent when ON.

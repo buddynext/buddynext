@@ -66,18 +66,18 @@ Where members see their rewards:
 
 That is the whole connection. Once both plugins are active and the actions have points, members start earning the moment they participate.
 
-This integration has no settings of its own beyond the two switches below. BuddyNext hosts its own community leaderboard page automatically, and links to it from the **Leaderboard** item in the left navigation rail - there is no leaderboard page to create or select. On the **Gamification** card of **Integration Settings**:
+This integration has no settings of its own beyond the two switches below. BuddyNext hosts its own community leaderboard page automatically, and links to it from the **Leaderboard** item in the left navigation rail - there is no leaderboard page to create or select. On the **WB Gamification** card of **Integration Settings**:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Shows the Leaderboard link, the Achievements, Points and Kudos profile tabs and space leaderboards. Turning it off also stops Gamification notifications reaching the bell. | On |
+| Show in navigation | Shows the Leaderboard link, the Achievements, Points and Kudos profile tabs and space leaderboards. Turning it off only hides these; WB Gamification notifications still reach the bell. | On |
 | Post to the activity feed | Whether a shared credential badge posts a feed activity. | On |
 
 BuddyNext shows the site's own name for points (for example "Points" or "Coins") everywhere, as set in WB Gamification. If WB Gamification hands its leaderboard to Jetonomy, BuddyNext hides its own Leaderboard link and the leaderboard address goes to Jetonomy's board, so members see one ranking.
 
 ### A leaderboard for a space
 
-A space can have its own **Leaderboard** tab, ranking only that space's members. It is off by default; the space owner turns it on under **Manage space -> Integrations -> Leaderboard tab**. Members are ranked by the points they have earned across the whole community, so a space board never disagrees with the site leaderboard; the space only decides who appears on it. A space board is visible to whoever can see the space's member list, so a private space's board is for its members only.
+A space can have its own **Leaderboard** tab, ranking only that space's members. It is on by default; the space owner can switch it off under **Manage space -> Integrations -> Leaderboard tab**. Members are ranked by the points they have earned across the whole community, so a space board never disagrees with the site leaderboard; the space only decides who appears on it. A space board is visible to whoever can see the space's member list, so a private space's board is for its members only.
 
 ## Good to know
 

@@ -293,6 +293,26 @@ final class Field {
 	 * @return callable|string
 	 */
 	public function sanitizer() {
+		// A disabled control is not submitted, so its missing value is not the
+		// owner's answer: keep what is stored. Without this a select gated on a
+		// missing plugin reported "That choice is not available" on every save.
+		if ( null !== $this->disabled_callback ) {
+			$field = $this;
+			$inner = $this->type_sanitizer();
+			return static function ( $value ) use ( $field, $inner ) {
+				return $field->disabled() ? get_option( $field->key, $field->resolve_default() ) : call_user_func( $inner, $value );
+			};
+		}
+
+		return $this->type_sanitizer();
+	}
+
+	/**
+	 * The sanitizer for the field's type and bounds, before the disabled rule.
+	 *
+	 * @return callable|string
+	 */
+	private function type_sanitizer() {
 		if ( null !== $this->sanitize ) {
 			return $this->sanitize;
 		}

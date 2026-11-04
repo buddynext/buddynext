@@ -18,7 +18,7 @@ For the community as a whole, mentions keep discussions connected. A `@username`
 
 Type `@` followed by a member's username - for example `@jordan` - anywhere in a post or a comment. When the content is saved, BuddyNext finds each `@username`, links it to that member's profile, and notifies the mentioned member. You can mention more than one person in the same post or comment.
 
-The link works the same in comments as in posts, so a `@username` in a reply is clickable and notifies that member too.
+As you type `@`, a list of matching members appears. Pick one with Enter or Tab, or press Escape to close the list. The same list works when you edit a post and when you reply to a comment. The link works the same in comments as in posts, so a `@username` in a reply is clickable and notifies that member too.
 
 ### Who gets notified
 

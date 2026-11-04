@@ -1152,11 +1152,23 @@
 	display: block;
 }
 
-/* Group rename panel: same reveal chrome as the add-field panel, with the input + save button on one compact row. */
+/* Group panel (name + intro): same reveal chrome as the add-field panel. The
+   two fields stack, with Save under them aligned to the start. */
 .bn-pf-rename-panel .bn-pf-inline-form {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-a-s2);
+	display: grid;
+	gap: var(--bn-a-s3);
+	justify-items: start;
+	max-width: 640px;
+}
+.bn-pf-rename-panel .bn-pf-af-field {
+	width: 100%;
+	display: grid;
+	gap: var(--bn-a-s1);
+}
+.bn-pf-rename-panel .bn-pf-af-field input,
+.bn-pf-rename-panel .bn-pf-af-field textarea {
+	width: 100%;
+	max-width: 100%;
 }
 
 

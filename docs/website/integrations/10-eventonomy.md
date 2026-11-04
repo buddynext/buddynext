@@ -46,7 +46,7 @@ Eventonomy gets a card named **Events** on the **Integration Settings** screen, 
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether the Events link, the profile Events tab and the space Events tab appear. Turning it off also stops Eventonomy notifications reaching the bell. | On |
+| Show in navigation | Whether the Events link, the profile Events tab and the space Events tab appear. Turning it off only hides these; Eventonomy notifications still reach the bell. | On |
 | Post to the activity feed | Whether a published event and a "going" RSVP post a feed activity. | On |
 | Include in search | Whether published events are found in community search. Switching it off also removes the events already in the search index. | On |
 
@@ -56,7 +56,7 @@ The event experience itself - who can create events, RSVP rules, calendar displa
 
 Beyond the profile Events tab and community-wide surfacing, a space can run its own events board on an **Events** tab.
 
-**Turning it on (space owner).** Under **Manage space > Integrations**, switch on **Events tab** (off by default). Once on, the tab appears even before any event exists, so members always have somewhere to create the first one.
+**The Events tab (space owner).** The **Events tab** is on in every space while Eventonomy is active, and appears even before any event exists, so members always have somewhere to create the first one. A space owner can switch it off under **Manage space > Integrations**.
 
 **Who can add an event.** A second per-space setting, **Only organisers can add events**, decides whether any active member can create an event for the space or only space organisers (default: any member). Editing an event's own content, once it exists, always stays with the event's author - the space setting only controls who may add a new one.
 

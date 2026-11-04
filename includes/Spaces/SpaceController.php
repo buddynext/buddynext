@@ -47,6 +47,11 @@ use WP_REST_Response;
 class SpaceController extends BaseRestController {
 
 	/**
+	 * Email invites one inviter below site level may send per hour across all spaces.
+	 */
+	private const EMAIL_INVITES_PER_HOUR = 30;
+
+	/**
 	 * Members decidable in one bulk join-request call.
 	 *
 	 * A collapsed notification row represents a handful of people; this is a
@@ -100,7 +105,7 @@ class SpaceController extends BaseRestController {
 			),
 			'paginate'          => array(
 				'type'        => 'string',
-				'description' => 'Set to 1/true/yes to wrap rows with total + total_pages. Ignored on the search path -- see list_spaces().',
+				'description' => 'Set to 1/true/yes to wrap rows with total + total_pages, with or without a search.',
 			),
 			'orderby'           => array(
 				'type'              => 'string',
@@ -1108,8 +1113,9 @@ class SpaceController extends BaseRestController {
 
 		// Top-level browse shows root spaces only — sub-spaces are reached from
 		// their parent. Mirrors templates/spaces/directory.php so SSR + REST match.
-		// "My Spaces" and search still surface sub-spaces; the include_subspaces
-		// opt-in flattens the All view to the full list.
+		// "My Spaces" and search still surface sub-spaces (search unless roots_only=1
+		// is sent, as the directory does); the include_subspaces opt-in flattens the
+		// All view to the full list.
 		$bn_include_subspaces = in_array( (string) $request->get_param( 'include_subspaces' ), array( '1', 'true', 'yes' ), true );
 		if ( ! isset( $args['member'] ) && ! $bn_include_subspaces ) {
 			$args['roots_only'] = true;
@@ -1122,18 +1128,32 @@ class SpaceController extends BaseRestController {
 				: '' );
 
 		// Explicit opt-in only — search() otherwise always surfaces sub-spaces (see
-		// the comment above), and that stays true for every caller except one that
-		// deliberately asks for root-only results while searching (the admin
-		// featured-spaces picker: a featured sub-space renders nowhere on the
-		// front end, see SpaceService::featured_spaces()).
+		// the comment above). The directory sends this while its "Include sub-spaces"
+		// is off; the admin featured-spaces picker always does, since a featured
+		// sub-space renders nowhere on the front end (SpaceService::featured_spaces()).
 		if ( in_array( (string) $request->get_param( 'roots_only' ), array( '1', 'true', 'yes' ), true ) ) {
 			$args['search_roots_only'] = true;
 		}
 
 		// Opt-in pagination metadata for the reactive directory: paginate=1 wraps the
 		// rows with a total + total_pages (so the client can rebuild its pager for the
-		// filtered set). Default + the search path stay a bare array (back-compat).
+		// filtered set). Without it the rows stay a bare array (back-compat).
 		$bn_paginate = in_array( (string) $request->get_param( 'paginate' ), array( '1', 'true', 'yes' ), true );
+
+		if ( '' !== $search_param && $bn_paginate ) {
+			$result = ( new SpaceService() )->search_with_total( $search_param, $args );
+			$total  = (int) $result['total'];
+
+			return new WP_REST_Response(
+				array(
+					'items'       => $this->enrich_directory_rows( (array) $result['items'], $viewer ),
+					'total'       => $total,
+					'total_pages' => (int) ceil( $total / max( 1, $per_page ) ),
+					'page'        => absint( null !== $page_param ? $page_param : 1 ),
+				),
+				200
+			);
+		}
 
 		if ( '' === $search_param && $bn_paginate ) {
 			$bn_space_service = new SpaceService();
@@ -2990,36 +3010,12 @@ class SpaceController extends BaseRestController {
 			// The owner types what they see: the @handle on a profile, a username or an email.
 			$identifier = ltrim( $identifier, '@' );
 			if ( '' !== $identifier ) {
+				if ( is_email( $identifier ) ) {
+					return $this->invite_by_email( $space_id, $inviter_id, $identifier );
+				}
 				$invited_user = \BuddyNext\Profile\Handle::user_for_identifier( $identifier );
 				if ( $invited_user instanceof \WP_User ) {
 					$invited_user_id = (int) $invited_user->ID;
-				} elseif ( is_email( $identifier ) ) {
-					// No account yet: send a space-linked email invitation. On
-					// registration the new account is dropped straight into this
-					// space (see AuthController::register), so the invite link is
-					// not a dead end for people who aren't members yet.
-					$space = ( new SpaceService() )->get( $space_id );
-					if ( null === $space ) {
-						return new WP_Error(
-							'space_not_found',
-							__( 'Space not found.', 'buddynext' ),
-							array( 'status' => 404 )
-						);
-					}
-					if ( ! ( new SpaceMemberService() )->can_invite( $space_id, $inviter_id ) ) {
-						return new WP_Error(
-							'forbidden',
-							__( 'Only the space owner or a moderator can invite members.', 'buddynext' ),
-							array( 'status' => 403 )
-						);
-					}
-					( new \BuddyNext\Onboarding\InviteService() )->create(
-						$identifier,
-						'',
-						\BuddyNext\Onboarding\InviteService::DEFAULT_TTL_DAYS,
-						$space_id
-					);
-					return new WP_REST_Response( array( 'email_invited' => true ), 200 );
 				} else {
 					return new WP_Error(
 						'user_not_found',
@@ -3051,11 +3047,173 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceMemberService() )->invite( $space_id, $inviter_id, $invited_user_id );
 
 		if ( is_wp_error( $result ) ) {
+			if ( in_array( $result->get_error_code(), array( 'already_member', 'already_invited' ), true ) ) {
+				return buddynext_can( $inviter_id, 'buddynext-moderation/review-queue' ) ? $result : $this->invite_not_sent();
+			}
 			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 
 		return new WP_REST_Response( array( 'invited' => true ), 200 );
+	}
+
+	/**
+	 * Invite an email address to a space, with or without an account behind it.
+	 *
+	 * An email address is private in a way a @handle is not, so anyone below site-level
+	 * invite management must not learn from this route whether an address has an account
+	 * or a pending invite, or that other spaces hold one. The gate runs before the address
+	 * is looked at, an account and a new address answer alike, every "nothing sent" outcome
+	 * is one neutral answer, and the attempts are throttled per inviter.
+	 *
+	 * @param int    $space_id   Space ID.
+	 * @param int    $inviter_id Inviting user.
+	 * @param string $email      Valid email address.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function invite_by_email( int $space_id, int $inviter_id, string $email ): WP_REST_Response|WP_Error {
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$members = new SpaceMemberService();
+		if ( ! $members->can_invite( $space_id, $inviter_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can invite members.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// Checked here for every address: only the account path below would otherwise refuse it.
+		if ( ! empty( $space['is_archived'] ) ) {
+			return new WP_Error(
+				'space_archived',
+				__( 'This space is archived and is not accepting new members.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// The same gate as the Community Admin invite form, which already words these reasons.
+		$site_level = buddynext_can( $inviter_id, 'buddynext-moderation/review-queue' );
+
+		if ( ! $site_level && \BuddyNext\Core\RateLimiter::hit( 'bn_space_email_invite_' . $inviter_id, HOUR_IN_SECONDS ) > self::EMAIL_INVITES_PER_HOUR ) {
+			return new WP_Error(
+				'invite_rate_limited',
+				__( 'You have sent a lot of invitations. Try again later.', 'buddynext' ),
+				array( 'status' => 429 )
+			);
+		}
+
+		$account = get_user_by( 'email', $email );
+		if ( $account instanceof \WP_User ) {
+			// Any standing in this space (member, invited, pending, banned) reads as one refusal.
+			if ( ! $site_level && null !== $members->get_status( $space_id, (int) $account->ID ) ) {
+				return $this->invite_not_sent();
+			}
+			$invited = $members->invite( $space_id, $inviter_id, (int) $account->ID );
+			if ( is_wp_error( $invited ) ) {
+				if ( ! $site_level ) {
+					return $this->invite_not_sent();
+				}
+				if ( in_array( $invited->get_error_code(), array( 'already_member', 'already_invited' ), true ) ) {
+					return $invited;
+				}
+				$this->merge_error_data( $invited, array( 'status' => 403 ) );
+				return $invited;
+			}
+			// Worded as a new address is, so the answer does not confirm the account.
+			return $this->email_invite_response( 'sent', $site_level );
+		}
+
+		// No account yet: a space-linked invitation. On registration the new account is
+		// dropped straight into this space (see AuthController::register), so the invite
+		// link is not a dead end for people who aren't members yet.
+		$created = ( new \BuddyNext\Onboarding\InviteService() )->create(
+			$email,
+			'',
+			\BuddyNext\Onboarding\InviteService::DEFAULT_TTL_DAYS,
+			$space_id,
+			buddynext_can( $inviter_id, 'buddynext-community/assign-roles' )
+		);
+
+		return $this->email_invite_response( $created['status'], $site_level );
+	}
+
+	/**
+	 * The one answer below site level when an invite sent nothing.
+	 *
+	 * @return WP_Error
+	 */
+	private function invite_not_sent(): WP_Error {
+		return new WP_Error(
+			'invite_not_sent',
+			__( "This person can't be invited right now. If they already have an invitation, they can use that one.", 'buddynext' ),
+			array( 'status' => 409 )
+		);
+	}
+
+	/**
+	 * Tell the inviter what an email invite really did. Only a new invite says sent.
+	 *
+	 * @param string $status     InviteService::create() status.
+	 * @param bool   $site_level Whether the inviter may see why nothing was sent.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function email_invite_response( string $status, bool $site_level ): WP_REST_Response|WP_Error {
+		if ( in_array( $status, array( 'sent', 'queued' ), true ) ) {
+			return new WP_REST_Response(
+				array(
+					'email_invited' => true,
+					'message'       => __( 'Invitation sent', 'buddynext' ),
+				),
+				200
+			);
+		}
+
+		if ( ! $site_level && in_array( $status, array( 'attached', 'already_invited', 'invited_elsewhere', 'existing_member' ), true ) ) {
+			return $this->invite_not_sent();
+		}
+
+		if ( 'attached' === $status ) {
+			return new WP_REST_Response(
+				array(
+					'email_invited' => false,
+					'attached'      => true,
+					'message'       => __( 'Already invited to the site, so no new email was sent. They will join this space when they accept.', 'buddynext' ),
+				),
+				200
+			);
+		}
+
+		return match ( $status ) {
+			'already_invited'   => new WP_Error(
+				'already_invited',
+				__( 'Already invited. This address has a pending invitation.', 'buddynext' ),
+				array( 'status' => 409 )
+			),
+			'invited_elsewhere' => new WP_Error(
+				'invited_elsewhere',
+				__( 'Already invited to another space. Once they accept that invitation, you can invite them here by name.', 'buddynext' ),
+				array( 'status' => 409 )
+			),
+			'existing_member'   => new WP_Error(
+				'existing_member',
+				__( 'That address already belongs to a member. Invite them by their @handle.', 'buddynext' ),
+				array( 'status' => 409 )
+			),
+			'mail_failed'       => new WP_Error(
+				'invite_not_delivered',
+				__( 'The invitation could not be emailed. Try again later.', 'buddynext' ),
+				array( 'status' => 502 )
+			),
+			default             => new WP_Error(
+				'invite_failed',
+				__( 'Could not send the invitation.', 'buddynext' ),
+				array( 'status' => 500 )
+			),
+		};
 	}
 
 	/**
@@ -3303,6 +3461,11 @@ class SpaceController extends BaseRestController {
 		$target_role = $service->get_role( $space_id, $target_id );
 		if ( 'owner' === $target_role ) {
 			return new WP_Error( 'cannot_remove_owner', __( 'The space owner cannot be removed.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// Already gone (another moderator, or they left) is a stale row, not a failure.
+		if ( null === $target_role ) {
+			return new WP_Error( 'not_a_member', __( 'This person is no longer a member of this space.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// A space moderator cannot remove the administrators above them.

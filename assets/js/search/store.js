@@ -1,6 +1,7 @@
 /* BuddyNext — Search Results Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
+import { bnToast } from '@buddynext/shell-dialog';
 import { onNavReady } from '@buddynext/nav-init';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -21,25 +22,40 @@ const searchStore = store( 'buddynext/search', {
 		get hasSaved() {
 			return Array.isArray( state.savedSearches ) && state.savedSearches.length > 0;
 		},
+		get rowFollowPressed() { const c = getContext(); return !! c.following || !! c.pending; },
+		get rowFollowVariant() { const c = getContext(); return c.following || c.pending ? 'secondary' : 'primary'; },
 	},
 	actions: {
-		/* Follow / unfollow a member. State is single-source on the row's
-		   context (ctx.following); the button label + variant + aria-pressed
-		   all bind to it in the template, so the handler only flips the flag
-		   and reverts it if the REST call fails — no DOM paint loop. */
+		/* Follow / unfollow a member, or send / cancel a request to a private
+		   account. State is single-source on the row's context; the template binds
+		   to it. Only the server knows whether a follow landed or waits for
+		   approval, so the state changes when it answers. */
 		* toggleFollow() {
 			const ctx = getContext();
-			if ( ! ctx.restNonce || ! ctx.userId ) { return; }
+			if ( ! ctx.restNonce || ! ctx.userId || ctx.busy ) { return; }
 			const wasFollowing = !! ctx.following;
-			ctx.following = ! wasFollowing;
+			const wasPending   = !! ctx.pending;
+			ctx.busy = true;
 			try {
-				yield restFetch( '/users/' + ctx.userId + '/follow', {
-					method: wasFollowing ? 'DELETE' : 'POST',
+				const res = yield restFetch( '/users/' + ctx.userId + '/follow', {
+					method: wasFollowing || wasPending ? 'DELETE' : 'POST',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
-			} catch ( _e ) {
-				ctx.following = wasFollowing;
+				if ( ! res.ok ) {
+					toastRestError( res, t( 'followFailed', 'Could not update this follow. Try again.' ) );
+					return;
+				}
+				const requested = ! wasFollowing && ! wasPending && !! ( res.data && res.data.pending );
+				ctx.pending   = requested;
+				ctx.following = ! wasFollowing && ! wasPending && ! requested;
+				let msg = fmt( t( 'toastNowFollowing', 'Now following @%s' ), ctx.handle );
+				if ( wasFollowing ) { msg = fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), ctx.handle ); }
+				if ( wasPending ) { msg = fmt( t( 'toastRequestCancelled', 'Follow request to @%s cancelled' ), ctx.handle ); }
+				if ( requested ) { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), ctx.handle ); }
+				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 
@@ -54,11 +70,15 @@ const searchStore = store( 'buddynext/search', {
 				// Join/leave have dedicated POST endpoints; /spaces/{id}/members is
 				// GET-only (listing), so the previous POST/DELETE there 404'd and the
 				// search-result join button never worked.
-				yield restFetch( '/spaces/' + ctx.spaceId + ( wasJoined ? '/leave' : '/join' ), {
+				const res = yield restFetch( '/spaces/' + ctx.spaceId + ( wasJoined ? '/leave' : '/join' ), {
 					method: 'POST',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
+				if ( ! res.ok ) {
+					ctx.joined = wasJoined;
+					toastRestError( res, t( 'membershipFailed', 'Could not update your membership. Try again.' ) );
+				}
 			} catch ( _e ) {
 				ctx.joined = wasJoined;
 			}
@@ -138,16 +158,22 @@ const searchStore = store( 'buddynext/search', {
 				return;
 			}
 			try {
-				yield restFetch( ctx.savedSearchUrl + '/' + id, {
+				const res = yield restFetch( ctx.savedSearchUrl + '/' + id, {
 					method: 'DELETE',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
+				// Already gone (another tab) is the state the member asked for.
+				if ( ! res.ok && 404 !== res.status ) {
+					toastRestError( res, t( 'searchDeleteFailed', 'Could not delete this saved search. Try again.' ) );
+					return;
+				}
 				state.savedSearches = state.savedSearches.filter( function ( s ) {
 					return s.id !== id;
 				} );
 			} catch ( _e ) {
-				/* leave list intact on failure */
+				/* restFetch resolves on HTTP errors; only an unexpected throw lands here. */
+				toastRestError( null, t( 'searchDeleteFailed', 'Could not delete this saved search. Try again.' ) );
 			}
 		},
 

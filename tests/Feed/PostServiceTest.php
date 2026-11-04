@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Feed;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Feed\IntegrationActivity;
 use BuddyNext\Feed\PostService;
 
 /**
@@ -298,7 +299,14 @@ class PostServiceTest extends \WP_UnitTestCase {
 		);
 
 		foreach ( $cases as $input => $expected ) {
-			$id = $this->service->create( $this->alice, array( 'type' => 'text', 'content' => 'x', 'privacy' => $input ) );
+			$id = $this->service->create(
+				$this->alice,
+				array(
+					'type'    => 'text',
+					'content' => 'x',
+					'privacy' => $input,
+				)
+			);
 			$this->assertIsInt( $id, "create() should succeed for privacy={$input}" );
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$stored = (string) $wpdb->get_var( $wpdb->prepare( "SELECT privacy FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
@@ -316,9 +324,22 @@ class PostServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( PostService::has_editable_text( 'text', '' ) );
 		$this->assertTrue( PostService::has_editable_text( 'announcement', 'Hello' ) );
 
-		foreach ( array( 'photo', 'file', 'link', 'share', 'poll' ) as $type ) {
+		foreach ( array( 'photo', 'file', 'link' ) as $type ) {
+			$this->assertTrue( PostService::has_editable_text( $type, 'A caption' ), "$type with a caption is editable" );
+			$this->assertTrue( PostService::has_editable_text( $type, "  \n" ), "$type without a caption gets a caption box" );
+		}
+
+		foreach ( array( 'share', 'poll' ) as $type ) {
 			$this->assertTrue( PostService::has_editable_text( $type, 'A caption' ), "$type with a caption is editable" );
 			$this->assertFalse( PostService::has_editable_text( $type, "  \n" ), "$type without a caption has no text to edit" );
+		}
+
+		foreach ( array( 'media', 'document', 'event', 'listing', 'course', 'badge' ) as $type ) {
+			$typed = static fn() => '<div>card</div>';
+			add_filter( 'buddynext_render_post_body_' . $type, $typed );
+			$this->assertFalse( PostService::has_editable_text( $type, '' ), "$type is a typed card" );
+			$this->assertFalse( PostService::has_editable_text( $type, 'Text' ), "$type is a typed card" );
+			remove_filter( 'buddynext_render_post_body_' . $type, $typed );
 		}
 
 		$this->assertFalse( PostService::has_editable_text( 'discussion', 'Topic' ), 'a forum discussion is edited in the forum' );
@@ -330,7 +351,99 @@ class PostServiceTest extends \WP_UnitTestCase {
 		add_filter( 'buddynext_render_post_body_qa_typed', $renderer );
 		$this->assertFalse( PostService::has_editable_text( 'qa_typed', 'Body' ) );
 		remove_filter( 'buddynext_render_post_body_qa_typed', $renderer );
-		$this->assertTrue( PostService::has_editable_text( 'qa_typed', 'Body' ), 'no renderer: plain text body' );
+		$this->assertFalse( PostService::has_editable_text( 'qa_typed', 'Body' ), 'unknown type, no renderer: its add-on is gone' );
+
+		$allow = static fn( $types ) => array_merge( (array) $types, array( 'qa_typed' ) );
+		add_filter( 'buddynext_feed_allowed_post_types', $allow );
+		$this->assertTrue( PostService::has_editable_text( 'qa_typed', 'Body' ), 'a type the site added and draws as text stays editable' );
+		remove_filter( 'buddynext_feed_allowed_post_types', $allow );
+	}
+
+	/**
+	 * A partner's card with its partner gone is neutral and never editable, while
+	 * the member's own native posts are untouched.
+	 *
+	 * @return void
+	 */
+	public function test_orphaned_cards_are_neutral_and_not_editable(): void {
+		foreach ( array( 'listing', 'course', 'event', 'job', 'resume', 'badge', 'media', 'document' ) as $type ) {
+			$held = $GLOBALS['wp_filter'][ 'buddynext_render_post_body_' . $type ] ?? null;
+			unset( $GLOBALS['wp_filter'][ 'buddynext_render_post_body_' . $type ] );
+			$this->assertTrue( PostService::is_orphaned_card( $type ), "$type with no renderer" );
+			$this->assertFalse( PostService::has_editable_text( $type, 'added a new thing' ), "$type is never plain text" );
+			if ( null !== $held ) {
+				$GLOBALS['wp_filter'][ 'buddynext_render_post_body_' . $type ] = $held;
+			}
+
+			$typed = static fn() => '<div>card</div>';
+			add_filter( 'buddynext_render_post_body_' . $type, $typed );
+			$this->assertFalse( PostService::is_orphaned_card( $type ), "$type with its renderer" );
+			remove_filter( 'buddynext_render_post_body_' . $type, $typed );
+		}
+		foreach ( array( 'text', 'activity', 'announcement', 'photo', 'file', 'link', 'poll', 'share' ) as $type ) {
+			$this->assertFalse( PostService::is_orphaned_card( $type ), "$type is drawn by BuddyNext itself" );
+		}
+
+		$held = $GLOBALS['wp_filter']['buddynext_discussion_card_url'] ?? null;
+		unset( $GLOBALS['wp_filter']['buddynext_discussion_card_url'] );
+		$this->assertTrue( PostService::is_orphaned_card( 'discussion' ), 'no bridge left to confirm the link' );
+		add_filter( 'buddynext_discussion_card_url', '__return_empty_string' );
+		$this->assertFalse( PostService::is_orphaned_card( 'discussion' ), 'its bridge answers' );
+		remove_filter( 'buddynext_discussion_card_url', '__return_empty_string' );
+		if ( null !== $held ) {
+			$GLOBALS['wp_filter']['buddynext_discussion_card_url'] = $held;
+		}
+
+		$html = IntegrationActivity::render_orphaned_card(
+			array(
+				'bn_post_type' => 'listing',
+				'link_preview' => array(
+					'url'   => 'https://example.test/gone/',
+					'title' => 'Corner <b>Bakery</b>',
+				),
+			)
+		);
+		$this->assertStringContainsString( 'Corner &lt;b&gt;Bakery&lt;/b&gt;', $html );
+		$this->assertStringContainsString( 'no longer available', $html );
+		$this->assertStringNotContainsString( '<a ', $html );
+		$this->assertStringNotContainsString( 'example.test', $html );
+
+		$private = IntegrationActivity::render_orphaned_card(
+			array(
+				'bn_post_type' => 'media',
+				'link_preview' => array( 'title' => 'Private video' ),
+			)
+		);
+		$this->assertStringNotContainsString( 'Private video', $private, 'a title only the partner may reveal stays hidden' );
+	}
+
+	/**
+	 * The API refuses a body edit on a partner's card, whether or not its partner is
+	 * active, while an ordinary text post and a site admin keep working.
+	 *
+	 * @return void
+	 */
+	public function test_update_refuses_a_body_edit_on_a_partner_card(): void {
+		$member = self::factory()->user->create();
+		$card   = IntegrationActivity::publish( $member, 'added a new listing', 'https://example.test/l/', 'A listing', 'listing' );
+		$this->assertGreaterThan( 0, (int) $card );
+
+		$refused = $this->service->update( (int) $card, $member, array( 'content' => 'overwritten' ) );
+		$this->assertWPError( $refused );
+		$this->assertSame( 'post_not_editable', $refused->get_error_code() );
+		$this->assertSame( 'added a new listing', (string) $this->service->get( (int) $card )['content'] );
+
+		$this->assertNotWPError( $this->service->update( (int) $card, $member, array( 'privacy' => 'public' ) ), 'other fields stay editable' );
+		$this->assertNotWPError( $this->service->update( (int) $card, $this->admin, array( 'content' => 'redacted' ) ), 'an admin may still redact' );
+
+		$text = $this->service->create(
+			$member,
+			array(
+				'type'    => 'text',
+				'content' => 'Mine',
+			)
+		);
+		$this->assertTrue( $this->service->update( (int) $text, $member, array( 'content' => 'Mine, edited' ) ) );
 	}
 
 	/**
@@ -364,7 +477,13 @@ class PostServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 'open', $space_post['space_type'], 'a space post should hydrate its space type' );
 
 		// A non-space post reports no space type (the marker logic then never fires).
-		$plain_id   = $this->service->create( $this->admin, array( 'type' => 'text', 'content' => 'No space' ) );
+		$plain_id   = $this->service->create(
+			$this->admin,
+			array(
+				'type'    => 'text',
+				'content' => 'No space',
+			)
+		);
 		$plain_post = $this->service->get( $plain_id );
 		$this->assertSame( '', $plain_post['space_type'], 'a non-space post carries an empty space type' );
 	}
@@ -376,7 +495,13 @@ class PostServiceTest extends \WP_UnitTestCase {
 	 */
 	public function test_allowed_types_filter_adds_a_type_without_dropping_built_ins(): void {
 		// A custom type is rejected until it is registered.
-		$rejected = $this->service->create( $this->alice, array( 'type' => 'petition', 'content' => 'x' ) );
+		$rejected = $this->service->create(
+			$this->alice,
+			array(
+				'type'    => 'petition',
+				'content' => 'x',
+			)
+		);
 		$this->assertWPError( $rejected );
 
 		$add = static function ( array $types ): array {
@@ -386,7 +511,13 @@ class PostServiceTest extends \WP_UnitTestCase {
 		add_filter( 'buddynext_feed_allowed_post_types', $add );
 		$this->assertContains( 'petition', PostService::allowed_types() );
 		$this->assertContains( 'text', PostService::allowed_types(), 'built-ins remain' );
-		$accepted = $this->service->create( $this->alice, array( 'type' => 'petition', 'content' => 'x' ) );
+		$accepted = $this->service->create(
+			$this->alice,
+			array(
+				'type'    => 'petition',
+				'content' => 'x',
+			)
+		);
 		$this->assertIsInt( $accepted );
 		remove_filter( 'buddynext_feed_allowed_post_types', $add );
 

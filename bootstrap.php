@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
  * removing a public symbol bumps it, and the registry supports this and the previous value.
  */
 define( 'BUDDYNEXT_ADDON_API', 1 );
-define( 'BUDDYNEXT_VERSION', '1.2.7' );
+define( 'BUDDYNEXT_VERSION', '1.2.8' );
 define( 'BUDDYNEXT_FILE', __DIR__ . '/buddynext.php' );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( BUDDYNEXT_FILE ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( BUDDYNEXT_FILE ) );
@@ -216,6 +216,31 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' )
 	);
 }
 
+// Package Signatures (libs/package-signatures, vapvarun/package-signatures 1.0.1): checks that each BuddyNext
+// and BuddyNext Pro update package carries the release signature before WordPress installs it. Warn mode: the
+// result is logged (option package_signatures_log) and the update installs either way. Free registers Pro as
+// well, because WordPress loads buddynext-pro/ before buddynext/ and Pro could not call this itself.
+if ( file_exists( BUDDYNEXT_DIR . 'libs/package-signatures/package-signatures.php' ) ) {
+	require_once BUDDYNEXT_DIR . 'libs/package-signatures/package-signatures.php';
+	$buddynext_signed_products = array(
+		'buddynext'     => plugin_basename( BUDDYNEXT_FILE ),
+		'buddynext-pro' => 'buddynext-pro/buddynext-pro.php',
+	);
+	foreach ( $buddynext_signed_products as $buddynext_signed_product => $buddynext_signed_plugin ) {
+		package_signatures_register(
+			array(
+				'product'  => $buddynext_signed_product,
+				'plugin'   => $buddynext_signed_plugin,
+				'hosts'    => array( 'wbcomdesigns.com', 'updates.wbcomdesigns.com' ),
+				'keys'     => array( 'wbcom-2026-1' => 'kr+2P1WqRbENpZw0BXZmwFnA2tMLi6MlHbBa6jB13U4=' ),
+				'mode'     => 'warn',
+				'fallback' => 'https://wbcomdesigns.com/package-signatures/{product}/{version}/',
+			)
+		);
+	}
+	unset( $buddynext_signed_products, $buddynext_signed_product, $buddynext_signed_plugin );
+}
+
 // Version skew, the direction only Free can see. Pro guards Free-older-than-Pro
 // from its own boot; the reverse — Pro OLDER than Free, i.e. the owner updated
 // BuddyNext but not BuddyNext Pro — is invisible to Pro (it cannot know a future
@@ -282,9 +307,13 @@ add_action(
 add_action( 'init', array( \BuddyNext\Core\Installer::class, 'install_if_missing' ), 5 );
 
 // Apply pending DB schema upgrades on a plain plugin update (no deactivate/
-// reactivate needed). Cheap no-op once the stored schema revision matches.
+// reactivate needed), on the first request of any kind: priority 0, ahead of every
+// feature's init work. One option compare once the stored schema revision matches.
+add_action( 'init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade_schema' ), 0 );
+add_action( \BuddyNext\Core\Installer::FINISH_UPGRADE_HOOK, array( \BuddyNext\Core\Installer::class, 'finish_upgrade' ) );
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
 \BuddyNext\Core\Installer::register_site_health();
+\BuddyNext\Auth\SessionIssuer::register();
 
 // Keep the front-end isolation mu-plugin in sync with the plugin's generated
 // source on every update — signature-compared, so it rewrites the mu-plugin
@@ -931,6 +960,9 @@ function buddynext_nav_panel_id( string $slug ): string {
  * the `buddynext_profile_fields` groups on first call.
  *
  * @param array<string,mixed> $args Field definition (group_key, key, label, type, …).
+ *                                  Optional `width`: 'auto' (default), 'half' or
+ *                                  'full', the field's width on the edit and
+ *                                  sign-up forms.
  * @return void
  */
 function buddynext_register_profile_field( array $args ): void {
@@ -1348,6 +1380,16 @@ function buddynext_space_moderation_url( string $slug ): string {
 }
 
 /**
+ * Return the space admin page URL (stats and management shortcuts) for a space.
+ *
+ * @param string $slug The space's slug as stored in bn_spaces.slug.
+ * @return string Absolute URL.
+ */
+function buddynext_space_admin_url( string $slug ): string {
+	return buddynext_space_url( $slug ) . 'admin/';
+}
+
+/**
  * The short type chip for a document (PDF, DOC, TXT ...).
  *
  * The same shorthand WPMediaVerse uses, so the two libraries read the same.
@@ -1513,6 +1555,29 @@ function buddynext_avatar_colour( int $user_id ): string {
 		'#4f46e5',
 	);
 	return $palette[ abs( $user_id ) % count( $palette ) ];
+}
+
+/**
+ * Echo a member's presence as screen-reader text.
+ *
+ * The presence dot on an avatar is drawn in CSS, so it says nothing to a screen
+ * reader. Print this next to the member's name wherever the dot is shown.
+ *
+ * @since 1.2.8
+ *
+ * @param string $state Presence state: online, away, dnd or offline. Anything else prints nothing.
+ * @return void
+ */
+function buddynext_presence_text( string $state ): void {
+	$labels = array(
+		'online'  => __( 'Online', 'buddynext' ),
+		'away'    => __( 'Away', 'buddynext' ),
+		'dnd'     => __( 'Do not disturb', 'buddynext' ),
+		'offline' => __( 'Offline', 'buddynext' ),
+	);
+	if ( isset( $labels[ $state ] ) ) {
+		echo '<span class="bn-sr-only"> (' . esc_html( $labels[ $state ] ) . ')</span>';
+	}
 }
 
 /**

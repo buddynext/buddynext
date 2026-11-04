@@ -869,7 +869,7 @@ class SocialLogin {
 		}
 
 		$dest = ! empty( $stored['redirect_to'] ) ? (string) $stored['redirect_to'] : home_url( '/' );
-		wp_safe_redirect( $dest );
+		wp_safe_redirect( SessionIssuer::first_page_url( $dest ) );
 		exit;
 	}
 

@@ -62,6 +62,7 @@ class SearchIndexListener implements ListenerInterface {
 		// When a member flips an account-level search-visibility setting, reindex
 		// their EXISTING posts so their public/private search state follows suit.
 		add_action( 'buddynext_user_search_visibility_changed', array( $this, 'on_user_search_visibility_changed' ), 10, 1 );
+		add_action( 'buddynext_privacy_preference_changed', array( $this, 'on_privacy_preference_changed' ), 10, 2 );
 		add_action( 'buddynext_space_created', array( $this, 'on_space_created' ), 10, 2 );
 		add_action( 'buddynext_space_updated', array( $this, 'on_space_updated' ), 10, 1 );
 		add_action( 'buddynext_space_deleted', array( $this, 'on_space_deleted' ), 10, 1 );
@@ -192,6 +193,19 @@ class SearchIndexListener implements ListenerInterface {
 		return \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( $type )
 			? 'private'
 			: 'public';
+	}
+
+	/**
+	 * Closing or opening a profile changes which of its text may be searched.
+	 *
+	 * @param int    $user_id User whose preference changed.
+	 * @param string $key     Preference key.
+	 * @return void
+	 */
+	public function on_privacy_preference_changed( int $user_id, string $key ): void {
+		if ( 'profile_visibility' === $key ) {
+			$this->on_index_user( $user_id );
+		}
 	}
 
 	/**

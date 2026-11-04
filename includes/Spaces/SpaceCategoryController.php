@@ -37,6 +37,15 @@ class SpaceCategoryController extends BaseRestController {
 					'methods'             => WP_REST_Server::READABLE,
 					'callback'            => array( $this, 'list_categories' ),
 					'permission_callback' => '__return_true',
+					'args'                => array(
+						// A create/edit picker for a main space or a subspace: every
+						// category usable at that level, hidden ones included.
+						'level' => array(
+							'required' => false,
+							'type'     => 'string',
+							'enum'     => array( 'main', 'sub' ),
+						),
+					),
 				),
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
@@ -78,6 +87,11 @@ class SpaceCategoryController extends BaseRestController {
 						'show_in_dir' => array(
 							'required' => false,
 							'type'     => 'boolean',
+						),
+						'level'       => array(
+							'required' => false,
+							'type'     => 'string',
+							'enum'     => SpaceCategoryService::LEVELS,
 						),
 						'sort_order'  => array(
 							'required'          => false,
@@ -139,6 +153,11 @@ class SpaceCategoryController extends BaseRestController {
 							'required' => false,
 							'type'     => 'boolean',
 						),
+						'level'       => array(
+							'required' => false,
+							'type'     => 'string',
+							'enum'     => SpaceCategoryService::LEVELS,
+						),
 						'sort_order'  => array(
 							'required'          => false,
 							'type'              => 'integer',
@@ -165,9 +184,25 @@ class SpaceCategoryController extends BaseRestController {
 	/**
 	 * Return all categories ordered by sort_order ascending.
 	 *
-	 * @return WP_REST_Response
+	 * @param WP_REST_Request $request Optional `level` (main|sub) for a create/edit picker.
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function list_categories(): WP_REST_Response {
+	public function list_categories( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$level = (string) $request->get_param( 'level' );
+		if ( '' !== $level ) {
+			// Picker list: only someone who can create a space needs it.
+			if ( ! is_user_logged_in() ) {
+				return new WP_Error( 'rest_forbidden', __( 'Sign in to create a space.', 'buddynext' ), array( 'status' => 401 ) );
+			}
+			$rows = array_values(
+				array_filter(
+					$this->service()->get_all(),
+					static fn( array $c ): bool => SpaceCategoryService::allows( $c, 'sub' === $level )
+				)
+			);
+			return new WP_REST_Response( $rows, 200 );
+		}
+
 		/*
 		 * This route is public ( permission_callback => __return_true ) and it is what the space
 		 * directory's category chips read. A category the owner switched OFF (show_in_dir) must
@@ -177,9 +212,20 @@ class SpaceCategoryController extends BaseRestController {
 		 * Someone who can manage the site still gets the full list, so the admin screens keep
 		 * working through the same route.
 		 */
-		$visible_only = ! current_user_can( 'manage_options' );
+		if ( current_user_can( 'manage_options' ) ) {
+			return new WP_REST_Response( $this->service()->get_all(), 200 );
+		}
 
-		return new WP_REST_Response( $this->service()->get_all( $visible_only ), 200 );
+		// Directory chips list main spaces only, so a subspaces-only category is left out.
+		return new WP_REST_Response(
+			array_values(
+				array_filter(
+					$this->service()->get_all( true ),
+					static fn( array $c ): bool => 'sub' !== $c['level']
+				)
+			),
+			200
+		);
 	}
 
 	/**
@@ -218,7 +264,7 @@ class SpaceCategoryController extends BaseRestController {
 		// Only override fields actually present on the request so partial
 		// updates keep their existing values.
 		$data = array();
-		foreach ( array( 'name', 'description', 'color', 'text_color', 'sort_order', 'show_in_dir', 'icon_svg' ) as $field ) {
+		foreach ( array( 'name', 'description', 'color', 'text_color', 'sort_order', 'show_in_dir', 'icon_svg', 'level' ) as $field ) {
 			if ( null !== $request->get_param( $field ) ) {
 				$data[ $field ] = $request->get_param( $field );
 			}
@@ -287,7 +333,7 @@ class SpaceCategoryController extends BaseRestController {
 			'sort_order'  => (int) $request->get_param( 'sort_order' ),
 		);
 
-		foreach ( array( 'color', 'text_color', 'show_in_dir', 'icon_svg' ) as $field ) {
+		foreach ( array( 'color', 'text_color', 'show_in_dir', 'icon_svg', 'level' ) as $field ) {
 			if ( null !== $request->get_param( $field ) ) {
 				$data[ $field ] = $request->get_param( $field );
 			}

@@ -18,7 +18,7 @@ There are four navigation systems. Use the right one for the surface you are ext
 | --- | --- | --- | --- |
 | Nav registry (declarative, gated) | member-profile tabs, space tabs | `buddynext_register_nav` action -> `$registry->register([...])` | `templates/profile/view.php`, `templates/spaces/home.php`, `templates/parts/space-header.php` |
 | Left rail (plain array) | the persistent global left-rail column | `buddynext_rail_items` filter | `templates/shell/rail.php` |
-| Mobile bottom bar (plain array) | the fixed five-slot bar below 640px | `buddynext_mobile_nav_items` filter | `templates/partials/nav.php` |
+| Mobile bottom bar (plain array) | the fixed five-slot bar at 768px and below | `buddynext_mobile_nav_items` filter | `templates/partials/nav.php` |
 | User links catalogue | the header account dropdown (top-right avatar menu), and the `#bn-*` tokens in Appearance -> Menus | `buddynext_user_links` / `buddynext_header_user_menu_links` filters | `includes/Header/HeaderUserSection.php` |
 
 ### The admin overrides sit on top of all four
@@ -100,7 +100,7 @@ The rail is split into two groups by a **"You"** heading: community links (Feed,
 
 ## Recipe: change the mobile bottom bar
 
-Below 640px the rail is replaced by a fixed **five-slot** bottom bar (`templates/partials/nav.php`). Its seam is the `buddynext_mobile_nav_items` filter:
+At 768px and below the rail is replaced by a fixed **five-slot** bottom bar (`templates/partials/nav.php`). Its seam is the `buddynext_mobile_nav_items` filter:
 
 ```php
 apply_filters( 'buddynext_mobile_nav_items', array $items, string $active );
@@ -108,7 +108,7 @@ apply_filters( 'buddynext_mobile_nav_items', array $items, string $active );
 
 `$active` is the active **mobile-bar** key (`feed`, `spaces`, `notifications`, `profile`, or `''`) - note the bar has its own key space, which is not the main-nav key space. Item keys are the same plain-array shape as the rail (`key`, `url`, `icon`, `label`, `show`), plus `badge` / `badge_count` on the notifications slot and `type => 'create'` on the compose button.
 
-The core slots are `feed`, `spaces`, `create`, `notifications`, `profile`.
+The core slots are `feed`, `spaces`, `create`, `notifications`, `profile`, plus `members` and `login` for guests.
 
 > **The bar is exactly five slots. Do not add a sixth.**
 >
@@ -119,7 +119,7 @@ The core slots are `feed`, `spaces`, `create`, `notifications`, `profile`.
 - **`create`** is put back in the centre after every other slot is sorted, so the arithmetic above still holds even when a slot is hidden (Spaces off) and the bar is shorter than five.
 - **`profile`** is pinned last. It is the anchor the "More" sheet folds into.
 
-Custom tabs the owner adds never get their own slot: when any are present, the Profile slot folds into a **"More"** sheet and a "More" toggle takes the fifth slot. With no custom tabs the bar is unchanged.
+The fifth slot is a **"More"** toggle, and the Profile slot folds into the sheet it opens. The sheet lists everything the rail offers that has no slot in the bar (Explore, Members, Messages, Bookmarks, Settings and any `buddynext_rail_items` a bridge adds), read from the same resolved list as the rail, so hide an item there and it leaves both. Custom tabs the owner adds never get their own slot: they join the sheet.
 
 ## Recipe: change the header account dropdown (top-right avatar menu)
 
@@ -221,6 +221,10 @@ Hook `buddynext_register_nav` and call `$registry->register()` with a registrati
 | `priority` | `int` | Default order, lower first. Default 50. |
 | `before` / `after` | `string` | Order anchor: place before/after another item id (`after` wins if both set). |
 | `hide_empty` | `bool` | Omit the item when its resolved count is 0 (only honoured when a `count` is supplied). |
+| `integration` | `string` | The key your plugin registered on the `buddynext_integrations` filter, when its "Show in navigation" switch gates this tab. Settings -> Navigation then labels the row with your integration's name and says when that switch is off. Admin-only; your `condition` still does the gating. |
+| `description` | `string` | Already-translated one-line description shown under the tab's row in Settings -> Navigation. Admin-only. |
+
+**Your tab is listed in Settings -> Navigation automatically.** Every `primary` item registered on the `profile` or `space` surface gets a row there, in the order members see it, with sub-tabs under their parent. The site owner can hide, rename, reorder and capability-gate it with no code from you, and the saved settings match your item by its `id`, so keep the `id` stable across releases. A tab gated by a per-member `condition` is listed too, because the setting applies to every member.
 
 ```php
 add_action( 'buddynext_register_nav', static function ( \BuddyNext\Nav\NavRegistry $registry ): void {

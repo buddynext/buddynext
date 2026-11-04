@@ -58,7 +58,7 @@ If your community needs to ask visitors for cookie consent - for example under E
 
 ## What members control on their own Privacy tab
 
-Under **Settings > Privacy**, each change saves as soon as a member makes it. The controls are **Who can see my profile**, **Who can follow me**, **Who can send me connection requests**, **Who can @mention me** (Members, My connections or Nobody), **Private account** (only approved followers see posts; new follows arrive as requests), **Show me in the member directory**, **Show my profile to search engines** and **Hide my profile views**. **Who can message me** is shown here too, but it is set in WPMediaVerse and BuddyNext only displays it.
+Under **Settings > Privacy**, each change saves as soon as a member makes it. The controls are **Who can see my profile**, **Who can follow me**, **Who can send me connection requests**, **Who can @mention me** (Members, My connections or Nobody), **Private account** (only approved followers see posts; new follows arrive as requests), **Show me in the member directory**, **Show my profile to search engines** and **Hide my profile views**. **Who can message me** is shown here too, but it is set in MediaVerse and BuddyNext only displays it. With a current MediaVerse, a one-line explanation under the row says what the selected choice allows and changes when the choice changes. Older MediaVerse versions show the row without the explanation.
 
 ## Export my data
 
@@ -96,7 +96,7 @@ This matches the standard expectation that deleting an account removes the perso
 
 - **GDPR alignment.** The export tool supports the right of access (members get a copy of their data), and the deletion tool supports the right to erasure (members can be forgotten). Retention and consent give owners the policy controls that privacy regimes expect.
 - **What gets removed.** Deletion erases everything tied to the member: profile, preferences, follows, connections, blocks, and their own posts and comments. It is a complete erasure, not a hide, with no option to retain the content.
-- **Administrators are protected.** A site administrator cannot delete their own account through the member-facing tool, so you cannot accidentally lock yourself out of your own community. Administrator accounts are managed through WordPress.
+- **Administrators are protected.** A site administrator cannot delete their own account through the member-facing tool, so you cannot accidentally lock yourself out of your own community. Instead of a button, an administrator sees a note under **Delete my account** saying another administrator can remove the account from **Users** in the WordPress dashboard.
 - **Consent and indexing are community-wide.** The cookie banner and the search-engine indexing policy apply to the whole community. Individual members can still choose to hide their own profile from search engines in their Privacy settings.
 
 ## Related

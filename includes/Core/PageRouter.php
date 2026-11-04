@@ -773,6 +773,12 @@ class PageRouter {
 
 		$context = $this->build_hub_context( $hub );
 
+		$bn_redirect = self::pre_output_redirect( $template );
+		if ( '' !== $bn_redirect ) {
+			wp_safe_redirect( $bn_redirect );
+			exit;
+		}
+
 		// Auth hub: redirect logged-in users away from login + signup
 		// surfaces. Verify-email stays accessible because a logged-in but
 		// unverified user must still see the "check your inbox" state, and
@@ -1757,7 +1763,7 @@ class PageRouter {
 				return true; // My spaces sections are one page; "View all" pages each group.
 			}
 			if ( 'search' === $request['mode'] ) {
-				return array() === $spaces->search( $request['search'], $request['query_args'] );
+				return (int) $spaces->search_with_total( $request['search'], $request['query_args'] )['total'] <= ( $page - 1 ) * $request['per_page'];
 			}
 			return (int) $spaces->list_spaces_with_total( $request['query_args'] )['total'] <= ( $page - 1 ) * $request['per_page'];
 		}
@@ -1899,7 +1905,7 @@ class PageRouter {
 	}
 
 	/**
-	 * Hydrate the single-post record and register head-meta tags when visible.
+	 * Answer 404 for a post this viewer cannot read, else register its head-meta tags.
 	 *
 	 * Called from dispatch_hub_template() at template_redirect (before
 	 * get_header() fires wp_head). Mirrors the visibility gates in
@@ -1910,20 +1916,23 @@ class PageRouter {
 	 * @return void
 	 */
 	private function maybe_register_single_post_meta( int $post_id ): void {
-		if ( $post_id <= 0 ) {
+		$posts     = new \BuddyNext\Feed\PostService();
+		$post      = $post_id > 0 ? $posts->get( $post_id ) : null;
+		$viewer_id = get_current_user_id();
+
+		// The template shows the not-found state, but its own status_header() runs
+		// too late on a block theme, so the page answered 200. Same gates, set here.
+		if ( null === $post
+			|| ( 'published' !== ( $post['status'] ?? 'published' ) && (int) $post['user_id'] !== $viewer_id )
+			|| null !== $posts->visibility_error( $post_id, $viewer_id ) ) {
+			status_header( 404 );
+			nocache_headers();
 			return;
 		}
+
 		if ( ! class_exists( \BuddyNext\Feed\SinglePostMeta::class ) ) {
 			return;
 		}
-
-		$posts = new \BuddyNext\Feed\PostService();
-		$post  = $posts->get( $post_id );
-		if ( null === $post ) {
-			return;
-		}
-
-		$viewer_id = get_current_user_id();
 
 		// Who may read the post is decided in ONE place, PostService::visibility_error(),
 		// the gate the page itself and the REST read use. This method used to keep
@@ -1932,10 +1941,6 @@ class PageRouter {
 		// nor about connections-only posts, so the page answered 404 while its head
 		// still printed the author's name and the full text in the description,
 		// og: and twitter: tags, for crawlers and anyone who views source.
-		if ( null !== $posts->visibility_error( $post_id, $viewer_id ) ) {
-			return;
-		}
-
 		\BuddyNext\Feed\SinglePostMeta::emit_for_post( $post );
 	}
 
@@ -2180,7 +2185,7 @@ class PageRouter {
 				'confirm'                => __( 'Confirm', 'buddynext' ),
 				'cancel'                 => __( 'Cancel', 'buddynext' ),
 				// Block confirmation (bnBlockConfirm).
-				/* translators: %s: the member's display name */
+				/* translators: %s: member display name. */
 				'blockTitleNamed'        => __( 'Block %s?', 'buddynext' ),
 				'blockTitleGeneric'      => __( 'Block this member?', 'buddynext' ),
 				'blockIntro'             => __( 'Blocking this person will:', 'buddynext' ),
@@ -2196,7 +2201,18 @@ class PageRouter {
 				'disconnectConfirm'      => __( 'Remove connection', 'buddynext' ),
 				'follow'                 => __( 'Follow', 'buddynext' ),
 				'following'              => __( 'Following', 'buddynext' ),
+				'requested'              => __( 'Requested', 'buddynext' ),
+				'upgrade'                => __( 'Upgrade', 'buddynext' ),
+				/* translators: %s: the member's public handle. */
+				'hoverFollowed'          => __( 'Now following @%s', 'buddynext' ),
+				/* translators: %s: the member's public handle. */
+				'hoverUnfollowed'        => __( 'Unfollowed @%s', 'buddynext' ),
+				/* translators: %s: the member's public handle. */
+				'hoverRequested'         => __( 'Follow request sent to @%s', 'buddynext' ),
+				/* translators: %s: the member's public handle. */
+				'hoverCancelled'         => __( 'Follow request to @%s cancelled', 'buddynext' ),
 				'genericError'           => __( 'Something went wrong. Try again.', 'buddynext' ),
+				'actionRefused'          => __( 'That is not possible any more. Reload the page to see the latest.', 'buddynext' ),
 				/* translators: %d: page number of a document preview. */
 				'pageNumber'             => __( 'Page %d', 'buddynext' ),
 				'block'                  => __( 'Block', 'buddynext' ),
@@ -2811,6 +2827,42 @@ class PageRouter {
 			}
 		}
 		return 'directory/members.php';
+	}
+
+	/**
+	 * Where a visitor must go instead of this template, or '' to render it.
+	 *
+	 * Decided here because a template runs after the page has started printing: a
+	 * redirect from inside one does nothing, and its exit leaves a blank page.
+	 *
+	 * @param string $template Template path relative to templates/.
+	 * @return string URL, or '' when the template should render.
+	 */
+	public static function pre_output_redirect( string $template ): string {
+		if ( 'profile/edit.php' === $template && ! is_user_logged_in() ) {
+			global $wp;
+			return self::login_url( home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) ) );
+		}
+
+		// A result link (bn_verified, bn_email_changed) always shows.
+		if ( 'auth/verify.php' !== $template || isset( $_GET['bn_verified'] ) || isset( $_GET['bn_email_changed'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return '';
+		}
+
+		// Nothing is mailed while verification is not required, so "check your inbox"
+		// would be a dead end.
+		if ( ! \BuddyNext\Auth\VerificationService::is_required() ) {
+			return self::activity_url();
+		}
+
+		$user_id = get_current_user_id();
+		if ( $user_id > 0 ) {
+			return get_user_meta( $user_id, 'buddynext_email_verified', true ) ? self::activity_url() : '';
+		}
+
+		// A guest who just signed up has the address in the link; nobody else has an
+		// inbox to check.
+		return empty( $_GET['email'] ) ? self::login_url( '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	}
 
 	/**

@@ -26,7 +26,7 @@
  * NotificationController endpoints.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -315,7 +315,7 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					throw new Error( 'http_' + res.status );
+					throw res;
 				}
 				toast(
 					optOut
@@ -323,9 +323,9 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 						: t( 'broadcastsOptedIn', 'You will receive newsletters and announcements again.' ),
 					'success'
 				);
-			} catch ( _e ) {
+			} catch ( e ) {
 				el.checked = ! el.checked;
-				toast( t( 'broadcastsFailed', 'Could not update your broadcast email preference.' ), 'error' );
+				toastRestError( e, t( 'broadcastsFailed', 'Could not update your broadcast email preference.' ) );
 			}
 		},
 
@@ -357,14 +357,14 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					throw new Error( 'http_' + res.status );
+					throw res;
 				}
 				el.querySelectorAll( '[name="' + inp.name + '"]' ).forEach( function ( i ) { delete i.dataset.bnSaved; } );
 				inp.dataset.bnSaved = '1';
 				toast( t( 'partnerPrefSaved', 'Email preference saved.' ), 'success' );
-			} catch ( _e ) {
+			} catch ( e ) {
 				if ( prev ) { prev.checked = true; }
-				toast( t( 'partnerPrefFailed', 'Could not save your email preference.' ), 'error' );
+				toastRestError( e, t( 'partnerPrefFailed', 'Could not save your email preference.' ) );
 			}
 		},
 
@@ -390,12 +390,12 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					throw new Error( 'http_' + res.status );
+					throw res;
 				}
 				toast( t( 'spacePrefSaved', 'Space preference saved.' ), 'success' );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.spacePrefs = previous;
-				toast( t( 'spacePrefSaveFailed', 'Could not save space preference.' ), 'error' );
+				toastRestError( e, t( 'spacePrefSaveFailed', 'Could not save space preference.' ) );
 			}
 		},
 
@@ -461,7 +461,7 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 				// Rollback to the last known good snapshot.
 				ctx.prefs    = Object.assign( {}, ctx.initialPrefs || {} );
 				ctx.channels = Object.assign( {}, ctx.initialChannels || {} );
-				toast( t( 'prefsSaveFailed', 'Could not save preferences.' ), 'error' );
+				toastRestError( resCh, t( 'prefsSaveFailed', 'Could not save preferences.' ) );
 				return;
 			}
 

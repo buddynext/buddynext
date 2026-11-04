@@ -256,4 +256,70 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		$this->editor->register();
 		$this->assertNotFalse( has_action( 'admin_post_buddynext_email_reset', array( $this->editor, 'handle_reset' ) ) );
 	}
+
+	/**
+	 * Capture test sends without sending anything.
+	 *
+	 * @return \ArrayObject Each captured wp_mail() call.
+	 */
+	private function capture_mail(): \ArrayObject {
+		$sent = new \ArrayObject();
+		add_filter(
+			'pre_wp_mail',
+			static function ( $short, array $atts ) use ( $sent ) {
+				$sent->append( $atts );
+				return true;
+			},
+			10,
+			2
+		);
+		return $sent;
+	}
+
+	/**
+	 * A typed address that is not valid sends nothing, and never reroutes to the admin.
+	 */
+	public function test_send_test_refuses_an_invalid_recipient(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$sent = $this->capture_mail();
+
+		foreach ( array( 'not-an-email', 'owner@localhost' ) as $typed ) {
+			$this->assertFalse( $this->editor->send_test( 'bn.new_follower', $typed ) );
+		}
+		$this->assertCount( 0, $sent );
+	}
+
+	/**
+	 * A blank recipient still means the admin email, as the modal's hint says.
+	 */
+	public function test_send_test_blank_recipient_uses_admin_email(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$sent = $this->capture_mail();
+
+		$this->assertTrue( $this->editor->send_test( 'bn.new_follower', '  ' ) );
+		$this->assertSame( get_option( 'admin_email' ), $sent[0]['to'] );
+	}
+
+	/**
+	 * A draft goes out instead of the saved text, tokens filled; no draft sends the saved text.
+	 */
+	public function test_send_test_uses_the_draft_when_given(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$sent = $this->capture_mail();
+
+		$this->editor->send_test(
+			'bn.new_follower',
+			'owner@example.org',
+			array(
+				'subject' => 'Draft {{actor_name}}',
+				'body'    => 'Draft body',
+			)
+		);
+		$this->editor->send_test( 'bn.new_follower', 'owner@example.org' );
+
+		$this->assertSame( '[Test] Draft Test Member', $sent[0]['subject'] );
+		$this->assertStringContainsString( 'Draft body', $sent[0]['message'] );
+		$this->assertStringNotContainsString( 'Draft', $sent[1]['subject'] );
+		$this->assertStringNotContainsString( 'Draft body', $sent[1]['message'] );
+	}
 }

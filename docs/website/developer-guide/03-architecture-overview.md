@@ -112,7 +112,7 @@ BuddyNext's own boot runs inside `Plugin::init()`. The plugin-family boot order 
 
 ```text
 plugins_loaded:10  first-party addons init in standalone mode
-                   (WPMediaVerse, Jetonomy, WBGamification, Career Board)
+                   (MediaVerse, Jetonomy, WB Gamification, WP Career Board)
 plugins_loaded:15  BuddyNext\Core\Plugin::init()
                      1. Container::instance()
                      2. register_services( $container )

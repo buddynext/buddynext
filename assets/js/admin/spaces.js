@@ -14,7 +14,46 @@
 ( function () {
 	'use strict';
 
-	const { __ } = wp.i18n;
+	const { __, _n, sprintf } = wp.i18n;
+
+	// ── Bulk Delete — count-aware confirm through the shared modal. ───
+	// Delete cascades and cannot be undone, so with no dialog to ask through the
+	// action is blocked rather than run unconfirmed. Feature/Unfeature are reversible.
+	var bulkForm = document.getElementById( 'bn-spaces-bulk' );
+	if ( bulkForm ) {
+		bulkForm.addEventListener( 'submit', function ( e ) {
+			var action = bulkForm.querySelector( '[name="bulk_action"]' );
+			var count = document.querySelectorAll( 'table[data-bn-bulk="bn-spaces-bulk"] .bn-bulk-cb:checked' ).length;
+			if ( ! action || 'delete' !== action.value || 0 === count ) {
+				return; // Empty action / selection is blocked by bulk-select.js.
+			}
+			e.preventDefault();
+			if ( 'function' !== typeof window.bnConfirm ) {
+				return;
+			}
+			window.bnConfirm( {
+				title: _n( 'Delete this space?', 'Delete these spaces?', count, 'buddynext' ),
+				message: sprintf(
+					/* translators: %d: number of spaces. */
+					_n(
+						'Delete %d space with its posts and member list? This cannot be undone.',
+						'Delete %d spaces with their posts and member lists? This cannot be undone.',
+						count,
+						'buddynext'
+					),
+					count
+				),
+				tone: 'danger',
+				okLabel: __( 'Delete', 'buddynext' ),
+				cancelLabel: __( 'Cancel', 'buddynext' ),
+			} ).then( function ( confirmed ) {
+				if ( confirmed ) {
+					// form.submit() bypasses the submit event, so this posts directly.
+					bulkForm.submit();
+				}
+			} );
+		} );
+	}
 
 	// ── Category subtab — confirm-before-delete via lightweight modal. ───
 	// Built with document.createElement so no inline <script> sits in PHP

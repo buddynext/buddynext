@@ -1077,6 +1077,27 @@ class AdminHub {
 	}
 
 	/**
+	 * The hub address of a page registered under its old standalone slug.
+	 *
+	 * A link built from an old `?page=` slug (for example a feature's
+	 * "Open its settings") lands on the bare legacy page, outside the BuddyNext
+	 * admin layout, until redirect_legacy_pages() forwards it. Building the link
+	 * from this goes straight to the tab. Empty when the slug is not a declared
+	 * legacy page, so the caller can keep its own fallback.
+	 *
+	 * @param string $page Legacy `?page=` slug.
+	 * @return string Hub tab URL, or '' when unknown.
+	 */
+	public static function legacy_page_url( string $page ): string {
+		$page = sanitize_key( $page );
+		if ( '' === $page || ! isset( self::$legacy_pages[ $page ] ) ) {
+			return '';
+		}
+		$url = self::tab_url( self::$legacy_pages[ $page ]['section'], self::$legacy_pages[ $page ]['tab'] );
+		return admin_url( 'admin.php' ) === $url ? '' : $url;
+	}
+
+	/**
 	 * Send a legacy standalone admin page to the hub tab that replaced it.
 	 *
 	 * Every screen that moved into the hub kept its original `add_submenu_page()`
@@ -1169,6 +1190,14 @@ class AdminHub {
 		// Already a real tab of the requested section — nothing to forward.
 		if ( isset( self::get_tabs( $section )[ $tab ] ) ) {
 			return;
+		}
+
+		// A nested tab this section's own page renders, even when another section has
+		// a tab of the same name (Members > Pending is not Moderation > Pending).
+		foreach ( self::get_tabs( $section ) as $bn_tab_def ) {
+			if ( in_array( $tab, (array) ( $bn_tab_def['subtabs'] ?? array() ), true ) ) {
+				return;
+			}
 		}
 
 		$rule = self::tab_placement()[ $section . ':' . $tab ] ?? null;
@@ -1411,6 +1440,17 @@ class AdminHub {
 
 		foreach ( self::sections() as $section ) {
 			if ( (string) ( $section['slug'] ?? '' ) === $page ) {
+				// Core calls get_admin_page_parent() right after this filter
+				// (menu-header.php). An unlinked section sits in $submenu[''] (the
+				// null-parent registration), so core found it there and reset the
+				// parent to '', undoing this filter on every unlinked section.
+				// Access was checked before the header, so dropping the entry here
+				// changes nothing but the highlight.
+				// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- removing our own hidden entry so core keeps the parent set above.
+				$GLOBALS['submenu'][''] = array_filter(
+					(array) ( $GLOBALS['submenu'][''] ?? array() ),
+					static fn( $item ): bool => ( $item[2] ?? '' ) !== $page
+				);
 				return self::TOP_SLUG;
 			}
 		}
@@ -1930,6 +1970,18 @@ class AdminHub {
 	 */
 	private function render_nav_panel( string $active_section, string $active_slug ): void {
 		echo '<aside class="bn-admin-hub__panel" aria-label="' . esc_attr__( 'BuddyNext navigation', 'buddynext' ) . '">';
+
+		// Phones: the whole menu folds behind one button naming where you are, so
+		// the page's own content comes first instead of a screen of nav. Shown and
+		// wired by nav-accordion.js only, so without JS the full list stays visible.
+		$bn_here_section = (string) ( self::sections()[ $active_section ]['label'] ?? '' );
+		$bn_here_tab     = (string) ( self::get_tabs( $active_section )[ $active_slug ]['label'] ?? '' );
+		printf(
+			'<button type="button" class="bn-hub-nav-toggle" aria-expanded="false" aria-controls="bn-hub-nav-list" hidden><span class="bn-hub-nav-toggle__label">%1$s</span>%2$s</button>',
+			esc_html( implode( ' › ', array_filter( array( $bn_here_section, $bn_here_tab ) ) ) ?: __( 'Menu', 'buddynext' ) ),
+			\BuddyNext\Core\IconService::render( 'chevron-down', 'bn-hub-nav-toggle__chevron' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
+		);
+		echo '<div class="bn-hub-nav-list" id="bn-hub-nav-list">';
 		foreach ( self::sections() as $skey => $section ) {
 			$visible = array();
 			foreach ( self::get_tabs( (string) $skey ) as $tslug => $tab ) {
@@ -1984,6 +2036,7 @@ class AdminHub {
 			echo '</div>';
 			echo '</details>';
 		}
+		echo '</div>';
 		echo '</aside>';
 	}
 

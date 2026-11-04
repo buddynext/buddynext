@@ -118,38 +118,39 @@ class IntegrationActivity {
 	 * (we link OUT — we never embed the partner UI). `link_meta` is supplied so
 	 * PostService does not make an OG-fetch HTTP call to the partner.
 	 *
-	 * @param int    $member_id  The member who created the content.
-	 * @param string $content    Feed text, e.g. "started a discussion".
-	 * @param string $link_url   The partner page the card links to.
-	 * @param string $link_title Title shown on the card (the content's title).
-	 * @param string $type       Post type to record. Defaults to 'link'. Pass a
-	 *                           specific type (e.g. 'discussion', 'job')
-	 *                           so discovery surfaces can classify + filter the
-	 *                           card by what it represents instead of a generic
-	 *                           link. Must be a PostService::ALLOWED_TYPES value.
-	 * @param string $excerpt    Optional short excerpt of the partner content,
-	 *                           stored in link_meta['description'] so the card can
-	 *                           show a title + preview instead of just a verb.
-	 * @param int    $space_id   The BuddyNext space the partner content belongs to,
-	 *                           when it belongs to one. This is what makes the
-	 *                           per-space "Share activity to the main feed" toggle
-	 *                           real: FeedService excludes an opted-out space by
-	 *                           `space_id`, and its clause deliberately lets a NULL
-	 *                           space through, so a card published without one can
-	 *                           never be suppressed — and never appears in the
-	 *                           space's own feed either. Pass 0 for content that
-	 *                           genuinely has no space (a badge, a resume).
-	 * @param array  $meta       Optional extra fields merged into `link_meta`, so a
-	 *                           typed card (event, course, …) can carry its structured
-	 *                           payload (cover, start time, location, source id) for a
-	 *                           `buddynext_render_post_body_{type}` renderer and the
-	 *                           REST/app surfaces. Overrides the defaults it shares a
-	 *                           key with (e.g. pass 'image' to set the card cover).
+	 * @param int         $member_id  The member who created the content.
+	 * @param string      $content    Feed text, e.g. "started a discussion".
+	 * @param string      $link_url   The partner page the card links to.
+	 * @param string      $link_title Title shown on the card (the content's title).
+	 * @param string      $type       Post type to record. Defaults to 'link'. Pass a
+	 *                                specific type (e.g. 'discussion', 'job')
+	 *                                so discovery surfaces can classify + filter the
+	 *                                card by what it represents instead of a generic
+	 *                                link. Must be a PostService::ALLOWED_TYPES value.
+	 * @param string      $excerpt    Optional short excerpt of the partner content,
+	 *                                stored in link_meta['description'] so the card can
+	 *                                show a title + preview instead of just a verb.
+	 * @param int         $space_id   The BuddyNext space the partner content belongs to,
+	 *                                when it belongs to one. This is what makes the
+	 *                                per-space "Share activity to the main feed" toggle
+	 *                                real: FeedService excludes an opted-out space by
+	 *                                `space_id`, and its clause deliberately lets a NULL
+	 *                                space through, so a card published without one can
+	 *                                never be suppressed — and never appears in the
+	 *                                space's own feed either. Pass 0 for content that
+	 *                                genuinely has no space (a badge, a resume).
+	 * @param array       $meta       Optional extra fields merged into `link_meta`, so a
+	 *                                typed card (event, course, …) can carry its structured
+	 *                                payload (cover, start time, location, source id) for a
+	 *                                `buddynext_render_post_body_{type}` renderer and the
+	 *                                REST/app surfaces. Overrides the defaults it shares a
+	 *                                key with (e.g. pass 'image' to set the card cover).
+	 * @param string|null $created_at UTC time of the card (see Core\Backdate). Null means now.
 	 * @return int|\WP_Error Post id (0 when an identical card already exists), or WP_Error.
 	 *
 	 * @api
 	 */
-	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0, array $meta = array() ) {
+	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0, array $meta = array(), ?string $created_at = null ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
 			return new \WP_Error( 'invalid_activity', 'member id and link url are required' );
 		}
@@ -174,9 +175,9 @@ class IntegrationActivity {
 			return $service->create(
 				$member_id,
 				array(
-					'type'      => $type,
-					'content'   => $content,
-					'space_id'  => $space_id > 0 ? $space_id : null,
+					'type'       => $type,
+					'content'    => $content,
+					'space_id'   => $space_id > 0 ? $space_id : null,
 					// A card with no space links OUT to a public partner page (a public
 					// Jetonomy discussion, a job posting, etc.) and is inherently public.
 					// A card scoped to a SPACE must inherit the space's privacy instead
@@ -184,9 +185,10 @@ class IntegrationActivity {
 					// space's card leaked it onto Explore and profiles (card 10312981296).
 					// 'space_members' lets the feed's space-readability guard decide:
 					// open space -> everyone, private/secret -> members only.
-					'privacy'   => $space_id > 0 ? 'space_members' : 'public',
-					'link_url'  => $link_url,
-					'link_meta' => self::card_meta( $link_url, $link_title, $excerpt, $meta ),
+					'privacy'    => $space_id > 0 ? 'space_members' : 'public',
+					'link_url'   => $link_url,
+					'link_meta'  => self::card_meta( $link_url, $link_title, $excerpt, $meta ),
+					'created_at' => $created_at,
 				)
 			);
 		} finally {
@@ -597,6 +599,51 @@ class IntegrationActivity {
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * The stored title a card may keep once its partner is gone.
+	 *
+	 * Media and document titles are decided per viewer at render by the partner, so
+	 * with it gone there is nobody left to ask and they stay hidden. Discussions keep
+	 * the neutral line they show for a deleted topic.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param string $type  Post type.
+	 * @param string $title Stored card title.
+	 * @return string The title, or '' when it must not be shown.
+	 *
+	 * @api
+	 */
+	public static function orphaned_card_title( string $type, string $title ): string {
+		return in_array( $type, array( 'media', 'document', 'discussion' ), true ) ? '' : $title;
+	}
+
+	/**
+	 * Render the neutral card for a post whose partner plugin is not active: the
+	 * title it may keep and a plain line, with no link and no system sentence.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param array<string,mixed> $args Post-body args ({ link_preview, bn_post_type }).
+	 * @return string Pre-escaped card HTML.
+	 *
+	 * @api
+	 */
+	public static function render_orphaned_card( array $args ): string {
+		$type  = isset( $args['bn_post_type'] ) ? (string) $args['bn_post_type'] : '';
+		$link  = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
+		$title = self::orphaned_card_title( $type, trim( (string) ( $link['title'] ?? '' ) ) );
+
+		$html  = '<div class="bn-post-card__bridge-card bn-post-card__bridge-card--orphaned is-unavailable">';
+		$html .= '<span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( 'info' ) . '</span>';
+		$html .= '<div class="bn-post-card__bridge-content">';
+		if ( '' !== $title ) {
+			$html .= '<span class="bn-post-card__bridge-title">' . esc_html( $title ) . '</span>';
+		}
+		$html .= '<p class="bn-post-card__bridge-text">' . esc_html__( 'This is no longer available.', 'buddynext' ) . '</p>';
+		return $html . '</div></div>';
 	}
 
 	/**

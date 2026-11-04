@@ -66,14 +66,14 @@ final class StateReset implements BeforeTestHook {
 		// Sprite mode is per page render; a test that opens it must not leave the next
 		// test's icons as <use> references to a sprite that was never printed.
 		// A system join in progress cannot outlive the request that started it.
-		\BuddyNext\Spaces\SpaceLinkService::class     => array(
+		\BuddyNext\Spaces\SpaceLinkService::class          => array(
 			'system_depth' => 0,
 		),
 		// Modules switched off by a failure last only for the request that failed.
-		\BuddyNext\Addons\ModuleWiring::class          => array(
+		\BuddyNext\Addons\ModuleWiring::class              => array(
 			'disabled' => array(),
 		),
-		\BuddyNext\Core\IconService::class              => array(
+		\BuddyNext\Core\IconService::class                 => array(
 			'sprite_open'       => false,
 			'symbols'           => array(),
 			'printed'           => array(),
@@ -82,41 +82,41 @@ final class StateReset implements BeforeTestHook {
 		),
 		// Built from remove_accents() for the current locale; a test that switches
 		// locale must not read the previous test's folding.
-		\BuddyNext\Core\AssetService::class             => array( 'slug_fold_map' => null ),
-		\BuddyNext\SocialGraph\BlockService::class        => array( 'blocking_pair_cache' => array() ),
-		\BuddyNext\SocialGraph\ConnectionService::class   => array( 'degree_memo' => array() ),
+		\BuddyNext\Core\AssetService::class                => array( 'slug_fold_map' => null ),
+		\BuddyNext\SocialGraph\BlockService::class         => array( 'blocking_pair_cache' => array() ),
+		\BuddyNext\SocialGraph\ConnectionService::class    => array( 'degree_memo' => array() ),
 		// The hard-ban memo, and its "forget on ban/unban" hooks: the suite resets hooks
 		// between tests, so the flag must reset too or later tests read a stale ban.
-		\BuddyNext\Core\PermissionService::class          => array(
+		\BuddyNext\Core\PermissionService::class           => array(
 			'role_map_cache'  => null,
 			'hard_ban_memo'   => array(),
 			'ban_memo_hooked' => false,
 		),
 		// Image addresses resolved from disk, remembered for one request.
-		\BuddyNext\Media\ImageStorageService::class      => array( 'url_memo' => array() ),
+		\BuddyNext\Media\ImageStorageService::class        => array( 'url_memo' => array() ),
 		// Both report-reason memos: the slug list and its labels. Each applies a
 		// filter once per request, so a test that adds a reason must not inherit
 		// the previous test's answer.
-		\BuddyNext\Moderation\ModerationService::class    => array(
+		\BuddyNext\Moderation\ModerationService::class     => array(
 			// is_suspended() per user: a suspension written then rolled back must not leak.
-			'suspended_memo' => array(),
+			'suspended_memo'      => array(),
 			'reasons_cache'       => null,
 			'reason_labels_cache' => null,
 		),
-		\BuddyNext\Profile\MemberDirectoryService::class  => array( 'mirror_keys_memo' => null ),
+		\BuddyNext\Profile\MemberDirectoryService::class   => array( 'mirror_keys_memo' => null ),
 		// Per-REQUEST "has this member bookmarked this post" answers. Must not
 		// survive a test whose bn_bookmarks rows have been rolled back underneath
 		// it, or one test's bookmark answers for the next test's fresh ids.
-		\BuddyNext\Feed\BookmarkService::class           => array( 'memo' => array() ),
-		\BuddyNext\Core\Installer::class                  => array(
+		\BuddyNext\Feed\BookmarkService::class             => array( 'memo' => array() ),
+		\BuddyNext\Core\Installer::class                   => array(
 			'schema_check_result' => null,
 			'last_schema_errors'  => array(),
 		),
-		\BuddyNext\Sidebar\Surface::class                 => array(
+		\BuddyNext\Sidebar\Surface::class                  => array(
 			'current' => '',
 			'context' => array(),
 		),
-		\BuddyNext\Admin\AdminHub::class                  => array(
+		\BuddyNext\Admin\AdminHub::class                   => array(
 			'placement_cache'  => null,
 			'sections_cache'   => null,
 			'default_icon_map' => null,
@@ -124,15 +124,15 @@ final class StateReset implements BeforeTestHook {
 		// Per-REQUEST label cache: existence answers must not survive a test whose
 		// rows have been rolled back underneath them, or one test's live post is
 		// another's tombstone.
-		\BuddyNext\Core\ObjectLabels::class              => array(
+		\BuddyNext\Core\ObjectLabels::class                => array(
 			'exists' => array(),
 			'names'  => array(),
 		),
-		\BuddyNext\Core\HeadMeta::class                   => array( 'emitted' => false ),
+		\BuddyNext\Core\HeadMeta::class                    => array( 'emitted' => false ),
 		// The last email-send error, set per send(). A test that asserts on a
 		// failed send must not read the previous test's error message.
 		\BuddyNext\Notifications\EmailSender::class        => array( 'last_error' => null ),
-		\BuddyNext\Core\PageRouter::class                 => array(
+		\BuddyNext\Core\PageRouter::class                  => array(
 			'rendering'           => null,
 			'title_claimed'       => false,
 			'search_note_printed' => false,
@@ -145,53 +145,54 @@ final class StateReset implements BeforeTestHook {
 		),
 		// Re-entrancy flags. A test that dies mid-sync leaves these true and every
 		// later test silently skips the work they guard.
-		\BuddyNext\Bridges\JetonomyBridge::class          => array(
+		\BuddyNext\Bridges\JetonomyBridge::class           => array(
 			'syncing'          => false,
 			'forum_space_memo' => array(),
 		),
-		\BuddyNext\Feed\BlogCommentSync::class            => array( 'syncing' => false ),
+		\BuddyNext\Feed\BlogCommentSync::class             => array( 'syncing' => false ),
 		// Re-entrancy flags, plus the per-request documents config keyed by viewer.
 		// One entry per class: a second key for the same class would silently replace this one.
-		\BuddyNext\Bridges\WPMediaVerseBridge::class      => array(
+		\BuddyNext\Bridges\WPMediaVerseBridge::class       => array(
 			'suppress_upload_activity' => false,
 			'mirroring_comment'        => false,
 			'documents_config_memo'    => array(),
 			'document_memo'            => array(),
 		),
-		\BuddyNext\Feed\IntegrationActivity::class        => array(
+		\BuddyNext\Feed\IntegrationActivity::class         => array(
 			'system_publish' => false,
 			'mirror_depth'   => 0,
 			'search_only'    => false,
 		),
-		\BuddyNext\Outbound\WebhookLog::class             => array( 'in_request' => false ),
+		\BuddyNext\Outbound\WebhookLog::class              => array( 'in_request' => false ),
 		// Per-REQUEST record of spaces unlocked by opening a valid invite link. Must
 		// not survive a test whose invite/space rows rolled back underneath it, or
 		// one test's unlock leaks into another.
-		\BuddyNext\Spaces\SpaceVisibility::class          => array( 'invite_unlocked' => array() ),
+		\BuddyNext\Spaces\SpaceVisibility::class           => array( 'invite_unlocked' => array() ),
 		// Per-REQUEST memo of feed URLs already purged from the page cache. A leftover
 		// entry mutes the next test's purge.
-		\BuddyNext\Core\PageCachePurger::class            => array( 'purged' => array() ),
+		\BuddyNext\Core\PageCachePurger::class             => array( 'purged' => array() ),
 		// Per-REQUEST guard: the space whose dead invite link was already reported.
 		// A leftover value mutes the next test's card write.
-		\BuddyNext\Spaces\SpaceInviteLinkService::class   => array( 'dead_link_space' => 0 ),
+		\BuddyNext\Spaces\SpaceInviteLinkService::class    => array( 'dead_link_space' => 0 ),
 		// Search memos: a space ceiling memoised for an id a later test's new space
 		// receives hid every public post from guest search (InSpaceSearchTest,
 		// seed 1791094368).
-		\BuddyNext\Search\SearchService::class            => array(
+		\BuddyNext\Search\SearchService::class             => array(
 			'viewer_space_memo' => array(),
 			'ceilings'          => array(),
 			'ft_min_token'      => null,
+			'has_fulltext'      => null,
 		),
-		\BuddyNext\Feed\ShareService::class               => array( 'shared_memo' => array() ),
-		\BuddyNext\Feed\FeedService::class                => array( 'excluded_space_ids' => null ),
-		\BuddyNext\SocialGraph\PrivacyService::class      => array( 'blocks_table_exists' => false ),
+		\BuddyNext\Feed\ShareService::class                => array( 'shared_memo' => array() ),
+		\BuddyNext\Feed\FeedService::class                 => array( 'excluded_space_ids' => null ),
+		\BuddyNext\SocialGraph\PrivacyService::class       => array( 'blocks_table_exists' => false ),
 		\BuddyNext\Profile\GamificationAchievements::class => array( 'rank_memo' => array() ),
-		\BuddyNext\Bridges\GamificationBridge::class      => array(
+		\BuddyNext\Bridges\GamificationBridge::class       => array(
 			'points_label_memo' => null,
 			'badge_defs_memo'   => array(),
 		),
 		\BuddyNext\Notifications\NotificationMessageService::class => array( 'type_meta' => null ),
-		\BuddyNext\App\AppConfigController::class         => array( 'plugin_locales_memo' => null ),
+		\BuddyNext\App\AppConfigController::class          => array( 'plugin_locales_memo' => null ),
 	);
 
 	/**
@@ -203,21 +204,21 @@ final class StateReset implements BeforeTestHook {
 	 * @var array<string, string>
 	 */
 	public const PERSISTENT = array(
-		'BuddyNext\Addons\AddonRegistry::instance'           => 'Registered from code at boot, not from the database. Tests that need a clean registry call AddonRegistry::reset().',
-		'BuddyNext\Core\Plugin::booted'                        => 'Resetting this would re-run the whole boot on the next test, registering every hook a second time.',
-		'BuddyNext\Core\Container::instance'                   => 'The service container IS the application; rebuilding it per test would discard every binding the bootstrap made.',
-		'BuddyNext\Core\IconService::icons_dir'                => 'A filesystem path resolved once. Not derived from the database.',
-		'BuddyNext\Core\IconService::emoji_dir'                => 'As above.',
-		'BuddyNext\Core\HubRegistry::instance'                 => 'Populated at boot from code, not from the database. Tests that need a different registry build their own.',
-		'BuddyNext\Nav\NavRegistry::instance'                  => 'As above.',
+		'BuddyNext\Addons\AddonRegistry::instance'         => 'Registered from code at boot, not from the database. Tests that need a clean registry call AddonRegistry::reset().',
+		'BuddyNext\Core\Plugin::booted'                    => 'Resetting this would re-run the whole boot on the next test, registering every hook a second time.',
+		'BuddyNext\Core\Container::instance'               => 'The service container IS the application; rebuilding it per test would discard every binding the bootstrap made.',
+		'BuddyNext\Core\IconService::icons_dir'            => 'A filesystem path resolved once. Not derived from the database.',
+		'BuddyNext\Core\IconService::emoji_dir'            => 'As above.',
+		'BuddyNext\Core\HubRegistry::instance'             => 'Populated at boot from code, not from the database. Tests that need a different registry build their own.',
+		'BuddyNext\Nav\NavRegistry::instance'              => 'As above.',
 		'BuddyNext\Integrations\IntegrationRegistry::instance' => 'As above.',
-		'BuddyNext\Spaces\SpaceTypeRegistry::instance'         => 'As above.',
-		'BuddyNext\Spaces\SpaceFieldRegistry::instance'        => 'As above.',
-		'BuddyNext\Admin\AdminHub::instance'                   => 'Registrar built from code at boot; its DERIVED caches are reset above instead.',
-		'BuddyNext\Admin\AdminHub::tabs'                       => 'Registered from code at boot, not per test.',
-		'BuddyNext\Admin\AdminHub::legacy_pages'               => 'As above.',
-		'BuddyNext\Admin\Settings\SettingsRegistry::pages'     => 'Registered from code at boot, not per test.',
-		'BuddyNext\Admin\Settings\SettingsDriver::booted'      => 'A boot-once guard: resetting it would let boot() add_action() the Restore-defaults admin-post handler a second time, same reason as Plugin::booted.',
+		'BuddyNext\Spaces\SpaceTypeRegistry::instance'     => 'As above.',
+		'BuddyNext\Spaces\SpaceFieldRegistry::instance'    => 'As above.',
+		'BuddyNext\Admin\AdminHub::instance'               => 'Registrar built from code at boot; its DERIVED caches are reset above instead.',
+		'BuddyNext\Admin\AdminHub::tabs'                   => 'Registered from code at boot, not per test.',
+		'BuddyNext\Admin\AdminHub::legacy_pages'           => 'As above.',
+		'BuddyNext\Admin\Settings\SettingsRegistry::pages' => 'Registered from code at boot, not per test.',
+		'BuddyNext\Admin\Settings\SettingsDriver::booted'  => 'A boot-once guard: resetting it would let boot() add_action() the Restore-defaults admin-post handler a second time, same reason as Plugin::booted.',
 	);
 
 	/**

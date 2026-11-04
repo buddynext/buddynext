@@ -188,4 +188,14 @@ class MembersTest extends \WP_UnitTestCase {
 		$csv = $this->members->export_members_csv();
 		$this->assertStringContainsString( 'csvuser@test.local', $csv );
 	}
+
+	/**
+	 * Unsuspending a member with no active suspension reports it, so the bulk count
+	 * and the single-row notice do not claim a change that did not happen.
+	 */
+	public function test_unsuspend_member_reports_when_not_suspended(): void {
+		$user_id = self::factory()->user->create();
+
+		$this->assertWPError( $this->members->unsuspend_member( $user_id ) );
+	}
 }

@@ -59,6 +59,7 @@ class SetupWizard {
 	public function init(): void {
 		add_action( 'admin_menu', array( $this, 'add_wizard_page' ) );
 		add_action( 'admin_post_buddynext_wizard_step', array( $this, 'handle_step_submit' ) );
+		add_action( 'admin_notices', array( $this, 'render_exit_notice' ) );
 	}
 
 	/**
@@ -408,6 +409,37 @@ class SetupWizard {
 		}
 	}
 
+	/**
+	 * Confirm the wizard's exits on the dashboard they land on.
+	 *
+	 * @return void
+	 */
+	public function render_exit_notice(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only flags from the wizard's own redirect.
+		$page   = sanitize_key( wp_unslash( (string) ( $_GET['page'] ?? '' ) ) );
+		$wizard = sanitize_key( wp_unslash( (string) ( $_GET['wizard'] ?? '' ) ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( 'buddynext' !== $page ) {
+			return;
+		}
+
+		$attributes = array( 'data-bn-clear-param' => 'wizard' );
+		if ( 'saved' === $wizard ) {
+			\BuddyNext\Admin\AdminPageBase::render_notice(
+				sprintf(
+					/* translators: %s: link to resume the setup wizard. */
+					__( 'Your setup progress is saved. %s', 'buddynext' ),
+					'<a href="' . esc_url( add_query_arg( 'page', 'buddynext-setup', admin_url( 'admin.php' ) ) ) . '">' . esc_html__( 'Continue setup', 'buddynext' ) . '</a>'
+				),
+				'success',
+				true,
+				$attributes
+			);
+		} elseif ( 'done' === $wizard ) {
+			\BuddyNext\Admin\AdminPageBase::render_notice( __( 'Setup complete. Your community is ready.', 'buddynext' ), 'success', false, $attributes );
+		}
+	}
+
 	// ── Form handler ──────────────────────────────────────────────────────────
 
 	/**
@@ -450,19 +482,6 @@ class SetupWizard {
 			exit;
 		}
 
-		// Save & exit: return to the dashboard without persisting the current form.
-		if ( 'save_exit' === $wizard_action ) {
-			$exit_url = add_query_arg(
-				array(
-					'page'   => 'buddynext',
-					'wizard' => 'saved',
-				),
-				admin_url( 'admin.php' )
-			);
-			wp_safe_redirect( $exit_url );
-			exit;
-		}
-
 		$steps    = $this->steps();
 		$this_key = $this->current_step_key();
 		$def      = $steps[ $this_key ] ?? null;
@@ -471,6 +490,21 @@ class SetupWizard {
 		// data to save (Profile Fields, Addons, Done) declares none.
 		if ( is_array( $def ) ) {
 			$this->call_step( $def['save'] ?? null );
+		}
+
+		// Save & exit: the same save as Continue, but stay on this step so the owner
+		// resumes on what they just saved.
+		if ( 'save_exit' === $wizard_action ) {
+			wp_safe_redirect(
+				add_query_arg(
+					array(
+						'page'   => 'buddynext',
+						'wizard' => 'saved',
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
 		}
 
 		// The last step is the finish step: mark the wizard complete and leave for
@@ -496,13 +530,24 @@ class SetupWizard {
 	 */
 	private function save_step_branding(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
-		$this->save_settings(
-			array(
-				'site_name'   => sanitize_text_field( wp_unslash( $_POST['site_name'] ?? '' ) ),
-				'brand_color' => sanitize_hex_color( wp_unslash( (string) ( $_POST['brand_color'] ?? '#0073aa' ) ) ),
-			)
-		);
+		$data = array();
+
+		// A blank name would wipe the one already stored.
+		$site_name = sanitize_text_field( wp_unslash( $_POST['site_name'] ?? '' ) );
+		if ( '' !== $site_name ) {
+			$data['site_name'] = $site_name;
+		}
+
+		// The picker always posts a value, so "the owner chose this" can only be read
+		// as "it differs from what the step showed". Storing the untouched default
+		// would override the theme's accent on every page, see Appearance::attach_accent().
+		$brand_color = (string) sanitize_hex_color( wp_unslash( (string) ( $_POST['brand_color'] ?? '' ) ) );
+		if ( '' !== $brand_color && strtolower( $brand_color ) !== strtolower( \BuddyNext\Theme\Appearance::display_brand() ) ) {
+			$data['brand_color'] = $brand_color;
+		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$this->save_settings( $data );
 	}
 
 	/**
@@ -786,23 +831,7 @@ class SetupWizard {
 	private function render_step_branding(): void {
 		$site_name = (string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) );
 
-		/*
-		 * Show what the site looks like NOW, not the sentinel that means "unbranded".
-		 *
-		 * The stored default is Appearance::DEFAULT_BRAND (#0073aa), which
-		 * attach_accent() treats as "inherit the tokens" and emits nothing for. Putting
-		 * it in the picker meant this step offered WordPress admin blue - a colour the
-		 * product never renders - and accepting it appeared to do nothing, because it
-		 * does nothing by design.
-		 *
-		 * Displaying DEFAULT_ACCENT_HEX instead makes the swatch honest: it is the
-		 * indigo the site is actually using. Nothing is written unless the owner picks
-		 * a colour, so accepting the default still leaves the tokens in charge.
-		 */
-		$brand_color = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
-		if ( '' === $brand_color || strtolower( $brand_color ) === \BuddyNext\Theme\Appearance::DEFAULT_BRAND ) {
-			$brand_color = \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX;
-		}
+		$brand_color = \BuddyNext\Theme\Appearance::display_brand();
 
 		$this->render_step_head(
 			__( 'What should your community be called?', 'buddynext' ),

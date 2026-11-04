@@ -93,7 +93,7 @@ $bn_tone     = isset( $tone ) ? (string) $tone : '';
 				</button>
 				<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-bind--disabled="context.infoBusy" data-wp-on--click="actions.reportRecipient">
 					<?php buddynext_icon( 'flag' ); ?>
-					<span><?php esc_html_e( 'Report conversation', 'buddynext' ); ?></span>
+					<span><?php esc_html_e( 'Report member', 'buddynext' ); ?></span>
 				</button>
 				<button type="button" class="bn-btn bn-dm-info__danger" data-variant="ghost" data-size="sm" data-wp-bind--hidden="context.viewerBlocked" data-wp-bind--disabled="context.infoBusy" data-wp-on--click="actions.blockRecipient">
 					<?php buddynext_icon( 'ban' ); ?>

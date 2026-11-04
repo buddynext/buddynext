@@ -227,7 +227,7 @@ class PwaServiceTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_caches_are_version_keyed_and_old_ones_purged(): void {
-		$script = $this->pwa->get_service_worker_script();
+		$script  = $this->pwa->get_service_worker_script();
 		$version = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : '1.0.0';
 
 		$this->assertStringContainsString( 'buddynext-shell-' . $version, $script );
@@ -308,5 +308,70 @@ class PwaServiceTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'Weesocio Community Hub', $manifest['name'] );
 		$this->assertSame( 'Weesocio Com', $manifest['short_name'] );
+	}
+
+	/**
+	 * Manifest colours follow the owner's settings; an unset brand colour still gives
+	 * a real colour, never an empty value or the unused sentinel blue.
+	 *
+	 * @dataProvider manifest_colours
+	 *
+	 * @param string|false $brand    buddynext_brand_color, false for unset.
+	 * @param string|false $scheme   buddynext_default_theme, false for unset.
+	 * @param string       $theme    Expected theme_color.
+	 * @param string       $splash   Expected background_color.
+	 */
+	public function test_manifest_colours_follow_settings( $brand, $scheme, string $theme, string $splash ): void {
+		delete_option( 'buddynext_brand_color' );
+		delete_option( 'buddynext_default_theme' );
+		if ( false !== $brand ) {
+			update_option( 'buddynext_brand_color', $brand );
+		}
+		if ( false !== $scheme ) {
+			update_option( 'buddynext_default_theme', $scheme );
+		}
+
+		$manifest = $this->pwa->get_manifest();
+
+		delete_option( 'buddynext_brand_color' );
+		delete_option( 'buddynext_default_theme' );
+
+		$this->assertSame( $theme, $manifest['theme_color'] );
+		$this->assertSame( $splash, $manifest['background_color'] );
+	}
+
+	/**
+	 * Settings and the manifest colours they must give.
+	 *
+	 * @return array<string, array<int, string|false>>
+	 */
+	public function manifest_colours(): array {
+		return array(
+			'nothing set'    => array( false, false, '#176bc7', '#fbfbfd' ),
+			'sentinel, auto' => array( '#0073aa', 'auto', '#176bc7', '#fbfbfd' ),
+			'brand, light'   => array( '#ff6b6b', 'light', '#ff6b6b', '#fbfbfd' ),
+			'brand, dark'    => array( '#ff6b6b', 'dark', '#ff6b6b', '#15161f' ),
+			'no brand, dark' => array( false, 'dark', '#176bc7', '#15161f' ),
+		);
+	}
+
+	/**
+	 * The theme-color tag prints the filtered manifest colour, so the two cannot differ.
+	 */
+	public function test_meta_theme_color_matches_the_manifest(): void {
+		$filter = static function ( array $manifest ): array {
+			$manifest['theme_color'] = '#123456';
+			return $manifest;
+		};
+		add_filter( 'buddynext_pwa_manifest', $filter );
+
+		ob_start();
+		$this->pwa->output_manifest_link();
+		$head = (string) ob_get_clean();
+
+		remove_filter( 'buddynext_pwa_manifest', $filter );
+
+		$this->assertStringContainsString( '<meta name="theme-color" content="#123456">', $head );
+		$this->assertStringContainsString( 'rel="manifest"', $head );
 	}
 }

@@ -77,7 +77,7 @@ final class CompanionRegistry {
 					'unlocks'     => __( 'Forum activity surfaced in the BuddyNext feed.', 'buddynext' ),
 				),
 				'wb-gamification'        => array(
-					'label'       => 'Gamification',
+					'label'       => 'WB Gamification',
 					'integration' => 'gamification',
 					'why'         => __( 'Points, badges, levels, and leaderboards.', 'buddynext' ),
 					'detect'      => static fn(): bool => function_exists( 'wb_gam_submit_event' ) || defined( 'WB_GAM_VERSION' ),
@@ -90,7 +90,7 @@ final class CompanionRegistry {
 					'unlocks'     => __( 'Badges + leaderboard on member profiles.', 'buddynext' ),
 				),
 				'wp-career-board'        => array(
-					'label'       => 'Career Board',
+					'label'       => 'WP Career Board',
 					'integration' => 'careerboard',
 					'why'         => __( 'Job listings and applicant management.', 'buddynext' ),
 					// Probe WCB_VERSION (defined when Career Board loads) + its real
@@ -127,7 +127,7 @@ final class CompanionRegistry {
 					'needs_pro'   => true,
 				),
 				'wb-listora'             => array(
-					'label'       => 'Listora',
+					'label'       => 'WB Listora',
 					'integration' => 'listora',
 					'why'         => __( 'Directory listings - members publish and manage listings.', 'buddynext' ),
 					'detect'      => static fn(): bool => defined( 'WB_LISTORA_VERSION' ),
@@ -183,16 +183,18 @@ final class CompanionRegistry {
 	}
 
 	/**
-	 * The companion whose bridge registers this integration key, or null.
+	 * The ACTIVE companion whose bridge registers this integration key, or null.
 	 *
 	 * Lets Integration Settings name each box by the product the owner installed.
+	 * Core can own a key a companion also maps to (the blog-to-feed toggle is `blog`),
+	 * so an inactive companion lends neither its name nor its Active badge.
 	 *
 	 * @param string $integration_key Key on the buddynext_integrations registry.
 	 * @return array<string, mixed>|null
 	 */
 	public static function for_integration( string $integration_key ): ?array {
-		foreach ( self::all() as $entry ) {
-			if ( ( $entry['integration'] ?? '' ) === $integration_key ) {
+		foreach ( self::all() as $slug => $entry ) {
+			if ( ( $entry['integration'] ?? '' ) === $integration_key && self::is_active( (string) $slug ) ) {
 				return $entry;
 			}
 		}
@@ -256,5 +258,115 @@ final class CompanionRegistry {
 			return 'inactive';
 		}
 		return 'not_installed';
+	}
+
+	/**
+	 * The admin's one-click activation link for a plugin on disk.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param string $basename Plugin basename.
+	 * @return string
+	 */
+	public static function activate_url( string $basename ): string {
+		return wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $basename ) . '&plugin_status=all' ), 'activate-plugin_' . $basename );
+	}
+
+	/**
+	 * What an owner has to do next for a companion that is not yet connected.
+	 *
+	 * A Pro-bridged partner connects only through BuddyNext Pro, so without Pro
+	 * that is the step whatever its own state: installing it alone connects nothing.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param string $slug Companion slug.
+	 * @return array{state:string,label:string,url:string,external:bool}|null Null once connected.
+	 */
+	public static function next_step( string $slug ): ?array {
+		$entry  = self::get( $slug );
+		$status = self::status( $slug );
+		if ( null === $entry ) {
+			return null;
+		}
+		if ( ! empty( $entry['needs_pro'] ) ) {
+			$pro = self::pro_action();
+			if ( null !== $pro ) {
+				return array( 'state' => 'needs_pro' ) + $pro;
+			}
+		}
+		if ( 'active' === $status ) {
+			return null;
+		}
+		$basename = (string) ( $entry['free']['basename'] ?? '' );
+		if ( 'inactive' === $status && '' !== $basename && current_user_can( 'activate_plugins' ) ) {
+			return array(
+				'state'    => 'activate',
+				'label'    => __( 'Activate', 'buddynext' ),
+				'url'      => self::activate_url( $basename ),
+				'external' => false,
+			);
+		}
+		return array(
+			'state'    => 'inactive' === $status ? 'inactive' : 'install',
+			'label'    => 'inactive' === $status ? __( 'View add-on', 'buddynext' ) : __( 'Install', 'buddynext' ),
+			'url'      => \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) . '#bn-companion-' . sanitize_html_class( $slug ),
+			'external' => false,
+		);
+	}
+
+	/**
+	 * Active partners that connect only through BuddyNext Pro, while Pro is not active.
+	 *
+	 * @return array<string, array<string, mixed>> Slug => entry.
+	 */
+	public static function waiting_for_pro(): array {
+		if ( defined( 'BUDDYNEXTPRO_VERSION' ) ) {
+			return array();
+		}
+		return array_filter(
+			self::all(),
+			static fn( array $entry, string $slug ): bool => ! empty( $entry['needs_pro'] ) && 'active' === self::status( $slug ),
+			ARRAY_FILTER_USE_BOTH
+		);
+	}
+
+	/**
+	 * Where to buy BuddyNext Pro.
+	 *
+	 * @return string
+	 */
+	public static function pro_upgrade_url(): string {
+		/**
+		 * Filter the "Upgrade to Pro" destination URL.
+		 *
+		 * @param string $url Product page URL.
+		 */
+		return (string) apply_filters( 'buddynext_pro_upgrade_url', 'https://wbcomdesigns.com/downloads/buddynext-pro/' );
+	}
+
+	/**
+	 * The one action that connects a Pro-only partner: activate BuddyNext Pro when
+	 * it is installed, otherwise get it. Null once Pro is active.
+	 *
+	 * @return array{label:string,url:string,external:bool}|null
+	 */
+	public static function pro_action(): ?array {
+		if ( defined( 'BUDDYNEXTPRO_VERSION' ) ) {
+			return null;
+		}
+		$basename = 'buddynext-pro/buddynext-pro.php';
+		if ( file_exists( WP_PLUGIN_DIR . '/' . $basename ) && current_user_can( 'activate_plugins' ) ) {
+			return array(
+				'label'    => __( 'Activate BuddyNext Pro', 'buddynext' ),
+				'url'      => self::activate_url( $basename ),
+				'external' => false,
+			);
+		}
+		return array(
+			'label'    => __( 'Get BuddyNext Pro', 'buddynext' ),
+			'url'      => self::pro_upgrade_url(),
+			'external' => true,
+		);
 	}
 }
