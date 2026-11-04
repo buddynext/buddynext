@@ -148,7 +148,8 @@ class MemberBlogBridge {
 				// get_dashboard_url, bp_member_blog_get_settings) are unchanged, and
 				// 4.1.0's additions are Member-Blog-internal (composer/email/REST),
 				// none consumed here. Tested against 4.3.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
-				'tested_version' => self::available() ? '4.5.0' : ( $existing['tested_version'] ?? null ),
+				// 4.5.1 (2026-11-04): get_dashboard_url and bp_member_blog_get_settings unchanged from 4.5.0.
+				'tested_version' => self::available() ? '4.5.1' : ( $existing['tested_version'] ?? null ),
 			)
 		);
 
