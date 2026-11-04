@@ -2,6 +2,11 @@
   "generated": "2026-06-11T06:53:37+00:00",
   "suppressions": [
     {
+      "id": "hook-consumed-never-fired:buddynext_finish_upgrade",
+      "reason": "Fired, but under a class constant the scanner cannot follow: Installer::maybe_upgrade_schema() queues Installer::FINISH_UPGRADE_HOOK through as_enqueue_async_action() (Action Scheduler) or wp_schedule_single_event() (WP-Cron), and the queue runner fires it. False positive.",
+      "severity": "error"
+    },
+    {
       "id": "option-read-never-written:buddynext_reg_mode",
       "reason": "Persisted via the WordPress Settings API — registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
       "severity": "warning"
