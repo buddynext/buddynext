@@ -326,6 +326,9 @@ REQUIRED_FILES=(
 	"libs/edd-sl-sdk/assets/build/js/edd-sl-sdk.js"
 	"libs/edd-sl-sdk/assets/build/css/style-edd-sl-sdk.css"
 	"libs/edd-sl-sdk/templates/license-control.php"
+	"libs/package-signatures/package-signatures.php"
+	"libs/package-signatures/src/class-guard.php"
+	"libs/package-signatures/src/class-verifier.php"
 )
 MISSING=0
 for f in "${REQUIRED_FILES[@]}"; do

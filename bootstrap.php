@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
  * removing a public symbol bumps it, and the registry supports this and the previous value.
  */
 define( 'BUDDYNEXT_ADDON_API', 1 );
-define( 'BUDDYNEXT_VERSION', '1.2.7' );
+define( 'BUDDYNEXT_VERSION', '1.2.8' );
 define( 'BUDDYNEXT_FILE', __DIR__ . '/buddynext.php' );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( BUDDYNEXT_FILE ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( BUDDYNEXT_FILE ) );
@@ -214,6 +214,31 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' )
 				. '</p></div>';
 		}
 	);
+}
+
+// Package Signatures (libs/package-signatures, vapvarun/package-signatures 1.0.1): checks that each BuddyNext
+// and BuddyNext Pro update package carries the release signature before WordPress installs it. Warn mode: the
+// result is logged (option package_signatures_log) and the update installs either way. Free registers Pro as
+// well, because WordPress loads buddynext-pro/ before buddynext/ and Pro could not call this itself.
+if ( file_exists( BUDDYNEXT_DIR . 'libs/package-signatures/package-signatures.php' ) ) {
+	require_once BUDDYNEXT_DIR . 'libs/package-signatures/package-signatures.php';
+	$buddynext_signed_products = array(
+		'buddynext'     => plugin_basename( BUDDYNEXT_FILE ),
+		'buddynext-pro' => 'buddynext-pro/buddynext-pro.php',
+	);
+	foreach ( $buddynext_signed_products as $buddynext_signed_product => $buddynext_signed_plugin ) {
+		package_signatures_register(
+			array(
+				'product'  => $buddynext_signed_product,
+				'plugin'   => $buddynext_signed_plugin,
+				'hosts'    => array( 'wbcomdesigns.com', 'updates.wbcomdesigns.com' ),
+				'keys'     => array( 'wbcom-2026-1' => 'kr+2P1WqRbENpZw0BXZmwFnA2tMLi6MlHbBa6jB13U4=' ),
+				'mode'     => 'warn',
+				'fallback' => 'https://wbcomdesigns.com/package-signatures/{product}/{version}/',
+			)
+		);
+	}
+	unset( $buddynext_signed_products, $buddynext_signed_product, $buddynext_signed_plugin );
 }
 
 // Version skew, the direction only Free can see. Pro guards Free-older-than-Pro

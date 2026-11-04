@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.7
+Stable tag: 1.2.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -113,6 +113,7 @@ Owners lay out the profile form, tab bars fold what does not fit into More, ever
 * Fix      - A password reset that hits the rate limit stays on the form with an error.
 * Security - Space email invites give one neutral answer and are rate limited.
 * Security - Email editor previews run in a sandboxed frame.
+* Security - Updates of BuddyNext and BuddyNext Pro are checked for Wbcom's release signature before they install; the result is logged and the update installs either way.
 * Dev      - New filter `buddynext_max_media_per_post` sets how many files a post may carry (default 4).
 * Dev      - Profile fields carry `width` and groups carry `intro` on the profile-field REST routes, the member profile response and `buddynext_register_profile_field()`.
 * Dev      - Registered profile and space tabs appear in Settings > Navigation automatically; `integration` and `description` label the row.

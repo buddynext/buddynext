@@ -48,6 +48,8 @@ Pro is a separate plugin that you install on top of the free one. It is not in t
 
 Licence checks and update checks go to `updates.wbcomdesigns.com` and fall back to `wbcomdesigns.com` on their own if that address cannot be reached. If your firewall limits outgoing requests, allow both addresses.
 
+Before an update of BuddyNext or BuddyNext Pro installs, BuddyNext checks that the package carries Wbcom's release signature. The result is recorded and the update installs either way; nothing for you to set up.
+
 > **Note:** The license key gates **updates only**. It never unlocks or locks features. Pro is fully functional after activation, and the key simply lets your site receive Pro updates. Keep it active so you get security and feature updates.
 
 ## Optional companion plugins

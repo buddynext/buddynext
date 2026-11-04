@@ -37,6 +37,7 @@ This release lets owners lay out the profile form, folds tab bars that run out o
   - Owners reach the space Admin page from the space header, and moderators can leave a space.
   - Sub-spaces cannot be featured.
   - Partner tabs such as Events and Businesses are on in every space by default, and settings for integrations you switched off are hidden.
+- **Signed updates.** Before an update of BuddyNext or BuddyNext Pro installs, the package is checked for Wbcom's release signature. The result is logged and the update installs either way.
 - **Page caching.** The first page after signing in, signing up or a two-factor step is never served from a page cache. The caching guide explains the W3 Total Cache setting that must stay on.
 - **Translations** are complete for 10 languages.
 
