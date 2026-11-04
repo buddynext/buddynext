@@ -2240,7 +2240,11 @@ class FeedService {
 		 *
 		 * @param string[] $types Post types to leave off. Default array( 'document' ).
 		 */
-		$excluded     = array_values( array_filter( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_explore_excluded_post_types', array( 'document' ) ) ) ) );
+		$excluded = (array) apply_filters( 'buddynext_explore_excluded_post_types', array( 'document' ) );
+		// A card whose partner is gone has nothing to show: it stays off the deck rather
+		// than teasing a title that opens onto "no longer available".
+		$excluded     = array_merge( $excluded, array_filter( PostService::allowed_types(), array( PostService::class, 'is_orphaned_card' ) ) );
+		$excluded     = array_values( array_filter( array_map( 'sanitize_key', $excluded ) ) );
 		$excluded_sql = '';
 		if ( $excluded ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders built from the count of sanitized keys.

@@ -58,9 +58,9 @@ $bn_mu_ctx = array(
 		'someFailed'            => __( 'Some files could not be uploaded.', 'buddynext' ),
 		'empty'                 => __( 'No media uploaded yet.', 'buddynext' ),
 		'remove'                => __( 'Remove', 'buddynext' ),
-		'confirmDelete'         => __( 'Remove this media? This cannot be undone.', 'buddynext' ),
 		'confirmDeleteTitle'    => __( 'Remove this media?', 'buddynext' ),
-		'confirmDeleteBody'     => __( 'This cannot be undone.', 'buddynext' ),
+		'confirmDeleteBody'     => __( 'It moves to the trash and no longer shows on this site. A site administrator can restore it.', 'buddynext' ),
+		'confirmDeleteInPost'   => __( 'A post with no other media is hidden too, and comes back with its text and comments if this is restored.', 'buddynext' ),
 		/* translators: %s: comma-separated list of space album names. */
 		'confirmDeleteInSpaces' => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
 		'removed'               => __( 'Media removed', 'buddynext' ),

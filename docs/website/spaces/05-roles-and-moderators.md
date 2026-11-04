@@ -59,7 +59,7 @@ Posting and invite permissions live on the space's Permissions settings panel.
 ## Good to know
 
 - **The owner's role cannot be changed by a role edit.** You cannot promote or demote the owner the way you would a moderator. The only way the owner role moves is through Transfer ownership, which assigns it to one specific member and demotes the old owner in the same step.
-- **The last owner cannot leave without transferring first.** Because a space must always have an owner, the owner is blocked from leaving the space. To step away, transfer ownership to someone else first, or delete the space. Any member who is not the owner can leave at any time.
+- **The last owner cannot leave without transferring first.** Because a space must always have an owner, the owner is blocked from leaving the space. To step away, transfer ownership to someone else first, or delete the space. Any member who is not the owner, moderators included, can leave at any time.
 - **Promotion and demotion are instant and reversible.** Moving someone between member and moderator takes effect right away, and the owner can move them back just as easily.
 - **Role and posting permission are independent.** Someone's role decides what they can manage; "Who can post" decides who can post. A space can let every role post or restrict posting to moderators without changing anyone's role.
 

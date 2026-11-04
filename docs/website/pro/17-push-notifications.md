@@ -44,7 +44,7 @@ To stop push on the current browser, use **Turn off on this device** in the pane
 
 ## Setting it up (for owners)
 
-Push settings live in the BuddyNext admin under **Realtime & Push > Push**. The page opens with a short setup guide. Push also has its own switch in the Features catalogue, **Push notifications**, which is off by default. Turn it on first; a screen status line then tells you whether push is off, on but not yet configured, or on and configured.
+Push settings live in the BuddyNext admin under **Realtime & Push > Push**. The page opens with a short setup guide. Push also has its own switch in the Features catalogue, **Push notifications**, which is off by default. Turn it on first; once it is on, its Features row links here with **Open its settings**. A screen status line then tells you whether push is off, on but not yet configured, or on and configured.
 
 ### Requirements
 
@@ -90,6 +90,7 @@ The result message tells you what happened:
 ## Good to know
 
 - The Push notifications switch also covers the members' own per-type push toggles; the older separate push-preferences switch was folded into it.
+- Turning a notification type's **In-app** switch off clears only the bell. Email, push and digests for that type keep working, and a push still goes out for it.
 - Push is layered on top of your existing notifications. It does not create new notification types - it delivers the ones you already have to off-site devices.
 - Delivery respects each member's per-type push preferences. A member who muted a type will not get a push for it, even though it still appears in their in-app notifications.
 - Registered devices that have gone stale (uninstalled, permission revoked) are pruned automatically when Firebase reports them as gone, so the device list stays clean over time.

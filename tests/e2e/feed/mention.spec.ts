@@ -196,4 +196,77 @@ test.describe('feed / @mention', () => {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }
     });
+
+    /**
+     * J-995 the @ / # typeahead works in the post edit form and the reply box (card 10470038669).
+     *
+     * Both boxes are built by post-card.js only when the member clicks Edit or Reply,
+     * and the typeahead was attached to the composer and comment boxes alone, so
+     * neither ever showed a suggestion and a mistyped handle saved as plain text.
+     *
+     * Effect: the suggestion list opens, Enter (edit) and Tab (reply) write the picked
+     * handle into the box, and a # word asks the hashtag lookup. Fails on the pre-fix
+     * store.js: no list, no lookup request.
+     */
+    test('J-995 editing a post and replying to a comment both suggest @members and #hashtags', async ({ authenticatedPage: page }) => {
+        const dropdownItems = page.locator('.bn-composer__typeahead-item');
+        const otherName = (await wp(['user', 'get', process.env.BN_TEST_OTHER_USER ?? 'alice', '--field=display_name'])).trim();
+        const q = otherName.replace(/[^A-Za-z]/g, '').slice(0, 3).toLowerCase();
+        expect(q.length, `the second member (${otherName}) has a name to mention`).toBe(3);
+
+        await page.goto(urls.feed);
+        const nonce = await readRestNonce(page);
+        const stamp = Date.now().toString().slice(-6);
+        const text = `Typeahead edit check ${stamp}`;
+        const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', { content: text, privacy: 'public' });
+        const postId = created.body.id ?? 0;
+        expect(postId, 'host post created').toBeGreaterThan(0);
+
+        try {
+            const comment = await restPost<{ id?: number }>(page.request, nonce, '/comments', { object_type: 'post', object_id: postId, content: `Reply target ${stamp}` });
+            expect(comment.body.id ?? 0, 'comment to reply to created').toBeGreaterThan(0);
+
+            await page.goto(urls.feed);
+            const card = page.locator(sel.postCard).filter({ hasText: text }).first();
+            await expect(card).toBeVisible({ timeout: 10_000 });
+
+            // Edit form.
+            const kebab = card.locator('.bn-post-card__menu');
+            await kebab.click();
+            await expect(kebab).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
+            await card.locator('.bn-post-card__options-menu .bn-post-card__menu-item').filter({ hasText: /Edit/ }).first().click();
+            const edit = card.locator('.bn-post-card__edit-input');
+            await expect(edit).toBeVisible();
+            await edit.click();
+            await edit.press('End');
+            await edit.pressSequentially(` @${q}`, { delay: 60 });
+            await expect(dropdownItems.first(), 'edit box shows member suggestions').toBeVisible({ timeout: 5_000 });
+            await edit.press('Enter');
+            await expect(edit).toHaveValue(new RegExp(`^${text} @\\S+ $`));
+            await expect(dropdownItems).toHaveCount(0);
+
+            const hashLookup = page.waitForRequest(/hashtags\/autocomplete\?q=de/, { timeout: 5_000 });
+            await edit.pressSequentially('#de', { delay: 60 });
+            await hashLookup;
+            await edit.press('Escape');
+            await expect(dropdownItems).toHaveCount(0);
+            await expect(edit, 'Escape closes the list, not the edit').toBeVisible();
+
+            // Reply box, fresh page so the edit is abandoned unsaved.
+            await page.goto(urls.feed);
+            const host = page.locator(sel.postCard).filter({ hasText: text }).first();
+            await host.locator(sel.postComment).first().click();
+            const target = host.locator('.bn-comment-card').filter({ hasText: `Reply target ${stamp}` }).first();
+            await expect(target).toBeVisible({ timeout: 8_000 });
+            await target.locator('button').filter({ hasText: /Reply/ }).first().click();
+            const reply = target.locator('.bn-comment__reply-input');
+            await expect(reply).toBeVisible();
+            await reply.pressSequentially(`@${q}`, { delay: 60 });
+            await expect(dropdownItems.first(), 'reply box shows member suggestions').toBeVisible({ timeout: 5_000 });
+            await reply.press('Tab');
+            await expect(reply).toHaveValue(/^@\S+ $/);
+        } finally {
+            await deletePostRest(page.request, nonce, postId).catch(() => {});
+        }
+    });
 });

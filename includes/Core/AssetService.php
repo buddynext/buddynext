@@ -1016,42 +1016,42 @@ class AssetService {
 					'ariaFollow'              => __( 'Follow this member', 'buddynext' ),
 					'ariaUnfollow'            => __( 'Unfollow this member', 'buddynext' ),
 					'ariaCancelRequest'       => __( 'Cancel follow request', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastUnfollowed'         => __( 'Unfollowed @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestCancelled'   => __( 'Follow request to @%s cancelled', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestSent'        => __( 'Follow request sent to @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastNowFollowing'       => __( 'Now following @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotUnfollow'   => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotFollow'     => __( 'Could not follow @%s. Try again.', 'buddynext' ),
 					// Follow-request inbox.
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCanFollowYou'       => __( '@%s can now follow you', 'buddynext' ),
 					'toastApproveFailed'      => __( 'Could not approve request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestDeclined'    => __( 'Request from @%s declined', 'buddynext' ),
 					'toastDeclineFailed'      => __( 'Could not decline request. Try again.', 'buddynext' ),
 					// Connection button labels.
 					'connect'                 => __( 'Connect', 'buddynext' ),
 					'connected'               => __( 'Connected', 'buddynext' ),
 					'respond'                 => __( 'Respond', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'noteBody'                => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastConnectionSent'     => __( 'Connection request sent to @%s', 'buddynext' ),
 					'toastCouldNotConnect'    => __( 'Could not send connection request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestWithdrawn'   => __( 'Request to @%s withdrawn', 'buddynext' ),
 					'toastCouldNotWithdraw'   => __( 'Could not withdraw request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastConnectedWith'      => __( 'Connected with @%s', 'buddynext' ),
 					'toastCouldNotAccept'     => __( 'Could not accept request. Try again.', 'buddynext' ),
 					'toastCouldNotDecline'    => __( 'Could not decline request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastDisconnected'       => __( 'Disconnected from @%s', 'buddynext' ),
 					'toastCouldNotDisconnect' => __( 'Could not disconnect. Try again.', 'buddynext' ),
 				),
@@ -1066,6 +1066,34 @@ class AssetService {
 	 * @return void
 	 */
 	private function i18n_feed(): void {
+		// Per-viewer values every post card needs. They used to ride in each card's
+		// data-wp-context (a 20-card feed hydrated the same nonce, user id and REST
+		// base 20 times); one state entry serves every card, including cards in
+		// blocks on non-community pages.
+		$viewer_id = get_current_user_id();
+		// The follow and connection buttons share one store file and the same two
+		// per-viewer values; one entry serves every button on the page.
+		wp_interactivity_state(
+			'buddynext/follow-button',
+			array(
+				'restNonce' => $viewer_id > 0 ? wp_create_nonce( 'wp_rest' ) : '',
+				'restUrl'   => rest_url( 'buddynext/v1' ),
+			)
+		);
+
+		wp_interactivity_state(
+			'buddynext/post-card',
+			array(
+				'viewerId'          => $viewer_id,
+				'restNonce'         => $viewer_id > 0 ? wp_create_nonce( 'wp_rest' ) : '',
+				'restUrl'           => rest_url( 'buddynext/v1' ),
+				'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $viewer_id ),
+				'mediaMaxMB'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( $viewer_id ),
+				'mediaMaxCount'     => \BuddyNext\Feed\PostService::max_media_per_post(),
+				'reactDefaultLabel' => __( 'React', 'buddynext' ),
+			)
+		);
+
 		wp_interactivity_state(
 			'buddynext/feed',
 			array(
@@ -1240,6 +1268,8 @@ class AssetService {
 					'post'                      => __( 'Post', 'buddynext' ),
 					'posting'                   => __( 'Posting…', 'buddynext' ),
 					'postPublished'             => __( 'Post published', 'buddynext' ),
+					'postedToStory'             => __( 'Posted and added to your story.', 'buddynext' ),
+					'storyAddFailed'            => __( 'Your post is up. It could not be added to your story.', 'buddynext' ),
 					'postScheduled'             => __( 'Post scheduled', 'buddynext' ),
 					'postSubmittedForReview'    => __( 'Your post was submitted for review.', 'buddynext' ),
 					'postPublishFailed'         => __( 'Could not publish your post. Try again.', 'buddynext' ),
@@ -1249,6 +1279,8 @@ class AssetService {
 					'resendVerification'        => __( 'Resend verification email', 'buddynext' ),
 					'reviewAccountStatus'       => __( 'Review your account status', 'buddynext' ),
 					'pollMinOptions'            => __( 'Add at least two poll options.', 'buddynext' ),
+					'pollEndPast'               => __( 'Pick a poll end time in the future.', 'buddynext' ),
+					'pollEndBeforePublish'      => __( 'The poll would end before the post is published. Pick a later end time or an earlier publish time.', 'buddynext' ),
 					'savingDraft'               => __( 'Saving draft…', 'buddynext' ),
 					'draftSaved'                => __( 'Draft saved', 'buddynext' ),
 					'draftRestored'             => __( 'Draft restored', 'buddynext' ),
@@ -1273,7 +1305,6 @@ class AssetService {
 					/* translators: 1: file name, 2: HTTP status code */
 					'uploadFailedError'         => __( 'Could not upload %1$s (error %2$d).', 'buddynext' ),
 					'joined'                    => __( 'Joined', 'buddynext' ),
-					'feedEnd'                   => __( "You've reached the end.", 'buddynext' ),
 					'oneNewPost'                => __( '1 new post: click to show', 'buddynext' ),
 					/* translators: %d: number of new posts */
 					'manyNewPosts'              => __( '%d new posts: click to show', 'buddynext' ),
@@ -1287,7 +1318,8 @@ class AssetService {
 					// so they always rendered the English JS fallback regardless of locale.
 					'reported'                  => __( 'Reported', 'buddynext' ),
 					'reportAlready'             => __( 'You already reported this.', 'buddynext' ),
-					'viewMoreComments'          => __( 'View more comments', 'buddynext' ),
+					/* translators: %d: number of comments not shown yet. */
+					'viewMoreCommentsCount'     => __( 'View more comments (%d)', 'buddynext' ),
 					'loadingComments'           => __( 'Loading…', 'buddynext' ),
 					'oneVote'                   => __( '1 vote', 'buddynext' ),
 					/* translators: 1: poll option text, 2: percentage of votes. */
@@ -1330,6 +1362,11 @@ class AssetService {
 					'connect'                       => __( 'Connect', 'buddynext' ),
 					'connected'                     => __( 'Connected', 'buddynext' ),
 					'requested'                     => __( 'Requested', 'buddynext' ),
+					'ariaCancelRequest'             => __( 'Cancel follow request', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastRequestSent'              => __( 'Follow request sent to @%s', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastRequestCancelled'         => __( 'Follow request to @%s cancelled', 'buddynext' ),
 					'accept'                        => __( 'Accept', 'buddynext' ),
 					'decline'                       => __( 'Decline', 'buddynext' ),
 					'editProfile'                   => __( 'Edit profile', 'buddynext' ),
@@ -1339,6 +1376,8 @@ class AssetService {
 					'unmute'                        => __( 'Unmute', 'buddynext' ),
 					'block'                         => __( 'Block', 'buddynext' ),
 					'report'                        => __( 'Report', 'buddynext' ),
+					'reported'                      => __( 'Reported', 'buddynext' ),
+					'youReportedMember'             => __( 'You reported this member', 'buddynext' ),
 					'ariaMoreActions'               => __( 'More actions', 'buddynext' ),
 					'degreeFirst'                   => __( '1st', 'buddynext' ),
 					'degreeSecond'                  => __( '2nd', 'buddynext' ),
@@ -1347,36 +1386,36 @@ class AssetService {
 					'mutualConnectionPlural'        => __( '%d mutual connections', 'buddynext' ),
 					'pagerNext'                     => __( 'Next »', 'buddynext' ),
 					'memberFallback'                => __( 'member', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastUnfollowed'               => __( 'Unfollowed @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastNowFollowing'             => __( 'Now following @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotUnfollow'         => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotFollow'           => __( 'Could not follow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'noteBody'                      => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastConnectionSent'           => __( 'Connection request sent to @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotSendRequest'      => __( 'Could not send request to @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestWithdrawn'         => __( 'Request to @%s withdrawn', 'buddynext' ),
 					'toastCouldNotWithdraw'         => __( 'Could not withdraw request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastDisconnected'             => __( 'Disconnected from @%s', 'buddynext' ),
 					'toastCouldNotDisconnect'       => __( 'Could not disconnect. Try again.', 'buddynext' ),
 					'toastCouldNotUpdateConnection' => __( 'Could not update connection. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastConnectedWith'            => __( 'Connected with @%s', 'buddynext' ),
 					'toastCouldNotAccept'           => __( 'Could not accept request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestDeclined'          => __( 'Request from @%s declined', 'buddynext' ),
 					'toastCouldNotDecline'          => __( 'Could not decline request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastMuted'                    => __( 'Muted @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastUnmuted'                  => __( 'Unmuted @%s', 'buddynext' ),
 					'toastCouldNotUpdateMute'       => __( 'Could not update mute state. Try again.', 'buddynext' ),
 					/* translators: %s: member display name. */
@@ -1451,7 +1490,16 @@ class AssetService {
 					'couldNotAcceptInvite'            => __( 'Could not accept the invitation.', 'buddynext' ),
 					'invitationDeclined'              => __( 'Invitation declined.', 'buddynext' ),
 					'couldNotDeclineInvite'           => __( 'Could not decline the invitation.', 'buddynext' ),
+					'leftSpace'                       => __( 'You left this space.', 'buddynext' ),
+					'couldNotLeave'                   => __( 'Could not leave this space. Try again.', 'buddynext' ),
+					'joinRequestCancelled'            => __( 'Join request cancelled.', 'buddynext' ),
+					'couldNotCancelRequest'           => __( 'Could not cancel your request. Try again.', 'buddynext' ),
+					'couldNotPost'                    => __( 'Could not post. Try again.', 'buddynext' ),
+					'couldNotShare'                   => __( 'Could not share this post. Try again.', 'buddynext' ),
+					'couldNotReact'                   => __( 'Could not update your reaction. Try again.', 'buddynext' ),
 					'requestApproved'                 => __( 'Request approved.', 'buddynext' ),
+					/* translators: %s: number of join requests still waiting. */
+					'pendingAwaiting'                 => __( '%s awaiting approval', 'buddynext' ),
 					'requestDeclined'                 => __( 'Request declined.', 'buddynext' ),
 					'couldNotApproveRequest'          => __( 'Could not approve the request.', 'buddynext' ),
 					'couldNotDeclineRequest'          => __( 'Could not decline the request.', 'buddynext' ),
@@ -1642,7 +1690,12 @@ class AssetService {
 					'unblockSuccess'            => __( '%s unblocked', 'buddynext' ),
 					/* translators: %s: member display name. */
 					'unblockFailed'             => __( 'Could not unblock %s. Try again.', 'buddynext' ),
-					'reportConversationTitle'   => __( 'Report this conversation', 'buddynext' ),
+					'reportConversationTitle'   => __( 'Report this member', 'buddynext' ),
+					'sendAlreadySent'           => __( 'Already sent.', 'buddynext' ),
+					'conversationMuted'         => __( 'Conversation muted', 'buddynext' ),
+					'conversationUnmuted'       => __( 'Conversation unmuted', 'buddynext' ),
+					'conversationMuteFailed'    => __( 'Could not update this conversation. Try again.', 'buddynext' ),
+					'reactionFailed'            => __( 'Could not save your reaction. Try again.', 'buddynext' ),
 					'reportConversationSuccess' => __( 'Reported. Our moderators will review it.', 'buddynext' ),
 					'reportConversationFailed'  => __( 'Could not submit the report. Try again.', 'buddynext' ),
 					// Delete + unsend message flow. Read by messages/store.js via t() but
@@ -1728,7 +1781,7 @@ class AssetService {
 					'removeFailed'          => __( 'Could not remove.', 'buddynext' ),
 					'confirmDeleteTitle'    => __( 'Remove this media?', 'buddynext' ),
 					'confirmDeleteBody'     => __( 'This cannot be undone.', 'buddynext' ),
-					/* translators: %s: comma-separated list of space album names the media also belongs to. */
+					/* translators: %s: comma-separated list of space album names. */
 					'confirmDeleteInSpaces' => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
 				),
 			)
@@ -1795,6 +1848,10 @@ class AssetService {
 					'socialUnlinkFailed'               => __( 'Could not unlink. Try again.', 'buddynext' ),
 					'memberTypeSaved'                  => __( 'Member type updated', 'buddynext' ),
 					'memberTypeFailed'                 => __( 'Could not update member type', 'buddynext' ),
+					/* translators: %s: member type name */
+					'memberTypeOnceTitle'              => __( 'Choose %s?', 'buddynext' ),
+					'memberTypeOnceBody'               => __( 'You can only pick this once. After that, only an admin can change it.', 'buddynext' ),
+					'memberTypeOnceConfirm'            => __( 'Choose', 'buddynext' ),
 					'prefSaved'                        => __( 'Preference saved', 'buddynext' ),
 					'displayNameRequired'              => __( 'Display name is required.', 'buddynext' ),
 					'invalidUrl'                       => __( 'Enter a valid URL (https://example.com).', 'buddynext' ),
@@ -1816,6 +1873,10 @@ class AssetService {
 					'connectionSent'                   => __( 'Connection request sent', 'buddynext' ),
 					'couldNotSendRequest'              => __( 'Could not send request', 'buddynext' ),
 					'requestWithdrawn'                 => __( 'Request withdrawn', 'buddynext' ),
+					'couldNotWithdrawRequest'          => __( 'Could not withdraw the request. Try again.', 'buddynext' ),
+					'couldNotAcceptRequest'            => __( 'Could not accept the request. Try again.', 'buddynext' ),
+					'couldNotDeclineRequest'           => __( 'Could not decline the request. Try again.', 'buddynext' ),
+					'couldNotDisconnect'               => __( 'Could not disconnect. Try again.', 'buddynext' ),
 					'connected'                        => __( 'Connected', 'buddynext' ),
 					'requestDeclined'                  => __( 'Request declined', 'buddynext' ),
 					'disconnected'                     => __( 'Disconnected', 'buddynext' ),
@@ -1973,6 +2034,8 @@ class AssetService {
 					'appealApproved'        => __( 'Appeal approved: suspension lifted.', 'buddynext' ),
 					'approveAppealFailed'   => __( 'Could not approve the appeal. Try again.', 'buddynext' ),
 					'denyAppealTitle'       => __( 'Deny this appeal?', 'buddynext' ),
+					'appealNotePlaceholder' => __( 'Optional note', 'buddynext' ),
+					'appealNoteLabel'       => __( 'Note for the member (optional)', 'buddynext' ),
 					'denyAppealBody'        => __( 'The suspension stays in place. The member will be notified of the decision.', 'buddynext' ),
 					'denyLabel'             => __( 'Deny', 'buddynext' ),
 					'appealDenied'          => __( 'Appeal denied', 'buddynext' ),
@@ -2027,6 +2090,8 @@ class AssetService {
 					'btnJoined'                => __( 'Joined', 'buddynext' ),
 					'btnFollow'                => __( 'Follow', 'buddynext' ),
 					'btnFollowing'             => __( 'Following', 'buddynext' ),
+					'btnRequested'             => __( 'Requested', 'buddynext' ),
+					'toastRequested'           => __( 'Follow request sent.', 'buddynext' ),
 					'toastSkipped'             => __( 'Skipped. You can fill in your profile any time.', 'buddynext' ),
 					'toastJoinedSpace'         => __( 'Joined the space.', 'buddynext' ),
 					'toastLeftSpace'           => __( 'Left the space.', 'buddynext' ),
@@ -2186,6 +2251,17 @@ class AssetService {
 					'searchSaved'           => __( 'Search saved.', 'buddynext' ),
 					'searchSaveProRequired' => __( 'Saving searches is not available right now.', 'buddynext' ),
 					'searchSaveFailed'      => __( 'Could not save this search. Try again.', 'buddynext' ),
+					'searchDeleteFailed'    => __( 'Could not delete this saved search. Try again.', 'buddynext' ),
+					'followFailed'          => __( 'Could not update this follow. Try again.', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastNowFollowing'     => __( 'Now following @%s', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastUnfollowed'       => __( 'Unfollowed @%s', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastRequestSent'      => __( 'Follow request sent to @%s', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastRequestCancelled' => __( 'Follow request to @%s cancelled', 'buddynext' ),
+					'membershipFailed'      => __( 'Could not update your membership. Try again.', 'buddynext' ),
 					'recentSearchesLabel'   => __( 'Recent searches', 'buddynext' ),
 					'recentSearchesTitle'   => __( 'Recent:', 'buddynext' ),
 					'clear'                 => __( 'Clear', 'buddynext' ),
@@ -2308,7 +2384,7 @@ class AssetService {
 					'codeSentTo'         => __( 'Code sent to %s', 'buddynext' ),
 					'codeSentCheckEmail' => __( 'Code sent: check your email', 'buddynext' ),
 					'enterEmailPassword' => __( 'Enter your email and password to sign in.', 'buddynext' ),
-					'invalidCredentials' => __( 'Invalid email or password.', 'buddynext' ),
+					'invalidCredentials' => __( 'That email, username or password is not right.', 'buddynext' ),
 					'signedIn'           => __( 'Signed in.', 'buddynext' ),
 					'genericError'       => __( 'Something went wrong. Try again.', 'buddynext' ),
 					'twofaIncorrect'     => __( 'That code was not correct.', 'buddynext' ),

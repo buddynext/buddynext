@@ -125,7 +125,7 @@ Member-type (editorial label) registry - the directory's "Contributor / Staff / 
 | `icon_svg` | MEDIUMTEXT DEFAULT NULL | Optional inline SVG for the badge. |
 | `sort_order` | SMALLINT NOT NULL DEFAULT 0 | Directory/filter ordering. |
 | `show_in_dir` | TINYINT(1) NOT NULL DEFAULT 1 | Whether the type appears as a directory filter. |
-| `self_select` | TINYINT(1) NOT NULL DEFAULT 0 | Whether members may assign this type to themselves. |
+| `self_select` | TINYINT(1) NOT NULL DEFAULT 0 | Who may give a member this type: `0` site team only, `1` the member (changeable any time), `2` the member once, then only the site team. REST exposes it as `self_select` (true for 1 or 2) and `pick_once` (true for 2). |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | When the type was created. |
 
 Indexes:
@@ -171,6 +171,7 @@ Top-level grouping for profile fields (for example "Basic Info", "Work Experienc
 | `is_system` | TINYINT(1) NOT NULL DEFAULT 0 | `1` for the built-in seeded groups. |
 | `sort_order` | INT NOT NULL DEFAULT 0 | Display ordering. |
 | `type_restriction` | VARCHAR(100) DEFAULT NULL | Optional member-type slug limiting which members see/fill the group. |
+| `intro` | TEXT DEFAULT NULL | Optional owner text shown above the group's fields on the profile edit and sign-up forms. |
 
 Indexes:
 
@@ -194,6 +195,7 @@ Individual fields within a group. Each field has a data type, optional select op
 | `options` | JSON DEFAULT NULL | Choices for select-style fields. |
 | `description` | VARCHAR(255) DEFAULT NULL | Optional help/description text shown under the field. |
 | `placeholder` | VARCHAR(255) DEFAULT NULL | Optional placeholder text for the input. |
+| `width` | VARCHAR(8) NOT NULL DEFAULT 'auto' | Width on the profile edit and sign-up forms: `auto` (the layout the field type has always had), `half` or `full`. |
 | `is_required` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field must be filled. |
 | `is_searchable` | TINYINT(1) NOT NULL DEFAULT 0 | Whether values are added to the member search index (the directory's search box and global search). It does not create a directory filter. Shown to owners as "Include in search". |
 | `show_on_register` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field appears on the registration form. |
@@ -255,9 +257,12 @@ Follower, following, and connection totals are **denormalized into `wp_usermeta`
 
 A member is mirrored into the unified `bn_search_index` table (one row per object, `object_type = 'user'`) by `ProfileService::index_user( int $user_id )`. The indexed `content` is the member's `display_name` (as the title) plus the concatenation of:
 
-- the headline (`bn_headline` usermeta),
-- the bio (`bn_field_bio` usermeta), and
+- the headline and the bio, when their visibility is `public`, and
 - the public, searchable extended-profile field mirrors returned by `MemberDirectoryService::searchable_mirror_keys()`.
+
+A headline or bio visible to `members` goes to `content_members`, which only logged-in searches read. Anything tighter is not indexed, and a member whose `profile_visibility` is not `public` keeps only their name in the index.
+
+To show a headline or bio on a member list, read `ProfileService::card_identity_for( int $viewer_id, array $user_ids )`. It is batched and returns only what that viewer may read, so never read `bn_headline` or `bn_profile_values` directly for a list.
 
 Member-directory and global search then match against this row through the shared FULLTEXT primitive `SearchService::match_member_ids( string $term, int $limit = 500 )`, which uses the `ft_search` FULLTEXT index when present and falls back to `LIKE` otherwise, returning the matching `object_id` (user) list. Reuse `match_member_ids()` rather than writing your own query when you need a "members matching this term" id set.
 
@@ -279,7 +284,7 @@ so addons that store their own per-user rows can clean up in the same pass. The 
 buddynext_register_member_field( string $key, array $args = [] );
 ```
 
-It is the member-side companion to `buddynext_register_space_field()` and shares its `( $key, $args )` shape. The field surfaces on the profile, the profile edit UI, and `GET /users/{id}/profile`, and - because a programmatic field has no `bn_profile_fields` row - its submitted value is stored to **`bn_field_{key}` usermeta** (not `bn_profile_values`). The `$args['type']` must be one of the Free field types; the "File upload" (`file`) type is **Pro-only** and is not registered in Free. See the Extending cookbook for a worked recipe.
+It is the member-side companion to `buddynext_register_space_field()` and shares its `( $key, $args )` shape. The field surfaces on the profile, the profile edit UI, and `GET /users/{id}/profile`, and - because a programmatic field has no `bn_profile_fields` row - its submitted value is stored to **`bn_field_{key}` usermeta** (not `bn_profile_values`). The `$args['type']` must be one of the Free field types; an optional `$args['width']` (`auto` by default, `half` or `full`) sets the field's width on the edit and sign-up forms; the "File upload" (`file`) type is **Pro-only** and is not registered in Free. See the Extending cookbook for a worked recipe.
 
 ## Notes / gotchas
 

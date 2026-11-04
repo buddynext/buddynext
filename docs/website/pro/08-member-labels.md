@@ -24,7 +24,7 @@ Members do not create or request labels. When you assign a label to a member, it
 - **On their profile.** The label renders as a colored chip in the profile header, next to the member's name and other badges.
 - **On their post bylines.** The same chip appears next to the member's name on the posts they write in the feed, so readers see the badge in context.
 
-The chips also show on comment bylines, member cards, the member directory, and member search results. Labels also travel into connected apps, so a member's badges show there too. A member with several labels shows all of them, in the order you set.
+The chips also show on comment bylines, member cards, the member directory, and member search results. Labels also travel into connected apps, so a member's badges show there too. In the REST profile payload each label carries its `name`, `color`, `icon`, a ready `text_color` (the readable text colour for the chip) and `icon_svg` (the icon markup, empty when the icon slug is not a real icon), so a client can draw the same chip. On the members directory the labels stay on the card after a search, filter, sort or page change. A member with several labels shows all of them, in the order you set.
 
 ## Setting it up (for owners)
 

@@ -34,14 +34,6 @@ class VerificationService {
 
 		$token = bin2hex( random_bytes( 32 ) );
 
-		// Stamp the moment this account first entered "awaiting verification" (kept
-		// across resends). Only accounts carrying this marker are eligible for the
-		// stale-unverified cron purge, so members who registered BEFORE verification
-		// was switched on — and never received a token — are never at risk.
-		if ( '' === (string) get_user_meta( $user_id, 'buddynext_verify_pending', true ) ) {
-			update_user_meta( $user_id, 'buddynext_verify_pending', time() );
-		}
-
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_verify_tokens',
@@ -149,7 +141,7 @@ class VerificationService {
 	public function mark_verified( int $user_id ): void {
 		update_user_meta( $user_id, 'buddynext_email_verified', 1 );
 		// Cleared so the account is no longer a purge candidate.
-		delete_user_meta( $user_id, 'buddynext_verify_pending' );
+		delete_user_meta( $user_id, 'buddynext_signup_awaiting_verify' );
 
 		/**
 		 * Fires after a user's email address becomes verified.
@@ -198,8 +190,8 @@ class VerificationService {
 	/**
 	 * Check whether a user's email address is verified.
 	 *
-	 * Returns true immediately when the buddynext_email_verify setting is
-	 * disabled, treating all users as verified in that mode.
+	 * Returns true immediately when verification is not required (is_required()),
+	 * treating all users as verified in that mode.
 	 *
 	 * This is the ACCESS question. For "should this member be shown as verified",
 	 * use `has_verified_badge()` — see the note there for why they differ.
@@ -213,7 +205,7 @@ class VerificationService {
 	 * @return bool
 	 */
 	public function is_verified( int $user_id ): bool {
-		if ( ! (bool) get_option( 'buddynext_email_verify', false ) ) {
+		if ( ! self::is_required() ) {
 			return true;
 		}
 
@@ -249,6 +241,19 @@ class VerificationService {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Whether this site requires new members to verify their email address.
+	 *
+	 * The one answer every reader asks: the Email Verification feature is the master
+	 * switch, and the "Require email verification" setting stays stored while it is
+	 * off, so reading the setting alone sent members to an inbox nothing was mailed to.
+	 *
+	 * @return bool
+	 */
+	public static function is_required(): bool {
+		return buddynext_feature_enabled( 'verification' ) && (bool) get_option( 'buddynext_email_verify', false );
 	}
 
 	/**

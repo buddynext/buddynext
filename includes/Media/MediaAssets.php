@@ -125,6 +125,15 @@ class MediaAssets {
 					'unlinkAction'     => __( 'Remove', 'buddynext' ),
 					'unlinkDone'       => __( 'Removed from the space', 'buddynext' ),
 					'unlinkFail'       => __( 'Could not remove it from the space. Try again.', 'buddynext' ),
+					// Owner Delete in the More menu.
+					'deleteConfirm'    => __( 'Delete this media?', 'buddynext' ),
+					'deleteBody'       => __( 'It moves to the trash and no longer shows on this site. A site administrator can restore it.', 'buddynext' ),
+					'deleteInPost'     => __( 'A post with no other media is hidden too, and comes back with its text and comments if this is restored.', 'buddynext' ),
+					/* translators: %s: comma-separated space album titles. */
+					'deleteInSpaces'   => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
+					'deleteAction'     => __( 'Delete', 'buddynext' ),
+					'deleteDone'       => __( 'Media deleted', 'buddynext' ),
+					'deleteFail'       => __( 'Could not delete this media. Try again.', 'buddynext' ),
 				),
 			)
 		);

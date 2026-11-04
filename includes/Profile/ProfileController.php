@@ -232,6 +232,13 @@ class ProfileController extends BaseRestController {
 				'type'              => 'string',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
+			// Width on the edit and sign-up forms. 'auto' keeps the by-type layout.
+			'width'            => array(
+				'required'    => false,
+				'type'        => 'string',
+				'enum'        => FieldType::WIDTHS,
+				'description' => 'Width on the edit and sign-up forms: auto (by field type), half or full row.',
+			),
 			'is_required'      => array(
 				'required' => false,
 				'type'     => 'boolean',
@@ -628,6 +635,12 @@ class ProfileController extends BaseRestController {
 							'default'           => 0,
 							'sanitize_callback' => 'absint',
 						),
+						'intro'      => array(
+							'required'          => false,
+							'type'              => 'string',
+							'description'       => 'Optional text shown above the group\'s fields on the edit and sign-up forms.',
+							'sanitize_callback' => 'sanitize_textarea_field',
+						),
 					),
 				),
 			)
@@ -660,6 +673,12 @@ class ProfileController extends BaseRestController {
 							'required'          => false,
 							'type'              => 'integer',
 							'sanitize_callback' => 'absint',
+						),
+						'intro'      => array(
+							'required'          => false,
+							'type'              => 'string',
+							'description'       => 'Optional text shown above the group\'s fields on the edit and sign-up forms.',
+							'sanitize_callback' => 'sanitize_textarea_field',
 						),
 					),
 				),
@@ -858,6 +877,17 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * Whether DELETE /me/account refuses this member outright. The settings row asks
+	 * the same question, so it never offers what the route will refuse.
+	 *
+	 * @param int $user_id Member.
+	 * @return bool
+	 */
+	public static function is_self_delete_refused( int $user_id ): bool {
+		return user_can( $user_id, 'manage_options' );
+	}
+
+	/**
 	 * DELETE /me/account — let a member delete their own account.
 	 *
 	 * Gated by the Privacy → "Allow account deletion" setting. Scrubs the member's
@@ -889,7 +919,7 @@ class ProfileController extends BaseRestController {
 		}
 
 		// Never let an administrator self-delete through this member-facing route.
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		if ( self::is_self_delete_refused( $user_id ) ) {
 			return new WP_Error(
 				'admin_cannot_self_delete',
 				__( 'Administrators cannot delete their own account here.', 'buddynext' ),
@@ -1086,10 +1116,9 @@ class ProfileController extends BaseRestController {
 			$profile['can_follow'] = false;
 		}
 		if ( ! isset( $profile['bio'] ) ) {
-			// The bio lives in bn_profile_values; the bn_field_bio usermeta is written by nothing
-			// (see ProfileService::bios_for). Reading it here handed the app an empty bio for
-			// every member - and BuddyNext is REST-first, so the app renders from exactly this.
-			$profile['bio'] = buddynext_service( 'profiles' )->bio_for( $profile_user_id );
+			// BuddyNext is REST-first, so the app renders from exactly this: it has to be the
+			// real bio, and only when the member's Bio visibility lets this viewer read it.
+			$profile['bio'] = $service->card_identity_for( $viewer_id, array( $profile_user_id ) )[ $profile_user_id ]['bio'] ?? '';
 		}
 
 		// Member type — a member's identity (Staff, Contributor, …) belongs on the
@@ -1342,42 +1371,6 @@ class ProfileController extends BaseRestController {
 			buddynext_service( 'follows' )->approve_pending_requests( $user_id );
 		}
 
-		// Cap long-form PLAIN-TEXT fields at sensible lengths before they hit the
-		// service. These caps only make sense for text/textarea: they truncate the
-		// raw string, which corrupts a STRUCTURED value. The built-in `location`
-		// key stores JSON once its field type is switched to the Pro Map type
-		// ("location"); a blind mb_substr( ..., 120 ) sliced that JSON mid-string,
-		// json_decode() then failed, and the whole profile save was rejected with
-		// "Location value is not valid JSON." Advanced/structured field types own
-		// their own length rules in the sanitise/validate layer, so resolve each
-		// capped field's current type and skip the cap for anything but plain text.
-		$caps = array(
-			'bio'      => 1000,
-			'headline' => 160,
-			'location' => 120,
-			'pronouns' => 40,
-		);
-
-		$bn_field_types = array();
-		foreach ( $service->get_flat_fields() as $bn_flat_field ) {
-			$bn_field_types[ (string) ( $bn_flat_field['field_key'] ?? '' ) ] = (string) ( $bn_flat_field['type'] ?? 'text' );
-		}
-
-		foreach ( $caps as $field_key => $max ) {
-			if ( ! isset( $data[ $field_key ] ) || ! is_string( $data[ $field_key ] ) ) {
-				continue;
-			}
-
-			// A built-in field re-typed to a structured type (Location -> Map, etc.)
-			// stores a non-plain-text payload the cap would corrupt.
-			$bn_field_type = $bn_field_types[ $field_key ] ?? 'text';
-			if ( ! in_array( $bn_field_type, array( 'text', 'textarea' ), true ) ) {
-				continue;
-			}
-
-			$data[ $field_key ] = mb_substr( $data[ $field_key ], 0, $max );
-		}
-
 		// Normalise every URL-type field — accept input without a protocol by
 		// prefixing https. Keyed on field TYPE, not a hardcoded key list, so an
 		// owner-created url field is normalised exactly like the seeded website /
@@ -1575,6 +1568,12 @@ class ProfileController extends BaseRestController {
 		// bare `continue` and still returned 200 {"saved":true}.
 		$profiles    = function_exists( 'buddynext_service' ) ? buddynext_service( 'profiles' ) : null;
 		$flat_fields = ( $profiles instanceof \BuddyNext\Profile\ProfileService ) ? $profiles->get_flat_fields() : array();
+
+		// Refused here as well as in save_profile() because this route writes the
+		// display name and privacy keys before it reaches save_profile().
+		if ( $profiles instanceof \BuddyNext\Profile\ProfileService ) {
+			$errors += $profiles->text_cap_errors( $target_user_id, $data );
+		}
 
 		foreach ( $flat_fields as $field_def ) {
 			$fkey = (string) ( $field_def['field_key'] ?? '' );
@@ -2082,6 +2081,11 @@ class ProfileController extends BaseRestController {
 			$data['sort_order'] = absint( $sort_order );
 		}
 
+		$intro = $request->get_param( 'intro' );
+		if ( null !== $intro ) {
+			$data['intro'] = sanitize_textarea_field( (string) $intro );
+		}
+
 		buddynext_service( 'profiles' )->update_group( $id, $data );
 
 		return new WP_REST_Response( array( 'updated' => true ), 200 );
@@ -2162,6 +2166,11 @@ class ProfileController extends BaseRestController {
 		$visibility = $request->get_param( 'visibility' );
 		if ( null !== $visibility ) {
 			$data['visibility'] = sanitize_key( (string) $visibility );
+		}
+
+		$width = $request->get_param( 'width' );
+		if ( null !== $width ) {
+			$data['width'] = FieldType::sanitize_width( $width );
 		}
 
 		if ( null !== $request->get_param( 'options' ) ) {

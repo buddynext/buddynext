@@ -116,11 +116,9 @@ if ( $bn_render_sections ) {
 	$bn_spaces          = array_merge( $bn_managed_spaces, $bn_joined_spaces );
 	$total_spaces       = $bn_managed_total + $bn_joined_total;
 } elseif ( '' !== $bn_search ) {
-	// search() applies the same secret-space visibility predicate; it has no
-	// paginated-total variant (the REST route returns search rows unpaginated
-	// too), so the subtitle/pager reflect the returned batch.
-	$bn_spaces    = $bn_space_service->search( $bn_search, $bn_query_args );
-	$total_spaces = count( $bn_spaces );
+	$bn_listing   = $bn_space_service->search_with_total( $bn_search, $bn_query_args );
+	$bn_spaces    = $bn_listing['items'];
+	$total_spaces = (int) $bn_listing['total'];
 } else {
 	// Featured spaces pin to the top of page 1 of the plain, unfiltered "All
 	// Spaces" view — the one thing every new member actually lands on,
@@ -183,11 +181,10 @@ if ( ! empty( $bn_count_ids ) ) {
 	);
 }
 
-// Categories list for the create-space modal (expects objects with ->id/->name)
-// and the filter-chip row. colour / text_color / icon_svg travel too: the chip
-// row renders the category's own colour + icon, and dropping them here was why
-// the frontend chips showed a plain grey pill while the admin showed the styled
-// one. The create-space modal simply ignores the extra fields.
+// The filter-chip row (the create-space form reads category_choices() below).
+// colour / text_color / icon_svg travel too: the chip row renders the
+// category's own colour + icon, and dropping them here was why the frontend
+// chips showed a plain grey pill while the admin showed the styled one.
 $categories = array_map(
 	static fn( $c ) => (object) array(
 		'id'         => (int) $c['id'],
@@ -197,7 +194,7 @@ $categories = array_map(
 		'text_color' => (string) ( $c['text_color'] ?? '' ),
 		'icon_svg'   => (string) ( $c['icon_svg'] ?? '' ),
 	),
-	$bn_categories
+	$bn_space_service->directory_categories()
 );
 
 // ── Per-space tone palette (deterministic by id) ──────────────────────────────
@@ -247,10 +244,13 @@ if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ) ) {
 	);
 }
 
-/* translators: %s: total number of spaces. */
+// Same two wordings and the same test as updateDirectorySubtitle() in the store.
 $bn_subtitle = sprintf(
-	/* translators: %s: total number of spaces. */
-	_n( '%s space available', '%s spaces available', $total_spaces, 'buddynext' ),
+	( '' !== $bn_search || '' !== $bn_cat_slug || $bn_is_mine )
+		/* translators: %s: number of spaces matching the filters. */
+		? _n( '%s result', '%s results', $total_spaces, 'buddynext' )
+		/* translators: %s: total number of spaces. */
+		: _n( '%s space available', '%s spaces available', $total_spaces, 'buddynext' ),
 	number_format_i18n( $total_spaces )
 );
 ?>
@@ -423,7 +423,7 @@ $bn_subtitle = sprintf(
 			</ul>
 		</div>
 
-		<?php // Opt-in toggle: include sub-spaces in the flat list (All view only — My Spaces + search already show them). SSR link so it works without JS. ?>
+		<?php // Opt-in toggle: include sub-spaces in the flat list and in a search (All view only — My Spaces already shows them). SSR link so it works without JS. ?>
 		<?php if ( ! $bn_is_mine ) : ?>
 			<a
 				class="bn-btn bn-sd-subspaces-toggle"
@@ -465,7 +465,7 @@ $bn_subtitle = sprintf(
 							<span class="bn-sd-featured-strip__name"><?php echo esc_html( (string) ( $bn_sd_fs['name'] ?? '' ) ); ?></span>
 							<span class="bn-sd-featured-strip__count">
 								<?php
-								/* translators: %d: member count. */
+								/* translators: %d: number of members. */
 								echo esc_html( sprintf( _n( '%d member', '%d members', $bn_sd_fs_count, 'buddynext' ), $bn_sd_fs_count ) );
 								?>
 							</span>
@@ -580,8 +580,7 @@ $bn_subtitle = sprintf(
 		// "My Spaces" → two labelled sections (managed first), each rendered from
 		// the shared card part. Each is a separate bounded query (capped); a
 		// section over the cap links to its own paginated pretty view.
-		$bn_sd_cols      = (string) get_option( 'buddynext_spaces_dir_columns', '3' );
-		$bn_sd_cols      = in_array( $bn_sd_cols, array( '2', '3', '4' ), true ) ? $bn_sd_cols : 'auto';
+		$bn_sd_cols      = \BuddyNext\Admin\Settings::dir_columns( 'buddynext_spaces_dir_columns' );
 		$bn_sd_cols_attr = 'auto' !== $bn_sd_cols ? ' data-cols="' . esc_attr( $bn_sd_cols ) . '"' : '';
 		$bn_spaces_base  = trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() );
 		$bn_sections     = array(
@@ -703,8 +702,7 @@ $bn_subtitle = sprintf(
 		<?php
 		// Owner-configurable desktop column count (Settings > Spaces > Directory columns).
 		// 'auto' keeps the responsive auto-fill; 2/3/4 cap the desktop row via [data-cols].
-		$bn_sd_cols = (string) get_option( 'buddynext_spaces_dir_columns', '3' );
-		$bn_sd_cols = in_array( $bn_sd_cols, array( '2', '3', '4' ), true ) ? $bn_sd_cols : 'auto';
+		$bn_sd_cols = \BuddyNext\Admin\Settings::dir_columns( 'buddynext_spaces_dir_columns' );
 		?>
 		<div class="bn-sd-grid" role="list" data-bn-sd-grid<?php echo 'auto' !== $bn_sd_cols ? ' data-cols="' . esc_attr( $bn_sd_cols ) . '"' : ''; ?>>
 
@@ -773,7 +771,8 @@ $bn_subtitle = sprintf(
 		buddynext_get_template(
 			'partials/create-space-modal.php',
 			array(
-				'categories'    => $categories,
+				// Every category, hidden ones included; the chips above list only visible ones.
+				'categories'    => $bn_space_service->category_choices(),
 				'parent_spaces' => $bn_create_parent_spaces,
 			)
 		);

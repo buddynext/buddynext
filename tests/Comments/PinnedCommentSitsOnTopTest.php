@@ -272,4 +272,16 @@ class PinnedCommentSitsOnTopTest extends \WP_UnitTestCase {
 			'Guard the guard: the top-level comment must STILL offer Pin, or this passes by disabling the feature.'
 		);
 	}
+
+	public function test_unpin_only_acts_on_the_comment_that_is_pinned(): void {
+		$comments = buddynext_service( 'comments' );
+		$this->pin( $this->roots[0] );
+		$this->pin( $this->roots[2] );
+
+		$this->assertTrue( $comments->unpin( $this->roots[0], $this->moderator ), 'the replaced comment is already unpinned' );
+		$this->assertSame( $this->roots[2], (int) get_option( 'bn_pinned_comment_post_' . $this->post_id ), 'the current pin survives' );
+
+		$this->assertTrue( $comments->unpin( $this->roots[2], $this->moderator ) );
+		$this->assertFalse( get_option( 'bn_pinned_comment_post_' . $this->post_id ) );
+	}
 }

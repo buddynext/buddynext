@@ -94,6 +94,8 @@ class ReactionService {
 
 		global $wpdb;
 
+		$bn_stamp = \BuddyNext\Core\Backdate::resolve( $created_at );
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
@@ -103,7 +105,7 @@ class ReactionService {
 				sanitize_key( $object_type ),
 				$object_id,
 				$emoji,
-				\BuddyNext\Core\Backdate::resolve( $created_at )
+				$bn_stamp
 			)
 		);
 
@@ -113,7 +115,7 @@ class ReactionService {
 			$this->invalidate_cache( $object_type, $object_id, $user_id );
 
 			if ( 'post' === $object_type ) {
-				buddynext_service( 'post_service' )->increment_counter( $object_id, 'reaction_count' );
+				buddynext_service( 'post_service' )->increment_counter( $object_id, 'reaction_count', $bn_stamp );
 			}
 
 			/**
@@ -1178,5 +1180,47 @@ class ReactionService {
 		}
 
 		return $deleted;
+	}
+
+	/**
+	 * Build the per-type reaction summary for the chip strip.
+	 *
+	 * Mirrors the SSR build in templates/partials/post-card.php (top_reactions()
+	 * order + get_counts() totals) and attaches the rendered emoji markup so the
+	 * client can rebuild the .bn-post-card__reaction-summary chips after a toggle
+	 * without re-rendering the whole card. Returns [] when the target has none.
+	 *
+	 * Used by the /reactions/toggle response and by Pro's realtime count events,
+	 * so every viewer's chips are built the same way.
+	 *
+	 * @param string $object_type Engagement object type.
+	 * @param int    $object_id   Object ID.
+	 * @param int    $count       Current total reaction count.
+	 * @return array<int,array{slug:string,count:int,emoji:string}>
+	 */
+	public function summary( string $object_type, int $object_id, int $count ): array {
+		if ( $count < 1 ) {
+			return array();
+		}
+
+		$order   = $this->top_reactions( $object_type, $object_id, 3 );
+		$counts  = $this->get_counts( $object_type, $object_id );
+		$summary = array();
+
+		foreach ( $order as $slug ) {
+			$slug = sanitize_key( (string) $slug );
+			if ( '' === $slug ) {
+				continue;
+			}
+			$summary[] = array(
+				'slug'  => $slug,
+				'count' => (int) ( $counts[ $slug ] ?? 0 ),
+				'emoji' => function_exists( 'buddynext_get_emoji' )
+					? buddynext_get_emoji( $slug, 'bn-post-card__reaction-emoji', '' )
+					: '',
+			);
+		}
+
+		return $summary;
 	}
 }

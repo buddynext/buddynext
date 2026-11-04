@@ -255,6 +255,11 @@ class OnboardingController {
 		$step    = (int) $request->get_param( 'step' );
 		$data    = (array) $request->get_param( 'data' );
 
+		$too_long = $this->bio_too_long( (string) ( $data['bio'] ?? $data['description'] ?? '' ) );
+		if ( $too_long ) {
+			return $too_long;
+		}
+
 		$this->service->save_step( $user_id, $step, $data );
 
 		return new WP_REST_Response(
@@ -263,6 +268,27 @@ class OnboardingController {
 				'next_step' => $this->service->get_step( $user_id ),
 			),
 			200
+		);
+	}
+
+	/**
+	 * The field error for an over-long bio, or null when it fits.
+	 *
+	 * @param string $bio Submitted bio.
+	 * @return WP_REST_Response|null
+	 */
+	private function bio_too_long( string $bio ): ?WP_REST_Response {
+		$errors = buddynext_service( 'profiles' )->text_cap_errors( get_current_user_id(), array( 'bio' => $bio ) );
+		if ( empty( $errors ) ) {
+			return null;
+		}
+
+		return new WP_REST_Response(
+			array(
+				'saved'  => false,
+				'errors' => $errors,
+			),
+			422
 		);
 	}
 
@@ -319,6 +345,11 @@ class OnboardingController {
 				),
 				200
 			);
+		}
+
+		$too_long = $this->bio_too_long( (string) $request->get_param( 'bio' ) );
+		if ( $too_long ) {
+			return $too_long;
 		}
 
 		// Step 1 — profile (display name + bio).

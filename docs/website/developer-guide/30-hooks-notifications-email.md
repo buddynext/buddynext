@@ -10,7 +10,8 @@ Every notification fans in through one method: `NotificationService::create( arr
 
 ```
 NotificationService::create( $data )
-  1. in-app preference check  -> buddynext_notification_force_on_site (filter, escape hatch)
+  1. in-app preference check  -> buddynext_notification_force_on_site (filter, forces the bell)
+                                 buddynext_notification_delivery_wanted (filter, In-app off only)
   2. should-send gate         -> buddynext_notification_should_send   (filter, return false to drop)
   3. deferral resolution      -> buddynext_notification_send_at       (filter, schedule for later)
   4. write row (insert OR merge into an unread group row)
@@ -23,13 +24,15 @@ Key contract rules:
 
 - **One creation path, one created action.** Both the fresh-insert path and the group-merge path resolve the gate and deferral filters and then fire `buddynext_notification_created` with the same payload shape. A listener does not need to know whether a row was inserted or merged.
 - **`$data` is the payload everywhere.** The `$data` array passed to `create()` is the same array handed to `buddynext_notification_should_send`, `buddynext_notification_send_at`, and the third argument of `buddynext_notification_created`. It carries at least `recipient_id` and `type`, plus optional `sender_id`, `object_type`, `object_id`, `group_key`, and a nested `data` array.
-- **Returning 0 means nothing was sent.** If a preference suppresses the notification, the should-send gate returns false, or the write fails, `create()` returns `0` and never fires the created action. Channels (email, push) only run when a row actually exists.
+- **Channels are independent.** A member with In-app off for a type, or the master In-app channel off, still gets the email, push and digest. The row is written with `in_app = 0`, the bell, counts and list leave it out, and the created action fires with `in_app => false` in the payload, so a listener that only feeds the bell can skip it.
+- **Returning 0 means nothing was sent.** If In-app is off and no other channel wants the notification, the should-send gate returns false, or the write fails, `create()` returns `0` and never fires the created action. Channels (email, push) only run when a row actually exists.
 - **Channels are listeners, not core branches.** The email channel is `EmailDispatchListener` hooked on `buddynext_notification_created` at priority 10. Pro's push channel is a separate listener on the same action at priority 20. Adding a channel means adding a listener, not editing core.
 
 ## Notification lifecycle hooks
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
+| `buddynext_notification_delivery_wanted` | filter | When In-app is off, deciding whether another channel still wants the notification. False writes no row | `bool $wanted, int $recipient_id, string $type, array $data` |
 | `buddynext_notification_should_send` | filter | Before any write, deciding whether to persist the notification | `bool $should, array $payload` |
 | `buddynext_notification_send_at` | filter | After the should-send gate passes, resolving deferred delivery | `?string $send_at, array $payload` |
 | `buddynext_notification_force_on_site` | filter | When checking the recipient's in-app preference, to force-send a critical type | `bool $force, int $recipient_id, string $type, array $data` |
@@ -56,7 +59,7 @@ Details:
   } );
   ```
 
-- `buddynext_media_notification_url` defaults to `''`, which falls back to the activity feed. The WPMediaVerse bridge answers with the post the media is in, or the media's own page.
+- `buddynext_media_notification_url` defaults to `''`, which falls back to the activity feed. The MediaVerse bridge answers with the post the media is in, or the media's own page.
 - WB Gamification decides which personal records reach the inbox with its own `wb_gam_personal_record_notify` filter (default: `week` and `month` records whose previous best was at least 10). A record is announced once per period (one row per member per site-calendar week or month); later records in the same period refresh that row's number without a new alert.
 
 - `buddynext_notification_visible_rows` receives the raw rows of one page (each has `recipient_id`, `type`, `object_type`, `object_id`, `sender_id` and the JSON `data`). It is for a plugin whose notifications are mirrored into the bell: that plugin owns who may see its content, so it removes its own rows the recipient should not see (a banned author, trashed content). Return every other row untouched. It filters the list only; unread counts are not recalculated.

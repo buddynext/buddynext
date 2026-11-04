@@ -41,8 +41,6 @@ $context_json = (string) wp_json_encode(
 		'isFollowing'   => $is_following,
 		'isPending'     => $is_pending,
 		'privateFollow' => $private_follow,
-		'nonce'         => wp_create_nonce( 'wp_rest' ),
-		'restUrl'       => rest_url( 'buddynext/v1' ),
 	)
 );
 
@@ -61,6 +59,7 @@ $bn_fb_is_active = $is_following || $is_pending;
 	echo get_block_wrapper_attributes(
 		array(
 			'class'               => 'bn-block-follow-button',
+			'data-wp-key'         => 'follow-' . absint( $user_id ),
 			'data-wp-interactive' => 'buddynext/follow-button',
 			'data-user-id'        => (string) absint( $user_id ),
 			'data-wp-context'     => $context_json,

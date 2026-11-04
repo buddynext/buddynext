@@ -50,7 +50,11 @@ class RegistrationService {
 	public static function unique_login( string $email ): string {
 		global $wpdb;
 
-		$base = sanitize_user( current( explode( '@', $email ) ), true );
+		// Shaped like the handle WordPress derives from it (sanitize_title() turns
+		// dots and spaces into one hyphen and lowercases), so a member can sign in
+		// with the @handle the community shows them: markus.kaufmann@ becomes the
+		// login markus-kaufmann, not markus.kaufmann with the handle markus-kaufmann.
+		$base = trim( (string) preg_replace( '/[.\s-]+/', '-', strtolower( sanitize_user( current( explode( '@', $email ) ), true ) ) ), '-' );
 		$base = '' !== $base ? $base : 'member';
 
 		if ( ! username_exists( $base ) ) {
@@ -190,6 +194,14 @@ class RegistrationService {
 
 		if ( '' !== $name ) {
 			$userdata['display_name'] = wp_slash( sanitize_text_field( $name ) );
+		}
+
+		// The cleanup of never-verified accounts covers only accounts made here, at
+		// BuddyNext's own door. A site's other plugins have their own forms and their
+		// own rules, so their accounts are never ours to delete, and no plugin has to
+		// declare anything to stay safe.
+		if ( VerificationService::is_required() ) {
+			$userdata['meta_input'] = array( 'buddynext_signup_awaiting_verify' => time() );
 		}
 
 		$user_id = wp_insert_user( $userdata );

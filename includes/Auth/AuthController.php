@@ -27,6 +27,11 @@ use WP_REST_Response;
 class AuthController {
 
 	/**
+	 * What core's sign-in chain says about credentials: never a gate.
+	 */
+	private const LOGIN_CREDENTIAL_CODES = array( 'invalid_username', 'invalid_email', 'incorrect_password', 'empty_username', 'empty_email', 'empty_password', 'application_passwords_disabled', 'application_passwords_disabled_for_user' );
+
+	/**
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
@@ -775,37 +780,6 @@ class AuthController {
 	}
 
 	/**
-	 * Translate an authenticate-chain WP_Error into a REST gate response, when
-	 * (and only when) it is a NON-CREDENTIAL gate rather than a bad password.
-	 *
-	 * Because wp_authenticate() runs the whole filter chain, its WP_Error can mean
-	 * two very different things:
-	 *
-	 *   1. The credentials were wrong (invalid_username, incorrect_password, …).
-	 *      Those must stay collapsed into one generic 401 by the caller — telling
-	 *      the client which half was wrong turns the endpoint into an account
-	 *      enumeration oracle.
-	 *   2. The credentials were RIGHT but a policy gate refused the sign-in — today
-	 *      that is `bn_pending_approval` (Plugin::register_hooks() adds the
-	 *      wp_authenticate_user filter for the `approval` registration mode).
-	 *      Flattening that into "Invalid email or password." sends a member who
-	 *      typed the correct password off to reset it, chasing a password problem
-	 *      they do not have. wp-login.php shows the real message; the REST login
-	 *      must too.
-	 *
-	 * Only codes on the allowlist below are passed through, so a future gate filter
-	 * cannot accidentally start leaking a credential hint. Email verification is
-	 * intentionally absent: it does not block sign-in (VerificationListener lets the
-	 * user in and the router lands them on /auth/verify/), so it never reaches here.
-	 *
-	 * @param WP_Error $error      Error returned by wp_authenticate().
-	 * @param string   $user_input Submitted username or email, for the re-check below.
-	 * @param string   $password   Submitted password, for the re-check below.
-	 * @return WP_Error|null A 403 gate error to return to the client, or null when
-	 *                       the failure is a credential failure the caller should
-	 *                       answer with its generic 401.
-	 */
-	/**
 	 * User meta recording that the member chose their own password.
 	 *
 	 * WordPress always stores a password hash, so the hash cannot tell us whether
@@ -889,49 +863,99 @@ class AuthController {
 	}
 
 	/**
-	 * Re-issue a gate refusal that wp_authenticate() flattened into a generic error.
+	 * Find the real reason a member with the CORRECT password was refused.
 	 *
-	 * Because wp_authenticate() runs the whole filter chain, a WP_Error coming back from
-	 * it can mean "wrong password" OR "a gate refused you" — the approval hold, for
-	 * instance, is a wp_authenticate_user filter. Those must not surface to the member
-	 * as "incorrect password", which would be a lie they could never act on.
+	 * The wp_authenticate() call runs the whole filter chain, so its WP_Error can mean
+	 * "wrong password" or "a gate refused you". Telling a member who typed the right
+	 * password that it is wrong is a lie they can never act on.
+	 *
+	 * Three rules keep this from becoming an oracle:
+	 *
+	 *  - Fail closed. Only codes on the buddynext_login_reportable_gate_codes list are
+	 *    ever reported. Reporting any other refusal, an IP block or an anti-automation
+	 *    check above all, would confirm the password to whoever is being refused.
+	 *  - Prove the password first. Gates run BEFORE core checks it, so a gate's error
+	 *    says nothing about the caller. Without proof the caller gets its generic failure.
+	 *  - One password hash on every wrong-password path, so pending, ordinary and absent
+	 *    accounts cost the same: core hashes for an account no gate refused, this method
+	 *    hashes where core stopped at a gate, and an absent account hashes a dummy.
+	 *
+	 * The gates are asked directly rather than read from $error, because on a REST request
+	 * with application passwords in use, core's wp_authenticate_application_password()
+	 * (authenticate priority 20) replaces whatever came before it with a credential error.
 	 *
 	 * @param WP_Error $error      Error returned by wp_authenticate().
 	 * @param string   $user_input Login or email the member typed.
 	 * @param string   $password   Password they supplied.
-	 * @return WP_Error|null The gate's own error when this was a gate refusal, else null.
+	 * @return WP_Error|null The gate's own error when this was a reportable refusal, else null.
 	 */
 	private static function authenticate_gate_error( WP_Error $error, string $user_input, string $password ): ?WP_Error {
-		$gate_codes = array(
-			// The account exists and is held for administrator approval.
-			'bn_pending_approval',
-		);
+		$user = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
 
-		$code = (string) $error->get_error_code();
-		if ( ! in_array( $code, $gate_codes, true ) ) {
+		if ( ! $user instanceof \WP_User ) {
+			wp_check_password( $password, self::absent_account_hash() );
 			return null;
 		}
 
-		// WordPress applies the `wp_authenticate_user` filter — where the approval
-		// gate lives — BEFORE it checks the password. So reaching this point proves
-		// only that the account is pending, not that the caller knows its password.
-		// Revealing the gate to someone who failed the password check would turn
-		// this endpoint into an enumeration oracle ("that address is a real, pending
-		// account"), which is exactly what the generic 401 below exists to prevent.
-		// So verify the password ourselves, and only then explain the real reason.
-		$user = \BuddyNext\Profile\Handle::user_for_identifier( $user_input );
+		$gate      = apply_filters( 'wp_authenticate_user', $user, $password );
+		$gate_shut = is_wp_error( $gate );
+		$refusal   = $gate_shut ? $gate : $error;
+		$code      = (string) $refusal->get_error_code();
+		/**
+		 * Filter the sign-in refusals a member may read once they proved their password.
+		 *
+		 * Add a code here so your wp_authenticate_user or authenticate gate tells a member
+		 * why they are held. Everything else gets the generic failure. Never add a network
+		 * or anti-automation refusal (IP block, lockout, bot check): reporting it confirms
+		 * the password to whoever is being refused.
+		 *
+		 * @since 1.2.8
+		 *
+		 * @param string[] $codes Reportable WP_Error codes.
+		 */
+		$allowed = (array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) );
 
-		if ( ! $user instanceof \WP_User || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
-			return null; // Fall through to the generic credential failure.
+		// Every code in play must be harmless: a reportable gate must not speak over
+		// something unreportable, such as an IP block, that also refused this sign-in.
+		$reportable = in_array( $code, $allowed, true )
+			&& ! array_diff( array_merge( $error->get_error_codes(), $refusal->get_error_codes() ), self::LOGIN_CREDENTIAL_CODES, $allowed );
+
+		// No gate refused, so core already hashed once and nothing here needs proof.
+		if ( ! $gate_shut && ! $reportable ) {
+			return null;
 		}
 
-		$message = wp_strip_all_tags( (string) $error->get_error_message() );
+		// Hash before reading $reportable, so an unreportable gate costs the same. Trimmed
+		// because wp_authenticate() trims what core checks.
+		if ( ! wp_check_password( trim( $password ), $user->user_pass, $user->ID ) || ! $reportable ) {
+			return null;
+		}
+
+		$message = wp_strip_all_tags( (string) $refusal->get_error_message() );
 		if ( '' === $message ) {
-			$message = __( 'Your account is awaiting administrator approval.', 'buddynext' );
+			$message = __( 'This account cannot sign in right now.', 'buddynext' );
 		}
 
 		// 403, not 401: the password was correct — access is what is refused.
 		return new WP_Error( $code, $message, array( 'status' => 403 ) );
+	}
+
+	/**
+	 * Hash checked when a sign-in names no account, so an absent account costs one password
+	 * hash like a real one. Made on this site, and remade when its hash settings change,
+	 * so its cost matches the hashes in the users table.
+	 *
+	 * @return string
+	 */
+	private static function absent_account_hash(): string {
+		$hash = (string) get_option( 'buddynext_login_absent_hash', '' );
+
+		if ( '' === $hash || wp_password_needs_rehash( $hash ) ) {
+			$hash = wp_hash_password( wp_generate_password( 32 ) );
+			update_option( 'buddynext_login_absent_hash', $hash, false );
+		}
+
+		return $hash;
 	}
 
 	/**
@@ -948,7 +972,9 @@ class AuthController {
 		// The owner's blocked-IP list. It governed POSTING only, so a blocklisted
 		// IP could still sign in — which is not what anyone means when they block
 		// an IP address.
-		$blocked = ( new RegistrationGuard() )->check_ip( self::client_ip() );
+		// The address the block itself reads (buddynext_client_ip), so behind a proxy a
+		// blocked IP is refused here, whatever its password, and never reaches a gate.
+		$blocked = ( new RegistrationGuard() )->check_ip( \BuddyNext\Moderation\SafeguardService::client_ip() );
 		if ( is_wp_error( $blocked ) ) {
 			return new WP_Error(
 				'bn_login_ip',
@@ -957,7 +983,9 @@ class AuthController {
 			);
 		}
 
-		if ( '' === $user_input || '' === $password ) {
+		// empty() on the trimmed value, as core defines a missing password ('0' included):
+		// core stops there without hashing, so it must not reach the chain.
+		if ( '' === $user_input || empty( trim( $password ) ) ) {
 			return new WP_Error(
 				'rest_missing_credentials',
 				__( 'Please enter your email or username and your password.', 'buddynext' ),
@@ -970,7 +998,7 @@ class AuthController {
 			return $limited;
 		}
 
-		$identified = \BuddyNext\Profile\Handle::user_for_identifier( $user_input );
+		$identified = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
 		$login      = $identified ? $identified->user_login : $user_input;
 
 		// Verify the password (runs the full authenticate chain, including the
@@ -989,7 +1017,7 @@ class AuthController {
 			// used to enumerate which emails hold accounts.
 			return new WP_Error(
 				'rest_login_failed',
-				__( 'Invalid email or password.', 'buddynext' ),
+				__( 'That email, username or password is not right.', 'buddynext' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -1018,7 +1046,7 @@ class AuthController {
 		$payload = array(
 			'success'     => true,
 			'user_id'     => (int) $user->ID,
-			'redirect_to' => esc_url_raw( $redirect_to ),
+			'redirect_to' => esc_url_raw( SessionIssuer::first_page_url( $redirect_to ) ),
 			// A REST nonce so a just-logged-in client can immediately call the
 			// authenticated routes (e.g. mint an app password) over its cookie.
 			'rest_nonce'  => wp_create_nonce( 'wp_rest' ),
@@ -1250,7 +1278,7 @@ class AuthController {
 			array(
 				'success'     => true,
 				'user_id'     => (int) $user->ID,
-				'redirect_to' => esc_url_raw( $redirect_to ),
+				'redirect_to' => esc_url_raw( SessionIssuer::first_page_url( $redirect_to ) ),
 			),
 			200
 		);
@@ -1507,7 +1535,7 @@ class AuthController {
 			array(
 				'success'     => true,
 				'user_id'     => (int) $user_id,
-				'redirect_to' => esc_url_raw( self::post_register_redirect( (int) $user_id, $params ) ),
+				'redirect_to' => esc_url_raw( SessionIssuer::first_page_url( self::post_register_redirect( (int) $user_id, $params ) ) ),
 			),
 			200
 		);
@@ -1689,7 +1717,7 @@ class AuthController {
 				'redirect_to' => esc_url_raw(
 					'' !== $parked_destination
 						? $parked_destination
-						: self::post_register_redirect( (int) $user_id, $params )
+						: SessionIssuer::first_page_url( self::post_register_redirect( (int) $user_id, $params ) )
 				),
 			),
 			200
@@ -1768,7 +1796,7 @@ class AuthController {
 	 * @return string
 	 */
 	public static function post_register_redirect( int $user_id = 0, array $params = array() ): string {
-		if ( get_option( 'buddynext_email_verify', false ) ) {
+		if ( VerificationService::is_required() ) {
 			$url = \BuddyNext\Core\PageRouter::hub_url(
 				'buddynext_slug_auth',
 				'buddynext_page_auth'
@@ -1887,11 +1915,12 @@ class AuthController {
 		);
 
 		$body = sprintf(
-			/* translators: 1: site name, 2: username, 3: reset URL. */
-			__( '<p>Someone requested a password reset for your %1$s account (<strong>%2$s</strong>).</p><p>If this was you, set a new password using the button below. If it wasn\'t, you can ignore this email and your password will stay the same.</p><p><a href="%3$s" style="display:inline-block;background:#0073aa;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">Reset my password</a></p><p style="font-size:13px;color:#6b7280;">Or paste this link into your browser:<br>%3$s</p>', 'buddynext' ),
+			/* translators: 1: site name, 2: username, 3: reset URL, 4: button colour. */
+			__( '<p>Someone requested a password reset for your %1$s account (<strong>%2$s</strong>).</p><p>If this was you, set a new password using the button below. If it wasn\'t, you can ignore this email and your password will stay the same.</p><p><a href="%3$s" style="display:inline-block;background:%4$s;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">Reset my password</a></p><p style="font-size:13px;color:#6b7280;">Or paste this link into your browser:<br>%3$s</p>', 'buddynext' ),
 			esc_html( $site_name ),
 			esc_html( $user_login ),
-			esc_url( $url )
+			esc_url( $url ),
+			esc_attr( \BuddyNext\Theme\Appearance::display_brand() )
 		);
 
 		$subject = sprintf(
@@ -2029,8 +2058,8 @@ class AuthController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function resend_verification(): WP_REST_Response|WP_Error {
-		// Email Verification feature off: the endpoint has nothing to do.
-		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+		// Verification not required: the endpoint has nothing to do.
+		if ( ! VerificationService::is_required() ) {
 			return new WP_Error(
 				'buddynext_verification_disabled',
 				__( 'Email verification is not enabled on this community.', 'buddynext' ),
@@ -2074,7 +2103,7 @@ class AuthController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function self_verify(): WP_REST_Response|WP_Error {
-		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+		if ( ! VerificationService::is_required() ) {
 			return new WP_Error(
 				'buddynext_verification_disabled',
 				__( 'Email verification is not enabled on this community.', 'buddynext' ),
@@ -2195,10 +2224,10 @@ class AuthController {
 		$user_id              = get_current_user_id();
 		$onboarding_completed = (bool) get_user_meta( $user_id, 'bn_onboarding_complete', true );
 
-		// Email Verification feature off: there is no "unverified" state, so the
-		// caller should treat every account as cleared rather than gating on a
-		// subsystem the owner disabled.
-		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+		// Verification not required: there is no "unverified" state, so the caller
+		// should treat every account as cleared rather than gating on a subsystem
+		// the owner disabled.
+		if ( ! VerificationService::is_required() ) {
 			return new WP_REST_Response(
 				array(
 					'verified'             => true,

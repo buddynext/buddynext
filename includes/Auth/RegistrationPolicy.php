@@ -366,6 +366,15 @@ class RegistrationPolicy {
 			}
 
 			$values[ $key ] = $value;
+
+			// Refused now: save_profile() rejects it after the account exists,
+			// and signup could only drop every field the member filled in.
+			if ( is_string( $value ) && FieldType::text_cap( $field ) > 0 ) {
+				$bn_cap_error = buddynext_service( 'profiles' )->text_cap_errors( 0, array( $key => $value ) );
+				if ( isset( $bn_cap_error[ $key ] ) ) {
+					$errors[ 'bn_field_' . $key ] = $bn_cap_error[ $key ];
+				}
+			}
 		}
 
 		if ( ! empty( $errors ) ) {

@@ -8,7 +8,7 @@ Integrations let your community grow into messaging, forums, gamification, jobs,
 
 A community rarely needs everything on day one. Most owners start with the social core - profiles, a feed, spaces, follows - and add capabilities as the community grows. Integrations let you do exactly that: keep BuddyNext lean, then switch on direct messaging when members ask for it, or forums when discussions get long, or points and badges when you want to reward activity.
 
-The point is to extend the community without bloating the core. BuddyNext does not bundle a messaging engine, a forum, or a points system into its own code. Instead it recognizes companion plugins when they are present and hands the relevant work to them. If a companion is not installed, BuddyNext simply does not show that capability - nothing is loaded, nothing slows the site down.
+The point is to extend the community without bloating the core. BuddyNext does not bundle a messaging engine, a forum, or a points system into its own code. Instead it recognizes companion plugins when they are present and hands the relevant work to them. If a companion is not installed, BuddyNext simply does not show that capability: its integration checks for the companion, finds it missing and stands down, so none of the companion's features run and nothing slows the site down.
 
 This matters for two kinds of people:
 
@@ -23,23 +23,23 @@ BuddyNext keeps a catalog of companion plugins it knows how to work with. Each o
 |---|---|---|
 | MediaVerse | Direct messaging, media galleries, and social feeds. | Member-to-member direct messaging inside BuddyNext. |
 | Jetonomy | Forum-style threaded discussions and Q&A boards. | Forum activity surfaced in the BuddyNext feed. |
-| Gamification | Points, badges, levels, and leaderboards. | Badges and a leaderboard on member profiles. |
-| Career Board | Job listings and applicant management. | Job posts as activity cards in the feed. |
+| WB Gamification | Points, badges, levels, and leaderboards. | Badges and a leaderboard on member profiles. |
+| WP Career Board | Job listings and applicant management. | Job posts as activity cards in the feed. |
 | Learnomy | Courses, lessons, and quizzes - a full LMS for your community. | Completed courses and certificates on member profiles. |
 | Eventonomy | Events, RSVPs, and calendars - members create and attend events. | Events as activity cards in the feed, plus attending events on member profiles. |
-| Listora | Directory listings - members publish and manage their own listings. | Member listings surfaced in the feed and on profiles. |
+| WB Listora | Directory listings - members publish and manage their own listings. | Member listings surfaced in the feed and on profiles. |
 | WB Member Blog | Front-end publishing - members write and manage WordPress posts without wp-admin. | An Articles tab on member profiles, plus article cards in the feed. |
 
 Each integration has its own setup page in this section - open the page for the one you want for the full walkthrough of its settings and member experience.
 
-> **Note:** Direct messaging in BuddyNext is provided by MediaVerse. BuddyNext renders the messaging interface, but the underlying engine lives in MediaVerse - so messaging only appears once MediaVerse is installed and active and its Messages switch is on (WPMediaVerse > Settings > Social > Messages).
+> **Note:** Direct messaging in BuddyNext is provided by MediaVerse. BuddyNext renders the messaging interface, but the underlying engine lives in MediaVerse - so messaging only appears once MediaVerse is installed and active and its Messages switch is on (MediaVerse > Settings > Social > Messages; on by default).
 
 ### One rule for every integration
 
 The plugin that owns the data owns its rules, wording, links and emails. BuddyNext displays what that plugin gives it and calls it when a member acts. Two things follow:
 
-- **One bell.** Notifications from Jetonomy, Career Board, Learnomy, Eventonomy, WB Gamification and WPMediaVerse arrive in the BuddyNext bell in the partner's own words. Each plugin's notification types get their own switches in members' notification settings (grouped as Forums, Jobs, Courses, Events, Achievements and Media). While BuddyNext is active, WPMediaVerse sends no activity emails of its own. Reactions are bell-only, with no reaction emails or digest.
-- **Switching an integration's navigation off also stops its notifications.** The **Show in navigation** switch (see Integration Settings below) governs that integration's bell rows as well.
+- **One bell.** Notifications from Jetonomy, WP Career Board, Learnomy, Eventonomy, WB Gamification and MediaVerse arrive in the BuddyNext bell in the partner's own words. Each plugin's notification types get their own switches in members' notification settings (grouped as Forums, Jobs, Courses, Events, Achievements and Media). While BuddyNext is active, MediaVerse sends no activity emails of its own. Reactions are bell-only, with no reaction emails or digest.
+- **Switching an integration's navigation off does not silence its notifications.** The **Show in navigation** switch (see Integration Settings below) only hides the tab. Bell notifications follow whether the companion plugin is active, plus each member's own notification settings and blocks.
 
 ## How it works (for owners)
 
@@ -60,7 +60,7 @@ Every card also has a **Learn more** link to the product page. Below the cards, 
 
 When a companion is not installed, its card offers a one-click **Install free** button. BuddyNext downloads the free version of that plugin directly from wbcomdesigns.com, installs it, and activates it for you. There is no manual upload, no plugin search, and no license key to paste for the free plan - the download is handled for you.
 
-After install, BuddyNext sends you to the right place to finish setup. For most companions that is the Plugins screen; for companions that have their own setup wizard (such as Career Board) you land on that companion's settings page so you can configure it straight away.
+After install, BuddyNext sends you to the right place to finish setup. For most companions that is the Plugins screen; for companions that have their own setup wizard (such as WP Career Board) you land on that companion's settings page so you can configure it straight away.
 
 > **Tip:** One-click install needs the same permission WordPress requires for installing any plugin. If you do not see the install button, your account does not have the capability to install plugins on this site.
 
@@ -72,16 +72,20 @@ An integration is only active when its companion plugin is active. There is no s
 - To turn it off completely, deactivate the companion. BuddyNext stops showing it and the capability disappears cleanly - your members and feed simply no longer see it.
 - To keep the companion but hide parts of it, use the switches on Integration Settings.
 
-Some integrations also have per-space switches that a space owner sets under **Manage space > Integrations** (for example a Discussion, Media tab, Files tab, Leaderboard tab, Events tab or Businesses tab). Each is off until the space owner turns it on. Those are covered on the integration's own page.
+Some integrations also have per-space switches that a space owner sets under **Manage space > Integrations** (for example a Discussion, Media tab, Files tab, Leaderboard tab, Events tab or Businesses tab). The Media, Files, Leaderboard, Events and Businesses tabs are on in every space while their plugin is active, and a space owner can switch any of them off; a Discussion is created when the space owner turns it on. Those are covered on the integration's own page.
 
 ### Choose where each integration appears (Integration Settings)
 
-Enabling an integration decides *that* it runs; **Integration Settings** (its own section in the BuddyNext admin menu, next to Platform) decides *where members see it*. Each connected integration gets its own card with plain switches. A card also shows the partner's installed version, with an **Update needed** badge when the partner is older than the bridge supports and a **Newer partner** badge when the partner is newer than the version the bridge was last checked against (the integration still works). An **Available to add** list at the bottom links companions you have not installed yet to the Add-ons screen.
+Enabling an integration decides *that* it runs; **Integration Settings** (its own section in the BuddyNext admin menu, next to Platform) decides *where members see it*. Each connected integration gets its own card with plain switches. A card also shows the partner's installed version, with an **Update needed** badge when the partner is older than the bridge supports and a **Newer partner** badge when the partner is newer than the version the bridge was last checked against (the integration still works). An **Available to add** list at the bottom shows the next step for each companion that is not connected: **Activate** when it is installed, **Install** (opening its card on the Add-ons screen) when it is not, and **Needs BuddyNext Pro** when it connects only through Pro. Only a companion that is active gets a card, so a card never calls a plugin active when it is off. When WP Career Board, WB Listora, Learnomy or Eventonomy is active without BuddyNext Pro, its card says what Pro adds and offers one **Activate BuddyNext Pro** (when Pro is installed) or **Get BuddyNext Pro** button.
+
+If a sub-tab needs something the partner cannot provide right now, its switch shows disabled with the reason and the one action that fixes it. Your choice is kept for when the partner can serve it again. For example, Learnomy's **Certifications** sub-tab follows Learnomy's Certificates module: with the module off, the switch shows **Turn on Certificates**.
 
 - **Show in navigation** - adds (or removes) the integration's tab in member navigation.
 - **Post to the activity feed** - whether that integration's events (new discussions, new listings, new media, and so on) appear in the community feed.
 - **Include in search** - whether members can find that integration's content in community search. Offered by the integrations that have content worth searching (discussions, jobs, listings, events).
-- **Navigation sub-tabs** - integrations that add several member tabs (for example Career Board's Jobs and Resume, or Learnomy's Learning, Certifications and Teaching) let you switch each sub-tab individually.
+- **Navigation sub-tabs** - integrations that add several member tabs (for example WP Career Board's Jobs and Resume, or Learnomy's Learning, Certifications and Teaching) let you switch each sub-tab individually.
+
+In **Settings > Navigation**, the Events and Businesses space tabs name their integration (Eventonomy, WB Listora) and show when Integration Settings has them off.
 
 This is the screen to visit when you want a companion's data without its menu clutter - for example, keeping forum posts in the feed while hiding the Discussions tab from navigation. Turning a navigation or feed switch off never deletes anything; it only hides the surface.
 
@@ -96,7 +100,7 @@ This is the screen to visit when you want a companion's data without its menu cl
 - Running BuddyPress or BuddyBoss alongside BuddyNext is not supported. Treat them as a migration source only.
 - Several Pro capabilities each have one switch in **Platform > Features**. That is separate from the integrations above, which have no Features switch.
 - One-click install only ever downloads from wbcomdesigns.com. BuddyNext will not install an arbitrary plugin from an arbitrary source through this screen.
-- **Whether the free companion is enough depends on the integration.** For most, installing the free version lights up the community surfacing, and the Pro version of that companion adds more. But Career Board, Listora, Learnomy and Eventonomy surface into the community through bridges that ship in **BuddyNext Pro** - install the companion on its own and it works as its own plugin, but you will not get the community surfacing described here until BuddyNext Pro is active. Each integration's own page states which applies.
+- **Whether the free companion is enough depends on the integration.** For most, installing the free version lights up the community surfacing, and the Pro version of that companion adds more. But WP Career Board, WB Listora, Learnomy and Eventonomy surface into the community through bridges that ship in **BuddyNext Pro** - install the companion on its own and it works as its own plugin, but you will not get the community surfacing described here until BuddyNext Pro is active. Each integration's own page states which applies.
 - BuddyNext works fully standalone. If you never install a single companion, the social core - profiles, feed, spaces, follows, connections, notifications - works on its own.
 
 ## Outbound webhooks
@@ -105,7 +109,7 @@ Beyond these plugin integrations, BuddyNext can also send your community's event
 
 ## Related
 
-- [WPMediaVerse](02-wpmediaverse.md) - the companion that powers direct messaging and media.
+- [MediaVerse](02-wpmediaverse.md) - the companion that powers direct messaging and media.
 - [Jetonomy](03-jetonomy.md) - forum-style discussion boards for your spaces.
 - [Outbound Webhooks](06-outbound-webhooks.md) - send community events to external tools.
 - [Activity Feed](../community/01-activity-feed.md) - where most integrations surface their content.

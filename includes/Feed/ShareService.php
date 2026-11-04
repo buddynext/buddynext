@@ -33,13 +33,14 @@ class ShareService {
 	/**
 	 * Share a post.
 	 *
-	 * @param int    $user_id User sharing the post.
-	 * @param int    $post_id Original post to share.
-	 * @param string $content Optional note/comment to accompany the share.
+	 * @param int         $user_id    User sharing the post.
+	 * @param int         $post_id    Original post to share.
+	 * @param string      $content    Optional note/comment to accompany the share.
+	 * @param string|null $created_at UTC share time (see Core\Backdate). Null means now.
 	 * @return int|WP_Error The new share ACTIVITY post id (bn_posts) on success;
 	 *                      WP_Error('already_shared') on duplicate.
 	 */
-	public function share( int $user_id, int $post_id, string $content = '' ): int|WP_Error {
+	public function share( int $user_id, int $post_id, string $content = '', ?string $created_at = null ): int|WP_Error {
 		if ( ! buddynext_feature_enabled( 'shares' ) ) {
 			return new WP_Error(
 				'shares_disabled',
@@ -112,6 +113,7 @@ class ShareService {
 		// INSERT IGNORE so a concurrent request that slipped past the existence
 		// check above is rejected by the user_post UNIQUE key instead of creating a
 		// duplicate. UTC write so share-history relative times are timezone-correct.
+		$bn_stamp = \BuddyNext\Core\Backdate::resolve( $created_at );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
@@ -120,7 +122,7 @@ class ShareService {
 				$user_id,
 				$post_id,
 				$content,
-				current_time( 'mysql', true )
+				$bn_stamp
 			)
 		);
 
@@ -152,26 +154,28 @@ class ShareService {
 			? $original_privacy
 			: 'public';
 
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'user_id'        => $user_id,
-				'shared_post_id' => $post_id,
-				'type'           => 'share',
-				'content'        => $content,
-				'privacy'        => $privacy,
-				'status'         => 'published',
-				// UTC write so the share card's feed timestamp is correct (mirrors
-				// PostService::create()); the local-time default rendered "just now".
-				'created_at'     => current_time( 'mysql', true ),
-			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s' )
+		$card = array(
+			'user_id'        => $user_id,
+			'shared_post_id' => $post_id,
+			'type'           => 'share',
+			'content'        => $content,
+			'privacy'        => $privacy,
+			'status'         => 'published',
+			// UTC write so the share card's feed timestamp is correct (mirrors
+			// PostService::create()); the local-time default rendered "just now".
+			'created_at'     => $bn_stamp,
 		);
+		// A backdated card must not carry the column defaults of the run.
+		if ( ! empty( $created_at ) ) {
+			$card['last_activity_at'] = $bn_stamp;
+			$card['updated_at']       = $bn_stamp;
+		}
+		$wpdb->insert( $wpdb->prefix . 'bn_posts', $card );
 
 		$feed_post_id = (int) $wpdb->insert_id;
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		( new PostService() )->adjust_share_count( $post_id, 1 );
+		( new PostService() )->adjust_share_count( $post_id, 1, $bn_stamp );
 
 		if ( $feed_post_id > 0 ) {
 			do_action( 'buddynext_post_created', $feed_post_id, $user_id, 'share' );

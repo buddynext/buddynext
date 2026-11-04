@@ -9,9 +9,10 @@
  *   </element>
  *
  * On click the handler DELETEs /buddynext/v1/users/{id}/{relation}.
- * On success it removes the row from the DOM; on failure it surfaces
- * a danger toast via window.bnToast (if available) and re-enables the
- * button. The listener is attached to `document` once, so adding
+ * On success it removes the row from the DOM, toasts the row's
+ * data-bn-done text and, when the list is now empty, swaps it for the list's
+ * data-bn-empty line; on failure it toasts the server's reason and re-enables
+ * the button. The listener is attached to `document` once, so adding
  * relation rows later (e.g. via Interactivity hydration) works without
  * re-binding.
  *
@@ -21,7 +22,8 @@
  * because the event listener is attached on a guard flag.
  */
 
-import { restFetch } from '@buddynext/rest-client';
+import { bnToast } from '@buddynext/shell-dialog';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 
 const INSTALLED = '__bnRelationRemoveInstalled';
@@ -67,17 +69,28 @@ function installRelationRemove() {
 				nonce:        wpNonce,
 				toastOnError: false,
 			} );
-			if ( ! res.ok ) { throw new Error( 'remove_failed_' + res.status ); }
+			// Already cleared in another tab is the state the member asked for.
+			if ( ! res.ok && 404 !== res.status ) { throw res; }
+			const list  = row.parentElement;
+			const empty = list && list.dataset.bnEmpty;
 			row.remove();
-		} catch ( _e ) {
-			btn.disabled = false;
-			if ( typeof window.bnToast === 'function' ) {
-				// This side-effect module is not an Interactivity store, so it reads
-				// its one string from the shell dictionary (PageRouter bnShellData.i18n)
-				// with an English fallback — see assets/js/shell/dialog.js si().
-				const dict = ( window.bnShellData && window.bnShellData.i18n ) || {};
-				window.bnToast( dict.updateFailed || 'Could not update. Try again.', { tone: 'danger' } );
+			if ( row.dataset.bnDone ) {
+				bnToast( row.dataset.bnDone, { tone: 'success' } );
 			}
+			// The empty line is otherwise only drawn on a fresh page load.
+			if ( empty && ! list.querySelector( '[data-relation]' ) ) {
+				const line = document.createElement( 'p' );
+				line.className   = 'bn-ep-relations__empty';
+				line.textContent = empty;
+				list.replaceWith( line );
+			}
+		} catch ( e ) {
+			btn.disabled = false;
+			// This side-effect module is not an Interactivity store, so it reads
+			// its one string from the shell dictionary (PageRouter bnShellData.i18n)
+			// with an English fallback — see assets/js/shell/dialog.js si().
+			const dict = ( window.bnShellData && window.bnShellData.i18n ) || {};
+			toastRestError( e, dict.updateFailed || 'Could not update. Try again.' );
 		}
 	} );
 }

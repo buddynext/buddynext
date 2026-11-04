@@ -152,11 +152,11 @@ onNavReady( setupFontScale, { once: true } );
 
 `restFetch( path, opts )` is the only sanctioned way to call the API from the frontend. It:
 
-- Resolves the base from `window.buddynextRestData.restBase` (default `/wp-json/buddynext/v1`); `opts.base` overrides it for cross-namespace calls (for example the WPMediaVerse `mvs/v1` routes the messages store uses).
+- Resolves the base from `window.buddynextRestData.restBase` (default `/wp-json/buddynext/v1`); `opts.base` overrides it for cross-namespace calls (for example the MediaVerse `mvs/v1` routes the messages store uses).
 - Sends `X-WP-Nonce` and `credentials: 'same-origin'`, and on a `403 rest_cookie_invalid_nonce` refreshes the nonce once via `/auth/nonce` and retries.
 - JSON-encodes plain-object bodies (FormData and Blob pass through so uploads keep their multipart boundary).
 - Never throws - it always resolves to `{ ok, status, data, error? }`.
-- Shows one generic error toast on failure unless the caller passes `{ toastOnError: false }` (needed when you do optimistic rollback with your own toast).
+- Shows one error toast on failure unless the caller passes `{ toastOnError: false }` (needed when you do optimistic rollback with your own toast). A caller that opts out uses `toastRestError( res, fallback )`, or `restError( res, fallback )` for inline text: the server's message wins, a permanent refusal with no message (401, 403, 404, 409, 410) never falls back to your "Try again", and a suspended member who already saw the appeal toast is not toasted twice.
 
 ```js
 import { restFetch } from '../shell/rest-client.js';

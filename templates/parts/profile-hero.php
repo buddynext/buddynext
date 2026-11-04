@@ -251,7 +251,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 			<!-- Identity block -->
 			<div class="bn-pf-id">
 				<div class="bn-pf-name-row">
-					<h1 class="bn-pf-name"><?php echo esc_html( $bn_pf_name ); ?></h1>
+					<h1 class="bn-pf-name"><?php echo esc_html( $bn_pf_name ); ?><?php buddynext_presence_text( $bn_pf_is_online ? 'online' : '' ); ?></h1>
 					<?php
 					if ( $bn_pf_degree ) :
 						$bn_pf_degree_title = '';

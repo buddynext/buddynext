@@ -1,11 +1,11 @@
 /* BuddyNext — Spaces Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 import { foldAccents } from '@buddynext/slug';
-import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnMarkReported, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -116,9 +116,7 @@ async function renderDiscussionResults( picker, q ) {
 	// here instead of falling through to an empty list — otherwise the picker just
 	// closes with no feedback and reads as "no discussions found" on a real error.
 	if ( ! res.ok ) {
-		if ( window.bnToast ) {
-			window.bnToast( t( 'discussionSearchFailed', 'Could not search discussions. Check your connection and try again.' ), 'danger' );
-		}
+		toastRestError( res, t( 'discussionSearchFailed', 'Could not search discussions. Check your connection and try again.' ) );
 		closeDiscussionResults( picker );
 		return;
 	}
@@ -203,9 +201,7 @@ async function renderParentResults( picker, q ) {
 		{ method: 'GET', nonce: resolveNonce(), toastOnError: false }
 	);
 	if ( ! res.ok ) {
-		if ( window.bnToast ) {
-			window.bnToast( t( 'parentSearchFailed', 'Could not search spaces. Check your connection and try again.' ), 'danger' );
-		}
+		toastRestError( res, t( 'parentSearchFailed', 'Could not search spaces. Check your connection and try again.' ) );
 		return;
 	}
 
@@ -494,9 +490,8 @@ function surfacePaywall( btn, spaceId, data ) {
  * Shared body for the `approveJoinRequest` / `declineJoinRequest` store actions.
  * Reads `data-user-id` and `data-space-id` off the clicked button (the moderation
  * template puts both on each Approve/Decline button), POSTs to the spec-conformant
- * member route, and on success removes the request row and decrements the two
- * pending counters (the tab badge `.bn-tab__count` and the summary stat
- * `.bn-stat__value`). Degrades gracefully: any missing element is simply skipped,
+ * member route, and on success removes the request row and decrements the pending
+ * counters (see syncPendingCounters). Degrades gracefully: any missing element is simply skipped,
  * and a network/permission failure re-enables the row's buttons and surfaces a
  * toast when one is available — never a silent dead end, never a fatal.
  *
@@ -532,19 +527,34 @@ async function moderateJoinRequest( event, action ) {
 
 		var ok = res.ok && ( ( 'approve' === action ) ? data.approved : data.declined );
 
+		// Another moderator already handled it: the row is stale, every retry would
+		// fail the same way. Take it off the list and say so.
+		if ( 404 === res.status || 409 === res.status ) {
+			if ( row && row.parentNode ) { row.parentNode.removeChild( row ); }
+			syncPendingCounters();
+			toastRestError( res );
+			if ( ! document.querySelector( '.bn-space-mod__pending-row' ) ) { window.location.reload(); }
+			return;
+		}
+
 		if ( ok ) {
 			// Remove the request row, then sync the counters to the live count.
 			if ( row && row.parentNode ) { row.parentNode.removeChild( row ); }
 
 			syncPendingCounters();
 
+			var decided = ( 'approve' === action )
+				? t( 'requestApproved', 'Request approved.' )
+				: t( 'requestDeclined', 'Request declined.' );
+
+			// This page is done: the reload brings the next requests, or the empty state.
+			if ( ! document.querySelector( '.bn-space-mod__pending-row' ) ) {
+				bnReloadWithToast( decided, 'success' );
+				return;
+			}
+
 			if ( window.bnToast ) {
-				window.bnToast(
-					( 'approve' === action )
-						? t( 'requestApproved', 'Request approved.' )
-						: t( 'requestDeclined', 'Request declined.' ),
-					'success'
-				);
+				window.bnToast( decided, 'success' );
 			}
 			return;
 		}
@@ -553,12 +563,9 @@ async function moderateJoinRequest( event, action ) {
 		if ( row ) { row.style.opacity = '1'; }
 		for ( var j = 0; j < rowBtns.length; j++ ) { rowBtns[ j ].disabled = false; }
 		if ( window.bnToast ) {
-			var msg = ( data && data.message )
-				? data.message
-				: ( ( 'approve' === action )
-					? t( 'couldNotApproveRequest', 'Could not approve the request.' )
-					: t( 'couldNotDeclineRequest', 'Could not decline the request.' ) );
-			window.bnToast( msg, 'danger' );
+			toastRestError( res, ( 'approve' === action )
+				? t( 'couldNotApproveRequest', 'Could not approve the request.' )
+				: t( 'couldNotDeclineRequest', 'Could not decline the request.' ) );
 		}
 	} catch ( _e ) {
 		if ( row ) { row.style.opacity = '1'; }
@@ -568,57 +575,26 @@ async function moderateJoinRequest( event, action ) {
 }
 
 /**
- * Re-sync the two "pending requests" counters on the moderation hub to the live
- * number of request rows still in the list, after one has been removed: the
- * Pending tab badge and the "Pending member requests" summary stat.
+ * Count one decided request off every pending counter: the sub-nav badge, the
+ * stat tile, the "N awaiting approval" badge and the Moderation tab total.
  *
- * The hub renders a `.bn-tab__count` on multiple tabs (Reports, Pending) and four
- * `.bn-stat__value` tiles, so neither can be selected blindly. The Pending tab is
- * located by the `bn_mtab=pending` href; the pending stat is the only tile whose
- * label contains the word "pending" (the localized "Pending member requests"
- * label). The remaining count is read from the live `.bn-space-mod__pending-row`
- * elements so the display is self-correcting. A zeroed tab badge is removed to
- * mirror the server-rendered empty state. If the markup ever changes such that a
- * pending element is not found, the counter update is simply skipped — the row is
- * still removed, so the moderator's action is never lost.
+ * Decrements the server's COUNT rather than reading the rows on screen, which are
+ * one page of the total. A sub-nav badge at zero is removed, matching the server.
  *
  * @return {void}
  */
 function syncPendingCounters() {
-	var remaining = document.querySelectorAll( '.bn-space-mod__pending-row' ).length;
-
-	// Pending tab: the moderation-filter tab linking to bn_mtab=pending.
-	var pendingTab = null;
-	var tabs = document.querySelectorAll( '.bn-tab' );
-	for ( var i = 0; i < tabs.length; i++ ) {
-		var href = tabs[ i ].getAttribute( 'href' ) || '';
-		if ( href.indexOf( 'bn_mtab=pending' ) !== -1 ) { pendingTab = tabs[ i ]; break; }
-	}
-
-	if ( pendingTab ) {
-		var badge = pendingTab.querySelector( '.bn-tab__count' );
-		if ( remaining > 0 ) {
-			if ( badge ) {
-				badge.textContent = String( remaining );
-			}
-		} else if ( badge && badge.parentNode ) {
-			badge.parentNode.removeChild( badge );
+	document.querySelectorAll( '[data-bn-pending-count]' ).forEach( function ( el ) {
+		var left = Math.max( 0, ( parseInt( el.getAttribute( 'data-bn-pending-count' ), 10 ) || 0 ) - 1 );
+		el.setAttribute( 'data-bn-pending-count', String( left ) );
+		if ( el.hasAttribute( 'data-bn-pending-label' ) ) {
+			el.textContent = t( 'pendingAwaiting', '%s awaiting approval' ).replace( '%s', left.toLocaleString() );
+		} else if ( 0 === left && el.classList.contains( 'bn-subnav__count' ) ) {
+			el.remove();
+		} else {
+			el.textContent = String( left );
 		}
-
-	}
-
-	// Pending stat tile: the only summary tile whose label mentions "pending"
-	// ("Pending member requests"). Falls back silently if the label is absent.
-	var stats = document.querySelectorAll( '.bn-stat' );
-	for ( var j = 0; j < stats.length; j++ ) {
-		var labelEl = stats[ j ].querySelector( '.bn-stat__label' );
-		var valueEl = stats[ j ].querySelector( '.bn-stat__value' );
-		if ( ! labelEl || ! valueEl ) { continue; }
-		if ( ( labelEl.textContent || '' ).toLowerCase().indexOf( 'pending' ) !== -1 ) {
-			valueEl.textContent = String( remaining );
-			break;
-		}
-	}
+	} );
 }
 
 /* Route a membership click to the action that matches the button's LIVE state.
@@ -825,12 +801,15 @@ var storeInstance = store( 'buddynext/spaces', {
 	 * ─────────────────────────────────────────────────────────────────────── */
 	state: {
 		savebarPhase:  'idle',
+		// True once the page has a settings form: the bar (with Save) then stays
+		// visible, as on Edit Profile, instead of appearing only after an edit.
+		savebarHasForm: false,
 		modalTransferOpen: false,
 		modalArchiveOpen:  false,
 
 		// Savebar: the bar is hidden only in the idle phase; each status pill is
 		// hidden unless its phase is the active one.
-		get savebarHidden() { return 'idle' === storeInstance.state.savebarPhase; },
+		get savebarHidden() { return ! storeInstance.state.savebarHasForm; },
 		get savebarDirtyHidden() { return 'dirty' !== storeInstance.state.savebarPhase; },
 		get savebarSavingHidden() { return 'saving' !== storeInstance.state.savebarPhase; },
 		get savebarSavedHidden() { return 'saved' !== storeInstance.state.savebarPhase; },
@@ -1078,7 +1057,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotDeclineInvite', 'Could not decline the invitation.' ), 'danger' ); }
+					toastRestError( res, t( 'couldNotDeclineInvite', 'Could not decline the invitation.' ) );
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
@@ -1114,6 +1093,7 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				if ( res.ok && ( data.pending || data.requested ) ) {
 					swapButtonState( btn, 'pending' );
+					bnToast( data.message || t( 'joinRequested', 'Request sent: you’ll be notified when it’s approved.' ), { tone: 'success' } );
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
 				} else {
@@ -1140,7 +1120,8 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * Report this space to the site moderators (the site queue only).
 		 */
 		reportSpace: async function ( event ) {
-			var spaceId = resolveSpaceId( event && event.target && event.target.closest( 'button' ) );
+			var trigger = event && event.target && event.target.closest( 'button' );
+			var spaceId = resolveSpaceId( trigger );
 			if ( ! spaceId ) { return; }
 			var result = await bnReportDialog( { title: t( 'reportSpaceTitle', 'Report this space' ) } );
 			if ( ! result ) { return; }
@@ -1150,12 +1131,15 @@ var storeInstance = store( 'buddynext/spaces', {
 				toastOnError: false,
 				body:         { object_type: 'space', object_id: parseInt( spaceId, 10 ), reason: result.reason || 'other', notes: result.notes || '' },
 			} );
-			if ( res.ok || 201 === res.status ) {
-				bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
+			var data = res.data || {};
+			// 409 = already reported: the report is on file, so show it as reported too.
+			if ( res.ok || 409 === res.status ) {
+				var done = t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' );
+				bnMarkReported( trigger );
+				bnToast( res.ok ? done : ( data.message || done ), { tone: res.ok ? 'success' : 'info' } );
 				return;
 			}
-			var data = res.data || {};
-			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+			toastRestError( res, t( 'toastCouldNotReport', 'Could not submit report. Try again.' ) );
 		},
 
 		leaveSpace: async function ( event ) {
@@ -1201,12 +1185,27 @@ var storeInstance = store( 'buddynext/spaces', {
 					}
 
 					bumpMemberCount( spaceCardFor( btn ), -1 );
-				} else if ( btn ) {
-					btn.textContent = origText;
-					btn.disabled    = false;
+
+					// A moderator's card also carried Manage, which they just lost.
+					var leftManage = btn && btn.parentNode && btn.parentNode.querySelector( '[data-bn-card-manage]' );
+					if ( leftManage ) { leftManage.remove(); }
+
+					// On the space's own page everything under the hero (feed, composer,
+					// member tabs) was drawn for a member: redraw it for a non-member. A
+					// card in a list has nothing else to change.
+					var leftMsg = t( 'leftSpace', 'You left this space.' );
+					if ( spaceCardFor( btn ) ) {
+						bnToast( leftMsg, { tone: 'info' } );
+					} else {
+						bnReloadWithToast( leftMsg, { tone: 'info' } );
+					}
+				} else {
+					if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+					toastRestError( res, t( 'couldNotLeave', 'Could not leave this space. Try again.' ) );
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+				toastRestError( null, t( 'networkError', 'Network error. Try again.' ) );
 			}
 		},
 
@@ -1233,12 +1232,14 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				if ( res.ok && ( data.left || data.cancelled ) ) {
 					swapButtonState( btn, 'request' );
-				} else if ( btn ) {
-					btn.textContent = origText;
-					btn.disabled    = false;
+					bnToast( t( 'joinRequestCancelled', 'Join request cancelled.' ), { tone: 'info' } );
+				} else {
+					if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+					toastRestError( res, t( 'couldNotCancelRequest', 'Could not cancel your request. Try again.' ) );
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+				toastRestError( null, t( 'networkError', 'Network error. Try again.' ) );
 			}
 		},
 
@@ -1381,6 +1382,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					window.location.reload();
 				} else {
 					if ( submitBtn ) { submitBtn.disabled = false; submitBtn.textContent = t( 'post', 'Post' ); }
+					toastRestError( res, t( 'couldNotPost', 'Could not post. Try again.' ) );
 				}
 			} catch ( _e ) {
 				if ( submitBtn ) { submitBtn.disabled = false; submitBtn.textContent = t( 'post', 'Post' ); }
@@ -1412,7 +1414,7 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( countEl ) { countEl.textContent = String( count ); }
 
 			try {
-				await restFetch( '/reactions/toggle', {
+				var res = await restFetch( '/reactions/toggle', {
 					method:  'POST',
 					nonce:   resolveNonce(),
 					body: {
@@ -1422,7 +1424,9 @@ var storeInstance = store( 'buddynext/spaces', {
 					},
 					toastOnError: false,
 				} );
-			} catch ( _e ) {
+				if ( ! res.ok ) { throw res; }
+			} catch ( e ) {
+				toastRestError( e, t( 'couldNotReact', 'Could not update your reaction. Try again.' ) );
 				// Revert optimistic update on network failure.
 				if ( hasReacted ) {
 					count = count + 1;
@@ -1504,8 +1508,7 @@ var storeInstance = store( 'buddynext/spaces', {
 							return;
 						}
 						// Surface the server's reason (e.g. 409 already reported).
-						var data = res.data;
-						if ( window.bnToast ) { window.bnToast( ( data && data.message ) || t( 'couldNotSubmitReport', 'Could not submit report. Try again.' ), { tone: 'danger' } ); }
+						toastRestError( res, t( 'couldNotSubmitReport', 'Could not submit report. Try again.' ) );
 					} ).catch( function () {
 						if ( window.bnToast ) { window.bnToast( t( 'couldNotSubmitReport', 'Could not submit report. Try again.' ), { tone: 'danger' } ); }
 					} );
@@ -1560,6 +1563,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} else {
 					btn.textContent = origText;
 					btn.disabled    = false;
+					toastRestError( res, t( 'couldNotShare', 'Could not share this post. Try again.' ) );
 				}
 			} catch ( _e ) {
 				btn.textContent = origText;
@@ -1821,7 +1825,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					bnReloadWithToast( t( 'spaceArchived', 'Space archived.' ), 'success' );
 				} else {
 					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotArchive', 'Could not archive the space. Try again.' ), 'danger' ); }
+					toastRestError( res, t( 'couldNotArchive', 'Could not archive the space. Try again.' ) );
 				}
 			} catch ( _e ) {
 				btn.disabled = false;
@@ -1857,7 +1861,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					bnReloadWithToast( t( 'spaceRestored', 'Space restored.' ), 'success' );
 				} else {
 					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotRestore', 'Could not restore the space. Try again.' ), 'danger' ); }
+					toastRestError( res, t( 'couldNotRestore', 'Could not restore the space. Try again.' ) );
 				}
 			} catch ( _e ) {
 				btn.disabled = false;
@@ -1892,7 +1896,8 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * wp_nonce field + validation). Flips to the 'saving' phase first.
 		 */
 		savebarSubmit: function () {
-			var form = bnSavebarDirtyForm;
+			// Nothing edited yet: Save still saves the tab's form as shown.
+			var form = bnSavebarDirtyForm || document.querySelector( '.bn-space-settings form.bn-space-settings__form' );
 			if ( ! form ) { return; }
 			if ( ! form.reportValidity || form.reportValidity() ) {
 				storeInstance.state.savebarPhase = 'saving';
@@ -1984,9 +1989,7 @@ var storeInstance = store( 'buddynext/spaces', {
 							);
 						}
 					}
-					if ( window.bnToast ) {
-						window.bnToast( t( 'couldNotUpdateNotifPref', 'Could not update notification preference.' ), 'danger' );
-					}
+					toastRestError( res, t( 'couldNotUpdateNotifPref', 'Could not update notification preference.' ) );
 				} else if ( window.bnToast ) {
 					window.bnToast( t( 'notifPrefSaved', 'Notification preference saved.' ), 'success' );
 				}
@@ -2070,7 +2073,8 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent' ), 'success' ); }
+					// An attached invite sent nothing new: the server words it, and it is not a success toast.
+					if ( window.bnToast ) { window.bnToast( ( res.data && res.data.message ) || t( 'invitationSent', 'Invitation sent' ), res.data && res.data.attached ? 'info' : 'success' ); }
 					// The modal is reused for the next invite, so the button must be live again.
 					btn.disabled = false;
 					closeAllSpaceModals();
@@ -2354,6 +2358,19 @@ function readSpacesFilterState() {
 	};
 }
 
+function buildJoinedButton( spaceId ) {
+	var btn = document.createElement( 'button' );
+	btn.className = 'bn-btn';
+	btn.dataset.variant      = 'secondary';
+	btn.dataset.size         = 'sm';
+	btn.dataset.currentState = 'joined';
+	btn.setAttribute( 'data-wp-on--click', 'actions.leaveSpace' );
+	btn.dataset.spaceId      = String( spaceId );
+	btn.setAttribute( 'aria-label', t( 'ariaJoinedClickToLeave', 'Joined - click to leave' ) );
+	btn.textContent = t( 'labelJoined', 'Joined' );
+	return btn;
+}
+
 /**
  * Build a single space card in the DOM from a REST row.
  * Mirrors the SSR markup of templates/spaces/directory.php using
@@ -2537,16 +2554,11 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.variant = 'secondary';
 		ctaEl.dataset.size    = 'sm';
 		ctaEl.textContent     = t( 'labelManage', 'Manage' );
+		ctaEl.setAttribute( 'data-bn-card-manage', '' );
+		foot.appendChild( ctaEl );
+		ctaEl = 'moderator' === role ? buildJoinedButton( spaceId ) : null;
 	} else if ( isMember ) {
-		ctaEl = document.createElement( 'button' );
-		ctaEl.className = 'bn-btn';
-		ctaEl.dataset.variant      = 'secondary';
-		ctaEl.dataset.size         = 'sm';
-		ctaEl.dataset.currentState = 'joined';
-		ctaEl.setAttribute( 'data-wp-on--click', 'actions.leaveSpace' );
-		ctaEl.dataset.spaceId      = String( spaceId );
-		ctaEl.setAttribute( 'aria-label', t( 'ariaJoinedClickToLeave', 'Joined - click to leave' ) );
-		ctaEl.textContent = t( 'labelJoined', 'Joined' );
+		ctaEl = buildJoinedButton( spaceId );
 	} else if ( isPending ) {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
@@ -2714,10 +2726,12 @@ async function executeSpacesFilter() {
 	if ( state.categoryId ) { params.set( 'category_id', state.categoryId ); }
 	if ( state.sort ) { params.set( 'orderby', state.sort ); }
 	if ( state.includeSubspaces ) { params.set( 'include_subspaces', '1' ); }
+	// A search follows the same "Include sub-spaces" control as the list; the REST
+	// default for a bare search is to surface them. My Spaces lists every membership.
+	if ( state.q && ! state.includeSubspaces && ! state.mine ) { params.set( 'roots_only', '1' ); }
 	params.set( 'per_page', '18' );
-	// Ask for the total so the pager can be rebuilt for the filtered set (search
-	// stays a bare array — it doesn't reactively paginate).
-	if ( ! state.q ) { params.set( 'paginate', '1' ); }
+	// Ask for the total so the pager can be rebuilt for the filtered set.
+	params.set( 'paginate', '1' );
 
 	try {
 		var res = await restFetch( '/spaces?' + params.toString(), {
@@ -2776,8 +2790,7 @@ async function executeSpacesFilter() {
 		// Keep the header count honest. It is SSR-rendered once and would otherwise
 		// keep the unfiltered "N spaces available" while the grid below re-renders to
 		// a filtered set (card 10297104779). Write it from the SAME response that
-		// produced the rows: the paginated (non-search) path carries payload.total;
-		// the search path is a bare array, so its length is the count on screen.
+		// produced the rows, which carries payload.total on every path.
 		var isFiltered    = !! ( state.q || state.mine || state.categoryId );
 		var subtitleCount = ( payload && 'number' === typeof payload.total ) ? payload.total : rows.length;
 		updateDirectorySubtitle( isFiltered, subtitleCount );
@@ -3323,6 +3336,7 @@ document.addEventListener( 'keydown', function ( event ) {
 	for ( var i = 0; i < forms.length; i++ ) {
 		captureDefaults( forms[ i ] );
 	}
+	storeInstance.state.savebarHasForm = true;
 
 	// If the page server-rendered with a success notice, flash "saved" briefly,
 	// then settle back to idle — both via reactive state, no .hidden poke.
@@ -3341,6 +3355,56 @@ document.addEventListener( 'keydown', function ( event ) {
 			event.preventDefault();
 			event.returnValue = '';
 		}
+	} );
+})();
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Category level filter (create-space form + Space Settings → General).
+ *
+ * An owner can limit a category to main spaces or subspaces. Each option
+ * carries data-level (both|main|sub); this hides the ones that do not fit the
+ * form's current parent and re-checks when the parent changes. The category a
+ * space already has stays offered at its own level (the server keeps it too).
+ * SpaceService::resolve_category() is the real check; this only keeps the
+ * form from offering a choice it would refuse.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+(function () {
+	var PARENT = '[name="parent_id"], [name="space_parent_id"]';
+
+	function isSub( form ) {
+		var parent = form ? form.querySelector( PARENT ) : null;
+		return !! parent && parseInt( parent.value || '0', 10 ) > 0;
+	}
+
+	function sync( select ) {
+		var sub         = isSub( select.closest( 'form' ) );
+		var keepCurrent = String( sub ) === select.dataset.bnLevelAtLoad;
+		var opts        = select.querySelectorAll( 'option[data-level]' );
+		for ( var i = 0; i < opts.length; i++ ) {
+			var level   = opts[ i ].getAttribute( 'data-level' );
+			var allowed = 'both' === level || ( sub ? 'sub' : 'main' ) === level || ( keepCurrent && opts[ i ].defaultSelected );
+			opts[ i ].hidden   = ! allowed;
+			opts[ i ].disabled = ! allowed;
+		}
+		var chosen = select.options[ select.selectedIndex ];
+		if ( chosen && chosen.disabled ) {
+			select.value = '';
+		}
+	}
+
+	var selects = document.querySelectorAll( 'select[data-bn-category-level]' );
+	for ( var i = 0; i < selects.length; i++ ) {
+		selects[ i ].dataset.bnLevelAtLoad = String( isSub( selects[ i ].closest( 'form' ) ) );
+		sync( selects[ i ] );
+	}
+
+	document.addEventListener( 'change', function ( event ) {
+		var target = event.target;
+		if ( ! target || ! target.matches || ! target.matches( PARENT ) ) { return; }
+		var form   = target.closest( 'form' );
+		var select = form ? form.querySelector( 'select[data-bn-category-level]' ) : null;
+		if ( select ) { sync( select ); }
 	} );
 })();
 

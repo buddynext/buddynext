@@ -48,7 +48,7 @@ Every capability has exactly one on/off switch, and it lives in **BuddyNext > Pl
 | On by default | You can switch it off. | Hashtags, Reactions, Comments, Sidebar widgets, Member onboarding flow, Email verification, Site announcements, Bookmarks, Polls, Re-shares, Installable app (PWA), Scheduled posts |
 | Off by default | You switch it on when you need it. | Outbound webhooks (Free); Realtime, Push notifications, AI suite and AI moderation (Pro) |
 
-Two entries behave differently. **Direct messages** shows the state of the switch in WPMediaVerse (Settings, Messages) and links you there, because WPMediaVerse runs messaging. **Scheduled posts** is a Free entry: switching it off hides the schedule button in the composer, while posts already scheduled still publish. With BuddyNext Pro active, the Pro capabilities (such as White-label branding, Member labels, Email broadcasts, Drip sequences, Moderation rules, Bulk moderation, Custom reactions and Analytics) appear in the same list.
+Two entries behave differently. **Direct messages** shows the state of the switch in MediaVerse (Settings, Messages) and links you there, because MediaVerse runs messaging. **Scheduled posts** is a Free entry: switching it off hides the schedule button in the composer, while posts already scheduled still publish. With BuddyNext Pro active, the Pro capabilities (such as White-label branding, Member labels, Email broadcasts, Drip sequences, Moderation rules, Bulk moderation, Custom reactions and Analytics) appear in the same list.
 
 ## Refined in 1.0.4
 
@@ -60,6 +60,18 @@ The admin had a full quality pass in 1.0.4, so screenshots from earlier versions
 - **License** moved out of Monetization and onto its own tab, so activating updates no longer means hunting through the billing screens. As of 1.1.5 it sits under **Get Started**.
 
 ![The License screen, now one click from the admin menu](../images/admin-license.webp)
+
+## Admin screens in 1.2.8
+
+- **The menu folds on phones.** Below 783px wide, the BuddyNext admin menu folds behind one button that names where you are, such as "Members > Pending". Tap it to see the full menu. Tablets and desktop keep the side menu.
+- **The setup reminder can be hidden.** "BuddyNext setup is not complete" shows only on the Dashboard and BuddyNext screens, not on other plugins' screens. Use **Hide this message** to hide it for your own account.
+- **A greyed-out setting keeps its value.** When a control is greyed out because something it depends on is off, saving the screen leaves its stored value alone. For example, saving with Reactions off no longer resets your chosen reactions.
+- **Features rows link to their settings.** On **Platform > Features**, a feature that has its own settings screen, such as Push, Realtime or the AI features, shows **Open its settings** while it is on. The link opens the screen inside the BuddyNext admin.
+- **Integration Settings shows the next step.** Each companion that is not yet connected shows its real next action: **Activate**, **Install** on its card, or **Needs BuddyNext Pro**. A companion that needs Pro also carries a **Connects with BuddyNext Pro** badge on its Add-ons card, with one button to activate or get Pro. A box is named as active only when its companion plugin is active.
+- **Failed installs say why.** If a companion install fails on **Platform > Add-ons**, the error shows under the button on that card.
+- **Bulk Delete asks first.** Bulk **Delete** on Spaces and Members asks you to confirm and names how many items it will remove. Afterwards the result says what really happened, including any that failed and the limit on featured spaces.
+
+![A Platform > Features row that is on, with its Open its settings link](../images/admin-features-open-settings.webp)
 
 ## Dark mode follows your theme (1.0.7)
 
@@ -74,8 +86,8 @@ The Appearance tab controls your community's brand color, and dark mode rides al
 | Surface | What it is |
 |---------|------------|
 | Main Navigation | The community nav bar. |
-| Profile Tabs | The tabs on a member's profile. |
-| Space Tabs | The tabs on a space page. |
+| Profile Tabs | Every tab on a member's profile, including tabs added by integrations (Portfolio, Discussions and others). Sub-tabs such as Followers are listed under their parent. |
+| Space Tabs | Every tab on a space page, including tabs added by integrations (Discussions, Businesses and others). |
 | Mobile Bottom Nav | The bar pinned to the bottom of the screen on phones. |
 | Account Dropdown | The menu behind the avatar in the header. |
 
@@ -86,7 +98,13 @@ For each item on a surface you can:
 - **Reorder it** by dragging its handle.
 - **Choose who sees it** - all members, logged-in only, admins only, or anyone holding a capability you name.
 
+Profile and space tabs are listed in the order members see them. The badge on each row says where the tab comes from: **Core** for BuddyNext's own tabs, or the integration's name (Jetonomy, Media, WB Listora and so on). Some tabs only appear for some members, such as Scheduled, which a member sees on their own profile. They are still listed, because the setting applies to every member.
+
+If an integration's **Show in navigation** switch is off in **Settings > Integration Settings**, its tab is not shown on the site whatever its row here says. The row is greyed out with an **Off in Integration Settings** badge and a link to turn it back on.
+
 Custom links can be added to the Main Navigation. The other four surfaces list the items that exist; they are extended in code rather than from this screen.
+
+![Settings > Navigation Profile Tabs, listing integration tabs with their source badges in site order](../images/admin-navigation-profile-tabs.webp)
 
 ### The Account Dropdown (1.0.8)
 
@@ -106,6 +124,16 @@ Two slots stay pinned and show a fixed handle instead of a draggable one:
 - **Profile**, the fixed last slot.
 
 Everything else in the bar (Activity, Spaces, Notifications, and any tab a plugin adds) reorders freely around them, and the front-end bar honours the order you save.
+
+### Tab bars and the More menu (1.2.8)
+
+The tab bars on profiles, spaces, space settings, member settings and feed filters no longer scroll sideways. Every tab that fits stays in the bar, and only the tabs that do not fit fold into a **More** menu. The tab a member is on never folds, and a bar with room for every tab shows no More. Tabs added by integrations fold the same way, with nothing to set up.
+
+![A profile tab bar on a phone, with the tabs that do not fit in the open More menu](../images/profile-tabs-more-mobile.webp)
+
+### Mobile menu (1.2.8)
+
+On a phone, the **More** sheet is always there, on any theme. It lists Members, Explore, Messages, Bookmarks and Settings, so they stay reachable even when the bottom bar has no room for them. The sheet is built from the same list as the left rail.
 
 ## Jump to any setting with the command palette
 

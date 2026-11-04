@@ -148,7 +148,8 @@ class MemberBlogBridge {
 				// get_dashboard_url, bp_member_blog_get_settings) are unchanged, and
 				// 4.1.0's additions are Member-Blog-internal (composer/email/REST),
 				// none consumed here. Tested against 4.3.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
-				'tested_version' => self::available() ? '4.5.0' : ( $existing['tested_version'] ?? null ),
+				// 4.5.1 (2026-11-04): get_dashboard_url and bp_member_blog_get_settings unchanged from 4.5.0.
+				'tested_version' => self::available() ? '4.5.1' : ( $existing['tested_version'] ?? null ),
 			)
 		);
 
@@ -161,14 +162,18 @@ class MemberBlogBridge {
 	 * @param NavRegistry $registry Nav registry.
 	 */
 	public function register_nav_items( NavRegistry $registry ): void {
-		$enabled = static fn(): bool => self::articles_tab_available();
+		// Shown to members Member Blog lets write, and on any profile that already
+		// has articles; never an empty tab inviting a member who cannot write.
+		$enabled = fn( NavContext $c ): bool => self::articles_tab_available()
+			&& ( self::can_write( $c->subject_id ) || $this->article_count( $c->subject_id ) > 0 );
 
 		$registry->register(
 			array(
-				'id'        => 'articles',
-				'surface'   => 'profile',
-				'layer'     => 'primary',
-				'label'     => __( 'Articles', 'buddynext' ),
+				'id'          => 'articles',
+				'surface'     => 'profile',
+				'integration' => self::INTEGRATION,
+				'layer'       => 'primary',
+				'label'       => __( 'Articles', 'buddynext' ),
 				// No icon, deliberately. Profile tabs are text-only - ProfileNav
 				// declares none for any core tab, and the strip reads as one row of
 				// words. An icon here is not a nicer tab, it is the only tab that
@@ -183,15 +188,27 @@ class MemberBlogBridge {
 				// for the whole strip, not for one tab.
 				// After Discussions (60), before the Portfolio cluster - authored
 				// long-form sits with the member's other social content.
-				'priority'  => 65,
-				'condition' => $enabled,
-				'url'       => static fn( NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'articles/',
-				'count'     => fn( NavContext $c ): int => $this->article_count( $c->subject_id ),
-				'render'    => function ( NavContext $c ): void {
+				'priority'    => 65,
+				'condition'   => $enabled,
+				'url'         => static fn( NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'articles/',
+				'count'       => fn( NavContext $c ): int => $this->article_count( $c->subject_id ),
+				'render'      => function ( NavContext $c ): void {
 					$this->render_profile_articles_panel( $c->subject_id, $c->viewer_id );
 				},
 			)
 		);
+	}
+
+	/**
+	 * Whether Member Blog lets this member write (its role / member-type rules).
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param int $user_id Member.
+	 * @return bool
+	 */
+	private static function can_write( int $user_id ): bool {
+		return function_exists( 'bp_member_blog_user_can_create' ) && (bool) bp_member_blog_user_can_create( $user_id );
 	}
 
 	/**
@@ -324,6 +341,7 @@ class MemberBlogBridge {
 				'profile_user_id' => $user_id,
 				'viewer_id'       => $viewer_id,
 				'is_owner'        => $is_owner,
+				'can_write'       => self::can_write( $user_id ),
 				'articles'        => $query->posts,
 				'edit_urls'       => $edit_urls,
 				'co_writers'      => $co_writers,

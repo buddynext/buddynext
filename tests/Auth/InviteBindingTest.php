@@ -57,7 +57,7 @@ class InviteBindingTest extends WP_UnitTestCase {
 		global $wpdb;
 
 		$invites = new InviteService();
-		$id      = $invites->create( self::INVITED, 'Alice', 7, $space_id );
+		$id      = $invites->create( self::INVITED, 'Alice', 7, $space_id )['invite_id'];
 		$token   = (string) $wpdb->get_var( // phpcs:ignore WordPress.DB
 			$wpdb->prepare( "SELECT token FROM {$wpdb->prefix}bn_invites WHERE id = %d", $id )
 		);

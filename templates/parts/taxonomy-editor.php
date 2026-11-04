@@ -14,6 +14,7 @@
  *   edit     array   Row being edited, or null for create.
  *   hidden   array   Extra hidden inputs (name => value), e.g. edit_id / cat_id.
  *   toggles  array   Entity-specific checkboxes: [ name, label, default ].
+ *   selects  array   Entity-specific choices: [ name, label, choices (value => label), default, hint ].
  *   supports array   Capability flags, e.g. [ 'has_icon' => true ].
  *   cancel   string  Optional cancel URL (rendered only in edit mode).
  *
@@ -31,6 +32,7 @@ $bn_nonce    = isset( $nonce ) ? (string) $nonce : '';
 $bn_edit     = isset( $edit ) && is_array( $edit ) ? $edit : null;
 $bn_hidden   = isset( $hidden ) && is_array( $hidden ) ? $hidden : array();
 $bn_toggles  = isset( $toggles ) && is_array( $toggles ) ? $toggles : array();
+$bn_selects  = isset( $selects ) && is_array( $selects ) ? $selects : array();
 $bn_supports = isset( $supports ) && is_array( $supports ) ? $supports : array();
 $bn_cancel   = isset( $cancel ) ? (string) $cancel : '';
 
@@ -192,6 +194,30 @@ $preview_fg = '' !== $val_text_color ? $val_text_color : '#ffffff';
 					<?php endif; ?>
 				</div>
 			</details>
+
+			<?php /* ── Entity choices ── */ ?>
+			<?php
+			foreach ( $bn_selects as $bn_select ) :
+				$s_name    = (string) ( $bn_select['name'] ?? '' );
+				$s_choices = (array) ( $bn_select['choices'] ?? array() );
+				if ( '' === $s_name || empty( $s_choices ) ) {
+					continue;
+				}
+				$s_id      = $id_prefix . '-' . sanitize_html_class( $s_name );
+				$s_current = (string) ( $bn_edit[ $s_name ] ?? ( $bn_select['default'] ?? '' ) );
+				?>
+				<div class="bn-field">
+					<label for="<?php echo esc_attr( $s_id ); ?>"><?php echo esc_html( (string) ( $bn_select['label'] ?? '' ) ); ?></label>
+					<select id="<?php echo esc_attr( $s_id ); ?>" name="<?php echo esc_attr( $s_name ); ?>" class="bn-select">
+						<?php foreach ( $s_choices as $s_value => $s_label ) : ?>
+							<option value="<?php echo esc_attr( (string) $s_value ); ?>" <?php selected( $s_current, (string) $s_value ); ?>><?php echo esc_html( (string) $s_label ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<?php if ( ! empty( $bn_select['hint'] ) ) : ?>
+						<span class="bn-field-hint"><?php echo esc_html( (string) $bn_select['hint'] ); ?></span>
+					<?php endif; ?>
+				</div>
+			<?php endforeach; ?>
 
 			<?php /* ── Entity toggles ── */ ?>
 			<?php if ( ! empty( $bn_toggles ) ) : ?>

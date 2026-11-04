@@ -222,6 +222,22 @@
 	cursor: not-allowed;
 }
 
+/* A registry tab that Integration Settings has switched off: still editable
+   here (the setting is kept for when it is switched back on), but muted so
+   the owner sees at a glance it is not on the site. */
+.bn-nav-list .bn-drag-row[data-row-off] {
+	background: var(--bn-a-bg-subtle);
+}
+.bn-nav-list .bn-drag-row[data-row-off] .bn-nav-row-name,
+.bn-nav-list .bn-drag-row[data-row-off] .bn-nav-row-icon {
+	opacity: 0.6;
+}
+
+/* A sub-tab (Followers under Network) sits indented under its parent. */
+.bn-nav-list .bn-drag-row--child {
+	margin-inline-start: var(--bn-a-s6);
+}
+
 /* Row whose item is open in the inspector — mirrors .bn-config-btn-active so
    the list and the config panel visibly agree on the current selection. */
 .bn-nav-list .bn-drag-row.is-selected {
@@ -348,6 +364,14 @@
 .bn-nav-add-row {
 	display: flex;
 	border-top: 1px solid var(--bn-a-border-soft);
+}
+
+/* The code-only surfaces put a sentence here, not buttons: flex split its text
+   and <code> into columns. */
+.bn-nav-add-row--note {
+	display: block;
+	margin: 0;
+	padding: var(--bn-a-s3) var(--bn-a-s4);
 }
 
 .bn-add-tab-btn {

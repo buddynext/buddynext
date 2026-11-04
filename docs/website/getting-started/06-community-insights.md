@@ -23,7 +23,7 @@ The **At a glance** panel shows the headline numbers, several with a short-term 
 | Connections | Total accepted connections between members. |
 | Follows | Total follow relationships. |
 
-Below the cards, a **New members** chart plots signups across the last 14 days, so you can see growth as a shape rather than a single figure.
+Below the cards, a **New members** chart plots signups across the last 14 days, so you can see growth as a shape rather than a single figure. Each day's count sits above its bar and the day of the month below it, with the first and last dates under the chart, so it reads the same on a phone as on a desktop.
 
 ## The dashboard widget
 

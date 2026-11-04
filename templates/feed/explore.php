@@ -159,11 +159,11 @@ $bn_explore_filters = array(
 				printf(
 					/* translators: 1: the member count phrase, 2: the space count phrase, 3: the post count phrase. */
 					esc_html__( 'Explore · %1$s · %2$s · %3$s', 'buddynext' ),
-					/* translators: %s: member count. */
+					/* translators: %s: formatted member count. */
 					esc_html( sprintf( _n( '%s member', '%s members', $bn_pulse_members, 'buddynext' ), number_format_i18n( $bn_pulse_members ) ) ),
-					/* translators: %s: space count. */
+					/* translators: %s: formatted space count. */
 					esc_html( sprintf( _n( '%s space', '%s spaces', $bn_pulse_spaces, 'buddynext' ), number_format_i18n( $bn_pulse_spaces ) ) ),
-					/* translators: %s: post count. */
+					/* translators: %s: formatted post count. */
 					esc_html( sprintf( _n( '%s post', '%s posts', $bn_pulse_posts, 'buddynext' ), number_format_i18n( $bn_pulse_posts ) ) )
 				);
 				?>

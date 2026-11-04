@@ -531,7 +531,7 @@ $posts_pct_abs = abs( $posts_pct );
 						<span class="bn-ca-pagination__status">
 							<?php
 							printf(
-								/* translators: 1: current page, 2: total pages. */
+								/* translators: 1: current page number, 2: total number of pages. */
 								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
 								esc_html( number_format_i18n( $bn_ca_m_page ) ),
 								esc_html( number_format_i18n( (int) $bn_ca_members['pages'] ) )
@@ -577,7 +577,7 @@ $posts_pct_abs = abs( $posts_pct );
 									<span class="bn-ca-row__sub">
 										<?php
 										printf(
-											/* translators: %s: member count (already i18n-formatted). */
+											/* translators: %s: formatted member count. */
 											esc_html( _n( '%s member', '%s members', $bn_sp_count, 'buddynext' ) ),
 											esc_html( number_format_i18n( $bn_sp_count ) )
 										);
@@ -605,7 +605,7 @@ $posts_pct_abs = abs( $posts_pct );
 						<span class="bn-ca-pagination__status">
 							<?php
 							printf(
-								/* translators: 1: current page, 2: total pages. */
+								/* translators: 1: current page number, 2: total number of pages. */
 								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
 								esc_html( number_format_i18n( $bn_ca_sp_page ) ),
 								esc_html( number_format_i18n( $bn_ca_sp_pages ) )
@@ -689,12 +689,21 @@ $posts_pct_abs = abs( $posts_pct );
 				<?php
 				$bn_ca_inv_status = isset( $_GET['bn_invite'] ) ? sanitize_key( wp_unslash( $_GET['bn_invite'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 				if ( '' !== $bn_ca_inv_status ) :
-					$bn_ca_inv_msgs = array(
-						'sent'    => __( 'Invite sent.', 'buddynext' ),
-						'skipped' => __( 'That email already has an account or a pending invite.', 'buddynext' ),
-						'error'   => __( 'Enter a valid email address.', 'buddynext' ),
+					$bn_ca_inv_msgs  = array(
+						'sent'            => __( 'Invite sent.', 'buddynext' ),
+						'already_invited' => __( 'Already invited: that email has a pending invite, so no new email was sent.', 'buddynext' ),
+						'existing_member' => __( 'That email already belongs to a member, so no invite was sent.', 'buddynext' ),
+						'mail_failed'     => __( 'The invite was saved but the email could not be sent.', 'buddynext' ),
+						'failed'          => __( 'Could not create the invite. Try again.', 'buddynext' ),
+						'invalid'         => __( 'Enter a valid email address.', 'buddynext' ),
+						'error'           => __( 'Enter a valid email address.', 'buddynext' ),
 					);
-					$bn_ca_inv_tone = 'sent' === $bn_ca_inv_status ? 'success' : ( 'skipped' === $bn_ca_inv_status ? 'info' : 'danger' );
+					$bn_ca_inv_tones = array(
+						'sent'            => 'success',
+						'already_invited' => 'info',
+						'existing_member' => 'info',
+					);
+					$bn_ca_inv_tone  = $bn_ca_inv_tones[ $bn_ca_inv_status ] ?? 'danger';
 					?>
 					<div class="bn-ca-notice" data-tone="<?php echo esc_attr( $bn_ca_inv_tone ); ?>" role="status">
 						<?php echo esc_html( $bn_ca_inv_msgs[ $bn_ca_inv_status ] ?? '' ); ?>
@@ -727,7 +736,7 @@ $posts_pct_abs = abs( $posts_pct );
 										<?php
 										if ( '' !== $bn_inv_exp ) {
 											printf(
-												/* translators: %s: expiry date. */
+												/* translators: %s: formatted expiry date. */
 												esc_html__( 'Expires %s', 'buddynext' ),
 												buddynext_date_local( (string) $bn_inv_exp )
 											);
@@ -754,7 +763,7 @@ $posts_pct_abs = abs( $posts_pct );
 						<span class="bn-ca-pagination__status">
 							<?php
 							printf(
-								/* translators: 1: current page, 2: total pages. */
+								/* translators: 1: current page number, 2: total number of pages. */
 								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
 								esc_html( number_format_i18n( $bn_ca_inv_page ) ),
 								esc_html( number_format_i18n( $bn_ca_inv_pages ) )
@@ -994,7 +1003,7 @@ $posts_pct_abs = abs( $posts_pct );
 								)
 							);
 							?>
-							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" data-report-id="<?php echo esc_attr( (string) (int) $rpt['id'] ); ?>" data-wp-context="<?php echo esc_attr( (string) $rpt_ctx ); ?>">
+							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" data-report-id="<?php echo esc_attr( (string) (int) $rpt['id'] ); ?>"<?php echo 'user' === $rpt_obj_type ? ' data-bn-reported-member="' . esc_attr( (string) $rpt_obj_id ) . '"' : ''; ?> data-wp-context="<?php echo esc_attr( (string) $rpt_ctx ); ?>">
 								<div class="bn-ca-report-row__body">
 									<div class="bn-ca-report-row__type">
 										<span class="bn-ca-status-dot" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" aria-hidden="true"></span>
@@ -1129,7 +1138,7 @@ $posts_pct_abs = abs( $posts_pct );
 								<span class="bn-ca-pagination__status">
 									<?php
 									printf(
-										/* translators: 1: current page, 2: total pages. */
+										/* translators: 1: current page number, 2: total number of pages. */
 										esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
 										esc_html( number_format_i18n( $bn_ca_rp_page ) ),
 										esc_html( number_format_i18n( $bn_ca_rp_pages ) )

@@ -110,6 +110,19 @@ $service_result = $bn_feed_service_obj->home_feed(
 $feed_posts     = array_values( (array) ( $service_result['items'] ?? array() ) );
 $next_cursor    = (string) ( $service_result['next_cursor'] ?? '' );
 
+// The new-posts pill: the posts it counted go on top, whatever their rank, and only
+// once. Same query and privacy rules as the count. See bnPillShowNew() in feed/store.js.
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display value.
+$bn_new_after = ( $current_user_id > 0 && '' === $raw_cursor && isset( $_GET['new_after'] ) ) ? absint( wp_unslash( $_GET['new_after'] ) ) : 0;
+if ( $bn_new_after > 0 ) {
+	$bn_new_posts = array_map( array( \BuddyNext\Feed\PostService::class, 'attach_poll_options' ), $bn_feed_service_obj->home_feed_new_items( $current_user_id, $bn_new_after, $bn_filter ) );
+	$bn_new_ids   = array_map( 'intval', wp_list_pluck( $bn_new_posts, 'id' ) );
+	$feed_posts   = array_merge(
+		$bn_new_posts,
+		array_values( array_filter( $feed_posts, static fn( array $p ): bool => ! in_array( (int) $p['id'], $bn_new_ids, true ) ) )
+	);
+}
+
 // Batch-prime every per-viewer cache the post-card reads (reaction / bookmark /
 // vote / report) BEFORE the SSR card loop below, so the first paint costs one
 // query per service for the whole page instead of ~3 per card (C8.3).
@@ -141,6 +154,8 @@ $bn_new_pill_ms = (bool) get_option( 'buddynext_feed_new_posts_indicator', true 
  */
 do_action( 'buddynext_feed_home_before', $current_user_id );
 ?>
+<?php // The page's one top-level heading, for screen readers: the feed shows no visible title. ?>
+<h1 class="bn-sr-only"><?php esc_html_e( 'Activity', 'buddynext' ); ?></h1>
 <div class="bn-feed-stack"
 	data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
 	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"
@@ -165,7 +180,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	<!-- Carries the .bn-tabs/.bn-tab primitive so it matches the Home/Explore row
 		and every other tab bar (font, focus ring, overflow scroll-fade); the
 		.bn-feed-filter-tab* classes + aria-current are kept for the feed-tabs JS. -->
-	<?php // .bn-navgroup opts the strip into the shared overflow chevrons (shell/extras.js), the cross-browser "more tabs" affordance - the CSS edge-fade alone is Chrome-only, so at 390px "Network" was clipped mid-word with no hint it was reachable. ?>
+	<?php // .bn-navgroup opts the strip into the shared fit-or-fold "More" (shell/extras.js): filters that do not fit fold into More instead of being clipped (at 390px "Network" was cut mid-word with no hint it was reachable). ?>
 	<div class="bn-navgroup">
 	<div class="bn-tabs bn-feed-filter-tabs"
 		role="tablist"
@@ -277,7 +292,19 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			buddynext_get_template(
 				'parts/feed-load-more.php',
 				array_merge(
-					\BuddyNext\Feed\FeedWindow::links( add_query_arg( 'filter', $bn_filter, PageRouter::activity_url() ), $bn_window, $next_cursor ),
+					\BuddyNext\Feed\FeedWindow::links(
+						add_query_arg(
+							array_filter(
+								array(
+									'filter'    => $bn_filter,
+									'new_after' => $bn_new_after,
+								)
+							),
+							PageRouter::activity_url()
+						),
+						$bn_window,
+						$next_cursor
+					),
 					array( 'show_end' => true )
 				)
 			);

@@ -147,16 +147,17 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Ben and 1 other replied to "Welcome thread".', $composed['message'] );
 	}
 
-	public function test_dropped_for_self_block_and_switched_off_integration(): void {
+	public function test_dropped_for_self_and_block_but_not_for_hidden_tab(): void {
 		$this->fire( array( 'actor_id' => $this->recipient ) );
 		buddynext_service( 'blocks' )->block( $this->recipient, $this->actor );
 		$this->fire();
 		$this->assertCount( 0, $this->rows() );
 		buddynext_service( 'blocks' )->unblock( $this->recipient, $this->actor );
 
+		// Hiding the integration's tab only hides the tab; its notifications still arrive.
 		update_option( 'buddynext_integration_jetonomy_nav', '0' );
 		$this->fire();
-		$this->assertCount( 0, $this->rows() );
+		$this->assertCount( 1, $this->rows() );
 	}
 
 	public function test_plugin_answers_visibility_and_removal_deletes(): void {

@@ -1143,8 +1143,23 @@ select.bn-text-input {
 	color: var(--bn-a-text-1);
 }
 
+.bn-toggle-row__action {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--bn-a-s2);
+	flex-shrink: 0;
+}
+
 .bn-toggle-row__copy .bn-field-hint {
 	margin: var(--bn-a-s1) 0 0;
+}
+
+/* A one-click action under a row's hint (e.g. "Turn on Certificates") sizes to its label. */
+.bn-toggle-row__copy > .bn-btn {
+	align-self: flex-start;
+	margin-block-start: var(--bn-a-s2);
 }
 
 .bn-int-subtab-group {
@@ -1719,6 +1734,7 @@ table.bn-table tr:hover td {
 .bn-addon-row__action {
 	flex-shrink: 0;
 	align-self: center;
+	white-space: nowrap;
 	font-size: var(--bn-a-text-xs);
 	font-weight: var(--bn-a-fw-semibold);
 	color: var(--bn-a-brand);
@@ -2490,8 +2506,11 @@ button.bn-btn-danger:hover {
 		font-size: var(--bn-a-text-xs);
 	}
 
+	/* Column utilities: hide the cell, never inline text that borrows the muted
+	   look (Activity's "no space" dash and engagement counts went blank). */
 	.bn-col-email,
-	.bn-col-muted {
+	th.bn-col-muted,
+	td.bn-col-muted {
 		display: none;
 	}
 
@@ -2955,21 +2974,56 @@ button.bn-btn-danger:hover {
    (.bn-stat-grid > .bn-stat, styled in bn-base.css) — the old .bn-insight-*
    card component is retired. Only the signup spark strip and the wp-admin
    dashboard widget keep page-specific rules. */
+/* One column per day: count, bar, day of month. The values are text, not a
+   hover title, so the chart reads on touch and keyboard too. */
 .bn-spark {
 	display: flex;
+	gap: var(--bn-s1);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.bn-spark__col {
+	display: flex;
+	flex: 1 1 0;
+	flex-direction: column;
+	align-items: center;
+	min-width: 0;
+	margin: 0;
+}
+.bn-spark__value,
+.bn-spark__day {
+	font-size: var(--bn-text-xs);
+	font-variant-numeric: tabular-nums;
+	line-height: 1.4;
+	white-space: nowrap;
+}
+.bn-spark__value { color: var(--bn-ink-2); }
+.bn-spark__day { color: var(--bn-ink-3); }
+.bn-spark__track {
+	display: flex;
 	align-items: flex-end;
-	gap: 6px;
+	width: 100%;
 	height: 90px;
-	padding-top: 4px;
+	border-block-end: 1px solid var(--bn-line);
 }
 .bn-spark__bar {
-	flex: 1 1 0;
+	width: 100%;
 	min-height: 2px;
 	border-radius: 3px 3px 0 0;
 	background: var(--bn-accent, #2563eb);
-	opacity: 0.85;
 }
-.bn-spark__bar:hover { opacity: 1; }
+.bn-spark__range {
+	display: flex;
+	justify-content: space-between;
+	margin: var(--bn-s1) 0 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+@media (max-width: 640px) {
+	.bn-spark { gap: 2px; }
+	.bn-spark__track { height: 72px; }
+}
 .bn-insights-widget { margin: 0 0 8px; }
 .bn-insights-widget li { margin: 0 0 6px; }
 .bn-insights-widget strong { font-size: 16px; }
@@ -3907,6 +3961,23 @@ button.bn-btn-danger:hover {
 	}
 }
 
+/* Touch (iPad included) and narrow screens: the sub-tabs and the row expander
+   meet the 40px tap floor. The expander grows into the 44px the stacked row
+   already reserves for it, by sitting 4px from the corner instead of 8px. */
+@media (pointer: coarse), (max-width: 782px) {
+	.bn-atab {
+		box-sizing: border-box;
+		min-block-size: var(--bn-tap, 40px);
+	}
+
+	.bn-table .toggle-row {
+		inset-inline-end: var(--bn-a-s1, 4px);
+		top: var(--bn-a-s1, 4px);
+		inline-size: var(--bn-tap, 40px);
+		block-size: var(--bn-tap, 40px);
+	}
+}
+
 /* ── Core list tables inside BuddyNext: Lucide expander, not dashicons ───────
    The Pro admin screens use WordPress's .wp-list-table so they inherit core's
    responsive stacking for free - but that also brings core's dashicon chevron
@@ -4260,25 +4331,62 @@ code.bn-ep-code {
 	max-width: 32ch;
 }
 
-.bn-activity-actions {
-	display: flex;
-	flex-wrap: nowrap;
-	align-items: center;
-	justify-content: flex-end;
-	gap: var(--bn-s2);
-}
-
-.bn-activity-actions .bn-btn {
-	flex: 0 0 auto;
-}
-
-.bn-activity-actions__del {
-	margin: 0;
-	display: inline-flex;
-}
-
 .bn-activity-edit .bn-textarea {
 	width: 100%;
+}
+
+.bn-activity-edit__attachments {
+	margin: var(--bn-s4) 0 0;
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-sm);
+}
+
+.bn-activity-edit__attachments legend {
+	padding-inline: var(--bn-s1);
+	font-weight: var(--bn-a-fw-semibold);
+}
+
+.bn-activity-edit__media {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+	gap: var(--bn-s3);
+}
+
+.bn-activity-edit__media-item {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	margin: 0;
+	min-width: 0;
+}
+
+.bn-activity-edit__media-item img,
+.bn-activity-edit__media-file {
+	inline-size: 100%;
+	aspect-ratio: 1;
+	object-fit: cover;
+	border-radius: var(--bn-a-r-sm);
+	background: var(--bn-a-sunken);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.bn-activity-edit__media-title {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-2);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-activity-edit__link {
+	margin: 0 0 var(--bn-s2);
+	overflow-wrap: anywhere;
 }
 
 .bn-activity-edit__actions {
@@ -4296,16 +4404,18 @@ code.bn-ep-code {
 		align-items: stretch;
 	}
 
+	/* The toolbar's width basis would become the search field's height in a column. */
+	.bn-activity-filter .bn-input[type="search"] {
+		flex: none;
+		max-width: none;
+	}
+
 	.bn-activity-count {
 		margin-inline-start: 0;
 	}
 
 	.bn-activity-preview {
 		max-width: none;
-	}
-
-	.bn-activity-actions {
-		justify-content: flex-start;
 	}
 }
 

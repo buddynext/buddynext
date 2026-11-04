@@ -156,6 +156,7 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 						id="bn-create-space-category"
 						name="category_id"
 						class="bn-select"
+						data-bn-category-level
 					>
 						<option value="">
 							<?php esc_html_e( '- Select a category -', 'buddynext' ); ?>
@@ -167,7 +168,7 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 						$bn_default_cat = (int) get_option( 'buddynext_space_default_category', 0 );
 						foreach ( $bn_csm_categories as $bn_csm_cat ) :
 							?>
-							<option value="<?php echo esc_attr( (string) $bn_csm_cat->id ); ?>" <?php selected( $bn_default_cat, (int) $bn_csm_cat->id ); ?>>
+							<option value="<?php echo esc_attr( (string) $bn_csm_cat->id ); ?>" data-level="<?php echo esc_attr( (string) ( $bn_csm_cat->level ?? 'both' ) ); ?>" <?php selected( $bn_default_cat, (int) $bn_csm_cat->id ); ?>>
 								<?php echo esc_html( $bn_csm_cat->name ); ?>
 							</option>
 						<?php endforeach; ?>

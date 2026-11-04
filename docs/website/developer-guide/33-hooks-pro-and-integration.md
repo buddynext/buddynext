@@ -1,6 +1,6 @@
 # Pro and Integration Hooks
 
-This page covers the hooks that cross plugin boundaries: the actions and filters BuddyNext Pro emits, the integration seams BuddyNext exposes to companion plugins (WPMediaVerse, Jetonomy, the real-time transport), and the PWA seams. It is for developers extending Pro, building a companion plugin, or wiring a gamification/CRM layer onto the free/pro contract.
+This page covers the hooks that cross plugin boundaries: the actions and filters BuddyNext Pro emits, the integration seams BuddyNext exposes to companion plugins (MediaVerse, Jetonomy, the real-time transport), and the PWA seams. It is for developers extending Pro, building a companion plugin, or wiring a gamification/CRM layer onto the free/pro contract.
 
 ![The Pro admin settings whose cross-plugin Pro and integration hooks are documented here](../images/admin-general.webp)
 
@@ -55,7 +55,7 @@ The table lists every hook Pro fires. Names are exact.
 | `buddynext_onboarding_steps` | filter | The onboarding wizard's step list. Two things are supported: **append** an add-on step (this is how Pro inserts the membership-plan step), and **remove** any of the three optional core steps - `interests`, `spaces`, `people`. Profile and Notifications are identity and delivery choices and stay; removing every step falls back to the core list. Reordering is not supported (each section's markup and save handler pair by position). Entries missing key/label/icon, or duplicating a key, are dropped. | `array<int, array{key,label,icon}> $steps` | `buddynext-pro` |
 | `buddynext_setup_wizard_steps` | filter | The ADMIN setup wizard's step list (the sibling of `buddynext_onboarding_steps`), a keyed registry so an add-on can append, remove, or reorder steps without editing core. Each entry needs a `label` and a callable `render`, with an optional `save`; entries missing key/label, with a non-callable render, or a duplicate key are dropped. The last entry is the finish step. Progress is stored as the step KEY, so changing the list never corrupts an in-flight wizard | `array $steps` (key => `[label, render, save]`) | (none) |
 | `buddynext_gamification_show_skip_toast` | filter | Whether to show a skip toast when gamification declines an award (cooldown, daily cap, weekly cap). Defaults to `false`: a member is not told an action they completed earned nothing | `bool $show, array $event, int $user_id, string $reason` | (none) |
-| `buddynext_media_service` | filter | A WPMediaVerse container service is resolved. The single seam into the media boundary - returning an object here takes over resolution | `object\|null $resolved, string $key` | (none) |
+| `buddynext_media_service` | filter | A MediaVerse container service is resolved. The single seam into the media boundary - returning an object here takes over resolution | `object\|null $resolved, string $key` | (none) |
 | `buddynext_app_connect_schemes` | filter | The custom URL schemes the app-connect bridge may redirect to. **Every scheme here can receive an application password**, so add one only for an app you control | `string[] $schemes` | (none) |
 | `buddynext_app_strings` | filter | The translated app strings, so a site can override or white-label specific keys without touching the shared catalogue | `array $out, string $locale, array $strings` | (none) |
 | `buddynext_presence_stamped` | action | A member's presence timestamp is refreshed. Pro's WebSocket layer listens here to broadcast presence | `int $user_id` | (none) |
@@ -131,9 +131,9 @@ apply_filters( 'buddynext_brand_logo_url', ?string $url )
 // Default: null
 ```
 
-### WPMediaVerse seams (mvs_* hooks BuddyNext uses)
+### MediaVerse seams (mvs_* hooks BuddyNext uses)
 
-Direct messaging runs on WPMediaVerse; BuddyNext is the UI layer over it. These filters live in WPMediaVerse and BuddyNext hooks them:
+Direct messaging runs on MediaVerse; BuddyNext is the UI layer over it. These filters live in MediaVerse and BuddyNext hooks them:
 
 ```php
 // BuddyNext returns true so WPMediaVerse suppresses its own chat panel + nav link.
@@ -146,7 +146,7 @@ apply_filters( 'mvs_can_send_message', bool $allowed, int $sender_id, int $recip
 apply_filters( 'mvs_messaging_transport', object $transport )
 ```
 
-WPMediaVerse fires these actions, which BuddyNext bridges into community surfaces:
+MediaVerse fires these actions, which BuddyNext bridges into community surfaces:
 
 ```php
 do_action( 'mvs_message_sent',     int $message_id, int $conversation_id, int $sender_id, array $recipient_ids )

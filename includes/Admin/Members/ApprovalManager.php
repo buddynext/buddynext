@@ -3,7 +3,7 @@
  * Admin tab: Pending Approvals.
  *
  * Provides the "Pending" tab under Members admin, shown when registration mode
- * is `approval`. Lists accounts created with the `bn_pending_approval` flag
+ * is `approval` and for as long as pending accounts exist. Lists accounts created with the `bn_pending_approval` flag
  * (set by AuthController::register() in approval mode, which also blocks their
  * login via the wp_authenticate_user gate). Admins can:
  *   - Approve a member  → clears the flag, fires `buddynext_member_approved`.
@@ -75,7 +75,7 @@ class ApprovalManager {
 	 *
 	 * @return int
 	 */
-	private function pending_count(): int {
+	public static function pending_count(): int {
 		$query = new \WP_User_Query(
 			array(
 				'meta_key'    => self::META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
@@ -87,6 +87,71 @@ class ApprovalManager {
 		);
 
 		return (int) $query->get_total();
+	}
+
+	/**
+	 * Whether the Pending tab belongs on the Members screen.
+	 *
+	 * The hold keys off the member's own flag, not the registration mode, so accounts
+	 * that signed up under Approval stay locked out after the mode changes and the
+	 * owner still needs the queue.
+	 *
+	 * @return bool
+	 */
+	public static function queue_is_needed(): bool {
+		return 'approval' === get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ) || self::pending_count() > 0;
+	}
+
+	/**
+	 * The signed Approve link for one pending member.
+	 *
+	 * @param int $user_id Pending member.
+	 * @return string
+	 */
+	public static function approve_url( int $user_id ): string {
+		return wp_nonce_url(
+			add_query_arg(
+				array(
+					'action'  => 'bn_approve_member',
+					'user_id' => $user_id,
+				),
+				admin_url( 'admin-post.php' )
+			),
+			'bn_approve_member_' . $user_id
+		);
+	}
+
+	/**
+	 * Warn that pending accounts outlived Approval mode. Nothing shows while the mode
+	 * is Approval or nobody is waiting.
+	 *
+	 * @return void
+	 */
+	public static function render_stranded_notice(): void {
+		if ( 'approval' === get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ) ) {
+			return;
+		}
+
+		$total = self::pending_count();
+		if ( 0 === $total ) {
+			return;
+		}
+
+		AdminPageBase::render_notice(
+			sprintf(
+				/* translators: 1: number of members, 2: link to the pending queue. */
+				_n(
+					'%1$s account signed up under Approval and still cannot sign in. Changing the registration mode does not approve anyone. <a href="%2$s">Review the pending queue</a>',
+					'%1$s accounts signed up under Approval and still cannot sign in. Changing the registration mode does not approve anyone. <a href="%2$s">Review the pending queue</a>',
+					$total,
+					'buddynext'
+				),
+				number_format_i18n( $total ),
+				esc_url( admin_url( 'admin.php?page=buddynext-members&tab=pending' ) )
+			),
+			'warning',
+			true
+		);
 	}
 
 	/**
@@ -104,7 +169,9 @@ class ApprovalManager {
 
 		$redirect = admin_url( 'admin.php?page=buddynext-members&tab=pending' );
 
-		if ( 0 === $user_id || ! get_userdata( $user_id ) ) {
+		// Only a member who is actually pending: approving again must not re-fire the
+		// approval hook and its email for an account that is already active.
+		if ( 0 === $user_id || ! get_user_meta( $user_id, self::META, true ) ) {
 			wp_safe_redirect( add_query_arg( 'bn_notice', 'bad_user', $redirect ) );
 			exit;
 		}
@@ -221,7 +288,7 @@ class ApprovalManager {
 		$page = isset( $_GET['bn_page'] ) ? absint( wp_unslash( $_GET['bn_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page = max( 1, $page );
 
-		$total   = $this->pending_count();
+		$total   = self::pending_count();
 		$pages   = (int) ceil( $total / self::PER_PAGE );
 		$pending = $this->pending_users( $page );
 
@@ -272,7 +339,7 @@ class ApprovalManager {
 
 			<h3><?php esc_html_e( 'Pending approvals', 'buddynext' ); ?></h3>
 			<p class="description">
-				<?php esc_html_e( 'Accounts awaiting approval cannot sign in until approved. Shown only while registration mode is set to “Approval”.', 'buddynext' ); ?>
+				<?php esc_html_e( 'Accounts awaiting approval cannot sign in until approved.', 'buddynext' ); ?>
 			</p>
 
 			<?php if ( empty( $pending ) ) : ?>
@@ -295,16 +362,7 @@ class ApprovalManager {
 					<tbody>
 					<?php foreach ( $pending as $user ) : ?>
 						<?php
-						$approve_url  = wp_nonce_url(
-							add_query_arg(
-								array(
-									'action'  => 'bn_approve_member',
-									'user_id' => $user->ID,
-								),
-								admin_url( 'admin-post.php' )
-							),
-							'bn_approve_member_' . $user->ID
-						);
+						$approve_url  = self::approve_url( $user->ID );
 						$reject_url   = wp_nonce_url(
 							add_query_arg(
 								array(

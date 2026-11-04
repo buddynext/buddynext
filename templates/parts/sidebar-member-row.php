@@ -61,7 +61,7 @@ $row_initial = '' !== $row_name ? mb_strtoupper( mb_substr( $row_name, 0, 1 ) ) 
 			<?php endif; ?>
 		</span>
 		<span class="bn-member-row__text">
-			<span class="bn-member-row__name"><?php echo esc_html( $row_name ); ?></span>
+			<span class="bn-member-row__name"><?php echo esc_html( $row_name ); ?><?php buddynext_presence_text( $row_online ? 'online' : '' ); ?></span>
 			<?php if ( '' !== $row_meta ) : ?>
 				<span class="bn-member-row__meta"><?php echo esc_html( $row_meta ); ?></span>
 			<?php endif; ?>

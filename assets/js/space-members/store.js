@@ -1,7 +1,7 @@
 /* BuddyNext — Space Members Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnConfirm, bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { bnConfirm, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
+import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -13,6 +13,21 @@ import { restFetch } from '@buddynext/rest-client';
 let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
+/**
+ * Report a failed member action. 404/409 mean the row is stale (someone else got
+ * there first), so redraw the list rather than leave a row every retry fails on.
+ *
+ * @param {Object} res      restFetch result.
+ * @param {string} fallback Text for a retryable failure.
+ */
+function memberActionFailed( res, fallback ) {
+	if ( 404 === res.status || 409 === res.status ) {
+		bnReloadWithToast( restError( res ), { tone: 'info' } );
+		return;
+	}
+	toastRestError( res, fallback );
+}
 
 const spaceMembersStore = store( 'buddynext/space-members', {
 	state: {
@@ -83,7 +98,7 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 				if ( res.ok ) {
 					window.location.reload();
 				} else {
-					bnToast( t( 'removeMemberFailed', 'Could not remove member. Try again.' ), { tone: 'danger' } );
+					memberActionFailed( res, t( 'removeMemberFailed', 'Could not remove member. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'removeMemberFailed', 'Could not remove member. Try again.' ), { tone: 'danger' } );
@@ -106,7 +121,7 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 				if ( res.ok ) {
 					window.location.reload();
 				} else {
-					bnToast( t( 'updateRoleFailed', 'Could not update role. Try again.' ), { tone: 'danger' } );
+					memberActionFailed( res, t( 'updateRoleFailed', 'Could not update role. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'updateRoleFailed', 'Could not update role. Try again.' ), { tone: 'danger' } );
@@ -135,7 +150,7 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 				if ( res.ok ) {
 					window.location.reload();
 				} else {
-					bnToast( t( 'banMemberFailed', 'Could not ban member. Try again.' ), { tone: 'danger' } );
+					memberActionFailed( res, t( 'banMemberFailed', 'Could not ban member. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'banMemberFailed', 'Could not ban member. Try again.' ), { tone: 'danger' } );
@@ -163,7 +178,7 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 				if ( res.ok ) {
 					window.location.reload();
 				} else {
-					bnToast( t( 'unbanMemberFailed', 'Could not unban member. Try again.' ), { tone: 'danger' } );
+					memberActionFailed( res, t( 'unbanMemberFailed', 'Could not unban member. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'unbanMemberFailed', 'Could not unban member. Try again.' ), { tone: 'danger' } );
@@ -193,7 +208,8 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					bnToast( t( 'inviteSent', 'Invitation sent' ), { tone: 'success' } );
+					// An attached invite sent nothing new: the server words it, and it is not a success toast.
+					bnToast( ( res.data && res.data.message ) || t( 'inviteSent', 'Invitation sent' ), { tone: res.data && res.data.attached ? 'info' : 'success' } );
 					if ( input ) { input.value = ''; }
 				} else {
 					const msg = ( res.data && res.data.message ) ? res.data.message : t( 'inviteFailed', 'Could not send the invitation.' );

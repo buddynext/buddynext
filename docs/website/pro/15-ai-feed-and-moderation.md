@@ -30,7 +30,7 @@ Older interactions count for less over time. This is controlled by the signal de
 
 ### Smart reply suggestions
 
-When smart replies are on and a provider is connected, members see a "Suggest replies" button next to the comment box on a post. Selecting it returns up to three short suggestions based on the post and the most recent replies in the thread. The member picks one, edits it freely, and posts it like any other comment. Suggestions are advisory - nothing is posted automatically.
+When smart replies are on and a provider is connected, members see a "Suggest replies" button next to the comment box on a post. Selecting it opens a short list of up to three suggestions, shown as chips, based on the post and the most recent replies in the thread. The member picks a chip to put it in the comment box, edits it freely, and posts it like any other comment. If the request is refused (for example the daily limit is reached), the panel shows the reason instead of a generic "Try again". The member picks one, edits it freely, and posts it like any other comment. Suggestions are advisory - nothing is posted automatically.
 
 To keep usage and costs predictable, each member has a daily limit on how many times they can request suggestions. Once they reach it, the button reports that the daily limit is reached and resets the next day.
 
@@ -42,7 +42,7 @@ AI moderation is not something members interact with directly. When a provider i
 
 ### Step 1: turn on the features and connect an AI provider
 
-In the Features catalogue, turn on **AI suite** (feed ranking, semantic search and smart replies) and, separately, **AI moderation**. Both are off until you turn them on.
+In the Features catalogue, turn on **AI suite** (feed ranking, semantic search and smart replies) and, separately, **AI moderation**. Both are off until you turn them on. Once **AI suite** is on, its row in the Features catalogue links to the AI Feed settings with **Open its settings**.
 
 Smart replies and AI moderation use the AI provider you connect on WordPress' built-in Settings > Connectors page. You add your provider and API key there once; there is no separate API key field for them on the BuddyNext screens. The provider list is whatever WordPress offers there, not something BuddyNext chooses.
 

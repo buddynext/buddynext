@@ -237,6 +237,75 @@ class SpaceService {
 	}
 
 	/**
+	 * Categories a space can be filed under, for every create/edit picker.
+	 *
+	 * One list for the directory create form, the create-sub-space form and space
+	 * settings, so they cannot drift apart. Categories hidden from the directory
+	 * are included: hidden only keeps them out of the directory filter chips.
+	 *
+	 * Each choice carries its `level` so a form whose parent can change filters in
+	 * the browser; pass $is_sub when the form's level is fixed.
+	 *
+	 * @param bool|null $is_sub True: subspace choices only; false: main space; null: all.
+	 * @return array<int, object{id:int, name:string, slug:string, level:string}>
+	 */
+	public function category_choices( ?bool $is_sub = null ): array {
+		$rows = ( new SpaceCategoryService() )->get_all();
+		if ( null !== $is_sub ) {
+			$rows = array_filter( $rows, static fn( array $c ): bool => SpaceCategoryService::allows( $c, $is_sub ) );
+		}
+		return array_values(
+			array_map(
+				static fn( array $c ): object => (object) array(
+					'id'    => (int) $c['id'],
+					'name'  => (string) $c['name'],
+					'slug'  => (string) $c['slug'],
+					'level' => (string) $c['level'],
+				),
+				$rows
+			)
+		);
+	}
+
+	/**
+	 * The category id to store for a space: null for none, or an existing category.
+	 *
+	 * The one check every create and update path (front-end forms, REST, app)
+	 * goes through. A category hidden from the directory is still a valid pick.
+	 *
+	 * @param int  $category_id Requested category id; 0 or less means none.
+	 * @param bool $is_sub      True when the space is (or is becoming) a subspace.
+	 * @param bool $check_level False when nothing about the pairing changes (same
+	 *                          category, same level): a space keeps a category the
+	 *                          owner later limited to the other level.
+	 * @return int|null|WP_Error The id, null for none, or 400 for a missing category
+	 *                           or one the owner limited to the other level.
+	 */
+	private function resolve_category( int $category_id, bool $is_sub, bool $check_level = true ): int|null|WP_Error {
+		if ( $category_id <= 0 ) {
+			return null;
+		}
+		$category = ( new SpaceCategoryService() )->get_by_id( $category_id );
+		if ( null === $category ) {
+			return new WP_Error(
+				'buddynext_invalid_category',
+				__( 'That category does not exist. Pick another one.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+		if ( $check_level && ! SpaceCategoryService::allows( $category, $is_sub ) ) {
+			return new WP_Error(
+				'buddynext_category_level',
+				$is_sub
+					? __( 'That category is for main spaces only. Pick another one for this subspace.', 'buddynext' )
+					: __( 'That category is for subspaces only. Pick another one for this space.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+		return $category_id;
+	}
+
+	/**
 	 * Run the banned-words / blocklist scan over a space's name and description.
 	 *
 	 * Name and description are scanned as separate calls so the rejection copy
@@ -433,11 +502,17 @@ class SpaceService {
 			}
 		}
 
-		// Fall back to the configured default category when none is chosen.
-		$category_id = ( isset( $data['category_id'] ) && (int) $data['category_id'] > 0 )
-			? (int) $data['category_id']
-			: (int) get_option( 'buddynext_space_default_category', 0 );
-		$category_id = $category_id > 0 ? $category_id : null;
+		// A chosen category must exist; with none chosen, the configured default
+		// applies when it still exists (a deleted default just means no category).
+		if ( isset( $data['category_id'] ) && (int) $data['category_id'] > 0 ) {
+			$category_id = $this->resolve_category( (int) $data['category_id'], null !== $parent_id && $parent_id > 0 );
+			if ( is_wp_error( $category_id ) ) {
+				return $category_id;
+			}
+		} else {
+			$category_id = $this->resolve_category( (int) get_option( 'buddynext_space_default_category', 0 ), null !== $parent_id && $parent_id > 0 );
+			$category_id = is_wp_error( $category_id ) ? null : $category_id;
+		}
 
 		// Banned-words / blocklist scan on the space's public text, so a rule
 		// enforced on posts and comments cannot be evaded by putting the text in a
@@ -596,7 +671,16 @@ class SpaceService {
 			$format[]       = '%s';
 		}
 		if ( isset( $data['category_id'] ) ) {
-			$fields['category_id'] = (int) $data['category_id'];
+			// The level the space will have after this save: a parent sent with it
+			// wins, otherwise its current parent.
+			$is_sub      = (int) ( $space['parent_id'] ?? 0 ) > 0;
+			$will_be_sub = array_key_exists( 'parent_id', $data ) ? (int) $data['parent_id'] > 0 : $is_sub;
+			$unchanged   = (int) ( $space['category_id'] ?? 0 ) === (int) $data['category_id'] && $is_sub === $will_be_sub;
+			$category_id = $this->resolve_category( (int) $data['category_id'], $will_be_sub, ! $unchanged );
+			if ( is_wp_error( $category_id ) ) {
+				return $category_id;
+			}
+			$fields['category_id'] = $category_id;
 			$format[]              = '%d';
 		}
 		if ( isset( $data['slug'] ) ) {
@@ -1559,7 +1643,8 @@ class SpaceService {
 		// The public grid lists top-level spaces unless sub-spaces were asked for;
 		// My spaces lists every membership, sub-spaces included.
 		if ( ! isset( $args['member'] ) && ! $subspaces ) {
-			$args['roots_only'] = true;
+			$args['roots_only']        = true;
+			$args['search_roots_only'] = true;
 		}
 
 		if ( $is_mine && '' === $membership && '' === $search ) {
@@ -1601,6 +1686,39 @@ class SpaceService {
 	private const ACTIVITY_THROTTLE_GROUP = 'buddynext_space_activity';
 
 	/**
+	 * Move a space's last_active_at forward to a time. Never backwards, so an older
+	 * backdated record leaves newer activity alone.
+	 *
+	 * @param int         $space_id Space id.
+	 * @param string|null $at       UTC time of the activity. Null means now.
+	 * @return void
+	 */
+	public function touch_activity( int $space_id, ?string $at = null ): void {
+		global $wpdb;
+
+		$stamp = \BuddyNext\Core\Backdate::resolve( $at );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_spaces SET last_active_at = %s WHERE id = %d AND ( last_active_at IS NULL OR last_active_at < %s )",
+				$stamp,
+				$space_id,
+				$stamp
+			)
+		);
+
+		// A live touch leaves these to their TTL, as it always has. A backdated one
+		// is an import, where the page read straight after must show the source time.
+		if ( null !== $at && $wpdb->rows_affected > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$slug = (string) $wpdb->get_var( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $space_id ) );
+			wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+			wp_cache_delete( 'space_slug_' . $slug, self::CACHE_GROUP );
+			self::flush_space_lists();
+		}
+	}
+
+	/**
 	 * Bump a space's last_active_at when a comment lands on one of its posts.
 	 *
 	 * A new post already stamps last_active_at (run_post_published_effects); this
@@ -1610,7 +1728,10 @@ class SpaceService {
 	 * write per ACTIVITY_THROTTLE_SECONDS per space. Only comments on a POST count;
 	 * a comment on anything else is ignored. Hooked on buddynext_comment_created.
 	 *
-	 * @param int    $comment_id  New comment id (unused; fixed by the hook signature).
+	 * A backdated comment skips the throttle: an import writes years of comments in
+	 * seconds, and touch_activity() only writes one that is newer than the stored time.
+	 *
+	 * @param int    $comment_id  New comment id.
 	 * @param string $object_type What the comment is attached to.
 	 * @param int    $object_id   The commented object's id (a post id when relevant).
 	 * @param int    $user_id     Commenter id (unused; fixed by the hook signature).
@@ -1623,21 +1744,30 @@ class SpaceService {
 
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$space_id = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id )
+		$row      = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT p.space_id, c.created_at FROM {$wpdb->prefix}bn_posts p LEFT JOIN {$wpdb->prefix}bn_comments c ON c.id = %d WHERE p.id = %d",
+				$comment_id,
+				$object_id
+			),
+			ARRAY_A
 		);
-		if ( $space_id <= 0 || $this->activity_throttled( $space_id ) ) {
+		$space_id = (int) ( $row['space_id'] ?? 0 );
+		if ( $space_id <= 0 ) {
 			return;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
-			$wpdb->prefix . 'bn_spaces',
-			array( 'last_active_at' => gmdate( 'Y-m-d H:i:s' ) ),
-			array( 'id' => $space_id ),
-			array( '%s' ),
-			array( '%d' )
-		);
+		$written = (string) ( $row['created_at'] ?? '' );
+		if ( '' !== $written && strtotime( $written . ' UTC' ) < time() - self::ACTIVITY_THROTTLE_SECONDS ) {
+			$this->touch_activity( $space_id, $written );
+			return;
+		}
+
+		if ( $this->activity_throttled( $space_id ) ) {
+			return;
+		}
+
+		$this->touch_activity( $space_id );
 		$this->mark_activity_throttled( $space_id );
 	}
 
@@ -2237,8 +2367,15 @@ class SpaceService {
 		// already in $where. esc_like() so a literal % or _ in the term matches
 		// itself; the %s placeholder is filled from $params.
 		if ( '' !== $search ) {
-			$where[]  = 'name LIKE %s';
-			$params[] = '%' . $wpdb->esc_like( $search ) . '%';
+			$like = '%' . $wpdb->esc_like( $search ) . '%';
+			if ( empty( $args['search_description'] ) ) {
+				$where[]  = 'name LIKE %s';
+				$params[] = $like;
+			} else {
+				$where[]  = '( name LIKE %s OR description LIKE %s )';
+				$params[] = $like;
+				$params[] = $like;
+			}
 		}
 
 		// Top-level directory browse shows root spaces only — sub-spaces are
@@ -2314,106 +2451,43 @@ class SpaceService {
 	 * so a retired space cannot be found here after it left the directory.
 	 *
 	 * @param string               $term Search term.
-	 * @param array<string, mixed> $args Optional per_page / page / viewer / is_admin.
+	 * @param array<string, mixed> $args Optional per_page / page / viewer / is_admin, plus every list_spaces() filter.
 	 * @return array[]
 	 */
 	public function search( string $term, array $args = array() ): array {
-		global $wpdb;
+		return $this->list_spaces( self::search_args( $term, $args ) );
+	}
 
-		$like      = '%' . $wpdb->esc_like( $term ) . '%';
-		$per_page  = max( 1, min( 100, absint( $args['per_page'] ?? 12 ) ) );
-		$page      = max( 1, absint( $args['page'] ?? 1 ) );
-		$offset    = ( $page - 1 ) * $per_page;
-		$viewer_id = isset( $args['viewer'] ) ? absint( $args['viewer'] ) : 0;
-		$is_admin  = ! empty( $args['is_admin'] );
-		$member_id = isset( $args['member'] ) ? absint( $args['member'] ) : 0;
+	/**
+	 * Same search, with the total matching rows for a pager.
+	 *
+	 * @param string               $term Search term.
+	 * @param array<string, mixed> $args Same as search(), plus every list_spaces() filter.
+	 * @return array{items: array[], total: int}
+	 */
+	public function search_with_total( string $term, array $args = array() ): array {
+		return $this->list_spaces_with_total( self::search_args( $term, $args ) );
+	}
 
-		$params = array();
-
-		// "My Spaces" scope — restrict to spaces the searcher owns or actively
-		// belongs to (mirrors list_spaces()'s `member` arg) so search composes
-		// with the directory's My Spaces filter.
-		$mine_sql = '1=1';
-		if ( $member_id > 0 ) {
-			$mine_members = $wpdb->prefix . 'bn_space_members';
-			$mine_sql     = '( ' . $this->owned_or_member_subquery( $mine_members ) . ' )';
-		}
-
-		// Exclude unlisted (secret-equivalent) types from search. Slugs are
-		// sanitize_key()'d in the registry, so the IN list is safe to interpolate.
-		// Site admins see all; other viewers also see secret spaces they own or
-		// actively belong to. Mirrors list_spaces() / directory.php.
-		$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
-		if ( ! $unlisted || $is_admin ) {
-			$exclude_sql = '1=1';
-		} else {
-			$placeholders  = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
-			$members_table = $wpdb->prefix . 'bn_space_members';
-			if ( $viewer_id > 0 ) {
-				$exclude_sql = "( type NOT IN ( {$placeholders} ) OR " . $this->owned_or_member_subquery( $members_table ) . ' )';
-				$params[]    = $viewer_id;
-				$params[]    = $viewer_id;
-			} else {
-				$exclude_sql = "type NOT IN ( {$placeholders} )";
-			}
-		}
-
-		// Archived spaces are retired — they leave search exactly as they leave the
-		// directory (owner + site admin excepted). Same predicate, one definition.
-		list( $archive_where, $archive_params ) = $this->archive_scope( $viewer_id, $is_admin );
-		$archive_sql                            = $archive_where ? implode( ' AND ', $archive_where ) : '1=1';
-		foreach ( $archive_params as $archive_param ) {
-			$params[] = $archive_param;
-		}
-
-		// Honour category-level directory curation here too. search() builds its own
-		// WHERE, so a show_in_dir = 0 category was excluded from the grid but a
-		// reserved-hub space (a Wellbee Circle) was still reachable by typing its
-		// name — defeating the exclusion's whole purpose. Applies to the PUBLIC
-		// search only; the member-scoped "my spaces" search shows a member their own
-		// spaces regardless (same opt-out as the directory's member_id branch). No
-		// placeholders — the clause inlines integer-cast ids.
-		$hidden_sql = $member_id > 0 ? '1=1' : $this->hidden_category_directory_clause();
-
-		// Root-only is an explicit opt-in here, never the ambient default the
-		// non-search list_spaces() path applies — search intentionally still
-		// surfaces sub-spaces for a member typing their way to one (see the
-		// comment on SpaceController::list_spaces()). A caller that genuinely
-		// needs root-only results even while searching (the admin featured-
-		// spaces picker: a featured sub-space is silently dropped by every
-		// front-end featured surface, see featured_spaces()) opts in with
-		// $args['search_roots_only'].
-		$roots_sql = empty( $args['search_roots_only'] ) ? '1=1' : 'parent_id IS NULL';
-
-		// Mine-scope placeholders follow the exclude- and archive-scope ones, before the LIKEs.
-		if ( $member_id > 0 ) {
-			$params[] = $member_id;
-			$params[] = $member_id;
-		}
-
-		$params[] = $like;
-		$params[] = $like;
-		$params[] = $per_page;
-		$params[] = $offset;
-
-		// $exclude_sql / $archive_sql / $mine_sql hold only literal SQL plus %d
-		// placeholders bound through $params; their placeholder count is dynamic, so
-		// the analyser reports ReplacementsWrongNumber here even though the binding
-		// is correct.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_spaces
-				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND {$hidden_sql} AND {$roots_sql} AND (name LIKE %s OR description LIKE %s)
-				 ORDER BY member_count DESC, id DESC
-				 LIMIT %d OFFSET %d",
-				...$params
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-
-		return $this->hydrate_all( (array) $rows );
+	/**
+	 * Turn search arguments into a list_spaces() scope, so search takes the same
+	 * category, type, sort, visibility and paging as the directory it sits in.
+	 *
+	 * Root-only is an explicit opt-in (search_roots_only), never the ambient
+	 * roots_only of a browse: a caller with no sub-space control of its own still
+	 * finds a sub-space by typing its name. The directory and the admin
+	 * featured-spaces picker opt in.
+	 *
+	 * @param string               $term Search term.
+	 * @param array<string, mixed> $args Search arguments.
+	 * @return array<string, mixed>
+	 */
+	private static function search_args( string $term, array $args ): array {
+		$args['roots_only'] = ! empty( $args['search_roots_only'] );
+		unset( $args['search_roots_only'], $args['name'] );
+		$args['search']             = $term;
+		$args['search_description'] = true;
+		return $args;
 	}
 
 	/**
@@ -3151,6 +3225,26 @@ class SpaceService {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * Categories offered as filters on the spaces directory and the Explore browse card.
+	 *
+	 * Visible categories only, and none the owner limited to subspaces: the
+	 * directory lists main spaces, so such a chip would always show nothing.
+	 * Label lookups keep using categories_with_counts(), which returns them all.
+	 *
+	 * @param int $limit Max categories; 0 = no limit.
+	 * @return array<int, array<string, mixed>> Hydrated category rows + space_count.
+	 */
+	public function directory_categories( int $limit = 0 ): array {
+		$rows = array_values(
+			array_filter(
+				$this->categories_with_counts( 0, true ),
+				static fn( array $c ): bool => 'sub' !== ( $c['level'] ?? 'both' )
+			)
+		);
+		return $limit > 0 ? array_slice( $rows, 0, $limit ) : $rows;
 	}
 
 	/**

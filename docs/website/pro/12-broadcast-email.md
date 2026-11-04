@@ -49,9 +49,10 @@ Open **Campaigns > Broadcasts**. The page lists your campaigns (Name, Subject, S
 
 1. **Campaign name** - an internal name so you can find the campaign in your list. Members never see it.
 2. **Compose** - the subject line and the message body. The composer accepts HTML for headings, links, and formatting. Merge tags you can use are `{{first_name}}`, `{{user_name}}`, `{{user_email}}`, `{{site_name}}`, `{{site_url}}`, `{{login_url}}`, `{{unsubscribe_url}}` and `{{current_year}}`.
+   A live preview of the email sits beside the editor. It runs in a sandboxed frame, so a script in the body does not run in your admin session.
 3. **Segment** - who should receive it (see the segment table below).
-4. **Schedule** (optional) - a date and time to send automatically, interpreted in your site's timezone. Leave it blank to keep the campaign as a draft you send manually.
-5. Use **Create campaign** to save it. With no schedule the campaign starts as a draft; with a schedule set it is queued to send at that time.
+4. **Schedule** (optional) - a date and time to send automatically, interpreted in your site's timezone. Leave it blank to keep the campaign as a draft you send manually. A time in the past is refused with a message. The campaign list shows the send time in your site's timezone under **Scheduled for**.
+5. Use **Create campaign** to save it. With no schedule the campaign starts as a draft; with a schedule set it is queued to send at that time. If something is missing or refused, the form comes back with what you typed.
 
 ### Choosing a recipient segment
 
@@ -60,7 +61,7 @@ A segment decides which members a campaign goes to. Pick one of these:
 | Segment | Who it reaches |
 |---|---|
 | All members | Every registered member. |
-| By space membership | Members of one or more spaces you pick (anyone who belongs to any of them). |
+| By space membership | Members of one or more spaces you pick (anyone who belongs to any of them). Search by name to find any space on the site. |
 | By activity level | Members active within a number of days you set. |
 | By join date | Members who registered in a date range (Joined after, Joined before; either bound is optional). |
 | By member label | Members carrying any of the Pro member labels you pick (for example, Verified or Staff). |
@@ -72,6 +73,10 @@ Before dispatching, use **Send test** on the campaign. It emails a copy to your 
 ### Dispatching
 
 When the campaign is ready, use **Send now**. This queues a recipient for every member in the segment and begins sending in batches in the background, so a large send does not block your admin screen or time out. The campaign moves to a sending state and then to sent as the batches complete. You can also set a send time when creating the campaign; a background task promotes scheduled campaigns and dispatches them once their time arrives.
+
+### Editing or rescheduling
+
+Drafts and scheduled campaigns have an **Edit** button and a **Schedule** or **Reschedule** button, both of which open the campaign in the form. Change anything and use **Save changes**. Set a new time to reschedule, or clear the time to turn the campaign back into a draft. A campaign that is sending or has been sent can no longer be edited.
 
 ### Cancelling or deleting
 

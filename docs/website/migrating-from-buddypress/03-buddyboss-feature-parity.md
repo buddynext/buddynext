@@ -15,14 +15,14 @@ We have kept this honest. Where something is provided by a companion plugin or i
 
 | Capability | Where it lives in BuddyNext | Notes |
 |---|---|---|
-| Activity feed | Free | Text, link, and poll posts, with reactions, comments, share, bookmark, and report on every post. Photo and file posts are added by the WPMediaVerse companion. |
+| Activity feed | Free | Text, link, and poll posts, with reactions, comments, share, bookmark, and report on every post. Photo and file posts are added by the MediaVerse companion. |
 | Groups (called Spaces) | Free | Unlimited open, request-to-join (private), and hidden (secret) spaces, each with its own feed, members, and optional tabs. Membership-gated (paid or tiered) space access is Pro. |
 | Profiles and profile fields | Free | Avatar, cover, bio, social links, and custom profile fields with per-field privacy. Advanced field types (date, location, multi-select, number) and conditional logic for profile fields are Pro. |
 | Member types | Free | Define categories like Student, Mentor, or Staff. Custom member labels such as Verified, Expert, or Staff badges are Pro. |
 | Member directory | Free | Searchable, filterable directory that stays fast at scale. Member segments, tags, and CSV export are Pro. |
 | Connections and Follows | Free | Both the mutual Connection model and the one-directional Follow model are included, along with block and mute. |
-| Messaging | Companion | One-to-one direct messaging is powered by the free WPMediaVerse companion - message requests, mute, pin, archive, emoji reactions, and quoted replies. Read receipts, group messaging, and instant real-time delivery are Pro. |
-| Media and albums | Companion | Profile media and albums, plus photo and file posts in the feed, are powered by the free WPMediaVerse companion, including private albums. |
+| Messaging | Companion | One-to-one direct messaging is powered by the free MediaVerse companion - message requests, mute, pin, archive, emoji reactions, and quoted replies. Read receipts, group messaging, and instant real-time delivery are Pro. |
+| Media and albums | Companion | Profile media and albums, plus photo and file posts in the feed, are powered by the free MediaVerse companion, including private albums. |
 | Forums (called Discussions) | Companion | Threaded, topic-based discussions are powered by the free Jetonomy companion and can appear as a forum tab inside a space. |
 | Reactions | Free | Members react to posts, comments, and content. A custom reaction emoji set is Pro. |
 | Notifications and email | Free | In-app notification bell and page, transactional emails (mention, reply, message, invite, and more), and per-user notification preferences. Broadcast campaigns, drip welcome sequences, digest emails, and open-rate stats are Pro. |
@@ -33,7 +33,7 @@ We have kept this honest. Where something is provided by a companion plugin or i
 | Real-time updates | Free and Pro | The free plugin keeps feeds and counts current with regular background refreshes. Instant real-time delivery and typing indicators in messaging are Pro. |
 | Analytics | Free and Pro | The free plugin shows basic admin counts. A full analytics dashboard (daily, weekly, and monthly active members, churn), space-level analytics, member self-analytics, and CSV export are Pro. |
 | White-label | Pro | Included with any active Pro licence. It replaces the BuddyNext name and logo across wp-admin and in the emails your community sends; the site front end is unchanged and follows your theme. |
-| Member and content importer from BuddyPress / BuddyBoss | Companion plugin | **BuddyNext Importer**, free. Moves profile fields and values, member types, groups (with privacy and roles), activity with its comment threads, friendships, follows, reactions, bookmarks, bbPress forums, avatars and covers, albums and media, and private messages. Find it under Tools > Import to BuddyNext, and check the result with its Run checks button or `wp buddynext-import verify`. Each domain reports what it wrote against what the source held. Rehearse on staging first - an import cannot be undone from inside the plugin. See Moving Your Existing Members and Content. |
+| Member and content importer from BuddyPress / BuddyBoss | Companion plugin | **BuddyNext Importer**, free ([download](https://github.com/buddynext/buddynext-importer/releases/latest)). Moves profile fields and values, member types, groups (with privacy and roles), activity with its comment threads, friendships, follows, reactions, bookmarks, bbPress forums, avatars and covers, albums and media, and private messages. Find it under Tools > Import to BuddyNext, and check the result with its Run checks button or `wp buddynext-import verify`. Each domain reports what it wrote against what the source held. Rehearse on staging first - an import cannot be undone from inside the plugin. See Moving Your Existing Members and Content. |
 
 ## Good to know
 

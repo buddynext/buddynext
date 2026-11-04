@@ -44,7 +44,7 @@ if ( function_exists( 'buddynext_user_avatar_url' ) ) {
 `buddynext_user_avatar_url()` runs the standard WordPress `get_avatar_url()`
 pipeline, which BuddyNext powers. That means it returns the member's **resolved**
 avatar under the shared-surface precedence (see below): a real photo - a
-BuddyNext upload, or a sibling plugin's such as WPMediaVerse - wins, and only when
+BuddyNext upload, or a sibling plugin's such as MediaVerse - wins, and only when
 the member has none does BuddyNext hand back a deterministic initials image. You
 get the same face the community itself shows, and never an empty string.
 
@@ -64,6 +64,24 @@ The handle is the string a member types after `@` to mention someone. It is Word
 | `Handle::resolve( string $handle )` | The `WP_User` a handle belongs to (custom slug, then `user-{id}`, then nicename, then login), or `null`. |
 | `Handle::current( int $user_id )` | The handle the member is using now. |
 | `Handle::set( int $user_id, string $handle )` | Change a handle, `true` or `WP_Error`. |
+
+### Shaping member handles and profile URLs
+
+A member's handle is also the last part of their profile URL (`/members/{handle}/`), so the handle is the one place to shape both. Set it with `Handle::set()`, which checks the charset, length and uniqueness and stores it as `bn_profile_slug`. Every surface then follows: the profile URL, @mentions, the typeahead and `Handle::resolve()`.
+
+There is deliberately no filter on the displayed handle. A filter that changes what BuddyNext prints without changing what `Handle::resolve()` accepts would produce links and mentions that point at nobody. Store the handle instead:
+
+```php
+// Give new members a handle built from their first and last name.
+add_action( 'user_register', function ( int $user_id ): void {
+	$user   = get_userdata( $user_id );
+	$handle = sanitize_title( $user->first_name . '-' . $user->last_name );
+	$set    = \BuddyNext\Profile\Handle::set( $user_id, $handle );
+	if ( is_wp_error( $set ) ) {
+		// Taken, too short or too long: the member keeps the default handle.
+	}
+} );
+```
 
 ## Overriding what BuddyNext returns
 
@@ -102,7 +120,7 @@ roles:
   BuddyNext runs **late**, **defers** to any real value an earlier filter set, and
   contributes only a **fallback**. A generated placeholder never outranks a real
   photo. (See the precedence table in
-  [WPMediaVerse Surface Ownership](54-mediaverse-surface-ownership.md#avatars-shared-by-precedence).)
+  [MediaVerse Surface Ownership](54-mediaverse-surface-ownership.md#avatars-shared-by-precedence).)
 - **Provide** - BuddyNext exposes its identity through the `buddynext_*` helpers
   and filters on this page, so a plugin that wants the community avatar/name/URL
   **pulls** it. Pull, not push - BuddyNext never forces its avatar onto your
@@ -115,7 +133,7 @@ placeholder win over someone's real data.
 
 ## See also
 
-- [WPMediaVerse Surface Ownership](54-mediaverse-surface-ownership.md) - the
+- [MediaVerse Surface Ownership](54-mediaverse-surface-ownership.md) - the
   avatar precedence in full, and the build-time guard that enforces it.
 - [Hooks: members, profiles, social](28-hooks-members-profiles-social.md) - the
   profile-image *upload* filters (size and dimension caps).

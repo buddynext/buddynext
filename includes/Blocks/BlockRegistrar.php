@@ -21,6 +21,13 @@ namespace BuddyNext\Blocks;
 class BlockRegistrar {
 
 	/**
+	 * Whether member_unavailable_state() has already spoken on this page.
+	 *
+	 * @var bool
+	 */
+	private bool $member_state_shown = false;
+
+	/**
 	 * Root path of the blocks/ directory.
 	 *
 	 * @var string
@@ -340,13 +347,22 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_activity_feed( array $attributes ): string {
-		$scope    = sanitize_key( $attributes['scope'] ?? 'home' );
-		$per_page = (int) ( $attributes['perPage'] ?? 20 );
+		$scope     = sanitize_key( $attributes['scope'] ?? 'home' );
+		$per_page  = (int) ( $attributes['perPage'] ?? 20 );
+		$member_id = 0;
+
+		if ( 'profile' === $scope ) {
+			$member_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
+			$state     = $this->member_unavailable_state( $member_id );
+			if ( null !== $state ) {
+				return $state;
+			}
+		}
 
 		ob_start();
 		buddynext_get_template(
 			'blocks/activity-feed.php',
-			compact( 'scope', 'per_page' )
+			compact( 'scope', 'per_page', 'member_id' )
 		);
 		return (string) ob_get_clean();
 	}
@@ -617,11 +633,9 @@ class BlockRegistrar {
 	 * speculative code for a case that does not occur, and reaching the profile
 	 * owner would mean widening PageRouter's private resolution API to serve it.
 	 *
-	 * Returns 0 when there is no sensible target, and the templates then render
-	 * NOTHING. Deliberately not a placeholder: copy explaining a missing member
-	 * context is developer-facing text on a member-facing page, which the
-	 * public-surface-integrity standard treats as a defect in its own right. The
-	 * editor is where an owner learns the block needs a target.
+	 * Returns 0 when there is no sensible target. Card-style blocks then render
+	 * nothing, and the editor is where an owner learns the block needs a target;
+	 * blocks that make up a whole profile answer through member_unavailable_state().
 	 *
 	 * Before this, a block with no `userId` returned nothing with no fallback at
 	 * all, so a default insertion rendered empty and silent (Basecamp 10184505230,
@@ -650,6 +664,53 @@ class BlockRegistrar {
 		}
 
 		return 0;
+	}
+
+	/**
+	 * What a profile block shows instead of a member it cannot show, or null to carry on.
+	 *
+	 * Never the viewer's own profile: a page about someone else must not quietly
+	 * become a page about whoever is looking. The profile page's own privacy rule
+	 * applies, because these blocks print the same data outside that page. Shown once
+	 * per request, so the blocks of a Member Profile pattern do not repeat it.
+	 *
+	 * @param int $user_id Resolved member; 0 when there is none.
+	 * @return string|null
+	 */
+	private function member_unavailable_state( int $user_id ): ?string {
+		$member = $user_id > 0 ? get_userdata( $user_id ) : false;
+
+		if ( $member ) {
+			$viewer_id = get_current_user_id();
+			if ( buddynext_service( 'privacy' )->can_view_profile( $viewer_id, $user_id ) ) {
+				return null;
+			}
+		}
+
+		$hint = $member ? '' : $this->editor_hint( __( 'Choose a member in the block settings, or place this block on a page with an author.', 'buddynext' ) );
+		if ( '' !== $hint ) {
+			return $hint;
+		}
+
+		if ( $this->member_state_shown ) {
+			return '';
+		}
+		$this->member_state_shown = true;
+
+		ob_start();
+		buddynext_get_template(
+			'parts/empty-state.php',
+			$member
+				? array(
+					'icon'  => 'lock',
+					'title' => __( 'This profile is private.', 'buddynext' ),
+				)
+				: array(
+					'icon'  => 'user',
+					'title' => __( 'No member to show', 'buddynext' ),
+				)
+		);
+		return (string) ob_get_clean();
 	}
 
 	// -------------------------------------------------------------------------
@@ -815,9 +876,14 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_profile_header( array $attributes ): string {
-		$user_id      = (int) ( $attributes['userId'] ?? 0 );
+		$user_id      = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
 		$show_stats   = (bool) ( $attributes['showStats'] ?? true );
 		$show_actions = (bool) ( $attributes['showActions'] ?? true );
+
+		$state = $this->member_unavailable_state( $user_id );
+		if ( null !== $state ) {
+			return $state;
+		}
 
 		ob_start();
 		buddynext_get_template(
@@ -834,8 +900,13 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_profile_fields( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
 		$group   = sanitize_key( $attributes['group'] ?? '' );
+
+		$state = $this->member_unavailable_state( $user_id );
+		if ( null !== $state ) {
+			return $state;
+		}
 
 		ob_start();
 		buddynext_get_template(
@@ -853,6 +924,12 @@ class BlockRegistrar {
 	 */
 	public function render_profile_completion_bar( array $attributes ): string {
 		$user_id = $this->resolve_member_context( (int) ( $attributes['userId'] ?? 0 ) );
+
+		// The percent and its missing-field tips are for the member to act on, not for
+		// whoever opens a page they wrote.
+		if ( $user_id > 0 && get_current_user_id() !== $user_id ) {
+			return $this->editor_hint( __( 'Only this member sees their profile completion.', 'buddynext' ) );
+		}
 
 		ob_start();
 		buddynext_get_template(

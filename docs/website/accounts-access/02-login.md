@@ -18,13 +18,15 @@ Login is how returning members sign back in to your community. Like the sign-up 
 ## How it works for members
 
 1. **Open the login page.** A member visits your login page - your community's built-in login hub, or any page where you added the `[buddynext_auth]` shortcode.
-2. **Enter credentials.** They type their email address or username and their password. A show/hide control lets them check the password as they type.
+2. **Enter credentials.** They type their email address, username or @handle and their password. A show/hide control lets them check the password as they type.
 3. **Choose Remember me.** Ticking **Remember me** keeps them signed in across browser sessions on that device, so they do not have to log in every visit.
 4. **Sign in.** On success, BuddyNext sends them to the activity feed by default, or to the redirect you configured.
 
 ### Forgot your password
 
 The login form has a **Forgot password** link that opens the branded password-reset screen. The member enters their email or username, and BuddyNext sends a reset link by email. For privacy, the same confirmation message is shown whether or not an account matches, so the form never reveals which addresses are registered. The reset email is branded to match your community, and its link opens your branded "set a new password" screen. Every password reset uses this same branded email and screen, no matter where the member started it.
+
+If too many reset requests come in, the form stays open and shows the reason as an error, so the member knows to wait and try again later.
 
 > **Note:** If an account has two-factor authentication switched on, signing in asks for a one-time code (from an authenticator app, an emailed code, or a backup code) before the session is created. The password is checked first, and the member is only fully signed in once the code is verified.
 
@@ -54,7 +56,10 @@ When a member signs in from a BuddyNext mobile app, the app sends them to a conn
 
 ## Good to know
 
-- **Email or username both work.** Members can sign in with either; BuddyNext resolves an email to the matching account automatically.
+- **Email, username or @handle all work.** Members can sign in with any of them; BuddyNext resolves an email to the matching account automatically. The @handle works on every login form, including the standard WordPress one, and only a member's current handle signs in. New sign-ups get a login that matches their handle. The failed sign-in message reads "That email, username or password is not right." and never reveals which part was wrong.
+- **A blank password is refused straight away.** The form asks for both fields before it checks anything.
+- **Refusals tell the truth only to the right person.** A member who is awaiting approval and types the correct password is told the account cannot sign in yet. Anyone who gets the password wrong sees the same generic message, so the form never confirms that an account exists or what state it is in.
+- **The first page after signing in is always logged in.** After a BuddyNext sign-in, sign-up or two-factor step, members land on a one-time address that page caches do not hold. See [Page cache and optimisation](../getting-started/09a-page-cache-and-optimisation.md).
 - **Pending and unverified members.** A member awaiting admin approval cannot sign in until approved. A member with email verification required can sign in only as far as the verification screen until they confirm.
 - **Sign out everywhere.** From their account settings, a member can end every active session on all devices at once - useful if they signed in on a shared or lost device.
 - **Social sign-in.** If you enable social login, the matching provider buttons appear on the login form too. See the Social Login page.

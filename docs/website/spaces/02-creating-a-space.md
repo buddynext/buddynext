@@ -56,6 +56,12 @@ Both replace the previous image when re-uploaded.
 
 The owner (and site admins) edit a space from its own settings screen. Settings are grouped into panels: General, Privacy, Permissions, Members, Moderation, Integrations, Notifications and a Danger zone, plus an Invite link tab and, when other plugins add space fields, a Custom fields tab. From here you can rename the space, change its description and house rules, set a brand colour, choose which tab the space opens on, change its type, move it to a different category or parent space, swap the avatar or cover, set who can post and who can invite, add the space's own banned words, switch the Discussion, Media, Files and Leaderboard tabs on, and reach the ownership transfer and delete actions. Moderators can open the screen too, but they can only change the moderation settings (join approval, banned words and the new-member notification default). The rest is owner-only.
 
+A save bar sits at the bottom of every tab that has a settings form, so **Save** is always within reach, even before you change anything. **Cancel** and **Unsaved changes** appear only after an edit. The Members, Invite link and Danger zone tabs have no form and no save bar. The space icon's **Upload** and **Remove** buttons sit side by side beside the preview.
+
+The space header also has an **Admin** entry next to **Settings**. It opens the space's admin page with its member and report counts and management shortcuts. Owners, moderators and site administrators see it.
+
+The **Integrations** panel lists the Discussion, Media, Files, album, Events and Businesses switches for the plugins you have active. If the site administrator turned an integration off for the whole site (**Integration Settings > Show in navigation**), its switches show as disabled with "Turned off for the whole site by the site admin." Your choice for the space is kept for when the integration is turned back on. The Media, Files, Leaderboard, Events and Businesses tabs are on by default in every space while their plugin is active.
+
 ### Archiving and restoring
 
 Archiving freezes a space without destroying it. An archived space stays viewable to its members but is closed to new posts and other write actions. This is the safe option for a community that has gone quiet but whose history you want to keep. The owner or a site admin can restore an archived space back to active at any time, which reopens it for posting. After you archive or restore a space, BuddyNext shows a short confirmation message so you know the change took effect.

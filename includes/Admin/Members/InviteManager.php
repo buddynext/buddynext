@@ -85,9 +85,16 @@ class InviteManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'bn_notice'  => 'invited',
-					'bn_sent'    => (int) $summary['imported'],
-					'bn_skipped' => (int) $summary['skipped'],
+					'bn_notice'      => 'invited',
+					'bn_sent'        => (int) $summary['imported'] - (int) $summary['queued'],
+					'bn_queued'      => (int) $summary['queued'],
+					'bn_mail_failed' => (int) $summary['mail_failed'],
+					'bn_failed'      => count( $summary['errors'] ),
+					'bn_already'     => (int) $summary['reasons']['already_invited'],
+					'bn_members'     => (int) $summary['reasons']['existing_member'],
+					'bn_invalid'     => (int) $summary['reasons']['invalid'],
+					'bn_not_read'    => (int) $summary['not_read'],
+					'bn_max_rows'    => (int) $summary['max_rows'],
 				),
 				$redirect
 			)
@@ -146,8 +153,15 @@ class InviteManager {
 			exit;
 		}
 
-		$ok = ( new InviteService() )->create( $email, $first ) > 0;
-		wp_safe_redirect( add_query_arg( 'bn_notice', $ok ? 'invited_one' : 'invite_dupe', $redirect ) );
+		$notices = array(
+			'sent'            => 'invited_one',
+			'queued'          => 'invited_one',
+			'already_invited' => 'invite_dupe',
+			'existing_member' => 'invite_member',
+			'mail_failed'     => 'invite_mail_failed',
+		);
+		$status  = ( new InviteService() )->create( $email, $first )['status'];
+		wp_safe_redirect( add_query_arg( 'bn_notice', $notices[ $status ] ?? 'invite_failed', $redirect ) );
 		exit;
 	}
 
@@ -176,6 +190,66 @@ class InviteManager {
 		exit;
 	}
 
+	/**
+	 * Print what a CSV upload did: sent, queued, skipped by reason, failed, and cut off.
+	 *
+	 * @param array<string, int> $counts Counts from the redirect.
+	 * @return void
+	 */
+	private function render_bulk_summary( array $counts ): void {
+		$lines = array();
+
+		if ( $counts['sent'] > 0 || 0 === $counts['queued'] ) {
+			$lines[] = sprintf(
+				/* translators: %d: number of invitation emails sent. */
+				_n( '%d invitation sent.', '%d invitations sent.', $counts['sent'], 'buddynext' ),
+				$counts['sent']
+			);
+		}
+		if ( $counts['queued'] > 0 ) {
+			$lines[] = sprintf(
+				/* translators: %d: number of invitation emails waiting to send. */
+				_n( '%d invitation queued to send; if it cannot be delivered it moves to Bounced.', '%d invitations queued to send; any that cannot be delivered move to Bounced.', $counts['queued'], 'buddynext' ),
+				$counts['queued']
+			);
+		}
+
+		$skipped = $counts['already'] + $counts['members'] + $counts['invalid'];
+		$lines[] = sprintf(
+			/* translators: 1: rows skipped, 2: rows already invited, 3: rows that are existing members, 4: invalid rows. */
+			_n( '%1$d row skipped: %2$d already invited, %3$d existing member, %4$d invalid or blank.', '%1$d rows skipped: %2$d already invited, %3$d existing member, %4$d invalid or blank.', $skipped, 'buddynext' ),
+			$skipped,
+			$counts['already'],
+			$counts['members'],
+			$counts['invalid']
+		);
+
+		if ( $counts['mail_failed'] > 0 ) {
+			$lines[] = sprintf(
+				/* translators: %d: number of invites whose email was refused. */
+				_n( '%d email could not be sent; resend it from the Bounced list.', '%d emails could not be sent; resend them from the Bounced list.', $counts['mail_failed'], 'buddynext' ),
+				$counts['mail_failed']
+			);
+		}
+		if ( $counts['failed'] > 0 ) {
+			$lines[] = sprintf(
+				/* translators: %d: number of rows that could not be saved. */
+				_n( '%d row could not be saved.', '%d rows could not be saved.', $counts['failed'], 'buddynext' ),
+				$counts['failed']
+			);
+		}
+		if ( $counts['not_read'] > 0 ) {
+			$lines[] = sprintf(
+				/* translators: 1: rows-per-upload limit, 2: rows left unread. */
+				_n( 'The file was cut off at the %1$d-row limit: %2$d row was not read. Upload it in a new file without the rows already read.', 'The file was cut off at the %1$d-row limit: %2$d rows were not read. Upload them in a new file without the rows already read.', $counts['not_read'], 'buddynext' ),
+				$counts['max_rows'],
+				$counts['not_read']
+			);
+		}
+
+		echo esc_html( implode( ' ', $lines ) );
+	}
+
 	// ── Tab renderer ──────────────────────────────────────────────────────────
 
 	/**
@@ -190,10 +264,21 @@ class InviteManager {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$notice = sanitize_key( wp_unslash( $_GET['bn_notice'] ?? '' ) );
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$sent = absint( wp_unslash( $_GET['bn_sent'] ?? 0 ) );
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$skipped = absint( wp_unslash( $_GET['bn_skipped'] ?? 0 ) );
+		// Display-only counts carried from handle_bulk_invite() through the redirect.
+		$counts = array();
+		foreach ( array( 'sent', 'queued', 'mail_failed', 'failed', 'already', 'members', 'invalid', 'not_read', 'max_rows' ) as $bn_key ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$counts[ $bn_key ] = absint( wp_unslash( $_GET[ 'bn_' . $bn_key ] ?? 0 ) );
+		}
+		$bn_notice_tones = array(
+			// A file that sent nothing, was cut off or lost rows is not a success to celebrate.
+			'invited'       => ( $counts['sent'] + $counts['queued'] ) > 0 && 0 === $counts['not_read'] + $counts['mail_failed'] + $counts['failed'] ? 'notice-success' : 'notice-warning',
+			'resent'        => 'notice-success',
+			'invited_one'   => 'notice-success',
+			'revoked'       => 'notice-success',
+			'invite_dupe'   => 'notice-warning',
+			'invite_member' => 'notice-warning',
+		);
 
 		// Status filter + pagination — the list must stay usable past a few
 		// thousand invites (big-site checklist).
@@ -220,17 +305,12 @@ class InviteManager {
 		<div class="bn-admin-section">
 
 		<?php if ( '' !== $notice ) : ?>
-			<div class="notice <?php echo in_array( $notice, array( 'invited', 'resent', 'invited_one', 'revoked' ), true ) ? 'notice-success' : 'notice-error'; ?> is-dismissible">
+			<div class="notice <?php echo esc_attr( $bn_notice_tones[ $notice ] ?? 'notice-error' ); ?> is-dismissible">
 				<p>
 				<?php
 				switch ( $notice ) {
 					case 'invited':
-						printf(
-							/* translators: 1: number of invites sent, 2: number skipped (duplicate/existing/invalid) */
-							esc_html__( '%1$d invitation(s) sent. %2$d row(s) skipped (already invited, existing member, or invalid).', 'buddynext' ),
-							(int) $sent,
-							(int) $skipped
-						);
+						$this->render_bulk_summary( $counts );
 						break;
 					case 'resent':
 						esc_html_e( 'Invitation resent successfully.', 'buddynext' );
@@ -254,7 +334,16 @@ class InviteManager {
 						esc_html_e( 'Invitation sent', 'buddynext' );
 						break;
 					case 'invite_dupe':
-						esc_html_e( 'That email already has a pending invite or an account.', 'buddynext' );
+						esc_html_e( 'Already invited: that email has a pending invite, so no new email was sent.', 'buddynext' );
+						break;
+					case 'invite_member':
+						esc_html_e( 'That email already belongs to a member, so no invite was sent.', 'buddynext' );
+						break;
+					case 'invite_mail_failed':
+						esc_html_e( 'The invite was saved but the email could not be sent. Resend it from the Bounced list.', 'buddynext' );
+						break;
+					case 'invite_failed':
+						esc_html_e( 'Could not create the invite. Try again.', 'buddynext' );
 						break;
 					case 'bad_email':
 						esc_html_e( 'Please enter a valid email address.', 'buddynext' );

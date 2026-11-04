@@ -113,6 +113,31 @@ class NotificationPrefService {
 	}
 
 	/**
+	 * Whether the member's email settings let this type reach them, immediately or
+	 * in a digest.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $type    Notification type key.
+	 * @return bool
+	 */
+	public function email_wanted( int $user_id, string $type ): bool {
+		if ( null === $this->catalogue ) {
+			$this->catalogue = new NotificationPrefCatalogue();
+		}
+		if ( ! $this->catalogue->can_email( $type ) ) {
+			return false;
+		}
+
+		// An absent key means on.
+		$channels = $this->get_channel_prefs( $user_id );
+		if ( array_key_exists( 'email', $channels ) && empty( $channels['email'] ) ) {
+			return false;
+		}
+
+		return 'off' !== ( $this->get_pref( $user_id, $type )['email_freq'] ?? 'immediate' );
+	}
+
+	/**
 	 * Batch variant of get_pref()'s on_site decision for many users at once.
 	 *
 	 * Returns a map of user_id => bool (whether the in-app/on_site channel is

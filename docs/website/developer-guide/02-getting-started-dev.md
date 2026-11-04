@@ -31,7 +31,7 @@ includes/
     Installer.php    dbDelta() schema for the bn_* tables
     PageRouter.php   hub routing + shell composition inside theme chrome
     PermissionService.php  buddynext_can( $user_id, 'ability-slug', $context )
-  Bridges/         Layer 1 - adapters to BuddyX, Jetonomy, WPMediaVerse, Gamification, Member Blog
+  Bridges/         Layer 1 - adapters to BuddyX, Jetonomy, MediaVerse, WB Gamification, Member Blog
   Auth/  SocialGraph/  Feed/  Profile/  Spaces/  Search/  Notifications/
   Reactions/  Comments/  Hashtags/  Moderation/  Outbound/  Messages/  ...
                    Layer 2 - one folder per feature, each with up to four canonical files:

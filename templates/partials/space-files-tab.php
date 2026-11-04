@@ -625,7 +625,7 @@ if ( $bn_sf_is_space ) {
 				<?php endif; ?>
 				<span class="bn-files__pager-status">
 					<?php
-					/* translators: 1: current page, 2: total pages. */
+					/* translators: 1: current page number, 2: total number of pages. */
 					echo esc_html( sprintf( __( 'Page %1$s of %2$s', 'buddynext' ), number_format_i18n( $bn_sf_page ), number_format_i18n( $bn_sf_pages ) ) );
 					?>
 				</span>

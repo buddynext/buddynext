@@ -168,6 +168,63 @@ if [ "$CACHE" != none ]; then
 	[ -n "$POST_ID" ] && curl -s -o /dev/null -b "$JAR" -H "X-WP-Nonce: $NONCE" -X DELETE "$BASE/wp-json/buddynext/v1/posts/$POST_ID"
 fi
 
+# A logged-in check on a member page. "known" ($3) means the cache runs in a setting the
+# docs call unsupported: a guest copy prints KNOWN, and a logged-in page FAILs because
+# the docs would then be out of date.
+expect_logged_in() { # $1: page body, $2: what was loaded, $3: "known" or empty.
+	if [[ "$1" == *'logged-in'* ]]; then
+		[ "${3:-}" = known ] && fail "$2 is logged in, so the docs calling this setting unsupported are out of date" || pass "$2 is logged in"
+	elif [ "${3:-}" = known ]; then
+		printf '  KNOWN %s\n' "$2 gets the guest copy with this setting off, as the docs say"
+	else
+		fail "$2 served the guest copy"
+	fi
+}
+# W3 Total Cache runs checks 1-5 with "Don't cache pages for logged in users" off; check 6 turns it on.
+W3_OFF=""; [ "$CACHE" = w3-total-cache ] && W3_OFF=known
+
+# 5. The first page after a BuddyNext sign-in is logged in (card 10463222397). Guest
+#    copy warmed first: a cache answers from it before PHP runs, and a REST sign-in
+#    cannot set LiteSpeed's vary cookie. wp-login.php never showed this, so only the
+#    plugin's own form exposes it. Then the same page again without the marker.
+purge
+curl -s "$BASE/" >/dev/null; sleep 1; curl -s "$BASE/" >/dev/null
+BN_JAR="$(mktemp)"
+DEST="$(curl -s -c "$BN_JAR" -H 'Content-Type: application/json' \
+	-d "{\"user\":\"member\",\"password\":\"member\",\"redirect_to\":\"$BASE/\"}" "$BASE/wp-json/buddynext/v1/auth/login" \
+	| sed -n 's/.*"redirect_to":"\([^"]*\)".*/\1/p' | sed 's#\\/#/#g')"
+if [ -z "$DEST" ]; then
+	fail "BuddyNext sign-in returned no destination"
+else
+	BODY="$(curl -s -b "$BN_JAR" -c "$BN_JAR" "$DEST")"
+	[[ "$BODY" == *'logged-in'* ]] && pass "first page after BuddyNext sign-in is logged in" || fail "first page after BuddyNext sign-in served the guest copy"
+	# Without the marker the guest copy is still there, so this is the unsupported W3 case.
+	expect_logged_in "$(curl -s -b "$BN_JAR" -c "$BN_JAR" "$BASE/")" "home again after BuddyNext sign-in, no marker," "$W3_OFF"
+	# A guest following a member's old link gets a fresh guest page, and leaves no copy.
+	BODY="$(curl -s "$DEST")"
+	[[ "$BODY" != *'logged-in'* ]] && pass "guest on a marked link stays a guest" || fail "guest on a marked link saw a member's page"
+	HEADERS="$(curl -s -D - -o /dev/null "$DEST")"
+	[[ "$HEADERS" == *'no-store'* ]] && pass "marked page tells caches not to store it" || fail "marked page is cacheable"
+fi
+rm -f "$BN_JAR"
+
+# 6. A signed-in member is not served a guest copy that already exists (card
+#    10463436157). Check 2 cannot see this: no guest copy exists when its member
+#    loads each page, and a cache can answer from one before PHP runs.
+member_after_guest_copy() { # $1: "known" when this setting is documented as unsupported.
+	purge
+	for path in / /spaces/ /activity/explore/; do
+		curl -s "$BASE$path" >/dev/null; sleep 1; curl -s "$BASE$path" >/dev/null
+		expect_logged_in "$(curl -s -b "$JAR" "$BASE$path")" "member $path with a guest copy cached" "${1:-}"
+	done
+}
+if [ "$CACHE" = w3-total-cache ]; then
+	member_after_guest_copy "$W3_OFF"
+	wp w3-total-cache option set pgcache.reject.logged true --type=boolean >/dev/null
+	wp w3-total-cache fix_environment >/dev/null
+fi
+member_after_guest_copy
+
 cache_off
 rm -f "$JAR"
 echo "== $CACHE: $FAILS failure(s)"

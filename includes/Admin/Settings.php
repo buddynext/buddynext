@@ -124,6 +124,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
 		add_action( 'admin_post_buddynext_dismiss_recommended', array( $this, 'handle_dismiss_recommended' ) );
+		add_action( 'admin_post_bn_turn_on_messages', array( $this, 'handle_turn_on_messages' ) );
 		add_action( 'admin_post_buddynext_save_tracking_consent', array( $this, 'handle_save_tracking_consent' ) );
 
 		// The users_can_register mirror lives in Auth\CoreRegistration, which boots
@@ -184,12 +185,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Free standalone: surface a Free vs Pro comparison so owners can see
 		// what the Pro upgrade unlocks. Hidden automatically once Pro is active.
 		if ( ! defined( 'BUDDYNEXTPRO_VERSION' ) ) {
-			/**
-			 * Filter the "Upgrade to Pro" destination URL.
-			 *
-			 * @param string $url Product page URL.
-			 */
-			$upgrade_url    = (string) apply_filters( 'buddynext_pro_upgrade_url', 'https://wbcomdesigns.com/downloads/buddynext-pro/' );
+			$upgrade_url    = \BuddyNext\Integrations\CompanionRegistry::pro_upgrade_url();
 			$upgrade_action = sprintf(
 				'<a class="bn-btn" data-variant="primary" data-size="sm" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
 				esc_url( $upgrade_url ),
@@ -367,8 +363,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return ' ' . sprintf(
 			/* translators: %s: number of days. */
 			_n(
-				'An account that never verifies is deleted after %s day, unless it has posted.',
-				'An account that never verifies is deleted after %s days, unless it has posted.',
+				'An account made on the BuddyNext sign-up form that never verifies is deleted after %s day, unless it has posted.',
+				'An account made on the BuddyNext sign-up form that never verifies is deleted after %s days, unless it has posted.',
 				$days,
 				'buddynext'
 			),
@@ -489,6 +485,25 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * One-click "Turn on" for messaging from the Features tab and setup checklist.
+	 *
+	 * @return void
+	 */
+	public function handle_turn_on_messages(): void {
+		check_admin_referer( 'bn_turn_on_messages' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ) );
+		}
+		// WPMediaVerse owns the switch; this only presses it.
+		$bn_door = array( '\\WPMediaVerse\\Core\\Plugin', 'set_messaging_enabled' );
+		if ( is_callable( $bn_door ) ) {
+			call_user_func( $bn_door, true );
+		}
+		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : AdminHub::tab_url( 'settings', 'features' ) );
+		exit;
+	}
+
+	/**
 	 * Dismiss the recommended-defaults prompt without applying it.
 	 *
 	 * @return void
@@ -561,7 +576,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$rows = array(
 			array( __( 'Activity feed: posts, polls, reactions, comments, shares, bookmarks', 'buddynext' ), true ),
 			array( __( 'Spaces, member directory, profiles, full-text search', 'buddynext' ), true ),
-			array( __( '1:1 direct messages (via WPMediaVerse)', 'buddynext' ), true ),
+			array( __( '1:1 direct messages (via MediaVerse)', 'buddynext' ), true ),
 			array( __( 'In-app bell + transactional email notifications', 'buddynext' ), true ),
 			array( __( 'Report queue, strikes, suspensions, appeals', 'buddynext' ), true ),
 			array( __( 'REST API, Gutenberg blocks, 1 outbound webhook', 'buddynext' ), true ),
@@ -701,16 +716,30 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	/**
 	 * Sanitize a directory column-count choice.
 	 *
-	 * Whitelists the supported values: 'auto' (responsive auto-fill, the
-	 * default) or a fixed desktop column count of 2, 3 or 4. Anything else
-	 * falls back to 'auto'.
+	 * Whitelists the supported values: 'auto' (responsive auto-fill) or a fixed
+	 * desktop column count of 2, 3 or 4. Anything else falls back to '3', the
+	 * declared field default and the value the directory templates read when
+	 * the option is unset.
 	 *
 	 * @param mixed $value Raw submitted value.
 	 * @return string One of 'auto', '2', '3', '4'.
 	 */
 	public static function sanitize_dir_columns( $value ): string {
 		$value = sanitize_key( (string) $value );
-		return in_array( $value, array( 'auto', '2', '3', '4' ), true ) ? $value : 'auto';
+		return in_array( $value, array( 'auto', '2', '3', '4' ), true ) ? $value : '3';
+	}
+
+	/**
+	 * A directory's column setting as the templates should use it.
+	 *
+	 * Read through the sanitizer so a value that never passed through the form
+	 * (WP-CLI, an import, an add-on) falls back the same way a bad save does.
+	 *
+	 * @param string $option Option name.
+	 * @return string One of 'auto', '2', '3', '4'.
+	 */
+	public static function dir_columns( string $option ): string {
+		return self::sanitize_dir_columns( get_option( $option, '3' ) );
 	}
 
 	/**
@@ -1056,7 +1085,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint_callback'     => static function (): string {
 								$bn_media_hint = __( 'Members post media as activity updates. "Open the activity" keeps every media link inside the feed: its /media/ page redirects to the post it was shared in, so media is not exposed as a separate public URL. "Open a dedicated media page" keeps a standalone page per item, for gallery-style sites.', 'buddynext' );
 								if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) {
-									return __( 'Needs WPMediaVerse. Activate it to choose how media links open.', 'buddynext' ) . ' ' . $bn_media_hint;
+									return __( 'Needs MediaVerse. Activate it to choose how media links open.', 'buddynext' ) . ' ' . $bn_media_hint;
 								}
 								return $bn_media_hint;
 							},
@@ -1274,18 +1303,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		<div class="bn-field">
 			<span class="bn-tl-title"><?php esc_html_e( 'Who can message members', 'buddynext' ); ?></span>
 			<?php if ( empty( $bn_options ) ) : ?>
-				<span class="bn-tl-desc"><?php esc_html_e( 'Direct messages need WPMediaVerse. Activate it to set who can message members.', 'buddynext' ); ?></span>
+				<span class="bn-tl-desc"><?php esc_html_e( 'Direct messages need MediaVerse. Activate it to set who can message members.', 'buddynext' ); ?></span>
 			<?php else : ?>
 				<span class="bn-tl-desc">
 					<?php
 					printf(
 						/* translators: %s: the site-wide "who can message you" level, e.g. "Everyone". */
-						esc_html__( 'Set in WPMediaVerse: %s. Members can choose this or stricter in their privacy settings.', 'buddynext' ),
+						esc_html__( 'Set in MediaVerse: %s. Members can choose this or stricter in their privacy settings.', 'buddynext' ),
 						esc_html( (string) reset( $bn_options ) )
 					);
 					?>
 				</span>
-				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Messages\MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Messages\MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Change in MediaVerse', 'buddynext' ); ?></a>
 			<?php endif; ?>
 		</div>
 		<?php
@@ -1316,8 +1345,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	public function render_reaction_palette(): void {
 		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::available_reaction_types();
 		$bn_enabled_reactions    = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
-		$bn_features             = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
-		$bn_reactions_on         = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'reactions' );
+		$bn_reactions_on         = buddynext_feature_enabled( 'reactions' );
 		$bn_reaction_field_class = $bn_reactions_on ? 'bn-field bn-reaction-field' : 'bn-field bn-reaction-field is-disabled';
 		?>
 		<div class="<?php echo esc_attr( $bn_reaction_field_class ); ?>">
@@ -2347,7 +2375,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return string[]
 	 */
 	public function sanitize_enabled_reactions( $value ): array {
-		$all    = \BuddyNext\Reactions\ReactionService::available_reaction_types();
+		$all = \BuddyNext\Reactions\ReactionService::available_reaction_types();
+		// With Reactions off the palette renders disabled and posts nothing; reading
+		// that as "none ticked" reset the owner's choice to all of them.
+		if ( ! buddynext_feature_enabled( 'reactions' ) ) {
+			return (array) get_option( 'buddynext_enabled_reactions', $all );
+		}
+
 		$chosen = array_values( array_intersect( $all, array_map( 'sanitize_key', (array) $value ) ) );
 
 		return empty( $chosen ) ? $all : $chosen;
@@ -2489,6 +2523,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	protected function get_subtitle(): string {
 		return __( 'Configure your community platform', 'buddynext' );
 	}
+
+	/**
+	 * The settings tabs print their own notices, merged under one key, inside
+	 * render_content(); printing the raw Settings API list here as well would
+	 * show each one twice.
+	 *
+	 * @return void
+	 */
+	protected function render_save_notices(): void {}
 
 	/**
 	 * Render the settings page content: tab bar + form with section cards.
@@ -2728,13 +2771,28 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 								?>
 							</p>
 						<?php endif; ?>
+						<?php if ( $current && ! empty( $feature['setup_page'] ) ) : ?>
+							<?php // A feature whose own settings screen exists only while it is on (credentials, parts to enable). ?>
+							<?php
+							// The setup page's tab inside the BuddyNext admin, not its old
+							// standalone slug, which opened without the sidebar (card 10470216210).
+							$bn_setup_url = AdminHub::legacy_page_url( (string) $feature['setup_page'] );
+							if ( '' === $bn_setup_url ) {
+								$bn_setup_url = admin_url( 'admin.php?page=' . rawurlencode( (string) $feature['setup_page'] ) );
+							}
+							?>
+							<p class="bn-feature-row__deps"><a href="<?php echo esc_url( $bn_setup_url ); ?>"><?php esc_html_e( 'Open its settings', 'buddynext' ); ?></a></p>
+						<?php endif; ?>
 					</div>
 					<div class="bn-feature-row__toggle">
 						<?php if ( '' !== $managed_url ) : ?>
-							<?php if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) : ?>
-								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $managed_url ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+							<?php $bn_turn_on = ( isset( $feature['turn_on_url'] ) && is_callable( $feature['turn_on_url'] ) ) ? (string) call_user_func( $feature['turn_on_url'] ) : ''; ?>
+							<?php if ( ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) : ?>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( AdminHub::tab_url( 'settings', 'integrations' ) ); ?>"><?php esc_html_e( 'Install MediaVerse', 'buddynext' ); ?></a>
+							<?php elseif ( '' !== $bn_turn_on ) : ?>
+								<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( $bn_turn_on ); ?>"><?php esc_html_e( 'Turn on', 'buddynext' ); ?></a>
 							<?php else : ?>
-								<span class="bn-feature-row__deps"><?php esc_html_e( 'Requires the WPMediaVerse plugin.', 'buddynext' ); ?></span>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $managed_url ); ?>"><?php esc_html_e( 'Change in MediaVerse', 'buddynext' ); ?></a>
 							<?php endif; ?>
 						<?php elseif ( $is_locked ) : ?>
 							<span class="bn-feature-row__locked" aria-label="<?php esc_attr_e( 'This feature is always on and cannot be disabled.', 'buddynext' ); ?>">
@@ -2807,13 +2865,30 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Rendered inline instead: beside the control each one concerns, which is
 		// better than a global banner regardless, and the suppression is untouched.
 		\BuddyNext\Auth\CoreRegistration::render_desync_inline();
+		\BuddyNext\Admin\Members\ApprovalManager::render_stranded_notice();
+
+		$bn_reg_mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
+		$bn_reg_hint = __( 'Controls who can create a new account on your community.', 'buddynext' );
+		$bn_waiting  = 'approval' === $bn_reg_mode ? \BuddyNext\Admin\Members\ApprovalManager::pending_count() : 0;
+		if ( $bn_waiting > 0 ) {
+			$bn_reg_hint .= ' ' . sprintf(
+				/* translators: %s: number of members. */
+				_n(
+					'%s member is waiting for approval. Changing the mode does not approve them: they stay in Members > Pending and cannot sign in until you decide.',
+					'%s members are waiting for approval. Changing the mode does not approve them: they stay in Members > Pending and cannot sign in until you decide.',
+					$bn_waiting,
+					'buddynext'
+				),
+				number_format_i18n( $bn_waiting )
+			);
+		}
 
 		$this->render_select_row(
 			'buddynext_reg_mode',
 			__( 'Registration mode', 'buddynext' ),
-			(string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
+			$bn_reg_mode,
 			self::reg_mode_choices(),
-			__( 'Controls who can create a new account on your community.', 'buddynext' )
+			$bn_reg_hint
 		);
 
 		// The "Require email verification" sub-toggle only has any effect when the
@@ -3324,6 +3399,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			data-i18n-failed="<?php esc_attr_e( 'Install failed.', 'buddynext' ); ?>"
 			data-i18n-network="<?php esc_attr_e( 'Install failed - network error.', 'buddynext' ); ?>">
 			<?php
+			$bn_pro_action = \BuddyNext\Integrations\CompanionRegistry::pro_action();
 			foreach ( $companions as $bn_slug => $bn_c ) :
 				$bn_status   = \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug );
 				$bn_label    = (string) ( $bn_c['label'] ?? $bn_slug );
@@ -3336,7 +3412,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				// Four of these connect through a bridge that ships in BuddyNext Pro.
 				// Without Pro the plugin is installed but nothing is wired, so the
 				// card must not say "Connected" or tick off what it unlocks.
-				$bn_waits_for_pro = 'active' === $bn_status && ! empty( $bn_c['needs_pro'] ) && ! defined( 'BUDDYNEXTPRO_VERSION' );
+				$bn_needs_pro     = ! empty( $bn_c['needs_pro'] ) && ! defined( 'BUDDYNEXTPRO_VERSION' );
+				$bn_waits_for_pro = 'active' === $bn_status && $bn_needs_pro;
 
 				if ( $bn_waits_for_pro ) {
 					$bn_badge_class = 'bn-companion-badge bn-companion-badge--warning';
@@ -3352,7 +3429,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					$bn_badge_label = __( 'Not installed', 'buddynext' );
 				}
 				?>
-			<div class="bn-companion-card" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+			<div class="bn-companion-card" id="bn-companion-<?php echo esc_attr( sanitize_html_class( (string) $bn_slug ) ); ?>" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 				<div class="bn-companion-card__head">
 					<img
 						class="bn-companion-card__logo"
@@ -3364,6 +3441,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					/>
 					<h3 class="bn-companion-card__title"><?php echo esc_html( $bn_label ); ?></h3>
 					<span class="<?php echo esc_attr( $bn_badge_class ); ?>"><?php echo esc_html( $bn_badge_label ); ?></span>
+					<?php if ( $bn_needs_pro && ! $bn_waits_for_pro ) : ?>
+						<span class="bn-companion-badge bn-companion-badge--muted"><?php esc_html_e( 'Connects with BuddyNext Pro', 'buddynext' ); ?></span>
+					<?php endif; ?>
 				</div>
 
 				<?php if ( '' !== $bn_why ) : ?>
@@ -3388,12 +3468,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				<div class="bn-companion-card__actions">
 					<?php // Active companions already carry the "Connected" status badge in the card head, so the actions row shows only "Learn more". ?>
 					<?php if ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
-						<a href="<?php echo esc_url( wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $bn_basename ) . '&plugin_status=all' ), 'activate-plugin_' . $bn_basename ) ); ?>"
+						<a href="<?php echo esc_url( \BuddyNext\Integrations\CompanionRegistry::activate_url( $bn_basename ) ); ?>"
 							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
 					<?php elseif ( 'not_installed' === $bn_status && $can_install ) : ?>
 						<button type="button" class="bn-addon-row__action bn-companion-install" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 							<?php esc_html_e( 'Install free', 'buddynext' ); ?>
 						</button>
+					<?php elseif ( $bn_waits_for_pro && null !== $bn_pro_action ) : ?>
+						<a href="<?php echo esc_url( $bn_pro_action['url'] ); ?>" class="bn-addon-row__action"<?php echo $bn_pro_action['external'] ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>><?php echo esc_html( $bn_pro_action['label'] ); ?></a>
 					<?php endif; ?>
 
 					<?php if ( '' !== $bn_store ) : ?>

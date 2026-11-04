@@ -1075,7 +1075,15 @@ class ModerationController extends BaseRestController {
 
 		// Audit row is written inside issue_strike() (card 10264294456).
 
-		return new WP_REST_Response( array( 'strike_id' => $result ), 201 );
+		return new WP_REST_Response(
+			array(
+				'strike_id' => $result,
+				// True when this strike tripped automatic suspension, so the queue can
+				// clear the member's profile reports that suspension just resolved.
+				'suspended' => $service->is_suspended( $user_id ),
+			),
+			201
+		);
 	}
 
 	/**

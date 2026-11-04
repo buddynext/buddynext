@@ -246,6 +246,10 @@ if ( '' !== $raw_query ) {
 	};
 	add_filter( 'buddynext_search_query_args', $bn_search_window, 5 );
 
+	// One page view is one search for the member: run the per-type calls quietly
+	// and fire buddynext_search_performed once, for the active tab, below.
+	$bn_search_service->set_quiet( true );
+
 	// Every tab's count badge is rendered on every result page, so all type
 	// counts must be computed regardless of which tab is active — otherwise
 	// switching from "All" to a single tab zeroes the other badges. Each block
@@ -313,6 +317,31 @@ if ( '' !== $raw_query ) {
 
 	// Sum every per-type count (core + extras) for the "All" badge.
 	$total_counts['all'] = array_sum( array_diff_key( $total_counts, array( 'all' => 0 ) ) );
+
+	$bn_search_service->set_quiet( false );
+	$bn_active_res = array(
+		'members'  => $bn_res_members,
+		'posts'    => $bn_res_posts,
+		'spaces'   => $bn_res_spaces,
+		'media'    => $bn_media_res,
+		'hashtags' => array( 'items' => $results_hashtags ),
+	)[ $active_tab ] ?? ( $bn_res_extra[ $active_tab ] ?? array() );
+	$bn_search_service->announce(
+		sanitize_text_field( $raw_query ),
+		$viewer_id,
+		array(
+			'all'     => '',
+			'members' => 'user',
+			'posts'   => 'post',
+			'spaces'  => 'space',
+		)[ $active_tab ] ?? $active_tab,
+		array(
+			'items' => (array) ( $bn_active_res['items'] ?? array() ),
+			'total' => (int) ( $total_counts[ $active_tab ] ?? 0 ),
+		),
+		$bn_per_page,
+		$bn_spage
+	);
 }
 
 /**

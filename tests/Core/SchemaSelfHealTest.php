@@ -149,6 +149,67 @@ class SchemaSelfHealTest extends \WP_UnitTestCase {
 	// ── The complaint ────────────────────────────────────────────────────────────
 
 	/**
+	 * The code being ahead of the database repairs itself on any request: the version
+	 * moves and the data migrations are owed to a later runner. The harness skips dbDelta,
+	 * so the column coming back is proven in the browser, not here.
+	 *
+	 * @return void
+	 */
+	public function test_a_request_outside_wp_admin_upgrades_the_schema_and_owes_the_migrations(): void {
+		$current = $this->current_schema_version();
+		update_option( 'buddynext_schema_version', $current - 1 );
+
+		Installer::maybe_upgrade_schema();
+
+		$this->assertSame( $current, (int) get_option( 'buddynext_schema_version' ) );
+		$this->assertSame( $current - 1, (int) get_option( 'buddynext_pending_migrations' ) );
+		$this->assertNotFalse( has_action( 'wp_loaded', array( Installer::class, 'schedule_finish_upgrade' ) ) );
+		remove_action( 'wp_loaded', array( Installer::class, 'schedule_finish_upgrade' ) );
+
+		// The job pays what was owed, once.
+		Installer::finish_upgrade();
+		$this->assertFalse( get_option( 'buddynext_pending_migrations' ) );
+		$queries_before = get_num_queries();
+		Installer::finish_upgrade();
+		$this->assertLessThan( 3, get_num_queries() - $queries_before );
+	}
+
+	/**
+	 * Another request holding the lock means this one skips the upgrade, untouched.
+	 *
+	 * @return void
+	 */
+	public function test_a_request_that_loses_the_lock_skips_the_upgrade(): void {
+		$current = $this->current_schema_version();
+		update_option( 'buddynext_schema_version', $current - 1 );
+
+		$lose = static function ( string $query ): string {
+			return 0 === strpos( $query, 'SELECT GET_LOCK' ) ? 'SELECT 0' : $query;
+		};
+		add_filter( 'query', $lose );
+		Installer::maybe_upgrade_schema();
+		remove_filter( 'query', $lose );
+
+		$this->assertSame( $current - 1, (int) get_option( 'buddynext_schema_version' ) );
+		$this->assertFalse( get_option( 'buddynext_pending_migrations' ) );
+	}
+
+	/**
+	 * A current schema costs a request an option compare and no query.
+	 *
+	 * @return void
+	 */
+	public function test_a_current_schema_costs_no_query(): void {
+		update_option( 'buddynext_schema_version', $this->current_schema_version() );
+
+		$queries_before = get_num_queries();
+		Installer::maybe_upgrade_schema();
+
+		$this->assertSame( $queries_before, get_num_queries() );
+		$this->assertNotFalse( has_action( 'init', array( Installer::class, 'maybe_upgrade_schema' ) ) );
+	}
+
+	/**
 	 * A missing table is recreated even though the version says the work is done.
 	 *
 	 * @return void

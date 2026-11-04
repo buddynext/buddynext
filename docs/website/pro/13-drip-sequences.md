@@ -63,6 +63,8 @@ Each step is one email in the sequence. Use the **Add step** form for each one. 
 | Subject | The email subject line. Required and must not be empty. | Empty (you must set it) |
 | Body | The email content. Accepts HTML and supports merge tags such as `{{first_name}}`. Required and must not be empty. | Empty (you must set it) |
 
+The step form shows a live preview of the email. The preview runs in a sandboxed frame, so a script in the body does not run in your admin session.
+
 > **Note:** A step will not save with a blank subject or body. This is deliberate - it stops the sequence from emailing members an empty message.
 
 You can **Edit** or **Delete** a step from the step list. There is no manual reordering: steps are shown and delivered in order of their day, so to move a step, change its day. Members who are part-way through keep their place when you add, change or remove a step: they carry on after the last email they already received and are never sent the same one twice. A member who joined some time ago receives a newly added earlier step only if they have not yet passed it.

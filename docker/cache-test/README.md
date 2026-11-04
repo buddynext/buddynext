@@ -47,7 +47,8 @@ logged-in visitors too.
    loaded twice; the second load must be a fresh render.
 3. **Guests still get the cache**, including hub sub-routes (Explore, the
    leaderboard, a profile), and never a cached login page.
-4. **A new public post reaches guests without a manual purge.** A guest copy of
+4. **A signed-in member is not served an existing guest copy.** The page is warmed as a guest first, then opened as the member. W3 Total Cache is run with "Don't cache pages for logged in users" off, where the docs say this fails (printed as KNOWN), then on, where it must pass. The same KNOWN rule covers the home page opened again after a BuddyNext sign-in, which runs before the setting is turned on. A KNOWN line turns into a FAIL if the member is logged in after all, because the docs would then be out of date.
+5. **A new public post reaches guests without a manual purge.** A guest copy of
    Explore is cached, the member posts through REST (a real web request, because
    LiteSpeed purges by response header), and the guest must see the post on the
    next load. Proven by disabling the purge and watching it fail on every cache.

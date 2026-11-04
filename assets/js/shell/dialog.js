@@ -179,12 +179,15 @@ export function trapFocus( container ) {
 		// that stay hidden until a state changes (the Share dialog's link row appears
 		// only after a link is created); counting those made an invisible element the
 		// "last" stop, so the wrap never fired and Tab walked out of the dialog.
+		// Only real Tab stops count: a button with tabindex="-1" (the lightbox
+		// backdrop) or an SVG <use href> icon matched the query but Tab never lands
+		// on it, so it became "first" and Shift+Tab walked out past the real first.
 		const focusables = Array.prototype.filter.call(
 			container.querySelectorAll(
-				'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+				'button:not([disabled]), a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 			),
 			function ( el ) {
-				return el.getClientRects().length > 0;
+				return el.tabIndex >= 0 && el.getClientRects().length > 0;
 			}
 		);
 		if ( ! focusables.length ) {
@@ -378,6 +381,8 @@ export function bnConfirmDisconnect( displayName ) {
  *                                   re-auth asks for 'password' here rather than
  *                                   growing its own dialog.
  * @param {string} [opts.autocomplete] autocomplete hint for the input.
+ * @param {number} [opts.maxLength]  Most characters the input takes.
+ * @param {string} [opts.inputLabel] Accessible name for the input.
  * @param {Function} [opts.validate] ( value ) => error string, or '' when valid.
  *                                   An error shows under the input and the
  *                                   dialog stays open, so nothing typed is lost.
@@ -398,6 +403,8 @@ export function bnPrompt( opts ) {
 	}
 	input.placeholder = cfg.placeholder || '';
 	input.value = cfg.defaultValue || '';
+	if ( cfg.maxLength ) { input.maxLength = cfg.maxLength; }
+	if ( cfg.inputLabel ) { input.setAttribute( 'aria-label', cfg.inputLabel ); }
 	input.style.marginTop = '12px';
 	input.style.width = '100%';
 
@@ -477,6 +484,25 @@ export function bnPrompt( opts ) {
 
 		window.requestAnimationFrame( function () { input.focus(); } );
 	} );
+}
+
+/**
+ * Swap a Report control for its "Reported" twin after a report (or a 409).
+ *
+ * The template renders both inside one `[data-bn-report-slot]`: the control
+ * with `data-bn-report` and the disabled label with `data-bn-reported`, the
+ * server's `hidden` already matching whether this viewer has reported.
+ *
+ * @param {Element|null} el Any element inside the slot (usually the trigger).
+ * @return {void}
+ */
+export function bnMarkReported( el ) {
+	const slot = el && el.closest ? el.closest( '[data-bn-report-slot]' ) : null;
+	if ( ! slot ) {
+		return;
+	}
+	slot.querySelectorAll( '[data-bn-report]' ).forEach( ( n ) => { n.hidden = true; } );
+	slot.querySelectorAll( '[data-bn-reported]' ).forEach( ( n ) => { n.hidden = false; } );
 }
 
 /**
@@ -1343,6 +1369,11 @@ if ( typeof window !== 'undefined' ) {
 	window.bnConfirm = bnConfirm;
 	window.bnBlockConfirm = bnBlockConfirm;
 	window.bnPrompt  = bnPrompt;
+	// Classic scripts (e.g. Pro's Businesses tab) reload after an action and need
+	// the toast to survive the reload.
+	window.bnReloadWithToast = bnReloadWithToast;
+	// Classic overlays (the media lightbox) keep Tab inside themselves with the same trap.
+	window.bnTrapFocus = trapFocus;
 	// One toast for every classic script and every plugin. shell/extras.js queues calls made
 	// before this module has run; replay them now that the real function exists.
 	const queued = window.__bnToastQueue || [];

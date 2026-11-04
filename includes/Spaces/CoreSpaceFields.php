@@ -250,7 +250,7 @@ final class CoreSpaceFields {
 			array(
 				'label'      => __( 'Show the Media tab in this space', 'buddynext' ),
 				'type'       => 'boolean',
-				'default'    => '0',
+				'default'    => '1',
 				'section'    => 'integrations',
 				'sort_order' => 20,
 				'visibility' => 'members',
@@ -262,7 +262,7 @@ final class CoreSpaceFields {
 			array(
 				'label'      => __( 'Show the Leaderboard tab in this space', 'buddynext' ),
 				'type'       => 'boolean',
-				'default'    => '0',
+				'default'    => '1',
 				'section'    => 'integrations',
 				'sort_order' => 40,
 				'visibility' => 'members',
@@ -274,7 +274,7 @@ final class CoreSpaceFields {
 			array(
 				'label'      => __( 'Show the Files tab in this space', 'buddynext' ),
 				'type'       => 'boolean',
-				'default'    => '0',
+				'default'    => '1',
 				'section'    => 'integrations',
 				'sort_order' => 25,
 				'visibility' => 'members',

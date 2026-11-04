@@ -36,6 +36,8 @@ To create one, start a post in the composer and select the megaphone (Announceme
 
 An administrator can end an announcement at any time from **BuddyNext > Engagement > Announcements**, which lists every announcement with its status (Active, Scheduled, Ended or Not live) and offers **Feature** or **Unfeature**, **End now**, and **Delete**. Ending it removes the pin so the post stops appearing at the top of members' feeds, while the post itself stays in the feed as a normal post. Anyone who may post site-wide announcements can also end one straight from the post card with **End**.
 
+Ending an announcement removes that announcement's own card from the feed, whichever position it holds on the page.
+
 > **Tip:** Ending an announcement is the clean way to retire a notice once it is no longer relevant. You do not have to delete the post to stop it pinning - end it and it becomes an ordinary feed post.
 
 

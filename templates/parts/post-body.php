@@ -465,7 +465,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 		 */
 		$bn_disc_url = '' !== $bn_link_url ? (string) apply_filters( 'buddynext_discussion_card_url', $bn_link_url, (array) ( $args['link_meta'] ?? array() ) ) : '';
 		?>
-		<?php if ( '' !== $bn_link_url && '' === $bn_disc_url ) : ?>
+		<?php if ( \BuddyNext\Feed\PostService::is_orphaned_card( 'discussion' ) || ( '' !== $bn_link_url && '' === $bn_disc_url ) ) : ?>
 		<div class="bn-post-card__bridge-card bn-post-card__bridge-card--discussion is-unavailable">
 			<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
 			<span class="bn-post-card__bridge-title"><?php esc_html_e( 'This discussion is no longer available.', 'buddynext' ); ?></span>
@@ -590,7 +590,8 @@ do_action( 'buddynext_part_post_body_before', $args );
 		 * and later course / media / achievement — through the feed without forking
 		 * this template. Existing types keep their own branches above; only unknown
 		 * types reach here. An empty return falls through to the plain-text body, so
-		 * a registered-but-declining renderer degrades gracefully.
+		 * a registered-but-declining renderer degrades gracefully. With no renderer
+		 * because the partner is gone, the card shows a neutral line instead.
 		 *
 		 * `media` reaches here as of 1.1.6. It used to share the 'photo' branch,
 		 * which is wrong in a way that only shows on the bridge's cards: a NATIVE
@@ -607,6 +608,8 @@ do_action( 'buddynext_part_post_body_before', $args );
 		$bn_typed_html = (string) apply_filters( 'buddynext_render_post_body_' . $bn_body_post_type, '', $args );
 		if ( '' !== $bn_typed_html ) {
 			echo $bn_typed_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- renderer returns pre-escaped HTML.
+		} elseif ( \BuddyNext\Feed\PostService::is_orphaned_card( $bn_body_post_type ) ) {
+			echo \BuddyNext\Feed\IntegrationActivity::render_orphaned_card( $args ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_html() parts.
 		} else {
 			?>
 			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>

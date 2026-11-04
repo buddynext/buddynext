@@ -58,6 +58,8 @@ Each pattern's `content` is the literal block markup. Reading it shows exactly w
 <!-- /wp:group -->
 ```
 
+The pattern is about the member the page belongs to: the blocks' `userId`, or otherwise the page's author. A visitor sees that member, not themselves, under the same privacy rule as the profile page. With no member they see "No member to show", and on a private profile "This profile is private."
+
 > **Note:** The profile body is wrapped in a core `wp:group`. There is no core "tabs" block, so the body is a stacked group rather than a tabbed layout - using a non-existent block here would trip an invalid-block warning and render raw markup.
 
 ### Spaces Directory and Member Directory

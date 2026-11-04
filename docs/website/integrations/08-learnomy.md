@@ -44,8 +44,10 @@ Where they show is controlled on the **Learnomy** card of **Integration Settings
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether the Portfolio panels appear on member profiles. Learnomy adds three, so each sub-tab (Learning, Certifications, Teaching) can be switched individually. Turning it off also stops Learnomy notifications reaching the bell. | On |
+| Show in navigation | Whether the Portfolio panels appear on member profiles. Learnomy adds three, so each sub-tab (Learning, Certifications, Teaching) can be switched individually. Turning it off only hides the panels; Learnomy notifications still reach the bell. | On |
 | Post to the activity feed | Whether course completions and certificates post a feed activity. | On |
+
+The **Certifications** sub-tab and its panel follow Learnomy's Certificates module. With the module off, BuddyNext does not offer the sub-tab, and Integration Settings shows its switch disabled with **Turn on Certificates**. Selecting it turns the module on through Learnomy; if Learnomy refuses, it opens Learnomy's Modules screen at that module.
 
 There is no search switch: course content is not added to community search. The learning experience - the courses, lessons, and certificate templates - is configured in Learnomy.
 

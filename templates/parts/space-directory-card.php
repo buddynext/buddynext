@@ -148,7 +148,7 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 				<?php
 				echo wp_kses(
 					sprintf(
-						/* translators: %s: name of the space this sub-space belongs to (a link). */
+						/* translators: %s: name of the space this sub-space belongs to. */
 						_x( 'in %s', 'sub-space parent label', 'buddynext' ),
 						'<a href="' . esc_url( $bn_dc_parent['url'] ) . '">' . esc_html( $bn_dc_parent['name'] ) . '</a>'
 					),
@@ -217,7 +217,19 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 					class="bn-btn"
 					data-variant="secondary"
 					data-size="sm"
+					data-bn-card-manage
 				><?php esc_html_e( 'Manage', 'buddynext' ); ?></a>
+				<?php if ( 'moderator' === $bn_dc_membership['role'] ) : // A moderator can still leave; only the owner cannot. ?>
+				<button
+					class="bn-btn"
+					data-variant="secondary"
+					data-size="sm"
+					data-current-state="joined"
+					data-wp-on--click="actions.leaveSpace"
+					data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+					aria-label="<?php esc_attr_e( 'Joined: click to leave', 'buddynext' ); ?>"
+				><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
+				<?php endif; ?>
 
 			<?php elseif ( $is_member ) : ?>
 				<button

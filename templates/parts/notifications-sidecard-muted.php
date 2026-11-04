@@ -82,7 +82,7 @@ do_action( 'buddynext_part_notifications_sidecard_muted_before', $args );
 		<?php echo esc_html( sprintf( /* translators: %d: muted count */ _n( 'Muted (%d)', 'Muted (%d)', count( $bn_muted_ids ), 'buddynext' ), count( $bn_muted_ids ) ) ); ?>
 	</header>
 
-	<ul class="bn-notif-sidecard__muted-list" role="list">
+	<ul class="bn-notif-sidecard__muted-list" role="list" data-bn-empty="<?php esc_attr_e( "You haven't muted anyone.", 'buddynext' ); ?>">
 		<?php
 		// Cap the visible rows so a power-muter doesn't make the sidebar
 		// scroll forever; the Manage link below covers the rest.
@@ -97,6 +97,12 @@ do_action( 'buddynext_part_notifications_sidecard_muted_before', $args );
 				data-user-id="<?php echo absint( (int) $bn_muted_id ); ?>"
 				data-relation="mute"
 				data-bn-nonce="<?php echo esc_attr( $bn_rest_nonce ); ?>"
+				data-bn-done="
+				<?php
+				/* translators: %s: member handle */
+				echo esc_attr( sprintf( __( 'Unmuted @%s', 'buddynext' ), \BuddyNext\Core\PageRouter::member_handle( (int) $bn_muted_user->ID ) ) );
+				?>
+				"
 			>
 				<a class="bn-notif-sidecard__muted-avatar"
 					href="<?php echo esc_url( PageRouter::profile_url( (int) $bn_muted_id ) ); ?>"

@@ -209,6 +209,7 @@ class ProfileService {
 				g.is_system    AS group_is_system,
 				g.sort_order   AS group_sort_order,
 				g.type_restriction AS group_type_restriction,
+				g.intro        AS group_intro,
 				f.id           AS field_id,
 				f.field_key,
 				f.label        AS field_label,
@@ -216,6 +217,7 @@ class ProfileService {
 				f.options,
 				f.description,
 				f.placeholder,
+				f.width,
 				f.is_required,
 				f.is_searchable,
 				f.show_on_register,
@@ -245,6 +247,7 @@ class ProfileService {
 					'is_system'        => (bool) $row['group_is_system'],
 					'sort_order'       => (int) $row['group_sort_order'],
 					'type_restriction' => isset( $row['group_type_restriction'] ) ? (string) $row['group_type_restriction'] : '',
+					'intro'            => (string) ( $row['group_intro'] ?? '' ),
 					'fields'           => array(),
 				);
 			}
@@ -259,6 +262,7 @@ class ProfileService {
 					'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
 					'description'      => (string) ( $row['description'] ?? '' ),
 					'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
+					'width'            => FieldType::sanitize_width( $row['width'] ?? 'auto' ),
 					'is_required'      => (bool) $row['is_required'],
 					'is_searchable'    => (bool) $row['is_searchable'],
 					'show_on_register' => (bool) ( $row['show_on_register'] ?? false ),
@@ -356,6 +360,7 @@ class ProfileService {
 			'options'          => $field['options'] ?? null,
 			'description'      => sanitize_text_field( (string) ( $field['description'] ?? '' ) ),
 			'placeholder'      => sanitize_text_field( (string) ( $field['placeholder'] ?? '' ) ),
+			'width'            => FieldType::sanitize_width( $field['width'] ?? 'auto' ),
 			'is_required'      => ! empty( $field['is_required'] ),
 			'is_searchable'    => ! empty( $field['is_searchable'] ),
 			'show_on_register' => ! empty( $field['show_on_register'] ),
@@ -393,6 +398,8 @@ class ProfileService {
 					continue;
 				}
 				$field['group_key'] = $group['group_key'] ?? '';
+				// The group's intro, shown above its first field on the sign-up form.
+				$field['group_intro'] = (string) ( $group['intro'] ?? '' );
 				// Needed by field_applies_to_user(): a system group is never
 				// lockable, so its fields must stay writable whatever a plan says.
 				$field['group_is_system'] = ! empty( $group['is_system'] );
@@ -421,7 +428,7 @@ class ProfileService {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
-			"SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction
+			"SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction, intro
 			 FROM {$wpdb->prefix}bn_profile_groups
 			 ORDER BY sort_order ASC, id ASC",
 			ARRAY_A
@@ -439,6 +446,7 @@ class ProfileService {
 					'is_system'        => (bool) $row['is_system'],
 					'sort_order'       => (int) $row['sort_order'],
 					'type_restriction' => isset( $row['type_restriction'] ) ? (string) $row['type_restriction'] : '',
+					'intro'            => (string) ( $row['intro'] ?? '' ),
 				);
 			},
 			(array) $rows
@@ -515,7 +523,7 @@ class ProfileService {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $id ),
+			$wpdb->prepare( "SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction, intro FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $id ),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -541,7 +549,7 @@ class ProfileService {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT id, group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, is_system, visibility, sort_order FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			$wpdb->prepare( "SELECT id, group_id, field_key, label, type, options, description, placeholder, width, is_required, is_searchable, show_on_register, show_in_header, is_system, visibility, sort_order FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -627,7 +635,7 @@ class ProfileService {
 	/**
 	 * Create a new profile group.
 	 *
-	 * @param array $data Group data: group_key, label, type, visibility, sort_order.
+	 * @param array $data Group data: group_key, label, type, visibility, sort_order, intro.
 	 * @return int Inserted group ID.
 	 */
 	public function create_group( array $data ): int {
@@ -643,8 +651,9 @@ class ProfileService {
 				'visibility' => $data['visibility'] ?? 'public',
 				'is_system'  => 0,
 				'sort_order' => (int) ( $data['sort_order'] ?? 0 ),
+				'intro'      => sanitize_textarea_field( (string) ( $data['intro'] ?? '' ) ),
 			),
-			array( '%s', '%s', '%s', '%s', '%d', '%d' )
+			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -663,7 +672,7 @@ class ProfileService {
 	 *
 	 * @param array $data Field data: group_id|group_name, field_key, label, type,
 	 *                    options, description, placeholder, is_required,
-	 *                    is_searchable, visibility, sort_order.
+	 *                    is_searchable, visibility, sort_order, width (auto|half|full).
 	 * @return int Inserted field ID.
 	 */
 	public function create_field( array $data ): int {
@@ -712,8 +721,8 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_profile_fields
-					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, visibility, sort_order)
-				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %d, %s, %d)",
+					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, visibility, sort_order, width)
+				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %d, %s, %d, %s)",
 				$group_id,
 				$field_key,
 				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
@@ -732,7 +741,8 @@ class ProfileService {
 				// default. Field visibility is the value's starting point, not a
 				// floor, so the member can still publish it.
 				$data['visibility'] ?? 'members',
-				(int) ( $data['sort_order'] ?? 0 )
+				(int) ( $data['sort_order'] ?? 0 ),
+				FieldType::sanitize_width( $data['width'] ?? 'auto' )
 			)
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		);
@@ -839,6 +849,65 @@ class ProfileService {
 	}
 
 	/**
+	 * Field errors for submitted values longer than their field's cap.
+	 *
+	 * A value already stored over the cap passes while it is unchanged: the edit
+	 * form submits every field, so refusing it would stop a member with an older
+	 * long bio from saving anything else on the page.
+	 *
+	 * @param int                  $user_id User being saved; 0 when there is no account yet.
+	 * @param array<string, mixed> $data    Submitted field_key => value pairs.
+	 * @return array<string, string> field_key => message.
+	 */
+	public function text_cap_errors( int $user_id, array $data ): array {
+		global $wpdb;
+
+		$errors = array();
+		foreach ( $this->get_flat_fields() as $field ) {
+			$key = (string) ( $field['field_key'] ?? '' );
+			$cap = \BuddyNext\Profile\FieldType::text_cap( $field );
+			if ( 0 === $cap || ! isset( $data[ $key ] ) || ! is_string( $data[ $key ] ) ) {
+				continue;
+			}
+
+			$value = \BuddyNext\Profile\FieldType::sanitize( $field, $data[ $key ] );
+			if ( ! is_string( $value ) ) {
+				continue;
+			}
+
+			// A form post sends CRLF where the textarea and its maxlength count LF.
+			$value = str_replace( "\r\n", "\n", $value );
+			if ( mb_strlen( $value ) <= $cap ) {
+				continue;
+			}
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$stored = $user_id > 0 ? (string) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT value FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id = %d AND entry_index = 0",
+					$user_id,
+					(int) $field['id']
+				)
+			) : '';
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$stored = \BuddyNext\Profile\FieldType::sanitize( $field, $stored );
+
+			if ( is_string( $stored ) && str_replace( "\r\n", "\n", $stored ) === $value ) {
+				continue;
+			}
+
+			$errors[ $key ] = sprintf(
+				/* translators: 1: field label, 2: maximum number of characters. */
+				__( '%1$s can be at most %2$s characters.', 'buddynext' ),
+				(string) ( $field['label'] ?? $key ),
+				number_format_i18n( $cap )
+			);
+		}
+
+		return $errors;
+	}
+
+	/**
 	 * Save profile field values for a user.
 	 *
 	 * Flat fields: keyed directly as field_key => value.
@@ -911,7 +980,7 @@ class ProfileService {
 
 		// Accumulate per-field rejection messages so the method can report an
 		// honest result instead of always claiming success.
-		$field_errors = array();
+		$field_errors = $this->text_cap_errors( $user_id, $data );
 
 		// ATOMICITY: every write below is DEFERRED into this queue and executed
 		// only after the whole submission has validated. Nothing this method
@@ -1758,6 +1827,7 @@ class ProfileService {
 					g.sort_order   AS group_sort_order,
 					g.is_system    AS group_is_system,
 					g.type_restriction AS group_type_restriction,
+					g.intro        AS group_intro,
 					f.id           AS field_id,
 					f.field_key,
 					f.label        AS field_label,
@@ -1765,6 +1835,7 @@ class ProfileService {
 					f.options,
 					f.description,
 					f.placeholder,
+					f.width,
 					f.is_required  AS field_is_required,
 					f.visibility   AS field_visibility,
 					f.sort_order   AS field_sort_order,
@@ -1930,6 +2001,7 @@ class ProfileService {
 					'visibility' => $gvis,
 					'is_system'  => (bool) ( $row['group_is_system'] ?? false ),
 					'sort_order' => (int) $row['group_sort_order'],
+					'intro'      => (string) ( $row['group_intro'] ?? '' ),
 					// Only ever true on the OWNER's own read — a non-owner never
 					// gets this far for a locked group (see G3 above).
 					'locked'     => $g_locked,
@@ -1949,6 +2021,7 @@ class ProfileService {
 				'options'              => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
 				'description'          => (string) ( $row['description'] ?? '' ),
 				'placeholder'          => (string) ( $row['placeholder'] ?? '' ),
+				'width'                => FieldType::sanitize_width( $row['width'] ?? 'auto' ),
 				'is_required'          => (bool) ( $row['field_is_required'] ?? false ),
 				'sort_order'           => (int) $row['field_sort_order'],
 				'value'                => self::view_value(
@@ -2017,6 +2090,9 @@ class ProfileService {
 				'visibility' => $group['visibility'],
 				'is_system'  => ! empty( $group['is_system'] ),
 				'sort_order' => $group['sort_order'],
+				// Help text for the edit and sign-up forms (owner-authored). Not
+				// profile data: the About tab and exports do not render it.
+				'intro'      => $group['intro'],
 				// Owner-only: their plan does not include this group. The edit
 				// screen renders it as a locked section rather than an input, and
 				// nothing else in the product should treat it as writable.
@@ -2283,6 +2359,7 @@ class ProfileService {
 					'options'          => $vf['options'] ?? null,
 					'is_required'      => (bool) ( $vf['is_required'] ?? false ),
 					'sort_order'       => (int) ( $vf['sort_order'] ?? 99 ),
+					'width'            => FieldType::sanitize_width( $vf['width'] ?? 'auto' ),
 					'value'            => self::view_value(
 						array(
 							'type'    => (string) ( $vf['type'] ?? 'text' ),
@@ -2318,6 +2395,7 @@ class ProfileService {
 						'type'       => 'flat',
 						'visibility' => 'public',
 						'sort_order' => (int) ( $vg['sort_order'] ?? 99 ),
+						'intro'      => (string) ( $vg['intro'] ?? '' ),
 						'fields'     => array( $field ),
 					);
 					$flat_group_index[ $gkey ] = count( $output_groups ) - 1;
@@ -2790,15 +2868,21 @@ class ProfileService {
 			return;
 		}
 
-		$parts    = array();
-		$headline = (string) get_user_meta( $user_id, 'bn_headline', true );
-		if ( '' !== $headline ) {
-			$parts[] = $headline;
-		}
-		// Read never written - the bio lives in bn_profile_values. See bios_for().
-		$bio = $this->bio_for( $user_id );
-		if ( '' !== $bio ) {
-			$parts[] = $bio;
+		$parts        = array();
+		$member_parts = array();
+		$identity     = $this->identity_rows( array( $user_id ) )[ $user_id ] ?? array();
+
+		// Same tiers as the mirrors below: a value hidden from strangers must not make
+		// its owner findable by searching for it.
+		foreach ( $identity as $field ) {
+			if ( '' === $field['value'] ) {
+				continue;
+			}
+			if ( 'public' === $field['visibility'] ) {
+				$parts[] = $field['value'];
+			} elseif ( 'members' === $field['visibility'] ) {
+				$member_parts[] = $field['value'];
+			}
 		}
 		// PUBLIC searchable field values → content (matched for everyone, including strangers).
 		// MEMBERS-tier values            → content_members (matched only for a logged-in viewer).
@@ -2806,8 +2890,7 @@ class ProfileService {
 		// Two columns, not one column plus a filter, because the anonymous query then never even
 		// NAMES content_members — the privacy boundary is structural instead of conditional, and
 		// there is no flag left to get wrong.
-		$member_parts = array();
-		$directory    = buddynext_service( 'member_directory' );
+		$directory = buddynext_service( 'member_directory' );
 		if ( is_object( $directory ) && method_exists( $directory, 'searchable_mirror_keys' ) ) {
 			foreach ( $directory->searchable_mirror_keys() as $mirror_key ) {
 				$mirror_val = (string) get_user_meta( $user_id, (string) $mirror_key, true );
@@ -2822,6 +2905,11 @@ class ProfileService {
 					$member_parts[] = $members_val;
 				}
 			}
+		}
+		// A profile closed to strangers keeps only its name in the index, whatever its fields say.
+		if ( 'public' !== buddynext_service( 'privacy' )->get_preference( $user_id, 'profile_visibility' ) ) {
+			$parts        = array();
+			$member_parts = array();
 		}
 		$content         = trim( implode( ' ', array_values( array_unique( $parts ) ) ) );
 		$content_members = trim( implode( ' ', array_values( array_unique( $member_parts ) ) ) );
@@ -2848,7 +2936,7 @@ class ProfileService {
 	/**
 	 * Update a profile group's metadata.
 	 *
-	 * Allowed $data keys: label, visibility, sort_order.
+	 * Allowed $data keys: label, visibility, sort_order, intro, type_restriction.
 	 * Unknown keys are ignored. Busts 'all_groups' and 'all_fields' cache keys.
 	 *
 	 * @param int   $id   Profile group ID.
@@ -2874,6 +2962,13 @@ class ProfileService {
 		if ( isset( $data['sort_order'] ) ) {
 			$update['sort_order'] = (int) $data['sort_order'];
 			$format[]             = '%d';
+		}
+
+		// Help text shown above the group's fields on the edit and sign-up forms.
+		// An empty string clears it.
+		if ( isset( $data['intro'] ) ) {
+			$update['intro'] = sanitize_textarea_field( (string) $data['intro'] );
+			$format[]        = '%s';
 		}
 
 		// Which member type (if any) the group is limited to. array_key_exists, not
@@ -3266,6 +3361,11 @@ class ProfileService {
 		if ( isset( $data['placeholder'] ) ) {
 			$update['placeholder'] = sanitize_text_field( (string) $data['placeholder'] );
 			$format[]              = '%s';
+		}
+
+		if ( isset( $data['width'] ) ) {
+			$update['width'] = FieldType::sanitize_width( $data['width'] );
+			$format[]        = '%s';
 		}
 
 		if ( isset( $data['is_required'] ) ) {
@@ -4589,25 +4689,78 @@ class ProfileService {
 	}
 
 	/**
-	 * Bio text for a batch of members, read from where the bio actually lives.
+	 * Headline and bio of each member, as far as this viewer may read them.
 	 *
-	 * `bio` is a real bn_profile_fields row, so its value is in bn_profile_values. Four call
-	 * sites used to read get_user_meta( $uid, 'bn_field_bio' ) instead - a key nothing writes for
-	 * it. The bn_field_* usermeta is only written as a side effect of the search mirror, and the
-	 * mirror only runs for fields flagged is_searchable; the stock bio is is_searchable = 0. So
-	 * the key was never written and every one of those four surfaces showed an empty bio.
-	 * (Measured on a seeded site: 12 members with a bio in the table, 0 with the usermeta.)
+	 * The one reader for member lists: directory cards (SSR and REST), search rows,
+	 * blocks, sidebars. It applies the same two gates as the profile page, so a card
+	 * can never show what clicking through to the profile would hide: the owner's
+	 * profile_visibility (PrivacyService)
+	 * and each field's effective visibility against the viewer's rank (get_profile()).
 	 *
-	 * Whether a bio is SEARCHABLE and whether it is READABLE are two different questions. This is
-	 * the one reader they all share now, so they cannot drift apart again.
+	 * Batched: one values query plus one each for follows, connections and blocks,
+	 * however many members are on the page.
 	 *
-	 * The usermeta mirror is still honoured where a site has one - a virtual, code-registered bio
-	 * lives only in usermeta.
+	 * @param int             $viewer_id Viewer (0 = logged out).
+	 * @param array<int, int> $user_ids  Members to resolve.
+	 * @return array<int, array{headline: string, bio: string}> Hidden values are ''.
+	 */
+	public function card_identity_for( int $viewer_id, array $user_ids ): array {
+		$rows = $this->identity_rows( $user_ids );
+
+		if ( array() === $rows ) {
+			return array();
+		}
+
+		$ids         = array_keys( $rows );
+		$following   = array();
+		$connections = array();
+		$blocked     = array();
+
+		if ( $viewer_id > 0 ) {
+			$following   = buddynext_service( 'follows' )->following_map( $viewer_id, $ids );
+			$connections = buddynext_service( 'connections' )->statuses_for( $viewer_id, $ids );
+			$blocked     = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $ids );
+		}
+
+		$privacy = buddynext_service( 'privacy' );
+		// Who may edit any profile opens a closed one, as the profile page lets a site admin.
+		$viewer_edits_any = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-profile/edit-any' );
+		$out              = array();
+
+		foreach ( $rows as $uid => $fields ) {
+			$is_owner     = $uid === $viewer_id;
+			$is_follower  = ! empty( $following[ $uid ] );
+			$is_connected = 'accepted' === ( $connections[ $uid ] ?? '' );
+
+			$profile_open = $is_owner || $viewer_edits_any || (
+				empty( $blocked[ $uid ] )
+				&& $privacy->profile_audience_allows( $uid, static fn(): bool => $is_follower, static fn(): bool => $is_connected )
+			);
+
+			$viewer_rank = self::viewer_visibility_rank( $viewer_id > 0, $is_follower, $is_connected );
+
+			foreach ( $fields as $key => $field ) {
+				$readable = $is_owner || ( $profile_open && self::visibility_rank( $field['visibility'] ) <= $viewer_rank );
+
+				$out[ $uid ][ $key ] = $readable ? $field['value'] : '';
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Stored headline and bio of each member, with the visibility each one resolves to.
+	 *
+	 * Values come from bn_profile_values, where they actually live: the usermeta keys
+	 * are only a fallback, for a code-registered bio or a member whose only copy is
+	 * the older bn_headline / description key. A fallback value takes the same
+	 * visibility as the field, so hiding the field hides every copy.
 	 *
 	 * @param array<int, int> $user_ids Members to resolve.
-	 * @return array<int, string> user_id => bio text.
+	 * @return array<int, array{headline: array{value: string, visibility: string}, bio: array{value: string, visibility: string}}>
 	 */
-	public function bios_for( array $user_ids ): array {
+	private function identity_rows( array $user_ids ): array {
 		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
 
 		if ( empty( $user_ids ) ) {
@@ -4621,46 +4774,76 @@ class ProfileService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT v.user_id, v.value
-				   FROM {$wpdb->prefix}bn_profile_values v
-				   JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
-				  WHERE f.field_key = 'bio'
-				    AND v.entry_index = 0
-				    AND v.user_id IN ({$placeholders})",
+				"SELECT f.field_key, f.visibility, g.visibility AS group_visibility, g.type_restriction,
+				        v.user_id, v.value, v.entry_visibility
+				   FROM {$wpdb->prefix}bn_profile_fields f
+				   JOIN {$wpdb->prefix}bn_profile_groups g ON g.id = f.group_id
+				   LEFT JOIN {$wpdb->prefix}bn_profile_values v
+				          ON v.field_id = f.id AND v.entry_index = 0 AND v.user_id IN ({$placeholders})
+				  WHERE f.field_key IN ('headline', 'bio')",
 				...$user_ids
 			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
-		$out = array();
+		$defs   = array();
+		$stored = array();
 
 		foreach ( (array) $rows as $row ) {
-			$out[ (int) $row['user_id'] ] = (string) $row['value'];
+			$defs[ $row['field_key'] ] = $row;
+
+			if ( null !== $row['user_id'] ) {
+				$stored[ (int) $row['user_id'] ][ $row['field_key'] ] = $row;
+			}
 		}
 
 		// One query primes every member's meta; without it the loop below is an N+1.
 		\BuddyNext\Profile\AvatarService::prime( $user_ids );
 
+		$fallback_keys = array(
+			'headline' => array( 'bn_headline' ),
+			'bio'      => array( 'bn_field_bio', 'description' ),
+		);
+		$out           = array();
+
 		foreach ( $user_ids as $uid ) {
-			if ( '' === ( $out[ $uid ] ?? '' ) ) {
-				$mirror = get_user_meta( $uid, 'bn_field_bio', true );
-				if ( is_string( $mirror ) && '' !== $mirror ) {
-					$out[ $uid ] = $mirror;
+			foreach ( $fallback_keys as $key => $meta_keys ) {
+				$row   = $stored[ $uid ][ $key ] ?? null;
+				$value = (string) ( $row['value'] ?? '' );
+
+				foreach ( $meta_keys as $meta_key ) {
+					if ( '' === $value ) {
+						$value = (string) get_user_meta( $uid, $meta_key, true );
+					}
 				}
+
+				$def = $defs[ $key ] ?? array();
+
+				$visibility = $this->effective_visibility(
+					array(
+						'visibility'       => (string) ( $def['visibility'] ?? 'public' ),
+						'group_visibility' => (string) ( $def['group_visibility'] ?? 'public' ),
+					),
+					isset( $row['entry_visibility'] ) ? (string) $row['entry_visibility'] : null
+				);
+
+				// A group limited to a member type does not exist on other members' profiles.
+				$restriction = (string) ( $def['type_restriction'] ?? '' );
+				if ( '' !== $restriction && '' !== $value ) {
+					$type = buddynext_service( 'member_types' )->get_user_type( $uid );
+					if ( ! is_array( $type ) || (string) ( $type['slug'] ?? '' ) !== $restriction ) {
+						$value = '';
+					}
+				}
+
+				$out[ $uid ][ $key ] = array(
+					'value'      => $value,
+					'visibility' => $visibility,
+				);
 			}
 		}
 
 		return $out;
-	}
-
-	/**
-	 * Bio text for one member.
-	 *
-	 * @param int $user_id Member id.
-	 * @return string
-	 */
-	public function bio_for( int $user_id ): string {
-		return (string) ( $this->bios_for( array( $user_id ) )[ $user_id ] ?? '' );
 	}
 }

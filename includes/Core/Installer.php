@@ -102,6 +102,20 @@ class Installer {
 	 */
 	public const SCHEMA_FAILURE_OPTION = 'buddynext_schema_failure';
 
+	/**
+	 * Holds the schema version a site was on while its data migrations are still owed.
+	 *
+	 * @var string
+	 */
+	private const PENDING_MIGRATIONS_OPTION = 'buddynext_pending_migrations';
+
+	/**
+	 * Background action that runs the data migrations after a schema upgrade.
+	 *
+	 * @var string
+	 */
+	public const FINISH_UPGRADE_HOOK = 'buddynext_finish_upgrade';
+
 	public const OWNED_TABLES = array(
 		'bn_appeals',
 		'bn_blocks',
@@ -465,8 +479,24 @@ class Installer {
 	 *  70: move the retired Spaces-tab "Who can create spaces" option into the
 	 *      Roles & Capabilities override for buddynext-spaces/create, then delete
 	 *      it (card 10441139540). Data only; no table change.
+	 *  71: bn_space_categories.level - where a category may be used: main
+	 *      spaces, subspaces or both (default both, so existing sites see no
+	 *      change). GitHub #199.
+	 *  72: repair Jetonomy discussion links saved on feed cards with their
+	 *      non-ASCII slug encoded twice (%f0 stored as %25f0), which opened
+	 *      "Topic not found". Data only; no table change.
+	 *  73: bn_notifications.in_app - 0 on a row kept only for email, push and the
+	 *      digests of a member with In-app off, so the bell leaves it out.
+	 *      dbDelta ADDs the column; existing rows default to 1.
+	 *  74: the never-verified cleanup now reads a new marker only BuddyNext's own
+	 *      sign-up sets, so the old buddynext_verify_pending rows are removed.
+	 *      Housekeeping: nothing reads them. Data only; no table change.
+	 *  75: bn_profile_fields.width (auto|half|full, default auto = the old
+	 *      by-type layout) and bn_profile_groups.intro (optional text shown above
+	 *      a group's fields on the edit and sign-up forms). dbDelta ADDs both;
+	 *      existing sites render exactly as before. GitHub #217.
 	 */
-	private const SCHEMA_VERSION = 70;
+	private const SCHEMA_VERSION = 75;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -1047,9 +1077,11 @@ class Installer {
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION,
 	 * or when a table it claims to have created is missing.
 	 *
-	 * Hooked on admin_init so a plain plugin update (no reactivation) still picks
-	 * up column/table changes. Cheap no-op once the versions match, the schema is
-	 * intact, and no one-shot profile-flag correction is pending.
+	 * Hooked on admin_init: everything an update needs that is not urgent enough to
+	 * spend a visitor's request on, and the backstop for the data migrations when no
+	 * background runner has done them (see maybe_upgrade_schema()). Cheap no-op once
+	 * the versions match, the schema is intact, no migration is pending and no one-shot
+	 * profile-flag correction is pending.
 	 *
 	 * @return void
 	 */
@@ -1063,14 +1095,24 @@ class Installer {
 			update_option( 'buddynext_email_defaults', self::EMAIL_DEFAULTS_VERSION, false );
 		}
 
+		// Search rows written before index_user() honoured visibility still hold hidden
+		// headlines and bios. Queued, once.
+		if ( ! get_option( 'buddynext_member_index_private_fields' ) ) {
+			\BuddyNext\Search\SearchService::schedule_reindex_all();
+			update_option( 'buddynext_member_index_private_fields', 1, false );
+		}
+
 		// Captured before run() below stamps buddynext_schema_version to the current
 		// value - a couple of the option-cleanup steps key on how far behind the
 		// site actually was, and would otherwise read the just-written new number.
 		$bn_stored_schema = (int) get_option( 'buddynext_schema_version', 0 );
+		$bn_pending       = get_option( self::PENDING_MIGRATIONS_OPTION, false );
 
-		if ( self::SCHEMA_VERSION === $bn_stored_schema
+		$bn_schema_current = self::SCHEMA_VERSION === $bn_stored_schema
 			&& self::schema_intact()
-			&& self::profile_flags_converged() ) {
+			&& self::profile_flags_converged();
+
+		if ( $bn_schema_current && false === $bn_pending ) {
 			return;
 		}
 
@@ -1090,8 +1132,150 @@ class Installer {
 			return;
 		}
 
-		self::run();
+		if ( ! self::acquire_upgrade_lock() ) {
+			return;
+		}
 
+		try {
+			if ( ! $bn_schema_current ) {
+				self::run();
+			}
+			// A visitor's request may have moved the schema on already: the version that
+			// decides the migrations is the one it found, kept in the pending marker.
+			self::run_migrations( false === $bn_pending ? $bn_stored_schema : (int) $bn_pending );
+		} finally {
+			self::release_upgrade_lock();
+		}
+	}
+
+	/**
+	 * Bring the schema up to date on any request, as soon as the code is ahead of it.
+	 *
+	 * A plugin update runs new code before anyone opens wp-admin, and until then every
+	 * query naming a new column fails: notifications were lost, not delayed. On a normal
+	 * request this costs one autoloaded option compare and no query.
+	 *
+	 * Only the schema runs here (run(): dbDelta, seeds, the version stamp), under a lock so
+	 * one request does it and the others carry on as if nothing were happening. The data
+	 * migrations stay off a visitor's request: they go to a background job, with the next
+	 * wp-admin load as the backstop when no runner comes.
+	 *
+	 * @return void
+	 */
+	public static function maybe_upgrade_schema(): void {
+		$stored = get_option( 'buddynext_schema_version' );
+
+		// Not installed yet is install_if_missing()'s job. A newer stored version is a
+		// rolled-back plugin, which wp-admin's strict compare already deals with.
+		if ( false === $stored || (int) $stored >= self::SCHEMA_VERSION || wp_installing() ) {
+			return;
+		}
+
+		if ( self::schema_failure_is_recent() || '' !== self::unsupported_db_reason() || ! self::acquire_upgrade_lock() ) {
+			return;
+		}
+
+		try {
+			global $wpdb;
+
+			// Read past this request's cached options: another request may have finished
+			// between the compare above and winning the lock.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$fresh = (int) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", 'buddynext_schema_version' ) );
+
+			if ( $fresh < self::SCHEMA_VERSION ) {
+				// Written first, so a request that dies part way still leaves the
+				// migrations owed. add_option() keeps the oldest version if one is owed.
+				add_option( self::PENDING_MIGRATIONS_OPTION, $fresh, '', false );
+				self::run();
+				add_action( 'wp_loaded', array( self::class, 'schedule_finish_upgrade' ) );
+			}
+		} finally {
+			self::release_upgrade_lock();
+		}
+	}
+
+	/**
+	 * Queue the data migrations a schema upgrade left owing.
+	 *
+	 * @return void
+	 */
+	public static function schedule_finish_upgrade(): void {
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::FINISH_UPGRADE_HOOK, array(), 'buddynext', true );
+			return;
+		}
+		wp_schedule_single_event( time() + 30, self::FINISH_UPGRADE_HOOK );
+	}
+
+	/**
+	 * Background half of maybe_upgrade_schema(): run the data migrations it left owing.
+	 *
+	 * @return void
+	 */
+	public static function finish_upgrade(): void {
+		$pending = get_option( self::PENDING_MIGRATIONS_OPTION, false );
+		if ( false === $pending ) {
+			return;
+		}
+
+		if ( ! self::acquire_upgrade_lock() ) {
+			self::schedule_finish_upgrade();
+			return;
+		}
+
+		try {
+			self::run_migrations( (int) $pending );
+		} finally {
+			self::release_upgrade_lock();
+		}
+	}
+
+	/**
+	 * Take the lock that lets one request upgrade at a time, without waiting for it.
+	 *
+	 * A database lock belongs to the connection, so a request that dies mid-upgrade
+	 * cannot leave it held. If the server refuses, this request simply skips the upgrade.
+	 *
+	 * @return bool
+	 */
+	private static function acquire_upgrade_lock(): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return 1 === (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', self::upgrade_lock_name() ) );
+	}
+
+	/**
+	 * Release the upgrade lock.
+	 *
+	 * @return void
+	 */
+	private static function release_upgrade_lock(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', self::upgrade_lock_name() ) );
+	}
+
+	/**
+	 * The lock name. Database locks are per server, and a server can host several sites.
+	 *
+	 * @return string
+	 */
+	private static function upgrade_lock_name(): string {
+		global $wpdb;
+
+		return 'bn_upgrade_' . md5( DB_NAME . $wpdb->prefix );
+	}
+
+	/**
+	 * The one-time data migrations that follow a schema upgrade. Idempotent.
+	 *
+	 * @param int $bn_stored_schema The schema version the site was on before this upgrade.
+	 * @return void
+	 */
+	private static function run_migrations( int $bn_stored_schema ): void {
 		// v6: remove stale cron events from existing installs.
 		// Safe to call repeatedly — each step checks the current schedule state.
 		CronScheduler::run_cron_migration();
@@ -1116,6 +1300,9 @@ class Installer {
 
 		// v70: "Who can create spaces" lives only under Roles & Capabilities now.
 		self::maybe_migrate_space_creation_role();
+
+		// v72: discussion links saved before the bridge stopped encoding slugs twice.
+		self::maybe_migrate_jetonomy_link_encoding();
 
 		// v11: migrate the per-space settings from autoloaded bn_space_{id}_* options
 		// into bn_space_meta (the canonical field store). Runs after the field
@@ -1348,6 +1535,9 @@ class Installer {
 		// opted in is already at the current schema and never reaches this step.
 		self::maybe_clear_unconsented_tracking( $bn_stored_schema );
 
+		// v74: remove the old purge marker, which nothing reads any more.
+		self::maybe_migrate_purge_markers( $bn_stored_schema );
+
 		// run() is authoritative on the schema version: it stamps it when the schema
 		// is healthy and deliberately WITHHOLDS it when install_schema() recorded a
 		// failure (a missing table/column, or an index widen that did not take).
@@ -1358,6 +1548,7 @@ class Installer {
 		// failure recorded; otherwise leave it behind so the next pass retries.
 		if ( false === get_option( self::SCHEMA_FAILURE_OPTION, false ) ) {
 			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+			delete_option( self::PENDING_MIGRATIONS_OPTION );
 		}
 	}
 
@@ -1417,6 +1608,25 @@ class Installer {
 			update_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, '1', true );
 		}
 		// Otherwise leave it unset so the new default (OFF) applies.
+	}
+
+	/**
+	 * Remove the old purge marker.
+	 *
+	 * It was stamped on any account that got a verify token and never recorded which
+	 * form made it, so the cleanup moved to a new key rather than trust it. Accounts
+	 * carrying only the old key are kept: one left in place can still be removed by
+	 * hand, a deleted one cannot be brought back. Nothing reads the old key, so when
+	 * this runs does not matter.
+	 *
+	 * @param int $stored_schema The buddynext_schema_version recorded before this upgrade ran.
+	 * @return void
+	 */
+	private static function maybe_migrate_purge_markers( int $stored_schema ): void {
+		if ( $stored_schema >= 74 ) {
+			return;
+		}
+		delete_metadata( 'user', 0, 'buddynext_verify_pending', '', true );
 	}
 
 	/**
@@ -2263,6 +2473,53 @@ class Installer {
 	}
 
 	/**
+	 * Repair Jetonomy discussion links saved with their slug encoded twice.
+	 *
+	 * The bridge ran rawurlencode() on slugs that sanitize_title() had already
+	 * percent-encoded, so a card for an emoji or accented title saved %25f0...
+	 * instead of %f0... and opened "Topic not found". Only links under Jetonomy's
+	 * base, and only their url fields (link_url and link_meta.url), are touched;
+	 * the base comes from Jetonomy's stored setting so this also runs while
+	 * Jetonomy is inactive. Batched; idempotent (a repaired link has no %25 left).
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_jetonomy_link_encoding(): void {
+		global $wpdb;
+
+		$settings = get_option( 'jetonomy_settings', array() );
+		$base     = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
+		$prefix   = trailingslashit( home_url( '/' . trim( $base, '/' ) ) ) . 's/'; // bn-route-ok: Jetonomy's stored base slug.
+		$table    = $wpdb->prefix . 'bn_posts';
+		$last_id  = 0;
+
+		do {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- one-time migration; $table is the prefixed core table name.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, link_url, link_meta FROM {$table} WHERE id > %d AND link_url LIKE %s AND link_url LIKE %s ORDER BY id ASC LIMIT 200",
+					$last_id,
+					$wpdb->esc_like( $prefix ) . '%',
+					'%' . $wpdb->esc_like( '%25' ) . '%'
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$batch = is_array( $rows ) ? count( $rows ) : 0;
+			foreach ( (array) $rows as $row ) {
+				$last_id = (int) $row->id;
+				$fields  = array( 'link_url' => str_replace( '%25', '%', (string) $row->link_url ) );
+				$meta    = json_decode( (string) $row->link_meta, true );
+				if ( is_array( $meta ) && isset( $meta['url'] ) && is_string( $meta['url'] ) ) {
+					$meta['url']         = str_replace( '%25', '%', $meta['url'] );
+					$fields['link_meta'] = wp_json_encode( $meta );
+				}
+				$wpdb->update( $table, $fields, array( 'id' => $last_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time migration.
+				\BuddyNext\Feed\PostService::flush_cache( $last_id );
+			}
+		} while ( 200 === $batch );
+	}
+
+	/**
 	 * Move the retired Spaces-tab "Who can create spaces" option into the role map.
 	 *
 	 * A stored moderator/admin choice becomes the Roles & Capabilities override for
@@ -2778,6 +3035,7 @@ class Installer {
 				'text_color'  => "ADD COLUMN text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff'",
 				'icon_svg'    => 'ADD COLUMN icon_svg MEDIUMTEXT NULL',
 				'show_in_dir' => 'ADD COLUMN show_in_dir TINYINT(1) NOT NULL DEFAULT 1',
+				'level'       => "ADD COLUMN level VARCHAR(8) NOT NULL DEFAULT 'both'",
 			),
 			// v5: a flat field can be surfaced on the registration form.
 			// v16: load-bearing fields (bio/headline/location) are marked is_system
@@ -2802,6 +3060,14 @@ class Installer {
 				// edit + signup) and input placeholder. Empty = render nothing.
 				'description'      => 'ADD COLUMN description VARCHAR(255) DEFAULT NULL',
 				'placeholder'      => 'ADD COLUMN placeholder VARCHAR(255) DEFAULT NULL',
+				// v75: owner-chosen width on the edit and sign-up forms. 'auto' keeps
+				// the by-type layout (FieldType::layout_width()).
+				'width'            => "ADD COLUMN width VARCHAR(8) NOT NULL DEFAULT 'auto'",
+			),
+			// v75: optional intro shown above the group's fields on the edit and
+			// sign-up forms. Empty = nothing renders.
+			'bn_profile_groups'   => array(
+				'intro' => 'ADD COLUMN intro TEXT NULL',
 			),
 
 			// Members-tier searchable content, kept in its OWN column so it can never be
@@ -4049,10 +4315,9 @@ class Installer {
 		 * of these from their own edit screen - the group stays `public`, which is
 		 * the ceiling that permits it.
 		 *
-		 * Headline and bio stay public because they are what a member wants found,
-		 * and index_user() has always indexed them regardless of the searchable
-		 * flag - making them members-only would leave that indexing writing to a
-		 * column nobody anonymous can read.
+		 * Headline and bio stay public because they are what a member wants found:
+		 * index_user() indexes them regardless of the searchable flag, in the tier
+		 * their visibility allows.
 		 *
 		 * FRESH INSTALLS ONLY, like the rest of this seeder. Nothing is rewritten
 		 * on an existing site: those fields keep whatever the owner has, and an
@@ -4632,6 +4897,7 @@ class Installer {
 				text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff',
 				icon_svg MEDIUMTEXT NULL,
 				show_in_dir TINYINT(1) NOT NULL DEFAULT 1,
+				level VARCHAR(8) NOT NULL DEFAULT 'both',
 				sort_order INT NOT NULL DEFAULT 0,
 				PRIMARY KEY (id),
 				UNIQUE KEY  slug (slug)
@@ -4666,6 +4932,7 @@ class Installer {
 				group_count INT UNSIGNED NOT NULL DEFAULT 1,
 				data JSON DEFAULT NULL,
 				is_read TINYINT(1) NOT NULL DEFAULT 0,
+				in_app TINYINT(1) NOT NULL DEFAULT 1,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY          bell (recipient_id, is_read, created_at),
@@ -4840,6 +5107,7 @@ class Installer {
 				is_system TINYINT(1) NOT NULL DEFAULT 0,
 				sort_order INT NOT NULL DEFAULT 0,
 				type_restriction VARCHAR(100) DEFAULT NULL,
+				intro TEXT NULL,
 				PRIMARY KEY (id),
 				UNIQUE KEY  group_key (group_key),
 				KEY         type_res (type_restriction)
@@ -4861,6 +5129,7 @@ class Installer {
 				is_system TINYINT(1) NOT NULL DEFAULT 0,
 				visibility ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order INT NOT NULL DEFAULT 0,
+				width VARCHAR(8) NOT NULL DEFAULT 'auto',
 				PRIMARY KEY   (id),
 				UNIQUE KEY    field_key (field_key),
 				KEY           group_idx (group_id)

@@ -398,6 +398,155 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( array( $this->space_id, $user_id, 'member' ), $captured );
 	}
 
+	public function test_cancelling_a_pending_request_through_leave_is_not_a_member_leaving(): void {
+		$private = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Cancel',
+				'slug' => 'private-cancel',
+				'type' => 'private',
+			)
+		);
+		$user_id = self::factory()->user->create();
+		$this->service->request_join( $private, $user_id );
+
+		$left      = did_action( 'buddynext_space_member_left' );
+		$cancelled = did_action( 'buddynext_space_join_request_cancelled' );
+		$count     = (int) $this->spaces->get( $private )['member_count'];
+
+		$this->assertTrue( $this->service->leave( $private, $user_id ) );
+
+		$this->assertSame( $left, did_action( 'buddynext_space_member_left' ) );
+		$this->assertSame( $cancelled + 1, did_action( 'buddynext_space_join_request_cancelled' ) );
+		$this->assertNull( $this->service->get_status( $private, $user_id ) );
+		$this->assertSame( $count, (int) $this->spaces->get( $private )['member_count'] );
+	}
+
+	public function test_declining_a_request_or_an_invitation_is_not_a_member_leaving(): void {
+		$private = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Decline',
+				'slug' => 'private-decline',
+				'type' => 'private',
+			)
+		);
+		$requester = self::factory()->user->create();
+		$invited   = self::factory()->user->create();
+		$this->service->request_join( $private, $requester );
+		$this->service->invite( $private, $this->owner_id, $invited );
+
+		$left = did_action( 'buddynext_space_member_left' );
+
+		$this->service->decline_request( $private, $this->owner_id, $requester );
+		$this->service->leave( $private, $invited );
+
+		$this->assertSame( $left, did_action( 'buddynext_space_member_left' ) );
+		$this->assertNull( $this->service->get_status( $private, $invited ) );
+	}
+
+	public function test_a_real_leave_still_fires_and_a_legacy_ban_row_survives_leave(): void {
+		$member = self::factory()->user->create();
+		$this->service->join( $this->space_id, $member );
+		$left = did_action( 'buddynext_space_member_left' );
+		$this->service->leave( $this->space_id, $member );
+		$this->assertSame( $left + 1, did_action( 'buddynext_space_member_left' ) );
+
+		global $wpdb;
+		$banned = self::factory()->user->create();
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id'  => $this->space_id,
+				'user_id'   => $banned,
+				'role'      => 'member',
+				'status'    => 'banned',
+				'joined_at' => current_time( 'mysql', true ),
+			)
+		);
+		$this->service->leave( $this->space_id, $banned );
+		$this->assertSame( 'banned', $this->service->get_status( $this->space_id, $banned ) );
+	}
+
+	/**
+	 * Plant a stale status: what leave() must not trust.
+	 *
+	 * @param int    $space_id Space.
+	 * @param int    $user_id  User.
+	 * @param string $status   Status to cache, whatever the row says.
+	 * @return void
+	 */
+	private function cache_status( int $space_id, int $user_id, string $status ): void {
+		wp_cache_set( "status_{$space_id}_{$user_id}", $status, 'buddynext_space_members' );
+	}
+
+	public function test_leave_acts_on_the_row_not_a_stale_cached_status(): void {
+		// Approved a moment ago, cache still says pending: a real leave, counted.
+		$approved = self::factory()->user->create();
+		$this->service->join( $this->space_id, $approved );
+		$this->cache_status( $this->space_id, $approved, 'pending' );
+		$left  = did_action( 'buddynext_space_member_left' );
+		$count = (int) $this->spaces->get( $this->space_id )['member_count'];
+
+		$this->assertTrue( $this->service->leave( $this->space_id, $approved ) );
+		$this->assertSame( $left + 1, did_action( 'buddynext_space_member_left' ) );
+		$this->assertSame( $count - 1, (int) $this->spaces->get( $this->space_id )['member_count'] );
+
+		// Row is pending, cache says active: no member_left and the count holds.
+		$private = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Stale',
+				'slug' => 'private-stale',
+				'type' => 'private',
+			)
+		);
+		$pending = self::factory()->user->create();
+		$this->service->request_join( $private, $pending );
+		$this->cache_status( $private, $pending, 'active' );
+		$left  = did_action( 'buddynext_space_member_left' );
+		$count = (int) $this->spaces->get( $private )['member_count'];
+
+		$this->assertTrue( $this->service->leave( $private, $pending ) );
+		$this->assertSame( $left, did_action( 'buddynext_space_member_left' ) );
+		$this->assertSame( $count, (int) $this->spaces->get( $private )['member_count'] );
+
+		// Row is a legacy ban, cache says active: the ban survives.
+		global $wpdb;
+		$banned = self::factory()->user->create();
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id'  => $this->space_id,
+				'user_id'   => $banned,
+				'role'      => 'member',
+				'status'    => 'banned',
+				'joined_at' => current_time( 'mysql', true ),
+			)
+		);
+		$this->cache_status( $this->space_id, $banned, 'active' );
+		$left = did_action( 'buddynext_space_member_left' );
+		$this->service->leave( $this->space_id, $banned );
+		$this->assertSame( $left, did_action( 'buddynext_space_member_left' ) );
+		$this->assertSame(
+			'banned',
+			$wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d", $this->space_id, $banned ) )
+		);
+	}
+
+	public function test_cancel_request_on_a_stale_pending_cache_does_not_claim_a_cancel(): void {
+		$member = self::factory()->user->create();
+		$this->service->join( $this->space_id, $member );
+		$this->cache_status( $this->space_id, $member, 'pending' );
+		$cancelled = did_action( 'buddynext_space_join_request_cancelled' );
+
+		$result = $this->service->cancel_request( $this->space_id, $member );
+
+		$this->assertWPError( $result );
+		$this->assertSame( $cancelled, did_action( 'buddynext_space_join_request_cancelled' ) );
+		$this->assertSame( 'active', $this->service->get_status( $this->space_id, $member ) );
+	}
+
 	public function test_leave_fires_buddynext_space_member_left(): void {
 		$user_id = self::factory()->user->create();
 		$this->service->join( $this->space_id, $user_id );

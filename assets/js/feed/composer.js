@@ -16,10 +16,10 @@
 
 import { store, getContext, getElement, withScope } from '@wordpress/interactivity';
 import { bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch , toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '@buddynext/upload-core';
-import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime } from '@buddynext/feed-shared';
+import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime, siteNowInputValue } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 /* ── Post composer ───────────────────────────────────────────────────────── */
@@ -393,6 +393,7 @@ function resetComposerSubForms( ctx ) {
 	ctx.announcementExpiresAt = '';
 
 	ctx.membersOnly = false;
+	ctx.addToStory  = false;
 
 	// Clear any attached document so the next post starts empty.
 	ctx.documentId        = 0;
@@ -644,6 +645,15 @@ store( 'buddynext/post-composer', {
 		get hasMedia() {
 			try { return ( getContext().mediaIds || [] ).length > 0; } catch ( _e ) { return false; }
 		},
+		// "Also add to my story": home feed, stories on, an image or video
+		// attached, and a Public audience (a story is public; a narrower post
+		// must not widen who sees it).
+		get canAddToStory() {
+			try {
+				const ctx = getContext();
+				return !! ctx.storiesUrl && ! ctx.spaceId && 'public' === ctx.privacy && ( ctx.mediaCount || 0 ) > 0;
+			} catch ( _e ) { return false; }
+		},
 		get mediaPreviews() {
 			try { return getContext().mediaPreviews || []; } catch ( _e ) { return []; }
 		},
@@ -793,7 +803,7 @@ store( 'buddynext/post-composer', {
 				fileInput._bnWired = true;
 				fileInput.addEventListener( 'change', async function () {
 					const files     = fileInput.files;
-					const MAX_MEDIA = 4;
+					const MAX_MEDIA = Number( ctxData.mediaMaxCount );
 
 					if ( ! files || ! files.length ) {
 						return;
@@ -974,6 +984,9 @@ store( 'buddynext/post-composer', {
 
 							_mediaState.ids.push( mediaId );
 							_mediaState.previews.push( { id: mediaId, url: preview, name: file.name } );
+							// _mediaState is not reactive; this count is what the
+							// "Also add to my story" row reads.
+							composerCtx.mediaCount = _mediaState.ids.length;
 
 							// Finalize the tile: clear the uploading state and wire the
 							// remove button now that a real media id exists.
@@ -1004,6 +1017,7 @@ store( 'buddynext/post-composer', {
 									thumbRemove.addEventListener( 'click', function () {
 										_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
 										_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
+										composerCtx.mediaCount = _mediaState.ids.length;
 										thumb.remove();
 										if ( ! _mediaState.ids.length && previewArea ) {
 											previewArea.hidden = true;
@@ -1053,6 +1067,7 @@ store( 'buddynext/post-composer', {
 			ctx.mediaPreviews = ( ctx.mediaPreviews || [] ).filter( ( p ) => p.id !== mediaId );
 			_mediaState.ids      = _mediaState.ids.filter( ( id ) => id !== mediaId );
 			_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
+			ctx.mediaCount       = _mediaState.ids.length;
 			// Delete the orphaned upload from the server (best-effort, BN endpoint).
 			deleteMedia( mediaId, ctx.restNonce );
 		},
@@ -1146,6 +1161,8 @@ store( 'buddynext/post-composer', {
 			const ctx        = getContext();
 			ctx.composerOpen = true;
 			ctx.composerType = ctx.composerType === 'poll' ? 'text' : 'poll';
+			const endInput = document.querySelector( '.bn-composer__poll-end-input' );
+			if ( endInput ) { endInput.min = siteNowInputValue(); }
 		},
 		toggleSchedule() {
 			const ctx          = getContext();
@@ -1319,6 +1336,9 @@ store( 'buddynext/post-composer', {
 				body.members_only = true;
 			}
 
+			// The images/videos to add to the member's story once the post is live.
+			const storyIds = ( ctx.addToStory && ctx.storiesUrl && ! ctx.spaceId && 'public' === ctx.privacy ) ? [ ..._mediaState.ids ] : [];
+
 			// Attach media IDs from WPMediaVerse uploads (stored in module-level state).
 			if ( _mediaState.ids.length ) {
 				body.media_ids = [ ..._mediaState.ids ];
@@ -1355,7 +1375,24 @@ store( 'buddynext/post-composer', {
 				const endInput = document.querySelector( '.bn-composer__poll-end-input' );
 				const endRaw   = endInput ? endInput.value.trim() : '';
 				if ( endRaw ) {
-					body.poll_end_date = toUtcSqlDatetime( endRaw );
+					const endUtc = toUtcSqlDatetime( endRaw );
+					// `endUtc` is already UTC, so compare instants, not the browser's wall clock.
+					const endMs  = endUtc ? new Date( endUtc.replace( ' ', 'T' ) + 'Z' ).getTime() : 0;
+					let endError = '';
+					if ( ! endUtc ) {
+						endError = t( 'scheduleInvalid', 'Pick a valid date and time.' );
+					} else if ( endMs <= Date.now() ) {
+						endError = t( 'pollEndPast', 'Pick a poll end time in the future.' );
+					} else if ( ctx.scheduledAt && endMs <= new Date( ctx.scheduledAt.replace( ' ', 'T' ) + 'Z' ).getTime() ) {
+						endError = t( 'pollEndBeforePublish', 'The poll would end before the post is published. Pick a later end time or an earlier publish time.' );
+					}
+					if ( endError ) {
+						ctx.submitting     = false;
+						ctx.errorMessage   = endError;
+						ctx.errorRetryable = false;
+						return;
+					}
+					body.poll_end_date = endUtc;
 				}
 			}
 
@@ -1432,6 +1469,7 @@ store( 'buddynext/post-composer', {
 					// posted file, and clears lingering preview thumbs after a post.
 					_mediaState.ids      = [];
 					_mediaState.previews = [];
+					ctx.mediaCount       = 0;
 					document.querySelectorAll( '.bn-composer__media-preview' ).forEach( function ( area ) {
 						area.hidden = true;
 						area.querySelectorAll( '.bn-composer__media-thumb' ).forEach( function ( el ) { el.remove(); } );
@@ -1448,14 +1486,29 @@ store( 'buddynext/post-composer', {
 					// Pre-moderation can hold the post (status=pending): it is NOT
 					// published, so say so instead of claiming "Post published".
 					const isPending   = 'pending' === created.status;
+					// Only a live post goes into the story: a held post is not published
+					// yet, and a scheduled one is not up yet. A failed story call never
+					// undoes the post; the member is told and nothing retries.
+					let storyFailed = false;
+					if ( storyIds.length && ! isPending && ! isScheduled ) {
+						for ( const id of storyIds ) {
+							const story = yield restFetch( ctx.storiesUrl + id + '/story', { method: 'POST', nonce: ctx.restNonce, toastOnError: false, body: {} } );
+							storyFailed = storyFailed || ! story.ok;
+						}
+					}
+					ctx.addToStory = false;
 					if ( window.bnToast ) {
 						let msg = t( 'postPublished', 'Post published' );
 						if ( isPending ) {
 							msg = t( 'postSubmittedForReview', 'Your post was submitted for review.' );
 						} else if ( isScheduled ) {
 							msg = t( 'postScheduled', 'Post scheduled' );
+						} else if ( storyIds.length ) {
+							msg = storyFailed
+								? t( 'storyAddFailed', 'Your post is up. It could not be added to your story.' )
+								: t( 'postedToStory', 'Posted and added to your story.' );
 						}
-						window.bnToast( msg, 'success' );
+						window.bnToast( msg, storyIds.length && storyFailed && ! isPending && ! isScheduled ? 'info' : 'success' );
 					}
 
 					// Live post → prepend the server-rendered card in place (no
@@ -1531,7 +1584,7 @@ store( 'buddynext/post-composer', {
 					bnToast( t( 'verifyResent', 'Verification email sent. Check your inbox.' ), { tone: 'success' } );
 				} else {
 					const data = res.data || {};
-					bnToast( data.message || t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
@@ -1591,7 +1644,7 @@ store( 'buddynext/post-composer', {
 					document.querySelectorAll( '[data-bn-voice-field]' ).forEach( ( el ) => { el.value = ''; } );
 					return;
 				}
-				ctx.voiceError = t( 'voiceScheduleFailed', 'Could not schedule the voice room. Try again.' );
+				ctx.voiceError = restError( res, t( 'voiceScheduleFailed', 'Could not schedule the voice room. Try again.' ) );
 				ctx.submitting = false;
 			} catch ( _e ) {
 				ctx.voiceError = t( 'networkError', 'Network error. Try again.' );
@@ -1616,11 +1669,15 @@ store( 'buddynext/post-composer', {
 			// Clear module-level media state + remove DOM previews.
 			_mediaState.ids      = [];
 			_mediaState.previews = [];
+			ctx.mediaCount       = 0;
 			const previewArea = document.querySelector( '.bn-composer__media-preview' );
 			if ( previewArea ) {
 				previewArea.hidden = true;
 				previewArea.querySelectorAll( '.bn-composer__media-thumb' ).forEach( ( el ) => el.remove() );
 			}
+		},
+		toggleStory( event ) {
+			getContext().addToStory = !! ( event && event.target && event.target.checked );
 		},
 		setPrivacy( event ) {
 			const ctx    = getContext();
@@ -1628,6 +1685,10 @@ store( 'buddynext/post-composer', {
 			const value  = target ? target.getAttribute( 'data-privacy' ) : ( event && event.target ? event.target.value : '' );
 			if ( value ) {
 				ctx.privacy = value;
+			}
+			// Leaving Public unticks "Also add to my story"; coming back does not re-tick it.
+			if ( 'public' !== ctx.privacy ) {
+				ctx.addToStory = false;
 			}
 			ctx.privacyOpen = false;
 		},

@@ -85,11 +85,12 @@ class SpaceMemberService {
 	 * was previously invited (status='invited') their row is promoted to
 	 * 'active'. A banned user cannot rejoin.
 	 *
-	 * @param int $space_id Space to join.
-	 * @param int $user_id  User joining.
+	 * @param int         $space_id  Space to join.
+	 * @param int         $user_id   User joining.
+	 * @param string|null $joined_at UTC join time (see Core\Backdate). Null means now.
 	 * @return true|WP_Error
 	 */
-	public function join( int $space_id, int $user_id ): bool|WP_Error {
+	public function join( int $space_id, int $user_id, ?string $joined_at = null ): bool|WP_Error {
 		// Pre-load space row so listeners on buddynext_can_join_space (including
 		// Pro's gated-space gate) receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
@@ -160,14 +161,18 @@ class SpaceMemberService {
 		if ( null !== $status ) {
 			// Row exists (pending/invited) — promote to active.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$fields = array( 'status' => 'active' );
+			if ( ! empty( $joined_at ) ) {
+				$fields['joined_at'] = \BuddyNext\Core\Backdate::resolve( $joined_at );
+			}
 			$wpdb->update(
 				$wpdb->prefix . 'bn_space_members',
-				array( 'status' => 'active' ),
+				$fields,
 				array(
 					'space_id' => $space_id,
 					'user_id'  => $user_id,
 				),
-				array( '%s' ),
+				'%s',
 				array( '%d', '%d' )
 			);
 		} else {
@@ -180,7 +185,7 @@ class SpaceMemberService {
 					$space_id,
 					$user_id,
 					$this->default_notification_pref( $space_id ),
-					current_time( 'mysql', true )
+					\BuddyNext\Core\Backdate::resolve( $joined_at )
 				)
 			);
 
@@ -210,11 +215,12 @@ class SpaceMemberService {
 	 * A duplicate request is silently accepted (idempotent). A banned user
 	 * cannot request to join.
 	 *
-	 * @param int $space_id Space to request membership in.
-	 * @param int $user_id  User requesting membership.
+	 * @param int         $space_id  Space to request membership in.
+	 * @param int         $user_id   User requesting membership.
+	 * @param string|null $joined_at UTC request time (see Core\Backdate). Null means now.
 	 * @return true|WP_Error
 	 */
-	public function request_join( int $space_id, int $user_id ): bool|WP_Error {
+	public function request_join( int $space_id, int $user_id, ?string $joined_at = null ): bool|WP_Error {
 		// Pre-load space row so listeners receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
 
@@ -287,7 +293,7 @@ class SpaceMemberService {
 				$space_id,
 				$user_id,
 				$this->default_notification_pref( $space_id ),
-				current_time( 'mysql', true )
+				\BuddyNext\Core\Backdate::resolve( $joined_at )
 			)
 		);
 
@@ -344,7 +350,7 @@ class SpaceMemberService {
 	 * @param int $space_id        Space to invite into.
 	 * @param int $inviter_id      Acting user (must be owner/mod or admin).
 	 * @param int $invited_user_id User being invited.
-	 * @return true|WP_Error
+	 * @return true|WP_Error True only when a row was written and the invitation fired.
 	 */
 	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): bool|WP_Error {
 		$space = $this->load_space_row( $space_id );
@@ -376,7 +382,19 @@ class SpaceMemberService {
 		$current_status = $this->get_status( $space_id, $invited_user_id );
 
 		if ( 'active' === $current_status ) {
-			return true; // Already a member.
+			return new WP_Error(
+				'already_member',
+				__( 'Already a member of this space, so no invitation was sent.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
+
+		if ( 'invited' === $current_status ) {
+			return new WP_Error(
+				'already_invited',
+				__( 'Already invited to this space, so no new invitation was sent.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
 		}
 
 		global $wpdb;
@@ -571,44 +589,81 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function leave( int $space_id, int $user_id ): bool|WP_Error {
-		if ( 'owner' === $this->get_role( $space_id, $user_id ) ) {
-			return new WP_Error(
-				'owner_cannot_leave',
-				__( 'The space owner cannot leave. Delete the space or transfer ownership first.', 'buddynext' )
-			);
-		}
-
-		$was_active = ( 'active' === $this->get_status( $space_id, $user_id ) );
-
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_members',
-			array(
-				'space_id' => $space_id,
-				'user_id'  => $user_id,
-			),
-			array( '%d', '%d' )
-		);
+		// What this removes decides which event fires and whether the count moves, so
+		// it reads the row itself, not the cache, and deletes only the status it read.
+		// A moderator can approve in between: then nothing matches, so read once more.
+		for ( $attempt = 0; $attempt < 2; $attempt++ ) {
+			$this->forget_cached_membership( $space_id, $user_id );
 
-		if ( $wpdb->rows_affected > 0 ) {
-			if ( $was_active ) {
-				$this->adjust_member_count( $space_id, -1 );
+			if ( 'owner' === $this->get_role( $space_id, $user_id ) ) {
+				return new WP_Error(
+					'owner_cannot_leave',
+					__( 'The space owner cannot leave. Delete the space or transfer ownership first.', 'buddynext' )
+				);
+			}
+
+			$status = (string) $this->get_status( $space_id, $user_id );
+
+			// Nothing to leave, or a ban from before 1.2.7, which lives on this row
+			// and would be lifted by deleting it.
+			if ( '' === $status || 'banned' === $status ) {
+				return true;
+			}
+
+			// The hero and the directory card cancel a request through this route.
+			// Someone who was never in the space has not left it.
+			if ( 'pending' === $status ) {
+				$cancelled = $this->cancel_request( $space_id, $user_id );
+				if ( is_wp_error( $cancelled ) ) {
+					continue;
+				}
+				return true;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = (int) $wpdb->delete(
+				$wpdb->prefix . 'bn_space_members',
+				array(
+					'space_id' => $space_id,
+					'user_id'  => $user_id,
+					'status'   => $status,
+				),
+				array( '%d', '%d', '%s' )
+			);
+
+			if ( $deleted <= 0 ) {
+				continue;
 			}
 
 			$this->invalidate_cache( $space_id, $user_id );
 
-			/**
-			 * Fires after a user leaves a space.
-			 *
-			 * @param int $space_id Space left.
-			 * @param int $user_id  User who left.
-			 */
-			do_action( 'buddynext_space_member_left', $space_id, $user_id );
+			// A declined invitation also deletes its row here, without ever being a member.
+			if ( 'active' === $status ) {
+				$this->adjust_member_count( $space_id, -1 );
+
+				/**
+				 * Fires after an active member leaves a space. Not for a cancelled
+				 * join request (buddynext_space_join_request_cancelled) or a declined
+				 * invitation.
+				 *
+				 * @param int $space_id Space left.
+				 * @param int $user_id  User who left.
+				 */
+				do_action( 'buddynext_space_member_left', $space_id, $user_id );
+			}
+
+			return true;
 		}
 
-		return true;
+		$this->forget_cached_membership( $space_id, $user_id );
+
+		return new WP_Error(
+			'membership_changed',
+			__( 'Your membership just changed. Reload the page and try again.', 'buddynext' ),
+			array( 'status' => 409 )
+		);
 	}
 
 	// ── Queries ─────────────────────────────────────────────────────────────
@@ -747,7 +802,7 @@ class SpaceMemberService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
+		$deleted = (int) $wpdb->delete(
 			$wpdb->prefix . 'bn_space_members',
 			array(
 				'space_id' => $space_id,
@@ -758,6 +813,14 @@ class SpaceMemberService {
 		);
 
 		$this->invalidate_cache( $space_id, $user_id );
+
+		// The cached status was stale: a moderator already decided this request.
+		if ( $deleted <= 0 ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'There is no pending request to cancel.', 'buddynext' )
+			);
+		}
 
 		/**
 		 * Fires after a member cancels their pending join request.
@@ -2257,14 +2320,26 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Forget the cached role and status, so the next read comes from the row.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User ID.
+	 * @return void
+	 */
+	private function forget_cached_membership( int $space_id, int $user_id ): void {
+		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
+		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
+	}
+
+	/**
 	 * Invalidate role, status, and member-list cache keys for a space/user pair.
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $user_id  User ID.
+	 * @return void
 	 */
 	private function invalidate_cache( int $space_id, int $user_id ): void {
-		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
-		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
+		$this->forget_cached_membership( $space_id, $user_id );
 		// Roster list: bump the per-space version salt (not a single fixed-key
 		// delete) — get_members() is parameterised by viewer/role/limit/offset, so
 		// it lives under many keys; one bump retires them all.

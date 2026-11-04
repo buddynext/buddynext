@@ -19,7 +19,6 @@
 
 /* Component token: how far each reply level steps in. A theme may override it. */
 :root {
-	--bn-comment-indent: var(--bn-s8);
 }
 
 /* ── Feed page shell ────────────────────────────────────────────────────────── */
@@ -2088,22 +2087,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 }
 
 /* ── Threaded comments (wave 2) ────────────────────────────────────────────
- * .bn-comment-card is the wave-2 node built by buildCommentNode in
- * store.js. It supersedes .bn-comment for new code paths but inherits
+ * .bn-comment-card is rendered by templates/parts/comment.php (server and
+ * API alike). It supersedes .bn-comment for new code paths but inherits
  * most styles. Depth is exposed via data-depth so indentation can be
  * computed without spawning N classes.
  */
 .bn-comment-card {
 	display: flex;
 	gap: var(--bn-s3);
-}
-
-.bn-comment-card[data-depth="1"] {
-	margin-inline-start: var(--bn-comment-indent);
-}
-
-.bn-comment-card[data-depth="2"] {
-	margin-inline-start: calc(var(--bn-comment-indent) * 2);
 }
 
 .bn-comment-card--pinned {
@@ -2545,11 +2536,13 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 
 /* Threaded comments — mobile collapse */
 @media (max-width: 480px) {
-	.bn-comment-card[data-depth="1"],
-	.bn-comment-card[data-depth="2"] {
-		/* Flatten deeper threads at mobile: only 16px indent at depth 1,
-		   no further indent for depth 2 to avoid horizontal scroll. */
-		margin-inline-start: 16px;
+	/* Each reply sits inside its parent's body, one avatar + gap in, which leaves a
+	   five-level thread a 64px column on a phone. Pull most of that back: 12px a level,
+	   with a rail so the nesting still reads. */
+	.bn-comment__replies {
+		margin-inline-start: calc(2px - 32px - var(--bn-s3));
+		padding-inline-start: var(--bn-s2);
+		border-inline-start: 2px solid var(--bn-line);
 	}
 	.bn-comment__actions {
 		flex-wrap: wrap;
@@ -2776,6 +2769,43 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
    textarea + tools row (icons + spacer + privacy + Share). No collapsed
    pill — always visible.
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Stories bar (WPMediaVerse Pro's mvs/pro-stories block) at the top of the home
+   feed, above the composer: a card in the composer's style. The block reads
+   --mvs-* custom properties, so it is skinned by mapping those to BN tokens
+   here rather than overriding its selectors; dark mode follows the tokens. */
+.bn-feed-stories {
+	--mvs-accent: var(--bn-accent);
+	--mvs-primary-hover: var(--bn-accent-600, var(--bn-accent));
+	--mvs-on-accent: var(--bn-accent-fg);
+	--mvs-bg: var(--bn-surface);
+	--mvs-border: var(--bn-line-strong);
+	--mvs-text: var(--bn-ink);
+	--mvs-text-secondary: var(--bn-ink-2);
+	--mvs-danger: var(--bn-danger);
+	--mvs-font-xs: var(--bn-text-xs);
+	--mvs-font-sm: var(--bn-text-sm);
+	--mvs-space-xs: var(--bn-s1);
+	--mvs-space-sm: var(--bn-s2);
+	--mvs-space-md: var(--bn-s3);
+	--mvs-radius-lg: var(--bn-r-lg);
+	--mvs-radius-full: var(--bn-r-full);
+	background: var(--bn-surface);
+	border: 1px solid var(--border);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s2) var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-feed-stories .mvs-pro-stories__bar {
+	scroll-snap-type: x proximity;
+}
+
+@media (max-width: 480px) {
+	.bn-feed-stories {
+		padding-inline: var(--bn-s2);
+	}
+}
 
 .bn-composer {
 	position: relative;
@@ -3302,6 +3332,40 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--bn-s2);
+}
+
+/* "Also add to my story" under the media thumbs: a native checkbox whose whole
+   label is the tap target, with the 24-hour hint beneath. */
+.bn-composer__story {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: center;
+	column-gap: var(--bn-s2);
+	min-block-size: 40px;
+	margin-block-start: var(--bn-s2);
+}
+
+.bn-composer__story input {
+	inline-size: 18px;
+	block-size: 18px;
+	margin: 0;
+	accent-color: var(--bn-accent);
+}
+
+.bn-composer__story label {
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	cursor: pointer;
+	min-block-size: 40px;
+	display: flex;
+	align-items: center;
+}
+
+.bn-composer__story .bn-field-hint {
+	grid-column: 2;
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
 }
 
 /* Attached-document chip — one document per post, shown as a compact pill. */

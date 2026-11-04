@@ -8,7 +8,7 @@
  *
  * Handled states:
  *   null             — "Connect"          (primary CTA)
- *   pending-sent     — "Pending"          (viewer sent request; click to withdraw)
+ *   pending-sent     — "Requested"         (viewer sent request; click to withdraw)
  *   pending-received — "Accept / Decline" (viewer received a request)
  *   accepted         — "Connected"        (mutual; click to remove)
  *   blocked          — partial returns early, renders nothing
@@ -78,7 +78,6 @@ if ( $bn_privacy_svc && method_exists( $bn_privacy_svc, 'can_connect' ) ) {
 	$bn_can_connect = (bool) $bn_privacy_svc->can_connect( $viewer_id, $user_id );
 }
 
-$nonce = wp_create_nonce( 'wp_rest' );
 
 // The connection store builds its toasts as "@" . targetName, so pass the
 // @handle (user_nicename). Without it the store falls back to "#<id>" and
@@ -93,14 +92,13 @@ $context_attr = esc_attr(
 			'userId'     => $user_id,
 			'targetName' => $bn_conn_name,
 			'status'     => $ctx_status,
-			'nonce'      => $nonce,
-			'restUrl'    => rest_url( 'buddynext/v1' ),
 		)
 	)
 );
 ?>
 <div
 	class="bn-connection-btn-wrap"
+	data-wp-key="connection-<?php echo absint( $user_id ); ?>"
 	data-wp-interactive="buddynext/connection-button"
 	data-user-id="<?php echo absint( $user_id ); ?>"
 	data-wp-context="<?php echo $context_attr; // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() applied to $context_attr. ?>"
@@ -173,7 +171,7 @@ $context_attr = esc_attr(
 		data-wp-bind--hidden="!state.showPending"
 		<?php echo $pending_sent ? '' : 'hidden'; ?>
 	>
-		<?php esc_html_e( 'Pending', 'buddynext' ); ?>
+		<?php esc_html_e( 'Requested', 'buddynext' ); ?>
 	</button>
 
 	<?php if ( $bn_can_connect || '' !== $ctx_status ) : ?>

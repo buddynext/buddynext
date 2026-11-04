@@ -101,7 +101,9 @@ AdminHub::register_tab(
 );
 ```
 
-Recognised `$args` keys include `cap` (capability, default `manage_options`), `position` (lower sorts earlier), `badge` (a `fn(): int` that renders a counter pill when > 0), `icon` (a Lucide slug, auto-mapped from the tab slug when omitted), `layout` (`sidebar` default, or `wide` for list-detail editors), and `subtitle` / `action` for the standardized sub-header bar.
+Recognised `$args` keys include `cap` (capability, default `manage_options`), `position` (lower sorts earlier), `badge` (a `fn(): int` that renders a counter pill when > 0), `icon` (a Lucide slug, auto-mapped from the tab slug when omitted), `layout` (`sidebar` default, or `wide` for list-detail editors), and `subtitle` / `action` for the standardized sub-header bar. `legacy_page` names the standalone `?page=` slug the tab replaced. Declaring it makes AdminHub forward that old address into the hub tab, so bookmarks and old links open inside the BuddyNext admin layout.
+
+To link to a screen you only know by its old slug, call `AdminHub::legacy_page_url( string $page ): string`. It returns the hub tab URL for a declared legacy slug, or `''` when the slug is not declared, so you can keep your own fallback.
 
 ### Placement
 

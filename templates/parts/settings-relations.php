@@ -52,15 +52,22 @@ if ( ! empty( $bn_blocked_ids ) || ! empty( $bn_muted_ids ) || ! empty( $bn_rest
 			return '';
 		}
 		$avatar = (string) get_avatar_url( $target_id, array( 'size' => 40 ) );
+		$handle = \BuddyNext\Core\PageRouter::member_handle( (int) $u->ID );
 		if ( 'block' === $action ) {
 			$action_label = __( 'Unblock', 'buddynext' );
+			/* translators: %s: member handle */
+			$done = sprintf( __( 'Unblocked @%s', 'buddynext' ), $handle );
 		} elseif ( 'restrict' === $action ) {
 			$action_label = __( 'Unrestrict', 'buddynext' );
+			/* translators: %s: member handle */
+			$done = sprintf( __( 'Unrestricted @%s', 'buddynext' ), $handle );
 		} else {
 			$action_label = __( 'Unmute', 'buddynext' );
+			/* translators: %s: member handle */
+			$done = sprintf( __( 'Unmuted @%s', 'buddynext' ), $handle );
 		}
 		return sprintf(
-			'<li class="bn-ep-relation" data-user-id="%1$d" data-relation="%2$s">' .
+			'<li class="bn-ep-relation" data-user-id="%1$d" data-relation="%2$s" data-bn-done="%7$s">' .
 				'<img src="%3$s" alt="" width="40" height="40" class="bn-avatar">' .
 				'<span class="bn-ep-relation__name">%4$s</span>' .
 				'<span class="bn-ep-relation__handle">@%5$s</span>' .
@@ -70,51 +77,29 @@ if ( ! empty( $bn_blocked_ids ) || ! empty( $bn_muted_ids ) || ! empty( $bn_rest
 			esc_attr( $action ),
 			esc_url( $avatar ),
 			esc_html( $u->display_name ),
-			esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $u->ID ) ),
-			esc_html( $action_label )
+			esc_html( $handle ),
+			esc_html( $action_label ),
+			esc_attr( $done )
 		);
 	};
 
 	$bn_relations_html .= '<div class="bn-ep-relations">';
 
-	$bn_relations_html .= '<div class="bn-ep-relations__group">';
-	$bn_relations_html .= '<h3 class="bn-ep-relations__title">' . esc_html__( 'Blocked', 'buddynext' ) . '</h3>';
-	if ( empty( $bn_blocked_ids ) ) {
-		$bn_relations_html .= '<p class="bn-ep-relations__empty">' . esc_html__( 'You haven\'t blocked anyone.', 'buddynext' ) . '</p>';
-	} else {
-		$bn_relations_html .= '<ul class="bn-ep-relations__list">';
-		foreach ( $bn_blocked_ids as $bid ) {
-			$bn_relations_html .= $bn_render_row( (int) $bid, 'block' );
-		}
-		$bn_relations_html .= '</ul>';
-	}
-	$bn_relations_html .= '</div>';
+	$bn_render_group = static function ( string $title, array $ids, string $action, string $empty_line ) use ( $bn_render_row ): string {
+		// A deleted account leaves its relation row behind but renders nothing, so
+		// count what was drawn, not the ids: the group must not head an empty list.
+		$rows = implode( '', array_map( static fn( $id ) => $bn_render_row( (int) $id, $action ), $ids ) );
+		$list = '' === $rows
+			? '<p class="bn-ep-relations__empty">' . esc_html( $empty_line ) . '</p>'
+			: '<ul class="bn-ep-relations__list" data-bn-empty="' . esc_attr( $empty_line ) . '">' . $rows . '</ul>';
+		return '<div class="bn-ep-relations__group"><h3 class="bn-ep-relations__title">' . esc_html( $title ) . '</h3>' . $list . '</div>';
+	};
 
-	$bn_relations_html .= '<div class="bn-ep-relations__group">';
-	$bn_relations_html .= '<h3 class="bn-ep-relations__title">' . esc_html__( 'Restricted', 'buddynext' ) . '</h3>';
-	if ( empty( $bn_restricted_ids ) ) {
-		$bn_relations_html .= '<p class="bn-ep-relations__empty">' . esc_html__( "You haven't restricted anyone.", 'buddynext' ) . '</p>';
-	} else {
-		$bn_relations_html .= '<ul class="bn-ep-relations__list">';
-		foreach ( $bn_restricted_ids as $rid ) {
-			$bn_relations_html .= $bn_render_row( (int) $rid, 'restrict' );
-		}
-		$bn_relations_html .= '</ul>';
-	}
-	$bn_relations_html .= '</div>';
+	cache_users( array_map( 'intval', array_merge( $bn_blocked_ids, $bn_restricted_ids, $bn_muted_ids ) ) );
 
-	$bn_relations_html .= '<div class="bn-ep-relations__group">';
-	$bn_relations_html .= '<h3 class="bn-ep-relations__title">' . esc_html__( 'Muted', 'buddynext' ) . '</h3>';
-	if ( empty( $bn_muted_ids ) ) {
-		$bn_relations_html .= '<p class="bn-ep-relations__empty">' . esc_html__( 'You haven\'t muted anyone.', 'buddynext' ) . '</p>';
-	} else {
-		$bn_relations_html .= '<ul class="bn-ep-relations__list">';
-		foreach ( $bn_muted_ids as $mid ) {
-			$bn_relations_html .= $bn_render_row( (int) $mid, 'mute' );
-		}
-		$bn_relations_html .= '</ul>';
-	}
-	$bn_relations_html .= '</div>';
+	$bn_relations_html .= $bn_render_group( __( 'Blocked', 'buddynext' ), $bn_blocked_ids, 'block', __( "You haven't blocked anyone.", 'buddynext' ) );
+	$bn_relations_html .= $bn_render_group( __( 'Restricted', 'buddynext' ), $bn_restricted_ids, 'restrict', __( "You haven't restricted anyone.", 'buddynext' ) );
+	$bn_relations_html .= $bn_render_group( __( 'Muted', 'buddynext' ), $bn_muted_ids, 'mute', __( "You haven't muted anyone.", 'buddynext' ) );
 
 	$bn_relations_html .= '</div>';
 } else {

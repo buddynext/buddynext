@@ -56,7 +56,7 @@ Templates use merge tokens like `{{site_name}}`, `{{user_name}}`, `{{first_name}
 
 ### Sending a test
 
-From the template editor you can send a test email. The test sends the current subject and body (with sample values filled in for the tokens) to your admin address, or to any address you enter. The test goes out through the same sender identity and the same branded wrapper a real send uses, so what you receive is exactly what a member would receive.
+From the template editor you can send a test email. The test sends the subject and body as they stand in the editor, including changes you have not saved (with sample values filled in for the tokens), to the address you enter, or to your admin address if you leave the field blank. The notice names the address it went to, and an invalid address sends nothing. The test goes out through the same sender identity and the same branded wrapper a real send uses, so what you receive is exactly what a member would receive.
 
 ## Setting it up (for owners)
 

@@ -195,6 +195,53 @@ class HeadMetaTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * With Rank Math or Yoast active, the page carries one set of Open Graph and
+	 * Twitter tags: BuddyNext's. Theirs described the mapped hub or home page and
+	 * printed first, so scrapers opened a shared profile as the hub (Zoho #42239).
+	 * Their other output (description, robots, schema) is untouched.
+	 */
+	public function test_seo_plugin_social_tags_step_aside(): void {
+		// Rank Math: its networks print from these two actions inside rank_math/head.
+		add_action( 'rank_math/opengraph/facebook', '__return_true' );
+		add_action( 'rank_math/opengraph/twitter', '__return_true' );
+		add_action( 'rank_math/head', '__return_true', 20 );
+
+		$this->render( array( 'url' => 'https://example.test/members/alice/', 'title' => 'Alice' ) );
+		do_action( 'rank_math/head' );
+
+		$this->assertFalse( has_action( 'rank_math/opengraph/facebook' ), 'Rank Math Facebook tags still print.' );
+		$this->assertFalse( has_action( 'rank_math/opengraph/twitter' ), 'Rank Math Twitter tags still print.' );
+		$this->assertNotFalse( has_action( 'rank_math/head', '__return_true' ), 'Rank Math head output other than social tags must stay.' );
+
+		// Yoast: presenters are classes; Open_Graph and Twitter ones are dropped, others kept.
+		eval( 'namespace Yoast\WP\SEO\Presenters\Open_Graph; class Url_Presenter {}' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- test double for an absent plugin.
+		eval( 'namespace Yoast\WP\SEO\Presenters\Twitter; class Card_Presenter {}' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- test double for an absent plugin.
+		eval( 'namespace Yoast\WP\SEO\Presenters; class Meta_Description_Presenter {}' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- test double for an absent plugin.
+		$kept = apply_filters(
+			'wpseo_frontend_presenters',
+			array(
+				new \Yoast\WP\SEO\Presenters\Open_Graph\Url_Presenter(),
+				new \Yoast\WP\SEO\Presenters\Twitter\Card_Presenter(),
+				new \Yoast\WP\SEO\Presenters\Meta_Description_Presenter(),
+			)
+		);
+		$this->assertSame( array( 'Yoast\WP\SEO\Presenters\Meta_Description_Presenter' ), array_map( 'get_class', $kept ) );
+	}
+
+	/**
+	 * When the site hands every tag to its SEO plugin, the plugin's social tags stay.
+	 */
+	public function test_seo_plugin_keeps_social_tags_when_buddynext_steps_back(): void {
+		add_filter( 'buddynext_head_meta', '__return_empty_array' );
+		add_action( 'rank_math/opengraph/facebook', '__return_true' );
+
+		$this->render( array( 'url' => 'https://example.test/members/alice/', 'title' => 'Alice' ) );
+		do_action( 'rank_math/head' );
+
+		$this->assertNotFalse( has_action( 'rank_math/opengraph/facebook' ) );
+	}
+
+	/**
 	 * A second surface cannot describe the same response.
 	 */
 	public function test_first_descriptor_wins(): void {

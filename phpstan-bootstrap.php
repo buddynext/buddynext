@@ -349,6 +349,13 @@ if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 		 * Jetonomy space/discussion model.
 		 */
 		class Space {
+			/** @return array<string,mixed> */
+			public static function get_settings( int $id ): array { return array(); }
+			/**
+			 * @param array<string,mixed> $incoming
+			 * @return array<string,mixed>
+			 */
+			public static function merge_settings( int $id, array $incoming ): array { return array(); }
 			/**
 			 * Fetch one discussion by id.
 			 *

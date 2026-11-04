@@ -21,6 +21,8 @@ The badge uses the color you chose for the type, so groups are visually distinct
 
 If you mark a type as self-selectable, members can choose it themselves. The type then appears as a selector on their own profile edit page, and they can pick from the available self-select types - or choose "None" to clear the type they picked earlier. Types you have not marked self-selectable never appear as a choice - only an owner can assign those.
 
+When a type is set to **Lock it once chosen**, the profile form warns the member before the pick ("You can only pick this once. After that, only an admin can change it.") and asks them to confirm. If the site refuses a later change, the selector goes back to the member's type and shows the reason.
+
 
 ## Setting it up (for owners)
 
@@ -40,7 +42,8 @@ Use the Add Member Type form (the same form edits an existing type). The fields 
 | Sort order | Controls the order types appear in; lower numbers appear first | 0 |
 | Icon | An optional small icon for the type, shown alongside the badge | Empty |
 | Show as directory filter tab | When on, this type appears in the member directory's type filter | On |
-| Let members choose this type for themselves | When on, members can pick this type for themselves on their profile edit page | Off |
+| Let members choose this type for themselves | When on, members can pick this type for themselves at sign-up or on their profile edit page | Off |
+| Lock it once chosen | With the setting above on: a member picks this type once (at sign-up, or the first time on their profile) and then only the site team can change it. Their profile shows "Chosen once: contact an admin to change it." | Off |
 
 Web address, Text color, Sort order, and Icon live under the Advanced section of the form.
 

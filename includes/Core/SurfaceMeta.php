@@ -254,10 +254,16 @@ final class SurfaceMeta {
 			'type'        => 'profile',
 			/* translators: 1: member display name, 2: community name. */
 			'description' => sprintf( __( '%1$s on %2$s.', 'buddynext' ), $name, self::community_name() ),
-			// A generated letter-avatar is a data: URI and is dropped by the
-			// image contract, falling through to the site image.
+			// The cover first, like a space card, but only when a logged-out
+			// visitor may view the profile: a locked profile shows strangers no
+			// cover, and a link scraper is a stranger. A generated letter-avatar is
+			// a data: URI and is dropped by the image contract, falling through to
+			// the site image.
 			'image'       => HeadMeta::first_usable_image(
 				array(
+					buddynext_service( 'privacy' )->can_view_profile( 0, $user_id )
+						? ( new \BuddyNext\Profile\AvatarService() )->get_cover_url( $user_id )
+						: '',
 					(string) get_user_meta( $user_id, 'bn_avatar', true ),
 					(string) get_avatar_url( $user_id, array( 'size' => 512 ) ),
 				)

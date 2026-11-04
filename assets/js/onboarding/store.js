@@ -8,7 +8,7 @@
  * 4 or 5 and every getter works off the context, never a hardcoded map.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch } from '@buddynext/rest-client';
 import { initials } from '@buddynext/initials';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -97,7 +97,7 @@ function reason( res, fallback ) {
 		const first = Object.keys( d.errors )[ 0 ];
 		if ( first && d.errors[ first ] ) { return String( d.errors[ first ] ); }
 	}
-	return d.message ? String( d.message ) : fallback;
+	return restError( res, fallback );
 }
 
 function rest( c, path, opts ) {
@@ -473,6 +473,12 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			} )
 				.then( ( r ) => {
 					if ( ! r.ok ) { throw new Error( reason( r, '' ) ); }
+					// A private account stores a request, not a follow.
+					if ( isFollowing && r.data && r.data.pending ) {
+						btn.textContent = t( 'btnRequested', 'Requested' );
+						toast( t( 'toastRequested', 'Follow request sent.' ), 'success' );
+						return;
+					}
 					toast( isFollowing ? t( 'toastFollowing', 'Following.' ) : t( 'toastUnfollowed', 'Unfollowed.' ), 'success' );
 				} )
 				.catch( ( err ) => {
@@ -539,7 +545,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 							// Surface the server's specific reason (avatar_too_large /
 							// avatar_dimensions / avatar_invalid_type) instead of a
 							// generic failure, so the user knows what to change.
-							const msg = r.data && r.data.message ? r.data.message : t( 'toastPhotoUploadFailed', 'Could not upload photo. Try again.' );
+							const msg = restError( r, t( 'toastPhotoUploadFailed', 'Could not upload photo. Try again.' ) );
 							throw new Error( msg );
 						}
 						return r.data;

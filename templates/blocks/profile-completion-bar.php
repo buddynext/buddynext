@@ -6,7 +6,7 @@
  * .bn-card and the inline percent uses a .bn-badge accent tone.
  *
  * Variables:
- *   int $user_id WordPress user ID (0 = current user).
+ *   int $user_id WordPress user ID, resolved by the block.
  *
  * @package BuddyNext
  */
@@ -16,10 +16,6 @@ defined( 'ABSPATH' ) || exit;
 $user_id = $user_id ?? 0;
 
 if ( ! $user_id ) {
-	$user_id = get_current_user_id();
-}
-
-if ( ! $user_id ) {
 	return;
 }
 
@@ -27,7 +23,7 @@ $completion          = buddynext_service( 'profiles' )->get_completion_score( $u
 $percent             = max( 0, min( 100, (int) ( $completion['percent'] ?? 0 ) ) );
 $missing_required    = ( $completion['required_total'] ?? 0 ) - ( $completion['required_filled'] ?? 0 );
 $missing_recommended = ( $completion['recommended_total'] ?? 0 ) - ( $completion['recommended_filled'] ?? 0 );
-$edit_url            = \BuddyNext\Core\PageRouter::edit_profile_url();
+$edit_url            = \BuddyNext\Core\PageRouter::edit_profile_url( $user_id );
 $bar_tone            = $percent >= 100 ? 'success' : 'accent';
 
 // translators: %d: profile completion percentage (0-100).

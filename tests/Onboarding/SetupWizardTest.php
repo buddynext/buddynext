@@ -42,7 +42,6 @@ class SetupWizardTest extends \WP_UnitTestCase {
 		// bites a long-lived DB. Run the idempotent convergence so the seed the
 		// convergence test reads is canonical on any DB (a no-op on a fresh one).
 		$migrate = new \ReflectionMethod( Installer::class, 'maybe_migrate_year_fields' );
-		$migrate->setAccessible( true );
 		$migrate->invoke( null );
 
 		$this->wizard = new SetupWizard();
@@ -184,7 +183,6 @@ class SetupWizardTest extends \WP_UnitTestCase {
 	 */
 	private function presets(): array {
 		$method = new \ReflectionMethod( $this->wizard, 'get_profile_group_presets' );
-		$method->setAccessible( true );
 
 		return (array) $method->invoke( $this->wizard );
 	}
@@ -268,7 +266,6 @@ class SetupWizardTest extends \WP_UnitTestCase {
 		}
 
 		$migrate = new \ReflectionMethod( Installer::class, 'maybe_migrate_wizard_preset_types' );
-		$migrate->setAccessible( true );
 		$migrate->invoke( null );
 
 		foreach ( $legacy as $key => list( , $new_type ) ) {
@@ -279,5 +276,186 @@ class SetupWizardTest extends \WP_UnitTestCase {
 				)
 			);
 		}
+	}
+
+	/**
+	 * Submit a wizard form the way the browser does and return where it redirected.
+	 *
+	 * @param array<string,mixed> $fields Posted fields.
+	 * @return string The redirect location.
+	 */
+	private function submit_step( array $fields ): string {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_POST    = array_merge( array( '_wpnonce' => wp_create_nonce( 'buddynext_wizard_step' ) ), $fields );
+		$_REQUEST = $_POST;
+
+		$stop = static function ( string $location ): void {
+			throw new \RuntimeException( $location );
+		};
+		add_filter( 'wp_redirect', $stop );
+		try {
+			$this->wizard->handle_step_submit();
+		} catch ( \RuntimeException $redirect ) {
+			return $redirect->getMessage();
+		} finally {
+			remove_filter( 'wp_redirect', $stop );
+			$_POST    = array();
+			$_REQUEST = array();
+		}
+		return '';
+	}
+
+	/**
+	 * Save & exit keeps what was typed, on every step that has a save, and does not advance.
+	 */
+	public function test_save_exit_persists_the_current_step(): void {
+		$location = $this->submit_step(
+			array(
+				'wizard_action' => 'save_exit',
+				'step'          => 'branding',
+				'site_name'     => 'Saved On Exit',
+			)
+		);
+
+		$this->assertStringContainsString( 'wizard=saved', $location );
+		$this->assertSame( 'Saved On Exit', get_option( 'buddynext_site_name' ) );
+		$this->assertSame( 'branding', $this->wizard->current_step_key() );
+
+		update_option( 'buddynext_setup_step', 'registration' );
+		$this->submit_step(
+			array(
+				'wizard_action' => 'save_exit',
+				'step'          => 'registration',
+				'reg_mode'      => 'closed',
+			)
+		);
+		$this->assertSame( 'closed', get_option( 'buddynext_reg_mode' ) );
+		$this->assertSame( 'registration', $this->wizard->current_step_key() );
+	}
+
+	/**
+	 * Back and Skip still save nothing.
+	 */
+	public function test_back_and_skip_save_nothing(): void {
+		update_option( 'buddynext_site_name', 'Untouched' );
+		update_option( 'buddynext_setup_step', 'registration' );
+		$this->submit_step(
+			array(
+				'wizard_action' => 'back',
+				'step'          => 'registration',
+				'reg_mode'      => 'closed',
+			)
+		);
+		$this->assertFalse( get_option( 'buddynext_reg_mode' ) );
+
+		$this->submit_step(
+			array(
+				'wizard_action' => 'skip',
+				'step'          => 'branding',
+				'site_name'     => 'Typed then skipped',
+			)
+		);
+		$this->assertSame( 'Untouched', get_option( 'buddynext_site_name' ) );
+	}
+
+	/**
+	 * The saved notice shows only on the landing page, only after the wizard's redirect.
+	 */
+	public function test_exit_notice_renders_only_after_the_redirect(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		$render = function ( array $get ): string {
+			$_GET = $get;
+			ob_start();
+			$this->wizard->render_exit_notice();
+			$_GET = array();
+			return (string) ob_get_clean();
+		};
+
+		$this->assertStringContainsString( 'progress is saved', $render( array( 'page' => 'buddynext', 'wizard' => 'saved' ) ) );
+		$this->assertStringContainsString( 'Setup complete', $render( array( 'page' => 'buddynext', 'wizard' => 'done' ) ) );
+		$this->assertSame( '', $render( array( 'page' => 'buddynext' ) ) );
+		$this->assertSame( '', $render( array( 'page' => 'buddynext-spaces', 'wizard' => 'saved' ) ) );
+	}
+
+	/**
+	 * Continue with the swatch untouched writes nothing, so the theme's accent stands.
+	 */
+	public function test_untouched_brand_colour_writes_nothing(): void {
+		delete_option( 'buddynext_brand_color' );
+
+		foreach ( array( 'continue', 'save_exit' ) as $action ) {
+			delete_option( 'buddynext_setup_step' );
+			$this->submit_step(
+				array(
+					'wizard_action' => $action,
+					'step'          => 'branding',
+					'site_name'     => 'Name',
+					'brand_color'   => \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX,
+				)
+			);
+			$this->assertFalse( get_option( 'buddynext_brand_color' ), $action );
+			$this->assertSame( '', \BuddyNext\Theme\Appearance::picked_brand() );
+		}
+	}
+
+	/**
+	 * Only a colour the owner picked is stored, and a stored pick is left alone or replaced.
+	 */
+	public function test_picked_brand_colour_is_stored_and_a_stored_one_survives(): void {
+		delete_option( 'buddynext_brand_color' );
+		$post = array(
+			'wizard_action' => 'save_exit',
+			'step'          => 'branding',
+			'site_name'     => 'Name',
+		);
+
+		$this->submit_step( $post + array( 'brand_color' => '#ff0000' ) );
+		$this->assertSame( '#ff0000', get_option( 'buddynext_brand_color' ) );
+
+		// Shown #ff0000, left as it is.
+		$this->submit_step( $post + array( 'brand_color' => '#FF0000' ) );
+		$this->assertSame( '#ff0000', get_option( 'buddynext_brand_color' ) );
+
+		// From a real pick, the default accent is now a choice like any other.
+		$this->submit_step( $post + array( 'brand_color' => \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX ) );
+		$this->assertSame( \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX, get_option( 'buddynext_brand_color' ) );
+
+		// A value stored by an earlier wizard run is not rewritten by walking past it.
+		$this->submit_step( $post + array( 'brand_color' => \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX ) );
+		$this->assertSame( \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX, get_option( 'buddynext_brand_color' ) );
+	}
+
+	/**
+	 * A blank or spaces-only name keeps the stored one.
+	 */
+	public function test_blank_site_name_does_not_wipe_the_stored_one(): void {
+		update_option( 'buddynext_site_name', 'Keep Me' );
+
+		$this->submit_step(
+			array(
+				'wizard_action' => 'save_exit',
+				'step'          => 'branding',
+				'site_name'     => '   ',
+			)
+		);
+
+		$this->assertSame( 'Keep Me', get_option( 'buddynext_site_name' ) );
+	}
+
+	/**
+	 * The opt-in rule: unset, empty, invalid and the sentinel all read as not picked.
+	 */
+	public function test_picked_brand_reads_every_unpicked_shape(): void {
+		delete_option( 'buddynext_brand_color' );
+		$this->assertSame( '', \BuddyNext\Theme\Appearance::picked_brand() );
+
+		foreach ( array( '', 'not-a-colour', '#0073aa', '#0073AA' ) as $value ) {
+			update_option( 'buddynext_brand_color', $value );
+			$this->assertSame( '', \BuddyNext\Theme\Appearance::picked_brand(), $value );
+		}
+
+		update_option( 'buddynext_brand_color', '#ff6b6b' );
+		$this->assertSame( '#ff6b6b', \BuddyNext\Theme\Appearance::picked_brand() );
 	}
 }

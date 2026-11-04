@@ -49,9 +49,8 @@ final class InviteAction {
 		if ( is_email( $email ) ) {
 			$svc = buddynext_service( 'invite' );
 			if ( is_object( $svc ) && method_exists( $svc, 'create' ) ) {
-				// create() returns the new invite id, or 0 when it dedups against an
-				// existing account / live pending invite.
-				$status = ( (int) $svc->create( $email, $first ) > 0 ) ? 'sent' : 'skipped';
+				$status = (string) $svc->create( $email, $first )['status'];
+				$status = 'queued' === $status ? 'sent' : $status;
 			}
 		}
 

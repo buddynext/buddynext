@@ -42,14 +42,14 @@ class AdminVerifyMemberTest extends WP_UnitTestCase {
 	public function test_verifying_clears_the_pending_purge_flag_too(): void {
 		$user_id = self::factory()->user->create();
 
-		update_user_meta( $user_id, 'buddynext_verify_pending', 1 );
+		update_user_meta( $user_id, 'buddynext_signup_awaiting_verify', 1 );
 
 		( new VerificationService() )->mark_verified( $user_id );
 
 		$this->assertSame( '1', (string) get_user_meta( $user_id, 'buddynext_email_verified', true ) );
 		$this->assertSame(
 			'',
-			(string) get_user_meta( $user_id, 'buddynext_verify_pending', true ),
+			(string) get_user_meta( $user_id, 'buddynext_signup_awaiting_verify', true ),
 			'The account is still queued for purge while showing as verified.'
 		);
 	}

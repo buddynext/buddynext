@@ -533,6 +533,18 @@ if ( 'invite' === $bn_reg_mode ) {
 							$bn_reg_fields = array();
 						}
 					}
+
+					/*
+					 * Profile fields sit in their own grid so an owner can pair short
+					 * ones (Profile Fields > Width > Half row): two Half fields share a
+					 * row, everything else - Auto included - keeps the full row this
+					 * form has always used, so a site that never sets a width looks the
+					 * same. Each group's intro shows once, above its first field.
+					 */
+					$bn_rf_last_group = null;
+					if ( ! empty( $bn_reg_fields ) ) {
+						echo '<div class="bn-auth-profile-fields">';
+					}
 					foreach ( $bn_reg_fields as $bn_reg_field ) :
 						// A field that is inactive for an anonymous visitor (e.g. a
 						// plan-gated advanced type - no plan exists yet at signup) is
@@ -542,6 +554,15 @@ if ( 'invite' === $bn_reg_mode ) {
 						if ( ! \BuddyNext\Profile\FieldType::is_profile_field_active( $bn_reg_field, 0 ) ) {
 							continue;
 						}
+						$bn_rf_gkey = (string) ( $bn_reg_field['group_key'] ?? '' );
+						if ( $bn_rf_gkey !== $bn_rf_last_group ) {
+							$bn_rf_last_group = $bn_rf_gkey;
+							$bn_rf_intro      = trim( (string) ( $bn_reg_field['group_intro'] ?? '' ) );
+							if ( '' !== $bn_rf_intro ) {
+								echo '<p class="bn-auth-group-intro">' . esc_html( $bn_rf_intro ) . '</p>';
+							}
+						}
+						$bn_rf_half  = 'half' === \BuddyNext\Profile\FieldType::sanitize_width( $bn_reg_field['width'] ?? 'auto' );
 						$bn_rf_key   = (string) $bn_reg_field['field_key'];
 						$bn_rf_name  = 'bn_field_' . $bn_rf_key;
 						$bn_rf_req   = ! empty( $bn_reg_field['is_required'] );
@@ -579,7 +600,7 @@ if ( 'invite' === $bn_reg_mode ) {
 						}
 						?>
 						<?php // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- field_wrapper_attributes() escapes. ?>
-						<div class="bn-auth-field"<?php echo \BuddyNext\Profile\FieldType::field_wrapper_attributes( $bn_reg_field, 0 ); ?>>
+						<div class="bn-auth-field<?php echo $bn_rf_half ? ' bn-auth-field--half' : ''; ?>"<?php echo \BuddyNext\Profile\FieldType::field_wrapper_attributes( $bn_reg_field, 0 ); ?>>
 						<?php // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							<?php if ( $bn_rf_group ) : ?>
 							<span class="bn-auth-label" id="<?php echo esc_attr( $bn_rf_label_id ); ?>">
@@ -608,6 +629,11 @@ if ( 'invite' === $bn_reg_mode ) {
 							?>
 						</div>
 					<?php endforeach; ?>
+					<?php
+					if ( ! empty( $bn_reg_fields ) ) {
+						echo '</div>';
+					}
+					?>
 
 					<?php
 					/*
@@ -709,7 +735,7 @@ if ( 'invite' === $bn_reg_mode ) {
 								echo wp_kses(
 									2 === count( $bn_legal_links )
 										? sprintf(
-											/* translators: 1: link to the Terms of Service, 2: link to the Privacy Policy */
+											/* translators: 1: Terms of Service (link or text), 2: Privacy Policy (link or text) */
 											__( 'I agree to the %1$s and %2$s.', 'buddynext' ),
 											$bn_legal_links[0],
 											$bn_legal_links[1]

@@ -50,7 +50,7 @@ Post create/read/update/delete plus pin and the link-preview helper.
 |---|---|---|---|
 | POST | `/posts` | auth | Create a post. Role-mapped: a feed post needs `buddynext-feed/create-post`; a space post needs `buddynext-spaces/post` (with `space_id` context); scheduling additionally needs `buddynext-feed/schedule-post`. Body fields: `type`, `content`, `privacy`, `members_only`, `space_id`, `media_ids`, `link_url`, `link_meta`, `document_id`, `options` and `poll_end_date` (poll posts), `content_warning`, `content_warning_type`, `scheduled_at`, `announcement_expires_at`. |
 | GET | `/posts/(?P<id>[\d]+)` | public | Read a single post (visibility enforced server-side). |
-| PUT | `/posts/(?P<id>[\d]+)` | auth | Update a post (owner only, enforced in the handler). Body: any of `content`, `privacy`, `content_warning`, `content_warning_type`, `scheduled_at`, `media_ids`. Passing `scheduled_at` is a **reschedule** and additionally requires `buddynext-feed/schedule-post` - see below. `media_ids` is the post's complete new media list (send the kept ids plus new ones; omit an id to detach it). Every id must belong to the post's author (403 `media_forbidden`, 404 `media_not_found`; site admins may attach any existing media); a text post that gains media becomes `photo`, a `photo` post that loses its last one becomes `text`, and an edit that leaves no text and no media is refused (400 `empty_post`). Errors keep their own status. |
+| PUT | `/posts/(?P<id>[\d]+)` | auth | Update a post (owner only, enforced in the handler). Body: any of `content`, `privacy`, `content_warning`, `content_warning_type`, `scheduled_at`, `media_ids`. Passing `scheduled_at` is a **reschedule** and additionally requires `buddynext-feed/schedule-post` - see below. `media_ids` is the post's complete new media list (send the kept ids plus new ones; omit an id to detach it). Every id must belong to the post's author (403 `media_forbidden`, 404 `media_not_found`; site admins may attach any existing media); a text post that gains media becomes `photo`, a `photo` post that loses its last one becomes `text`, and an edit that leaves no text and no media is refused (400 `empty_post`). Errors keep their own status. The response is the updated post plus `content_html` (the text with @mentions and #hashtags linked, line breaks kept as newlines), the same field the feed list sends. |
 | DELETE | `/posts/(?P<id>[\d]+)` | auth | Delete a post (owner only, enforced in the handler). |
 | POST | `/posts/(?P<id>[\d]+)/pin` | auth | Pin a post (owner action). |
 | DELETE | `/posts/(?P<id>[\d]+)/pin` | auth | Unpin a post (owner action). |
@@ -122,10 +122,11 @@ Comments also attach to an object via `object_type` + `object_id` and support on
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/comments` | auth | Create a comment. Body: `object_type` (required), `object_id` (required), `content` (required), `parent_id` (optional, for a reply). Returns `403` when the Comments feature is off. |
-| GET | `/comments` | public | List comments for an object. Query: `object_type`, `object_id`, `per_page` (1-50, default 20), `page`. |
-| PUT | `/comments/(?P<id>[\d]+)` | auth | Update a comment (owner or admin, enforced in the handler). Body: `content` (required). |
-| DELETE | `/comments/(?P<id>[\d]+)` | auth | Delete a comment (owner or admin, enforced in the handler). |
+| POST | `/comments` | auth | Create a comment. Body: `object_type` (required), `object_id` (required), `content` (required), `parent_id` (optional, for a reply), `render` (optional, `html` adds the rendered comment as `html`). Returns `403` when the Comments feature is off. |
+| GET | `/comments` | public | List comments for an object. Query: `object_type`, `object_id`, `per_page` (1-50, default 20), `page`, `render` (optional, `html` adds each top-level comment's rendered markup as `html`, replies included; the web client uses it, apps leave it out). |
+| GET | `/comments/(?P<id>[\d]+)` | public | One comment, under the same visibility rules as the thread (404 for anything the viewer may not read). Query: `render` (optional, `html`). |
+| PUT | `/comments/(?P<id>[\d]+)` | auth | Update a comment (owner or admin, enforced in the handler). Body: `content` (required), `render` (optional, `html`). The response carries `content_html` with @mentions and #hashtags linked. |
+| DELETE | `/comments/(?P<id>[\d]+)` | auth | Delete a comment (owner or admin, enforced in the handler). Returns 200 with `deleted` and the post's stored `comment_count`. |
 | POST | `/comments/(?P<id>[\d]+)/pin` | auth | Pin a comment under its parent object. Site admins and moderators of the post's space only, enforced in the handler. |
 | DELETE | `/comments/(?P<id>[\d]+)/pin` | auth | Unpin a comment. Same admin and space-moderator rule as pinning. |
 

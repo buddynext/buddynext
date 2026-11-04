@@ -19,6 +19,8 @@ Guests still get cached copies of public pages (Explore, open spaces, public pro
 
 BuddyNext does this with the WordPress-standard `DONOTCACHEPAGE` signal, plus `Cache-Control: no-store` headers for reverse proxies and browsers.
 
+**The first page after signing in is logged in.** A cache answers from its guest copy before WordPress runs, and it cannot know a visitor has just signed in. So after a BuddyNext sign-in, sign-up or two-factor step, the member lands on a one-time address (`?bn_signed_in=...`) no cache holds, and the address bar drops the marker straight away. Tested on LiteSpeed Cache on OpenLiteSpeed and on WP Super Cache. LiteSpeed Enterprise with QUIC.cloud has not been tested; if your cache is set to ignore unknown query strings, add `bn_signed_in` to its list of query strings that must not be cached.
+
 WP Rocket normally skips caching any page whose address differs from its page's permalink, which would have left every profile, post and sub-page (such as Explore) uncached for guests. BuddyNext tells WP Rocket these are its own valid pages, so guests get them cached and optimised like any other page.
 
 ## What was tested
@@ -28,7 +30,8 @@ Each cache was set to its riskiest setting for a community: **caching logged-in 
 | Plugin | Setting tested | Result |
 |---|---|---|
 | WP Super Cache | Cache logged-in visitors (known users) | Members always get fresh pages; guests get cached pages |
-| W3 Total Cache | Page cache on (Disk), "Don't cache pages for logged in users" off | Members always get fresh pages; guests get cached pages |
+| W3 Total Cache | Page cache on (Disk), "Don't cache pages for logged in users" **on** (its default) | Members always get fresh pages; guests get cached pages |
+| W3 Total Cache | Page cache on (Disk), "Don't cache pages for logged in users" **off** | **Not supported.** Once a guest copy of a page exists, signed-in members are served that copy, logged out, even on reload |
 | WP Rocket | User Cache add-on on | Members always get fresh pages; guests get cached pages, including profiles and sub-pages |
 | LiteSpeed Cache on OpenLiteSpeed | Cache on, "Cache Logged-in Users" on | Members always get fresh pages; guests get cached pages |
 | WP Super Cache, W3 Total Cache, WP Rocket, LiteSpeed Cache | A member publishes a public post while a guest copy of Explore is cached | A guest sees the new post on the next load, with no manual purge |
@@ -38,12 +41,13 @@ Each cache was set to its riskiest setting for a community: **caching logged-in 
 
 BuddyNext loads its interactive scripts as JavaScript modules. Autoptimize and LiteSpeed leave them alone. WP Rocket's Delay JavaScript execution holds them back on guest pages until the visitor first interacts, then loads them, and they work. No optimiser needs BuddyNext in its exclusion list.
 
-**Not tested:** Cloudflare APO and hand-written Varnish or proxy rules. Any cache works with BuddyNext if it either honours `DONOTCACHEPAGE` or skips requests that carry the `wordpress_logged_in_` cookie. If yours does neither, turn off its caching for logged-in users.
+**Not tested:** Cloudflare APO and hand-written Varnish or proxy rules. A cache works with BuddyNext if it skips requests that carry the `wordpress_logged_in_` cookie, or keeps logged-in visitors' pages apart from the guest copy. Honouring `DONOTCACHEPAGE` is not enough on its own: a cache that answers from the guest copy before PHP runs never reaches it, which is what happens on W3 Total Cache with the setting above off. To check yours, open a public page as a guest twice, then open it signed in. If you look logged out, turn off its caching for logged-in users.
 
 ## What to do
 
-1. **Purge all caches after every BuddyNext or BuddyNext Pro update.** A cached guest page or a combined script file from the old version can outlive the update. This is standard for any plugin update on a cached site.
-2. **On BuddyNext 1.2.1 or earlier**, turn off your cache's "cache logged-in users" option, or add your onboarding page (by default `/onboarding/`) to its exclusion list. Without that, a member who presses Continue after choosing interests can land back on step 1, because the wizard reloads and the cache serves the first step again. 1.2.2 fixes this.
+1. **On W3 Total Cache, keep "Don't cache pages for logged in users" on.** It is on by default, under Performance > Page Cache.
+2. **Purge all caches after every BuddyNext or BuddyNext Pro update.** A cached guest page or a combined script file from the old version can outlive the update. This is standard for any plugin update on a cached site.
+3. **On BuddyNext 1.2.1 or earlier**, turn off your cache's "cache logged-in users" option, or add your onboarding page (by default `/onboarding/`) to its exclusion list. Without that, a member who presses Continue after choosing interests can land back on step 1, because the wizard reloads and the cache serves the first step again. 1.2.2 fixes this.
 
 ## Where the settings live
 

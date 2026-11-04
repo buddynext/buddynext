@@ -23,12 +23,8 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-// Must be logged in and editing own profile (or admin).
+// Guests never get here: PageRouter::pre_output_redirect() sends them to sign in.
 $current_user_id = get_current_user_id();
-if ( ! $current_user_id ) {
-	wp_safe_redirect( \BuddyNext\Core\PageRouter::login_url() );
-	exit;
-}
 
 if ( empty( $user_id ) || ! is_int( $user_id ) ) {
 	$user_id = $current_user_id;
@@ -548,7 +544,10 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 									? ' for="' . esc_attr( \BuddyNext\Profile\FieldType::input_id( $bn_name ) ) . '"'
 									: '';
 
-								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label"' . $bn_sf_for . '>' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_sf_hint . $bn_ctrl . '</div>';
+								// Entries have always laid sub-fields out half width; only an
+								// explicit owner choice changes that, so Auto stays as it was.
+								$bn_sf_cls    = 'full' === \BuddyNext\Profile\FieldType::sanitize_width( $bn_field['width'] ?? 'auto' ) ? ' bn-ep-field--full' : '';
+								$bn_rep_html .= '<div class="bn-ep-field' . $bn_sf_cls . '"><label class="bn-ep-label"' . $bn_sf_for . '>' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_sf_hint . $bn_ctrl . '</div>';
 							}
 						}
 						$bn_rep_html .= '</div>';
@@ -576,7 +575,9 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_rep_html .= '</div>';
 					$bn_rep_html .= '<footer class="bn-ep-card-footer"><button class="bn-btn bn-ep-add-entry" type="button" data-variant="ghost" data-size="sm" data-group="' . esc_attr( $bn_gkey ) . '" data-wp-on--click="actions.addEntry">' . \BuddyNext\Core\IconService::render( 'plus' ) . '<span>' . esc_html__( 'Add entry', 'buddynext' ) . '</span></button></footer>';
 
-					echo '<section class="bn-card bn-ep-card"><header class="bn-ep-card-header"><h2 class="bn-ep-card-title">' . esc_html( $bn_glabel ) . '</h2></header>';
+					// Group intro (owner help text), under the title like a flat group's.
+					$bn_gintro = trim( (string) ( $bn_group['intro'] ?? '' ) );
+					echo '<section class="bn-card bn-ep-card"><header class="bn-ep-card-header"><h2 class="bn-ep-card-title">' . esc_html( $bn_glabel ) . '</h2>' . ( '' !== $bn_gintro ? '<p class="bn-ep-card-subtitle">' . esc_html( $bn_gintro ) . '</p>' : '' ) . '</header>';
 					// Repeater body markup is assembled from individually escaped
 					// pieces above (FieldType output is escaped per its contract).
 					echo $bn_rep_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -610,9 +611,10 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_label  = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
 					$bn_inp_id = 'bn-ep-' . str_replace( '_', '-', $bn_fkey );
 
-					// Wide controls (textarea) take the full row.
+					// The owner's width (Profile Fields > Width); Auto keeps the by-type
+					// rule. One rule shared with the sign-up form (FieldType::is_full_width).
 					$bn_field_cls = 'bn-ep-field';
-					if ( in_array( $bn_ftype, array( 'textarea', 'multiselect', 'radio' ), true ) ) {
+					if ( \BuddyNext\Profile\FieldType::is_full_width( $bn_field ) ) {
 						$bn_field_cls .= ' bn-ep-field--full';
 					}
 
@@ -731,6 +733,8 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					'parts/profile-edit-section.php',
 					array(
 						'title'      => $bn_glabel,
+						// Group intro: the owner's help text for this section of the form.
+						'subtitle'   => trim( (string) ( $bn_group['intro'] ?? '' ) ),
 						'body_html'  => $bn_body_html,
 						'attributes' => \BuddyNext\Profile\FieldType::group_wrapper_attributes( $bn_group, $user_id ),
 					)
@@ -774,7 +778,11 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				// real type missing from the list entirely: the page reported them as
 				// unclassified and invited them to pick something. The endpoint now
 				// refuses that change, so offering it would be a control that fails.
-				$bn_mt_locked = '' !== $bn_current_slug && empty( $bn_current_type['self_select'] );
+				//
+				// A pick-once type (self_select = 2) is locked the same way once held:
+				// may_change_own_type() refuses any further change.
+				$bn_mt_mode   = (int) ( $bn_current_type['self_select'] ?? 0 );
+				$bn_mt_locked = '' !== $bn_current_slug && 1 !== $bn_mt_mode;
 
 				if ( $bn_mt_locked ) {
 					// Same wording as the profile-field renderer, because it is the
@@ -782,7 +790,9 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_mt_html = sprintf(
 						'<div class="bn-field-membertype is-set"><span class="bn-membertype-badge">%1$s</span> <span class="bn-field-hint">%2$s</span></div>',
 						esc_html( (string) ( $bn_current_type['name'] ?? $bn_current_slug ) ),
-						esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
+						2 === $bn_mt_mode
+							? esc_html__( 'Chosen once: contact an admin to change it.', 'buddynext' )
+							: esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
 					);
 
 					buddynext_get_template(
@@ -795,17 +805,19 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					);
 				} elseif ( ! empty( $bn_self_types ) ) {
 					$bn_mt_html  = '<label class="bn-ep-label bn-sr-only" for="bn-ep-member-type">' . esc_html__( 'Member type', 'buddynext' ) . '</label>';
-					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-bn-autosave data-user-id="' . esc_attr( (string) $user_id ) . '" data-wp-on--change="actions.setMemberType">';
+					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-bn-autosave data-user-id="' . esc_attr( (string) $user_id ) . '" data-bn-prev="' . esc_attr( $bn_current_slug ) . '" data-wp-on--change="actions.setMemberType">';
 					$bn_mt_html .= '<option value="">' . esc_html__( 'None', 'buddynext' ) . '</option>';
 					foreach ( $bn_self_types as $bn_t ) {
 						$bn_mt_html .= sprintf(
-							'<option value="%s"%s>%s</option>',
+							'<option value="%s"%s%s>%s</option>',
 							esc_attr( (string) ( $bn_t['slug'] ?? '' ) ),
 							selected( $bn_current_slug, (string) ( $bn_t['slug'] ?? '' ), false ),
+							2 === (int) ( $bn_t['self_select'] ?? 0 ) ? ' data-bn-once="1"' : '',
 							esc_html( (string) ( $bn_t['name'] ?? $bn_t['slug'] ?? '' ) )
 						);
 					}
 					$bn_mt_html .= '</select>';
+					$bn_mt_html .= \BuddyNext\Profile\FieldType::member_type_once_hint();
 
 					// Surface the selected type's description so the member knows
 					// what it means (the data is already plumbed, just not shown).

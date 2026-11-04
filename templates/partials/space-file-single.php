@@ -148,7 +148,7 @@ $bn_fs_date_out = buddynext_date_local( $bn_fs_date );
 					$bn_fs_bits[] = $bn_fs_date_out;
 				}
 				if ( '' !== $bn_fs_owner ) {
-					/* translators: %s: uploader display name. */
+					/* translators: %s: display name of the person who wrote or uploaded it. */
 					$bn_fs_bits[] = sprintf( __( 'by %s', 'buddynext' ), $bn_fs_owner );
 				}
 				echo esc_html( implode( ' · ', $bn_fs_bits ) );

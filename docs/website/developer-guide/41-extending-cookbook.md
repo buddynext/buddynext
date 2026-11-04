@@ -443,6 +443,13 @@ Two things worth knowing before you rely on it:
   BuddyNext leaves the document title alone entirely and your filter will not be
   applied. That is deliberate - the owner installed that plugin to own their titles -
   so set your title there instead on those sites.
+- **Share tags are BuddyNext's on its own pages.** With Yoast or Rank Math active,
+  BuddyNext still prints the Open Graph and Twitter tags for its surfaces and asks the
+  SEO plugin to skip its own social tags there, so a shared profile or post is never
+  described as the hub or home page it is mapped to. The SEO plugin keeps its
+  description, robots and schema output. To hand the social tags back to the SEO
+  plugin, return an empty array from `buddynext_head_meta`; `buddynext_head_meta_image`
+  changes only the fallback image.
 
 One registration gives your hub a live route: `PageRouter` dispatches your `register_rules` and `resolve_template` on every request, a slug change flushes rewrites automatically (BuddyNext hooks `update_option_{your_slug_option}` for every registered hub), and - if your add-on is active when BuddyNext is activated - the Installer creates a backing WP page for it. `includes/Core/CoreHubs.php` registers the built-in hubs through the same `HubRegistry`.
 
@@ -469,7 +476,7 @@ Lookup order: child theme, then parent theme, then BuddyNext's own `templates/`,
 
 **Goal:** give an integration its own panel inside a member's Portfolio tab that only the profile owner ever sees - a personal "in progress" shelf (Learnomy's "Continue Learning") rather than a public credential like a certificate or a listing.
 
-**Seam:** `buddynext_member_suite_panels` (Pro). Every suite integration (Career Board, Listora, Learnomy, ...) contributes its panels to the one shared Portfolio tab through this filter; `SuiteProfile::panels()` normalizes each entry and reads an `owner_only` flag off it. Set that flag and the panel is withheld from every viewer except the profile owner - enforced in three places so it can never leak: the Portfolio sub-nav (`SuiteProfile::add_subnav()`, via its `visible_panels()` gate), the section renderer (`SuiteProfile::render_section()`), and the REST endpoint (`PortfolioController::get_portfolio()`, which drops the panel outright for a non-owner viewer).
+**Seam:** `buddynext_member_suite_panels` (Pro). Every suite integration (WP Career Board, WB Listora, Learnomy, ...) contributes its panels to the one shared Portfolio tab through this filter; `SuiteProfile::panels()` normalizes each entry and reads an `owner_only` flag off it. Set that flag and the panel is withheld from every viewer except the profile owner - enforced in three places so it can never leak: the Portfolio sub-nav (`SuiteProfile::add_subnav()`, via its `visible_panels()` gate), the section renderer (`SuiteProfile::render_section()`), and the REST endpoint (`PortfolioController::get_portfolio()`, which drops the panel outright for a non-owner viewer).
 
 ```php
 add_filter( 'buddynext_member_suite_panels', function ( array $panels, int $member_id ): array {
@@ -673,6 +680,49 @@ Each render/sanitize filter is passed `null` (or the running value) as its first
 **Reference implementation:** BuddyNext Pro's `Profile\AdvancedFieldTypes` (engine registration for Location, advanced Number/Multi-select, and an extended Date) and `Admin\AdvancedFieldsAdmin` (the dropdown labels and the per-type options box) are the complete, shipping example of this recipe.
 
 ---
+
+## Recipe 17 - Import records with their original dates (1.2.8)
+
+An importer writes through the services, never raw `bn_*` SQL, and passes each record's time from the source. The time is an optional UTC `Y-m-d H:i:s` string. Leave it out and the method stamps now, as it does for a live member. A future or unreadable value also means now.
+
+| Method | Where the time goes |
+|---|---|
+| `PostService::create( $user, $data )` | `$data['created_at']`, optional `$data['last_activity_at']` |
+| `CommentService::create( $user, $type, $id, $content, $parent, $created_at )` | 6th argument |
+| `ReactionService::react( $user, $type, $id, $emoji, $created_at )` | 5th argument |
+| `SpaceService::create( $user, $data )` | `$data['created_at']` |
+| `SpaceMemberService::join( $space, $user, $joined_at )` | 3rd argument |
+| `SpaceMemberService::request_join( $space, $user, $joined_at )` | 3rd argument |
+| `BookmarkService::bookmark( $user, $post, $created_at )` | 3rd argument |
+| `ShareService::share( $user, $post, $content, $created_at )` | 4th argument |
+| `IntegrationActivity::publish( ..., $meta, $created_at )` | 9th argument |
+| `PostService::adjust_share_count( $post, $delta, $at )` | 3rd argument, used for a `+1` |
+| `PostService::increment_counter( $post, $column, $at )` | 3rd argument |
+| `SpaceService::touch_activity( $space, $at )` | 2nd argument |
+
+Comments, reactions and shares move their post's `last_activity_at` to their own time, and posts and comments do the same for their space's `last_active_at`. Both only move forward, so records can arrive in any order and the newest one wins. A backdated comment skips the throttle that limits live comments to one space write every five minutes.
+
+These arguments are for server-side callers. No REST route accepts them, so a member cannot backdate their own content.
+
+## Recipe 18 - Create a site invite and read what happened (1.2.8)
+
+`InviteService::create( string $email, string $first_name = '', int $ttl_days = DEFAULT_TTL_DAYS, int $space_id = 0, bool $may_attach = false )` returns an array, not an id: `array{ status: string, invite_id: int }`. `invite_id` is `0` when no invite was written. Branch on `status`:
+
+| `status` | Meaning |
+|---|---|
+| `sent` | New invite. `wp_mail()` accepted the email. |
+| `queued` | New invite. The email went to Action Scheduler. A failed send later marks the row `bounced`. |
+| `mail_failed` | New invite saved, but `wp_mail()` refused the email. The row is `bounced` and can be resent. |
+| `attached` | The address had a pending invite with no space. It now leads to `$space_id`. No new email. Only when `$may_attach` is true, which is for site managers. |
+| `already_invited` | The address has a pending invite this call left unchanged. No new email. |
+| `invited_elsewhere` | The address has a pending invite to a different space. |
+| `existing_member` | The address already has an account. |
+| `invalid` | Empty or malformed email. |
+| `failed` | The row could not be written. |
+
+Never report a duplicate as sent. Only `sent`, `queued` and `attached` mean the person has a working invite.
+
+`InviteService::import_from_csv( $inviter_id, $csv_path )` returns `imported`, `queued`, `mail_failed`, `skipped`, `reasons` (`already_invited`, `existing_member`, `invalid`), `errors`, `not_read` and `max_rows`. `not_read` counts the rows the row cap (filter `buddynext_invite_csv_max_rows`) left unread.
 
 ## Notes and gotchas
 

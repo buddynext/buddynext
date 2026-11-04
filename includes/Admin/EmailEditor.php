@@ -528,11 +528,12 @@ class EmailEditor {
 	 *      ({{first_name}} + {{invite_url}} in InviteService::send_invite_email,
 	 *      {{notification_list}} in CronService's digest builder).
 	 *
-	 * @param string $slug      Template slug.
-	 * @param string $recipient Optional recipient; falls back to the admin email.
+	 * @param string                                 $slug      Template slug.
+	 * @param string                                 $recipient Recipient; blank means the admin email, an invalid address sends nothing.
+	 * @param array{subject:string,body:string}|null $draft     Unsaved editor content to send instead of the saved version.
 	 * @return bool True if wp_mail() accepted the message.
 	 */
-	public function send_test( string $slug, string $recipient = '' ): bool {
+	public function send_test( string $slug, string $recipient = '', ?array $draft = null ): bool {
 		$catalogue = $this->get_catalogue();
 		$defaults  = null;
 
@@ -549,8 +550,8 @@ class EmailEditor {
 
 		$saved    = $this->get_saved( $slug );
 		$defaults = self::with_seed_wording( $slug, $defaults );
-		$subject  = $saved ? $saved->subject : $defaults['subject'];
-		$body     = $saved ? $saved->body_html : $defaults['body'];
+		$subject  = $draft['subject'] ?? ( $saved ? $saved->subject : $defaults['subject'] );
+		$body     = $draft['body'] ?? ( $saved ? $saved->body_html : $defaults['body'] );
 
 		$bn_current   = wp_get_current_user();
 		$bn_first     = (string) get_user_meta( $bn_current->ID, 'first_name', true );
@@ -601,9 +602,7 @@ class EmailEditor {
 		$subject = str_replace( array_keys( $placeholders ), array_values( $placeholders ), $subject );
 		$body    = str_replace( array_keys( $placeholders ), array_values( $placeholders ), $body );
 
-		// Send to the admin's chosen test recipient when given, else the admin email.
-		$recipient = sanitize_email( $recipient );
-		$to        = '' !== $recipient && is_email( $recipient ) ? $recipient : (string) get_option( 'admin_email', '' );
+		$to = self::test_recipient( $recipient );
 		if ( '' === $to ) {
 			return false;
 		}
@@ -617,6 +616,27 @@ class EmailEditor {
 			\BuddyNext\Notifications\EmailSender::brand_wrap( nl2br( $body ), $subject ),
 			\BuddyNext\Notifications\EmailSender::build_identity_headers()
 		);
+	}
+
+	/**
+	 * The address a test send goes to.
+	 *
+	 * A blank field means the site admin email, which is what the modal's hint
+	 * promises. A typed address that is not valid is refused rather than quietly
+	 * replaced, so the test can never land somewhere the owner did not choose.
+	 *
+	 * @param string $typed What the owner typed.
+	 * @return string The address, or '' when there is no usable one.
+	 */
+	private static function test_recipient( string $typed ): string {
+		$typed = trim( $typed );
+		if ( '' === $typed ) {
+			return (string) get_option( 'admin_email', '' );
+		}
+
+		$email = sanitize_email( $typed );
+
+		return is_email( $email ) ? $email : '';
 	}
 
 	// ── AJAX handlers ─────────────────────────────────────────────────────────
@@ -668,16 +688,32 @@ class EmailEditor {
 
 		$this->ensure_table_or_die();
 
-		$slug      = $this->sanitize_template_type( sanitize_text_field( wp_unslash( $_POST['template_slug'] ?? '' ) ) );
-		$recipient = sanitize_email( wp_unslash( $_POST['bn_test_recipient'] ?? '' ) );
-		$sent      = $this->send_test( $slug, $recipient );
-
-		$redirect = $this->hub_url(
-			array(
-				'template' => $slug,
-				'tested'   => $sent ? '1' : '0',
-			)
+		$slug = $this->sanitize_template_type( sanitize_text_field( wp_unslash( $_POST['template_slug'] ?? '' ) ) );
+		$to   = self::test_recipient( sanitize_text_field( wp_unslash( $_POST['bn_test_recipient'] ?? '' ) ) );
+		$args = array(
+			'template' => $slug,
+			'tested'   => '0',
 		);
+
+		if ( '' === $to ) {
+			$args['test_error'] = 'recipient';
+		} else {
+			// The editor's unsaved subject and body, sanitised as a save would. Absent
+			// (no JS copied them across) means the saved version.
+			$draft = isset( $_POST['draft_subject'], $_POST['draft_body'] )
+				? array(
+					'subject' => sanitize_text_field( wp_unslash( $_POST['draft_subject'] ) ),
+					'body'    => wp_kses_post( wp_unslash( $_POST['draft_body'] ) ),
+				)
+				: null;
+
+			if ( $this->send_test( $slug, $to, $draft ) ) {
+				$args['tested']    = '1';
+				$args['tested_to'] = rawurlencode( $to );
+			}
+		}
+
+		$redirect = $this->hub_url( $args );
 
 		wp_safe_redirect( $redirect );
 		exit;
@@ -846,18 +882,29 @@ class EmailEditor {
 
 		<?php if ( 1 === $tested ) : ?>
 			<?php
+			$bn_tested_to = sanitize_email( wp_unslash( (string) ( $_GET['tested_to'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice text, escaped by render_notice().
 			AdminPageBase::render_notice(
-				__( 'Test email sent.', 'buddynext' ),
+				/* translators: %s: email address the test was sent to. */
+				sprintf( __( 'Test email sent to %s.', 'buddynext' ), $bn_tested_to ),
 				'success',
 				false,
 				array(
-					'data-bn-clear-param'  => 'tested',
-					'data-bn-auto-dismiss' => '5000',
+					'data-bn-clear-param' => 'tested tested_to',
 				)
 			);
 			?>
 		<?php elseif ( 0 === $tested ) : ?>
-			<?php AdminPageBase::render_notice( __( 'Test email failed. Check wp_mail() configuration.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'tested' ) ); ?>
+			<?php
+			$bn_bad_recipient = 'recipient' === sanitize_key( wp_unslash( (string) ( $_GET['test_error'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice flag.
+			AdminPageBase::render_notice(
+				$bn_bad_recipient
+					? __( 'Test email not sent: that is not a valid email address. Nothing was sent to any other address.', 'buddynext' )
+					: __( 'Test email failed. Check wp_mail() configuration.', 'buddynext' ),
+				'error',
+				false,
+				array( 'data-bn-clear-param' => 'tested test_error' )
+			);
+			?>
 		<?php endif; ?>
 
 		<?php if ( 1 === $reset ) : ?>
@@ -1161,6 +1208,7 @@ class EmailEditor {
 						<iframe
 							class="bn-email-editor__preview-frame"
 							title="<?php esc_attr_e( 'Email preview', 'buddynext' ); ?>"
+							sandbox=""
 							data-bn-preview-iframe
 						></iframe>
 					</div>
@@ -1183,6 +1231,7 @@ class EmailEditor {
 				method="post"
 				action="<?php echo esc_url( $admin_post ); ?>"
 				class="bn-modal__panel"
+				data-bn-test-form
 			>
 				<header class="bn-modal__head">
 					<h2 id="bn-email-modal-test-title" class="bn-modal__title">
@@ -1197,7 +1246,7 @@ class EmailEditor {
 				</header>
 				<div class="bn-modal__body">
 					<p>
-						<?php esc_html_e( 'A copy of this template, with sample data, will be sent using your configured From name, address, and Reply-To.', 'buddynext' ); ?>
+						<?php esc_html_e( 'This template as it stands in the editor, including any unsaved changes, will be sent with sample data using your configured From name, address, and Reply-To.', 'buddynext' ); ?>
 					</p>
 					<p class="bn-field">
 						<label for="bn-test-recipient"><?php esc_html_e( 'Send to', 'buddynext' ); ?></label>

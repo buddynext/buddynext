@@ -40,6 +40,24 @@ class PrivacyService {
 	);
 
 	/**
+	 * A viewer's answer for a member they cannot act on: a guest, themselves, or a
+	 * viewer whose account may not write.
+	 *
+	 * @var array<string, mixed>
+	 */
+	public const NO_SOCIAL_STATE = array(
+		'may_interact'  => false,
+		'is_blocked'    => false,
+		'is_following'  => false,
+		'is_pending'    => false,
+		'connection'    => null,
+		'can_follow'    => false,
+		'can_connect'   => false,
+		'upgrade_url'   => '',
+		'upgrade_label' => '',
+	);
+
+	/**
 	 * Follow-graph service.
 	 *
 	 * @var FollowService
@@ -163,8 +181,6 @@ class PrivacyService {
 			return false;
 		}
 
-		$preference = $this->get_preference( $target_id, 'who_can_follow' );
-
 		/**
 		 * Filter whether an actor may follow a target.
 		 *
@@ -175,7 +191,7 @@ class PrivacyService {
 		 * @param int  $target_id The user being followed.
 		 * @param int  $actor_id  The user attempting to follow.
 		 */
-		return (bool) apply_filters( 'buddynext_can_follow', 'everyone' === $preference, $target_id, $actor_id );
+		return (bool) apply_filters( 'buddynext_can_follow', 'everyone' === $this->get_preference( $target_id, 'who_can_follow' ), $target_id, $actor_id );
 	}
 
 	/**
@@ -195,19 +211,6 @@ class PrivacyService {
 			return false;
 		}
 
-		$preference = $this->get_preference( $target_id, 'who_can_connect' );
-
-		if ( 'everyone' === $preference ) {
-			$can = true;
-		} elseif ( 'followers' === $preference ) {
-			// "followers" means: only people who follow the target may connect, so
-			// the actor must already follow the target. is_following($follower,
-			// $following) is true when arg1 follows arg2 → ($actor_id, $target_id).
-			$can = $this->follows->is_following( $actor_id, $target_id );
-		} else {
-			$can = false;
-		}
-
 		/**
 		 * Filter whether an actor may send a connection request to a target.
 		 *
@@ -223,7 +226,106 @@ class PrivacyService {
 		 * @param int  $target_id The user receiving the request.
 		 * @param int  $actor_id  The user attempting to connect.
 		 */
-		return (bool) apply_filters( 'buddynext_can_connect', $can, $target_id, $actor_id );
+		return (bool) apply_filters( 'buddynext_can_connect', $this->connect_preference_allows( $actor_id, $target_id ), $target_id, $actor_id );
+	}
+
+	/**
+	 * Whether the target's who_can_connect preference lets this actor ask.
+	 *
+	 * @param int $actor_id  ID of the user sending the request.
+	 * @param int $target_id ID of the user receiving the request.
+	 * @return bool
+	 */
+	private function connect_preference_allows( int $actor_id, int $target_id ): bool {
+		$preference = $this->get_preference( $target_id, 'who_can_connect' );
+
+		// "followers" means: only people who follow the target may connect, so the
+		// actor must already follow the target.
+		return 'everyone' === $preference
+			|| ( 'followers' === $preference && $this->follows->is_following( $actor_id, $target_id ) );
+	}
+
+	/**
+	 * What one viewer can see and do about each of many members: the single answer
+	 * every member card renders (the directory template, GET /members, search rows).
+	 *
+	 * Both can_follow() and can_connect() run per member, filters included, so a card
+	 * offers what the write path would allow. The maps below prime the follow and
+	 * block lookups they read, so a page costs a fixed set of queries.
+	 *
+	 * @param int   $viewer_id Viewer; 0 for a guest.
+	 * @param int[] $user_ids  Members on the page.
+	 * @return array<int, array<string, mixed>> NO_SOCIAL_STATE's shape, keyed by member ID.
+	 */
+	public function social_state_for( int $viewer_id, array $user_ids ): array {
+		$ids    = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		$states = array_fill_keys( $ids, self::NO_SOCIAL_STATE );
+
+		// The same seam the write paths enforce on, so a suspended member is offered nothing.
+		if ( $viewer_id <= 0 || ! $ids || ! buddynext_can( $viewer_id, 'buddynext-connections/follow' ) ) {
+			return $states;
+		}
+
+		update_meta_cache( 'user', $ids );
+		$following  = $this->follows->following_map( $viewer_id, $ids );
+		$pending    = $this->follows->pending_map( $viewer_id, $ids );
+		$blocked    = $this->blocks->blocking_either_map( $viewer_id, $ids );
+		$connection = $this->connections->statuses_for( $viewer_id, $ids );
+
+		/**
+		 * Filter where a member goes to unlock following and connecting.
+		 *
+		 * Return a URL only when the viewer's own plan is what withholds the action.
+		 * Free ships no plans, so its answer is always empty, and an empty answer
+		 * means the card simply does not offer the action.
+		 *
+		 * @since 1.2.8
+		 *
+		 * @param string $url       Upgrade URL. Default ''.
+		 * @param int    $viewer_id Viewer.
+		 */
+		$upgrade_url = (string) apply_filters( 'buddynext_social_upgrade_url', '', $viewer_id );
+
+		foreach ( $ids as $uid ) {
+			if ( $uid === $viewer_id ) {
+				continue;
+			}
+
+			$states[ $uid ]['may_interact'] = true;
+			if ( isset( $blocked[ $uid ] ) ) {
+				$states[ $uid ]['is_blocked'] = true;
+				continue;
+			}
+
+			$state = array(
+				'is_following' => ! empty( $following[ $uid ] ),
+				'is_pending'   => ! empty( $pending[ $uid ] ),
+				'connection'   => $connection[ $uid ] ?? null,
+				'can_follow'   => $this->can_follow( $viewer_id, $uid ),
+				'can_connect'  => $this->can_connect( $viewer_id, $uid ),
+			);
+
+			// Upgrade only where the member would otherwise say yes: paying cannot
+			// open a who_can_follow of 'nobody'.
+			if ( '' !== $upgrade_url ) {
+				$label = '';
+				if ( ! $state['can_follow'] && ! $state['is_following'] && ! $state['is_pending']
+					&& 'everyone' === $this->get_preference( $uid, 'who_can_follow' ) ) {
+					$label = __( 'Upgrade to follow', 'buddynext' );
+				} elseif ( ! $state['can_connect'] && ! in_array( $state['connection'], array( 'accepted', 'pending-sent', 'pending-received' ), true )
+					&& $this->connect_preference_allows( $viewer_id, $uid ) ) {
+					$label = __( 'Upgrade to connect', 'buddynext' );
+				}
+				if ( '' !== $label ) {
+					$state['upgrade_url']   = $upgrade_url;
+					$state['upgrade_label'] = $label;
+				}
+			}
+
+			$states[ $uid ] = array_merge( $states[ $uid ], $state );
+		}
+
+		return $states;
 	}
 
 	/**
@@ -283,17 +385,34 @@ class PrivacyService {
 			return false;
 		}
 
-		$visibility = $this->get_preference( $owner_id, 'profile_visibility' );
+		// Closures so a public profile answers without a follow or connection query.
+		return $this->profile_audience_allows(
+			$owner_id,
+			fn(): bool => $this->follows->is_following( $viewer_id, $owner_id ),
+			fn(): bool => $this->connections->are_connected( $viewer_id, $owner_id )
+		);
+	}
 
-		switch ( $visibility ) {
+	/**
+	 * Whether a viewer's relationship to a member satisfies that member's
+	 * profile_visibility. Separate from can_view_profile() so a list can answer it
+	 * from batched maps instead of one query per row.
+	 *
+	 * @param int      $owner_id     Profile owner.
+	 * @param callable $is_follower  Returns whether the viewer follows the owner.
+	 * @param callable $is_connected Returns whether the viewer is connected to the owner.
+	 * @return bool
+	 */
+	public function profile_audience_allows( int $owner_id, callable $is_follower, callable $is_connected ): bool {
+		switch ( $this->get_preference( $owner_id, 'profile_visibility' ) ) {
 			case 'public':
 				return true;
 
 			case 'followers':
-				return $this->follows->is_following( $viewer_id, $owner_id );
+				return (bool) $is_follower();
 
 			case 'connections':
-				return $this->connections->are_connected( $viewer_id, $owner_id );
+				return (bool) $is_connected();
 
 			default:
 				return false;

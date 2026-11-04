@@ -14,7 +14,7 @@ In short: the people are already there, and their accounts work on day one.
 
 ## What the importer brings across
 
-Your community-specific data lives in BuddyPress or BuddyBoss storage, and BuddyNext keeps its own. The two are separate systems, so BuddyNext does not read your old data on its own - but **BuddyNext Importer** does. It is a free companion plugin, and it is the recommended route for any community with history worth keeping.
+Your community-specific data lives in BuddyPress or BuddyBoss storage, and BuddyNext keeps its own. The two are separate systems, so BuddyNext does not read your old data on its own - but **BuddyNext Importer** does. It is a free companion plugin ([download the latest release](https://github.com/buddynext/buddynext-importer/releases/latest), source on [GitHub](https://github.com/buddynext/buddynext-importer)), and it is the recommended route for any community with history worth keeping.
 
 It reads the old community's tables straight from your database and writes into BuddyNext through BuddyNext's own services. It moves thirteen domains, all selected by default:
 
@@ -24,8 +24,8 @@ It reads the old community's tables straight from your database and writes into 
 - **Friendships**, **follows**, **reactions** and saved **bookmarks**
 - **Forums** from bbPress, with topics, replies and topic tags (needs Jetonomy)
 - **Avatars and cover images**
-- **Albums and media**, including rtMedia photos and videos (needs WPMediaVerse)
-- **Private messages** (needs WPMediaVerse)
+- **Albums and media**, including rtMedia photos and videos (needs MediaVerse)
+- **Private messages** (needs MediaVerse)
 
 A domain whose destination plugin is not active is skipped and the importer says so.
 
@@ -97,7 +97,7 @@ Three notes on the mapping:
 
 ### How to run it
 
-1. Install and activate **BuddyNext Importer** on your staging copy, with BuddyNext active. Your BuddyPress or BuddyBoss data must still be in the database; the importer picks the source it finds (BuddyBoss first, then BuddyPress).
+1. Download `buddynext-importer-<version>.zip` from the [latest BuddyNext Importer release](https://github.com/buddynext/buddynext-importer/releases/latest), then install it from **Plugins > Add New > Upload Plugin** and activate it on your staging copy, with BuddyNext active. Your BuddyPress or BuddyBoss data must still be in the database; the importer picks the source it finds (BuddyBoss first, then BuddyPress).
 2. Go to **Tools > Import to BuddyNext**.
 3. Read the source panel. It lists what was found and the content this importer cannot carry.
 4. In **What to import**, leave everything ticked, or untick what you want to leave behind.

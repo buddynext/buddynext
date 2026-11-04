@@ -38,6 +38,13 @@ final class SetupChecklist {
 	private const OPT_THEME_ACK = 'buddynext_theme_tip_ack';
 
 	/**
+	 * Per-admin flag: this admin hid the "setup is not complete" reminder.
+	 *
+	 * @var string
+	 */
+	private const META_SETUP_NOTICE_HIDDEN = 'buddynext_setup_notice_hidden';
+
+	/**
 	 * Themes purpose-built for BuddyNext (parent slugs; child themes inherit the
 	 * template slug, so a BuddyX child still matches).
 	 *
@@ -62,6 +69,60 @@ final class SetupChecklist {
 		add_action( 'admin_post_bn_ack_theme_tip', array( $this, 'handle_ack_theme_tip' ) );
 		add_action( 'admin_post_bn_use_pretty_permalinks', array( $this, 'handle_use_pretty_permalinks' ) );
 		add_action( 'admin_notices', array( self::class, 'render_permalink_notice' ) );
+		add_action( 'admin_notices', array( self::class, 'render_setup_notice' ) );
+		add_action( 'admin_post_bn_hide_setup_notice', array( $this, 'handle_hide_setup_notice' ) );
+	}
+
+	/**
+	 * "Setup is not complete" reminder until the wizard is finished.
+	 *
+	 * Shown on the Dashboard and BuddyNext screens only, never on the landing
+	 * (its own card and checklist already say it) or the wizard itself. It used
+	 * to print on every wp-admin screen with a core X that remembered nothing,
+	 * so an owner who set up by hand saw it forever. Hiding it is per admin.
+	 *
+	 * @return void
+	 */
+	public static function render_setup_notice(): void {
+		if ( '1' === (string) get_option( 'buddynext_setup_complete', '0' ) || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( get_user_meta( get_current_user_id(), self::META_SETUP_NOTICE_HIDDEN, true ) ) {
+			return;
+		}
+		$screen = get_current_screen();
+		$id     = $screen ? (string) $screen->id : '';
+		if ( 'dashboard' !== $id && ! str_contains( $id, 'buddynext' ) ) {
+			return;
+		}
+		if ( str_contains( $id, 'buddynext-setup' ) || 'toplevel_page_' . self::LANDING_SLUG === $id ) {
+			return;
+		}
+
+		$hide_url = wp_nonce_url( admin_url( 'admin-post.php?action=bn_hide_setup_notice' ), 'bn_hide_setup_notice' );
+		printf(
+			'<div class="notice notice-info"><p><strong>%1$s</strong> <a href="%2$s">%3$s</a> &middot; <a href="%4$s">%5$s</a></p></div>',
+			esc_html__( 'BuddyNext setup is not complete.', 'buddynext' ),
+			esc_url( admin_url( 'admin.php?page=buddynext-setup' ) ),
+			esc_html__( 'Run the setup wizard', 'buddynext' ),
+			esc_url( $hide_url ),
+			esc_html__( 'Hide this message', 'buddynext' )
+		);
+	}
+
+	/**
+	 * Handle admin_post_bn_hide_setup_notice: hide the reminder for this admin.
+	 *
+	 * @return void
+	 */
+	public function handle_hide_setup_notice(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'bn_hide_setup_notice' );
+		update_user_meta( get_current_user_id(), self::META_SETUP_NOTICE_HIDDEN, 1 );
+		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=buddynext' ) );
+		exit;
 	}
 
 	/**
@@ -155,7 +216,7 @@ final class SetupChecklist {
 	 * @return array<int,array{key:string,label:string,desc:string,done:bool,cta:string,cta_label:string,icon:string}>
 	 */
 	public static function steps(): array {
-		return array(
+		$steps = array(
 			array(
 				'key'       => 'permalinks',
 				'label'     => __( 'Pretty permalinks', 'buddynext' ),
@@ -226,7 +287,7 @@ final class SetupChecklist {
 				'key'       => 'brand',
 				'label'     => __( 'Brand it', 'buddynext' ),
 				'desc'      => __( 'Set your accent colour so the community feels like yours.', 'buddynext' ),
-				'done'      => false !== get_option( 'buddynext_brand_color', false ),
+				'done'      => '' !== \BuddyNext\Theme\Appearance::picked_brand(),
 				'cta'       => AdminHub::tab_url( 'settings', 'appearance' ),
 				'cta_label' => __( 'Customise', 'buddynext' ),
 				'icon'      => 'palette',
@@ -249,6 +310,24 @@ final class SetupChecklist {
 				'dismiss'   => 'theme_tip',
 			),
 		);
+
+		// Messages come from WPMediaVerse, whose own switch can leave them off with
+		// nothing on the member side to say why. While it is active, the owner gets
+		// a step that is done once messaging is on, with the one click if it is not.
+		if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+			$bn_turn_on = \BuddyNext\Messages\MessagesData::turn_on_url();
+			$steps[]    = array(
+				'key'       => 'messages',
+				'label'     => __( 'Turn on messages', 'buddynext' ),
+				'desc'      => __( 'Messages are off in MediaVerse. Turn them on to let members message each other.', 'buddynext' ),
+				'done'      => ! \BuddyNext\Messages\MessagesData::switched_off(),
+				'cta'       => '' !== $bn_turn_on ? $bn_turn_on : \BuddyNext\Messages\MessagesData::settings_url(),
+				'cta_label' => __( 'Turn on messages', 'buddynext' ),
+				'icon'      => 'message-circle',
+			);
+		}
+
+		return $steps;
 	}
 
 	/**

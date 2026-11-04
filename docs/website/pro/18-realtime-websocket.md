@@ -16,16 +16,16 @@ Real-time removes that wait. When the WebSocket transport is connected, an event
 
 For the owner this is a transport upgrade, not a feature rebuild. The same events that polling reads are published over the socket, so turning real-time on makes existing surfaces faster without changing how they work. When real-time is off or the server is unreachable, the community quietly falls back to polling - no broken features, just the slower cadence.
 
-> **Note:** Real-time needs a WebSocket server you run or subscribe to. Until one is configured and enabled, the community runs on the free polling transport. Direct-message real-time additionally relies on the WPMediaVerse messaging engine.
+> **Note:** Real-time needs a WebSocket server you run or subscribe to. Until one is configured and enabled, the community runs on the free polling transport. Direct-message real-time additionally relies on the MediaVerse messaging engine.
 
 ## How it works (for members)
 
 There is nothing for a member to configure. Once the owner has connected a realtime server, the transport loads automatically for logged-in members. They simply notice that things update without a refresh:
 
-- The notification bell badge updates as notifications arrive, on every page.
+- The notification bell badge updates as notifications arrive, on every page. A notification type with **In-app** switched off sends no live bell update, because no bell row changed.
 - New posts in the feed and in spaces appear live.
-- Reactions and comments on posts they are viewing update in place.
-- Direct messages arrive instantly in an open conversation, through the WPMediaVerse messaging engine.
+- Reaction and comment counts on posts they are viewing update in place, and they go down as well as up when someone removes a reaction or deletes a comment. Your own tab does not receive your own event.
+- Direct messages arrive instantly in an open conversation, through the MediaVerse messaging engine.
 
 If the server is unreachable, the member sees no error - the experience falls back to the standard polling updates.
 
@@ -33,7 +33,7 @@ If the server is unreachable, the member sees no error - the experience falls ba
 
 ## Setting it up (for owners)
 
-Realtime settings live in the BuddyNext admin under **Realtime & Push > Realtime**. The page opens with a setup guide for choosing a server. Realtime has its own switch in the Features catalogue, **Realtime**, which is off by default. Turn it on first; the Realtime screen then shows whether it is off, on but not yet configured, or on and configured.
+Realtime settings live in the BuddyNext admin under **Realtime & Push > Realtime**. The page opens with a setup guide for choosing a server. Realtime has its own switch in the Features catalogue, **Realtime**, which is off by default. Turn it on first; the Realtime screen then shows whether it is off, on but not yet configured, or on and configured. Its Features row also links here with **Open its settings**. The older standalone Realtime address forwards into the BuddyNext admin, so old bookmarks open with the BuddyNext sidebar.
 
 ### Requirements
 
@@ -78,7 +78,7 @@ The Realtime page has a **Test connection** button, in the Diagnostics section. 
 
 - Real-time is an upgrade to the free polling transport, not a replacement for the features it accelerates. Every live surface keeps working on polling when realtime is off or the server is down.
 - The transport loads for logged-in members so the notification bell stays current site-wide, and on BuddyNext hub pages. An owner can refine where it loads if needed.
-- Direct-message real-time is delivered through the WPMediaVerse messaging engine on a per-conversation channel. The messaging engine must be present for DM live updates.
+- Direct-message real-time is delivered through the MediaVerse messaging engine on a per-conversation channel. The messaging engine must be present for DM live updates.
 - Private channels (personal notifications, conversations, members-only spaces) are authorized per member, so a member can never subscribe to another member's stream or a space they do not belong to.
 - Posts in a members-only space are routed to that space's private channel rather than a public one, so a non-member subscribing to public channels cannot read private-space activity.
 - Member presence and the "Online now" filter are handled by the free presence heartbeat, independently of the WebSocket connection.

@@ -14,14 +14,14 @@ Gated spaces let you sell access to a whole community area. Content Protection l
 
 For the owner, this turns a community post or a section of a page into paid content with almost no effort. You post as usual, choose **Members only** (or wrap a section in a shortcode), and the same memberships that power your spaces now also unlock that content. There is nothing new for members to learn - the access they already pay for opens the protected post.
 
-For a member, the value is clear right at the lock: a readable teaser plus a single button to become a member. They are never shown a blank page or a dead end.
+For a member, the value is clear right at the lock: a readable teaser plus a single button to become a member. The button only ever leads to a plan that unlocks the content, and is left out when no such plan can be bought.
 
 ## How it works (for members)
 
 When a member or visitor opens protected content without the required plan:
 
 1. They see a teaser - the first part of the content, as plain text. For a community post the teaser is a share of the text (25% by default). For a locked page or shortcode section it is the first 40 words.
-2. Below the teaser, a locked card explains the content is for members and shows a call-to-action button to upgrade.
+2. Below the teaser, a locked card explains the content is for members and shows a call-to-action button. The button goes to your call-to-action link if you set one; otherwise it opens a plan that unlocks this content: the plan named in the shortcode, or the cheapest listed plan with the View Protected Content perk. When no such plan can be bought, the card has no button.
 3. After they join the right plan, the same page shows the full content with no teaser and no card.
 
 Logged-out visitors are treated as non-members and see the teaser plus the locked card. Members who hold the required plan, and site administrators, always see the full content.
@@ -75,7 +75,7 @@ The locked card non-members see has a heading, a short note, and a call-to-actio
 | Call-to-action URL | Where the locked card's button sends non-members to upgrade. Shared with the space paywall. | The membership pricing page (`/membership-plans/` by default) |
 | Call-to-action label | The text on the locked card's button. Shared with the space paywall. | "Become a Member" |
 
-The locked card reads "Members only" with the note "This content is available to members. Upgrade your plan to keep reading." A locked community post shows its own join prompt: its button always reads "Become a member" and goes to the same URL, and it is hidden when no plan is on sale.
+The locked card reads "Members only" with the note "This content is available to members." followed by "Upgrade your plan to keep reading." for a logged-in member or "Join to keep reading." for a visitor; with nothing to buy it stops after the first sentence. A locked community post shows its own join prompt: its button always reads "Become a member" and goes to the same URL, and it is hidden when no plan that unlocks the content is on sale.
 
 > **Tip:** Point the call-to-action URL at the page where members choose and buy a plan, so a non-member who hits a locked post can subscribe in one click. With Stripe connected, that page is where they pay. See Stripe Payments.
 

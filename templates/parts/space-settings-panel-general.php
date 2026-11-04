@@ -129,10 +129,10 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			<?php // Category-icon fallback the JS restores into the preview when the icon is removed. ?>
 			<template class="bn-space-settings__upload-fallback"><?php echo wp_kses( bn_space_category_icon( $bn_space->category_slug ?? '' ), \BuddyNext\Core\IconService::allowed_tags() ); ?></template>
 			<div class="bn-space-settings__upload-actions">
-				<button type="button" class="bn-btn" data-variant="secondary" data-size="md" id="bn_space_icon">
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" id="bn_space_icon">
 					<?php esc_html_e( 'Upload image', 'buddynext' ); ?>
 				</button>
-				<button type="button" class="bn-btn" data-variant="ghost" data-size="md" data-bn-icon-remove<?php echo empty( $bn_space->avatar_url ) ? ' hidden' : ''; ?>>
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-icon-remove<?php echo empty( $bn_space->avatar_url ) ? ' hidden' : ''; ?>>
 					<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 				</button>
 				<p class="bn-space-settings__hint"><?php esc_html_e( 'Or pick an icon based on the category.', 'buddynext' ); ?></p>
@@ -187,7 +187,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			<button
 				type="button"
 				class="bn-btn"
-				data-variant="ghost"
+				data-variant="secondary"
 				data-size="sm"
 				data-bn-cover-remove
 				<?php echo empty( $bn_space->cover_image_url ) ? 'hidden' : ''; ?>
@@ -255,11 +255,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 	// When no custom colour is set the space uses the site's default accent (the
 	// hero emits no per-space brand var), so show THAT in the swatch rather than a
 	// literal blue the space never actually renders.
-	$bn_site_brand = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
-	if ( '' === $bn_site_brand ) {
-		$bn_site_brand = \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
-	}
-	$bn_brand_swatch = $bn_brand_on ? $bn_brand_color : $bn_site_brand;
+	$bn_brand_swatch = $bn_brand_on ? $bn_brand_color : \BuddyNext\Theme\Appearance::display_brand();
 	?>
 	<div class="bn-space-settings__field">
 		<label for="space_brand_color"><?php esc_html_e( 'Brand colour', 'buddynext' ); ?></label>
@@ -322,13 +318,14 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 		// anyway is what made a moderator's Save fail on a control they were
 		// invited to use. Disabled says the same thing before they type.
 		?>
-		<select name="space_category_id" id="space_category_id" class="bn-select"
+		<select name="space_category_id" id="space_category_id" class="bn-select" data-bn-category-level
 			<?php disabled( ! $args['is_space_owner'] ); ?>
 		>
 			<option value=""><?php esc_html_e( 'Select a category', 'buddynext' ); ?></option>
 			<?php foreach ( $bn_categories as $bn_cat_item ) : ?>
 				<option
 					value="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
+					data-level="<?php echo esc_attr( (string) ( $bn_cat_item->level ?? 'both' ) ); ?>"
 					<?php selected( (int) ( $bn_space->category_id ?? 0 ), (int) $bn_cat_item->id ); ?>
 				><?php echo esc_html( $bn_cat_item->name ); ?></option>
 			<?php endforeach; ?>

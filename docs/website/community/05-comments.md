@@ -22,7 +22,7 @@ Open the comment area on a post, type your comment, and submit. It appears in th
 
 ### Reply to a comment
 
-Use the reply control on any comment to answer it directly. Your reply nests underneath the comment you answered, keeping the back-and-forth together. Replies can nest up to five levels deep. A reply that would go past the fifth level is declined with a message ("This thread has reached its maximum reply depth"), so a single thread never marches off the side of the screen.
+Use the reply control on any comment to answer it directly. Your reply nests underneath the comment you answered, keeping the back-and-forth together. Replies can nest up to five levels deep. Reply is still offered on a fifth-level comment: your reply lands beside that comment at the same level instead of going one deeper. The thread steps in evenly at each level and stays readable on phones. Typing `@` or `#` in a reply box shows member and hashtag suggestions.
 
 ### Edit your own comment
 
@@ -41,7 +41,7 @@ Comments support the same reactions as posts. Open the reaction picker on a comm
 
 ### Pin a comment
 
-A site administrator, or the owner or a moderator of the space the post is in, can pin one top-level comment to the top of a thread - useful for an official answer, a correction, or the most helpful reply. A reply cannot be pinned. Pinning a second comment replaces the first; there is one pinned comment per post. They can unpin at any time.
+A site administrator, or the owner or a moderator of the space the post is in, can pin one top-level comment to the top of a thread - useful for an official answer, a correction, or the most helpful reply. A reply cannot be pinned. Pinning a second comment replaces the first and clears its badge; there is one pinned comment per post. The pinned comment sits first on page one of the thread and is not repeated on **View more** pages. They can unpin at any time.
 
 ## Setting it up (for owners)
 
@@ -59,7 +59,9 @@ The feature toggle lives under **BuddyNext > Platform > Features**. The comment 
 ## Good to know
 
 - Soft delete keeps the thread shape. Deleting a comment does not pull its replies down with it. The comment is blanked and shown as deleted, and the replies underneath it stay where they are. This is why a busy thread never collapses when someone removes a comment mid-conversation.
-- Depth is capped at five levels. Replies nest up to five deep. A reply that would exceed the fifth level is not accepted - the member is told the thread has reached its maximum reply depth - and in the thread view the deepest level is flattened so it stays readable rather than marching off the side of the screen.
+- Depth is capped at five levels. Replies nest up to five deep. A reply to a fifth-level comment joins that level rather than going deeper, so the thread stays readable and never marches off the side of the screen.
+- **Reported stays reported.** After you report a comment, it shows a disabled **Reported** label, and it still does after you reload the page.
+- **Live counts.** When someone comments while you read, the post's comment count goes up by one, and the new-comment pill adds the new comment in its place, under its parent if it is a reply. Deleting a comment brings the count back down.
 - Suspended members cannot comment. If a member has been suspended through Moderation, their attempt to comment is blocked with a clear message. See Moderation for how suspensions work.
 - Restricted members are hidden from others. If a post owner has restricted a member, that member's comments are hidden from other viewers on the owner's own posts, while still visible to the owner, admins, and the member themselves.
 - Editing and deleting are limited to your own comments, plus site administrators. A member can only edit or delete what they wrote; a site administrator can do either on any comment, and moderators remove a reported comment with **Remove** in the moderation queue.

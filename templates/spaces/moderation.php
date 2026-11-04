@@ -97,30 +97,48 @@ $total_actions = (int) ( $bn_mod_log_svc->get_log(
 	)
 )['total'] ?? 0 );
 
-// ── Fetch open reports ────────────────────────────────────────────────────────
+// ── Fetch the active tab's page ───────────────────────────────────────────────
+// Each tab pages by ?mpage= like the Community Admin queue, from the totals above
+// (COUNT queries, never row counts). The page is clamped so a moderator who clears
+// the last page lands on the new last one instead of an empty list.
+$bn_mod_per_page = 20;
+$bn_mod_totals   = array(
+	'reports' => $open_reports_count,
+	'pending' => $pending_count,
+	'log'     => $total_actions,
+);
+$bn_mod_pages    = (int) max( 1, ceil( $bn_mod_totals[ $mod_tab ] / $bn_mod_per_page ) );
+$bn_mod_page     = isset( $_GET['mpage'] ) ? min( $bn_mod_pages, max( 1, (int) $_GET['mpage'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
 // get_queue() consolidates per-content reports, enriches user reports with
 // strike count / offender name, and scopes by space_ids — replacing the
 // hand-rolled aggregation + strike subqueries this template used to assemble.
-$open_reports = $bn_mod_svc->get_queue(
-	array(
-		'space_ids' => array( $space_id ),
-		'enrich'    => true,
-		'per_page'  => 20,
-	)
-)['items'];
+$open_reports = 'reports' === $mod_tab
+	? $bn_mod_svc->get_queue(
+		array(
+			'space_ids' => array( $space_id ),
+			'enrich'    => true,
+			'per_page'  => $bn_mod_per_page,
+			'page'      => $bn_mod_page,
+		)
+	)['items']
+	: array();
 
-// ── Fetch pending members ─────────────────────────────────────────────────────
 // get_pending_requests() returns user_id + requested_at; resolve display names
 // via WP core get_userdata() (no SQL) for the bounded list.
-$pending_members = $bn_member_svc->get_pending_requests( $space_id, 20 );
+$pending_members = 'pending' === $mod_tab
+	? $bn_member_svc->get_pending_requests( $space_id, $bn_mod_per_page, ( $bn_mod_page - 1 ) * $bn_mod_per_page )
+	: array();
 
-// ── Fetch moderation activity log ─────────────────────────────────────────────
-$mod_log = $bn_mod_log_svc->get_log(
-	array(
-		'space_id' => $space_id,
-		'per_page' => 20,
-	)
-)['items'];
+$mod_log = 'log' === $mod_tab
+	? $bn_mod_log_svc->get_log(
+		array(
+			'space_id' => $space_id,
+			'per_page' => $bn_mod_per_page,
+			'page'     => $bn_mod_page,
+		)
+	)['items']
+	: array();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -199,14 +217,14 @@ $mod_privacy = array(
 			<?php
 			if ( $open_reports_count > 0 ) :
 				?>
-				<span class="bn-subnav__count"><?php echo esc_html( (string) $open_reports_count ); ?></span><?php endif; ?>
+				<span class="bn-subnav__count" data-bn-open-reports><?php echo esc_html( (string) $open_reports_count ); ?></span><?php endif; ?>
 		</a>
 		<a class="bn-subnav__item" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'pending', $mod_base_url ) ); ?>" aria-selected="<?php echo ( 'pending' === $mod_tab ) ? 'true' : 'false'; ?>">
 			<span class="bn-subnav__label"><?php esc_html_e( 'Pending members', 'buddynext' ); ?></span>
 			<?php
 			if ( $pending_count > 0 ) :
 				?>
-				<span class="bn-subnav__count"><?php echo esc_html( (string) $pending_count ); ?></span><?php endif; ?>
+				<span class="bn-subnav__count" data-bn-pending-count="<?php echo esc_attr( (string) $pending_count ); ?>"><?php echo esc_html( (string) $pending_count ); ?></span><?php endif; ?>
 		</a>
 		<a class="bn-subnav__item" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'log', $mod_base_url ) ); ?>" aria-selected="<?php echo ( 'log' === $mod_tab ) ? 'true' : 'false'; ?>">
 			<span class="bn-subnav__label"><?php esc_html_e( 'Activity log', 'buddynext' ); ?></span>
@@ -223,7 +241,7 @@ $mod_privacy = array(
 			</div>
 			<div class="bn-stat" role="listitem">
 				<div class="bn-stat__label"><?php esc_html_e( 'Pending member requests', 'buddynext' ); ?></div>
-				<div class="bn-stat__value"><?php echo esc_html( (string) $pending_count ); ?></div>
+				<div class="bn-stat__value" data-bn-pending-count="<?php echo esc_attr( (string) $pending_count ); ?>"><?php echo esc_html( (string) $pending_count ); ?></div>
 			</div>
 			<div class="bn-stat" role="listitem">
 				<div class="bn-stat__label"><?php esc_html_e( 'Members warned (7d)', 'buddynext' ); ?></div>
@@ -296,6 +314,7 @@ $mod_privacy = array(
 							?>
 							<article
 								class="bn-card bn-space-mod__report"
+								data-wp-key="report-<?php echo (int) $r_id; ?>"
 								data-tone="<?php echo esc_attr( $r_tone ); ?>"
 								data-wp-context='{"reportId":<?php echo (int) $r_id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>,"objectId":<?php echo (int) $r_obj_id; ?>,"objectType":"<?php echo esc_js( $r_obj_type ); ?>","cwType":"<?php echo esc_js( $r_cw_type ); ?>","cwHasWarning":<?php echo $r_cw_has ? 'true' : 'false'; ?>,"moreMenuOpen":false}'
 							>
@@ -464,6 +483,18 @@ $mod_privacy = array(
 						<?php endforeach; ?>
 						</div>
 
+						<?php
+						buddynext_get_template(
+							'parts/pagination.php',
+							array(
+								'current'    => $bn_mod_page,
+								'total'      => $bn_mod_pages,
+								'query_var'  => 'mpage',
+								'aria_label' => __( 'Report pages', 'buddynext' ),
+							)
+						);
+						?>
+
 					<?php endif; ?>
 
 				<?php elseif ( 'pending' === $mod_tab ) : ?>
@@ -482,12 +513,12 @@ $mod_privacy = array(
 								<h2 class="bn-space-mod__list-title">
 									<?php buddynext_icon( 'users' ); ?> <?php esc_html_e( 'Pending member requests', 'buddynext' ); ?>
 								</h2>
-								<span class="bn-badge" data-tone="default">
+								<span class="bn-badge" data-tone="default" data-bn-pending-count="<?php echo esc_attr( (string) $pending_count ); ?>" data-bn-pending-label>
 									<?php
 									printf(
-										/* translators: %d is the pending count. */
-										esc_html( _n( '%d awaiting approval', '%d awaiting approval', count( $pending_members ), 'buddynext' ) ),
-										count( $pending_members )
+										/* translators: %s is the pending count. */
+										esc_html__( '%s awaiting approval', 'buddynext' ),
+										esc_html( number_format_i18n( $pending_count ) )
 									);
 									?>
 								</span>
@@ -539,6 +570,18 @@ $mod_privacy = array(
 							</ul>
 						</div>
 
+						<?php
+						buddynext_get_template(
+							'parts/pagination.php',
+							array(
+								'current'    => $bn_mod_page,
+								'total'      => $bn_mod_pages,
+								'query_var'  => 'mpage',
+								'aria_label' => __( 'Join request pages', 'buddynext' ),
+							)
+						);
+						?>
+
 					<?php endif; ?>
 
 				<?php elseif ( 'log' === $mod_tab ) : ?>
@@ -584,6 +627,18 @@ $mod_privacy = array(
 								<?php endforeach; ?>
 							</ul>
 						</div>
+
+						<?php
+						buddynext_get_template(
+							'parts/pagination.php',
+							array(
+								'current'    => $bn_mod_page,
+								'total'      => $bn_mod_pages,
+								'query_var'  => 'mpage',
+								'aria_label' => __( 'Activity log pages', 'buddynext' ),
+							)
+						);
+						?>
 					<?php endif; ?>
 
 				<?php endif; ?>

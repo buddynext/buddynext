@@ -56,6 +56,8 @@ class IntegrationControlsAdmin {
 		}
 
 		$integrations = buddynext_integrations();
+		$bn_waiting   = \BuddyNext\Integrations\CompanionRegistry::waiting_for_pro();
+		$bn_pro       = \BuddyNext\Integrations\CompanionRegistry::pro_action();
 
 		echo '<p class="bn-field-hint">';
 		printf(
@@ -69,11 +71,41 @@ class IntegrationControlsAdmin {
 			<input type="hidden" name="action" value="bn_integration_controls_save">
 			<?php wp_nonce_field( 'bn_integration_controls_save' ); ?>
 
-			<?php if ( empty( $integrations ) ) : ?>
+			<?php
+			// Active partners whose bridge ships in BuddyNext Pro: say they are active,
+			// what Pro adds with each, and the one action that connects them all -
+			// never "activate an integration" for a plugin that is already active.
+			if ( ! empty( $bn_waiting ) ) :
+				?>
+				<div class="bn-settings-section">
+					<div class="bn-ss-header">
+						<div class="bn-ss-heading">
+							<span class="bn-ss-title"><?php esc_html_e( 'Active, waiting for BuddyNext Pro', 'buddynext' ); ?></span>
+						</div>
+					</div>
+					<div class="bn-ss-body">
+						<ul>
+							<?php foreach ( $bn_waiting as $bn_w ) : ?>
+								<li>
+									<?php
+									/* translators: 1: partner plugin name, 2: what BuddyNext Pro adds with it. */
+									echo esc_html( sprintf( __( '%1$s is active. With BuddyNext Pro: %2$s', 'buddynext' ), (string) ( $bn_w['label'] ?? '' ), (string) ( $bn_w['unlocks'] ?? '' ) ) );
+									?>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+						<?php if ( null !== $bn_pro ) : ?>
+							<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( $bn_pro['url'] ); ?>"<?php echo $bn_pro['external'] ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>><?php echo esc_html( $bn_pro['label'] ); ?></a>
+						<?php endif; ?>
+					</div>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( empty( $integrations ) && empty( $bn_waiting ) ) : ?>
 				<div class="bn-settings-section">
 					<div class="bn-ss-body">
 						<div class="bn-empty">
-							<p><?php esc_html_e( 'No controllable integrations are active yet. Activate an integration (such as Career Board, Listora, Learnomy, Jetonomy, or Gamification) and it will appear here.', 'buddynext' ); ?></p>
+							<p><?php esc_html_e( 'No controllable integrations are active yet. Activate an integration (such as WP Career Board, WB Listora, Learnomy, Jetonomy, or WB Gamification) and it will appear here.', 'buddynext' ); ?></p>
 						</div>
 					</div>
 				</div>
@@ -112,7 +144,8 @@ class IntegrationControlsAdmin {
 							<?php elseif ( $bn_behind ) : ?>
 								<?php // "Newer partner", not "Update available": the PARTNER is ahead of the bridge, so the owner has nothing to update - it is BuddyNext's bridge that is due a refresh. The old label sent owners to Plugins to update an already-current plugin (card 10320537769). ?>
 								<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Newer partner', 'buddynext' ); ?></span>
-							<?php else : ?>
+							<?php elseif ( null !== $bn_companion || '' !== $bn_version ) : ?>
+								<?php // A core-owned toggle (no partner, no version) is not a product that can be Active. ?>
 								<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 							<?php endif; ?>
 						</div>
@@ -212,13 +245,20 @@ class IntegrationControlsAdmin {
 								<div class="bn-int-subtab-group">
 									<span class="bn-int-subtab-group__kicker"><?php esc_html_e( 'Navigation sub-tabs', 'buddynext' ); ?></span>
 									<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
+										<?php $bn_sub_off = $entry['subtabs_unavailable'][ $bn_sub ] ?? null; ?>
 										<div class="bn-toggle-row bn-toggle-row--sub">
 											<div class="bn-toggle-row__copy">
 												<span class="bn-toggle-row__label"><?php echo esc_html( (string) $bn_sub_label ); ?></span>
+												<?php if ( null !== $bn_sub_off ) : ?>
+													<p class="bn-field-hint"><?php echo esc_html( $bn_sub_off['note'] ); ?></p>
+													<?php if ( '' !== $bn_sub_off['action_url'] && '' !== $bn_sub_off['action_label'] ) : ?>
+														<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_sub_off['action_url'] ); ?>"><?php echo esc_html( $bn_sub_off['action_label'] ); ?></a>
+													<?php endif; ?>
+												<?php endif; ?>
 											</div>
 											<label class="bn-toggle-label">
 												<?php // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false and the next save would write explicit 0s. ?>
-												<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> role="switch" aria-label="<?php echo esc_attr( (string) $bn_sub_label ); ?>">
+												<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( null === $bn_sub_off && '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> <?php disabled( null !== $bn_sub_off ); ?> role="switch" aria-label="<?php echo esc_attr( (string) $bn_sub_label ); ?>">
 												<span class="bn-toggle--inline"></span>
 											</label>
 										</div>
@@ -236,15 +276,14 @@ class IntegrationControlsAdmin {
 			<?php endif; ?>
 		</form>
 		<?php
-		// Family plugins not yet connected — surfaced so the owner can discover and
-		// add them. Sourced from the companion catalog's runtime probe; the whole
-		// block is skipped on a site where every companion is already active.
+		// Family plugins not yet connected, each with the step it actually needs next.
+		// The whole block is skipped on a site where every companion is connected.
 		$bn_available = array();
 		if ( class_exists( '\\BuddyNext\\Integrations\\CompanionRegistry' ) ) {
-			foreach ( \BuddyNext\Integrations\CompanionRegistry::all() as $bn_c ) {
-				$bn_detect = $bn_c['detect'] ?? null;
-				if ( ! ( is_callable( $bn_detect ) && (bool) $bn_detect() ) ) {
-					$bn_available[] = $bn_c;
+			foreach ( \BuddyNext\Integrations\CompanionRegistry::all() as $bn_slug => $bn_c ) {
+				$bn_step = \BuddyNext\Integrations\CompanionRegistry::next_step( (string) $bn_slug );
+				if ( null !== $bn_step ) {
+					$bn_available[] = array( $bn_c, $bn_step );
 				}
 			}
 		}
@@ -256,7 +295,7 @@ class IntegrationControlsAdmin {
 				</div>
 				<div class="bn-ss-body">
 					<?php
-					foreach ( $bn_available as $bn_c ) :
+					foreach ( $bn_available as list( $bn_c, $bn_step ) ) :
 						$bn_al = (string) ( $bn_c['label'] ?? '' );
 						$bn_aw = (string) ( $bn_c['why'] ?? ( $bn_c['unlocks'] ?? '' ) );
 						if ( '' === $bn_al ) {
@@ -270,9 +309,14 @@ class IntegrationControlsAdmin {
 									<p class="bn-field-hint"><?php echo esc_html( $bn_aw ); ?></p>
 								<?php endif; ?>
 							</div>
-							<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ); ?>">
-								<?php esc_html_e( 'Add', 'buddynext' ); ?>
-							</a>
+							<span class="bn-toggle-row__action">
+								<?php if ( 'needs_pro' === $bn_step['state'] ) : ?>
+									<span class="bn-field-hint"><?php esc_html_e( 'Needs BuddyNext Pro', 'buddynext' ); ?></span>
+								<?php endif; ?>
+								<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $bn_step['url'] ); ?>"<?php echo $bn_step['external'] ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>>
+									<?php echo esc_html( $bn_step['label'] ); ?>
+								</a>
+							</span>
 						</div>
 					<?php endforeach; ?>
 				</div>
@@ -354,8 +398,12 @@ class IntegrationControlsAdmin {
 			}
 			foreach ( (array) ( $entry['subtabs'] ?? array() ) as $sub => $unused_label ) {
 				$sub = sanitize_key( (string) $sub );
-				$on  = isset( $subtab[ $key ] ) && is_array( $subtab[ $key ] ) && ! empty( $subtab[ $key ][ $sub ] );
-				$ok  = $this->write_flag( "buddynext_integration_{$key}_subtab_{$sub}", $on ) && $ok;
+				// Unavailable right now: its switch was disabled, so keep the stored choice.
+				if ( isset( $entry['subtabs_unavailable'][ $sub ] ) ) {
+					continue;
+				}
+				$on = isset( $subtab[ $key ] ) && is_array( $subtab[ $key ] ) && ! empty( $subtab[ $key ][ $sub ] );
+				$ok = $this->write_flag( "buddynext_integration_{$key}_subtab_{$sub}", $on ) && $ok;
 			}
 			$ok = ( new \BuddyNext\Addons\AddonSettingsForm() )->save( $key ) && $ok;
 		}

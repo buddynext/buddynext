@@ -52,6 +52,9 @@ Every field carries the following controls.
 | Ask for this on the registration form | Adds the field to the sign-up form so you collect it before the member reaches their profile. Fields in a repeating group cannot be added to sign-up. | Off |
 | Show in the profile header | Puts the field's value in the row of details under the member's name in the profile header (the default header shows Location and Website). Which fields appear, and their order, is entirely up to this flag and the field's sort order - there is no fixed list. Fields in a repeating group cannot be shown in the header. | Off, except Location and Website, which start on |
 | Sort order | The position of the field within its group. Lower numbers appear first. | Appended last |
+| Width | How much of a row the field takes on the profile edit and signup forms: **Auto**, **Half row** or **Full row**. Two Half fields in a row sit side by side, so you can pair ZIP and City under a full-width Street. Auto keeps the usual layout: on the profile edit form paragraphs and choice lists take a full row and other fields half; on the signup form every field takes a full row. Phones always show one field per row. The profile itself (the About tab) is not affected. | Auto |
+
+![Profile Fields admin with a field's Width set to Half row](../images/admin-profile-fields-width.webp)
 
 ### Group controls
 
@@ -60,7 +63,14 @@ Every field carries the following controls.
 | Label | The section heading shown on the profile and edit form. | (required, no default) |
 | Type | Flat (single set of fields) or Repeater (members can add multiple entries). | Flat |
 | Visibility | Section-level visibility that sets the ceiling for every field inside it (same five levels). Group visibility is the ceiling; each field starts at its default and a member may set their own field anywhere up to that ceiling. | Members only |
+| Intro | Optional text shown above the group's fields on the profile edit form and, when the group has fields on it, the signup form - for example "These details are only visible to staff and are used for club administration." Edit it with the pencil next to the group name. It is guidance for filling in the form, so it is not shown on the member's profile. | Empty (nothing shown) |
 | Sort order | The position of the group on the profile. Lower numbers appear first. | Appended last |
+
+![Editing a group's name and intro from the pencil next to the group name](../images/admin-profile-group-intro.webp)
+
+![Edit Profile with the group intro above a full-width Street and ZIP and City side by side](../images/profile-edit-field-width.webp)
+
+![The sign-up form with the group intro and two Half row fields sharing a row](../images/member-signup-field-width.webp)
 
 ### Field types (free plan)
 
@@ -173,6 +183,7 @@ On the registration and "Almost there" forms, a problem with an answer (a missin
 - **Required is enforced.** Since 1.0.4, saving a profile with a required field left empty is rejected with a clear message next to that field. Required fields also count against the member's profile completion score.
 - **Required only applies where the field is actually shown.** If you limit a group to one member type and mark a field in it required, members of every other type are not asked for it and are not blocked by it. (Before 1.0.8 they were told a field was missing that they could not see and could never fill in, which left them unable to save their profile at all.)
 - **A field's type survives an edit made while Pro is inactive.** Editing a field whose type is provided by an add-on (a Pro type such as Location) no longer silently resets it to Text when that add-on happens to be switched off. Deactivate Pro, edit a field's label, reactivate Pro, and the field is still the type you built.
+- **Text length limits show as field errors.** Headline allows 160 characters, bio 1000, location 120 and pronouns 40. The form stops typing at the limit, and if a value is still too long (for example from a connected app) the member sees "can be at most N characters" next to that field and nothing is cut off silently. A longer value a member saved on an earlier version still saves unchanged until they edit it.
 - **Bad values are skipped, not rejected.** If a member enters a value that does not fit the field type (for example letters in a Number field), that one value is not stored and the rest of the profile still saves. The member is not shown an inline error for the skipped field today.
 - **Empty profiles hide the feature.** A field with no value does not render on the profile view. A brand-new community with empty profiles will look sparse until members fill fields in, which is why setting a few fields to show on registration is worth doing.
 - **The starter set is yours to keep or change.** BuddyNext seeds a few groups (Basic Info, Social Links, Work Experience, Education, Skills, and Interests) so you are not starting from a blank slate. You can edit, reorder, or extend them - see [Member Interests](11-interests.md) for the one field with a system role.
@@ -188,7 +199,7 @@ Pro adds four advanced field types for communities that need richer data capture
 - Multi-select (advanced multi-choice)
 - Advanced number (numeric fields with extra rules)
 
-A Location field only ever publishes the member's chosen **address** to other people, connected apps, and the API - never the exact coordinates. The member's precise point is theirs alone, used to draw their own map picker when they come back to edit it; everyone else, including a "connections only" viewer who otherwise qualifies to see the field, gets the readable place name.
+The Location field suggests addresses as the member types. Suggestions read in the local address order for the country (for example street, number, postcode, city in Germany, and number, street, city in the US) and in the language of the member's page. A Location field only ever publishes the member's chosen **address** to other people, connected apps, and the API - never the exact coordinates. The member's precise point is theirs alone, used to draw their own map picker when they come back to edit it; everyone else, including a "connections only" viewer who otherwise qualifies to see the field, gets the readable place name.
 
 These advanced types are registered by the Pro add-on and become available in the same field type picker once Pro is active. For the full list and setup, see [Advanced Profile Fields](../pro/09-advanced-profile-fields.md).
 

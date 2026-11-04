@@ -16,6 +16,7 @@
  * @var WP_User|object $member             Required. User object (must expose ID, display_name, user_login).
  * @var int            $viewer_id          Optional. Currently-viewing user ID. Default 0.
  * @var bool           $is_following       Optional. Whether viewer follows the member. Default false.
+ * @var array|null     $social             Optional. This member's PrivacyService::social_state_for() row. Resolved here when absent.
  * @var string         $connection_state   Optional. One of none|pending-sent|pending-received|accepted. Default 'none'.
  * @var string         $connection_status  Optional. Raw status (none|pending|accepted) used for Message link. Default 'none'.
  * @var bool           $is_muted           Optional. Whether viewer mutes the member. Default false.
@@ -26,7 +27,8 @@
  * @var string         $member_type_color  Optional. Owner-configured badge background. Default ''.
  * @var string         $member_type_text_color Optional. Owner-configured badge text colour. Default ''.
  * @var string         $avatar_tone        Optional. Avatar tone slot. Default 'accent'.
- * @var string         $bio                Optional. Pre-resolved bio string. Default ''.
+ * @var string         $headline           Optional. Headline the viewer may read. Default ''.
+ * @var string         $bio                Optional. Bio the viewer may read. Default ''.
  * @var string         $profile_url        Optional. Profile permalink. Default ''.
  * @var string         $avatar_url         Optional. Avatar URL. Default ''.
  * @var string         $initials           Optional. Initials fallback. Default ''.
@@ -55,9 +57,11 @@ $args = array(
 	'member'                 => isset( $member ) ? $member : null,
 	'viewer_id'              => isset( $viewer_id ) ? (int) $viewer_id : 0,
 	'is_following'           => isset( $is_following ) ? (bool) $is_following : false,
+	'social'                 => isset( $social ) && is_array( $social ) ? $social : null,
 	'connection_state'       => isset( $connection_state ) ? (string) $connection_state : 'none',
 	'connection_status'      => isset( $connection_status ) ? (string) $connection_status : 'none',
 	'is_muted'               => isset( $is_muted ) ? (bool) $is_muted : false,
+	'has_reported'           => isset( $has_reported ) ? (bool) $has_reported : null,
 	'mutual_count'           => isset( $mutual_count ) ? (int) $mutual_count : 0,
 	'mutual_avatars'         => isset( $mutual_avatars ) && is_array( $mutual_avatars ) ? $mutual_avatars : array(),
 	'degree'                 => isset( $degree ) ? (int) $degree : 0,
@@ -67,6 +71,7 @@ $args = array(
 	'member_type_text_color' => isset( $member_type_text_color ) ? (string) $member_type_text_color : '',
 	'member_type_icon'       => isset( $member_type_icon ) ? (string) $member_type_icon : '',
 	'avatar_tone'            => isset( $avatar_tone ) ? (string) $avatar_tone : 'accent',
+	'headline'               => isset( $headline ) ? (string) $headline : '',
 	'bio'                    => isset( $bio ) ? (string) $bio : '',
 	'profile_url'            => isset( $profile_url ) ? (string) $profile_url : '',
 	'cover_url'              => isset( $cover_url ) ? (string) $cover_url : '',
@@ -119,6 +124,10 @@ $bn_md_stats      = (bool) $args['show_stats'];
 $bn_conn_state    = (string) $args['connection_state'];
 $bn_conn_status   = (string) $args['connection_status'];
 $bn_is_muted      = (bool) $args['is_muted'];
+// The directory grid primes the reported map once per page; other callers ask per card (cached).
+$bn_md_reported   = null !== $args['has_reported']
+	? (bool) $args['has_reported']
+	: ( $bn_viewer_id > 0 && buddynext_service( 'moderation' )->user_has_reported( $bn_viewer_id, 'user', $bn_member_id ) );
 $bn_mutual        = (int) $args['mutual_count'];
 $bn_presence_attr = (string) $args['presence'];
 $bn_type_label    = (string) $args['member_type_label'];
@@ -138,31 +147,17 @@ $bn_bio         = (string) $args['bio'];
 $bn_profile_url = (string) $args['profile_url'];
 $bn_cover_url   = (string) $args['cover_url'];
 
-// Honour the member's who_can_follow preference so the Follow button is hidden
-// when they accept no follows (and the viewer is not already a follower).
-// Directory scale: this checks the cached who_can_follow usermeta (primed by the
-// member query) rather than the full PrivacyService::can_follow(), which would
-// add a per-card bn_blocks query (N+1 across a large directory). Block
-// enforcement stays server-side in FollowService::follow(); the single-render
-// profile hero + follow-button partial use the full can_follow().
-$bn_can_follow = true;
-// Mirror who_can_connect (everyone | followers | nobody) so the Connect CTA is
-// not offered when the target forbids it. Reads the page-primed usermeta like
-// the follow gate above (no extra query); 'followers' resolves via the viewer's
-// existing follow relationship ($bn_is_following). Block enforcement + the full
-// PrivacyService::can_connect() still run server-side in ConnectionService.
-$bn_can_connect = true;
-if ( $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id ) {
-	$bn_privacy    = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
-	$bn_can_follow = ! $bn_privacy || ! method_exists( $bn_privacy, 'get_preference' )
-		|| 'everyone' === $bn_privacy->get_preference( $bn_member_id, 'who_can_follow' );
-	if ( $bn_privacy && method_exists( $bn_privacy, 'get_preference' ) ) {
-		$bn_connect_pref = $bn_privacy->get_preference( $bn_member_id, 'who_can_connect' );
-		$bn_can_connect  = 'everyone' === $bn_connect_pref
-			|| ( 'followers' === $bn_connect_pref && $bn_is_following );
-	}
-}
-$bn_avatar_url = (string) $args['avatar_url'];
+// Follow, connect and plan state: one answer, the same GET /members ships to the
+// JS-built card. The grid resolves it for the whole page; a lone card asks for itself.
+$bn_social         = is_array( $args['social'] )
+	? $args['social']
+	: buddynext_service( 'privacy' )->social_state_for( $bn_viewer_id, array( $bn_member_id ) )[ $bn_member_id ];
+$bn_is_pending     = (bool) $bn_social['is_pending'];
+$bn_can_follow     = (bool) $bn_social['can_follow'];
+$bn_can_connect    = (bool) $bn_social['can_connect'];
+$bn_follow_state   = $bn_is_pending ? 'pending' : ( $bn_is_following ? 'following' : 'unfollowed' );
+$bn_follow_variant = 'unfollowed' === $bn_follow_state ? 'primary' : 'secondary';
+$bn_avatar_url     = (string) $args['avatar_url'];
 
 // Cover tone — same brand-safe blue→green→warm gradient set the space cards
 // use. Deterministic per member; filterable so a site can force a uniform
@@ -181,12 +176,14 @@ $bn_messages_url  = (string) $args['messages_url'];
 
 $bn_card_ctx = wp_json_encode(
 	array(
-		'userId'      => $bn_member_id,
-		'displayName' => $bn_display_name,
-		'isFollowing' => $bn_is_following,
-		'connection'  => $bn_conn_state,
-		'menuOpen'    => false,
-		'isMuted'     => $bn_is_muted,
+		'userId'        => $bn_member_id,
+		'displayName'   => $bn_display_name,
+		'handle'        => $bn_member_handle,
+		'isFollowing'   => $bn_is_following,
+		'followPending' => $bn_is_pending,
+		'connection'    => $bn_conn_state,
+		'menuOpen'      => false,
+		'isMuted'       => $bn_is_muted,
 	)
 );
 if ( false === $bn_card_ctx ) {
@@ -199,6 +196,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	class="<?php echo esc_attr( $bn_class ); ?>"
 	data-interactive
 	role="listitem"
+	data-wp-key="member-<?php echo absint( $bn_member_id ); ?>"
 	data-user-id="<?php echo esc_attr( (string) $bn_member_id ); ?>"
 	data-size="<?php echo $bn_md_compact ? 'compact' : 'full'; ?>"
 	data-wp-context="<?php echo esc_attr( (string) $bn_card_ctx ); ?>"
@@ -206,7 +204,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 >
 
 	<?php // Secondary actions — kebab menu pinned top-right (Message / Mute / Block / Report). ?>
-	<?php if ( $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id ) : ?>
+	<?php if ( $bn_social['may_interact'] ) : ?>
 		<div class="bn-md-card__menu-wrap">
 			<button
 				type="button"
@@ -243,12 +241,24 @@ do_action( 'buddynext_part_member_card_before', $args );
 					role="menuitem"
 					data-wp-on--click="actions.openBlock"
 				><?php esc_html_e( 'Block', 'buddynext' ); ?></button>
-				<button
-					type="button"
-					class="bn-md-card__menu-item"
-					role="menuitem"
-					data-wp-on--click="actions.openReport"
-				><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+				<span class="bn-report-slot" data-bn-report-slot role="none">
+					<button
+						type="button"
+						class="bn-md-card__menu-item"
+						role="menuitem"
+						data-bn-report
+						data-wp-on--click="actions.openReport"
+						<?php echo $bn_md_reported ? 'hidden' : ''; ?>
+					><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+					<span
+						class="bn-md-card__menu-item bn-md-card__menu-item--reported"
+						role="menuitem"
+						aria-disabled="true"
+						aria-label="<?php esc_attr_e( 'You reported this member', 'buddynext' ); ?>"
+						data-bn-reported
+						<?php echo $bn_md_reported ? '' : 'hidden'; ?>
+					><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Reported', 'buddynext' ); ?></span>
+				</span>
 			</div>
 		</div>
 	<?php endif; ?>
@@ -291,7 +301,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	<div class="bn-md-card__identity">
 		<h3 class="bn-md-card__name">
 			<a href="<?php echo esc_url( $bn_profile_url ); ?>">
-				<?php echo esc_html( $bn_display_name ); ?>
+				<?php echo esc_html( $bn_display_name ); ?><?php buddynext_presence_text( $bn_presence_attr ); ?>
 			</a>
 			<?php
 			$bn_md_degree = (int) $args['degree'];
@@ -306,11 +316,10 @@ do_action( 'buddynext_part_member_card_before', $args );
 
 		<?php
 		// Profession/headline tagline — the single most identifying line on a
-		// member card (who this person is), mirroring the profile hero. Read from
-		// the bn_headline usermeta that ProfileService::save_profile() keeps in
-		// lockstep with the canonical value, so directory browsing isn't a wall of
-		// names with no context.
-		$bn_md_headline = (string) get_user_meta( $bn_member_id, 'bn_headline', true );
+		// member card (who this person is), mirroring the profile hero, so directory
+		// browsing isn't a wall of names with no context. Resolved by the caller
+		// (ProfileService::card_identity_for) so it honours the member's visibility.
+		$bn_md_headline = (string) $args['headline'];
 		if ( '' !== $bn_md_headline ) :
 			?>
 			<p class="bn-md-card__headline"><?php echo esc_html( $bn_md_headline ); ?></p>
@@ -433,9 +442,9 @@ do_action( 'buddynext_part_member_card_before', $args );
 			>
 				<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
 			</a>
-		<?php elseif ( ! $bn_md_actions ) : ?>
+		<?php elseif ( ! $bn_md_actions || ! $bn_social['may_interact'] ) : ?>
 			<?php
-			// Social actions turned off by the caller — but navigation is not an
+			// Social actions turned off by the caller, or a viewer who may not write — but navigation is not an
 			// action, and a card with no way through is the dead end the spec's
 			// guest rule exists to prevent. Same affordance a logged-out visitor
 			// gets, without the sign-in detour.
@@ -449,7 +458,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				<?php esc_html_e( 'View profile', 'buddynext' ); ?>
 			</a>
 		<?php else : ?>
-			<?php if ( $bn_can_follow || $bn_is_following ) : ?>
+			<?php if ( $bn_can_follow || $bn_is_following || $bn_is_pending ) : ?>
 				<?php
 				// data-variant and data-state are ALSO printed server-side, matching
 				// what state.cardFollowVariant / cardFollowState compute. The bindings
@@ -467,15 +476,27 @@ do_action( 'buddynext_part_member_card_before', $args );
 				type="button"
 				class="bn-btn bn-md-card__follow"
 				data-size="sm"
-				data-variant="<?php echo $bn_is_following ? 'secondary' : 'primary'; ?>"
-				data-state="<?php echo $bn_is_following ? 'following' : 'unfollowed'; ?>"
+				data-variant="<?php echo esc_attr( $bn_follow_variant ); ?>"
+				data-state="<?php echo esc_attr( $bn_follow_state ); ?>"
+				<?php echo $bn_is_pending ? 'aria-label="' . esc_attr__( 'Cancel follow request', 'buddynext' ) . '"' : ''; ?>
+				data-wp-bind--aria-label="state.cardFollowAria"
 				data-wp-bind--data-variant="state.cardFollowVariant"
 				data-wp-bind--data-state="state.cardFollowState"
 				data-wp-text="state.cardFollowLabel"
 				data-wp-on--click="actions.toggleFollow"
 				data-wp-bind--aria-busy="context.busy"
 				data-wp-bind--disabled="context.busy"
-			><?php echo $bn_is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?></button>
+			>
+				<?php
+				if ( $bn_is_pending ) {
+					esc_html_e( 'Requested', 'buddynext' );
+				} elseif ( $bn_is_following ) {
+					esc_html_e( 'Following', 'buddynext' );
+				} else {
+					esc_html_e( 'Follow', 'buddynext' );
+				}
+				?>
+			</button>
 			<?php endif; ?>
 
 			<?php // Connection control — 5-state, reactive. ?>
@@ -531,6 +552,16 @@ do_action( 'buddynext_part_member_card_before', $args );
 					data-wp-bind--disabled="context.busy"
 				><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
 			</span>
+
+			<?php
+			buddynext_get_template(
+				'partials/social-upgrade-link.php',
+				array(
+					'url'   => $bn_social['upgrade_url'],
+					'label' => $bn_social['upgrade_label'],
+				)
+			);
+			?>
 
 		<?php endif; ?>
 	</div>

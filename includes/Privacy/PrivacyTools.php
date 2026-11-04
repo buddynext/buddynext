@@ -808,7 +808,7 @@ class PrivacyTools implements ListenerInterface {
 
 			$items[] = array(
 				'group_id'    => 'buddynext_connections',
-				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Connections', 'buddynext' ), buddynext_site_name() ),
+				'group_label' => sprintf( /* translators: %s: community name. */ _x( '%s Connections', 'data export group name', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-connection-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
@@ -1367,7 +1367,7 @@ class PrivacyTools implements ListenerInterface {
 			return $u->display_name . ' (#' . $user_id . ')';
 		}
 
-		/* translators: %d: user id of an account that no longer exists. */
+		/* translators: %d: numeric id of a member whose account no longer exists. */
 		return sprintf( __( 'Deleted member (#%d)', 'buddynext' ), $user_id );
 	}
 

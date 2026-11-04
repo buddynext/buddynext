@@ -156,6 +156,7 @@ if ( array() === $bn_ob_suggested_ids ) {
 	$bn_ob_suggested_ids = $bn_ob_explore->suggested_member_ids( 5 );
 }
 
+$bn_ob_identity  = buddynext_service( 'profiles' )->card_identity_for( $ob_user_id, $bn_ob_suggested_ids );
 $suggested_users = array();
 foreach ( $bn_ob_suggested_ids as $sug_uid ) {
 	$sug_uid = (int) $sug_uid;
@@ -171,7 +172,7 @@ foreach ( $bn_ob_suggested_ids as $sug_uid ) {
 		'display_name'   => $sug_wp_user->display_name,
 		// Public handle (bn_profile_slug ?: user_nicename), never user_login.
 		'handle'         => \BuddyNext\Core\PageRouter::member_handle( $sug_uid ),
-		'headline'       => (string) get_user_meta( $sug_uid, 'bn_headline', true ),
+		'headline'       => (string) ( $bn_ob_identity[ $sug_uid ]['headline'] ?? '' ),
 		'follower_count' => $bn_ob_follows->follower_count( $sug_uid ),
 	);
 }
@@ -405,6 +406,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						id="bn-ob-bio"
 						name="bn_bio"
 						rows="3"
+						maxlength="<?php echo (int) \BuddyNext\Profile\FieldType::TEXT_CAPS['bio']; ?>"
 						placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself...', 'buddynext' ); ?>"
 						data-wp-on--input="actions.setBio"><?php echo esc_textarea( $bio ); ?></textarea>
 				</div>
@@ -536,7 +538,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 										<?php
 										echo esc_html(
 											sprintf(
-												/* translators: %s: member count */
+												/* translators: %s: formatted member count. */
 												_n( '%s member', '%s members', (int) $space['member_count'], 'buddynext' ),
 												number_format_i18n( (int) $space['member_count'] )
 											)

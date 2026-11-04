@@ -25,7 +25,7 @@ Members can:
 - **Show online members only** with the **Online only** switch.
 - **Switch between grid and list view** with the view buttons in the toolbar.
 - **Switch tabs** between **All members**, **Following** and **Connections** to see just the people they already have a relationship with.
-- **Act on a member directly from their card** - Follow, Message, send a Connect request, or Accept or Decline a pending request, all inline without leaving the page. See Following and Connections for how those relationships work.
+- **Act on a member directly from their card** - Follow, Message, send a Connect request, or Accept or Decline a pending request, all inline without leaving the page. After a follow or connect request the button reads **Requested**, and the confirmation message names the member by their @handle. If your plan does not allow Follow or Connect, the card links to where you can upgrade. See Following and Connections for how those relationships work.
 - **Open the card menu** (the kebab) to Mute, Block, or Report a member. See Blocking and Muting and Reporting and Moderation.
 
 ## Setting it up (for owners)
@@ -67,6 +67,7 @@ You do not manage the directory roster from a settings screen. Who shows up is d
 ## Good to know
 
 - **The directory is viewer-aware.** What each person sees is filtered to them. Members who are suspended, shadow-banned, or who have opted out of the directory are excluded for everyone. People you have blocked (or who have blocked you) do not appear in your view of the directory, and you do not appear in theirs. This keeps the directory clean and safe without the owner curating it by hand.
+- **Labels stay on the cards after a search.** The member type badge keeps its colour and member labels stay on each card after a search, filter, sort or page change, in both grid and list view. A member's headline and bio follow what that member chose to hide, in the directory and in search results.
 - **Badges and counts only appear once there is data to show.** A brand-new member with no member type assigned shows no type badge; mutual-connection counts appear once connections exist. On a fresh site the directory can look sparse until members join, set up profiles, and connect.
 - **Search is privacy-safe.** It matches names, usernames, bios, headlines, and the profile fields marked searchable - and it honours each field's visibility while doing so. A Public searchable field is matched for anyone; a Members-only one is matched only for signed-in members; fields limited to followers, connections, or the member alone are never matched by anyone. See Custom Profile Fields.
 - **The online filter survives your other choices.** Ticking "online only" and then sorting or switching a filter keeps the online filter applied, and it stays in the page address so a reload or a shared link keeps it too. (Before 1.0.8 the first sort or filter click quietly dropped it while the checkbox stayed ticked.)

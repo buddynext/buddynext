@@ -127,7 +127,7 @@ class ExploreSidebarProvider {
 				}
 				buddynext_get_template(
 					'parts/sidebar-explore-browse.php',
-					array( 'bn_categories' => ( new SpaceService() )->categories_with_counts( 6 ) )
+					array( 'bn_categories' => ( new SpaceService() )->directory_categories( 6 ) )
 				);
 			},
 		);

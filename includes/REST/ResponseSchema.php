@@ -97,6 +97,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/comments/(?P<id>[\\d]+)',
+				'resource' => 'comment',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/reactions/list',
 				'resource' => 'reaction',
 				'shape'    => 'paginated',
@@ -920,7 +926,11 @@ final class ResponseSchema {
 				'can_follow'     => array( 'type' => 'boolean' ),
 				'can_connect'    => array( 'type' => 'boolean' ),
 				'is_following'   => array( 'type' => 'boolean' ),
+				'is_pending'     => array( 'type' => 'boolean' ),
+				'upgrade_url'    => array( 'type' => 'string' ),
+				'upgrade_label'  => array( 'type' => 'string' ),
 				'is_muted'       => array( 'type' => 'boolean' ),
+				'has_reported'   => array( 'type' => 'boolean' ),
 				'connection'     => array( 'type' => array( 'object', 'null' ) ),
 				'labels'         => array(
 					'type'  => 'array',
@@ -1528,6 +1538,8 @@ final class ResponseSchema {
 				'sort_order'  => array( 'type' => 'integer' ),
 				'show_in_dir' => array( 'type' => 'boolean' ),
 				'self_select' => array( 'type' => 'boolean' ),
+				// Self-select is locked once a member has chosen this type.
+				'pick_once'   => array( 'type' => 'boolean' ),
 			),
 		);
 	}
@@ -1869,6 +1881,11 @@ final class ResponseSchema {
 				'icon_svg'    => array( 'type' => 'string' ),
 				'sort_order'  => array( 'type' => 'integer' ),
 				'show_in_dir' => array( 'type' => 'boolean' ),
+				// Where the category may be used: both, main (main spaces) or sub (subspaces).
+				'level'       => array(
+					'type' => 'string',
+					'enum' => array( 'both', 'main', 'sub' ),
+				),
 			),
 		);
 	}
@@ -4606,6 +4623,9 @@ final class ResponseSchema {
 							'sort_order'       => array(
 								'type' => 'integer',
 							),
+							'intro'            => array(
+								'type' => 'string',
+							),
 							'locked'           => array(
 								'type' => 'boolean',
 							),
@@ -4644,6 +4664,10 @@ final class ResponseSchema {
 							),
 							'placeholder'          => array(
 								'type' => 'string',
+							),
+							'width'                => array(
+								'type' => 'string',
+								'enum' => array( 'auto', 'half', 'full' ),
 							),
 							'is_required'          => array(
 								'type' => 'boolean',
@@ -5176,6 +5200,9 @@ final class ResponseSchema {
 							'type_restriction' => array(
 								'type' => 'string',
 							),
+							'intro'            => array(
+								'type' => 'string',
+							),
 							'fields'           => array(
 								'type' => 'array',
 							),
@@ -5224,6 +5251,9 @@ final class ResponseSchema {
 								'type' => 'integer',
 							),
 							'type_restriction' => array(
+								'type' => 'string',
+							),
+							'intro'            => array(
 								'type' => 'string',
 							),
 						),
@@ -6137,6 +6167,9 @@ final class ResponseSchema {
 							'sort_order'       => array(
 								'type' => 'integer',
 							),
+							'intro'            => array(
+								'type' => 'string',
+							),
 							'locked'           => array(
 								'type' => 'boolean',
 							),
@@ -6175,6 +6208,10 @@ final class ResponseSchema {
 							),
 							'placeholder'          => array(
 								'type' => 'string',
+							),
+							'width'                => array(
+								'type' => 'string',
+								'enum' => array( 'auto', 'half', 'full' ),
 							),
 							'is_required'          => array(
 								'type' => 'boolean',

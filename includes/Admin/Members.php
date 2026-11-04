@@ -497,12 +497,14 @@ class Members extends AdminPageBase {
 	 * screen used to hand-roll all of that (card 10296532578).
 	 *
 	 * @param int $user_id WordPress user ID.
-	 * @return void
+	 * @return bool|\WP_Error True when a suspension was lifted, or why not.
 	 */
-	public function unsuspend_member( int $user_id ): void {
-		( new \BuddyNext\Moderation\ModerationService() )->unsuspend_user( $user_id, get_current_user_id() );
+	public function unsuspend_member( int $user_id ): bool|\WP_Error {
+		$result = ( new \BuddyNext\Moderation\ModerationService() )->unsuspend_user( $user_id, get_current_user_id() );
 
 		delete_transient( self::STATS_CACHE );
+
+		return $result;
 	}
 
 	/**
@@ -555,7 +557,7 @@ class Members extends AdminPageBase {
 	 *
 	 * Delegates to `VerificationService::mark_verified()` rather than writing the
 	 * meta here. That method is the one place that knows the whole act: set
-	 * `buddynext_email_verified`, clear `buddynext_verify_pending` so the account
+	 * `buddynext_email_verified`, clear `buddynext_signup_awaiting_verify` so the account
 	 * stops being a purge candidate, and fire `buddynext_user_verified` for whatever
 	 * is listening. An admin-side copy that only wrote the meta would leave the
 	 * account queued for deletion while displaying as verified.
@@ -640,15 +642,13 @@ class Members extends AdminPageBase {
 		check_admin_referer( 'bn_unsuspend_member' );
 
 		$user_id = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
-		if ( $user_id > 0 ) {
-			$this->unsuspend_member( $user_id );
-		}
+		$lifted  = $user_id > 0 && true === $this->unsuspend_member( $user_id );
 
 		wp_safe_redirect(
 			add_query_arg(
 				array(
 					'page'    => 'buddynext-members',
-					'action'  => 'unsuspended',
+					'action'  => $lifted ? 'unsuspended' : 'unsuspend_failed',
 					'user_id' => $user_id,
 				),
 				admin_url( 'admin.php' )
@@ -829,8 +829,9 @@ class Members extends AdminPageBase {
 						++$done;
 					}
 				} elseif ( 'unsuspend' === $bulk_action ) {
-					$this->unsuspend_member( $uid );
-					++$done;
+					if ( ! is_wp_error( $this->unsuspend_member( $uid ) ) ) {
+						++$done;
+					}
 				}
 			}
 		}
@@ -1370,10 +1371,11 @@ class Members extends AdminPageBase {
 			'member-types'    => __( 'Member Types', 'buddynext' ),
 			'invites'         => __( 'Invites', 'buddynext' ),
 		);
-		// Pending-approval queue is only relevant while registration is gated by approval.
-		if ( 'approval' === get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ) ) {
+		if ( \BuddyNext\Admin\Members\ApprovalManager::queue_is_needed() ) {
 			$bn_tabs['pending'] = __( 'Pending', 'buddynext' );
 		}
+
+		\BuddyNext\Admin\Members\ApprovalManager::render_stranded_notice();
 
 		$this->render_tab_bar( $bn_tabs, $active_tab, $base_url );
 		$this->open_tab_panel( $active_tab );
@@ -1614,6 +1616,8 @@ class Members extends AdminPageBase {
 			AdminPageBase::render_notice( __( 'Member suspended.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'action' ) );
 		} elseif ( 'unsuspended' === $action ) {
 			AdminPageBase::render_notice( __( 'Member unsuspended.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'action' ) );
+		} elseif ( 'unsuspend_failed' === $action ) {
+			AdminPageBase::render_notice( __( 'The member was not unsuspended: they are not currently suspended, or you do not have permission.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'action' ) );
 		} elseif ( 'suspend_failed' === $action ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice flag.
 			$bn_err = sanitize_key( wp_unslash( $_GET['bn_error'] ?? '' ) );
@@ -1635,7 +1639,7 @@ class Members extends AdminPageBase {
 					: sprintf( _n( '%d member unsuspended.', '%d members unsuspended.', $bulk_done, 'buddynext' ), $bulk_done );
 				AdminPageBase::render_notice( (string) $bulk_msg, 'success', false, array( 'data-bn-clear-param' => 'bulk_action bulk_done' ) );
 			} else {
-				AdminPageBase::render_notice( __( 'No members were updated. Administrators and your own account are skipped from bulk actions.', 'buddynext' ), 'warning', false, array( 'data-bn-clear-param' => 'bulk_action bulk_done' ) );
+				AdminPageBase::render_notice( __( 'No members were updated. Administrators, your own account and members already in that state are skipped from bulk actions.', 'buddynext' ), 'warning', false, array( 'data-bn-clear-param' => 'bulk_action bulk_done' ) );
 			}
 		}
 
@@ -1908,6 +1912,11 @@ class Members extends AdminPageBase {
 										<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( absint( $member['id'] ) ) ); ?>" class="bn-btn" data-variant="secondary" data-size="sm" target="_blank" rel="noopener">
 											<?php esc_html_e( 'View', 'buddynext' ); ?>
 										</a>
+										<?php if ( $member['pending_approval'] ) : ?>
+											<a href="<?php echo esc_url( \BuddyNext\Admin\Members\ApprovalManager::approve_url( absint( $member['id'] ) ) ); ?>" class="bn-btn" data-variant="primary" data-size="sm">
+												<?php esc_html_e( 'Approve', 'buddynext' ); ?>
+											</a>
+										<?php endif; ?>
 										<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-btn" data-variant="secondary" data-size="sm">
 											<?php esc_html_e( 'Edit', 'buddynext' ); ?>
 										</a>

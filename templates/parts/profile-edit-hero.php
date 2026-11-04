@@ -201,6 +201,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 					type="text"
 					id="bn-ep-headline"
 					name="headline"
+					maxlength="<?php echo (int) \BuddyNext\Profile\FieldType::TEXT_CAPS['headline']; ?>"
 					value="<?php echo esc_attr( $bn_ep_headline ); ?>"
 					placeholder="<?php echo esc_attr( $bn_ep_hl_ph ); ?>"
 					aria-describedby="bn-ep-headline-hint"

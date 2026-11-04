@@ -32,6 +32,66 @@ defined( 'ABSPATH' ) || exit;
 class SessionIssuer {
 
 	/**
+	 * Query arg on the first page after a sign-in.
+	 *
+	 * @var string
+	 */
+	public const FIRST_PAGE_ARG = 'bn_signed_in';
+
+	/**
+	 * Register the first-page cache guard.
+	 *
+	 * @return void
+	 */
+	public static function register(): void {
+		add_action( 'init', array( self::class, 'keep_first_page_out_of_caches' ), 1 );
+	}
+
+	/**
+	 * The URL a member lands on right after signing in.
+	 *
+	 * A page cache answers from its guest copy before PHP runs, so nothing a page does
+	 * can save the first request after a sign-in: it has to be a URL no cache holds. A
+	 * REST sign-in has it worst, because LiteSpeed Cache refuses to set its vary cookie
+	 * on a REST request (vary.cls.php, rest_api_init), so the member stays in the guest
+	 * bucket until some uncached page runs PHP. Unique per sign-in, so a copy cached from
+	 * anyone else's visit can never be the one served, and no plugin list to keep up.
+	 *
+	 * @param string $url Destination.
+	 * @return string
+	 */
+	public static function first_page_url( string $url ): string {
+		return add_query_arg( self::FIRST_PAGE_ARG, wp_generate_password( 8, false ), $url );
+	}
+
+	/**
+	 * Keep a marked page out of every cache, and the marker out of the address bar.
+	 *
+	 * Open to anyone, which is safe: all it does is what any unknown query string does to
+	 * a cache, plus refuse to store the answer, so a visitor cannot plant a copy.
+	 *
+	 * @return void
+	 */
+	public static function keep_first_page_out_of_caches(): void {
+		if ( ! isset( $_GET[ self::FIRST_PAGE_ARG ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- presence only, nothing is read from it.
+			return;
+		}
+
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+		nocache_headers();
+
+		add_action(
+			'wp_head',
+			static function (): void {
+				wp_print_inline_script_tag( 'var u=new URL(location.href);u.searchParams.delete(' . wp_json_encode( self::FIRST_PAGE_ARG ) . ');history.replaceState(history.state,"",u);' );
+			},
+			1
+		);
+	}
+
+	/**
 	 * Start a session for a member, or refuse with the reason why.
 	 *
 	 * @param int  $user_id  Member to sign in.

@@ -264,4 +264,38 @@ class NavManagerTest extends \WP_UnitTestCase {
 			}
 		}
 	}
+	/**
+	 * A tab registered on the Nav API is listed in the editor, so the owner can
+	 * hide, rename and reorder it, and a sub-tab lists right under its parent.
+	 * GitHub #220: Portfolio (and About, Network, Discussions, space Files …)
+	 * rendered on the front end but had no row in Settings → Navigation.
+	 *
+	 * @return void
+	 */
+	public function test_registered_tabs_are_listed_in_the_editor(): void {
+		$registry = \BuddyNext\Nav\NavRegistry::instance();
+		$registry->reset();
+		$register = static function ( \BuddyNext\Nav\NavRegistry $r ): void {
+			$r->register( array( 'id' => 'qa-parent', 'surface' => 'profile', 'layer' => 'primary', 'label' => 'QA Parent', 'url' => '#', 'priority' => 5, 'condition' => '__return_false' ) );
+			$r->register( array( 'id' => 'qa-child', 'surface' => 'profile', 'layer' => 'primary', 'label' => 'QA Child', 'url' => '#', 'parent' => 'qa-parent', 'priority' => 10 ) );
+			$r->register( array( 'id' => 'qa-metric', 'surface' => 'profile', 'layer' => 'metric', 'label' => 'QA Metric', 'priority' => 1 ) );
+			// Anchored after Posts: listed where the site shows it, not by priority.
+			$r->register( array( 'id' => 'qa-anchored', 'surface' => 'profile', 'layer' => 'primary', 'label' => 'QA Anchored', 'url' => '#', 'priority' => 99, 'after' => 'posts', 'integration' => 'qa-integration' ) );
+		};
+		add_action( 'buddynext_register_nav', $register );
+
+		$tabs  = $this->nav->get_tabs_for_scope( 'profile' );
+		$slugs = array_column( $tabs, 'slug' );
+		$row   = $tabs[ array_search( 'qa-anchored', $slugs, true ) ];
+
+		remove_action( 'buddynext_register_nav', $register );
+		$registry->reset();
+
+		$this->assertContains( 'qa-parent', $slugs, 'A registered tab must be listed even when its condition hides it for this request.' );
+		$this->assertSame( array_search( 'qa-parent', $slugs, true ) + 1, array_search( 'qa-child', $slugs, true ), 'A sub-tab lists right under its parent.' );
+		$this->assertNotContains( 'qa-metric', $slugs, 'Metric items are not tabs.' );
+		$this->assertSame( array_search( 'posts', $slugs, true ) + 1, array_search( 'qa-anchored', $slugs, true ), 'Listed in the order the site shows: an after-anchor beats priority.' );
+		$this->assertSame( 'qa-integration', $row['integration'], 'The integration key reaches the row, so it can show when Integration Settings has it off.' );
+		$this->assertFalse( $row['core'], 'A tab from another plugin is not labelled Core.' );
+	}
 }
