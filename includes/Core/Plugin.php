@@ -183,6 +183,9 @@ class Plugin {
 		// settings take effect.
 		( new \BuddyNext\Nav\NavOverrides() )->register();
 
+		// Demo members use the undeliverable .invalid domain; never attempt mail to them.
+		add_filter( 'pre_wp_mail', array( \BuddyNext\Demo\DemoDataService::class, 'skip_demo_mail' ), 10, 2 );
+
 		// App-parity: add an ISO-8601 UTC `<key>_gmt` sibling to every whitelisted
 		// timestamp in buddynext/v1 responses, from one dispatch-time seam rather
 		// than per-controller *_gmt patches. Covers feed, comments, spaces,

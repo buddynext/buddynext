@@ -784,6 +784,31 @@ class DemoDataService {
 	}
 
 	/**
+	 * Short-circuit wp_mail() when every recipient is a demo address.
+	 *
+	 * Demo members use the reserved `.invalid` domain, which can never be
+	 * delivered, so a welcome mail, digest or notice to them is only noise (and a
+	 * bounce on a real mail setup). Registered for the whole request lifetime,
+	 * because queued mail to demo members runs long after the seeder returns.
+	 *
+	 * @param bool|null           $short_circuit Filter value.
+	 * @param array<string,mixed> $atts          wp_mail() arguments.
+	 * @return bool|null True to skip sending, otherwise the incoming value.
+	 */
+	public static function skip_demo_mail( $short_circuit, $atts ) {
+		$to = array_filter( array_map( 'trim', is_array( $atts['to'] ?? null ) ? $atts['to'] : explode( ',', (string) ( $atts['to'] ?? '' ) ) ) );
+		if ( empty( $to ) ) {
+			return $short_circuit;
+		}
+		foreach ( $to as $addr ) {
+			if ( ! str_ends_with( strtolower( rtrim( $addr, '> ' ) ), '@buddynext-demo.invalid' ) ) {
+				return $short_circuit;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Seed the full demo community. Idempotent: refuses to double-seed.
 	 *
 	 * @param callable|null $log Optional progress callback( string $message ).
@@ -1859,6 +1884,25 @@ class DemoDataService {
 		$profiles      = new ProfileService();
 		$space_service = new SpaceService();
 
+		// Tags the demo posts carry, read BEFORE the posts go: only these registry
+		// rows may be pruned below, never an unrelated unused tag the owner made.
+		global $wpdb;
+		$demo_post_ids = array_values(
+			array_filter(
+				array_map(
+					static fn( $e ): int => (int) ( is_array( $e ) ? ( $e['id'] ?? 0 ) : $e ),
+					(array) ( $manifest['posts'] ?? array() )
+				)
+			)
+		);
+		$demo_tag_ids  = array();
+		if ( ! empty( $demo_post_ids ) ) {
+			$in = implode( ',', array_fill( 0, count( $demo_post_ids ), '%d' ) );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$demo_tag_ids = array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT hashtag_id FROM {$wpdb->prefix}bn_post_hashtags WHERE object_type = 'post' AND post_id IN ($in)", $demo_post_ids ) ) );
+			// phpcs:enable
+		}
+
 		// Posts (cascade removes their comments/reactions in PostService::delete).
 		// Delete these BEFORE the authors so the ownership check still passes.
 		$say( 'Removing posts…' );
@@ -1874,21 +1918,22 @@ class DemoDataService {
 			}
 		}
 
-		// Prune hashtag registry rows orphaned by the post removals above.
-		// Deleting the demo posts fires buddynext_post_deleted, which drops the
-		// junction links and recomputes post_count to 0, but the bn_hashtags
-		// registry row persists (tags are a durable vocabulary). After a demo
-		// cleanup that leaves the trending/explore surfaces cluttered with
-		// zero-post tags, so remove only registry rows that now have NO links and
-		// NO followers — a tag a real member follows or that still has posts is
-		// never touched.
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			"DELETE h FROM {$wpdb->prefix}bn_hashtags h
-			 LEFT JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
-			 WHERE ph.hashtag_id IS NULL AND h.follower_count = 0" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		);
+		// Prune the registry rows the demo created that now have NO links and NO
+		// followers. Tags a real member follows, still-linked tags and tags that
+		// were never part of the demo are never touched.
+		if ( ! empty( $demo_tag_ids ) ) {
+			$in = implode( ',', array_fill( 0, count( $demo_tag_ids ), '%d' ) );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE h FROM {$wpdb->prefix}bn_hashtags h
+					 LEFT JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
+					 WHERE ph.hashtag_id IS NULL AND h.follower_count = 0 AND h.id IN ($in)",
+					$demo_tag_ids
+				)
+			);
+			// phpcs:enable
+		}
 
 		// Media rows (uploaded photos): delete_cascade through the WPMediaVerse
 		// repo — the engine owns the wp_mvs_* tables + files, so this is the
@@ -2013,13 +2058,19 @@ class DemoDataService {
 		$quiet     = ( 0 === $seq % 5 );
 		$comment_n = $quiet ? 0 : ( $busy ? 4 : 1 + ( $seq % 2 ) );
 		$react_n   = $quiet ? 0 : min( $n, $busy ? 6 : 2 + ( $seq % 3 ) );
+		// Engagement lands after the post and before now (never "just now" under a
+		// post from days ago): each item is a few minutes later than the last,
+		// capped at the current time.
+		$post      = ( new PostService() )->get( $post_id );
+		$post_ts   = is_array( $post ) && ! empty( $post['created_at'] ) ? (int) strtotime( $post['created_at'] . ' UTC' ) : time();
+		$stamp_for = static fn( int $step ): string => gmdate( 'Y-m-d H:i:s', min( time(), $post_ts + ( $step + 1 ) * 17 * 60 ) );
 		for ( $c = 0; $c < $comment_n; $c++ ) {
 			$commenter = $user_ids[ ( $seq + $c + 1 ) % $n ];
-			$comments->create( $commenter, 'post', $post_id, self::COMMENTS[ ( $seq + $c ) % count( self::COMMENTS ) ] );
+			$comments->create( $commenter, 'post', $post_id, self::COMMENTS[ ( $seq + $c ) % count( self::COMMENTS ) ], null, $stamp_for( $c ) );
 		}
 		for ( $r = 0; $r < $react_n; $r++ ) {
 			$reactor = $user_ids[ ( $seq + $r + 2 ) % $n ];
-			$reactions->react( $reactor, 'post', $post_id, self::REACTIONS[ ( $seq + $r ) % count( self::REACTIONS ) ] );
+			$reactions->react( $reactor, 'post', $post_id, self::REACTIONS[ ( $seq + $r ) % count( self::REACTIONS ) ], $stamp_for( $r ) );
 		}
 	}
 
