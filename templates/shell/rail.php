@@ -191,7 +191,7 @@ foreach ( $bn_rail_items as $bn_item ) {
 			// a member of many spaces can jump straight to one without opening the full
 			// directory (the sidebar widget caps at a handful). Only when they belong
 			// to at least one space.
-			if ( 'spaces' === (string) ( $bn_item['key'] ?? '' ) && $bn_rail_current_user ) :
+			if ( 'spaces' === (string) ( $bn_item['key'] ?? '' ) && $bn_rail_current_user && ! ( new \BuddyNext\Nav\NavOverrides() )->is_hidden( 'my-spaces' ) ) :
 				// Preview only the most-recently-joined spaces in the rail; the count
 				// badge shows the true total and a "See all" link opens /spaces/mine/
 				// so a member of hundreds of spaces gets a short flyout, not a wall.

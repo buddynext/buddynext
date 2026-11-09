@@ -2441,6 +2441,57 @@ class NavManager extends AdminPageBase {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function default_tabs(): array {
+		return array_merge( $this->core_main_tabs(), $this->partner_main_tabs() );
+	}
+
+	/**
+	 * Rail rows that exist only while a partner plugin is registered on the
+	 * integration registry (Media, Discussions, Leaderboard, Events). They are
+	 * injected into the rail by the partner bridges; listing them here lets the
+	 * owner hide, relabel and reorder them like any other item. Rows carry
+	 * `integration` so the editor shows when Integration Settings has them off.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function partner_main_tabs(): array {
+		$rows = array(
+			'media'       => array( __( 'Media', 'buddynext' ), 'image', 205, __( 'The member\'s own media library.', 'buddynext' ) ),
+			'discussions' => array( __( 'Discussions', 'buddynext' ), 'list', 206, __( 'Discussions the member has started.', 'buddynext' ) ),
+			'events'      => array( __( 'Events', 'buddynext' ), 'calendar', 207, __( 'Events the member is hosting or attending.', 'buddynext' ) ),
+			'leaderboard' => array( __( 'Leaderboard', 'buddynext' ), 'award', 95, __( 'Community points leaderboard.', 'buddynext' ) ),
+		);
+		// Rail key => integration registry key.
+		$integration = array(
+			'media'       => 'media',
+			'discussions' => 'jetonomy',
+			'events'      => 'eventonomy',
+			'leaderboard' => 'gamification',
+		);
+		$registered  = buddynext_integrations();
+		$tabs        = array();
+		foreach ( $rows as $slug => $row ) {
+			if ( ! isset( $registered[ $integration[ $slug ] ] ) ) {
+				continue;
+			}
+			$tabs[] = array(
+				'slug'        => $slug,
+				'label'       => $row[0],
+				'order'       => $row[2],
+				'icon'        => $row[1],
+				'description' => $row[3],
+				'capability'  => 'read',
+				'integration' => $integration[ $slug ],
+			);
+		}
+		return $tabs;
+	}
+
+	/**
+	 * Built-in main-scope rows.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function core_main_tabs(): array {
 		return array(
 			array(
 				'slug'        => 'feed',
@@ -2470,6 +2521,16 @@ class NavManager extends AdminPageBase {
 				'icon'        => 'tab-spaces',
 				'description' => __( 'Browse and manage spaces', 'buddynext' ),
 				'capability'  => 'read',
+			),
+			array(
+				'slug'           => 'my-spaces',
+				'label'          => __( 'My spaces', 'buddynext' ),
+				'order'          => 31,
+				'icon'           => 'tab-spaces',
+				'description'    => __( 'Expandable list of the member\'s own spaces under Spaces. Hide it to keep the rail short.', 'buddynext' ),
+				'capability'     => 'read',
+				'hidden'         => false,
+				'login_required' => true,
 			),
 			array(
 				'slug'            => 'messages',

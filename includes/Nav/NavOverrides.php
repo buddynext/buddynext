@@ -71,6 +71,18 @@ final class NavOverrides {
 	}
 
 	/**
+	 * Whether the owner hid a main-scope item that has no rail row of its own
+	 * (the My-spaces switcher).
+	 *
+	 * @param string $slug Main-scope item slug.
+	 * @return bool
+	 */
+	public function is_hidden( string $slug ): bool {
+		$ov = $this->overrides( 'main' )[ sanitize_key( $slug ) ] ?? array();
+		return ! empty( $ov['hidden'] );
+	}
+
+	/**
 	 * Whether an override denies the current viewer access to a tab, per its
 	 * visibility / required-capability / login-required settings. Shared by the
 	 * rail + mobile appliers so the gate behaves identically everywhere.
