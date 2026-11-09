@@ -198,7 +198,17 @@ class DemoAdmin {
 		// already verified by the calling handler.
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- caller ran check_admin_referer().
 		$origin = isset( $_POST['bn_demo_origin'] ) ? sanitize_key( wp_unslash( $_POST['bn_demo_origin'] ) ) : '';
-		if ( 'get-started' === $origin ) {
+		if ( 'wizard' === $origin ) {
+			// Back to the wizard's Done step, which shows what was added.
+			$url = add_query_arg(
+				array(
+					'page'    => 'buddynext-setup',
+					'step'    => 'done',
+					'bn_demo' => $status,
+				),
+				admin_url( 'admin.php' )
+			);
+		} elseif ( 'get-started' === $origin ) {
 			$slug = \BuddyNext\Admin\AdminHub::section_slug( 'get-started' );
 			$base = '' === $slug ? admin_url( 'admin.php' ) : admin_url( 'admin.php?page=' . $slug );
 			$url  = add_query_arg( 'bn_demo', $status, $base );
