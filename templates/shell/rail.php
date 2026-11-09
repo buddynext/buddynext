@@ -45,12 +45,20 @@ if ( $bn_rail_current_user ) {
 	// different hub, and it is the kind of special case that had to be repeated in
 	// every place that asked "am I on Settings?".
 	$bn_settings_active = ( 'settings' === $hub );
+	// The member's own profile lives under the people hub, so without an explicit
+	// flag the generic hub match lights Members instead of Profile / Edit Profile.
+	$bn_own_profile      = ( 'people' === $hub && (int) get_query_var( 'bn_resolved_user_id', 0 ) === $bn_rail_current_user );
+	$bn_own_profile_edit = $bn_own_profile && 'edit' === (string) get_query_var( 'bn_profile_action', '' );
 	foreach ( $bn_rail_items as $bn_ri_index => $bn_ri ) {
 		$bn_ri_key = (string) ( $bn_ri['key'] ?? '' );
 		if ( 'bookmarks' === $bn_ri_key ) {
 			$bn_rail_items[ $bn_ri_index ]['active'] = $bn_bookmarks_active;
 		} elseif ( 'settings' === $bn_ri_key ) {
 			$bn_rail_items[ $bn_ri_index ]['active'] = $bn_settings_active;
+		} elseif ( 'profile' === $bn_ri_key ) {
+			$bn_rail_items[ $bn_ri_index ]['active'] = $bn_own_profile && ! $bn_own_profile_edit;
+		} elseif ( 'edit-profile' === $bn_ri_key ) {
+			$bn_rail_items[ $bn_ri_index ]['active'] = $bn_own_profile_edit;
 		}
 	}
 }
