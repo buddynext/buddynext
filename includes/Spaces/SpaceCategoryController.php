@@ -194,6 +194,12 @@ class SpaceCategoryController extends BaseRestController {
 			if ( ! is_user_logged_in() ) {
 				return new WP_Error( 'rest_forbidden', __( 'Sign in to create a space.', 'buddynext' ), array( 'status' => 401 ) );
 			}
+			// Same role-map ability POST /spaces asks for: a member who cannot create a
+			// space has no use for the list, and it includes categories the owner hid
+			// from the directory.
+			if ( ! buddynext_service( 'permissions' )->can( get_current_user_id(), 'buddynext-spaces/create' ) ) {
+				return new WP_Error( 'rest_forbidden', __( 'You cannot create spaces on this site.', 'buddynext' ), array( 'status' => 403 ) );
+			}
 			$rows = array_values(
 				array_filter(
 					$this->service()->get_all(),

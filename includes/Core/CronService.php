@@ -248,7 +248,10 @@ class CronService {
 	 */
 	private function purge_stale_unverified(): void {
 		if ( ! \BuddyNext\Auth\VerificationService::is_required() ) {
-			return; // Verification not enforced — nothing to purge.
+			// Not enforced (the setting or the whole feature is off): nothing to purge,
+			// and markers from an earlier period must not survive into the next one.
+			\BuddyNext\Auth\VerificationService::clear_awaiting_markers();
+			return;
 		}
 
 		$days = self::unverified_purge_days();

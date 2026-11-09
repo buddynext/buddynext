@@ -993,13 +993,17 @@ class AuthController {
 			);
 		}
 
-		$limited = $this->rate_limit_guard( 'login', $user_input );
+		$identified = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
+		$login      = $identified ? $identified->user_login : $user_input;
+
+		// One budget per ACCOUNT, not per spelling: login name, email, handle and
+		// @handle all reach the same user, so keying on what was typed gave one
+		// account several guesses per window. An input that names no account keeps
+		// the typed value as its key.
+		$limited = $this->rate_limit_guard( 'login', $identified ? 'user:' . (int) $identified->ID : $user_input );
 		if ( $limited instanceof WP_Error ) {
 			return $limited;
 		}
-
-		$identified = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
-		$login      = $identified ? $identified->user_login : $user_input;
 
 		// Verify the password (runs the full authenticate chain, including the
 		// pending-approval gate) WITHOUT setting an auth cookie yet — so a 2FA

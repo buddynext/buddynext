@@ -69,6 +69,8 @@ class VerificationListener implements ListenerInterface {
 		unset( $old_value );
 		if ( (bool) $new_value ) {
 			VerificationService::mark_verification_enabled();
+		} else {
+			VerificationService::clear_awaiting_markers();
 		}
 	}
 

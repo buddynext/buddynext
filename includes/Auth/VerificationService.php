@@ -257,6 +257,21 @@ class VerificationService {
 	}
 
 	/**
+	 * Forget every "signed up, still waiting to verify" marker.
+	 *
+	 * The markers only mean something while verification is required. When it is
+	 * switched off, members carry on using the site; if it is switched on again
+	 * later, markers left from the earlier period would make the stale-account
+	 * cleanup treat those members as never-verified sign-ups. One bulk delete, no
+	 * per-user loop.
+	 *
+	 * @return void
+	 */
+	public static function clear_awaiting_markers(): void {
+		delete_metadata( 'user', 0, 'buddynext_signup_awaiting_verify', '', true );
+	}
+
+	/**
 	 * Record the moment email verification was switched on.
 	 *
 	 * Stamps buddynext_email_verify_enabled_at once (first-write-wins) so

@@ -3003,6 +3003,20 @@ class SpaceController extends BaseRestController {
 		$inviter_id      = get_current_user_id();
 		$invited_user_id = absint( $request->get_param( 'user_id' ) );
 
+		// Who may invite is settled before anything about the invitee is looked at, so
+		// a member who cannot invite learns nothing about which names exist.
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		if ( ! ( new SpaceMemberService() )->can_invite( $space_id, $inviter_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can invite members.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Allow invite by @handle, username or email when no numeric user_id is supplied,
 		// so the hero Invite modal can mirror the settings-panel invite form.
 		if ( 0 === $invited_user_id ) {
@@ -3017,6 +3031,11 @@ class SpaceController extends BaseRestController {
 				if ( $invited_user instanceof \WP_User ) {
 					$invited_user_id = (int) $invited_user->ID;
 				} else {
+					// Below site level an unknown name answers like every other "nothing
+					// sent" outcome, so the route cannot be used to test which names exist.
+					if ( ! buddynext_can( $inviter_id, 'buddynext-moderation/review-queue' ) ) {
+						return $this->invite_not_sent();
+					}
 					return new WP_Error(
 						'user_not_found',
 						__( 'No member found with that @handle or email.', 'buddynext' ),
@@ -3031,16 +3050,6 @@ class SpaceController extends BaseRestController {
 				'missing_user_id',
 				__( 'A user_id or identifier parameter is required.', 'buddynext' ),
 				array( 'status' => 400 )
-			);
-		}
-
-		$space = ( new SpaceService() )->get( $space_id );
-
-		if ( null === $space ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'Space not found.', 'buddynext' ),
-				array( 'status' => 404 )
 			);
 		}
 
@@ -3172,7 +3181,7 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		if ( ! $site_level && in_array( $status, array( 'attached', 'already_invited', 'invited_elsewhere', 'existing_member' ), true ) ) {
+		if ( ! $site_level && in_array( $status, array( 'attached', 'already_invited', 'invited_elsewhere', 'existing_member', 'mail_failed' ), true ) ) {
 			return $this->invite_not_sent();
 		}
 
