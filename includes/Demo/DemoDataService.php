@@ -66,8 +66,8 @@ class DemoDataService {
 	private const USER_FLAG = 'bn_demo';
 
 	/**
-	 * Realistic member roster. login is prefixed `bn_demo_` so it never
-	 * collides with a real account; avatar/cover index into assets/demo/.
+	 * Realistic member roster. login is the readable handle (see create_member() for
+	 * the collision rule); avatar/cover index into assets/demo/.
 	 *
 	 * `topics` is a list of space-category slugs (see seed_member_interests),
 	 * `profile` is a field_key => value map merged into save_profile(); every
@@ -1082,7 +1082,10 @@ class DemoDataService {
 					'type'       => 'text',
 					'content'    => $body,
 					'created_at' => $bn_created_at,
-				) + ( $space_id > 0 ? array( 'space_id' => $space_id ) : array() )
+				) + ( $space_id > 0 ? array(
+					'space_id' => $space_id,
+					'privacy'  => 'space',
+				) : array() )
 			);
 			if ( is_wp_error( $post_id ) ) {
 				continue;
@@ -1279,9 +1282,11 @@ class DemoDataService {
 	 *
 	 * @param string $rel       Path under assets/demo/.
 	 * @param int    $author_id Uploading member.
+	 * @param int    $space_id  Space the file belongs to (0 = personal). A space file takes
+	 *                          space-scoped privacy, so it stays out of site-wide Explore.
 	 * @return int Media ID, or 0 when the engine is absent or the file is unusable.
 	 */
-	private function upload_bundled_media( string $rel, int $author_id ): int {
+	private function upload_bundled_media( string $rel, int $author_id, int $space_id = 0 ): int {
 		$uploader = MediaClient::available() ? MediaClient::upload() : null;
 		if ( ! is_object( $uploader ) || ! method_exists( $uploader, 'handle' ) ) {
 			return 0;
@@ -1312,7 +1317,7 @@ class DemoDataService {
 				'error'    => 0,
 			),
 			$author_id,
-			array()
+			$space_id > 0 ? array( 'space_id' => $space_id ) : array()
 		);
 
 		if ( file_exists( $tmp ) ) {
@@ -1387,7 +1392,7 @@ class DemoDataService {
 
 			$items = array();
 			foreach ( $entry['images'] as $rel ) {
-				$media_id = $this->upload_bundled_media( $rel, $owner_id );
+				$media_id = $this->upload_bundled_media( $rel, $owner_id, $space_id );
 				if ( $media_id > 0 ) {
 					$items[]             = $media_id;
 					$manifest['media'][] = $media_id;
@@ -1402,7 +1407,7 @@ class DemoDataService {
 				array(
 					'title'       => $entry['title'],
 					'description' => $entry['description'],
-					'privacy'     => 'public',
+					'privacy'     => 'space',
 				)
 			);
 			if ( is_wp_error( $album_id ) || (int) $album_id <= 0 ) {
@@ -2081,7 +2086,13 @@ class DemoDataService {
 	 * @return int New user ID, or 0 on failure / already-exists.
 	 */
 	private function create_member( array $member ): int {
-		$login = 'bn_demo_' . $member['login'];
+		// A readable handle (profile URLs and @mentions show it); the demo marker is
+		// the USER_FLAG meta, not the login. A real member who already holds the
+		// handle keeps it, and the demo account takes the prefixed form instead.
+		$login = (string) $member['login'];
+		if ( username_exists( $login ) ) {
+			$login = 'bn_demo_' . $login;
+		}
 		if ( username_exists( $login ) ) {
 			return 0;
 		}
