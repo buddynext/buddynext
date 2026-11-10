@@ -1121,7 +1121,10 @@ class DemoDataService {
 					'type'     => 'link',
 					'content'  => $lp['content'],
 					'link_url' => $lp['url'],
-				) + ( $space_id > 0 ? array( 'space_id' => $space_id ) : array() )
+				) + ( $space_id > 0 ? array(
+					'space_id' => $space_id,
+					'privacy'  => 'space_members',
+				) : array() )
 			);
 			if ( is_wp_error( $post_id ) ) {
 				continue;
