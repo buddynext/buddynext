@@ -141,3 +141,23 @@ namespace WBGam\Engine {
 		}
 	}
 }
+
+namespace WPMediaVerse\Core {
+	if ( ! class_exists( 'WPMediaVerse\\Core\\TemplateHelpers' ) ) {
+		/**
+		 * Stub for WPMediaVerse's template helpers (stories, 2.7.0). BuddyNext
+		 * calls these only behind method_exists() guards.
+		 */
+		class TemplateHelpers {
+			public static function can_post_story(): bool { // phpcs:ignore
+				return true;
+			}
+			public static function story_length_label(): string { // phpcs:ignore
+				return '24 hours';
+			}
+			public static function default_video_poster_url(): string { // phpcs:ignore
+				return '';
+			}
+		}
+	}
+}
