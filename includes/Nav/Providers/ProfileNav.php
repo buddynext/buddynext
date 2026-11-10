@@ -679,7 +679,9 @@ final class ProfileNav {
 		$hero = \BuddyNext\Profile\ProfileService::hero_field_keys();
 		foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
 			$gkey = (string) ( $group['group_key'] ?? '' );
-			if ( '' === $gkey || 'social_links' === $gkey ) {
+			// Every group the About panel renders counts, social links included:
+			// the header shows a social field only when the owner flags it.
+			if ( '' === $gkey ) {
 				continue;
 			}
 			// Repeater entries (work / education) with any value.
