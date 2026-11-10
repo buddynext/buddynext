@@ -1084,7 +1084,7 @@ class DemoDataService {
 					'created_at' => $bn_created_at,
 				) + ( $space_id > 0 ? array(
 					'space_id' => $space_id,
-					'privacy'  => 'space',
+					'privacy'  => 'space_members',
 				) : array() )
 			);
 			if ( is_wp_error( $post_id ) ) {
