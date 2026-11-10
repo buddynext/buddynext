@@ -66,6 +66,32 @@ class EmailSenderGateTest extends \WP_UnitTestCase {
 		$this->assertFalse( $mailed, 'a can_email=false type must never email' );
 	}
 
+	public function test_queued_email_is_dropped_when_its_actor_was_deleted(): void {
+		$mailed = false;
+		add_filter(
+			'pre_wp_mail',
+			static function ( $short ) use ( &$mailed ) {
+				$mailed = true;
+				return true;
+			}
+		);
+
+		$actor = self::factory()->user->create();
+		wp_delete_user( $actor );
+
+		$sent = $this->sender()->send_now(
+			$this->user_id,
+			'bn.new_follower',
+			array(
+				'type'      => 'bn.new_follower',
+				'sender_id' => $actor,
+			)
+		);
+
+		$this->assertFalse( $sent );
+		$this->assertFalse( $mailed, 'an email whose actor is gone has no name to show, so it must not send' );
+	}
+
 	/**
 	 * R1 guard: the composed-email exemption is keyed on an explicit type
 	 * allowlist, NEVER on the mere presence of inline subject/body. A partner
