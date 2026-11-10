@@ -218,6 +218,8 @@ Each plan card on the Plans tab carries the controls you need:
 
 The plan's own edit screen shows the link to share. Members already on the plan keep it whether it is Active or Unlisted, so moving a plan to Unlisted quietly closes it to new sign-ups without disturbing anyone who already pays for it.
 
+A free Unlisted plan can also be your **Default plan for new members**, so the plan everyone starts on does not have to appear on the pricing page.
+
 The pricing page will render an unlisted plan when the link names it explicitly (`?plan=<id>`), and only that one - every other unlisted plan stays hidden, and a visitor without the link sees nothing extra.
 
 A buy button on a paywall only ever sells a plan that opens that content. An Unlisted plan is offered there only when you attached it to that space or post and no listed plan opens the same content. See [Gated Spaces](02-gated-spaces.md) and [Content Protection](04-content-protection.md).
