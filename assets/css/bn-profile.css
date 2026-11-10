@@ -340,6 +340,7 @@
 .bn-field-link {
 	color: var(--bn-p-brand);
 	text-decoration: none;
+	overflow-wrap: anywhere; /* a long URL path wraps inside the card at 390px */
 }
 .bn-field-link:hover {
 	text-decoration: underline;
