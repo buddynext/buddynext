@@ -1208,6 +1208,10 @@ select.bn-text-input {
 	font-weight: var(--bn-a-fw-semibold);
 	margin-inline-end: var(--bn-a-s2);
 }
+/* A status chip moves to its own line as a whole rather than breaking inside. */
+.bn-int-matrix__name .bn-badge {
+	white-space: nowrap;
+}
 .bn-int-matrix__meta,
 .bn-int-matrix__name .bn-field-hint {
 	display: block;
