@@ -240,6 +240,7 @@ class WPMediaVerseBridge {
 		// A reported photo or video removed from the report queue goes to the
 		// MediaVerse trash, and its author gets the takedown notice.
 		add_filter( 'buddynext_content_removal_handled', array( $this, 'remove_reported_media' ), 10, 3 );
+		add_filter( 'buddynext_removable_object_types', array( $this, 'removable_media' ) );
 		add_filter( 'buddynext_removed_content_author', array( $this, 'reported_media_author' ), 10, 3 );
 
 		// A document shared from the composer renders as a link-out card. The
@@ -605,6 +606,21 @@ class WPMediaVerseBridge {
 		$repo = MediaClient::repo();
 
 		return is_object( $repo ) && (bool) $repo->trash( (int) $object_id );
+	}
+
+	/**
+	 * Offer "Remove content" on media reports, which remove_reported_media() handles.
+	 *
+	 * @param string[] $types Removable object types.
+	 * @return string[]
+	 */
+	public function removable_media( $types ): array {
+		$types = (array) $types;
+		if ( MediaClient::available() ) {
+			$types[] = 'media';
+		}
+
+		return $types;
 	}
 
 	/**

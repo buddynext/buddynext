@@ -977,7 +977,7 @@ $posts_pct_abs = abs( $posts_pct );
 							// applies to removable object types — remove_object() returns a 422
 							// (bn_removal_unsupported) for user/space reports, same gate the
 							// wp-admin queue uses (includes/Admin/ModerationQueue.php).
-							$rpt_removable = in_array( $rpt_obj_type, array( 'post', 'comment', 'message' ), true );
+							$rpt_removable = in_array( $rpt_obj_type, \BuddyNext\Moderation\ModerationService::removable_types(), true );
 							$rpt_escalated = 'escalated' === (string) ( $rpt['status'] ?? '' );
 							$rpt_offender  = (int) ( $rpt['offender_id'] ?? 0 );
 							$rpt_suspended = ! empty( $rpt['offender_suspended'] );
