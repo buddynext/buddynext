@@ -100,7 +100,7 @@ For each item on a surface you can:
 
 Profile and space tabs are listed in the order members see them. The badge on each row says where the tab comes from: **Core** for BuddyNext's own tabs, or the integration's name (Jetonomy, Media, WB Listora and so on). Some tabs only appear for some members, such as Scheduled, which a member sees on their own profile. They are still listed, because the setting applies to every member.
 
-If an integration's **Show in navigation** switch is off in **Settings > Integration Settings**, its tab is not shown on the site whatever its row here says. The row is greyed out with an **Off in Integration Settings** badge and a link to turn it back on.
+If an integration's **Navigation** switch is off in **Settings > Integration Settings**, its tab is not shown on the site whatever its row here says. The row is greyed out with an **Off in Integration Settings** badge and a link to turn it back on.
 
 Custom links can be added to the Main Navigation. The other four surfaces list the items that exist; they are extended in code rather than from this screen.
 

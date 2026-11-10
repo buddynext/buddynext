@@ -39,7 +39,7 @@ Each integration has its own setup page in this section - open the page for the 
 The plugin that owns the data owns its rules, wording, links and emails. BuddyNext displays what that plugin gives it and calls it when a member acts. Two things follow:
 
 - **One bell.** Notifications from Jetonomy, WP Career Board, Learnomy, Eventonomy, WB Gamification and MediaVerse arrive in the BuddyNext bell in the partner's own words. Each plugin's notification types get their own switches in members' notification settings (grouped as Forums, Jobs, Courses, Events, Achievements and Media). While BuddyNext is active, MediaVerse sends no activity emails of its own. Reactions are bell-only, with no reaction emails or digest.
-- **Switching an integration's navigation off does not silence its notifications.** The **Show in navigation** switch (see Integration Settings below) only hides the tab. Bell notifications follow whether the companion plugin is active, plus each member's own notification settings and blocks.
+- **Switching an integration's navigation off does not silence its notifications.** The **Navigation** switch (see Integration Settings below) only hides the tab. Bell notifications follow whether the companion plugin is active, plus each member's own notification settings and blocks.
 
 ## How it works (for owners)
 
@@ -76,22 +76,22 @@ Some integrations also have per-space switches that a space owner sets under **M
 
 ### Choose where each integration appears (Integration Settings)
 
-Enabling an integration decides *that* it runs; **Integration Settings** (its own section in the BuddyNext admin menu, next to Platform) decides *where members see it*. Each connected integration gets its own card with plain switches. A card also shows the partner's installed version, with an **Update needed** badge when the partner is older than the bridge supports and a **Newer partner** badge when the partner is newer than the version the bridge was last checked against (the integration still works). An **Available to add** list at the bottom shows the next step for each companion that is not connected: **Activate** when it is installed, **Install** (opening its card on the Add-ons screen) when it is not, and **Needs BuddyNext Pro** when it connects only through Pro. Only a companion that is active gets a card, so a card never calls a plugin active when it is off. When WP Career Board, WB Listora, Learnomy or Eventonomy is active without BuddyNext Pro, its card says what Pro adds and offers one **Activate BuddyNext Pro** (when Pro is installed) or **Get BuddyNext Pro** button.
+Enabling an integration decides *that* it runs; **Integration Settings** (its own section in the BuddyNext admin menu, next to Platform) decides *where members see it*. The screen is one table: each connected integration is a row, with a **Navigation**, **Feed** and **Search** switch in its own column, and a dash where the integration has no such surface. The row also shows the partner's installed version, with an **Update needed** badge when the partner is older than the bridge supports and a **Newer partner** badge when the partner is newer than the version the bridge was last checked against (the integration still works). Its navigation sub-tabs are listed just under its row. Settings an integration adds of its own get their own section below the table. An **Available to add** list at the bottom shows the next step for each companion that is not connected: **Activate** when it is installed, **Install** (opening its card on the Add-ons screen) when it is not, and **Needs BuddyNext Pro** when it connects only through Pro. Only a companion that is active gets a row, so a row never calls a plugin active when it is off. When WP Career Board, WB Listora, Learnomy or Eventonomy is active without BuddyNext Pro, the screen says what Pro adds and offers one **Activate BuddyNext Pro** (when Pro is installed) or **Get BuddyNext Pro** button.
 
 If a sub-tab needs something the partner cannot provide right now, its switch shows disabled with the reason and the one action that fixes it. Your choice is kept for when the partner can serve it again. For example, Learnomy's **Certifications** sub-tab follows Learnomy's Certificates module: with the module off, the switch shows **Turn on Certificates**.
 
-- **Show in navigation** - adds (or removes) the integration's tab in member navigation.
-- **Post to the activity feed** - whether that integration's events (new discussions, new listings, new media, and so on) appear in the community feed.
-- **Include in search** - whether members can find that integration's content in community search. Offered by the integrations that have content worth searching (discussions, jobs, listings, events).
+- **Navigation** - adds (or removes) the integration's tab in member navigation.
+- **Feed** - whether that integration's events (new discussions, new listings, new media, and so on) appear in the community feed.
+- **Search** - whether members can find that integration's content in community search. Offered by the integrations that have content worth searching (discussions, jobs, listings, events).
 - **Navigation sub-tabs** - integrations that add several member tabs (for example WP Career Board's Jobs and Resume, or Learnomy's Learning, Certifications and Teaching) let you switch each sub-tab individually.
 
 In **Settings > Navigation**, the Events and Businesses space tabs name their integration (Eventonomy, WB Listora) and show when Integration Settings has them off.
 
 This is the screen to visit when you want a companion's data without its menu clutter - for example, keeping forum posts in the feed while hiding the Discussions tab from navigation. Turning a navigation or feed switch off never deletes anything; it only hides the surface.
 
-> **Note:** **Include in search** behaves differently from the other two, and the difference matters. Switching it off does not just stop *new* content being indexed - it also removes the content already in the search index. That is the honest behaviour: a search switch that left old results behind would be a switch that does not work. Switch it back on and the content is indexed again as members create or update it. Nothing is deleted from the companion plugin itself; only the search index is affected.
+> **Note:** **Search** behaves differently from the other two, and the difference matters. Switching it off does not just stop *new* content being indexed - it also removes the content already in the search index. That is the honest behaviour: a search switch that left old results behind would be a switch that does not work. Switch it back on and the content is indexed again as members create or update it. Nothing is deleted from the companion plugin itself; only the search index is affected.
 
-![Integration Settings, one card per connected integration with navigation and feed switches](../images/admin-integration-display.webp)
+![Integration Settings, one row per connected integration with Navigation, Feed and Search switches](../images/admin-integration-display.webp)
 
 ## Good to know
 

@@ -49,9 +49,9 @@ WP Career Board gets a card on the **Integration Settings** screen, with the sam
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether WP Career Board's panels appear on the profile Portfolio tab. WP Career Board adds more than one (Jobs, and Resume with WP Career Board Pro), so each sub-tab can be switched individually. Turning it off only hides the panels; WP Career Board notifications still reach the bell. | On |
-| Post to the activity feed | Whether a published job and a public "open to work" resume post a feed activity. | On |
-| Include in search | Whether published jobs are found in community search. Switching it off also removes the jobs already in the search index. | On |
+| Navigation | Whether WP Career Board's panels appear on the profile Portfolio tab. WP Career Board adds more than one (Jobs, and Resume with WP Career Board Pro), so each sub-tab can be switched individually. Turning it off only hides the panels; WP Career Board notifications still reach the bell. | On |
+| Feed | Whether a published job and a public "open to work" resume post a feed activity. | On |
+| Search | Whether published jobs are found in community search. Switching it off also removes the jobs already in the search index. | On |
 
 The job board's own behavior - who can post, application rules, resume options - is configured in WP Career Board, not here. These switches only decide where the results show up inside your community.
 

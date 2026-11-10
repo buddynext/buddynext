@@ -37,7 +37,7 @@ There is nothing to assemble. The Portfolio tab is built into BuddyNext; Pro fil
 
 1. Make sure BuddyNext Pro is active.
 2. Install and activate the companion apps you want - WP Career Board, WB Listora, or Learnomy.
-3. Open **Integration Settings** (its own section in the BuddyNext admin menu). Each integration has the usual switches: Show in navigation, Post to the activity feed, and Include in search (Include in search appears only for integrations that have searchable content). Its Portfolio sub-tab appears automatically once the app is active, **Show in navigation** is on, and a member has content. The card also shows a badge when the partner is older than BuddyNext supports ("Update needed") or newer than it was built for ("Newer partner").
+3. Open **Integration Settings** (its own section in the BuddyNext admin menu). Each integration is a row with the usual switches: Navigation, Feed, and Search (an integration with no searchable content shows a dash under Search). Its Portfolio sub-tab appears automatically once the app is active, **Navigation** is on, and a member has content. The row also shows a badge when the partner is older than BuddyNext supports ("Update needed") or newer than it was built for ("Newer partner").
 
 BuddyNext Pro declares these minimum partner versions: WP Career Board 1.4.3 and Learnomy 1.9.4. WB Listora declares none.
 
@@ -52,7 +52,7 @@ Pro also adds two tabs to spaces, and both are on in every space by default whil
 
 In Settings > Navigation these two tabs are labelled with their app and show when Integration Settings has the app off.
 
-With WB Listora 2.1.1 or later, an approved review of a published listing also posts a card to the community feed ("reviewed a listing", with the rating and an excerpt). Editing the review refreshes the card, and rejecting or deleting it removes the card. This follows the **Post to the activity feed** switch for WB Listora.
+With WB Listora 2.1.1 or later, an approved review of a published listing also posts a card to the community feed ("reviewed a listing", with the rating and an excerpt). Editing the review refreshes the card, and rejecting or deleting it removes the card. This follows the **Feed** switch for WB Listora.
 
 ## Good to know
 

@@ -46,9 +46,9 @@ Eventonomy gets a card named **Events** on the **Integration Settings** screen, 
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether the Events link, the profile Events tab and the space Events tab appear. Turning it off only hides these; Eventonomy notifications still reach the bell. | On |
-| Post to the activity feed | Whether a published event and a "going" RSVP post a feed activity. | On |
-| Include in search | Whether published events are found in community search. Switching it off also removes the events already in the search index. | On |
+| Navigation | Whether the Events link, the profile Events tab and the space Events tab appear. Turning it off only hides these; Eventonomy notifications still reach the bell. | On |
+| Feed | Whether a published event and a "going" RSVP post a feed activity. | On |
+| Search | Whether published events are found in community search. Switching it off also removes the events already in the search index. | On |
 
 The event experience itself - who can create events, RSVP rules, calendar display - is configured in Eventonomy, not here. These switches only decide where the results show up inside your community.
 

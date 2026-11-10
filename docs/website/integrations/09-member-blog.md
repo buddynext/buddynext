@@ -37,8 +37,8 @@ The **Blog posts** card on **BuddyNext > Integration Settings** has two switches
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Shows the Articles tab on member profiles. Turning it off also decides whether author links open the member's profile (they only do while the profile can list the author's posts); see [Member Profiles](../members/01-member-profiles.md). | On |
-| Post to the activity feed | Whether a published post posts an article card in the feed. This works with or without Member Blog. | On |
+| Navigation | Shows the Articles tab on member profiles. Turning it off also decides whether author links open the member's profile (they only do while the profile can list the author's posts); see [Member Profiles](../members/01-member-profiles.md). | On |
+| Feed | Whether a published post posts an article card in the feed. This works with or without Member Blog. | On |
 
 There is no search switch for this integration.
 

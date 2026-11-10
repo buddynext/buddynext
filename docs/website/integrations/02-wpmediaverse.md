@@ -28,7 +28,7 @@ Members can open a private conversation with another member and exchange message
 
 With the companion active, members can attach photos and other media to their activity posts, and media can be shared inside conversations. Media opens in a built-in viewer for reactions and comments, all rendered as part of the BuddyNext feed rather than a separate media interface.
 
-A public upload made directly in MediaVerse also posts a shared-media card to the activity feed. It is deferred by a couple of minutes and de-duplicated, so a photo added through the BuddyNext composer never posts twice. Private uploads never post. The owner can stop these cards with the **Post to the activity feed** switch on the Media card in Integration Settings.
+A public upload made directly in MediaVerse also posts a shared-media card to the activity feed. It is deferred by a couple of minutes and de-duplicated, so a photo added through the BuddyNext composer never posts twice. Private uploads never post. The owner can stop these cards with the **Feed** switch on the Media row in Integration Settings.
 
 Feed posts follow their photos. Trash a photo in MediaVerse and a post with nothing left to show leaves the feed; restore it and the same post comes back with its reactions and comments; delete it permanently and the post is removed rather than left empty. A post with several photos keeps the ones that remain.
 
@@ -48,7 +48,7 @@ This matters more than it looks. The bridge sends the standalone media page back
 
 ### Media link in the sidebar
 
-A **Media** link appears in the BuddyNext left navigation rail for logged-in members, in the personal group with Profile and Bookmarks. It opens the member's own profile Media tab, where they browse their photos, videos and albums (see Profile Media and Albums). Guests do not see it. The owner can hide it with **Show in navigation** on the Media card in Integration Settings.
+A **Media** link appears in the BuddyNext left navigation rail for logged-in members, in the personal group with Profile and Bookmarks. It opens the member's own profile Media tab, where they browse their photos, videos and albums (see Profile Media and Albums). Guests do not see it. The owner can hide it with **Navigation** on the Media row in Integration Settings.
 
 ### Stories on the home feed
 
@@ -81,7 +81,7 @@ Messages are switched on or off in MediaVerse (**MediaVerse > Settings > Message
 
 Who can message whom is MediaVerse's own rule: the site-wide level set there, which members can keep or tighten in their BuddyNext privacy settings, plus BuddyNext's blocks (see Direct Messaging and Blocking and Muting).
 
-Under **Integration Settings**, the Media card has two switches: **Show in navigation** (the Media link and profile Media tab) and **Post to the activity feed** (cards for public uploads), plus an **Albums** sub-tab switch. Direct messaging does not depend on these switches. The Media **Post to the activity feed** switch stops only the automatic cards for uploads. Members can still attach documents to posts, and their document posts keep showing.
+Under **Integration Settings**, the Media row has two switches: **Navigation** (the Media link and profile Media tab) and **Feed** (cards for public uploads), plus an **Albums** sub-tab switch. Direct messaging does not depend on these switches. The Media **Feed** switch stops only the automatic cards for uploads. Members can still attach documents to posts, and their document posts keep showing.
 
 @handles work in MediaVerse mentions and document shares too: a member's custom profile handle resolves to the right community member (needs MediaVerse 2.6.3 or later).
 

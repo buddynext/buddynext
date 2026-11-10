@@ -56,11 +56,11 @@ If the link that creates a space's discussion fails, the space page now says why
 
 ### Feed sync setting
 
-One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Settings** tab in the BuddyNext admin (BuddyNext > Integration Settings), as the Jetonomy row's "Post to the activity feed" toggle. Each space also has its own **Share activity to the main feed** switch under Settings > Integrations, which is on by default.
+One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Settings** tab in the BuddyNext admin (BuddyNext > Integration Settings), as the Jetonomy row's "Feed" toggle. Each space also has its own **Share activity to the main feed** switch under Settings > Integrations, which is on by default.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Post to the activity feed (Jetonomy row) | When on, a new discussion in a connected public space is also published as a card in the BuddyNext activity feed (and Explore), so it gets noticed in the moment. The thread still lives in the forum. When off, discussions are searchable and reachable through the Discussions tab but do not appear as feed cards. | On |
+| Feed (Jetonomy row) | When on, a new discussion in a connected public space is also published as a card in the BuddyNext activity feed (and Explore), so it gets noticed in the moment. The thread still lives in the forum. When off, discussions are searchable and reachable through the Discussions tab but do not appear as feed cards. | On |
 
 Privacy is enforced regardless of the setting: only public spaces, public (non-private) discussions, and published discussions can ever become a public feed card. A private or secret space, or a private discussion, never leaks into the public feed.
 
@@ -71,7 +71,7 @@ Privacy is enforced regardless of the setting: only public spaces, public (non-p
 
 - **Requires the Jetonomy companion.** The Space Forum is the BuddyNext side of the Jetonomy integration. Without Jetonomy active there is no forum, no Discussions tab, and no forum search results. For how BuddyNext and Jetonomy connect, see Jetonomy Integration.
 - **Inert when not installed.** With Jetonomy inactive, the forum integration registers nothing - no navigation, no settings effect, no errors. It is genuinely optional.
-- **Two site-wide switches also apply.** On **Integration Settings**, the Jetonomy row has **Show in navigation**, **Post to the activity feed** and **Include in search**. Switching off navigation hides the Discussions tab everywhere.
+- **Two site-wide switches also apply.** On **Integration Settings**, the Jetonomy row has **Navigation**, **Feed** and **Search**. Switching off navigation hides the Discussions tab everywhere.
 - **Forums are created when the owner turns them on.** A space has no forum until its owner switches on **Enable discussion**. This avoids a wall of empty boards across every space.
 - **The forum keeps its own layout.** Inside the Discussions tab, BuddyNext's navigation is rendered around the forum and the companion's own navigation is hidden, so there is one consistent navigation. The forum keeps its own content column.
 - **Deleting a discussion cleans up after itself.** Removing a discussion in the forum also removes it from BuddyNext search and from any activity-feed card it produced.
