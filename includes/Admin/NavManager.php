@@ -1908,7 +1908,15 @@ class NavManager extends AdminPageBase {
 				</span>
 			</div>
 
-			<?php if ( $is_core ) : ?>
+			<?php if ( $is_core && isset( $tab['core'] ) && ! $tab['core'] ) : ?>
+			<div class="bn-config-divider"></div>
+			<div class="bn-cf">
+				<div class="bn-config-note">
+					<strong><?php esc_html_e( 'Added by another plugin', 'buddynext' ); ?></strong>
+					<?php esc_html_e( '- Hide it here, or remove it in the plugin that adds it.', 'buddynext' ); ?>
+				</div>
+			</div>
+			<?php elseif ( $is_core ) : ?>
 			<div class="bn-config-divider"></div>
 			<div class="bn-cf">
 				<div class="bn-config-note">
@@ -2456,6 +2464,7 @@ class NavManager extends AdminPageBase {
 				'icon'        => '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom',
 				'description' => __( 'Added by another plugin', 'buddynext' ),
 				'capability'  => 'read',
+				'core'        => false,
 			);
 		}
 		return $tabs;

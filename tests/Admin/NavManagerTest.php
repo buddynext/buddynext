@@ -318,6 +318,7 @@ class NavManagerTest extends \WP_UnitTestCase {
 
 		$this->assertArrayHasKey( 'qa-rail', $rows, 'A rail item from another plugin is manageable.' );
 		$this->assertSame( 'Meetups', $rows['qa-rail']['label'] );
+		$this->assertFalse( $rows['qa-rail']['core'], 'A rail item from another plugin is not labelled Core.' );
 		$this->assertSame( 1, count( array_keys( array_column( $this->nav->get_tabs_for_scope( 'main' ), 'slug' ), 'feed', true ) ), 'Core rows are not listed twice.' );
 	}
 }
