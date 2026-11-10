@@ -44,7 +44,9 @@ Trust the badge over the fact that the fields look full - a typo in a secret loo
 
 A single **Checkout default** picker (in the Default gateway section) chooses which active gateway checkout routes members to first. It starts on **Automatic (first active gateway)**. If you offer more than one, this is the one members meet by default. If the chosen gateway is switched off or loses its credentials, checkout uses the next available gateway rather than breaking.
 
-The same tab also has a **Default currency** setting for new plans. Each plan can override it, and only supported ISO-4217 currencies are accepted.
+The same tab also has the site **Currency**. Every plan, checkout and invoice uses it, and only supported ISO-4217 currencies are accepted. Set it before you take your first payment: changing it later does not convert plan prices or past invoices.
+
+From 1.2.9 a plan no longer has a currency of its own. If any of your plans had one that differed from the site currency, the Payments tab lists them once after the update so you can check their prices. Saving the tab dismisses that note.
 
 ### The same final amount, every gateway
 

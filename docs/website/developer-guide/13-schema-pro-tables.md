@@ -32,7 +32,7 @@ Tier definitions. The base table is created by `schema_core()`; the pricing/bill
 | `sort_order` | INT | Default 0; indexed (`sort`) |
 | `points_price` | BIGINT(20) UNSIGNED | Default 0. Gamification points price. Base column in `schema_core()`; also back-filled by `maybe_alter_tables()` for older installs. |
 | `price` | DECIMAL(10,2) | Default 0 (added via ALTER) |
-| `currency` | CHAR(3) | Default `USD` (added via ALTER) |
+| `currency` | CHAR(3) | Retired in 1.2.9: nothing reads or writes it. Plans are priced in the site currency (`buddynextpro_default_currency`); the column stays only so a rollback keeps working. |
 | `billing_type` | ENUM('recurring','one_time') | Default `recurring` (added via ALTER) |
 | `billing_interval` | ENUM('month','year','once') | Default `month` (added via ALTER) |
 | `annual_price` | DECIMAL(10,2) | Default 0. Yearly price when the plan also offers an annual option; `price` stays the monthly leg (added via ALTER) |
@@ -93,6 +93,8 @@ Purchase receipts. The `meta` JSON blob carries line items and billing address f
 | `id` | BIGINT UNSIGNED | Primary key, auto-increment |
 | `user_id` | BIGINT UNSIGNED | Indexed (`user_id`) |
 | `plan_id` | BIGINT UNSIGNED | Indexed (`plan_id`) |
+| `subscription_id` | BIGINT UNSIGNED | Added 1.2.9. The subscription this order paid for, default 0 (an older order the upgrade could not match). |
+| `type` | VARCHAR(20) | Added 1.2.9. `new` (sign-up), `renewal` or `plan_change`. A refund stays on the order it refunds. |
 | `gateway` | VARCHAR(40) | Gateway slug |
 | `amount` | DECIMAL(10,2) | Default 0 |
 | `tax` | DECIMAL(10,2) | Default 0 |
@@ -105,7 +107,9 @@ Purchase receipts. The `meta` JSON blob carries line items and billing address f
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `meta` | LONGTEXT | JSON line items + address, nullable |
 
-Keys: `PRIMARY (id)`, `KEY user_id (user_id)`, `KEY plan_id (plan_id)`, `KEY created_at (created_at)`, `KEY status (status)`.
+Keys: `PRIMARY (id)`, `KEY user_id (user_id)`, `KEY plan_id (plan_id)`, `KEY created_at (created_at)`, `KEY status (status)`, `KEY subscription_type (subscription_id, type)`.
+
+The invoices are the one record of what a member paid. A member's billed price (the price a later renewal is checked against) is the `amount` of the subscription's latest `new` or `plan_change` invoice: `SubscriptionService::billed_amount()`, or `billed_amount_sql()` inside a list query. The 1.2.9 upgrade (`InvoiceLedgerUpgrade`) linked older invoices to their subscriptions and turned the amounts the access webhook had kept on `bn_subscriptions.payment_amount` into sign-up invoices; that column and `payment_currency` are retired and stay only for rollback.
 
 ### `bn_coupons`
 

@@ -138,8 +138,7 @@ Open the Plans tab and choose **Add plan**. A plan is defined by three groups of
 
 | Setting | What it does | Default |
 |---|---|---|
-| Price | The plan price. Set to 0 for a free plan. | 0.00 |
-| Currency | The three-letter ISO 4217 currency code (for example USD, EUR, GBP). | USD |
+| Price | The plan price, in the site currency set under Payments (the label shows it, for example Price (USD)). Set to 0 for a free plan. | 0.00 |
 | Trial days | Length of a free trial in days. Set to 0 to disable the trial. | 0 |
 | Billing type | Whether the plan bills repeatedly or once. Options: Recurring, One-time. | Recurring |
 | Billing interval | How often a recurring plan bills, or whether it is a single charge. Options: Monthly, Yearly, Once. | Monthly |
@@ -285,7 +284,7 @@ A subscription's source tells you how it was created: a gateway name (such as St
 
 #### Money received, not just projected (1.1.5)
 
-The Subscriptions tab shows a **Received, 30 days** figure alongside MRR and ARR, one per currency. The distinction matters: MRR and ARR are projections of what recurring plans should bring in, while Received is money that actually arrived. A month with failed payments, refunds or a batch of externally-granted memberships will show the two diverging, and that gap is the number worth looking at.
+The Subscriptions tab shows a **Received, 30 days** figure alongside MRR and ARR, in the site currency. The distinction matters: MRR and ARR are projections of what recurring plans should bring in, while Received is money that actually arrived. A month with failed payments, refunds or a batch of externally-granted memberships will show the two diverging, and that gap is the number worth looking at.
 
 #### Add order: record a payment received outside the site
 
