@@ -574,6 +574,12 @@ class WPMediaVerseBridge {
 			return;
 		}
 
+		// Gone before this delayed job ran: a story-only upload whose story was
+		// ended in the first two minutes, or any upload deleted that fast.
+		if ( is_object( $repo ) && method_exists( $repo, 'exists' ) && ! $repo->exists( $media_id ) ) {
+			return;
+		}
+
 		// Already surfaced by a post (the composer, or an earlier run of this job).
 		if ( array() !== ( new PostService() )->ids_with_media( $media_id, 'published', 'draft', 'pending', 'scheduled', 'under_review' ) ) {
 			return;
