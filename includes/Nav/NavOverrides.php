@@ -71,15 +71,27 @@ final class NavOverrides {
 	}
 
 	/**
-	 * Whether the owner hid a main-scope item that has no rail row of its own
-	 * (the My-spaces switcher).
+	 * Whether a main-scope item that has no rail row of its own (the My-spaces
+	 * switcher) is hidden from this viewer, by the hide switch or the access gate.
 	 *
 	 * @param string $slug Main-scope item slug.
 	 * @return bool
 	 */
 	public function is_hidden( string $slug ): bool {
-		$ov = $this->overrides( 'main' )[ sanitize_key( $slug ) ] ?? array();
-		return ! empty( $ov['hidden'] );
+		$ov = (array) ( $this->overrides( 'main' )[ sanitize_key( $slug ) ] ?? array() );
+		return ! empty( $ov['hidden'] ) || $this->tab_denied( $ov );
+	}
+
+	/**
+	 * The owner's label for a main-scope item that has no rail row of its own.
+	 *
+	 * @param string $slug     Main-scope item slug.
+	 * @param string $fallback Default label.
+	 * @return string
+	 */
+	public function label( string $slug, string $fallback ): string {
+		$label = (string) ( $this->overrides( 'main' )[ sanitize_key( $slug ) ]['label'] ?? '' );
+		return '' !== $label ? sanitize_text_field( $label ) : $fallback;
 	}
 
 	/**

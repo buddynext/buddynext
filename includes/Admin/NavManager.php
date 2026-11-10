@@ -2441,7 +2441,47 @@ class NavManager extends AdminPageBase {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function default_tabs(): array {
-		return array_merge( $this->core_main_tabs(), $this->partner_main_tabs() );
+		$tabs  = array_merge( $this->core_main_tabs(), $this->partner_main_tabs() );
+		$known = array_flip( array_column( $tabs, 'slug' ) );
+		foreach ( $this->registered_rail_items() as $item ) {
+			$key = sanitize_key( (string) ( $item['key'] ?? '' ) );
+			if ( '' === $key || isset( $known[ $key ] ) ) {
+				continue;
+			}
+			$known[ $key ] = true;
+			$tabs[]        = array(
+				'slug'        => $key,
+				'label'       => sanitize_text_field( (string) ( $item['label'] ?? $key ) ),
+				'order'       => (int) ( $item['order'] ?? 0 ) > 0 ? (int) $item['order'] : 300,
+				'icon'        => '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom',
+				'description' => __( 'Added by another plugin', 'buddynext' ),
+				'capability'  => 'read',
+			);
+		}
+		return $tabs;
+	}
+
+	/**
+	 * Rail items other plugins add on `buddynext_rail_items`, as they stand
+	 * before the owner's overrides (priority 20) rename or hide them, so the
+	 * editor lists every item the rail can show under its own default label.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function registered_rail_items(): array {
+		$shell = buddynext_service( 'shell_nav' );
+		if ( ! is_object( $shell ) ) {
+			return array();
+		}
+		$captured = array();
+		$capture  = static function ( $items ) use ( &$captured ) {
+			$captured = (array) $items;
+			return $items;
+		};
+		add_filter( 'buddynext_rail_items', $capture, 19 );
+		apply_filters( 'buddynext_rail_items', $shell->base_items( get_current_user_id() ), '' );
+		remove_filter( 'buddynext_rail_items', $capture, 19 );
+		return $captured;
 	}
 
 	/**
@@ -2527,7 +2567,7 @@ class NavManager extends AdminPageBase {
 				'label'          => __( 'My spaces', 'buddynext' ),
 				'order'          => 31,
 				'icon'           => 'tab-spaces',
-				'description'    => __( 'Expandable list of the member\'s own spaces under Spaces. Hide it to keep the rail short.', 'buddynext' ),
+				'description'    => __( 'Expandable list of the member\'s own spaces. It always sits under Spaces, so its position here does not move it. Hide it to keep the rail short.', 'buddynext' ),
 				'capability'     => 'read',
 				'hidden'         => false,
 				'login_required' => true,

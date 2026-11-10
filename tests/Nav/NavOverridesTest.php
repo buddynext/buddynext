@@ -139,4 +139,23 @@ class NavOverridesTest extends \WP_UnitTestCase {
 		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
 		$this->assertSame( '', \BuddyNext\Nav\UserLinks::resolve( '#bn-spaces', $member ), 'a closed section must not be linked from the menu' );
 	}
+
+	/**
+	 * The My-spaces switcher has no rail row, so its label and access settings
+	 * are read through label() and is_hidden().
+	 */
+	public function test_my_spaces_reads_its_label_and_access_gate(): void {
+		$ov = new NavOverrides();
+		$this->assertSame( 'My spaces', $ov->label( 'my-spaces', 'My spaces' ) );
+		$this->assertFalse( $ov->is_hidden( 'my-spaces' ) );
+
+		update_option( 'buddynext_nav_overrides', array( 'my-spaces' => array( 'label' => 'Your groups', 'visibility' => 'admins' ) ) );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+
+		$this->assertSame( 'Your groups', $ov->label( 'my-spaces', 'My spaces' ) );
+		$this->assertTrue( $ov->is_hidden( 'my-spaces' ), 'An admins-only switcher is hidden from a member.' );
+
+		wp_set_current_user( 1 );
+		$this->assertFalse( $ov->is_hidden( 'my-spaces' ) );
+	}
 }

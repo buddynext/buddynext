@@ -298,4 +298,26 @@ class NavManagerTest extends \WP_UnitTestCase {
 		$this->assertSame( 'qa-integration', $row['integration'], 'The integration key reaches the row, so it can show when Integration Settings has it off.' );
 		$this->assertFalse( $row['core'], 'A tab from another plugin is not labelled Core.' );
 	}
+
+	/**
+	 * A rail item another plugin adds on buddynext_rail_items is listed in the
+	 * main editor, and the owner's saved label applies to it.
+	 */
+	public function test_registered_rail_items_are_listed_in_the_main_editor(): void {
+		$add = static function ( $items ) {
+			$items[] = array( 'key' => 'qa-rail', 'label' => 'Group Events', 'url' => home_url( '/' ), 'show' => true );
+			return $items;
+		};
+		add_filter( 'buddynext_rail_items', $add );
+		update_option( 'buddynext_nav_overrides', array( 'qa-rail' => array( 'label' => 'Meetups' ) ) );
+
+		$rows = array_column( $this->nav->get_tabs_for_scope( 'main' ), null, 'slug' );
+
+		remove_filter( 'buddynext_rail_items', $add );
+		delete_option( 'buddynext_nav_overrides' );
+
+		$this->assertArrayHasKey( 'qa-rail', $rows, 'A rail item from another plugin is manageable.' );
+		$this->assertSame( 'Meetups', $rows['qa-rail']['label'] );
+		$this->assertSame( 1, count( array_keys( array_column( $this->nav->get_tabs_for_scope( 'main' ), 'slug' ), 'feed', true ) ), 'Core rows are not listed twice.' );
+	}
 }

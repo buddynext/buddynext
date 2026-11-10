@@ -191,7 +191,8 @@ foreach ( $bn_rail_items as $bn_item ) {
 			// a member of many spaces can jump straight to one without opening the full
 			// directory (the sidebar widget caps at a handful). Only when they belong
 			// to at least one space.
-			if ( 'spaces' === (string) ( $bn_item['key'] ?? '' ) && $bn_rail_current_user && ! ( new \BuddyNext\Nav\NavOverrides() )->is_hidden( 'my-spaces' ) ) :
+			$bn_rail_overrides = new \BuddyNext\Nav\NavOverrides();
+			if ( 'spaces' === (string) ( $bn_item['key'] ?? '' ) && $bn_rail_current_user && ! $bn_rail_overrides->is_hidden( 'my-spaces' ) ) :
 				// Preview only the most-recently-joined spaces in the rail; the count
 				// badge shows the true total and a "See all" link opens /spaces/mine/
 				// so a member of hundreds of spaces gets a short flyout, not a wall.
@@ -207,7 +208,7 @@ foreach ( $bn_rail_items as $bn_item ) {
 					<details class="bn-rail__spaces">
 						<summary class="bn-rail__spaces-toggle">
 							<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'layers' ); ?></span>
-							<span class="bn-rail__spaces-title"><?php esc_html_e( 'My spaces', 'buddynext' ); ?></span>
+							<span class="bn-rail__spaces-title"><?php echo esc_html( $bn_rail_overrides->label( 'my-spaces', __( 'My spaces', 'buddynext' ) ) ); ?></span>
 							<span class="bn-rail__spaces-count"><?php echo esc_html( (string) $bn_spaces_total ); ?></span>
 							<span class="bn-rail__spaces-chevron" aria-hidden="true"><?php buddynext_icon( 'chevron-down' ); ?></span>
 						</summary>
