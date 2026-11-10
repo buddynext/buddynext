@@ -234,6 +234,14 @@ class WPMediaVerseBridge {
 		// uploader's personal drive and `space` privacy was unreachable for media.
 		add_filter( 'mvs_media_drive', array( $this, 'space_media_drive' ), 10, 3 );
 
+		// Community moderators moderate media too. MediaVerse keeps every rule
+		// behind moderate_mvs_media; BuddyNext only says who its moderators are.
+		add_filter( 'user_has_cap', array( $this, 'grant_media_moderation' ), 10, 4 );
+		// A reported photo or video removed from the report queue goes to the
+		// MediaVerse trash, and its author gets the takedown notice.
+		add_filter( 'buddynext_content_removal_handled', array( $this, 'remove_reported_media' ), 10, 3 );
+		add_filter( 'buddynext_removed_content_author', array( $this, 'reported_media_author' ), 10, 3 );
+
 		// A document shared from the composer renders as a link-out card. The
 		// post stores only the document id; this seam resolves the card PER VIEWER
 		// so a private document's title is never snapshotted into someone else's
@@ -546,6 +554,75 @@ class WPMediaVerseBridge {
 		foreach ( (array) ( $block->view_script_module_ids ?? array() ) as $module_id ) {
 			wp_enqueue_script_module( (string) $module_id );
 		}
+	}
+
+	/**
+	 * Give a BuddyNext community moderator MediaVerse's moderator capability.
+	 *
+	 * Only answers when moderate_mvs_media is asked and the role does not
+	 * already hold it, so every other capability check passes straight through
+	 * (and the manage_options check inside can_moderate_site cannot loop back).
+	 *
+	 * @param array<string, bool> $allcaps Capabilities the user holds.
+	 * @param string[]            $caps    Primitive capabilities being checked.
+	 * @param array<int, mixed>   $args    Original has_cap() arguments.
+	 * @param \WP_User|null       $user    The user.
+	 * @return array<string, bool>
+	 */
+	public function grant_media_moderation( $allcaps, $caps, $args, $user = null ): array {
+		$allcaps = (array) $allcaps;
+		if ( ! empty( $allcaps['moderate_mvs_media'] ) || ! in_array( 'moderate_mvs_media', (array) $caps, true ) || ! $user instanceof \WP_User || $user->ID <= 0 ) {
+			return $allcaps;
+		}
+
+		// MediaVerse asks this inside list loops; answer once per member per request.
+		static $answers = array();
+		$uid            = (int) $user->ID;
+		if ( ! isset( $answers[ $uid ] ) ) {
+			$answers[ $uid ] = buddynext_service( 'roles' )->can_moderate_site( $uid );
+		}
+		$allcaps['moderate_mvs_media'] = $answers[ $uid ];
+
+		return $allcaps;
+	}
+
+	/**
+	 * Take down a reported media item: move it to the MediaVerse trash.
+	 *
+	 * Trash, not delete, so a moderator's mistake can be restored, the same as
+	 * a member's own delete. The feed card is withdrawn by on_media_trashed.
+	 *
+	 * @param bool   $handled     Whether another handler already removed it.
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object id.
+	 * @return bool
+	 */
+	public function remove_reported_media( $handled, $object_type, $object_id ): bool {
+		if ( $handled || 'media' !== $object_type || ! MediaClient::available() ) {
+			return (bool) $handled;
+		}
+
+		$repo = MediaClient::repo();
+
+		return is_object( $repo ) && (bool) $repo->trash( (int) $object_id );
+	}
+
+	/**
+	 * Name the author of a removed media item, so the takedown notice reaches them.
+	 *
+	 * @param int    $author_id   Author resolved so far.
+	 * @param string $object_type Removed object type.
+	 * @param int    $object_id   Removed object id.
+	 * @return int
+	 */
+	public function reported_media_author( $author_id, $object_type, $object_id ): int {
+		if ( (int) $author_id > 0 || 'media' !== $object_type || ! MediaClient::available() ) {
+			return (int) $author_id;
+		}
+
+		$repo = MediaClient::repo();
+
+		return is_object( $repo ) ? (int) $repo->get_author( (int) $object_id ) : 0;
 	}
 
 	/**
