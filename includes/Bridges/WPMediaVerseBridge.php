@@ -388,6 +388,7 @@ class WPMediaVerseBridge {
 		add_action( 'buddynext_post_created', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_post_updated', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
+		add_filter( 'mvs_story_keep_item', array( $this, 'keep_story_item_in_post' ), 10, 2 );
 
 		// Withdraw the media feed card when its source is deleted, so the feed
 		// never points at dead content — mirroring what JetonomyBridge and
@@ -545,6 +546,21 @@ class WPMediaVerseBridge {
 		foreach ( (array) ( $block->view_script_module_ids ?? array() ) as $module_id ) {
 			wp_enqueue_script_module( (string) $module_id );
 		}
+	}
+
+	/**
+	 * Keep a story-only upload that a post also holds, so ending the story never
+	 * leaves that post without its media.
+	 *
+	 * @param bool $keep     Whether MediaVerse already keeps the item.
+	 * @param int  $media_id Media id.
+	 * @return bool
+	 */
+	public function keep_story_item_in_post( $keep, $media_id ): bool {
+		if ( $keep ) {
+			return true;
+		}
+		return array() !== ( new PostService() )->ids_with_media( (int) $media_id, 'published', 'draft', 'pending', 'scheduled', 'under_review' );
 	}
 
 	/**
