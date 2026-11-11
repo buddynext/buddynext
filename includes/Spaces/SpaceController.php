@@ -1679,15 +1679,28 @@ class SpaceController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_space_by_slug( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		// The segment arrives still percent-encoded; decode once and let
-		// get_by_slug()'s sanitize_title() re-encode it the way it was stored,
-		// the same path hide_unseen_space() takes for this route.
-		$space = ( new SpaceService() )->get_by_slug( rawurldecode( (string) $request->get_param( 'slug' ) ) );
+		$space = self::space_from_slug_segment( (string) $request->get_param( 'slug' ) );
 		if ( null === $space ) {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 		$request->set_param( 'id', (int) $space['id'] );
 		return $this->get_space( $request );
+	}
+
+	/**
+	 * The space a /spaces/slug/{slug} path segment names.
+	 *
+	 * The one resolver for that route: the visibility gate and the handler must
+	 * decode the segment identically, or a request could pass the gate as one
+	 * space and be answered as another. The segment arrives percent-encoded;
+	 * decode it once and get_by_slug()'s sanitize_title() re-encodes it the way
+	 * the slug was stored (WordPress core's post_name form).
+	 *
+	 * @param string $segment Raw path segment.
+	 * @return array<string,mixed>|null
+	 */
+	private static function space_from_slug_segment( string $segment ): ?array {
+		return ( new SpaceService() )->get_by_slug( urldecode( $segment ) );
 	}
 
 	/**
@@ -2887,7 +2900,7 @@ class SpaceController extends BaseRestController {
 		} elseif ( preg_match( '#^/buddynext/v1/spaces/slug/([^/]+)$#', $route, $m ) ) {
 			// The slug route promises the same: a secret slug answered rest_forbidden
 			// where an unknown one answered space_not_found.
-			$space = ( new SpaceService() )->get_by_slug( sanitize_title( urldecode( $m[1] ) ) );
+			$space = self::space_from_slug_segment( $m[1] );
 		} else {
 			return $response;
 		}

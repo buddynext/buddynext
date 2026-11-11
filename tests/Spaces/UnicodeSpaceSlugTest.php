@@ -55,4 +55,17 @@ class UnicodeSpaceSlugTest extends \WP_UnitTestCase {
 			$this->assertSame( $this->space, (int) $res->get_data()['id'] );
 		}
 	}
+
+	public function test_the_gate_and_the_handler_resolve_the_same_space(): void {
+		$spaces = new SpaceService();
+		$public = (int) $spaces->create( $this->owner, array( 'name' => 'Gate Open', 'slug' => 'gate-ab', 'type' => 'open' ) );
+		$secret = (int) $spaces->create( $this->owner, array( 'name' => 'Gate Secret', 'slug' => 'gateab', 'type' => 'secret' ) );
+		wp_set_current_user( self::factory()->user->create() );
+
+		// '+' decodes to a space in one decoder and stays '+' in another: both sides must agree.
+		$res = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/spaces/slug/gate+ab' ) );
+
+		$this->assertNotSame( $secret, (int) ( $res->get_data()['id'] ?? 0 ) );
+		$this->assertContains( (int) ( $res->get_data()['id'] ?? 0 ), array( 0, $public ) );
+	}
 }
