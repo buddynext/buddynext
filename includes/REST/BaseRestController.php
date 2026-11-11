@@ -423,7 +423,7 @@ abstract class BaseRestController {
 	protected function engagement_target_error( string $object_type, int $object_id ): ?WP_Error {
 		// An id of 0 names no post. It is not "hidden", so it used to pass and a
 		// bookmark or share of nothing was stored.
-		if ( $object_id > 0 && ! $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
+		if ( $object_id > 0 && ! $this->is_post_hidden_from_viewer( $object_type, $object_id ) && $this->post_takes_engagement( $object_type, $object_id ) ) {
 			return $this->space_ban_error( $object_type, $object_id );
 		}
 
@@ -432,6 +432,33 @@ abstract class BaseRestController {
 			__( 'Post not found.', 'buddynext' ),
 			array( 'status' => 404 )
 		);
+	}
+
+	/**
+	 * Whether the post behind an engagement target is published.
+	 *
+	 * Seeing a post and taking part in it are different questions. Its author and
+	 * site admins may still open a draft, a held post or (admins only) one a
+	 * moderator removed, but nobody comments, reacts, votes, shares or bookmarks
+	 * any of them: a removed post must stay closed, and an unpublished one has no
+	 * audience yet.
+	 *
+	 * @param string $object_type Engagement object type.
+	 * @param int    $object_id   Engagement object ID.
+	 * @return bool False when the owning post exists and is not published.
+	 */
+	private function post_takes_engagement( string $object_type, int $object_id ): bool {
+		$posts = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : null;
+		if ( ! $posts instanceof \BuddyNext\Feed\PostService ) {
+			return true;
+		}
+
+		$post = $posts->get( $posts->resolve_post_id( $object_type, $object_id ) );
+		if ( null === $post ) {
+			return true;
+		}
+
+		return ! empty( \BuddyNext\Feed\PostService::STATUSES[ (string) ( $post['status'] ?? '' ) ]['readable'] );
 	}
 
 	/**

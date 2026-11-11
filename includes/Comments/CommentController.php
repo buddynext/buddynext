@@ -307,6 +307,13 @@ class CommentController extends BaseRestController {
 		$user_id    = get_current_user_id();
 		$content    = wp_kses_post( (string) ( $request->get_param( 'content' ) ?? '' ) );
 
+		// An edit is taking part in the thread: closed on a post that is hidden,
+		// removed or unpublished, the same as a new comment.
+		$closed = $this->engagement_target_error( 'comment', $comment_id );
+		if ( null !== $closed ) {
+			return $closed;
+		}
+
 		$result = $service->update( $comment_id, $user_id, $content );
 
 		if ( is_wp_error( $result ) ) {
@@ -404,6 +411,11 @@ class CommentController extends BaseRestController {
 		// returns a bare false for both not-found and no-permission. Mirrors unpin().
 		if ( null === $service->get( $comment_id ) ) {
 			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$closed = $this->engagement_target_error( 'comment', $comment_id );
+		if ( null !== $closed ) {
+			return $closed;
 		}
 
 		if ( ! $service->pin( $comment_id, $user_id ) ) {

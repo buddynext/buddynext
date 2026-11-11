@@ -81,8 +81,8 @@ class UnpublishedPostAccessTest extends \WP_UnitTestCase {
 	 * @param int $post_id Post.
 	 * @return array<string,int>
 	 */
-	private function surface_statuses( int $post_id ): array {
-		wp_set_current_user( $this->viewer );
+	private function surface_statuses( int $post_id, int $user_id = 0 ): array {
+		wp_set_current_user( $user_id > 0 ? $user_id : $this->viewer );
 
 		$react = new WP_REST_Request( 'POST', '/buddynext/v1/reactions/toggle' );
 		$react->set_param( 'object_type', 'post' );
@@ -119,17 +119,72 @@ class UnpublishedPostAccessTest extends \WP_UnitTestCase {
 		}
 	}
 
-	public function test_the_author_still_reaches_their_own_unpublished_post(): void {
-		foreach ( self::UNPUBLISHED as $status ) {
+	public function test_the_author_reaches_their_own_post_only_before_publication(): void {
+		// Draft, pending and scheduled are the author's work in progress. A post a
+		// moderator removed (deleted) or the report threshold hid (under_review) is
+		// gone for its author too: they could still open, comment on and react to a
+		// takedown, which kept it live for them.
+		$expected = array(
+			'pending'      => 200,
+			'draft'        => 200,
+			'scheduled'    => 200,
+			'under_review' => 404,
+			'deleted'      => 404,
+		);
+
+		foreach ( $expected as $status => $code ) {
 			$post_id = $this->seed_post( $status );
 			wp_set_current_user( $this->author );
 
 			$this->assertSame(
-				200,
+				$code,
 				rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/posts/' . $post_id ) )->get_status(),
-				sprintf( 'The author must still be able to open their own %s post.', $status )
+				sprintf( 'The author opening their own %s post.', $status )
 			);
 		}
+	}
+
+	public function test_nobody_engages_with_an_unpublished_post_not_even_its_author_or_an_admin(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+
+		foreach ( self::UNPUBLISHED as $status ) {
+			$post_id = $this->seed_post( $status );
+
+			foreach ( array( 'author' => $this->author, 'admin' => $admin ) as $who => $user_id ) {
+				$codes = $this->surface_statuses( $post_id, $user_id );
+				unset( $codes['get'] );
+
+				foreach ( $codes as $surface => $code ) {
+					$this->assertSame( 404, $code, sprintf( 'The %s must not %s a %s post.', $who, $surface, $status ) );
+				}
+			}
+		}
+	}
+
+	public function test_a_comment_on_a_removed_post_cannot_be_edited(): void {
+		$post_id = $this->seed_post( 'published' );
+		$comment = ( new \BuddyNext\Comments\CommentService() )->create( $this->author, 'post', $post_id, 'Written while live' );
+		$this->assertIsInt( $comment );
+
+		global $wpdb;
+		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'status' => 'deleted' ), array( 'id' => $post_id ) );
+		wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
+
+		wp_set_current_user( $this->author );
+		$edit = new WP_REST_Request( 'PATCH', '/buddynext/v1/comments/' . $comment );
+		$edit->set_param( 'content', 'Edited after the takedown' );
+
+		$this->assertSame( 404, rest_do_request( $edit )->get_status() );
+	}
+
+	public function test_the_author_cannot_edit_a_removed_post(): void {
+		$post_id = $this->seed_post( 'deleted' );
+		wp_set_current_user( $this->author );
+
+		$edit = new WP_REST_Request( 'PUT', '/buddynext/v1/posts/' . $post_id );
+		$edit->set_param( 'content', 'Edited after the takedown' );
+
+		$this->assertSame( 404, rest_do_request( $edit )->get_status() );
 	}
 
 	public function test_a_published_post_is_unaffected(): void {
