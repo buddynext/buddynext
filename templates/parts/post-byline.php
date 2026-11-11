@@ -167,7 +167,7 @@ do_action( 'buddynext_part_post_byline_before', $args );
 			if ( $bn_space_id > 0 ) {
 				$bn_space = buddynext_service( 'spaces' )->get( $bn_space_id );
 				if ( $bn_space && ! empty( $bn_space['name'] ) && ! empty( $bn_space['slug'] ) ) {
-					$bn_space_url = \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( (string) $bn_space['slug'] ) . '/';
+					$bn_space_url = buddynext_space_url( (string) $bn_space['slug'] );
 					// A section the owner closed to this viewer keeps the space name but not the link.
 					$bn_space_tag = ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( 'spaces' ) ? 'span' : 'a';
 					?>

@@ -272,7 +272,9 @@ class SpaceController extends BaseRestController {
 		// same response as GET /spaces/{id} (and the same invite handling).
 		register_rest_route(
 			'buddynext/v1',
-			'/spaces/slug/(?P<slug>[a-z0-9-]+)',
+			// Any path segment: a non-Latin name's slug is percent-encoded
+			// (%ed%95%9c...), which [a-z0-9-] could never match.
+			'/spaces/slug/(?P<slug>[^/]+)',
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_by_slug' ),
@@ -1677,7 +1679,10 @@ class SpaceController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_space_by_slug( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$space = ( new SpaceService() )->get_by_slug( (string) $request->get_param( 'slug' ) );
+		// The segment arrives still percent-encoded; decode once and let
+		// get_by_slug()'s sanitize_title() re-encode it the way it was stored,
+		// the same path hide_unseen_space() takes for this route.
+		$space = ( new SpaceService() )->get_by_slug( rawurldecode( (string) $request->get_param( 'slug' ) ) );
 		if ( null === $space ) {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}

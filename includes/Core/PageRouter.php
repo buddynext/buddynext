@@ -3905,7 +3905,9 @@ class PageRouter {
 			return self::spaces_url();
 		}
 
-		return self::spaces_url() . rawurlencode( $slug ) . '/';
+		// The stored slug is sanitize_title() output, already URL-safe (see
+		// buddynext_space_url()). Encoding it again broke every non-Latin space.
+		return self::spaces_url() . sanitize_title( $slug ) . '/';
 	}
 
 	/**

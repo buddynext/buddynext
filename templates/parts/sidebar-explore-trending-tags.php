@@ -27,7 +27,6 @@ if ( empty( $bn_trending ) ) {
 	return;
 }
 
-$bn_activity = trailingslashit( PageRouter::activity_url() );
 ob_start();
 ?>
 <ol class="bn-ex-trend">
@@ -40,7 +39,7 @@ ob_start();
 			continue;
 		}
 		++$bn_rank;
-		$bn_tag_url = esc_url( $bn_activity . 'hashtag/' . rawurlencode( $bn_tag_slug ) . '/' );
+		$bn_tag_url = esc_url( PageRouter::hashtag_feed_url( $bn_tag_slug ) );
 		?>
 		<li class="bn-ex-trend__row">
 			<span class="bn-ex-trend__rank"><?php echo esc_html( number_format_i18n( $bn_rank ) ); ?></span>

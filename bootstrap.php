@@ -1356,7 +1356,11 @@ function buddynext_space_url( string $slug ): string {
 		return \BuddyNext\Core\PageRouter::spaces_url();
 	}
 
-	return \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( sanitize_title( $slug ) ) . '/';
+	// sanitize_title() output is already URL-safe: a Korean name is stored as
+	// %ed%95%9c..., exactly as core stores post_name. Print it as core prints a
+	// permalink; rawurlencode() on top encoded the % again and every non-Latin
+	// space link opened a 404.
+	return \BuddyNext\Core\PageRouter::spaces_url() . sanitize_title( $slug ) . '/';
 }
 
 /**
