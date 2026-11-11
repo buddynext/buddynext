@@ -2053,7 +2053,7 @@ class WPMediaVerseBridge {
 				// contract is docs/architecture/core-contract.md in MediaVerse.
 				'min_version'    => '2.6.2',
 				// Tested against the 2.6.2 branch on 2026-10-11.
-				'tested_version' => '2.6.3', // Verified 2026-11-04 on the 1.2.8 release site against this partner release (functional suite and bridge checks).
+				'tested_version' => '2.6.4', // Verified 2026-11-11 on the 1.2.9 release site against this partner release (functional suite and bridge checks).
 				'has_nav'        => true,
 				'nav_label'      => __( 'Media', 'buddynext' ),
 				'has_feed'       => true,
