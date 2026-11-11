@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.8
+Stable tag: 1.2.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,6 +72,33 @@ Yes. Network Activate it (BuddyNext first, then Pro). One community runs on the 
 Direct messaging and media are powered by the MediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.2.9 - November 2026 =
+
+Communities in Korean, Arabic and other non-Latin languages work end to end, removed posts are closed, and media privacy and reporting follow the owner. Lockstep with BuddyNext Pro 1.2.9 - install and test both together.
+
+* Improve  - Integration Settings is one table, with a row per integration and a column per surface.
+* Improve  - Main Navigation lists every rail item, marks items from other plugins as Add-on, and manages Media, Discussions, Events, Leaderboard and the My spaces switcher.
+* Improve  - The setup wizard sets the site title from the community name, makes the feed the home page by default and adds a Community menu.
+* Improve  - Community moderators can moderate media, and report queues offer Remove content on media reports.
+* Improve  - The composer shows the site's story length and follows the Post stories permission, and Stories has its own row in settings.
+* Improve  - Profile URL fields show the full path, not just the site.
+* Improve  - Demo content sends no mail, keeps space albums out of Explore and removes only its own hashtags.
+* Fix      - A removed post is closed to its author and to every reaction, comment and share.
+* Fix      - Spaces with Korean or other non-Latin names open, can be deleted by typing their name, and their categories filter the spaces directory.
+* Fix      - Hashtags in Korean, Japanese and accented letters open and can be followed.
+* Fix      - The streak strip shows a whole, translated weekday letter in every language, one per day.
+* Fix      - Messages tab counts show in full on desktop.
+* Fix      - Turning off Member Reporting in MediaVerse removes the Report button from the media viewer.
+* Fix      - A profile with only social links keeps its About tab.
+* Fix      - The rail highlights Profile on your own profile, not Members.
+* Fix      - The More menu on tab bars opens its links on iOS Safari.
+* Fix      - Ending a story in its first two minutes leaves no broken post, and a photo a post also uses is kept.
+* Fix      - A queued email whose sender's account was deleted is not sent.
+* Security - A photo made private within two minutes of upload stays private instead of becoming public with its feed post.
+* Security - Space invites no longer reveal which usernames exist, and login attempts are limited per account.
+* Security - Choosing a space category requires permission to create spaces.
+* Compat   - Aligned with BuddyNext Pro 1.2.9. Install both updates together.
 
 = 1.2.8 - November 2026 =
 
