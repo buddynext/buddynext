@@ -67,6 +67,10 @@ class EmailSenderGateTest extends \WP_UnitTestCase {
 	}
 
 	public function test_queued_email_is_dropped_when_its_actor_was_deleted(): void {
+		$actor = self::factory()->user->create();
+		wp_delete_user( $actor );
+
+		// Listen only after the deletion, which may send its own account email.
 		$mailed = false;
 		add_filter(
 			'pre_wp_mail',
@@ -75,9 +79,6 @@ class EmailSenderGateTest extends \WP_UnitTestCase {
 				return true;
 			}
 		);
-
-		$actor = self::factory()->user->create();
-		wp_delete_user( $actor );
 
 		$sent = $this->sender()->send_now(
 			$this->user_id,

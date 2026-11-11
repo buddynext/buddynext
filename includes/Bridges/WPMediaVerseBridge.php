@@ -42,6 +42,13 @@ class WPMediaVerseBridge {
 	private static array $documents_config_memo = array();
 
 	/**
+	 * Per-request answer to "may this member moderate media?", keyed by user id.
+	 *
+	 * @var array<int, bool>
+	 */
+	private static array $moderation_answers = array();
+
+	/**
 	 * Re-entrancy guard for the two-way follow mirror: true while this bridge is
 	 * propagating a follow/unfollow into the other store, so the reciprocal
 	 * action it triggers there is ignored instead of looping back.
@@ -555,12 +562,11 @@ class WPMediaVerseBridge {
 		}
 
 		// MediaVerse asks this inside list loops; answer once per member per request.
-		static $answers = array();
-		$uid            = (int) $user->ID;
-		if ( ! isset( $answers[ $uid ] ) ) {
-			$answers[ $uid ] = buddynext_service( 'roles' )->can_moderate_site( $uid );
+		$uid = (int) $user->ID;
+		if ( ! isset( self::$moderation_answers[ $uid ] ) ) {
+			self::$moderation_answers[ $uid ] = buddynext_service( 'roles' )->can_moderate_site( $uid );
 		}
-		$allcaps['moderate_mvs_media'] = $answers[ $uid ];
+		$allcaps['moderate_mvs_media'] = self::$moderation_answers[ $uid ];
 
 		return $allcaps;
 	}

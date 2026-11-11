@@ -26,7 +26,7 @@ class CommunityNameTest extends \WP_UnitTestCase {
 	private const SITE_TITLE_READERS = array(
 		'includes/Core/PageRouter.php'              => 2, // Document title: the community name replaces the site part when it differs.
 		'includes/Admin/Settings.php'               => 1, // Community name field default.
-		'includes/Onboarding/SetupWizard.php'       => 1, // Community name field default.
+		'includes/Onboarding/SetupWizard.php'       => 3, // Community name field default, and keeping the Site Title in step with the community name on save.
 		'includes/Outbound/OutboundWebhookService.php' => 1, // Alert to the site admin, not a member.
 	);
 

@@ -154,9 +154,11 @@ class VerificationFeatureFlagTest extends WP_UnitTestCase {
 
 		wp_cache_flush();
 		$this->assertInstanceOf( \WP_User::class, get_userdata( $user ) );
+		$this->assertSame( '', get_user_meta( $user, 'buddynext_signup_awaiting_verify', true ), 'markers from a period without verification are cleared' );
 
-		// Negative: with the feature on, the same stale account is purged.
+		// Negative: with the feature on, a stale account that signed up under it is purged.
 		remove_all_filters( 'buddynext_feature_verification' );
+		update_user_meta( $user, 'buddynext_signup_awaiting_verify', time() - YEAR_IN_SECONDS );
 		( new \ReflectionMethod( CronService::class, 'purge_stale_unverified' ) )->invoke( new CronService() );
 		wp_cache_flush();
 		$this->assertFalse( get_userdata( $user ) );
