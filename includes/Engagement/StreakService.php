@@ -267,7 +267,9 @@ class StreakService {
 			$date    = gmdate( 'Y-m-d', strtotime( $today_str . ' -' . $i . ' day' ) );
 			$strip[] = array(
 				'date'     => $date,
-				'letter'   => date_i18n( 'D', strtotime( $date ) )[0], // First letter of localized day name.
+				// First CHARACTER of the localized day name. [0] took the first byte,
+				// half a character in Korean, Arabic, Russian and every other non-Latin script.
+				'letter'   => mb_substr( date_i18n( 'D', strtotime( $date ) ), 0, 1, 'UTF-8' ),
 				'is_today' => $date === $today_str,
 				'active'   => isset( $active_map[ $date ] ),
 			);
