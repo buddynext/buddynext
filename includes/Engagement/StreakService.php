@@ -261,15 +261,17 @@ class StreakService {
 	 * @return array<int,array{date:string,letter:string,is_today:bool,active:bool}>
 	 */
 	private function strip( array $active_map ): array {
+		global $wp_locale;
 		$today_str = current_time( 'Y-m-d' );
 		$strip     = array();
 		for ( $i = 6; $i >= 0; $i-- ) {
 			$date    = gmdate( 'Y-m-d', strtotime( $today_str . ' -' . $i . ' day' ) );
 			$strip[] = array(
 				'date'     => $date,
-				// First CHARACTER of the localized day name. [0] took the first byte,
-				// half a character in Korean, Arabic, Russian and every other non-Latin script.
-				'letter'   => mb_substr( date_i18n( 'D', strtotime( $date ) ), 0, 1, 'UTF-8' ),
+				// Core's translated weekday initial (the core calendar's), not the
+				// day name's first letter: Arabic names all start with the article ال.
+				// One character, as a few translations give a longer initial.
+				'letter'   => mb_substr( $wp_locale->get_weekday_initial( $wp_locale->get_weekday( (int) gmdate( 'w', strtotime( $date ) ) ) ), 0, 1, 'UTF-8' ),
 				'is_today' => $date === $today_str,
 				'active'   => isset( $active_map[ $date ] ),
 			);

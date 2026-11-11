@@ -1773,7 +1773,8 @@ var storeInstance = store( 'buddynext/spaces', {
 				var res = await restFetch( '/spaces/' + spaceId, {
 					method:  'DELETE',
 					nonce:   resolveNonce(),
-					headers: { 'X-BN-Confirm-Space-Name': expected },
+					// Header values must be ISO-8859-1; a Korean or Arabic name throws in fetch().
+					headers: { 'X-BN-Confirm-Space-Name': encodeURIComponent( expected ) },
 					toastOnError: false,
 				} );
 				if ( res.ok ) {

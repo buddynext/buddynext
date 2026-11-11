@@ -32,7 +32,7 @@ class UnicodeSpaceSlugTest extends \WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 		$this->owner = self::factory()->user->create();
-		$this->space = (int) ( new SpaceService() )->create( $this->owner, array( 'name' => '한국어 모임', 'type' => 'open' ) );
+		$this->space = (int) ( new SpaceService() )->create( $this->owner, array( 'name' => '한국어 모임', 'slug' => sanitize_title( '한국어 모임' ), 'type' => 'open' ) );
 		$this->slug  = (string) ( new SpaceService() )->get( $this->space )['slug'];
 	}
 
@@ -54,6 +54,19 @@ class UnicodeSpaceSlugTest extends \WP_UnitTestCase {
 			$this->assertSame( 200, $res->get_status(), $segment );
 			$this->assertSame( $this->space, (int) $res->get_data()['id'] );
 		}
+	}
+
+	public function test_a_korean_space_can_be_deleted_by_its_typed_name(): void {
+		wp_set_current_user( $this->owner );
+		$wrong = new WP_REST_Request( 'DELETE', '/buddynext/v1/spaces/' . $this->space );
+		$wrong->set_header( 'X-BN-Confirm-Space-Name', rawurlencode( '다른 이름' ) );
+		$this->assertSame( 422, rest_do_request( $wrong )->get_status() );
+
+		// The browser sends the name percent-encoded: header values are ISO-8859-1 only.
+		$request = new WP_REST_Request( 'DELETE', '/buddynext/v1/spaces/' . $this->space );
+		$request->set_header( 'X-BN-Confirm-Space-Name', rawurlencode( '한국어 모임' ) );
+		$this->assertSame( 200, rest_do_request( $request )->get_status() );
+		$this->assertNull( ( new SpaceService() )->get( $this->space ) );
 	}
 
 	public function test_the_gate_and_the_handler_resolve_the_same_space(): void {

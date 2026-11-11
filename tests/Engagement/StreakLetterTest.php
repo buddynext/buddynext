@@ -1,10 +1,11 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * The streak strip's weekday letter is a whole character in every script.
+ * The streak strip shows one whole, distinct weekday letter in every language.
  *
  * The strip took `date_i18n( 'D', ... )[0]`, the first BYTE of the localized day
- * name. Korean, Arabic, Russian and every other non-Latin script use more than one
- * byte per character, so each cell held half a character and rendered as '?'.
+ * name: half a character in Korean, Arabic, Russian (rendered '?'). Taking the
+ * first character instead still failed Arabic, where every day name starts with
+ * the article ال. The strip now uses core's translated weekday initial.
  *
  * @package BuddyNext\Tests\Engagement
  */
@@ -20,38 +21,56 @@ use BuddyNext\Engagement\StreakService;
  */
 class StreakLetterTest extends \WP_UnitTestCase {
 
+	/**
+	 * Core's initials before the test swapped them.
+	 *
+	 * @var array<string,string>
+	 */
+	private array $saved = array();
+
+	public function set_up(): void {
+		parent::set_up();
+		global $wp_locale;
+		$this->saved = $wp_locale->weekday_initial;
+	}
+
 	public function tear_down(): void {
-		remove_all_filters( 'date_i18n' );
+		global $wp_locale;
+		$wp_locale->weekday_initial = $this->saved;
 		parent::tear_down();
 	}
 
 	/**
-	 * @return array<string,array{0:string,1:string}>
+	 * Initials per weekday (Sunday first), and the letters the strip must show.
+	 *
+	 * @return array<string,array{0:array<int,string>,1:array<int,string>}>
 	 */
-	public function day_names(): array {
+	public function initials(): array {
 		return array(
-			'Korean'  => array( '수', '수' ),
-			'Arabic'  => array( 'الأربعاء', 'ا' ),
-			'Russian' => array( 'Ср', 'С' ),
-			'English' => array( 'Wed', 'W' ),
+			// Core's ar pack; Wednesday's initial is three characters long.
+			'Arabic'  => array( array( 'د', 'ن', 'ث', 'أرب', 'خ', 'ج', 'س' ), array( 'د', 'ن', 'ث', 'أ', 'خ', 'ج', 'س' ) ),
+			'Korean'  => array( array( '일', '월', '화', '수', '목', '금', '토' ), array( '일', '월', '화', '수', '목', '금', '토' ) ),
+			'English' => array( array( 'S', 'M', 'T', 'W', 'T', 'F', 'S' ), array( 'S', 'M', 'T', 'W', 'T', 'F', 'S' ) ),
 		);
 	}
 
 	/**
-	 * @dataProvider day_names
+	 * @dataProvider initials
 	 *
-	 * @param string $day_name Localized short day name date_i18n() returns.
-	 * @param string $letter   The letter the strip must show.
+	 * @param array<int,string> $initials Translated initials, Sunday first.
+	 * @param array<int,string> $expected Letter per weekday, Sunday first.
 	 */
-	public function test_each_cell_shows_the_first_character_of_the_day_name( string $day_name, string $letter ): void {
-		add_filter( 'date_i18n', static fn() => $day_name );
+	public function test_each_cell_shows_its_weekdays_initial( array $initials, array $expected ): void {
+		global $wp_locale;
+		foreach ( $initials as $w => $initial ) {
+			$wp_locale->weekday_initial[ $wp_locale->get_weekday( $w ) ] = $initial;
+		}
 
 		$strip = ( new StreakService() )->summary( self::factory()->user->create() )['strip'];
 
 		$this->assertCount( 7, $strip );
 		foreach ( $strip as $cell ) {
-			$this->assertSame( $letter, $cell['letter'] );
-			$this->assertTrue( mb_check_encoding( $cell['letter'], 'UTF-8' ), 'A cell must never hold a broken UTF-8 byte.' );
+			$this->assertSame( $expected[ (int) gmdate( 'w', strtotime( $cell['date'] ) ) ], $cell['letter'], $cell['date'] );
 		}
 	}
 }

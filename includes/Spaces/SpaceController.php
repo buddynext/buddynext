@@ -2194,7 +2194,10 @@ class SpaceController extends BaseRestController {
 			if ( null === $space ) {
 				return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 			}
-			if ( $header_name !== (string) $space['name'] ) {
+			// The app sends the name percent-encoded (headers are ISO-8859-1 only);
+			// a raw ASCII name from an API client still matches as before.
+			$name = (string) $space['name'];
+			if ( $header_name !== $name && rawurldecode( $header_name ) !== $name ) {
 				return new WP_Error(
 					'confirm_mismatch',
 					__( 'Confirmation name does not match.', 'buddynext' ),
