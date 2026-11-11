@@ -1179,6 +1179,93 @@ select.bn-text-input {
 	color: var(--bn-a-text-3);
 }
 
+/* Integration Settings: one row per integration, one switch column per surface.
+   The wrapper is the scroll context (admin table contract), never the table. */
+.bn-int-matrix-wrap {
+	overflow-x: auto;
+}
+.bn-admin-hub__content .bn-int-matrix th[data-align="center"],
+.bn-admin-hub__content .bn-int-matrix td[data-align="center"] {
+	width: 7rem;
+	text-align: center;
+}
+/* Scoped under the hub so it outranks `.bn-admin-hub__content table:not(.form-table) th`. */
+.bn-admin-hub__content .bn-int-matrix tbody th.bn-int-matrix__name {
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	text-align: start;
+	text-transform: none;
+	letter-spacing: normal;
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-normal, 400);
+	color: var(--bn-a-text-1);
+	background: transparent;
+	vertical-align: middle;
+}
+.bn-admin-hub__content .bn-int-matrix tbody tr:hover th {
+	background: var(--bn-a-bg-hover);
+}
+.bn-int-matrix__title {
+	font-weight: var(--bn-a-fw-semibold);
+	margin-inline-end: var(--bn-a-s2);
+}
+/* A status chip moves to its own line as a whole rather than breaking inside. */
+.bn-int-matrix__name .bn-badge {
+	white-space: nowrap;
+}
+.bn-int-matrix__meta,
+.bn-int-matrix__name .bn-field-hint {
+	display: block;
+	margin: var(--bn-a-s1) 0 0;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+.bn-int-matrix__none {
+	color: var(--bn-a-text-3);
+}
+/* The sub-tab row reads as part of the integration above it. */
+.bn-admin-hub__content .bn-int-matrix tr:has(+ .bn-int-matrix__subrow) > * {
+	border-bottom: none;
+}
+.bn-int-matrix .bn-int-matrix__subrow td,
+.bn-int-matrix tr.bn-int-matrix__subrow:hover td {
+	padding-top: 0;
+	background: var(--bn-sunken);
+}
+.bn-int-matrix__subtabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-a-s2) var(--bn-a-s6);
+	padding: var(--bn-a-s2) 0 var(--bn-a-s1);
+}
+.bn-int-matrix__subtab {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-a-s1);
+}
+.bn-int-matrix__subtab .bn-toggle-label {
+	gap: var(--bn-a-s2);
+	min-height: 40px;
+}
+.bn-int-matrix__subtab .bn-field-hint {
+	margin: 0;
+}
+
+@media (max-width: 640px) {
+	.bn-admin-hub__content .bn-int-matrix th[data-align="center"],
+	.bn-admin-hub__content .bn-int-matrix td[data-align="center"] {
+		width: 4.5rem;
+		padding-inline: var(--bn-a-s1);
+	}
+	.bn-admin-hub__content .bn-int-matrix tbody th.bn-int-matrix__name,
+	.bn-int-matrix .bn-int-matrix__subrow td {
+		padding-inline: var(--bn-a-s3);
+	}
+	.bn-int-matrix thead th {
+		letter-spacing: normal;
+	}
+}
+
 /* Descriptor-driven option rows (AdminPageBase::render_sections) wrap EVERY control in
    a `<div class="bn-opt" id="…">` anchor (command-palette deep links). Give the WRAPPER
    the row's vertical rhythm so every row separates identically - a toggle reads the same
@@ -1307,6 +1394,13 @@ select.bn-text-input {
 	bottom: var(--bn-a-s3);
 	z-index: 5;
 	box-shadow: var(--bn-a-shadow-md);
+}
+
+/* A control scrolled or tabbed to near the bottom of a long tab lands above the
+   sticky bar, not under it (WCAG 2.4.11 Focus Not Obscured). The padding covers
+   the bar's height plus its bottom offset. */
+html:has(.bn-save-bar) {
+	scroll-padding-bottom: calc(var(--bn-a-s10) * 2 + var(--bn-a-s2));
 }
 
 /* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface

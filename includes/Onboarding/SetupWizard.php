@@ -547,6 +547,16 @@ class SetupWizard {
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
+		// The field promises the name shows in headers, emails and the browser tab,
+		// and the browser tab reads the WordPress site title. Keep the two in step,
+		// unless the owner has since set a different site title of their own.
+		if ( isset( $data['site_name'] ) ) {
+			$previous = (string) get_option( 'buddynext_site_name', '' );
+			if ( '' === $previous || (string) get_option( 'blogname' ) === $previous ) {
+				update_option( 'blogname', $data['site_name'] );
+			}
+		}
+
 		$this->save_settings( $data );
 	}
 
@@ -622,6 +632,62 @@ class SetupWizard {
 			if ( $bn_activity_page > 0 && 'publish' === get_post_status( $bn_activity_page ) ) {
 				update_option( 'show_on_front', 'page' );
 				update_option( 'page_on_front', $bn_activity_page );
+			}
+		}
+
+		$this->create_community_menu();
+	}
+
+	/**
+	 * Create a "Community" menu (Feed, Members, Spaces) once, so the hub pages are
+	 * reachable from the site header.
+	 *
+	 * Assigned to a theme location only when the theme has a primary-style location
+	 * with no menu in it; an existing menu is never replaced or edited, and a block
+	 * theme (no locations) just gets the menu to place in the Site Editor.
+	 *
+	 * @return void
+	 */
+	private function create_community_menu(): void {
+		$name = __( 'Community', 'buddynext' );
+		if ( wp_get_nav_menu_object( $name ) ) {
+			return;
+		}
+
+		$page_ids = array_filter(
+			array_map(
+				static fn( string $opt ): int => (int) get_option( $opt, 0 ),
+				array( 'buddynext_page_activity', 'buddynext_page_people', 'buddynext_page_spaces' )
+			),
+			static fn( int $id ): bool => $id > 0 && 'publish' === get_post_status( $id )
+		);
+		if ( empty( $page_ids ) ) {
+			return;
+		}
+
+		$menu_id = wp_create_nav_menu( $name );
+		if ( is_wp_error( $menu_id ) ) {
+			return;
+		}
+		foreach ( $page_ids as $page_id ) {
+			wp_update_nav_menu_item(
+				$menu_id,
+				0,
+				array(
+					'menu-item-object'    => 'page',
+					'menu-item-object-id' => $page_id,
+					'menu-item-type'      => 'post_type',
+					'menu-item-status'    => 'publish',
+				)
+			);
+		}
+
+		$locations = get_nav_menu_locations();
+		foreach ( array_keys( get_registered_nav_menus() ) as $location ) {
+			if ( false !== stripos( $location, 'primary' ) && empty( $locations[ $location ] ) ) {
+				$locations[ $location ] = $menu_id;
+				set_theme_mod( 'nav_menu_locations', $locations );
+				break;
 			}
 		}
 	}
@@ -1319,7 +1385,7 @@ class SetupWizard {
 		// Front-page opt-in (owner decision 2026-09-15). Offer to make the
 		// Community Feed the site's front page — ONLY when the site is still on
 		// the default blog front (show_on_front = 'posts'), so we never clobber a
-		// homepage the owner already chose. Opt-in: default unchecked, applied in
+		// homepage the owner already chose. Default ON (owner decision 2026-11-09), applied in
 		// save_step_pages(). Folded into this step, no extra wizard step.
 		if ( 'posts' === (string) get_option( 'show_on_front' ) ) :
 			?>
@@ -1334,6 +1400,7 @@ class SetupWizard {
 					name="set_front_page"
 					value="1"
 					class="bn-wizard__switch-input"
+					checked
 				>
 				<span class="bn-wizard__switch-track" aria-hidden="true"></span>
 			</label>
@@ -1465,9 +1532,20 @@ class SetupWizard {
 
 			<div class="bn-wizard__sample">
 				<?php if ( $demo_seeded ) : ?>
-					<p class="bn-wizard__sample-note">
+					<?php $demo_counts = $demo_service->summary(); ?>
+					<p class="bn-wizard__sample-note" role="status">
 						<?php echo \BuddyNext\Core\IconService::render( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
-						<?php esc_html_e( 'Sample content has been added. You can remove it anytime from Tools → Demo Content.', 'buddynext' ); ?>
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: 1: member count, 2: space count, 3: post count. */
+								__( 'Sample content added: %1$d members, %2$d spaces, %3$d posts. Remove it anytime from Tools → Demo Content.', 'buddynext' ),
+								(int) $demo_counts['users'],
+								(int) $demo_counts['spaces'],
+								(int) $demo_counts['posts']
+							)
+						);
+						?>
 					</p>
 				<?php else : ?>
 					<p class="bn-wizard__sample-note"><?php esc_html_e( 'New community feeling empty? Add sample members, spaces, and posts to visualise the layout. You can remove it cleanly later from Tools.', 'buddynext' ); ?></p>
@@ -1483,6 +1561,7 @@ class SetupWizard {
 							?>
 							<form id="bn-wizard-sample" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" hidden>
 								<input type="hidden" name="action" value="bn_demo_seed">
+								<input type="hidden" name="bn_demo_origin" value="wizard">
 								<?php wp_nonce_field( 'bn_demo_seed' ); ?>
 							</form>
 							<?php

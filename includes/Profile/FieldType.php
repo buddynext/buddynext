@@ -1821,7 +1821,8 @@ class FieldType {
 			if ( $id <= 0 || '' === $cat_slug ) {
 				continue;
 			}
-			$links[ (string) $id ] = add_query_arg( 'bn_cat', rawurlencode( $cat_slug ), $base );
+			// The stored slug is already URL-safe; encoding it again turns %ed into %25ed.
+			$links[ (string) $id ] = add_query_arg( 'bn_cat', $cat_slug, $base );
 		}
 
 		return $links;
@@ -2407,14 +2408,20 @@ class FieldType {
 	}
 
 	/**
-	 * Reduce a URL to its host for compact link display, falling back to the URL.
+	 * Shorten a URL for link text: host and path, without the scheme, "www."
+	 * or a trailing slash, so two members' profile links never read the same
+	 * ("twitter.com/alex", not "twitter.com"). Falls back to the URL.
 	 *
 	 * @param string $url Full URL.
-	 * @return string Host or the original URL.
+	 * @return string Host and path, or the original URL.
 	 */
 	private static function display_host( string $url ): string {
 		$host = wp_parse_url( $url, PHP_URL_HOST );
+		if ( ! is_string( $host ) || '' === $host ) {
+			return $url;
+		}
+		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
 
-		return is_string( $host ) && '' !== $host ? $host : $url;
+		return rtrim( preg_replace( '/^www\./i', '', $host ) . $path, '/' );
 	}
 }

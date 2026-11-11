@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
  * removing a public symbol bumps it, and the registry supports this and the previous value.
  */
 define( 'BUDDYNEXT_ADDON_API', 1 );
-define( 'BUDDYNEXT_VERSION', '1.2.8' );
+define( 'BUDDYNEXT_VERSION', '1.2.9' );
 define( 'BUDDYNEXT_FILE', __DIR__ . '/buddynext.php' );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( BUDDYNEXT_FILE ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( BUDDYNEXT_FILE ) );
@@ -1356,7 +1356,11 @@ function buddynext_space_url( string $slug ): string {
 		return \BuddyNext\Core\PageRouter::spaces_url();
 	}
 
-	return \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( sanitize_title( $slug ) ) . '/';
+	// sanitize_title() output is already URL-safe: a Korean name is stored as
+	// %ed%95%9c..., exactly as core stores post_name. Print it as core prints a
+	// permalink; rawurlencode() on top encoded the % again and every non-Latin
+	// space link opened a 404.
+	return \BuddyNext\Core\PageRouter::spaces_url() . sanitize_title( $slug ) . '/';
 }
 
 /**

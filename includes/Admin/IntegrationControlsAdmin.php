@@ -2,10 +2,10 @@
 /**
  * BuddyNext — Integration display & activity controls (admin tab).
  *
- * Renders one card per registered integration (from the open `buddynext_integrations`
- * registry) letting the owner toggle, per integration: whether it shows its nav
- * tab/sub-tab and whether it posts to the activity feed — plus a per-sub-tab toggle
- * for aggregating surfaces (the Portfolio). 100% registry-driven: a new in-house or
+ * Renders one table row per registered integration (from the open
+ * `buddynext_integrations` registry) with a switch per surface: navigation, the
+ * activity feed and search, with its navigation sub-tabs folded under the row.
+ * Settings an integration adds of its own get their own section below the table. 100% registry-driven: a new in-house or
  * third-party integration appears here automatically with no change to this class.
  *
  * Defaults are ON (an absent option = enabled), so this screen only ever records an
@@ -110,162 +110,159 @@ class IntegrationControlsAdmin {
 					</div>
 				</div>
 			<?php else : ?>
-				<?php foreach ( $integrations as $key => $entry ) : ?>
-					<?php
-					$bn_label   = (string) ( $entry['label'] ?? $key );
-					$bn_subtabs = (array) ( $entry['subtabs'] ?? array() );
-					$bn_version = (string) ( $entry['version'] ?? '' );
-					// Floor and tested-version now come from the bridge's own
-					// registry entry, not a central map here. Below the floor the
-					// bridge's wired seams no-op ("Update needed"); above the
-					// tested version the partner has shipped past what the bridge
-					// was built for, so newer capabilities may not be wired yet
-					// ("Newer partner" — informational, the bridge still works and is due a refresh).
-					$bn_floor  = (string) ( $entry['min_version'] ?? '' );
-					$bn_tested = (string) ( $entry['tested_version'] ?? '' );
-					$bn_stale  = ( '' !== $bn_floor && '' !== $bn_version && version_compare( $bn_version, $bn_floor, '<' ) );
-					$bn_behind = ( ! $bn_stale && '' !== $bn_tested && '' !== $bn_version && version_compare( $bn_version, $bn_tested, '>' ) );
-					?>
+				<?php $bn_extras = array(); ?>
+				<div class="bn-settings-section">
+					<div class="bn-ss-header">
+						<div class="bn-ss-heading">
+							<span class="bn-ss-title"><?php esc_html_e( 'Where each integration appears', 'buddynext' ); ?></span>
+							<span class="bn-ss-sub"><?php esc_html_e( 'Navigation adds its tab to member menus. Feed posts its new activity to the community feed. Search lets members find its content; switching search off also removes what was already indexed.', 'buddynext' ); ?></span>
+						</div>
+					</div>
+					<div class="bn-int-matrix-wrap">
+						<table class="bn-table bn-int-matrix">
+							<thead>
+								<tr>
+									<th scope="col"><?php esc_html_e( 'Integration', 'buddynext' ); ?></th>
+									<th scope="col" data-align="center"><?php esc_html_e( 'Navigation', 'buddynext' ); ?></th>
+									<th scope="col" data-align="center"><?php esc_html_e( 'Feed', 'buddynext' ); ?></th>
+									<th scope="col" data-align="center"><?php esc_html_e( 'Search', 'buddynext' ); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+							<?php foreach ( $integrations as $key => $entry ) : ?>
+								<?php
+								$key        = (string) $key;
+								$bn_label   = (string) ( $entry['label'] ?? $key );
+								$bn_subtabs = (array) ( $entry['subtabs'] ?? array() );
+								$bn_version = (string) ( $entry['version'] ?? '' );
+								// Below the floor the bridge's seams no-op ("Update needed"); above the
+								// tested version the partner is ahead of the bridge ("Newer partner": the
+								// bridge still works and is due a refresh, the owner has nothing to update).
+								$bn_floor     = (string) ( $entry['min_version'] ?? '' );
+								$bn_tested    = (string) ( $entry['tested_version'] ?? '' );
+								$bn_stale     = ( '' !== $bn_floor && '' !== $bn_version && version_compare( $bn_version, $bn_floor, '<' ) );
+								$bn_behind    = ( ! $bn_stale && '' !== $bn_tested && '' !== $bn_version && version_compare( $bn_version, $bn_tested, '>' ) );
+								$bn_companion = \BuddyNext\Integrations\CompanionRegistry::for_integration( $key );
+								$bn_product   = (string) ( $bn_companion['label'] ?? $bn_label );
+
+								ob_start();
+								( new \BuddyNext\Addons\AddonSettingsForm() )->render( $key );
+								$bn_extra = trim( (string) ob_get_clean() );
+								if ( '' !== $bn_extra ) {
+									$bn_extras[] = array( $bn_product, $bn_extra );
+								}
+
+								$bn_meta = array();
+								if ( $bn_product !== $bn_label ) {
+									$bn_meta[] = $bn_label;
+								}
+								if ( '' !== $bn_version ) {
+									/* translators: %s: installed partner version. */
+									$bn_meta[] = sprintf( __( 'Version %s', 'buddynext' ), $bn_version );
+								}
+								?>
+								<tr>
+									<th scope="row" class="bn-int-matrix__name">
+										<span class="bn-int-matrix__title"><?php echo esc_html( $bn_product ); ?></span>
+										<?php if ( $bn_stale ) : ?>
+											<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Update needed', 'buddynext' ); ?></span>
+										<?php elseif ( $bn_behind ) : ?>
+											<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Newer partner', 'buddynext' ); ?></span>
+										<?php endif; ?>
+										<?php if ( ! empty( $bn_meta ) ) : ?>
+											<span class="bn-int-matrix__meta"><?php echo esc_html( implode( ' · ', $bn_meta ) ); ?></span>
+										<?php endif; ?>
+										<?php if ( $bn_stale ) : ?>
+											<span class="bn-field-hint">
+												<?php
+												/* translators: %s: required minimum version. */
+												printf( esc_html__( 'Update to %s or newer to enable every feature this integration offers.', 'buddynext' ), esc_html( $bn_floor ) );
+												?>
+											</span>
+										<?php elseif ( $bn_behind ) : ?>
+											<span class="bn-field-hint">
+												<?php
+												/* translators: %s: version the bridge was built for. */
+												printf( esc_html__( 'Built for %s. Its newest features may not be wired yet.', 'buddynext' ), esc_html( $bn_tested ) );
+												?>
+											</span>
+										<?php endif; ?>
+										<?php foreach ( \BuddyNext\Integrations\IntegrationRegistry::features_needing_update( $entry ) as $bn_feature => $bn_needs ) : ?>
+											<span class="bn-field-hint">
+												<?php
+												/* translators: 1: feature name (may be plural), 2: partner version it needs. */
+												printf( esc_html__( '%1$s: available from version %2$s. Everything else works now.', 'buddynext' ), esc_html( $bn_feature ), esc_html( $bn_needs ) );
+												?>
+											</span>
+										<?php endforeach; ?>
+									</th>
+									<?php
+									$bn_nav_label = (string) ( $entry['nav_label'] ?? '' );
+									$this->toggle_cell(
+										! empty( $entry['has_nav'] ),
+										"nav[{$key}]",
+										buddynext_integration_enabled( $key, 'nav' ),
+										'' !== $bn_nav_label
+											/* translators: 1: name of the tab, e.g. Discussions, 2: integration name. */
+											? sprintf( __( 'Show the %1$s tab (%2$s) in navigation', 'buddynext' ), $bn_nav_label, $bn_label )
+											/* translators: %s: integration name. */
+											: sprintf( __( 'Show %s in navigation', 'buddynext' ), $bn_label )
+									);
+									/* translators: %s: integration name. */
+									$this->toggle_cell( ! empty( $entry['has_feed'] ), "feed[{$key}]", buddynext_integration_enabled( $key, 'feed' ), sprintf( __( 'Post %s events to the activity feed', 'buddynext' ), $bn_label ) );
+									/* translators: %s: integration name. */
+									$this->toggle_cell( ! empty( $entry['has_search'] ), "search[{$key}]", buddynext_integration_enabled( $key, 'search' ), sprintf( __( 'Include %s content in community search', 'buddynext' ), $bn_label ) );
+									?>
+								</tr>
+								<?php if ( ! empty( $bn_subtabs ) ) : ?>
+									<tr class="bn-int-matrix__subrow">
+										<td colspan="4">
+											<span class="bn-int-subtab-group__kicker">
+												<?php
+												/* translators: %s: integration name. */
+												echo esc_html( sprintf( __( '%s navigation sub-tabs', 'buddynext' ), $bn_product ) );
+												?>
+											</span>
+											<div class="bn-int-matrix__subtabs">
+												<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
+													<?php $bn_sub_off = $entry['subtabs_unavailable'][ $bn_sub ] ?? null; ?>
+													<div class="bn-int-matrix__subtab">
+														<label class="bn-toggle-label">
+															<?php // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false and the next save would write explicit 0s. ?>
+															<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( null === $bn_sub_off && '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> <?php disabled( null !== $bn_sub_off ); ?> role="switch">
+															<span class="bn-toggle--inline"></span>
+															<span class="bn-int-matrix__subtab-label"><?php echo esc_html( (string) $bn_sub_label ); ?></span>
+														</label>
+														<?php if ( null !== $bn_sub_off ) : ?>
+															<span class="bn-field-hint"><?php echo esc_html( $bn_sub_off['note'] ); ?></span>
+															<?php if ( '' !== $bn_sub_off['action_url'] && '' !== $bn_sub_off['action_label'] ) : ?>
+																<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_sub_off['action_url'] ); ?>"><?php echo esc_html( $bn_sub_off['action_label'] ); ?></a>
+															<?php endif; ?>
+														<?php endif; ?>
+													</div>
+												<?php endforeach; ?>
+											</div>
+										</td>
+									</tr>
+								<?php endif; ?>
+							<?php endforeach; ?>
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<?php foreach ( $bn_extras as list( $bn_extra_title, $bn_extra_html ) ) : ?>
 					<div class="bn-settings-section">
 						<div class="bn-ss-header">
-							<?php
-							// Named by the product the owner installed (the same name Add-ons uses), with what it adds as the sub-line.
-							$bn_companion = \BuddyNext\Integrations\CompanionRegistry::for_integration( (string) $key );
-							$bn_product   = (string) ( $bn_companion['label'] ?? $bn_label );
-							?>
-							<div class="bn-ss-heading">
-								<span class="bn-ss-title"><?php echo esc_html( $bn_product ); ?></span>
-								<?php if ( $bn_product !== $bn_label ) : ?>
-									<span class="bn-ss-sub"><?php echo esc_html( $bn_label ); ?></span>
-								<?php endif; ?>
-							</div>
-							<?php if ( $bn_stale ) : ?>
-								<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Update needed', 'buddynext' ); ?></span>
-							<?php elseif ( $bn_behind ) : ?>
-								<?php // "Newer partner", not "Update available": the PARTNER is ahead of the bridge, so the owner has nothing to update - it is BuddyNext's bridge that is due a refresh. The old label sent owners to Plugins to update an already-current plugin (card 10320537769). ?>
-								<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Newer partner', 'buddynext' ); ?></span>
-							<?php elseif ( null !== $bn_companion || '' !== $bn_version ) : ?>
-								<?php // A core-owned toggle (no partner, no version) is not a product that can be Active. ?>
-								<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
-							<?php endif; ?>
+							<span class="bn-ss-title">
+								<?php
+								/* translators: %s: integration name. */
+								echo esc_html( sprintf( __( '%s settings', 'buddynext' ), $bn_extra_title ) );
+								?>
+							</span>
 						</div>
 						<div class="bn-ss-body">
-							<?php if ( '' !== $bn_version ) : ?>
-								<p class="bn-field-hint">
-									<?php
-									if ( $bn_stale ) {
-										printf(
-											/* translators: 1: installed partner version, 2: required minimum version. */
-											esc_html__( 'Version %1$s installed. Update to %2$s or newer to enable every feature this integration offers.', 'buddynext' ),
-											esc_html( $bn_version ),
-											esc_html( $bn_floor )
-										);
-									} elseif ( $bn_behind ) {
-										printf(
-											/* translators: 1: installed partner version, 2: version the bridge was built for. */
-											esc_html__( 'Version %1$s installed. This integration was built for %2$s; the partner is newer, so its latest features may not be wired yet. This bridge is due a refresh.', 'buddynext' ),
-											esc_html( $bn_version ),
-											esc_html( $bn_tested )
-										);
-									} else {
-										/* translators: %s: installed partner version. */
-										printf( esc_html__( 'Version %s installed.', 'buddynext' ), esc_html( $bn_version ) );
-									}
-									?>
-								</p>
-								<?php foreach ( \BuddyNext\Integrations\IntegrationRegistry::features_needing_update( $entry ) as $bn_feature => $bn_needs ) : ?>
-									<p class="bn-field-hint">
-										<?php
-										/* translators: 1: feature name (may be plural), 2: partner version it needs. */
-										printf( esc_html__( '%1$s: available from version %2$s. Everything else works now.', 'buddynext' ), esc_html( $bn_feature ), esc_html( $bn_needs ) );
-										?>
-									</p>
-								<?php endforeach; ?>
-							<?php endif; ?>
-							<?php if ( ! empty( $entry['has_nav'] ) ) : ?>
-								<div class="bn-toggle-row">
-									<div class="bn-toggle-row__copy">
-										<span class="bn-toggle-row__label"><?php esc_html_e( 'Show in navigation', 'buddynext' ); ?></span>
-										<p class="bn-field-hint">
-											<?php
-											// Name the tab the member will actually see. The integration's
-											// own name was printed here ("Adds the Jetonomy tab") for a tab
-											// called Discussions.
-											$bn_nav_label = (string) ( $entry['nav_label'] ?? '' );
-											if ( '' !== $bn_nav_label ) {
-												/* translators: %s: name of the tab, e.g. Discussions. */
-												printf( esc_html__( 'Adds the %s tab to member navigation.', 'buddynext' ), esc_html( $bn_nav_label ) );
-											} else {
-												esc_html_e( 'Shows what this integration adds in member navigation.', 'buddynext' );
-											}
-											?>
-										</p>
-									</div>
-									<label class="bn-toggle-label">
-										<input type="checkbox" name="nav[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'nav' ) ); ?> role="switch" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: integration name. */ __( 'Show %s in navigation', 'buddynext' ), $bn_label ) ); ?>">
-										<span class="bn-toggle--inline"></span>
-									</label>
-								</div>
-							<?php endif; ?>
-							<?php if ( ! empty( $entry['has_feed'] ) ) : ?>
-								<div class="bn-toggle-row">
-									<div class="bn-toggle-row__copy">
-										<span class="bn-toggle-row__label"><?php esc_html_e( 'Post to the activity feed', 'buddynext' ); ?></span>
-										<p class="bn-field-hint">
-											<?php
-											/* translators: %s: integration name. */
-											printf( esc_html__( 'New activity from %s appears in the community feed.', 'buddynext' ), esc_html( $bn_label ) );
-											?>
-										</p>
-									</div>
-									<label class="bn-toggle-label">
-										<input type="checkbox" name="feed[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'feed' ) ); ?> role="switch" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: integration name. */ __( 'Post %s events to the activity feed', 'buddynext' ), $bn_label ) ); ?>">
-										<span class="bn-toggle--inline"></span>
-									</label>
-								</div>
-							<?php endif; ?>
-							<?php if ( ! empty( $entry['has_search'] ) ) : ?>
-								<div class="bn-toggle-row">
-									<div class="bn-toggle-row__copy">
-										<span class="bn-toggle-row__label"><?php esc_html_e( 'Include in search', 'buddynext' ); ?></span>
-										<p class="bn-field-hint">
-											<?php
-											/* translators: %s: integration name. */
-											printf( esc_html__( 'Members can find %s content in community search. Switching this off also removes what has already been indexed.', 'buddynext' ), esc_html( $bn_label ) );
-											?>
-										</p>
-									</div>
-									<label class="bn-toggle-label">
-										<input type="checkbox" name="search[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'search' ) ); ?> role="switch" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: integration name. */ __( 'Include %s content in community search', 'buddynext' ), $bn_label ) ); ?>">
-										<span class="bn-toggle--inline"></span>
-									</label>
-								</div>
-							<?php endif; ?>
-							<?php if ( ! empty( $bn_subtabs ) ) : ?>
-								<div class="bn-int-subtab-group">
-									<span class="bn-int-subtab-group__kicker"><?php esc_html_e( 'Navigation sub-tabs', 'buddynext' ); ?></span>
-									<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
-										<?php $bn_sub_off = $entry['subtabs_unavailable'][ $bn_sub ] ?? null; ?>
-										<div class="bn-toggle-row bn-toggle-row--sub">
-											<div class="bn-toggle-row__copy">
-												<span class="bn-toggle-row__label"><?php echo esc_html( (string) $bn_sub_label ); ?></span>
-												<?php if ( null !== $bn_sub_off ) : ?>
-													<p class="bn-field-hint"><?php echo esc_html( $bn_sub_off['note'] ); ?></p>
-													<?php if ( '' !== $bn_sub_off['action_url'] && '' !== $bn_sub_off['action_label'] ) : ?>
-														<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_sub_off['action_url'] ); ?>"><?php echo esc_html( $bn_sub_off['action_label'] ); ?></a>
-													<?php endif; ?>
-												<?php endif; ?>
-											</div>
-											<label class="bn-toggle-label">
-												<?php // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false and the next save would write explicit 0s. ?>
-												<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( null === $bn_sub_off && '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> <?php disabled( null !== $bn_sub_off ); ?> role="switch" aria-label="<?php echo esc_attr( (string) $bn_sub_label ); ?>">
-												<span class="bn-toggle--inline"></span>
-											</label>
-										</div>
-									<?php endforeach; ?>
-								</div>
-							<?php endif; ?>
-							<?php ( new \BuddyNext\Addons\AddonSettingsForm() )->render( (string) $key ); ?>
+							<?php echo $bn_extra_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- AddonSettingsForm escapes every row it prints. ?>
 						</div>
 					</div>
 				<?php endforeach; ?>
@@ -323,6 +320,31 @@ class IntegrationControlsAdmin {
 			</div>
 			<?php
 		endif;
+	}
+
+	/**
+	 * Print one switch cell of the integration table, or a dash when the
+	 * integration has no such surface.
+	 *
+	 * @param bool   $available Whether the integration offers this surface.
+	 * @param string $name      Field name.
+	 * @param bool   $on        Current state.
+	 * @param string $aria      Accessible name of the switch.
+	 * @return void
+	 */
+	private function toggle_cell( bool $available, string $name, bool $on, string $aria ): void {
+		echo '<td data-align="center">';
+		if ( $available ) {
+			printf(
+				'<label class="bn-toggle-label"><input type="checkbox" name="%1$s" value="1" %2$s role="switch" aria-label="%3$s"><span class="bn-toggle--inline"></span></label>',
+				esc_attr( $name ),
+				checked( $on, true, false ),
+				esc_attr( $aria )
+			);
+		} else {
+			echo '<span class="bn-int-matrix__none" aria-hidden="true">&ndash;</span><span class="screen-reader-text">' . esc_html__( 'Not available', 'buddynext' ) . '</span>';
+		}
+		echo '</td>';
 	}
 
 	/**

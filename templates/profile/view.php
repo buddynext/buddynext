@@ -450,7 +450,7 @@ $bn_pf_ctx = array(
 			'degree_badge'        => (string) $degree_badge,
 			'member_type'         => is_array( $member_type ) ? $member_type : array(),
 			// The hero shows only the social fields the owner flagged "Show in the profile
-			// header" (as chips, not as meta-row text); the sidebar card keeps the full list.
+			// header" (as chips, not as meta-row text); the About tab lists them all.
 			'social_links'        => array_filter(
 				is_array( $social_links ) ? $social_links : array(),
 				static fn( array $f ): bool => in_array( (string) ( $f['field_key'] ?? '' ), $bn_header_keys, true )

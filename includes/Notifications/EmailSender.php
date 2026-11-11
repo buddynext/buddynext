@@ -235,6 +235,14 @@ class EmailSender {
 	 * @return bool True when the email was handed off to wp_mail(), false otherwise.
 	 */
 	public function send_now( int $user_id, string $notification_type, array $data, bool $is_retry = false ): bool {
+		// The email was queued while its actor existed. If that member has since
+		// been deleted (account erased, demo cleanup) the subject would render
+		// with no name, so there is nothing left to tell the recipient about.
+		$actor_id = isset( $data['sender_id'] ) ? (int) $data['sender_id'] : 0;
+		if ( $actor_id > 0 && false === get_userdata( $actor_id ) ) {
+			return false;
+		}
+
 		// Composed-email path: campaign and drip-step senders author the subject
 		// and body per message and pass them in $data. These are first-class
 		// emails — the authored content IS the email — so they do not require a

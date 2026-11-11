@@ -24,7 +24,7 @@ The listings live in WB Listora, which owns the directory, its categories, and i
 The directory itself - submitting a listing, browsing the directory, editing or removing a listing - is handled by WB Listora. Members use WB Listora's own screens for those actions. BuddyNext surfaces the activity in the community:
 
 - **A new listing appears in the feed.** When a member publishes a directory listing, BuddyNext posts a feed activity announcing it and linking out to the listing's WB Listora page. Members can see new listings as they scroll the feed.
-- **Approved reviews appear in the feed.** When a review of a published listing is approved, a "reviewed a listing" card shows the rating and an excerpt and links to the review. Editing the review refreshes the card. Rejecting or deleting the review removes it, and unpublishing the listing hides its review cards until it is republished. It follows the **Post to the activity feed** switch and needs WB Listora 2.1.1 or later.
+- **Approved reviews appear in the feed.** When a review of a published listing is approved, a "reviewed a listing" card shows the rating and an excerpt and links to the review. Editing the review refreshes the card. Rejecting or deleting the review removes it, and unpublishing the listing hides its review cards until it is republished. It follows the **Feed** switch and needs WB Listora 2.1.1 or later.
 - **Listings are searchable in the community.** Each published listing is added to community search, so a member searching for a business, service, or place finds it alongside people and spaces.
 - **A member's listings show on their profile.** BuddyNext adds a Listings panel to the member's profile **Portfolio** tab, so anyone viewing the profile sees what that member has listed (title, category or location, a Verified flag and the rating), linking out to each listing's WB Listora page. On their own profile the member also gets a **Manage Business** button that opens the WB Listora dashboard.
 - **Listings come down automatically.** When a listing leaves public view - it is unpublished, set to draft or pending, or deleted - its community surfacing is removed too, so the feed and search only show listings that are actually live.
@@ -45,9 +45,9 @@ WB Listora gets a card on the **Integration Settings** screen, with the same swi
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether the Listings panel appears on the profile Portfolio tab, and whether spaces can show a Businesses tab. | On |
-| Post to the activity feed | Whether a published listing posts a feed activity. | On |
-| Include in search | Whether published listings are found in community search. Switching it off also removes the listings already in the search index. | On |
+| Navigation | Whether the Listings panel appears on the profile Portfolio tab, and whether spaces can show a Businesses tab. | On |
+| Feed | Whether a published listing posts a feed activity. | On |
+| Search | Whether published listings are found in community search. Switching it off also removes the listings already in the search index. | On |
 
 The directory's own behavior - who can list, the categories, the listing fields - is configured in WB Listora, not here. These switches only decide where the results show up inside your community.
 
@@ -63,14 +63,14 @@ Beyond surfacing new listings in the feed and search, WB Listora can run a curat
 
 **The showcase.** Approved businesses appear as compact cards - name, one category and location line, a verified badge, rating, owner and image - each linking out to the full listing on WB Listora for the complete detail. The showcase never reproduces the whole listing in the space; it is a directory that sends people to the source. The space team can remove a card at any time.
 
-**Visibility follows the space.** The Businesses tab respects the space's own privacy. An open space's directory is visible to anyone who can see the space; a private or secret space's directory is visible only to its members. The site-wide WB Listora **Show in navigation** switch (Integration Settings) is the master control: with it off, no space shows a Businesses tab.
+**Visibility follows the space.** The Businesses tab respects the space's own privacy. An open space's directory is visible to anyone who can see the space; a private or secret space's directory is visible only to its members. The site-wide WB Listora **Navigation** switch (Integration Settings) is the master control: with it off, no space shows a Businesses tab.
 
 **Requirements.** Needs BuddyNext Pro and WB Listora 1.8.0 or newer (the release that added the space-listings storage and its REST endpoints). Without them the Businesses tab simply does not appear, and the rest of the WB Listora integration - feed, search, the profile Listings panel - is unaffected. WB Listora still owns the listings themselves; this feature only decides which of them a space showcases.
 
 ## Good to know
 
 - **Listings appear and disappear with their public status.** BuddyNext keys off the listing's WordPress publish status: a listing becomes a feed and search entry when it goes public, and that entry is removed when the listing leaves public view or is deleted. There is no separate approval step to wire - public status is the signal.
-- **Turning search off clears the index.** Switching **Include in search** off does not only stop new listings being indexed - it also removes the ones already there. Nothing is deleted from WB Listora itself; only the community search index is cleared. Switch it back on and listings are indexed again as they are published or updated.
+- **Turning search off clears the index.** Switching **Search** off does not only stop new listings being indexed - it also removes the ones already there. Nothing is deleted from WB Listora itself; only the community search index is cleared. Switch it back on and listings are indexed again as they are published or updated.
 - **The published link is reconstructed so removal matches.** When a listing comes down, BuddyNext rebuilds the same published URL it surfaced, so the right feed and search entry is removed cleanly with nothing left behind.
 - **WB Listora keeps its own notifications for now.** This integration surfaces listings in the feed and search; WB Listora's own notifications continue to work as they do on their own.
 - **Inert when WB Listora is not installed.** Without the WB Listora plugin, the integration does nothing - no feed activity and no search entries. BuddyNext checks for WB Listora before wiring anything in, so a site without it sees no errors and no empty surfaces.

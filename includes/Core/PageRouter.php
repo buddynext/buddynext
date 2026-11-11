@@ -2747,7 +2747,7 @@ class PageRouter {
 
 			case 'feed':
 				$context['activity_action'] = (string) get_query_var( 'bn_activity_action', '' );
-				$context['hashtag']         = (string) get_query_var( 'bn_hashtag', '' );
+				$context['hashtag']         = \BuddyNext\Hashtags\HashtagService::slug_from_request();
 				$context['feed_section']    = (string) get_query_var( 'bn_feed_section', '' );
 				break;
 
@@ -3637,7 +3637,10 @@ class PageRouter {
 	 * @return string
 	 */
 	public static function hashtag_feed_url( string $hashtag ): string {
-		return self::activity_url() . 'hashtag/' . rawurlencode( sanitize_title( $hashtag ) ) . '/';
+		// The stored slug is Unicode (한국어, café): normalize it the same way and
+		// encode it once. sanitize_title() percent-encoded Hangul, so rawurlencode()
+		// then encoded the % again and every non-Latin hashtag link went to "not found".
+		return self::activity_url() . 'hashtag/' . rawurlencode( \BuddyNext\Hashtags\HashtagService::normalize_slug( $hashtag ) ) . '/';
 	}
 
 	/**
@@ -3902,7 +3905,9 @@ class PageRouter {
 			return self::spaces_url();
 		}
 
-		return self::spaces_url() . rawurlencode( $slug ) . '/';
+		// The stored slug is sanitize_title() output, already URL-safe (see
+		// buddynext_space_url()). Encoding it again broke every non-Latin space.
+		return self::spaces_url() . sanitize_title( $slug ) . '/';
 	}
 
 	/**

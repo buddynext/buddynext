@@ -221,7 +221,7 @@ Hook `buddynext_register_nav` and call `$registry->register()` with a registrati
 | `priority` | `int` | Default order, lower first. Default 50. |
 | `before` / `after` | `string` | Order anchor: place before/after another item id (`after` wins if both set). |
 | `hide_empty` | `bool` | Omit the item when its resolved count is 0 (only honoured when a `count` is supplied). |
-| `integration` | `string` | The key your plugin registered on the `buddynext_integrations` filter, when its "Show in navigation" switch gates this tab. Settings -> Navigation then labels the row with your integration's name and says when that switch is off. Admin-only; your `condition` still does the gating. |
+| `integration` | `string` | The key your plugin registered on the `buddynext_integrations` filter, when its "Navigation" switch gates this tab. Settings -> Navigation then labels the row with your integration's name and says when that switch is off. Admin-only; your `condition` still does the gating. |
 | `description` | `string` | Already-translated one-line description shown under the tab's row in Settings -> Navigation. Admin-only. |
 
 **Your tab is listed in Settings -> Navigation automatically.** Every `primary` item registered on the `profile` or `space` surface gets a row there, in the order members see it, with sub-tabs under their parent. The site owner can hide, rename, reorder and capability-gate it with no code from you, and the saved settings match your item by its `id`, so keep the `id` stable across releases. A tab gated by a per-member `condition` is listed too, because the setting applies to every member.

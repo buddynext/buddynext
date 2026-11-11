@@ -28,8 +28,8 @@ defined( 'ABSPATH' ) || exit;
 
 // ── Resolve hashtag slug ───────────────────────────────────────────────────
 $hashtag_slug = isset( $args['hashtag_slug'] )
-	? sanitize_title( $args['hashtag_slug'] )
-	: sanitize_title( get_query_var( 'bn_hashtag', '' ) );
+	? \BuddyNext\Hashtags\HashtagService::normalize_slug( (string) $args['hashtag_slug'] )
+	: \BuddyNext\Hashtags\HashtagService::slug_from_request();
 
 // Headers are already sent by wp_head() when this template runs; use an
 // inline not-found state rather than a redirect.

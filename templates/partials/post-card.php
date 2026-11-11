@@ -332,8 +332,10 @@ $can_share_out = buddynext_service( 'post_service' )->is_publicly_shareable( (ar
 // affordance only where the action is real. The server half is closed too as of
 // 255661bd: visibility_error() gates on publication state and every engagement
 // write endpoint calls it, so hiding these controls now agrees with what the REST
-// routes actually do rather than being cosmetic.
-if ( $bn_is_unpublished ) {
+// routes actually do rather than being cosmetic. The rule is "not published",
+// wider than pre-publication: an admin opening a removed or report-hidden post
+// sees it, and the write gate refuses engagement on it too.
+if ( empty( \BuddyNext\Feed\PostService::STATUSES[ (string) ( $bn_post['status'] ?? 'published' ) ]['readable'] ) ) {
 	$can_react     = false;
 	$can_comment   = false;
 	$can_share     = false;

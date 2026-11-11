@@ -151,13 +151,23 @@
 	padding: var(--bn-s4) var(--bn-s4) var(--bn-s3);
 }
 
+/*
+ * The rail is a fixed ~350px column on desktop, narrower than the three tabs
+ * with their counts once "Message requests" carries a badge, so the strip
+ * scrolled and cut the last count off. Tighter padding fits the English labels
+ * on one row; wrapping (instead of the shared strip's sideways scroll) keeps a
+ * longer translation whole on a second row rather than clipped.
+ */
 .bn-dm-rail__tabs {
-	padding-inline: var(--bn-s4);
+	padding-inline: var(--bn-s3);
 	border-bottom: 1px solid var(--bn-line-faint);
+	flex-wrap: wrap;
+	overflow-x: visible;
 }
 
 .bn-dm-rail__tabs .bn-tab {
-	gap: var(--bn-s2);
+	--bn-tab-px: var(--bn-s2);
+	gap: var(--bn-s1);
 }
 
 .bn-dm-rail__list {

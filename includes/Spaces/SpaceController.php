@@ -272,7 +272,9 @@ class SpaceController extends BaseRestController {
 		// same response as GET /spaces/{id} (and the same invite handling).
 		register_rest_route(
 			'buddynext/v1',
-			'/spaces/slug/(?P<slug>[a-z0-9-]+)',
+			// Any path segment: a non-Latin name's slug is percent-encoded
+			// (%ed%95%9c...), which [a-z0-9-] could never match.
+			'/spaces/slug/(?P<slug>[^/]+)',
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_by_slug' ),
@@ -1677,12 +1679,28 @@ class SpaceController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_space_by_slug( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$space = ( new SpaceService() )->get_by_slug( (string) $request->get_param( 'slug' ) );
+		$space = self::space_from_slug_segment( (string) $request->get_param( 'slug' ) );
 		if ( null === $space ) {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 		$request->set_param( 'id', (int) $space['id'] );
 		return $this->get_space( $request );
+	}
+
+	/**
+	 * The space a /spaces/slug/{slug} path segment names.
+	 *
+	 * The one resolver for that route: the visibility gate and the handler must
+	 * decode the segment identically, or a request could pass the gate as one
+	 * space and be answered as another. The segment arrives percent-encoded;
+	 * decode it once and get_by_slug()'s sanitize_title() re-encodes it the way
+	 * the slug was stored (WordPress core's post_name form).
+	 *
+	 * @param string $segment Raw path segment.
+	 * @return array<string,mixed>|null
+	 */
+	private static function space_from_slug_segment( string $segment ): ?array {
+		return ( new SpaceService() )->get_by_slug( urldecode( $segment ) );
 	}
 
 	/**
@@ -2176,7 +2194,10 @@ class SpaceController extends BaseRestController {
 			if ( null === $space ) {
 				return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 			}
-			if ( $header_name !== (string) $space['name'] ) {
+			// The app sends the name percent-encoded (headers are ISO-8859-1 only);
+			// a raw ASCII name from an API client still matches as before.
+			$name = (string) $space['name'];
+			if ( $header_name !== $name && rawurldecode( $header_name ) !== $name ) {
 				return new WP_Error(
 					'confirm_mismatch',
 					__( 'Confirmation name does not match.', 'buddynext' ),
@@ -2882,7 +2903,7 @@ class SpaceController extends BaseRestController {
 		} elseif ( preg_match( '#^/buddynext/v1/spaces/slug/([^/]+)$#', $route, $m ) ) {
 			// The slug route promises the same: a secret slug answered rest_forbidden
 			// where an unknown one answered space_not_found.
-			$space = ( new SpaceService() )->get_by_slug( sanitize_title( urldecode( $m[1] ) ) );
+			$space = self::space_from_slug_segment( $m[1] );
 		} else {
 			return $response;
 		}
@@ -3003,6 +3024,20 @@ class SpaceController extends BaseRestController {
 		$inviter_id      = get_current_user_id();
 		$invited_user_id = absint( $request->get_param( 'user_id' ) );
 
+		// Who may invite is settled before anything about the invitee is looked at, so
+		// a member who cannot invite learns nothing about which names exist.
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		if ( ! ( new SpaceMemberService() )->can_invite( $space_id, $inviter_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can invite members.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Allow invite by @handle, username or email when no numeric user_id is supplied,
 		// so the hero Invite modal can mirror the settings-panel invite form.
 		if ( 0 === $invited_user_id ) {
@@ -3017,6 +3052,11 @@ class SpaceController extends BaseRestController {
 				if ( $invited_user instanceof \WP_User ) {
 					$invited_user_id = (int) $invited_user->ID;
 				} else {
+					// Below site level an unknown name answers like every other "nothing
+					// sent" outcome, so the route cannot be used to test which names exist.
+					if ( ! buddynext_can( $inviter_id, 'buddynext-moderation/review-queue' ) ) {
+						return $this->invite_not_sent();
+					}
 					return new WP_Error(
 						'user_not_found',
 						__( 'No member found with that @handle or email.', 'buddynext' ),
@@ -3031,16 +3071,6 @@ class SpaceController extends BaseRestController {
 				'missing_user_id',
 				__( 'A user_id or identifier parameter is required.', 'buddynext' ),
 				array( 'status' => 400 )
-			);
-		}
-
-		$space = ( new SpaceService() )->get( $space_id );
-
-		if ( null === $space ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'Space not found.', 'buddynext' ),
-				array( 'status' => 404 )
 			);
 		}
 
@@ -3172,7 +3202,7 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		if ( ! $site_level && in_array( $status, array( 'attached', 'already_invited', 'invited_elsewhere', 'existing_member' ), true ) ) {
+		if ( ! $site_level && in_array( $status, array( 'attached', 'already_invited', 'invited_elsewhere', 'existing_member', 'mail_failed' ), true ) ) {
 			return $this->invite_not_sent();
 		}
 

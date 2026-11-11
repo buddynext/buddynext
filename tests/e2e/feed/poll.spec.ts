@@ -3,6 +3,7 @@ import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest, restPost, restGet } from '../_fixtures/feed-wave1.helpers';
 import type { Page } from '@playwright/test';
+import { dbScalar, tablePrefix, wp } from '../_fixtures/wp';
 
 type PollOption = { id: number; option_text: string; vote_count: number };
 
@@ -206,19 +207,21 @@ test.describe('feed / poll', () => {
             await expect(page.locator(sel.composer).first()).toBeVisible();
             nonce = await readRestNonce(page);
 
-            // Build a poll whose deadline is already in the past — the deterministic
-            // way to reach the closed state (insert_poll_options accepts any valid
-            // UTC datetime; the vote gate keys on end_date <= UTC_TIMESTAMP()).
+            // The server refuses a past deadline at create (poll_end_in_past), so make
+            // an open poll, then move its deadline into the past - the deterministic way
+            // to reach the closed state (the vote gate keys on end_date <= UTC_TIMESTAMP()).
             const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', {
                 content: question,
                 type: 'poll',
                 privacy: 'public',
                 options: [`Yes ${stamp}`, `No ${stamp}`],
-                poll_end_date: '2020-01-01 00:00:00',
             });
-            expect(created.status, `create closed poll -> ${created.status}`).toBeLessThan(300);
+            expect(created.status, `create poll -> ${created.status}`).toBeLessThan(300);
             createdId = created.body.id ?? 0;
             expect(createdId).toBeGreaterThan(0);
+            const p = await tablePrefix();
+            await dbScalar(`UPDATE ${p}bn_poll_options SET end_date='2020-01-01 00:00:00' WHERE post_id=${createdId}`);
+            await wp(['cache', 'flush']);
 
             await page.goto(urls.feed);
             const card = cardWith(page, question).first();

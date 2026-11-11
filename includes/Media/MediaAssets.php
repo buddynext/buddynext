@@ -92,11 +92,9 @@ class MediaAssets {
 				'mvsRest'       => esc_url_raw( rest_url( 'mvs/v1' ) ),
 				'nonce'         => wp_create_nonce( 'wp_rest' ),
 				'userId'        => get_current_user_id(),
-				// Media reporting is a WPMediaVerse feature behind its own `mvs_reports_enabled`
-				// filter (default OFF; our bridge turns it on). Ask it, rather than assuming — an
-				// owner who switches it back off must get NO Report button, not a button that
-				// answers 403.
-				'canReport'     => (bool) apply_filters( 'mvs_reports_enabled', false ),
+				// Media reporting is WPMediaVerse's own owner setting (on by default). Ask it, so an
+				// owner who turns it off gets no Report button rather than one that answers 403.
+				'canReport'     => class_exists( '\\WPMediaVerse\\Social\\ReportService' ) && \WPMediaVerse\Social\ReportService::reports_enabled(),
 				'reactionTypes' => array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' ),
 				'i18n'          => array(
 					'view'             => __( 'view', 'buddynext' ),

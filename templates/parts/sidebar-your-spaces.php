@@ -34,7 +34,7 @@ $sidebar_user_id = isset( $sidebar_user_id ) ? (int) $sidebar_user_id : 0;
 		<?php if ( ! empty( $sbar_spaces ) ) : ?>
 			<?php foreach ( $sbar_spaces as $sbar_sp ) : ?>
 				<?php
-				$sbar_sp_url      = \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( (string) $sbar_sp->slug ) . '/';
+				$sbar_sp_url      = buddynext_space_url( (string) $sbar_sp->slug );
 				$sbar_sp_initials = strtoupper( mb_substr( (string) $sbar_sp->name, 0, 2 ) );
 				$sbar_sp_unread   = isset( $sbar_sp->unread_count ) ? (int) $sbar_sp->unread_count : 0;
 				?>

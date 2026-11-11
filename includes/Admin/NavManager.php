@@ -1908,7 +1908,15 @@ class NavManager extends AdminPageBase {
 				</span>
 			</div>
 
-			<?php if ( $is_core ) : ?>
+			<?php if ( $is_core && isset( $tab['core'] ) && ! $tab['core'] ) : ?>
+			<div class="bn-config-divider"></div>
+			<div class="bn-cf">
+				<div class="bn-config-note">
+					<strong><?php esc_html_e( 'Added by another plugin', 'buddynext' ); ?></strong>
+					<?php esc_html_e( '- Hide it here, or remove it in the plugin that adds it.', 'buddynext' ); ?>
+				</div>
+			</div>
+			<?php elseif ( $is_core ) : ?>
 			<div class="bn-config-divider"></div>
 			<div class="bn-cf">
 				<div class="bn-config-note">
@@ -2441,6 +2449,98 @@ class NavManager extends AdminPageBase {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function default_tabs(): array {
+		$tabs  = array_merge( $this->core_main_tabs(), $this->partner_main_tabs() );
+		$known = array_flip( array_column( $tabs, 'slug' ) );
+		foreach ( $this->registered_rail_items() as $item ) {
+			$key = sanitize_key( (string) ( $item['key'] ?? '' ) );
+			if ( '' === $key || isset( $known[ $key ] ) ) {
+				continue;
+			}
+			$known[ $key ] = true;
+			$tabs[]        = array(
+				'slug'        => $key,
+				'label'       => sanitize_text_field( (string) ( $item['label'] ?? $key ) ),
+				'order'       => (int) ( $item['order'] ?? 0 ) > 0 ? (int) $item['order'] : 300,
+				'icon'        => '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom',
+				'description' => __( 'Added by another plugin', 'buddynext' ),
+				'capability'  => 'read',
+				'core'        => false,
+			);
+		}
+		return $tabs;
+	}
+
+	/**
+	 * Rail items other plugins add on `buddynext_rail_items`, as they stand
+	 * before the owner's overrides (priority 20) rename or hide them, so the
+	 * editor lists every item the rail can show under its own default label.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function registered_rail_items(): array {
+		$shell = buddynext_service( 'shell_nav' );
+		if ( ! is_object( $shell ) ) {
+			return array();
+		}
+		$captured = array();
+		$capture  = static function ( $items ) use ( &$captured ) {
+			$captured = (array) $items;
+			return $items;
+		};
+		add_filter( 'buddynext_rail_items', $capture, 19 );
+		apply_filters( 'buddynext_rail_items', $shell->base_items( get_current_user_id() ), '' );
+		remove_filter( 'buddynext_rail_items', $capture, 19 );
+		return $captured;
+	}
+
+	/**
+	 * Rail rows that exist only while a partner plugin is registered on the
+	 * integration registry (Media, Discussions, Leaderboard, Events). They are
+	 * injected into the rail by the partner bridges; listing them here lets the
+	 * owner hide, relabel and reorder them like any other item. Rows carry
+	 * `integration` so the editor shows when Integration Settings has them off.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function partner_main_tabs(): array {
+		$rows = array(
+			'media'       => array( __( 'Media', 'buddynext' ), 'image', 205, __( 'The member\'s own media library.', 'buddynext' ) ),
+			'discussions' => array( __( 'Discussions', 'buddynext' ), 'list', 206, __( 'Discussions the member has started.', 'buddynext' ) ),
+			'events'      => array( __( 'Events', 'buddynext' ), 'calendar', 207, __( 'Events the member is hosting or attending.', 'buddynext' ) ),
+			'leaderboard' => array( __( 'Leaderboard', 'buddynext' ), 'award', 95, __( 'Community points leaderboard.', 'buddynext' ) ),
+		);
+		// Rail key => integration registry key.
+		$integration = array(
+			'media'       => 'media',
+			'discussions' => 'jetonomy',
+			'events'      => 'eventonomy',
+			'leaderboard' => 'gamification',
+		);
+		$registered  = buddynext_integrations();
+		$tabs        = array();
+		foreach ( $rows as $slug => $row ) {
+			if ( ! isset( $registered[ $integration[ $slug ] ] ) ) {
+				continue;
+			}
+			$tabs[] = array(
+				'slug'        => $slug,
+				'label'       => $row[0],
+				'order'       => $row[2],
+				'icon'        => $row[1],
+				'description' => $row[3],
+				'capability'  => 'read',
+				'integration' => $integration[ $slug ],
+			);
+		}
+		return $tabs;
+	}
+
+	/**
+	 * Built-in main-scope rows.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function core_main_tabs(): array {
 		return array(
 			array(
 				'slug'        => 'feed',
@@ -2470,6 +2570,16 @@ class NavManager extends AdminPageBase {
 				'icon'        => 'tab-spaces',
 				'description' => __( 'Browse and manage spaces', 'buddynext' ),
 				'capability'  => 'read',
+			),
+			array(
+				'slug'           => 'my-spaces',
+				'label'          => __( 'My spaces', 'buddynext' ),
+				'order'          => 31,
+				'icon'           => 'tab-spaces',
+				'description'    => __( 'Expandable list of the member\'s own spaces. It always sits under Spaces, so its position here does not move it. Hide it to keep the rail short.', 'buddynext' ),
+				'capability'     => 'read',
+				'hidden'         => false,
+				'login_required' => true,
 			),
 			array(
 				'slug'            => 'messages',

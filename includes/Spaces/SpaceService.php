@@ -1594,10 +1594,12 @@ class SpaceService {
 	 * @return array{page:int, per_page:int, search:string, cat_slug:string, visibility:string, orderby:string, include_subspaces:bool, scope:string, membership:string, is_mine:bool, mode:string, query_args:array<string,mixed>}
 	 */
 	public function directory_request( int $viewer_id, bool $is_admin, array $input, int $page ): array {
+		// bn_cat is stored by sanitize_title() (a Korean category is %ed%95...), so it
+		// is read the same way. sanitize_key() deleted every non-Latin letter and the %.
 		$page       = max( 1, $page );
 		$per_page   = 18;
 		$search     = sanitize_text_field( (string) ( $input['bn_search'] ?? '' ) );
-		$cat_slug   = sanitize_key( (string) ( $input['bn_cat'] ?? '' ) );
+		$cat_slug   = sanitize_title( (string) ( $input['bn_cat'] ?? '' ) );
 		$visibility = sanitize_key( (string) ( $input['bn_type'] ?? '' ) );
 		$orderby    = sanitize_key( (string) ( $input['bn_sort'] ?? 'popular' ) );
 		$scope      = sanitize_key( (string) ( $input['bn_scope'] ?? '' ) );

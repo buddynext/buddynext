@@ -33,7 +33,7 @@ On the notification preferences page, each connected app gets its own section, n
 
 ## Setting it up (for owners)
 
-There is nothing to configure for this specifically. A connected app that sends notifications to BuddyNext shows up as a source the moment it is active, and its notifications start appearing immediately. There is no separate settings screen for it. The owner control is the integration's **Show in navigation** switch on **Integration Settings**: while it is off, nothing from that app reaches the bell. Members manage the per-kind switches on their own preferences.
+There is nothing to configure for this specifically. A connected app that sends notifications to BuddyNext shows up as a source the moment it is active, and its notifications start appearing immediately. There is no separate settings screen for it. The owner control is the integration's **Navigation** switch on **Integration Settings**: while it is off, nothing from that app reaches the bell. Members manage the per-kind switches on their own preferences.
 
 ## Good to know
 

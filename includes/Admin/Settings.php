@@ -1095,6 +1095,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'general',
+				__( 'Stories', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							// MediaVerse Pro owns stories (switch, length, who may post);
+							// this row shows where they stand and links there.
+							'key'             => 'buddynext_stories_managed',
+							'type'            => 'custom',
+							'render_callback' => array( $this, 'render_stories_row' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'general',
 				__( 'Direct Messaging', 'buddynext' ),
 				array(
 					new Field(
@@ -1288,6 +1303,38 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				)
 			),
 		);
+	}
+
+	/**
+	 * Stories: MediaVerse Pro's switch and length, shown read-only with a link.
+	 *
+	 * @return void
+	 */
+	public function render_stories_row(): void {
+		$bn_block = class_exists( '\\WPMediaVerse\\Core\\Plugin' ) && \WP_Block_Type_Registry::get_instance()->is_registered( 'mvs/pro-stories' );
+		?>
+		<div class="bn-field">
+			<span class="bn-tl-title"><?php esc_html_e( 'Stories in the home feed', 'buddynext' ); ?></span>
+			<?php if ( ! $bn_block ) : ?>
+				<span class="bn-tl-desc"><?php esc_html_e( 'Stories need MediaVerse Pro. Activate it to let members post stories from the home feed.', 'buddynext' ); ?></span>
+			<?php else : ?>
+				<span class="bn-tl-desc">
+					<?php
+					if ( \BuddyNext\Media\MediaClient::stories_available() ) {
+						printf(
+							/* translators: %s: how long a story stays up, e.g. "24 hours". */
+							esc_html__( 'On. Stories show in the home feed and last %s. Set in MediaVerse.', 'buddynext' ),
+							esc_html( \BuddyNext\Media\MediaClient::story_length_label() )
+						);
+					} else {
+						esc_html_e( 'Off. Turn Stories on in MediaVerse to show them in the home feed.', 'buddynext' );
+					}
+					?>
+				</span>
+				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( admin_url( 'admin.php?page=mvs-settings#display' ) ); ?>"><?php esc_html_e( 'Change in MediaVerse', 'buddynext' ); ?></a>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/**

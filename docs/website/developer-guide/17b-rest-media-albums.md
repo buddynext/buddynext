@@ -262,7 +262,7 @@ The lightbox (`assets/js/media/lightbox.js`, configured by `includes/Media/Media
 | `mvsRest` | `rest_url( 'mvs/v1' )` - the base the lightbox's own `api()` helper is bound to |
 | `nonce` | `wp_create_nonce( 'wp_rest' )` - one nonce, valid for `buddynext/v1` and `mvs/v1` alike |
 | `userId` | The current member, or 0 |
-| `canReport` | `apply_filters( 'mvs_reports_enabled', false )` - whether to draw the Report control at all |
+| `canReport` | `ReportService::reports_enabled()` from MediaVerse - whether to draw the Report control at all |
 | `reactionTypes` | `like`, `love`, `haha`, `wow`, `sad`, `angry` - mirrors BuddyNext's feed reactions |
 
 ### Report goes to the engine's queue
@@ -274,14 +274,7 @@ BuddyNext keeps **no second media-report store** - the engine owns media, so a m
 Two consequences worth knowing before you extend this:
 
 - **The reason vocabulary is MVS's, not BuddyNext's.** The lightbox offers `spam`, `harassment`, `nudity`, `violence`, `copyright`, `misinformation`, `other`. That is deliberately *not* the `buddynext_report_reasons` list (which has `inappropriate` and `impersonation`, and no `nudity` / `violence` / `copyright`). Posting BuddyNext's set here would be rejected as an invalid reason. Filtering `buddynext_report_reasons` does **not** change the media lightbox.
-- **Reporting is behind the engine's own switch.** `mvs_reports_enabled` ships from MediaVerse defaulting to **false** - reasonable for a standalone media plugin on a site with no moderators. `WPMediaVerseBridge` turns it **on** at priority 5, because a UGC community with no way to report media has no abuse path at all. It matters doubly because the same bridge redirects `/media/{slug}/` to the source activity, so MVS's own media page - the one carrying its Report button - never renders on a BuddyNext site. Priority 5 leaves the default 10 free, so a site that genuinely wants it off can still say so:
-
-```php
-// Turn media reporting back off on this site.
-add_filter( 'mvs_reports_enabled', '__return_false' );
-```
-
-The lightbox asks the filter rather than assuming, so an owner who switches it off gets **no** Report button - not a button that answers 403.
+- **Reporting is behind the engine's own switch.** MediaVerse owns it: the **Member Reporting** setting (option `mvs_enable_reports`, on by default), then the `mvs_reports_enabled` filter. BuddyNext does not change it. The lightbox asks the same switch, so an owner who turns reporting off gets **no** Report button - not a button that answers 403.
 
 ### Block is BuddyNext's, not the engine's
 

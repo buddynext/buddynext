@@ -61,7 +61,7 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 				$bn_author = '' !== (string) ( $bn_disc->author_name ?? '' )
 					? (string) $bn_disc->author_name
 					: (string) ( $bn_disc->author_login ?? __( 'Member', 'buddynext' ) );
-				$bn_href   = '' !== $bn_thread_base ? $bn_thread_base . rawurlencode( (string) $bn_disc->slug ) . '/' : $bn_forum_url;
+				$bn_href   = '' !== $bn_thread_base ? $bn_thread_base . sanitize_title( (string) $bn_disc->slug ) . '/' : $bn_forum_url;
 				?>
 				<a href="<?php echo esc_url( $bn_href ); ?>" class="bn-reply-card bn-reply-card--link bn-reply-card--avatar">
 					<span class="bn-reply-card__avatar" aria-hidden="true">

@@ -44,9 +44,9 @@ See [Near-Real-Time Updates](../engagement/03-realtime-updates.md) and [Real-tim
 
 **Fix:** Use **Plugin Isolation** (BuddyNext > Platform > Plugin isolation) to skip that plugin on community routes only - it is off by default and, once turned on, keeps every plugin loading until you explicitly tick one to skip, so nothing is silently disabled. This is a performance tool, not a security boundary, and it changes nothing on the rest of the site. See [Plugin Isolation](../getting-started/08a-plugin-isolation.md).
 
-## Data still looks stale after switching Include in search off and back on for an integration
+## Data still looks stale after switching Search off and back on for an integration
 
-**Symptom:** Turning a companion integration's "Include in search" switch (under **BuddyNext > Integration Settings**) back on doesn't seem to bring old content back into search immediately.
+**Symptom:** Turning a companion integration's "Search" switch (under **BuddyNext > Integration Settings**) back on doesn't seem to bring old content back into search immediately.
 
 **Explanation, not a bug:** Switching search off for an integration removes the content already in the search index, not just new content - that's deliberate, so a search switch that left old results behind wouldn't actually work as "off." Switching it back on re-indexes content as it is created or updated going forward, not instantly in bulk. If you need existing content re-indexed immediately after re-enabling search, use **Rebuild search index** under **BuddyNext > Platform > Tools**, or wait for members to naturally interact with (update) that content.
 

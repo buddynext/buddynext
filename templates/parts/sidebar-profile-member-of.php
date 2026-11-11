@@ -29,7 +29,7 @@ if ( $bn_pf_spaces ) :
 	foreach ( $bn_pf_spaces as $space ) :
 		$bn_space_slug = isset( $space->slug ) ? (string) $space->slug : '';
 		$bn_space_url  = '' !== $bn_space_slug
-			? \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( $bn_space_slug ) . '/'
+			? buddynext_space_url( $bn_space_slug )
 			: \BuddyNext\Core\PageRouter::space_url( (int) ( $space->id ?? 0 ) );
 		?>
 		<a class="bn-space-row" href="<?php echo esc_url( $bn_space_url ); ?>">

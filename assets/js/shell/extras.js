@@ -781,8 +781,17 @@
 			document.addEventListener( 'click', function ( e ) {
 				if ( ! menu.hidden && ! more.contains( e.target ) ) closeMenu( more );
 			} );
+			// Close when keyboard focus tabs out. Not while a pointer is pressed inside:
+			// iOS Safari moves focus from the tapped link to the page container on
+			// mousedown, which fires focusout before the click and would close the menu
+			// under the finger, so the tap never reached the link.
+			var pressing = false;
+			more.addEventListener( 'pointerdown', function () {
+				pressing = true;
+				setTimeout( function () { pressing = false; }, 600 );
+			} );
 			more.addEventListener( 'focusout', function ( e ) {
-				if ( e.relatedTarget && ! more.contains( e.relatedTarget ) ) closeMenu( more );
+				if ( ! pressing && e.relatedTarget && ! more.contains( e.relatedTarget ) ) closeMenu( more );
 			} );
 		}
 

@@ -106,7 +106,7 @@ class HashtagController {
 						'slug' => array(
 							'required'          => true,
 							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_text_field',
+							'sanitize_callback' => array( HashtagService::class, 'slug_from_param' ),
 						),
 					),
 				),
@@ -118,7 +118,7 @@ class HashtagController {
 						'slug' => array(
 							'required'          => true,
 							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_text_field',
+							'sanitize_callback' => array( HashtagService::class, 'slug_from_param' ),
 						),
 					),
 				),
@@ -136,7 +136,7 @@ class HashtagController {
 					'slug'     => array(
 						'required'          => true,
 						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
+						'sanitize_callback' => array( HashtagService::class, 'slug_from_param' ),
 					),
 					'per_page' => array(
 						'required'          => false,
@@ -174,7 +174,7 @@ class HashtagController {
 					'slug'  => array(
 						'required'          => true,
 						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
+						'sanitize_callback' => array( HashtagService::class, 'slug_from_param' ),
 					),
 					'limit' => array(
 						'required'          => false,
@@ -199,7 +199,7 @@ class HashtagController {
 					'slug'  => array(
 						'required'          => true,
 						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
+						'sanitize_callback' => array( HashtagService::class, 'slug_from_param' ),
 					),
 					'limit' => array(
 						'required'          => false,
@@ -224,7 +224,7 @@ class HashtagController {
 					'slug' => array(
 						'required'          => true,
 						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
+						'sanitize_callback' => array( HashtagService::class, 'slug_from_param' ),
 					),
 				),
 			)

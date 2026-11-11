@@ -66,8 +66,14 @@ test.describe('spaces / leave (J-605)', () => {
             await expect
                 .poll(
                     async () => {
-                        const g = await getSpace(actor.page, space.id);
-                        return (g.data as SpaceRow)?.membership_status ?? '';
+                        // Leaving on the space's own page reloads it for a non-member;
+                        // a read caught mid-reload just polls again.
+                        try {
+                            const g = await getSpace(actor.page, space.id);
+                            return (g.data as SpaceRow)?.membership_status ?? '';
+                        } catch {
+                            return 'active';
+                        }
                     },
                     { timeout: 10_000 }
                 )

@@ -66,8 +66,8 @@ class DemoDataService {
 	private const USER_FLAG = 'bn_demo';
 
 	/**
-	 * Realistic member roster. login is prefixed `bn_demo_` so it never
-	 * collides with a real account; avatar/cover index into assets/demo/.
+	 * Realistic member roster. login is the readable handle (see create_member() for
+	 * the collision rule); avatar/cover index into assets/demo/.
 	 *
 	 * `topics` is a list of space-category slugs (see seed_member_interests),
 	 * `profile` is a field_key => value map merged into save_profile(); every
@@ -784,6 +784,31 @@ class DemoDataService {
 	}
 
 	/**
+	 * Short-circuit wp_mail() when every recipient is a demo address.
+	 *
+	 * Demo members use the reserved `.invalid` domain, which can never be
+	 * delivered, so a welcome mail, digest or notice to them is only noise (and a
+	 * bounce on a real mail setup). Registered for the whole request lifetime,
+	 * because queued mail to demo members runs long after the seeder returns.
+	 *
+	 * @param bool|null           $short_circuit Filter value.
+	 * @param array<string,mixed> $atts          wp_mail() arguments.
+	 * @return bool|null True to skip sending, otherwise the incoming value.
+	 */
+	public static function skip_demo_mail( $short_circuit, $atts ) {
+		$to = array_filter( array_map( 'trim', is_array( $atts['to'] ?? null ) ? $atts['to'] : explode( ',', (string) ( $atts['to'] ?? '' ) ) ) );
+		if ( empty( $to ) ) {
+			return $short_circuit;
+		}
+		foreach ( $to as $addr ) {
+			if ( ! str_ends_with( strtolower( rtrim( $addr, '> ' ) ), '@buddynext-demo.invalid' ) ) {
+				return $short_circuit;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Seed the full demo community. Idempotent: refuses to double-seed.
 	 *
 	 * @param callable|null $log Optional progress callback( string $message ).
@@ -1057,7 +1082,10 @@ class DemoDataService {
 					'type'       => 'text',
 					'content'    => $body,
 					'created_at' => $bn_created_at,
-				) + ( $space_id > 0 ? array( 'space_id' => $space_id ) : array() )
+				) + ( $space_id > 0 ? array(
+					'space_id' => $space_id,
+					'privacy'  => 'space_members',
+				) : array() )
 			);
 			if ( is_wp_error( $post_id ) ) {
 				continue;
@@ -1093,7 +1121,10 @@ class DemoDataService {
 					'type'     => 'link',
 					'content'  => $lp['content'],
 					'link_url' => $lp['url'],
-				) + ( $space_id > 0 ? array( 'space_id' => $space_id ) : array() )
+				) + ( $space_id > 0 ? array(
+					'space_id' => $space_id,
+					'privacy'  => 'space_members',
+				) : array() )
 			);
 			if ( is_wp_error( $post_id ) ) {
 				continue;
@@ -1254,9 +1285,11 @@ class DemoDataService {
 	 *
 	 * @param string $rel       Path under assets/demo/.
 	 * @param int    $author_id Uploading member.
+	 * @param int    $space_id  Space the file belongs to (0 = personal). A space file takes
+	 *                          space-scoped privacy, so it stays out of site-wide Explore.
 	 * @return int Media ID, or 0 when the engine is absent or the file is unusable.
 	 */
-	private function upload_bundled_media( string $rel, int $author_id ): int {
+	private function upload_bundled_media( string $rel, int $author_id, int $space_id = 0 ): int {
 		$uploader = MediaClient::available() ? MediaClient::upload() : null;
 		if ( ! is_object( $uploader ) || ! method_exists( $uploader, 'handle' ) ) {
 			return 0;
@@ -1287,7 +1320,7 @@ class DemoDataService {
 				'error'    => 0,
 			),
 			$author_id,
-			array()
+			$space_id > 0 ? array( 'space_id' => $space_id ) : array()
 		);
 
 		if ( file_exists( $tmp ) ) {
@@ -1362,7 +1395,7 @@ class DemoDataService {
 
 			$items = array();
 			foreach ( $entry['images'] as $rel ) {
-				$media_id = $this->upload_bundled_media( $rel, $owner_id );
+				$media_id = $this->upload_bundled_media( $rel, $owner_id, $space_id );
 				if ( $media_id > 0 ) {
 					$items[]             = $media_id;
 					$manifest['media'][] = $media_id;
@@ -1377,7 +1410,7 @@ class DemoDataService {
 				array(
 					'title'       => $entry['title'],
 					'description' => $entry['description'],
-					'privacy'     => 'public',
+					'privacy'     => 'space',
 				)
 			);
 			if ( is_wp_error( $album_id ) || (int) $album_id <= 0 ) {
@@ -1387,10 +1420,10 @@ class DemoDataService {
 			$album_id = (int) $album_id;
 			$albums->add_items( $album_id, $items );
 
-			// Switch the space's Media tab ON. Without it the album exists and is
-			// simply unreachable: the tab is gated on the per-space
-			// `mvs_media_tab` field, which defaults OFF, so the REST route answers
-			// media_tab_disabled and the web nav never renders the tab. Seeding
+			// Switch the space's Media tab ON explicitly. The tab is gated on the
+			// per-space `mvs_media_tab` field; it defaults on, but a value stored
+			// as off would leave the album unreachable (the REST route answers
+			// media_tab_disabled and the web nav never renders the tab). Seeding
 			// content nobody can open is worse than seeding none - it looks like
 			// the feature is broken rather than switched off.
 			update_space_meta( $space_id, 'mvs_media_tab', '1' );
@@ -1859,6 +1892,25 @@ class DemoDataService {
 		$profiles      = new ProfileService();
 		$space_service = new SpaceService();
 
+		// Tags the demo posts carry, read BEFORE the posts go: only these registry
+		// rows may be pruned below, never an unrelated unused tag the owner made.
+		global $wpdb;
+		$demo_post_ids = array_values(
+			array_filter(
+				array_map(
+					static fn( $e ): int => (int) ( is_array( $e ) ? ( $e['id'] ?? 0 ) : $e ),
+					(array) ( $manifest['posts'] ?? array() )
+				)
+			)
+		);
+		$demo_tag_ids  = array();
+		if ( ! empty( $demo_post_ids ) ) {
+			$in = implode( ',', array_fill( 0, count( $demo_post_ids ), '%d' ) );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$demo_tag_ids = array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT hashtag_id FROM {$wpdb->prefix}bn_post_hashtags WHERE object_type = 'post' AND post_id IN ($in)", $demo_post_ids ) ) );
+			// phpcs:enable
+		}
+
 		// Posts (cascade removes their comments/reactions in PostService::delete).
 		// Delete these BEFORE the authors so the ownership check still passes.
 		$say( 'Removing posts…' );
@@ -1874,21 +1926,22 @@ class DemoDataService {
 			}
 		}
 
-		// Prune hashtag registry rows orphaned by the post removals above.
-		// Deleting the demo posts fires buddynext_post_deleted, which drops the
-		// junction links and recomputes post_count to 0, but the bn_hashtags
-		// registry row persists (tags are a durable vocabulary). After a demo
-		// cleanup that leaves the trending/explore surfaces cluttered with
-		// zero-post tags, so remove only registry rows that now have NO links and
-		// NO followers — a tag a real member follows or that still has posts is
-		// never touched.
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			"DELETE h FROM {$wpdb->prefix}bn_hashtags h
-			 LEFT JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
-			 WHERE ph.hashtag_id IS NULL AND h.follower_count = 0" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		);
+		// Prune the registry rows the demo created that now have NO links and NO
+		// followers. Tags a real member follows, still-linked tags and tags that
+		// were never part of the demo are never touched.
+		if ( ! empty( $demo_tag_ids ) ) {
+			$in = implode( ',', array_fill( 0, count( $demo_tag_ids ), '%d' ) );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE h FROM {$wpdb->prefix}bn_hashtags h
+					 LEFT JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
+					 WHERE ph.hashtag_id IS NULL AND h.follower_count = 0 AND h.id IN ($in)",
+					$demo_tag_ids
+				)
+			);
+			// phpcs:enable
+		}
 
 		// Media rows (uploaded photos): delete_cascade through the WPMediaVerse
 		// repo — the engine owns the wp_mvs_* tables + files, so this is the
@@ -2013,13 +2066,19 @@ class DemoDataService {
 		$quiet     = ( 0 === $seq % 5 );
 		$comment_n = $quiet ? 0 : ( $busy ? 4 : 1 + ( $seq % 2 ) );
 		$react_n   = $quiet ? 0 : min( $n, $busy ? 6 : 2 + ( $seq % 3 ) );
+		// Engagement lands after the post and before now (never "just now" under a
+		// post from days ago): each item is a few minutes later than the last,
+		// capped at the current time.
+		$post      = ( new PostService() )->get( $post_id );
+		$post_ts   = is_array( $post ) && ! empty( $post['created_at'] ) ? (int) strtotime( $post['created_at'] . ' UTC' ) : time();
+		$stamp_for = static fn( int $step ): string => gmdate( 'Y-m-d H:i:s', min( time(), $post_ts + ( $step + 1 ) * 17 * 60 ) );
 		for ( $c = 0; $c < $comment_n; $c++ ) {
 			$commenter = $user_ids[ ( $seq + $c + 1 ) % $n ];
-			$comments->create( $commenter, 'post', $post_id, self::COMMENTS[ ( $seq + $c ) % count( self::COMMENTS ) ] );
+			$comments->create( $commenter, 'post', $post_id, self::COMMENTS[ ( $seq + $c ) % count( self::COMMENTS ) ], null, $stamp_for( $c ) );
 		}
 		for ( $r = 0; $r < $react_n; $r++ ) {
 			$reactor = $user_ids[ ( $seq + $r + 2 ) % $n ];
-			$reactions->react( $reactor, 'post', $post_id, self::REACTIONS[ ( $seq + $r ) % count( self::REACTIONS ) ] );
+			$reactions->react( $reactor, 'post', $post_id, self::REACTIONS[ ( $seq + $r ) % count( self::REACTIONS ) ], $stamp_for( $r ) );
 		}
 	}
 
@@ -2030,7 +2089,13 @@ class DemoDataService {
 	 * @return int New user ID, or 0 on failure / already-exists.
 	 */
 	private function create_member( array $member ): int {
-		$login = 'bn_demo_' . $member['login'];
+		// A readable handle (profile URLs and @mentions show it); the demo marker is
+		// the USER_FLAG meta, not the login. A real member who already holds the
+		// handle keeps it, and the demo account takes the prefixed form instead.
+		$login = (string) $member['login'];
+		if ( username_exists( $login ) ) {
+			$login = 'bn_demo_' . $login;
+		}
 		if ( username_exists( $login ) ) {
 			return 0;
 		}

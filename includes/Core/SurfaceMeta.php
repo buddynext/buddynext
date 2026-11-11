@@ -117,13 +117,13 @@ final class SurfaceMeta {
 	 */
 	private static function describe_feed(): array {
 		$action  = (string) get_query_var( 'bn_activity_action', '' );
-		$hashtag = trim( (string) get_query_var( 'bn_hashtag', '' ) );
+		$hashtag = \BuddyNext\Hashtags\HashtagService::slug_from_request();
 
 		if ( 'hashtag' === $action && '' !== $hashtag ) {
 			return self::describe_directory(
 				/* translators: %s: hashtag without the leading hash. */
 				sprintf( __( '#%s', 'buddynext' ), $hashtag ),
-				PageRouter::activity_url() . 'hashtag/' . rawurlencode( $hashtag ) . '/'
+				PageRouter::hashtag_feed_url( $hashtag )
 			);
 		}
 

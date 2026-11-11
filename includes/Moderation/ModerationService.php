@@ -2086,6 +2086,29 @@ class ModerationService {
 	}
 
 	/**
+	 * The kinds of reported content "Remove content" can take down.
+	 *
+	 * One list for every queue that offers the button, so a moderator is never
+	 * shown an action that always fails. Core removes posts, comments and
+	 * messages; an integration that claims a type on
+	 * buddynext_content_removal_handled adds it here too.
+	 *
+	 * @since 1.2.9
+	 *
+	 * @return string[]
+	 */
+	public static function removable_types(): array {
+		/**
+		 * Filters the object types "Remove content" can take down.
+		 *
+		 * @since 1.2.9
+		 *
+		 * @param string[] $types Object type slugs. Default post, comment, message.
+		 */
+		return array_values( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_removable_object_types', array( 'post', 'comment', 'message' ) ) ) );
+	}
+
+	/**
 	 * Resolve the sender of each reported direct message.
 	 *
 	 * One batched read for the whole queue page, never a lookup per row, so

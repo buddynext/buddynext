@@ -165,7 +165,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 // only while WPMediaVerse Pro stories are on. The row shows for public posts
 // with an image or video (state.canAddToStory): a story's audience is its media
 // privacy, so a narrower post must not widen who sees it.
-$composer_stories_url = ( ! $composer_space && \BuddyNext\Media\MediaClient::stories_available() ) ? rest_url( 'mvs-pro/v1/media/' ) : '';
+$composer_stories_url = ( ! $composer_space && \BuddyNext\Media\MediaClient::can_post_story() ) ? rest_url( 'mvs-pro/v1/media/' ) : '';
 ?>
 <div class="bn-composer"
 	data-wp-interactive="buddynext/post-composer"
@@ -327,7 +327,8 @@ $composer_stories_url = ( ! $composer_space && \BuddyNext\Media\MediaClient::sto
 			<div class="bn-composer__story" hidden data-wp-bind--hidden="!state.canAddToStory">
 				<input type="checkbox" id="<?php echo esc_attr( $bn_story_id ); ?>" aria-describedby="<?php echo esc_attr( $bn_story_id ); ?>-hint" data-wp-bind--checked="context.addToStory" data-wp-on--change="actions.toggleStory">
 				<label for="<?php echo esc_attr( $bn_story_id ); ?>"><?php esc_html_e( 'Also add to my story', 'buddynext' ); ?></label>
-				<p class="bn-field-hint" id="<?php echo esc_attr( $bn_story_id ); ?>-hint"><?php esc_html_e( 'Shows for 24 hours.', 'buddynext' ); ?></p>
+				<?php /* translators: %s: how long a story stays up, e.g. "24 hours". */ ?>
+				<p class="bn-field-hint" id="<?php echo esc_attr( $bn_story_id ); ?>-hint"><?php echo esc_html( sprintf( __( 'Shows for %s.', 'buddynext' ), \BuddyNext\Media\MediaClient::story_length_label() ) ); ?></p>
 			</div>
 		<?php endif; ?>
 

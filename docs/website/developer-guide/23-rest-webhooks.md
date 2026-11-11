@@ -202,7 +202,7 @@ Send the payment with a grant and it is kept on the member's plan, shown on Mone
 | `amount` | The amount paid, a number of 0 or more (400 `invalid_amount` otherwise) |
 | `currency` | Three-letter code such as `USD` (400 `invalid_currency` otherwise) |
 
-The latest grant's values are kept. They are not counted as revenue (BuddyNext did not take the money), and a plan billed here keeps its own provider's details.
+Each grant that carries an `amount` becomes an invoice on the member's plan: the first is the sign-up, later ones are renewals. Send a `reference` (or an `idempotency_key`) with every payment: a repeated delivery with the same one is the same invoice, while two deliveries with neither look like two payments and both are invoiced. These invoices are not counted as revenue (BuddyNext did not take the money), and a plan billed here keeps its own provider's details.
 
 Send `"source": "make"`, `"zapier"` or `"n8n"` and the plan is recorded as coming from that tool. These are declared by default as non-billing sources, so the plan stays out of this site's revenue figures (the other system took the payment). Any other source must be declared through `buddynextpro_integration_subscription_sources`; an undeclared one is recorded as `manual`.
 

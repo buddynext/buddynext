@@ -157,6 +157,7 @@ final class StateReset implements BeforeTestHook {
 			'mirroring_comment'        => false,
 			'documents_config_memo'    => array(),
 			'document_memo'            => array(),
+			'moderation_answers'       => array(),
 		),
 		\BuddyNext\Feed\IntegrationActivity::class        => array(
 			'system_publish' => false,

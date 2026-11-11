@@ -33,7 +33,7 @@ class MediaClient {
 	}
 
 	/**
-	 * Whether 24-hour stories can be shown: WPMediaVerse Pro registers its stories
+	 * Whether stories can be shown: WPMediaVerse Pro registers its stories
 	 * bar and the owner has Stories on (MediaVerse Pro > Stories).
 	 *
 	 * @return bool
@@ -42,6 +42,34 @@ class MediaClient {
 		return self::available()
 			&& \WP_Block_Type_Registry::get_instance()->is_registered( 'mvs/pro-stories' )
 			&& '1' === (string) get_option( 'mvs_stories_enabled', '0' );
+	}
+
+	/**
+	 * May the signed-in member post a story? The engine owns the rule (its
+	 * "Post stories" permission); an older engine has no such permission, so
+	 * everyone who can see stories may post, as before.
+	 *
+	 * @return bool
+	 */
+	public static function can_post_story(): bool {
+		if ( ! self::stories_available() ) {
+			return false;
+		}
+		return is_callable( array( '\WPMediaVerse\Core\TemplateHelpers', 'can_post_story' ) )
+			? \WPMediaVerse\Core\TemplateHelpers::can_post_story()
+			: true;
+	}
+
+	/**
+	 * How long a story stays up, as words. The engine reads the owner's setting;
+	 * an older engine only ever had the fixed 24 hours.
+	 *
+	 * @return string
+	 */
+	public static function story_length_label(): string {
+		return is_callable( array( '\WPMediaVerse\Core\TemplateHelpers', 'story_length_label' ) )
+			? \WPMediaVerse\Core\TemplateHelpers::story_length_label()
+			: __( '24 hours', 'buddynext' );
 	}
 
 	/**

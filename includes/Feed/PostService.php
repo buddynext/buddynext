@@ -1986,8 +1986,13 @@ class PostService {
 		 * MySQL stores '' for a value the ENUM does not carry, and a corrupt row
 		 * should disappear rather than publish itself.
 		 */
-		$status = (string) ( $post['status'] ?? '' );
-		if ( empty( self::STATUSES[ $status ]['readable'] ) && ! $is_author && ! $viewer_is_admin ) {
+		// The author keeps their own post only while it is unpublished (draft,
+		// pending, scheduled). A post a moderator removed or the report threshold
+		// hid is gone for its author too: the takedown notice already sends them
+		// to the feed, and nothing on the post is theirs to act on.
+		$status        = (string) ( $post['status'] ?? '' );
+		$author_exempt = $is_author && ! empty( self::STATUSES[ $status ]['pre_publication'] );
+		if ( empty( self::STATUSES[ $status ]['readable'] ) && ! $author_exempt && ! $viewer_is_admin ) {
 			return new WP_Error(
 				'post_not_found',
 				__( 'Post not found.', 'buddynext' ),
@@ -2249,7 +2254,9 @@ class PostService {
 			// post that breaks the feed), mirroring delete(). Any other error
 			// (e.g. a missing post) is returned unchanged.
 			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
-				return $ownership;
+				// A 403 here would confirm a post the read gate hides from this member.
+				$hidden = 'not_post_owner' === $ownership->get_error_code() ? $this->visibility_error( $post_id, $user_id ) : null;
+				return null !== $hidden && 404 === ( $hidden->get_error_data()['status'] ?? 0 ) ? $hidden : $ownership;
 			}
 		}
 
@@ -2259,6 +2266,20 @@ class PostService {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+
+		// A post a moderator removed or the report threshold hid is closed to its
+		// author, as visibility_error() hides it from them. 404 like that gate, so
+		// an edit cannot confirm what a read withholds. Moderators keep redaction.
+		$row_status = is_array( $row ) ? (string) $row['status'] : '';
+		if ( is_array( $row ) && empty( self::STATUSES[ $row_status ]['readable'] ) && empty( self::STATUSES[ $row_status ]['pre_publication'] )
+			&& ! $this->can_moderate_post( $post_id, $user_id ) ) {
+			return new WP_Error(
+				'post_not_found',
+				__( 'Post not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		if ( is_array( $row ) && isset( $data['content'] ) && ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' )
 			&& ! in_array( (string) $row['type'], array( 'share', 'poll' ), true )
 			&& ! self::has_editable_text( (string) $row['type'], (string) $row['content'] ) ) {

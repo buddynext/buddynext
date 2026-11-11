@@ -60,7 +60,7 @@ A save bar sits at the bottom of every tab that has a settings form, so **Save**
 
 The space header also has an **Admin** entry next to **Settings**. It opens the space's admin page with its member and report counts and management shortcuts. Owners, moderators and site administrators see it.
 
-The **Integrations** panel lists the Discussion, Media, Files, album, Events and Businesses switches for the plugins you have active. If the site administrator turned an integration off for the whole site (**Integration Settings > Show in navigation**), its switches show as disabled with "Turned off for the whole site by the site admin." Your choice for the space is kept for when the integration is turned back on. The Media, Files, Leaderboard, Events and Businesses tabs are on by default in every space while their plugin is active.
+The **Integrations** panel lists the Discussion, Media, Files, album, Events and Businesses switches for the plugins you have active. If the site administrator turned an integration off for the whole site (**Integration Settings > Navigation**), its switches show as disabled with "Turned off for the whole site by the site admin." Your choice for the space is kept for when the integration is turned back on. The Media, Files, Leaderboard, Events and Businesses tabs are on by default in every space while their plugin is active.
 
 ### Archiving and restoring
 

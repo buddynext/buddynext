@@ -546,7 +546,7 @@ class ModerationQueue {
 					// same 422 — remove_object() finds nothing to take down — and a
 					// queue accumulates those: this surfaced with six of them sitting
 					// in the seeded queue, each still offering the button.
-					if ( in_array( $object_type, array( 'post', 'comment', 'message' ), true ) && ! $bn_missing ) {
+					if ( in_array( $object_type, ModerationService::removable_types(), true ) && ! $bn_missing ) {
 						$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
 					}
 					?>

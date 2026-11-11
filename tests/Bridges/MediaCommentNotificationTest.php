@@ -27,12 +27,16 @@ class MediaCommentNotificationTest extends \WP_UnitTestCase {
 	/** @var array<int,array{id:int}> Comments the fake comment service returns. */
 	private static array $comments = array();
 
+	/** Privacy the fake repository reports for the media. */
+	public static string $privacy = 'public';
+
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
 		$this->owner     = self::factory()->user->create();
 		$this->commenter = self::factory()->user->create();
 		self::$comments  = array();
+		self::$privacy   = 'public';
 
 		$owner = $this->owner;
 		add_filter(
@@ -45,6 +49,9 @@ class MediaCommentNotificationTest extends \WP_UnitTestCase {
 							return $this->owner;
 						}
 						public function get( $media_id, string $field = '' ) {
+							if ( 'privacy' === $field ) {
+								return MediaCommentNotificationTest::$privacy;
+							}
 							return 'post_author' === $field ? $this->owner : null;
 						}
 						public function get_permalink( $media_id ): string {
@@ -109,6 +116,13 @@ class MediaCommentNotificationTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d AND media_id = %d", $card, self::MEDIA ) ), 'the earlier comment is on the card' );
 		$this->assertSame( 0, $this->bell( 'bn.post_commented' ), 'the copy on the card notifies nobody' );
 		$this->assertSame( 1, $this->bell( 'bn.media_commented' ), 'still exactly one notification' );
+	}
+
+	public function test_a_photo_made_private_before_the_job_gets_no_card(): void {
+		global $wpdb;
+		self::$privacy = 'private';
+		$this->bridge->publish_media_activity( self::MEDIA, $this->owner, 'photo' );
+		$this->assertSame( 0, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_post_media WHERE media_id = %d", self::MEDIA ) ), 'no public card, so the file is never widened' );
 	}
 
 	public function test_comment_after_the_card_notifies_once(): void {

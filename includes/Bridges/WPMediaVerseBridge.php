@@ -42,6 +42,13 @@ class WPMediaVerseBridge {
 	private static array $documents_config_memo = array();
 
 	/**
+	 * Per-request answer to "may this member moderate media?", keyed by user id.
+	 *
+	 * @var array<int, bool>
+	 */
+	private static array $moderation_answers = array();
+
+	/**
 	 * Re-entrancy guard for the two-way follow mirror: true while this bridge is
 	 * propagating a follow/unfollow into the other store, so the reciprocal
 	 * action it triggers there is ignored instead of looping back.
@@ -118,28 +125,6 @@ class WPMediaVerseBridge {
 		// Tell WPMediaVerse that BuddyNext is active so it skips its own
 		// floating chat panel, standalone messages page, and notifications.
 		add_filter( 'mvs_buddynext_active', '__return_true' );
-
-		/*
-		 * Turn media reporting ON.
-		 *
-		 * WPMediaVerse ships `mvs_reports_enabled` defaulting to FALSE — sensible for a
-		 * standalone media plugin on a site that may have no moderators. BuddyNext is not that:
-		 * it is a UGC community, and a community with no way to report a piece of media has no
-		 * abuse path at all.
-		 *
-		 * It matters doubly here because this same bridge redirects /media/{slug}/ to the source
-		 * activity, so MVS's own media page — the one carrying its Report button — never renders
-		 * on a BuddyNext site. We take that page away, so we owe the member the control back: the
-		 * lightbox now offers Report, and it posts into MVS's existing queue.
-		 *
-		 * This one stays with the display half deliberately: the page it compensates for is
-		 * restored by the same toggle. With the integration off, `redirect_single_media()` is
-		 * not registered either, so MVS's own media page — and its own Report button — render
-		 * again and the abuse path is intact.
-		 *
-		 * Priority 5, so a site that genuinely wants it off can still say so at the default 10.
-		 */
-		add_filter( 'mvs_reports_enabled', '__return_true', 5 );
 
 		// Point WPMediaVerse user-profile links (media grid, lightbox author,
 		// REST author_url) at the BuddyNext member profile. Without this, MVS
@@ -233,6 +218,15 @@ class WPMediaVerseBridge {
 		// at ingest from day one; media never did, so every upload landed on the
 		// uploader's personal drive and `space` privacy was unreachable for media.
 		add_filter( 'mvs_media_drive', array( $this, 'space_media_drive' ), 10, 3 );
+
+		// Community moderators moderate media too. MediaVerse keeps every rule
+		// behind moderate_mvs_media; BuddyNext only says who its moderators are.
+		add_filter( 'user_has_cap', array( $this, 'grant_media_moderation' ), 10, 4 );
+		// A reported photo or video removed from the report queue goes to the
+		// MediaVerse trash, and its author gets the takedown notice.
+		add_filter( 'buddynext_content_removal_handled', array( $this, 'remove_reported_media' ), 10, 3 );
+		add_filter( 'buddynext_removable_object_types', array( $this, 'removable_media' ) );
+		add_filter( 'buddynext_removed_content_author', array( $this, 'reported_media_author' ), 10, 3 );
 
 		// A document shared from the composer renders as a link-out card. The
 		// post stores only the document id; this seam resolves the card PER VIEWER
@@ -388,6 +382,7 @@ class WPMediaVerseBridge {
 		add_action( 'buddynext_post_created', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_post_updated', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
+		add_filter( 'mvs_story_keep_item', array( $this, 'keep_story_item_in_post' ), 10, 2 );
 
 		// Withdraw the media feed card when its source is deleted, so the feed
 		// never points at dead content — mirroring what JetonomyBridge and
@@ -548,6 +543,104 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Give a BuddyNext community moderator MediaVerse's moderator capability.
+	 *
+	 * Only answers when moderate_mvs_media is asked and the role does not
+	 * already hold it, so every other capability check passes straight through
+	 * (and the manage_options check inside can_moderate_site cannot loop back).
+	 *
+	 * @param array<string, bool> $allcaps Capabilities the user holds.
+	 * @param string[]            $caps    Primitive capabilities being checked.
+	 * @param array<int, mixed>   $args    Original has_cap() arguments.
+	 * @param \WP_User|null       $user    The user.
+	 * @return array<string, bool>
+	 */
+	public function grant_media_moderation( $allcaps, $caps, $args, $user = null ): array {
+		$allcaps = (array) $allcaps;
+		if ( ! empty( $allcaps['moderate_mvs_media'] ) || ! in_array( 'moderate_mvs_media', (array) $caps, true ) || ! $user instanceof \WP_User || $user->ID <= 0 ) {
+			return $allcaps;
+		}
+
+		// MediaVerse asks this inside list loops; answer once per member per request.
+		$uid = (int) $user->ID;
+		if ( ! isset( self::$moderation_answers[ $uid ] ) ) {
+			self::$moderation_answers[ $uid ] = buddynext_service( 'roles' )->can_moderate_site( $uid );
+		}
+		$allcaps['moderate_mvs_media'] = self::$moderation_answers[ $uid ];
+
+		return $allcaps;
+	}
+
+	/**
+	 * Take down a reported media item: move it to the MediaVerse trash.
+	 *
+	 * Trash, not delete, so a moderator's mistake can be restored, the same as
+	 * a member's own delete. The feed card is withdrawn by on_media_trashed.
+	 *
+	 * @param bool   $handled     Whether another handler already removed it.
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object id.
+	 * @return bool
+	 */
+	public function remove_reported_media( $handled, $object_type, $object_id ): bool {
+		if ( $handled || 'media' !== $object_type || ! MediaClient::available() ) {
+			return (bool) $handled;
+		}
+
+		$repo = MediaClient::repo();
+
+		return is_object( $repo ) && (bool) $repo->trash( (int) $object_id );
+	}
+
+	/**
+	 * Offer "Remove content" on media reports, which remove_reported_media() handles.
+	 *
+	 * @param string[] $types Removable object types.
+	 * @return string[]
+	 */
+	public function removable_media( $types ): array {
+		$types = (array) $types;
+		if ( MediaClient::available() ) {
+			$types[] = 'media';
+		}
+
+		return $types;
+	}
+
+	/**
+	 * Name the author of a removed media item, so the takedown notice reaches them.
+	 *
+	 * @param int    $author_id   Author resolved so far.
+	 * @param string $object_type Removed object type.
+	 * @param int    $object_id   Removed object id.
+	 * @return int
+	 */
+	public function reported_media_author( $author_id, $object_type, $object_id ): int {
+		if ( (int) $author_id > 0 || 'media' !== $object_type || ! MediaClient::available() ) {
+			return (int) $author_id;
+		}
+
+		$repo = MediaClient::repo();
+
+		return is_object( $repo ) ? (int) $repo->get_author( (int) $object_id ) : 0;
+	}
+
+	/**
+	 * Keep a story-only upload that a post also holds, so ending the story never
+	 * leaves that post without its media.
+	 *
+	 * @param bool $keep     Whether MediaVerse already keeps the item.
+	 * @param int  $media_id Media id.
+	 * @return bool
+	 */
+	public function keep_story_item_in_post( $keep, $media_id ): bool {
+		if ( $keep ) {
+			return true;
+		}
+		return array() !== ( new PostService() )->ids_with_media( (int) $media_id, 'published', 'draft', 'pending', 'scheduled', 'under_review' );
+	}
+
+	/**
 	 * Publish the deferred feed entry for an upload, unless it was already
 	 * surfaced by a BuddyNext post (composer photo/media post or a prior run).
 	 *
@@ -571,6 +664,19 @@ class WPMediaVerseBridge {
 		// marked a story right after.
 		$repo = MediaClient::repo();
 		if ( is_object( $repo ) && method_exists( $repo, 'get' ) && '1' === (string) $repo->get( $media_id, 'is_story' ) ) {
+			return;
+		}
+
+		// Gone before this delayed job ran: a story-only upload whose story was
+		// ended in the first two minutes, or any upload deleted that fast.
+		if ( is_object( $repo ) && method_exists( $repo, 'exists' ) && ! $repo->exists( $media_id ) ) {
+			return;
+		}
+
+		// The member may have narrowed the file in the two minutes since upload. A
+		// public post would widen it again (on_post_privacy_changed), so only a file
+		// that is still public right now gets a card.
+		if ( is_object( $repo ) && method_exists( $repo, 'get' ) && 'public' !== (string) $repo->get( $media_id, 'privacy' ) ) {
 			return;
 		}
 
@@ -1947,7 +2053,7 @@ class WPMediaVerseBridge {
 				// contract is docs/architecture/core-contract.md in MediaVerse.
 				'min_version'    => '2.6.2',
 				// Tested against the 2.6.2 branch on 2026-10-11.
-				'tested_version' => '2.6.3', // Verified 2026-11-04 on the 1.2.8 release site against this partner release (functional suite and bridge checks).
+				'tested_version' => '2.6.4', // Verified 2026-11-11 on the 1.2.9 release site against this partner release (functional suite and bridge checks).
 				'has_nav'        => true,
 				'nav_label'      => __( 'Media', 'buddynext' ),
 				'has_feed'       => true,
