@@ -1821,7 +1821,8 @@ class FieldType {
 			if ( $id <= 0 || '' === $cat_slug ) {
 				continue;
 			}
-			$links[ (string) $id ] = add_query_arg( 'bn_cat', rawurlencode( $cat_slug ), $base );
+			// The stored slug is already URL-safe; encoding it again turns %ed into %25ed.
+			$links[ (string) $id ] = add_query_arg( 'bn_cat', $cat_slug, $base );
 		}
 
 		return $links;

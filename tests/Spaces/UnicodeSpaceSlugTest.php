@@ -69,6 +69,17 @@ class UnicodeSpaceSlugTest extends \WP_UnitTestCase {
 		$this->assertNull( ( new SpaceService() )->get( $this->space ) );
 	}
 
+	public function test_a_korean_category_filters_the_directory(): void {
+		$cat = ( new \BuddyNext\Spaces\SpaceCategoryService() )->create( array( 'name' => '한국 모임' ) );
+		$this->assertIsInt( $cat );
+
+		// The browser decodes ?bn_cat=%ed%95... once; an old double-encoded link arrives encoded.
+		foreach ( array( '한국-모임', sanitize_title( '한국 모임' ) ) as $value ) {
+			$parsed = ( new SpaceService() )->directory_request( 0, false, array( 'bn_cat' => $value ), 1 );
+			$this->assertSame( $cat, (int) ( $parsed['query_args']['category_id'] ?? 0 ), $value );
+		}
+	}
+
 	public function test_the_gate_and_the_handler_resolve_the_same_space(): void {
 		$spaces = new SpaceService();
 		$public = (int) $spaces->create( $this->owner, array( 'name' => 'Gate Open', 'slug' => 'gate-ab', 'type' => 'open' ) );
