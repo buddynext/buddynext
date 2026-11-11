@@ -119,28 +119,6 @@ class WPMediaVerseBridge {
 		// floating chat panel, standalone messages page, and notifications.
 		add_filter( 'mvs_buddynext_active', '__return_true' );
 
-		/*
-		 * Turn media reporting ON.
-		 *
-		 * WPMediaVerse ships `mvs_reports_enabled` defaulting to FALSE — sensible for a
-		 * standalone media plugin on a site that may have no moderators. BuddyNext is not that:
-		 * it is a UGC community, and a community with no way to report a piece of media has no
-		 * abuse path at all.
-		 *
-		 * It matters doubly here because this same bridge redirects /media/{slug}/ to the source
-		 * activity, so MVS's own media page — the one carrying its Report button — never renders
-		 * on a BuddyNext site. We take that page away, so we owe the member the control back: the
-		 * lightbox now offers Report, and it posts into MVS's existing queue.
-		 *
-		 * This one stays with the display half deliberately: the page it compensates for is
-		 * restored by the same toggle. With the integration off, `redirect_single_media()` is
-		 * not registered either, so MVS's own media page — and its own Report button — render
-		 * again and the abuse path is intact.
-		 *
-		 * Priority 5, so a site that genuinely wants it off can still say so at the default 10.
-		 */
-		add_filter( 'mvs_reports_enabled', '__return_true', 5 );
-
 		// Point WPMediaVerse user-profile links (media grid, lightbox author,
 		// REST author_url) at the BuddyNext member profile. Without this, MVS
 		// falls back to its own /media/@{login}/ URL, which is not a member

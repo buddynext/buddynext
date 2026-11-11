@@ -96,13 +96,9 @@ One BuddyNext setting does apply to media, on **Settings > General**:
 
 The setting is only available while MediaVerse is active - without the companion there is no media page for it to control, so it appears switched off.
 
-One default is changed for you, and it is worth knowing about:
-
-**Media reporting is turned on.** Installed on its own, MediaVerse ships with member reporting switched off. That is a reasonable default for a media library on a site that may have no moderators at all. A community is the opposite case: a site where members upload photos and videos and *nobody* can report one has no abuse path. So when BuddyNext is active, media reporting is on. You do not have to do anything.
+**Media reporting is on by default.** Members can report a photo or video from the viewer. MediaVerse owns this setting: to turn it off, untick **Member Reporting** in MediaVerse's settings. The Report button then disappears from the viewer rather than failing when a member taps it. Blocking an uploader is unaffected either way, because that is BuddyNext's own feature.
 
 **Where media reports go.** They land in MediaVerse's own review queue, at **MediaVerse > Moderation** in the WordPress admin - not in BuddyNext's moderation queue. The media plugin owns the media, so it owns the queue. If your community allows uploads, add that screen to your moderators' rounds alongside **BuddyNext > Moderation > Reports**.
-
-If you genuinely want media reporting off, a developer can switch it back off in one line, and the Report button then disappears from the viewer rather than sitting there and failing when a member taps it. Blocking an uploader is unaffected either way, because that is BuddyNext's own feature.
 
 ## Good to know
 

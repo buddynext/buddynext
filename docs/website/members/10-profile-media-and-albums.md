@@ -69,7 +69,7 @@ If MediaVerse is not active, the Media tab simply does not offer uploads, and th
 
 The audience choices members see (Public, Followers, Connections, Only me for individual media, and Public, Members, Only me for albums) work out of the box and need no configuration.
 
-Media reporting is on by default on a BuddyNext site, and there is nothing to switch on: reports from the lightbox go into MediaVerse's own media report queue, which is where your moderators already review reported media. BuddyNext does not keep a second, separate queue for it.
+Media reporting is on by default, and the site owner can turn it off in MediaVerse's settings. Reports from the lightbox go into MediaVerse's own media report queue, which is where your moderators already review reported media. BuddyNext does not keep a second, separate queue for it.
 
 ## Good to know
 
