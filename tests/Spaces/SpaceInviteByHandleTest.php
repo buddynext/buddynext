@@ -60,8 +60,11 @@ class SpaceInviteByHandleTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 'invited', ( new \BuddyNext\Spaces\SpaceMemberService() )->get_status( $this->space_id, $invitee ) );
 	}
 
-	public function test_unknown_handle_is_not_found(): void {
-		$this->assertSame( 404, $this->invite( '@nobody-by-that-name' )->get_status() );
+	// The same neutral refusal as any unsent invite, so it never reveals whether a handle exists.
+	public function test_unknown_handle_is_refused_neutrally(): void {
+		$res = $this->invite( '@nobody-by-that-name' );
+		$this->assertSame( 409, $res->get_status() );
+		$this->assertSame( 'invite_not_sent', $res->get_data()['code'] );
 	}
 
 	public function test_duplicate_email_invite_is_not_reported_as_sent(): void {
