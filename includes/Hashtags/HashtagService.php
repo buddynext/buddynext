@@ -110,6 +110,36 @@ class HashtagService {
 	}
 
 	/**
+	 * The hashtag slug the current /activity/hashtag/{slug}/ request names.
+	 *
+	 * The one reader of the bn_hashtag query var. It may arrive percent-encoded
+	 * (a link written for a Korean or Japanese tag), so it is decoded once and then
+	 * normalized exactly as the tag was when it was stored. sanitize_title() must
+	 * never touch a hashtag slug: it percent-encodes Hangul and strips accents, so
+	 * the result can never match the stored Unicode slug.
+	 *
+	 * @return string Normalized slug, or '' when the request names none.
+	 */
+	public static function slug_from_request(): string {
+		return self::slug_from_param( get_query_var( 'bn_hashtag', '' ) );
+	}
+
+	/**
+	 * Normalize a hashtag slug taken from a URL path segment.
+	 *
+	 * WordPress hands both the page query var and a REST path parameter over still
+	 * percent-encoded, so a Korean tag arrives as %ED%95%9C... Decode once, then
+	 * normalize. Also the sanitize_callback of every REST {slug} argument:
+	 * sanitize_text_field() there stripped the %XX octets and left nothing to find.
+	 *
+	 * @param mixed $value Raw slug from the URL.
+	 * @return string Normalized slug, or '' when nothing survives.
+	 */
+	public static function slug_from_param( $value ): string {
+		return self::normalize_slug( rawurldecode( (string) $value ) );
+	}
+
+	/**
 	 * Extract unique hashtag slugs from a string (spec-named alias for extract()).
 	 *
 	 * @param string $text Raw text that may contain #tags.

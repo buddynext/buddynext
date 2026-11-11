@@ -76,7 +76,7 @@ class ShortcodeService {
 			case 'hashtag':
 				return $this->capture(
 					'hashtags/feed.php',
-					array( 'hashtag' => sanitize_title( (string) get_query_var( 'bn_hashtag', '' ) ) )
+					array( 'hashtag_slug' => \BuddyNext\Hashtags\HashtagService::slug_from_request() )
 				);
 
 			case 'search':
