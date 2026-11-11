@@ -50,13 +50,21 @@ test.describe('Fit or fold: tab bar and profile actions', () => {
         await loginAs(page, A_LOGIN);
         const uid = await userId(A_LOGIN);
 
-        // Wide: everything fits, so there is no More at all.
+        // Wide: the bar shows what fits. How many tabs fit depends on how many the
+        // site's integrations add, so assert the rule, not a count: More appears only
+        // when something folded, and the shown tabs fit the bar without overflow.
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.goto(memberUrl(A_LOGIN));
         await expect(page.locator(BAR)).toBeVisible();
         const wide = await barState(page);
-        expect(wide.more, 'no More on a screen wide enough for every tab').toBe(false);
-        expect(wide.folded, 'nothing folded on a wide screen').toEqual([]);
+        expect(wide.more, 'More shows exactly when a tab is folded').toBe(wide.folded.length > 0);
+        expect(
+            await page.evaluate((sel) => {
+                const tabs = document.querySelector(`${sel} .bn-tabs`) as HTMLElement | null;
+                return tabs ? tabs.scrollWidth <= tabs.clientWidth + 1 : false;
+            }, BAR),
+            'the tabs shown on a wide screen fit the bar'
+        ).toBe(true);
 
         // EFFECT: the bar shows exactly the top-level tabs the route resolves.
         const routeTabs = await navTabIds(page, uid);
@@ -68,6 +76,7 @@ test.describe('Fit or fold: tab bar and profile actions', () => {
         const narrow = await barState(page);
         expect(narrow.more, 'More appears once the tabs no longer fit').toBe(true);
         expect(narrow.folded.length, 'some tabs fold on a phone').toBeGreaterThan(0);
+        expect(narrow.folded.length, 'a phone folds more tabs than a wide screen').toBeGreaterThan(wide.folded.length);
         expect(narrow.shown.length, 'the tabs that fit stay in the bar').toBeGreaterThan(1);
         expect(
             await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),

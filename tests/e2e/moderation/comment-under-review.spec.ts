@@ -31,6 +31,8 @@ function rows(data: unknown): Row[] {
 
 test.describe('moderation / comment under review', () => {
     test('J-818 hidden for members, flagged for the author, restored on dismiss', async ({ browser, baseURL }) => {
+        // Four member sessions plus WP-CLI seeding: well past the 30s default on a laptop.
+        test.setTimeout(120_000);
         const prev = await getOption('buddynext_auto_hide_threshold');
         for (const l of Object.values(LOGIN)) {
             await ensureUser(l, `${l}@example.test`, l);

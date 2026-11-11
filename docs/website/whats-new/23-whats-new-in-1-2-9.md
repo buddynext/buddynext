@@ -30,6 +30,7 @@ This release makes communities in Korean, Arabic and other non-Latin languages w
 - The **More** menu on tab bars opens its links on iOS Safari.
 - Ending a story in its first two minutes leaves no broken post, and a photo a post also uses is kept.
 - A queued email whose sender's account was deleted is not sent.
+- A settings switch reached by keyboard near the bottom of a long settings tab is no longer hidden behind the Save bar.
 
 ## Security
 

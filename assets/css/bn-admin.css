@@ -1396,6 +1396,13 @@ select.bn-text-input {
 	box-shadow: var(--bn-a-shadow-md);
 }
 
+/* A control scrolled or tabbed to near the bottom of a long tab lands above the
+   sticky bar, not under it (WCAG 2.4.11 Focus Not Obscured). The padding covers
+   the bar's height plus its bottom offset. */
+html:has(.bn-save-bar) {
+	scroll-padding-bottom: calc(var(--bn-a-s10) * 2 + var(--bn-a-s2));
+}
+
 /* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface
    now renders the shared .bn-stat-grid > .bn-stat tiles (bn-base.css). */
 

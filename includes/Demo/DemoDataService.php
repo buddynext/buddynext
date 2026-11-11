@@ -1420,10 +1420,10 @@ class DemoDataService {
 			$album_id = (int) $album_id;
 			$albums->add_items( $album_id, $items );
 
-			// Switch the space's Media tab ON. Without it the album exists and is
-			// simply unreachable: the tab is gated on the per-space
-			// `mvs_media_tab` field, which defaults OFF, so the REST route answers
-			// media_tab_disabled and the web nav never renders the tab. Seeding
+			// Switch the space's Media tab ON explicitly. The tab is gated on the
+			// per-space `mvs_media_tab` field; it defaults on, but a value stored
+			// as off would leave the album unreachable (the REST route answers
+			// media_tab_disabled and the web nav never renders the tab). Seeding
 			// content nobody can open is worse than seeding none - it looks like
 			// the feature is broken rather than switched off.
 			update_space_meta( $space_id, 'mvs_media_tab', '1' );

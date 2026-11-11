@@ -95,6 +95,7 @@ Communities in Korean, Arabic and other non-Latin languages work end to end, rem
 * Fix      - The More menu on tab bars opens its links on iOS Safari.
 * Fix      - Ending a story in its first two minutes leaves no broken post, and a photo a post also uses is kept.
 * Fix      - A queued email whose sender's account was deleted is not sent.
+* Fix      - A settings switch reached by keyboard near the bottom of a long settings tab is no longer hidden behind the Save bar.
 * Security - A photo made private within two minutes of upload stays private instead of becoming public with its feed post.
 * Security - Space invites no longer reveal which usernames exist, and login attempts are limited per account.
 * Security - Choosing a space category requires permission to create spaces.

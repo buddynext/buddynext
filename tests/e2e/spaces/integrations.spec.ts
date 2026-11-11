@@ -79,20 +79,20 @@ test.describe('spaces / integration toggles (J-673..J-675)', () => {
         const space = await createSpaceApi(page, { name: `Street Photography Club ${stamp}`, type: 'open' });
 
         try {
-            // Default off.
-            expect(await fieldValue(page, space.id, 'mvs_media_tab')).toBe(false);
-
-            // Turn ON → persists (this is exactly the gate J-692 relies on).
-            await setField(page, space.id, 'mvs_media_tab', '1');
+            // Default on: partner tabs are on in every space unless the owner turns them off.
             expect(await fieldValue(page, space.id, 'mvs_media_tab')).toBe(true);
+
+            // Turn OFF → persists.
+            await setField(page, space.id, 'mvs_media_tab', '0');
+            expect(await fieldValue(page, space.id, 'mvs_media_tab')).toBe(false);
 
             // A reload cycle (real page navigation) then re-read — survives it.
             await page.goto(`/spaces/${space.slug}/`, { waitUntil: 'domcontentloaded' });
-            expect(await fieldValue(page, space.id, 'mvs_media_tab')).toBe(true);
-
-            // Turn back OFF (counterpart) → persists.
-            await setField(page, space.id, 'mvs_media_tab', '0');
             expect(await fieldValue(page, space.id, 'mvs_media_tab')).toBe(false);
+
+            // Turn back ON (counterpart) → persists (this is exactly the gate J-692 relies on).
+            await setField(page, space.id, 'mvs_media_tab', '1');
+            expect(await fieldValue(page, space.id, 'mvs_media_tab')).toBe(true);
         } finally {
             await deleteSpaceApi(page, space.id);
         }

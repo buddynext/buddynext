@@ -421,20 +421,20 @@ test.describe('profile / social-graph actions (effect-based)', () => {
         await expect(page.locator(DIALOG)).toBeHidden();
         expect(await reportCount(), 'report must create a wp_bn_reports row').toBe(1);
 
-        // Second report — the server answers 409 already-reported: the dialog closes,
-        // the server's message is shown as a toast, and NO duplicate row is written.
+        // The menu now says Reported instead of offering Report again, live and after a
+        // reload (server render), so a member cannot file the same report twice.
         wrap = await openMoreMenu(page);
-        await wrap.locator(REPORT_ITEM).first().click();
-        await expect(page.locator(DIALOG)).toBeVisible();
-        const second = await Promise.all([
-            page.waitForResponse(
-                (r) => r.url().includes('/reports') && r.request().method() === 'POST',
-                { timeout: 10_000 }
-            ),
-            page.locator(DIALOG_CONFIRM).click(),
-        ]);
-        expect(second[0].status(), 'second report must be rejected (409)').toBe(409);
-        await expect(page.locator('.bn-toast--error')).toBeVisible();
+        await expect(wrap.locator(REPORT_ITEM).first()).toBeHidden();
+        await expect(wrap.locator('[data-bn-reported]').first()).toBeVisible();
+        await page.reload();
+        wrap = await openMoreMenu(page);
+        await expect(wrap.locator(REPORT_ITEM).first()).toBeHidden();
+        await expect(wrap.locator('[data-bn-reported]').first()).toBeVisible();
+
+        // Server truth: a repeat over REST is refused 409 already-reported and writes
+        // no duplicate row.
+        const second = await bnApi(page, 'POST', '/reports', { object_type: 'user', object_id: B_ID, reason: 'spam' });
+        expect(second.status, 'second report must be rejected (409)').toBe(409);
         expect(await reportCount(), 'already-reported must NOT write a duplicate').toBe(1);
     });
 
