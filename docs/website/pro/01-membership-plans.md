@@ -60,13 +60,13 @@ To show the pricing table somewhere else as well - a marketing landing page, for
 
 ### Manage their own plan (Settings > Membership)
 
-The member's billing area shows their current plan, price and interval, status, and renewal date - plus, since 1.0.4:
+The member's billing area shows their current plan, the amount the subscription actually bills and its interval, status, and renewal date. A member who kept an earlier price or renews with a coupon sees that amount, not today's list price. Since 1.0.4 it also has:
 
 - **Billing history** with a **Download** link to the invoice for every charge, showing the 24 most recent.
 - **Update payment method** - opens the payment provider's own page to change the card. It shows only for a membership this site bills by card, and as the main button when the last payment failed.
 - **Cancel** - protected by a proper confirmation dialog. Cancelling keeps access until the paid period ends; the plan shows as cancelling until then, and afterwards the member lands in a lapsed state (free plan) rather than being cut off mid-period. While a cancelled plan is still running, the member cannot buy that same plan again (it would charge them twice for days they already have); the pricing page and their billing area show the end date, and the plan can be bought again after it. Other plans can be bought at any time. Plans you grant to a member by hand are not affected.
 - **Move to another plan (1.1.6)** - switch to a different paid plan without cancelling first. The page shows every other plan the member could move to, so they pick and confirm from their own billing area. A plan change that starts on a later date shows as "Your plan changes to ... on ..." with a **Cancel this change** button.
-- **Switch to annual / Switch to monthly** - for a plan that offers both prices, the member changes cadence from the same screen. Time already paid for comes with them; nothing is refunded.
+- **Switch to annual / Switch to monthly** - for a plan that offers both prices, the member changes cadence from the same screen. Time already paid for comes with them; nothing is refunded. The switch is hidden for a member on an earlier price, since changing cadence would move them to today's price.
 
 When a cancel, checkout, payment-page or plan change fails, the member sees the real reason (for example, that the payment method is not available) instead of a generic error. A coupon they typed stays in the field so they can try again. If the page was open too long and the form went stale, it says "Your session expired, so nothing was changed" and asks them to reload.
 
@@ -274,7 +274,7 @@ The Subscriptions tab is your record of who has access. It lists each subscripti
 
 - Filter by status - switch between All, Active, Trialing, Past due, Expired, and Cancelled. The tab opens on Active.
 - Filter by plan - narrow the list to one plan. A search box finds a member by name, email, invoice number, or payment reference.
-- Revoke - on an active subscription, immediately ends access and cancels billing at the payment provider first. The record moves to Expired. If the provider refuses the cancellation, a notice on every admin screen names the memberships and the reference to cancel by hand in the provider's dashboard.
+- Revoke - on an active subscription, immediately ends access and cancels billing at the payment provider first. The record is labelled **Revoked**, so you can tell it from a subscription that simply ran out (**Expired**). If the change cannot be saved, the member keeps access and you see an error, instead of losing access over a record that is still live. If the provider refuses the cancellation, a notice on every admin screen names the memberships and the reference to cancel by hand in the provider's dashboard.
 - Reinstate - on an expired or cancelled row, makes it active again from today.
 
 The tab has three views: **Subscriptions**, **Orders**, and **Add order**.
@@ -340,6 +340,8 @@ Separately, the Plans tab shows a **Plans granted by other systems** panel whene
 
 Every charge in a member's payment history has a printable invoice behind it. The member opens it from Settings > Membership and prints it or saves it as a PDF.
 
+Each invoice names the subscription it belongs to and whether it was a new purchase, a renewal or a plan change, so one membership's charges read as one trail. Invoices recorded before 1.2.9 are linked to their subscription once, when you update.
+
 The invoice brands itself from settings you have probably already filled in:
 
 - **Your logo.** It uses the logo from **Settings > Appearance** - the same one your community's HTML emails use. Set it once and it appears on both. If you have not set a logo, the invoice prints your site name as a wordmark instead, so it never looks unfinished.
@@ -363,10 +365,12 @@ The three states, in plain terms:
 | Your setup | What members get |
 |---|---|
 | Memberships off (the default) | Every Pro feature works for every member. No plan, no perks, no gates. |
-| Memberships on, but you have not chosen a default plan | Still nothing is enforced. Plans exist but do not gate anything yet, and an admin notice tells you so. Nothing is taken away from anyone. |
+| Memberships on, but you have not chosen a default plan | Still nothing is enforced. Plans exist but do not gate anything yet, and the Default plan setting says so. Nothing is taken away from anyone. |
 | Memberships on, and you have chosen a default plan | The default plan is now the floor. Members with no subscription get exactly what it grants, and nothing else. |
 
 The shipped **Free** plan is a starting point, not a neutral one. It grants the social basics and modest limits (3 spaces, 1 pinned post, 6 reactions), and it deliberately does *not* grant the premium perks. That is a sensible free plan if you are selling upgrades. It is the wrong choice if you only turned memberships on to gate one space and did not intend to take anything else away.
+
+The **Default plan for new members** setting shows you this before you commit: pick a plan in the dropdown and, before you save, it lists the perks that plan does not grant and its limits.
 
 > **Tip:** Before you choose a default plan, open its perk list and read it as your free members will experience it. If you want memberships purely to sell access to one thing, edit your default plan to grant everything *except* that thing, rather than accepting a free plan that quietly withdraws five features nobody asked you to withdraw. Site administrators are exempt from all of this, which is exactly why it is easy to miss - it will look perfect while you test it and be wrong for everyone else.
 
@@ -384,6 +388,9 @@ Every entitlement row in the plan editor carries a one-line explanation of what 
 - Only Active plans are public. Inactive and Archived plans are hidden from the pricing page but kept in your admin, so you can prepare a plan before launch or retire one without deleting its history. Unlisted plans are also left out of the plan list the mobile app and other API clients read; a member who already holds one still sees it.
 - The free plan is the baseline. For anyone without an active paid subscription, what they can do falls back to the free plan's perks, then to the standard default. Set the free plan up deliberately. Turning the free plan off does not make the community paid; for that, choose **Paying members only** under Community access.
 - Deleting a plan cancels its active subscriptions. This is on purpose, so no member is left holding access to a plan that no longer exists. Cancelled and expired records are kept for your reporting.
+- Renewals stay in your site currency, and each renewal is checked against the rate that subscription recorded. A member on an earlier price or a coupon discount, including a 100% coupon, keeps renewing at that amount.
+- A Stripe or PayPal subscription gets one day past its end date before it expires, so a renewal the provider charges a few hours late does not tell a paying member their plan ended. A renewal sent twice by PayPal is recorded as one invoice.
+- When a plan no longer allows editing advanced profile fields, the values a member already filled in stay on their profile. Only editing them is refused.
 - One active plan per member. BuddyNext treats a member as being on their most recent active subscription when deciding what they can do.
 
 ## Free vs Pro

@@ -45,6 +45,10 @@ This release makes communities in Korean, Arabic and other non-Latin languages w
 - **Media reporting** belongs to MediaVerse: BuddyNext no longer filters `mvs_reports_enabled`, and the lightbox's `canReport` reads MediaVerse's own setting.
 - **Inbound access webhooks** turn each grant with an `amount` into an invoice. Send `reference` or `idempotency_key` so a repeated delivery stays one invoice. See [REST Webhooks](../developer-guide/23-rest-webhooks.md).
 
+## Compatibility
+
+- **Tested with** WPMediaVerse 2.6.3 and 2.6.4, Jetonomy 2.0.7, WB Gamification 1.6.7, WB Listora 2.1.1, Learnomy 2.2.0, Eventonomy 1.9.1, WP Career Board 1.8.3 and BuddyPress Member Blog 4.5.2.
+
 ## BuddyNext Pro 1.2.9
 
 - **One invoice trail.** Every invoice names its subscription and whether it was a new purchase, a renewal or a plan change. Existing invoices are linked once, on update.
