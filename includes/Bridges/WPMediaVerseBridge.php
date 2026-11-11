@@ -689,6 +689,13 @@ class WPMediaVerseBridge {
 			return;
 		}
 
+		// The member may have narrowed the file in the two minutes since upload. A
+		// public post would widen it again (on_post_privacy_changed), so only a file
+		// that is still public right now gets a card.
+		if ( is_object( $repo ) && method_exists( $repo, 'get' ) && 'public' !== (string) $repo->get( $media_id, 'privacy' ) ) {
+			return;
+		}
+
 		// Already surfaced by a post (the composer, or an earlier run of this job).
 		if ( array() !== ( new PostService() )->ids_with_media( $media_id, 'published', 'draft', 'pending', 'scheduled', 'under_review' ) ) {
 			return;
