@@ -38,6 +38,9 @@ class DiscussionVisibilityRepairCommand {
 	/**
 	 * Realign linked discussions with their space's privacy.
 	 *
+	 * Also lists, without changing anything, any discussion linked to more than
+	 * one space.
+	 *
 	 * ## OPTIONS
 	 *
 	 * [--dry-run]
@@ -119,6 +122,8 @@ class DiscussionVisibilityRepairCommand {
 			$offset += self::CHUNK;
 		} while ( self::CHUNK === $in_chunk );
 
+		self::report_shared_discussions();
+
 		WP_CLI::success(
 			sprintf(
 				'%d linked discussion(s) scanned, %d %s.',
@@ -127,5 +132,28 @@ class DiscussionVisibilityRepairCommand {
 				$dry_run ? 'would be corrected' : 'corrected'
 			)
 		);
+	}
+
+	/**
+	 * List discussions linked to more than one space. Read-only.
+	 *
+	 * A discussion belongs to one space; older data can still hold a
+	 * discussion two spaces both link to. Nothing is unlinked here, because which
+	 * space keeps it is the owner's call: unlink it from the others in their
+	 * Space settings > Integrations.
+	 *
+	 * @return void
+	 */
+	private static function report_shared_discussions(): void {
+		$shared = JetonomyBridge::duplicate_forum_links();
+		if ( array() === $shared ) {
+			WP_CLI::log( 'No discussion is linked to more than one space.' );
+			return;
+		}
+
+		WP_CLI::warning( sprintf( '%d discussion(s) are linked to more than one space. Nothing was changed; the first space listed is the one BuddyNext uses.', count( $shared ) ) );
+		foreach ( $shared as $forum_id => $space_ids ) {
+			WP_CLI::log( sprintf( 'Discussion #%d is linked to spaces #%s. Unlink it from the spaces that should not have it in Space settings > Integrations.', $forum_id, implode( ', #', $space_ids ) ) );
+		}
 	}
 }

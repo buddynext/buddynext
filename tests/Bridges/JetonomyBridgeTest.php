@@ -53,6 +53,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				slug VARCHAR(200) NOT NULL DEFAULT '',
 				title VARCHAR(200) NOT NULL DEFAULT '',
 				visibility VARCHAR(20) NOT NULL DEFAULT 'public',
+				author_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				status VARCHAR(20) NOT NULL DEFAULT 'active',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
 		);
@@ -942,6 +944,176 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		\Jetonomy\Models\Space::$settings[ $forum_id ] = array();
 		$bridge->backfill_discussion_posting();
 		$this->assertSame( '', $read() );
+	}
+
+	/**
+	 * A space with an owner, a space moderator, and a plain member who holds the
+	 * site-wide community moderator rank.
+	 *
+	 * @return array{space:int,owner:int,moderator:int,community_mod:int}
+	 */
+	private function space_with_team(): array {
+		$owner         = self::factory()->user->create();
+		$moderator     = self::factory()->user->create();
+		$community_mod = self::factory()->user->create();
+		$space_id      = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Team', 'slug' => 'team-' . wp_rand( 1000, 99999 ), 'type' => 'open' ) );
+		$members       = buddynext_service( 'space_members' );
+		$members->join( $space_id, $moderator );
+		$members->change_role( $space_id, $moderator, 'moderator', $owner );
+		$members->join( $space_id, $community_mod );
+		update_user_meta( $community_mod, 'bn_community_role', 'moderator' );
+
+		return array(
+			'space'         => $space_id,
+			'owner'         => $owner,
+			'moderator'     => $moderator,
+			'community_mod' => $community_mod,
+		);
+	}
+
+	/**
+	 * Dispatch one Discussion management route as a user and return the HTTP status.
+	 *
+	 * @param string $method   HTTP verb.
+	 * @param string $route    discussion|discussion-search.
+	 * @param int    $space_id Space.
+	 * @param int    $user_id  Caller.
+	 * @return int
+	 */
+	private function discussion_route_status( string $method, string $route, int $space_id, int $user_id ): int {
+		wp_set_current_user( $user_id );
+		$request = new \WP_REST_Request( $method, '/buddynext/v1/spaces/' . $space_id . '/' . $route );
+		if ( 'POST' === $method ) {
+			$request->set_param( 'enabled', false );
+		}
+		return rest_get_server()->dispatch( $request )->get_status();
+	}
+
+	/**
+	 * Only the space owner (or a site admin) links, unlinks, reads or searches a
+	 * space's discussion over REST: the same rule the web settings save applies.
+	 * A space moderator and a member with the community moderator rank are refused
+	 * on every verb (card 10517707153).
+	 *
+	 * @return void
+	 */
+	public function test_only_the_space_owner_manages_the_discussion_over_rest(): void {
+		$team = $this->space_with_team();
+		$id   = $team['space'];
+
+		foreach ( array( array( 'GET', 'discussion' ), array( 'POST', 'discussion' ), array( 'DELETE', 'discussion' ), array( 'GET', 'discussion-search' ) ) as $call ) {
+			$label = implode( ' ', $call );
+			$this->assertSame( 403, $this->discussion_route_status( $call[0], $call[1], $id, $team['moderator'] ), "Space moderator: $label" );
+			$this->assertSame( 403, $this->discussion_route_status( $call[0], $call[1], $id, $team['community_mod'] ), "Community moderator: $label" );
+			$this->assertSame( 200, $this->discussion_route_status( $call[0], $call[1], $id, $team['owner'] ), "Owner: $label" );
+		}
+
+		$this->assertTrue( $this->bridge->can_manage_discussion( $id, $team['owner'] ) );
+		$this->assertFalse( $this->bridge->can_manage_discussion( $id, $team['moderator'] ) );
+		$this->assertFalse( $this->bridge->can_manage_discussion( $id, 0 ) );
+	}
+
+	/**
+	 * With Jetonomy switched off site-wide the web save writes nothing, so REST
+	 * refuses too, even for the owner.
+	 *
+	 * @return void
+	 */
+	public function test_site_switch_off_blocks_discussion_management_over_rest(): void {
+		$team = $this->space_with_team();
+		update_option( 'buddynext_integration_jetonomy_nav', '0' );
+
+		$this->assertSame( 403, $this->discussion_route_status( 'POST', 'discussion', $team['space'], $team['owner'] ) );
+		$this->assertSame( 403, $this->discussion_route_status( 'GET', 'discussion-search', $team['space'], $team['owner'] ) );
+		$this->assertFalse( $this->bridge->can_manage_discussion( $team['space'], $team['owner'] ) );
+	}
+
+	/**
+	 * "Start the first discussion" creates a forum only once the owner has
+	 * switched Discussion on; a moderator cannot create one the owner never chose.
+	 *
+	 * @return void
+	 */
+	public function test_on_demand_discussion_needs_the_owner_switch(): void {
+		$team    = $this->space_with_team();
+		$request = new \WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $team['space'] . '/forum' );
+		$request->set_url_params( array( 'id' => $team['space'] ) );
+		wp_set_current_user( $team['moderator'] );
+
+		$off = $this->bridge->rest_provision_forum( $request )->get_data();
+		$this->assertSame( 0, $off['forum_id'], 'Nothing is created while Discussion is off.' );
+		$this->assertFalse( $off['can_provision'] );
+
+		update_space_meta( $team['space'], 'discussion_enabled', '1' );
+		$on = $this->bridge->rest_provision_forum( $request )->get_data();
+		$this->assertGreaterThan( 0, $on['forum_id'], 'Once the owner switched it on, a moderator may start it.' );
+	}
+
+	/**
+	 * A forum belongs to one space: linking, adopting and the picker all refuse a
+	 * forum another space already holds (card 10517706879).
+	 *
+	 * @return void
+	 */
+	public function test_a_forum_is_linked_to_one_space_only(): void {
+		global $wpdb;
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => 'shared', 'title' => 'Shared forum', 'author_id' => $admin ) );
+		$forum = (int) $wpdb->insert_id;
+		$make  = static fn( string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $admin, array( 'name' => $name, 'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ), 'type' => 'open' ) );
+		$first = $make( 'First' );
+		$other = $make( 'Other' );
+
+		$this->assertTrue( $this->bridge->apply_discussion_choice( $first, true, $forum, $admin ) );
+
+		// The picker hides it from every other space, not from its own.
+		$ids = static fn( array $rows ): array => array_column( $rows, 'id' );
+		$this->assertNotContains( $forum, $ids( $this->bridge->search_discussions( 'Shared', 0, 20, $other ) ) );
+		$this->assertContains( $forum, $ids( $this->bridge->search_discussions( 'Shared', 0, 20, $first ) ) );
+
+		// A crafted link is refused and nothing is written.
+		$taken = $this->bridge->apply_discussion_choice( $other, true, $forum, $admin );
+		$this->assertWPError( $taken );
+		$this->assertSame( 'bn_discussion_taken', $taken->get_error_code() );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $other, 'jetonomy_forum_id' ) );
+
+		// An integration offering it for adoption is passed over; a fresh one is made.
+		$offer = static fn(): int => $forum;
+		add_filter( 'buddynext_adopt_discussion_space', $offer );
+		$made = $this->bridge->provision_space_forum( $other );
+		remove_filter( 'buddynext_adopt_discussion_space', $offer );
+		$this->assertGreaterThan( 0, $made );
+		$this->assertNotSame( $forum, $made );
+	}
+
+	/**
+	 * The forum-to-space lookup answers the same space every time when old data
+	 * holds a duplicate, remembers a miss for the request, and forgets it the
+	 * moment a link is written.
+	 *
+	 * @return void
+	 */
+	public function test_forum_lookup_is_deterministic_and_remembers_a_miss(): void {
+		global $wpdb;
+		$owner  = self::factory()->user->create();
+		$make   = static fn( string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => $name, 'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ) ) );
+		$first  = $make( 'Lookup one' );
+		$second = $make( 'Lookup two' );
+		$lookup = new \ReflectionMethod( JetonomyBridge::class, 'space_id_for_forum' );
+		$lookup->setAccessible( true );
+
+		$this->assertSame( 0, $lookup->invoke( $this->bridge, 4242 ) );
+		$before = $wpdb->num_queries;
+		$this->assertSame( 0, $lookup->invoke( $this->bridge, 4242 ) );
+		$this->assertSame( $before, $wpdb->num_queries, 'A miss is remembered for the request.' );
+
+		update_space_meta( $first, 'jetonomy_forum_id', 4242 );
+		$this->assertSame( $first, $lookup->invoke( $this->bridge, 4242 ), 'Writing a link clears the remembered miss.' );
+
+		// Legacy duplicate: the earliest link keeps answering.
+		update_space_meta( $second, 'jetonomy_forum_id', 4242 );
+		$this->assertSame( $first, $lookup->invoke( $this->bridge, 4242 ) );
+		$this->assertSame( array( 4242 => array( $first, $second ) ), JetonomyBridge::duplicate_forum_links() );
 	}
 }
 

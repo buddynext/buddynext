@@ -196,10 +196,11 @@ class JetonomyBridge {
 		// The space decides who is in its linked forum: every active member is on the
 		// forum roster, and leaving, removal or a ban takes them off it. Linking is
 		// caught at the meta write, so every link path (provision, adopt, link an
-		// existing forum, a third party) backfills the members already there.
+		// existing forum, a third party) backfills the members already there. The
+		// meta listener is always on: it also resets the forum => space lookup memo.
+		add_action( 'added_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
+		add_action( 'updated_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
 		if ( class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
-			add_action( 'added_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
-			add_action( 'updated_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
 			add_action( self::GRANT_MEMBERS_HOOK, array( $this, 'grant_space_members' ), 10, 3 );
 			add_action( 'buddynext_space_member_joined', array( $this, 'grant_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_role_changed', array( $this, 'grant_forum_access' ), 10, 2 );
@@ -1383,7 +1384,13 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function on_forum_linked( $meta_id, $space_id, $key, $value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- metadata hook signature.
-		if ( 'jetonomy_forum_id' === $key && (int) $value > 0 ) {
+		if ( 'jetonomy_forum_id' !== $key ) {
+			return;
+		}
+		// Any link write (link, relink, unlink) changes forum => space answers,
+		// including remembered misses.
+		self::$forum_space_memo = array();
+		if ( (int) $value > 0 && class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
 			self::queue_grant( (int) $space_id, (int) $value, 0 );
 		}
 	}
@@ -1569,6 +1576,10 @@ class JetonomyBridge {
 		}
 
 		if ( ! $this->space_has_discussion( $space_id ) ) {
+			// One forum, one space: a forum another space holds is never linked twice.
+			if ( $link_id > 0 && ! $this->forum_free_for( $link_id, $space_id ) ) {
+				return new \WP_Error( 'bn_discussion_taken', __( 'That discussion already belongs to another space. Pick a different one, or start a new discussion.', 'buddynext' ), array( 'status' => 409 ) );
+			}
 			$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
 			$previous = $this->previous_discussion( $space_id );
 			$may_link = $link_id > 0 && (
@@ -1732,12 +1743,16 @@ class JetonomyBridge {
 	 * to restrict to that member's OWN discussions; pass 0 for the admin-only
 	 * "search across all discussions" scope.
 	 *
-	 * @param string $q        Title query (substring match).
-	 * @param int    $owner_id Restrict to this author; 0 = all authors (admin scope).
-	 * @param int    $limit    Max rows (1-50). Default 20.
+	 * A forum already linked to another space is left out: a forum belongs to one
+	 * space, so offering it would only lead to a refused save.
+	 *
+	 * @param string $q            Title query (substring match).
+	 * @param int    $owner_id     Restrict to this author; 0 = all authors (admin scope).
+	 * @param int    $limit        Max rows (1-50). Default 20.
+	 * @param int    $for_space_id Space the picker is for; its own forum stays listed.
 	 * @return array<int,array{id:int,title:string}>
 	 */
-	public function search_discussions( string $q, int $owner_id, int $limit = 20 ): array {
+	public function search_discussions( string $q, int $owner_id, int $limit = 20, int $for_space_id = 0 ): array {
 		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 			return array();
 		}
@@ -1747,11 +1762,20 @@ class JetonomyBridge {
 		global $wpdb;
 		$like = '%' . $wpdb->esc_like( trim( $q ) ) . '%';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// ponytail: anti-join on bn_space_meta (indexed by meta_key, value unindexed,
+		// the same shape as a WP postmeta lookup). Fine for a LIMITed typeahead; add a
+		// value index if a site with tens of thousands of linked spaces shows it slow.
+		$not_linked_elsewhere = $wpdb->prepare(
+			"NOT EXISTS ( SELECT 1 FROM {$wpdb->bn_spacemeta} m
+				WHERE m.meta_key = 'jetonomy_forum_id' AND m.meta_value = s.id AND m.bn_space_id <> %d )",
+			absint( $for_space_id )
+		);
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $not_linked_elsewhere is prepared above.
 		if ( $owner_id > 0 ) {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE author_id = %d AND status = 'active' AND title LIKE %s ORDER BY title ASC LIMIT %d",
+					"SELECT s.id, s.title FROM {$wpdb->prefix}jt_spaces s WHERE s.author_id = %d AND s.status = 'active' AND s.title LIKE %s AND {$not_linked_elsewhere} ORDER BY s.title ASC LIMIT %d",
 					absint( $owner_id ),
 					$like,
 					$limit
@@ -1760,13 +1784,13 @@ class JetonomyBridge {
 		} else {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE status = 'active' AND title LIKE %s ORDER BY title ASC LIMIT %d",
+					"SELECT s.id, s.title FROM {$wpdb->prefix}jt_spaces s WHERE s.status = 'active' AND s.title LIKE %s AND {$not_linked_elsewhere} ORDER BY s.title ASC LIMIT %d",
 					$like,
 					$limit
 				)
 			);
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$out = array();
 		foreach ( (array) $rows as $bn_sd_row ) {
@@ -1804,7 +1828,6 @@ class JetonomyBridge {
 		// remembered so re-enabling offers it back and a later ban still revokes it.
 		$this->set_discussion_enabled( $space_id, false );
 		update_space_meta( $space_id, self::UNLINKED_META, implode( ',', array_unique( array_merge( $this->unlinked_forum_ids( $space_id ), array( $forum_id ) ) ) ) );
-		unset( self::$forum_space_memo[ $forum_id ] );
 		$this->invalidate_space_caches( $forum_id );
 
 		/**
@@ -2016,7 +2039,9 @@ class JetonomyBridge {
 		 * @param array $space    The space row.
 		 */
 		$adopted = (int) apply_filters( 'buddynext_adopt_discussion_space', 0, $space_id, $space );
-		if ( $adopted > 0 ) {
+		// A forum another space already holds is passed over and a fresh one is
+		// made: linking it twice would let two spaces write one forum's access.
+		if ( $adopted > 0 && $this->forum_free_for( $adopted, $space_id ) ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $adopted );
 			$this->set_discussion_enabled( $space_id, true );
 			$this->apply_discussion_posting( $space_id, false );
@@ -2291,7 +2316,7 @@ class JetonomyBridge {
 		$messages = array(
 			'expired'   => __( 'That link has expired, so no discussion was created.', 'buddynext' ),
 			'failed'    => __( 'The discussion could not be created.', 'buddynext' ),
-			'forbidden' => __( 'Only the space owner or a moderator can start its discussions.', 'buddynext' ),
+			'forbidden' => __( 'Only the space owner or a moderator can start its discussions, once the owner has turned Discussion on.', 'buddynext' ),
 		);
 		if ( ! isset( $messages[ $reason ] ) ) {
 			return;
@@ -2310,21 +2335,24 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Whether a user may provision (create) a space's forum.
+	 * Whether a user may create a space's forum on demand ("Start the first
+	 * discussion", POST /spaces/{id}/forum).
 	 *
-	 * Gated on buddynext-moderate-space (space owner/moderator, plus site admins
-	 * via the manage_options passthrough) so provisioning — which mutates the
-	 * space — cannot be triggered by an arbitrary logged-in user.
+	 * Only once the owner has switched Discussion on: whether the space has a
+	 * discussion at all is the owner's choice (can_manage_discussion()), so a
+	 * moderator may start the forum the owner asked for but never create one the
+	 * owner did not. Then gated on buddynext-moderate-space (space owner or
+	 * moderator, plus site admins), so an arbitrary member cannot mutate the space.
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $user_id  Acting user ID.
 	 * @return bool
 	 */
 	private function can_provision_forum( int $space_id, int $user_id ): bool {
-		if ( $space_id <= 0 || $user_id <= 0 ) {
-			return false;
-		}
-		return (bool) buddynext_service( 'permissions' )->can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
+		return $space_id > 0 && $user_id > 0
+			&& self::discussion_switched_on()
+			&& '1' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' )
+			&& buddynext_can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
 	}
 
 	/**
@@ -2681,20 +2709,33 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * REST permission gate for management-only forum routes (discussion-search).
+	 * Whether a user may choose a space's Discussion: turn it on or off, link an
+	 * existing forum, unlink it, or search forums to link.
 	 *
-	 * @param \WP_REST_Request $request Request.
-	 * @return true|\WP_Error
+	 * The one rule behind the web settings save and every /discussion and
+	 * /discussion-search REST verb. The Discussion decides who the space talks
+	 * with and which forum carries its name, so it is the owner's call (site
+	 * admins pass through buddynext-own-space); a space moderator or a member with
+	 * the community moderator rank does not get it. Jetonomy must be active and
+	 * its site switch on, as the settings screen only renders the control then.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  Acting user ID.
+	 * @return bool
 	 */
-	public function rest_provision_permission( \WP_REST_Request $request ) {
-		if ( ! is_user_logged_in() ) {
-			return new \WP_Error( 'rest_not_logged_in', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
-		}
-		$space_id = (int) $request['id'];
-		if ( ! $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
-			return new \WP_Error( 'rest_forbidden', __( 'You do not have permission to set up this space forum.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-		return true;
+	public function can_manage_discussion( int $space_id, int $user_id ): bool {
+		return $space_id > 0 && $user_id > 0
+			&& self::discussion_switched_on()
+			&& buddynext_can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) );
+	}
+
+	/**
+	 * Whether Jetonomy is active and the site admin left its integration on.
+	 *
+	 * @return bool
+	 */
+	private static function discussion_switched_on(): bool {
+		return class_exists( 'Jetonomy\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'nav' );
 	}
 
 	/**
@@ -2787,15 +2828,15 @@ class JetonomyBridge {
 
 		// Typeahead for the "link an existing discussion" picker. Bounded search so
 		// it scales past a bounded <select> on sites with thousands of discussions.
-		// Same manage-space gate as provisioning; scope is role-derived server-side
-		// (admins search all, members only their own) — the client cannot widen it.
+		// Same owner gate as the /discussion verbs; scope is role-derived server-side
+		// (admins search all, owners only their own) - the client cannot widen it.
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>\d+)/discussion-search',
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'rest_search_discussions' ),
-				'permission_callback' => array( $this, 'rest_provision_permission' ),
+				'permission_callback' => array( $this, 'rest_discussion_manage_permission' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
@@ -2891,7 +2932,7 @@ class JetonomyBridge {
 	 * REST: typeahead search for the "link an existing discussion" picker.
 	 *
 	 * Scope is derived from the caller's role, NOT the request: a site admin
-	 * searches across all discussions; any other manager searches only the space
+	 * searches across all discussions; the space owner searches only the space
 	 * owner's own discussions — matching the save-time authorization so the client
 	 * can never widen its own scope.
 	 *
@@ -2909,13 +2950,14 @@ class JetonomyBridge {
 		}
 
 		return new \WP_REST_Response(
-			array( 'results' => $this->search_discussions( $q, $owner_id ) ),
+			array( 'results' => $this->search_discussions( $q, $owner_id, 20, $space_id ) ),
 			200
 		);
 	}
 
 	/**
-	 * Permission: the same space-settings capability the web settings page uses.
+	 * Permission for /discussion (GET, POST, DELETE) and /discussion-search:
+	 * can_manage_discussion(), the rule the web settings save applies.
 	 *
 	 * @param \WP_REST_Request $request Request (id).
 	 * @return true|\WP_Error
@@ -2925,8 +2967,11 @@ class JetonomyBridge {
 		if ( true !== $visible ) {
 			return $visible;
 		}
-		if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings', array( 'space_id' => (int) $request['id'] ) ) ) {
-			return new \WP_Error( 'rest_forbidden', __( 'You cannot manage this space.', 'buddynext' ), array( 'status' => 403 ) );
+		if ( ! $this->can_manage_discussion( (int) $request['id'], get_current_user_id() ) ) {
+			$message = self::discussion_switched_on()
+				? __( 'Only the space owner can change its discussion.', 'buddynext' )
+				: __( 'Discussions are turned off on this site.', 'buddynext' );
+			return new \WP_Error( 'rest_forbidden', $message, array( 'status' => 403 ) );
 		}
 		return true;
 	}
@@ -3598,7 +3643,15 @@ class JetonomyBridge {
 	 * space's own "Share activity to the main feed" toggle can never suppress it —
 	 * FeedService excludes by `space_id` and lets a NULL space through.
 	 *
-	 * Memoized per request: one discussion hook can fan out to several callers.
+	 * Memoized per request, misses included: it runs on every Jetonomy roster add,
+	 * and a bulk tier sync on unlinked forums would otherwise re-scan space meta per
+	 * member. on_forum_linked() clears the memo whenever a link is written, so a
+	 * forum read before its space is linked (space creation fires Jetonomy's hooks
+	 * before the jetonomy_forum_id meta is written) resolves once the link exists.
+	 *
+	 * A forum belongs to one space. Data written before that was enforced can hold
+	 * a duplicate; the earliest link answers, every time (duplicate_forum_links()
+	 * lists them for the owner).
 	 *
 	 * @param int $forum_id Jetonomy forum id (jt_spaces.id).
 	 * @return int BuddyNext space id, or 0 when the forum is not linked to a space.
@@ -3623,22 +3676,53 @@ class JetonomyBridge {
 			$wpdb->prepare(
 				"SELECT bn_space_id FROM {$wpdb->bn_spacemeta}
 				 WHERE meta_key = 'jetonomy_forum_id' AND meta_value = %s
+				 ORDER BY meta_id ASC
 				 LIMIT 1",
 				(string) $forum_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// Remember only a real link. A forum read before its space is linked (space
-		// creation fires Jetonomy's hooks before the jetonomy_forum_id meta is written)
-		// would otherwise stay 0 for the rest of the request, and every discussion
-		// written after the link would carry no space, slipping past the space's own
-		// "share to the main feed" toggle.
-		if ( $space_id > 0 ) {
-			self::$forum_space_memo[ $forum_id ] = $space_id;
-		}
+		self::$forum_space_memo[ $forum_id ] = $space_id;
 
 		return $space_id;
+	}
+
+	/**
+	 * Whether a forum may be linked to this space: no other space holds it.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $space_id Space that wants it.
+	 * @return bool
+	 */
+	private function forum_free_for( int $forum_id, int $space_id ): bool {
+		$holder = $this->space_id_for_forum( $forum_id );
+		return 0 === $holder || $holder === $space_id;
+	}
+
+	/**
+	 * Forums linked to more than one space, from data written before a forum was
+	 * held to one space. Read-only: nothing is unlinked, the owner decides.
+	 *
+	 * @return array<int,int[]> Forum id => space ids, earliest link first.
+	 */
+	public static function duplicate_forum_links(): array {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- admin/CLI report, no cache wanted.
+		$rows = $wpdb->get_results(
+			"SELECT meta_value AS forum_id, GROUP_CONCAT( bn_space_id ORDER BY meta_id ASC ) AS space_ids
+			 FROM {$wpdb->bn_spacemeta}
+			 WHERE meta_key = 'jetonomy_forum_id' AND meta_value <> '' AND meta_value <> '0'
+			 GROUP BY meta_value
+			 HAVING COUNT(*) > 1
+			 ORDER BY MIN( meta_id ) ASC"
+		);
+
+		$out = array();
+		foreach ( (array) $rows as $row ) {
+			$out[ (int) $row->forum_id ] = array_map( 'intval', explode( ',', (string) $row->space_ids ) );
+		}
+		return $out;
 	}
 
 	/**

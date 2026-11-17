@@ -236,16 +236,20 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// - first enable : create a new dedicated discussion, OR (initial
 				// setup only) link one the caller is allowed to.
 				// - later on/off : just flip the enabled flag; same discussion.
-				if ( class_exists( 'Jetonomy\\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'nav' ) && 'error' !== $save_notice ) {
-					$bn_disc_result = ( new \BuddyNext\Bridges\JetonomyBridge() )->apply_discussion_choice(
+				// Same rule as the REST /discussion routes: JetonomyBridge::can_manage_discussion().
+				$bn_jt_bridge = new \BuddyNext\Bridges\JetonomyBridge();
+				if ( 'error' !== $save_notice && $bn_jt_bridge->can_manage_discussion( $space_id, $bn_actor_id ) ) {
+					$bn_disc_result = $bn_jt_bridge->apply_discussion_choice(
 						$space_id,
 						isset( $_POST['bn_discussion_enabled'] ),
 						isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0,
-						get_current_user_id()
+						$bn_actor_id
 					);
 					if ( is_wp_error( $bn_disc_result ) ) {
 						$save_notice           = 'error';
-						$bn_save_error_message = __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' );
+						$bn_save_error_message = 'bn_discussion_not_created' === $bn_disc_result->get_error_code()
+							? __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' )
+							: $bn_disc_result->get_error_message();
 					}
 				}
 			}

@@ -203,10 +203,12 @@ Registered by `JetonomyBridge` and present **only when the Jetonomy companion is
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/spaces/{id}/forum` | Auth (can view space) | Provision (or fetch) the space's forum and return `{ forum_id, forum_url, can_provision }`. Requires login (`401` otherwise) and a space the caller may see (`404` otherwise). An existing forum is returned to any admitted viewer; only a missing forum requires the provision capability to create, and a viewer without it gets `forum_id: 0` with `can_provision: false` instead of a `403`. |
-| GET | `/spaces/{id}/discussion` | Auth (manage settings) | The space's discussion status: `has_discussion`, `enabled`, `forum_id`, `name`, `url`. |
-| POST | `/spaces/{id}/discussion` | Auth (manage settings) | Turn the space discussion on or off and return the new status. Body: `enabled` (boolean, required), `link_id` (int, optional, an existing discussion to link). |
-| DELETE | `/spaces/{id}/discussion` | Auth (manage settings) | Unlink the space discussion and return the new status (`has_discussion: false`). The Jetonomy discussion, its posts and every space member are kept; a later POST with `enabled: true` creates or links one again. Fires `buddynext_space_discussion_unlinked`. |
-| GET | `/spaces/{id}/discussion-search` | Auth (can-provision) | Typeahead for the "link an existing discussion" picker. Query: `q` (optional). Returns `{ results: [...] }`. Scope is **derived server-side from the caller's role** - a site admin searches all discussions, any other manager only the space owner's own; the client cannot widen it. |
+| GET | `/spaces/{id}/discussion` | Auth (space owner) | The space's discussion status: `has_discussion`, `enabled`, `forum_id`, `name`, `url`. |
+| POST | `/spaces/{id}/discussion` | Auth (space owner) | Turn the space discussion on or off and return the new status. Body: `enabled` (boolean, required), `link_id` (int, optional, an existing discussion to link). |
+| DELETE | `/spaces/{id}/discussion` | Auth (space owner) | Unlink the space discussion and return the new status (`has_discussion: false`). The Jetonomy discussion, its posts and every space member are kept; a later POST with `enabled: true` creates or links one again. Fires `buddynext_space_discussion_unlinked`. |
+| GET | `/spaces/{id}/discussion-search` | Auth (space owner) | Typeahead for the "link an existing discussion" picker. Query: `q` (optional). Returns `{ results: [...] }`. Scope is **derived server-side from the caller's role** - a site admin searches all discussions, the space owner only their own; the client cannot widen it. A discussion already linked to another space is left out. |
+
+The four `discussion` verbs share one check, `JetonomyBridge::can_manage_discussion()`, the same rule as the web settings save: the space owner or a site administrator, with Jetonomy active and its site switch on. A space moderator or a member with the community moderator rank gets `403`. A `POST` with a `link_id` another space already holds returns `409` (`bn_discussion_taken`). On `POST /spaces/{id}/forum`, a missing forum is created only after the owner has switched Discussion on (then by the owner or a space moderator).
 
 The member-scoped counterpart, `GET /members/{id}/discussions`, is documented on the REST: Members and Profiles page.
 

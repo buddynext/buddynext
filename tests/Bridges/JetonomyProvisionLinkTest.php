@@ -35,6 +35,8 @@ class JetonomyProvisionLinkTest extends \WP_UnitTestCase {
 				'type' => $type,
 			)
 		);
+		// The owner switched Discussion on; only then may the forum be started on demand.
+		update_space_meta( (int) $id, 'discussion_enabled', '1' );
 		return ( new SpaceService() )->get_object( (int) $id );
 	}
 
