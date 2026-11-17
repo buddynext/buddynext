@@ -97,6 +97,27 @@ class PageRouter {
 			function (): void {
 				foreach ( HubRegistry::instance()->all() as $bn_hub ) {
 					add_action( 'update_option_' . $bn_hub->slug_option, array( $this, 'flush_on_slug_change' ) );
+					add_action( 'add_option_' . $bn_hub->slug_option, array( $this, 'flush_on_slug_change' ) );
+					// Remember the slug a hub is leaving so its old links 301 (see
+					// redirect_renamed_hub()). The option write is the one place every
+					// rename passes: Settings > Pages, the setup wizard, the installer,
+					// WP-CLI. A first rename creates the option, so its old slug is the default.
+					add_action(
+						'update_option_' . $bn_hub->slug_option,
+						static function ( $old_slug, $new_slug ) use ( $bn_hub ): void {
+							self::remember_hub_slug( $bn_hub, (string) $old_slug, (string) $new_slug );
+						},
+						10,
+						2
+					);
+					add_action(
+						'add_option_' . $bn_hub->slug_option,
+						static function ( $option, $new_slug ) use ( $bn_hub ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- add_option_{name} passes the name first.
+							self::remember_hub_slug( $bn_hub, $bn_hub->default_slug, (string) $new_slug );
+						},
+						10,
+						2
+					);
 				}
 			},
 			1
@@ -129,6 +150,8 @@ class PageRouter {
 		add_action( 'wp', array( $this, 'detach_front_page_from_subroute' ), 1 );
 
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
+		// Before redirect_canonical (10), which would otherwise guess at a 404.
+		add_action( 'template_redirect', array( $this, 'redirect_renamed_hub' ), 9 );
 
 		// The theme's search results page links to the community results.
 		add_action( 'loop_start', array( $this, 'community_search_note' ) );
@@ -3555,6 +3578,120 @@ class PageRouter {
 		// flush. Deleting the option instead makes the NEXT request rebuild
 		// the rules with the fresh option values.
 		delete_option( 'rewrite_rules' );
+	}
+
+	/**
+	 * Post meta holding the slugs a hub's backing page answered to before.
+	 *
+	 * WordPress core's own key for a post's previous slugs. Core records and
+	 * redirects it only for non-hierarchical posts, never for pages, so the hub
+	 * writes it (remember_hub_slug()) and answers it (redirect_renamed_hub()).
+	 */
+	public const OLD_SLUG_META = '_wp_old_slug';
+
+	/**
+	 * Record the slug a hub is leaving on its backing page.
+	 *
+	 * Renaming back to a slug clears it from the history (no redirect loop), and
+	 * a slug another hub takes over is cleared from every hub, so an old link
+	 * never points past the hub that now owns that address. Without a backing
+	 * page there is nowhere to keep the history, and old links simply 404.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param HubDescriptor $hub Hub being renamed.
+	 * @param string        $old_slug Previous slug option value.
+	 * @param string        $new_slug New slug option value.
+	 * @return void
+	 */
+	public static function remember_hub_slug( HubDescriptor $hub, string $old_slug, string $new_slug ): void {
+		$old = trim( $old_slug );
+		$new = trim( $new_slug );
+		$old = '' !== $old ? $old : $hub->default_slug;
+		$new = '' !== $new ? $new : $hub->default_slug;
+		if ( $old === $new ) {
+			return;
+		}
+
+		foreach ( HubRegistry::instance()->all() as $other ) {
+			$other_page = self::hub_page_id( $other->key );
+			if ( $other_page > 0 ) {
+				delete_post_meta( $other_page, self::OLD_SLUG_META, $new );
+			}
+		}
+
+		$page_id = self::hub_page_id( $hub->key );
+		if ( $page_id > 0 && ! in_array( $old, get_post_meta( $page_id, self::OLD_SLUG_META, false ), true ) ) {
+			add_post_meta( $page_id, self::OLD_SLUG_META, $old );
+		}
+	}
+
+	/**
+	 * Send a link to a renamed hub's old address to the same place under its new one.
+	 *
+	 * /members/jane/?tab=about becomes /people/jane/?tab=about with a 301, so
+	 * bookmarks, emailed links and search results keep working after an owner
+	 * renames a hub. Runs only on a 404: an address that a page, a post, another
+	 * hub or a core route (/feed/, /wp-json/) answers is never touched.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public function redirect_renamed_hub(): void {
+		$target = is_404() ? self::renamed_hub_url( (string) wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- parsed into path segments and compared to stored slugs; the target is built from home_url().
+		if ( '' === $target ) {
+			return;
+		}
+
+		wp_safe_redirect( $target, 301 );
+		exit;
+	}
+
+	/**
+	 * Where a request URI under a hub's old slug lives now, or '' when it is not one.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $request_uri Request URI (path and query).
+	 * @return string
+	 */
+	public static function renamed_hub_url( string $request_uri ): string {
+		$home_path = trailingslashit( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ) );
+		$path      = (string) wp_parse_url( $request_uri, PHP_URL_PATH );
+		$query     = (string) wp_parse_url( $request_uri, PHP_URL_QUERY );
+		if ( 0 !== strpos( $path, $home_path ) ) {
+			return '';
+		}
+
+		$parts = explode( '/', substr( $path, strlen( $home_path ) ), 2 );
+		$first = strtolower( rawurldecode( $parts[0] ) );
+		if ( '' === $first ) {
+			return '';
+		}
+
+		$pages = array();
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			$page_id = self::hub_page_id( $hub->key );
+			if ( $page_id > 0 ) {
+				$pages[ $page_id ] = $hub;
+			}
+		}
+		update_meta_cache( 'post', array_keys( $pages ) );
+
+		foreach ( $pages as $page_id => $hub ) {
+			if ( ! in_array( $first, get_post_meta( $page_id, self::OLD_SLUG_META, false ), true ) ) {
+				continue;
+			}
+			$slug = self::hub_slug( $hub->slug_option, $hub->default_slug );
+			if ( $slug === $first ) {
+				return '';
+			}
+			$url = home_url( '/' . $slug . '/' . ( $parts[1] ?? '' ) );
+			return '' !== $query ? $url . '?' . $query : $url;
+		}
+
+		return '';
 	}
 
 	/**

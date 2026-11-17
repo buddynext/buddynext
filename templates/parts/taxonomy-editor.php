@@ -13,7 +13,7 @@
  *   nonce    string  Nonce action name.
  *   edit     array   Row being edited, or null for create.
  *   hidden   array   Extra hidden inputs (name => value), e.g. edit_id / cat_id.
- *   toggles  array   Entity-specific checkboxes: [ name, label, default ].
+ *   toggles  array   Entity-specific checkboxes: [ name, label, default, hint ].
  *   selects  array   Entity-specific choices: [ name, label, choices (value => label), default, hint ].
  *   supports array   Capability flags, e.g. [ 'has_icon' => true ].
  *   cancel   string  Optional cancel URL (rendered only in edit mode).
@@ -236,6 +236,9 @@ $preview_fg = '' !== $val_text_color ? $val_text_color : '#ffffff';
 							<input type="checkbox" name="<?php echo esc_attr( $t_name ); ?>" value="1" <?php checked( $t_checked ); ?>>
 							<?php echo esc_html( $t_label ); ?>
 						</label>
+						<?php if ( ! empty( $toggle['hint'] ) ) : ?>
+							<span class="bn-field-hint"><?php echo esc_html( (string) $toggle['hint'] ); ?></span>
+						<?php endif; ?>
 					<?php endforeach; ?>
 				</div>
 			<?php endif; ?>

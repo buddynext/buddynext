@@ -695,6 +695,36 @@ function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool 
 }
 
 /**
+ * The refusal a route returns while a community feature is turned off, or null when it is on.
+ *
+ * Feature routes stay registered when their toggle is off, so an app or a cached
+ * page that still calls one gets a stable error code instead of a 404 from WordPress.
+ * Every refusal carries the feature slug in its data so a client can tell
+ * "turned off" apart from "not allowed".
+ *
+ * @since 1.3.0
+ *
+ * @param string $slug    Feature slug (e.g. 'comments', 'polls').
+ * @param string $code    Error code. Default '{$slug}_disabled'.
+ * @param string $message Message for the member. Default a generic "turned off" line.
+ * @param int    $status  HTTP status. Default 403.
+ * @return WP_Error|null
+ */
+function buddynext_feature_refusal( string $slug, string $code = '', string $message = '', int $status = 403 ): ?WP_Error {
+	if ( buddynext_feature_enabled( $slug ) ) {
+		return null;
+	}
+	return new WP_Error(
+		'' !== $code ? $code : $slug . '_disabled',
+		'' !== $message ? $message : __( 'This feature is turned off on this community.', 'buddynext' ),
+		array(
+			'status'  => $status,
+			'feature' => $slug,
+		)
+	);
+}
+
+/**
  * Whether the push notification channel is available to offer a member.
  *
  * Push needs both the Pro push module (the PushDispatcher class) AND a

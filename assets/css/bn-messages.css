@@ -2337,7 +2337,12 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 	background: none;
 	font-size: var(--bn-text-sm, 0.875rem);
 	color: var(--bn-ink, inherit);
-	outline: none;
+}
+
+.bn-dm-search__input:focus-visible {
+	outline: 2px solid transparent;
+	box-shadow: var(--bn-ring);
+	border-radius: var(--bn-r-sm);
 }
 
 .bn-dm-search__results {

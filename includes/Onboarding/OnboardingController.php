@@ -538,12 +538,9 @@ class OnboardingController {
 	 * @return true|WP_Error
 	 */
 	public function require_auth(): bool|WP_Error {
-		if ( ! buddynext_feature_enabled( 'onboarding' ) ) {
-			return new WP_Error(
-				'feature_disabled',
-				__( 'Onboarding is turned off for this community.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		$off = buddynext_feature_refusal( 'onboarding', 'feature_disabled', __( 'Onboarding is turned off for this community.', 'buddynext' ) );
+		if ( $off ) {
+			return $off;
 		}
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(

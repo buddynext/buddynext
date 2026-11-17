@@ -96,12 +96,12 @@ if ( isset( $_GET['redo'] ) && isset( $_GET['_step'] ) ) { // phpcs:ignore WordP
 	$saved_step = max( 1, min( $total_steps, (int) $_GET['_step'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 }
 
-// Interests step data: the owner's live categories (name + color) and the
+// Interests step data: the categories a member may pick (name + color) and the
 // member's already-stored picks (redo / resume case). Absent step → both empty.
 $bn_ob_categories   = array();
 $bn_ob_interest_ids = array();
 if ( isset( $step_pos['interests'] ) ) {
-	$bn_ob_categories   = ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_all();
+	$bn_ob_categories   = ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_for_members();
 	$bn_ob_interest_ids = $bn_ob_service->get_interest_ids( $ob_user_id );
 }
 

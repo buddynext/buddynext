@@ -68,12 +68,9 @@ class PollController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function vote( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		if ( ! buddynext_feature_enabled( 'polls' ) ) {
-			return new WP_Error(
-				'polls_disabled',
-				__( 'Polls are turned off for this community.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		$off = buddynext_feature_refusal( 'polls', 'polls_disabled', __( 'Polls are turned off for this community.', 'buddynext' ) );
+		if ( $off ) {
+			return $off;
 		}
 		$post_id   = (int) $request->get_param( 'id' );
 		$option_id = (int) $request->get_param( 'option_id' );

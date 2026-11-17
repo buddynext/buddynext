@@ -1,6 +1,6 @@
 # Feature Groups and Tiers
 
-BuddyNext is plug-and-play: every Layer 2 feature is a self-contained module that the site owner can turn on or off, and a developer can override by filter. This page documents the tier system that governs which features are active, the Free feature catalogue, the Pro entries that join it, and their tiers, and how toggling a feature removes its routes, templates, options, and admin pages together.
+BuddyNext is plug-and-play: every Layer 2 feature is a self-contained module that the site owner can turn on or off, and a developer can override by filter. This page documents the tier system that governs which features are active, the Free feature catalogue, the Pro entries that join it, and their tiers, and what turning a feature off does: its member-facing surfaces are hidden, while its REST routes stay registered and refuse with a `403` (or `404` for a stale announcement dismiss) carrying a `{feature}_disabled` style code and `data.feature` set to the feature slug, so an app can tell "turned off" from "not allowed".
 
 ![The admin dashboard where feature groups and their tiers are toggled on or off](../images/admin-overview.webp)
 

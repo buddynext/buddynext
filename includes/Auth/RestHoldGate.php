@@ -262,6 +262,35 @@ final class RestHoldGate implements ListenerInterface {
 	}
 
 	/**
+	 * The hold refusal for the current member on a partner's REST route.
+	 *
+	 * For a partner that publishes no access filter of its own (Jetonomy), its
+	 * bridge calls this from rest_pre_dispatch so the partner namespace answers
+	 * a held member exactly as buddynext/v1 does: same error code, message and
+	 * hold_url. The BuddyNext carve-outs (auth, 2FA enrolment, the hold's own
+	 * routes) never match a partner route, so the whole partner surface is held.
+	 * Suspension is not applied here: it is a write freeze the partner already
+	 * honours through its own silenced-member check.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $route Normalised (lower-cased) partner route.
+	 * @return WP_Error|null Refusal, or null when no hold applies.
+	 */
+	public function partner_route_refusal( string $route ): ?WP_Error {
+		if ( ! is_user_logged_in() ) {
+			return null;
+		}
+
+		$user_id = get_current_user_id();
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return null;
+		}
+
+		return $this->hold_for( $user_id, $route );
+	}
+
+	/**
 	 * The hold that applies to this member on this route, if any.
 	 *
 	 * @param int    $user_id Member.

@@ -897,6 +897,7 @@ class Spaces extends AdminPageBase {
 						array(
 							'name'    => 'show_in_dir',
 							'label'   => __( 'Show in the spaces directory', 'buddynext' ),
+							'hint'    => __( 'Also offered as an interest members can pick during onboarding and on their profile, unless it is for subspaces only.', 'buddynext' ),
 							'default' => true,
 						),
 					),

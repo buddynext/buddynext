@@ -1380,8 +1380,8 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	   flex:1 items on each side lands on the viewport centre only while the bar
 	   has exactly 5 slots. See templates/partials/nav.php — do not add a 6th. */
 	.bn-mobile-nav__item--create {
-		background: var(--brand);
-		color: var(--text-on-brand);
+		background: var(--bn-accent-solid);
+		color: var(--bn-accent-fg);
 		width: 52px;
 		height: 52px;
 		border-radius: 50%;
@@ -1664,10 +1664,10 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	font-size: var(--text-sm); font-weight: var(--fw-semibold); cursor: pointer;
 	transition: all 0.15s ease;
 }
-.bn-hover-card__follow:hover { background: var(--brand); color: var(--text-on-brand); }
+.bn-hover-card__follow:hover { background: var(--bn-accent-solid); color: var(--bn-accent-fg); }
 /* Already-following state mirrors the post-card "Following" affordance: filled,
 	neutral, and reverting to an "Unfollow" cue on hover. */
-.bn-hover-card__follow.is-following { background: var(--brand); color: var(--text-on-brand); }
+.bn-hover-card__follow.is-following { background: var(--bn-accent-solid); color: var(--bn-accent-fg); }
 .bn-hover-card__follow.is-following:hover { background: var(--red); border-color: var(--red); }
 
 /* ── Box-sizing reset ───────────────────────────────────────────────────── */
@@ -1948,13 +1948,13 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 
 .bn-btn-primary {
-	background: var(--brand);
-	color: var(--white);
+	background: var(--bn-accent-solid);
+	color: var(--bn-accent-fg);
 }
 
 .bn-btn-primary:hover {
-	background: var(--brand-hover);
-	color: var(--white);
+	background: color-mix(in oklch, var(--bn-accent-solid) 82%, black);
+	color: var(--bn-accent-fg);
 }
 
 .bn-btn-ghost {
@@ -2444,7 +2444,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	font-family: var(--font-body);
 	transition: background 0.14s, color 0.14s;
 }
-.bn-sbar-row__action:hover { background: var(--brand); color: var(--text-on-brand); }
+.bn-sbar-row__action:hover { background: var(--bn-accent-solid); color: var(--bn-accent-fg); }
 
 /* See-all link. Scoped under the card + explicit accent so a host theme's own
    anchor colour (BuddyX renders bare links crimson) can't win the cascade and
@@ -5325,7 +5325,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-guest-banner h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); margin-bottom: var(--bn-s1); color: var(--text-1); }
 .bn-guest-banner p  { font-size: var(--text-sm); color: var(--text-2); margin-bottom: var(--bn-s4); line-height: 1.6; }
 .bn-banner-btns     { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }
-.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--brand); color: var(--bn-accent-fg, #fff); border-color: var(--brand); }
-.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
+.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--bn-accent-solid); color: var(--bn-accent-fg); border-color: var(--bn-accent-solid); }
+.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: color-mix(in oklch, var(--bn-accent-solid) 82%, black); border-color: transparent; }
 .bn-guest-banner .bn-btn[data-variant="ghost"] { color: var(--text-1); border-color: var(--border); background: transparent; }
 .bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: var(--bg-hover); }

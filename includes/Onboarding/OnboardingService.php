@@ -153,7 +153,7 @@ class OnboardingService {
 			'icon'  => 'user',
 		);
 
-		if ( array() !== \BuddyNext\Profile\FieldType::category_options() ) {
+		if ( array() !== \BuddyNext\Profile\FieldType::category_options( true ) ) {
 			$steps[] = array(
 				'key'   => 'interests',
 				'label' => __( 'Interests', 'buddynext' ),

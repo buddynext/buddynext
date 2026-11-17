@@ -268,17 +268,7 @@ class HashtagController {
 	 * @return true|\WP_Error
 	 */
 	public function require_hashtags_enabled() {
-		$features = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
-
-		if ( is_object( $features ) && method_exists( $features, 'is_enabled' ) && ! $features->is_enabled( 'hashtags' ) ) {
-			return new \WP_Error(
-				'hashtags_disabled',
-				__( 'Hashtags are turned off on this community.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
-		}
-
-		return true;
+		return buddynext_feature_refusal( 'hashtags', 'hashtags_disabled', __( 'Hashtags are turned off on this community.', 'buddynext' ) ) ?? true;
 	}
 
 	/**

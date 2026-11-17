@@ -1631,9 +1631,9 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 }
 
 .bn-feed-page-btn.current {
-	background: var(--bn-brand);
-	border-color: var(--bn-brand);
-	color: var(--text-on-brand);
+	background: var(--bn-accent-solid);
+	border-color: var(--bn-accent-solid);
+	color: var(--bn-accent-fg);
 	font-weight: var(--fw-bold);
 }
 
@@ -2826,8 +2826,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	width: 36px;
 	height: 36px;
 	border-radius: 50%;
-	background: var(--brand);
-	color: var(--text-on-brand);
+	background: var(--bn-accent-solid);
+	color: var(--bn-accent-fg);
 	font-size: var(--text-sm);
 	font-weight: 700;
 	display: flex;
@@ -2858,7 +2858,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	   left edge — matches the composer's --s4 visual rhythm. */
 	padding: 6px var(--bn-s4);
 	line-height: 1.5;
-	outline: none;
 	/* Auto-grow: JS (feed/store.js autoResizeTextarea) sets height to the
 	   content's scrollHeight on input; box-sizing keeps that math correct, the
 	   min holds a ~2-row floor, and the max caps growth so a long draft scrolls
@@ -2869,7 +2868,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	overflow-y: auto;
 }
 .bn-composer__prompt::placeholder { color: var(--text-3); }
-.bn-composer__prompt:focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
+.bn-composer__prompt:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: var(--bn-ring); border-radius: var(--bn-r-md); }
 
 /*
  * Char counter — populated by JS into a template-owned slot

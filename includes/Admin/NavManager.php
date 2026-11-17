@@ -184,7 +184,7 @@ class NavManager extends AdminPageBase {
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Community hubs', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-field-hint">
-						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Changing a slug changes the address, so links to the old one stop working. Hubs are virtual routes: only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
+						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Changing a slug changes the address, and links to the old address redirect to the new one while the hub has a WordPress page. Hubs are virtual routes: assign a WordPress page if you want a page-builder layout, a real menu entry, page-level SEO, or old links kept after a rename.', 'buddynext' ); ?>
 					</p>
 					<!--
 					Scroll host on the WRAPPER, never the table (admin table contract, rule 3):
@@ -233,6 +233,7 @@ class NavManager extends AdminPageBase {
 											spellcheck="false"
 											placeholder="<?php echo esc_attr( $cfg['default'] ); ?>">
 										<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); // bn-route-ok: admin preview of the slug being edited. ?></span>
+										<span class="bn-field-hint"><?php esc_html_e( 'Leave empty to use the default. Old addresses redirect to the new one when the hub has a page.', 'buddynext' ); ?></span>
 										<?php // Live availability feedback target. nav-manager.js fills this from admin/slug-check as the owner types; without the element the whole check bails out. ?>
 										<span class="bn-cf-hint" aria-live="polite"></span>
 									<?php else : ?>

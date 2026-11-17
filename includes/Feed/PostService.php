@@ -383,12 +383,9 @@ class PostService {
 		}
 
 		if ( 'poll' === $type ) {
-			if ( ! buddynext_feature_enabled( 'polls' ) ) {
-				return new WP_Error(
-					'polls_disabled',
-					__( 'Polls are disabled on this community.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
+			$off = buddynext_feature_refusal( 'polls', 'polls_disabled', __( 'Polls are disabled on this community.', 'buddynext' ) );
+			if ( $off ) {
+				return $off;
 			}
 			$options = $data['options'] ?? array();
 			if ( ! is_array( $options ) || count( $options ) < 2 ) {
@@ -416,12 +413,9 @@ class PostService {
 			// announcements when the toggle is on (FeedService gates every read on
 			// it), so accepting one while it is off writes a post nothing will ever
 			// surface. Gate the write on the same toggle as the read.
-			if ( ! buddynext_feature_enabled( 'announcements' ) ) {
-				return new WP_Error(
-					'feature_disabled',
-					__( 'Announcements are turned off for this community.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
+			$off = buddynext_feature_refusal( 'announcements', 'feature_disabled', __( 'Announcements are turned off for this community.', 'buddynext' ) );
+			if ( $off ) {
+				return $off;
 			}
 
 			// Site-wide needs the announce ability (community admins by default); a

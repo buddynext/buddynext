@@ -98,6 +98,28 @@ class SpaceCategoryService {
 	}
 
 	/**
+	 * Categories a member may pick as an interest (onboarding, profile Interests).
+	 *
+	 * The owner's two existing flags decide it: shown in the directory, and not
+	 * "Subspaces only" (a member cannot browse by a subspace-only category, so it
+	 * would lead nowhere from the For You feed and space suggestions). Label
+	 * lookups and saved values keep using get_all(), so a member's earlier pick
+	 * of a category hidden later is neither shown as a choice nor lost on save.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function get_for_members(): array {
+		return array_values(
+			array_filter(
+				$this->get_all( true ),
+				static fn( array $category ): bool => 'sub' !== (string) ( $category['level'] ?? 'both' )
+			)
+		);
+	}
+
+	/**
 	 * IDs of categories hidden from the directory (show_in_dir = 0).
 	 *
 	 * The directory scope builder uses these to exclude their spaces from the

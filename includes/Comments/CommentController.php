@@ -476,17 +476,7 @@ class CommentController extends BaseRestController {
 	 * @return true|WP_Error
 	 */
 	private function comments_enabled_gate() {
-		$features = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
-
-		if ( is_object( $features ) && method_exists( $features, 'is_enabled' ) && ! $features->is_enabled( 'comments' ) ) {
-			return new WP_Error(
-				'comments_disabled',
-				__( 'Comments are turned off on this community.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
-		}
-
-		return true;
+		return buddynext_feature_refusal( 'comments', 'comments_disabled', __( 'Comments are turned off on this community.', 'buddynext' ) ) ?? true;
 	}
 
 	/**

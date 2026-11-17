@@ -22,6 +22,9 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Auth\MemberHold;
+use BuddyNext\Auth\RestHoldGate;
+use BuddyNext\Core\RestRoute;
 use BuddyNext\Profile\Handle;
 use BuddyNext\Search\SearchService;
 use BuddyNext\Feed\IntegrationActivity;
@@ -229,6 +232,13 @@ class JetonomyBridge {
 		// BuddyNext owns the member profile: Jetonomy's own profile pages hand over
 		// to it, as its generated links already do (filter_jetonomy_profile_url).
 		add_action( 'template_redirect', array( $this, 'redirect_forum_profile' ), 5 );
+
+		// A held member (e.g. "Paying members only" without a plan) is held off
+		// the forum too: Jetonomy has no hold of its own, so the bridge applies
+		// BuddyNext's hold to its pages and to jetonomy(-pro)/v1, with the same
+		// answer the community routes give.
+		add_action( 'template_redirect', array( $this, 'hold_forum_pages' ), 8 );
+		add_filter( 'rest_pre_dispatch', array( $this, 'hold_forum_rest' ), 11, 3 );
 
 		// Two-way discussion sync: a comment on a discussion card in the BuddyNext
 		// feed becomes a reply in the originating Jetonomy forum topic, and a reply
@@ -2165,6 +2175,50 @@ class JetonomyBridge {
 
 		wp_safe_redirect( $url, 301 );
 		exit;
+	}
+
+	/**
+	 * Send a held member from a forum page to the hold's page.
+	 *
+	 * The forum counts as the 'discussions' hub, so a hold that keeps that hub
+	 * open leaves the forum open. Sitemap and RSS routes are left to Jetonomy.
+	 *
+	 * @return void
+	 */
+	public function hold_forum_pages(): void {
+		$route = (string) get_query_var( 'jetonomy_route', '' );
+		if ( '' === $route || 'sitemap' === $route || 'feed' === $route || ! is_user_logged_in() ) {
+			return;
+		}
+
+		$hold = MemberHold::get( get_current_user_id() );
+		if ( null === $hold || in_array( 'discussions', $hold['hubs'], true ) ) {
+			return;
+		}
+
+		wp_safe_redirect( $hold['url'] );
+		exit;
+	}
+
+	/**
+	 * Refuse jetonomy(-pro)/v1 to a held member, as buddynext/v1 does.
+	 *
+	 * @param mixed $result  Pre-dispatch short-circuit, or null.
+	 * @param mixed $server  REST server (unused; part of the signature).
+	 * @param mixed $request Current request.
+	 * @return mixed Unchanged result, or the hold's 403 WP_Error.
+	 */
+	public function hold_forum_rest( $result, $server, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- $server is part of the rest_pre_dispatch signature.
+		if ( null !== $result || ! $request instanceof \WP_REST_Request || ! is_user_logged_in() ) {
+			return $result;
+		}
+
+		$route = RestRoute::normalize( $request );
+		if ( ! preg_match( '#^/jetonomy(?:-pro)?/v1(?:/|$)#', $route ) ) {
+			return $result;
+		}
+
+		return ( new RestHoldGate() )->partner_route_refusal( $route ) ?? $result;
 	}
 
 	/**
