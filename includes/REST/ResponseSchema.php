@@ -97,7 +97,7 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
-				'path'     => '/comments/(?P<id>[\\d]+)',
+				'path'     => '/comments/{id}',
 				'resource' => 'comment',
 				'shape'    => 'item',
 			),
@@ -1244,6 +1244,9 @@ final class ResponseSchema {
 					'type'             => 'object',
 					'x-bn-conditional' => true,
 				),
+				// True when the card's partner plugin is gone (PostService::is_orphaned_card):
+				// the body and link are blanked and link_meta.title holds the neutral title.
+				'card_unavailable'     => array( 'type' => 'boolean' ),
 				// Whether the share sheet may offer the link (PostService::is_publicly_shareable).
 				'shareable'            => array( 'type' => 'boolean' ),
 				'status'               => array( 'type' => 'string' ),
@@ -1386,6 +1389,7 @@ final class ResponseSchema {
 				'like_count'        => array( 'type' => 'integer' ),
 				'viewer_liked'      => array( 'type' => 'boolean' ),
 				'viewer_reaction'   => array( 'type' => array( 'string', 'null' ) ),
+				'viewer_reported'   => array( 'type' => 'boolean' ),
 				'can_edit'          => array( 'type' => 'boolean' ),
 				'can_delete'        => array( 'type' => 'boolean' ),
 				'can_pin'           => array( 'type' => 'boolean' ),
@@ -2296,6 +2300,9 @@ final class ResponseSchema {
 				'members_only_cta'     => array(
 					'type'             => 'object',
 					'x-bn-conditional' => true,
+				),
+				'card_unavailable'     => array(
+					'type' => 'boolean',
 				),
 				'shareable'            => array(
 					'type' => 'boolean',
@@ -5463,6 +5470,9 @@ final class ResponseSchema {
 					'type' => 'string',
 				),
 				'registered_at'           => array(
+					'type' => 'string',
+				),
+				'headline'                => array(
 					'type' => 'string',
 				),
 				'bio'                     => array(

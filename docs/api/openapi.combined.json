@@ -8968,7 +8968,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Comment"
+                                }
+                            }
+                        }
                     },
                     "400": {
                         "description": "Invalid or missing parameter."
@@ -24795,6 +24802,9 @@
                     "members_only_cta": {
                         "type": "object"
                     },
+                    "card_unavailable": {
+                        "type": "boolean"
+                    },
                     "shareable": {
                         "type": "boolean"
                     },
@@ -25132,6 +25142,9 @@
                     "members_only_cta": {
                         "type": "object"
                     },
+                    "card_unavailable": {
+                        "type": "boolean"
+                    },
                     "shareable": {
                         "type": "boolean"
                     },
@@ -25374,6 +25387,9 @@
                                         },
                                         "members_only_cta": {
                                             "type": "object"
+                                        },
+                                        "card_unavailable": {
+                                            "type": "boolean"
                                         },
                                         "shareable": {
                                             "type": "boolean"
@@ -26591,6 +26607,9 @@
                         "type": "string"
                     },
                     "registered_at": {
+                        "type": "string"
+                    },
+                    "headline": {
                         "type": "string"
                     },
                     "bio": {
@@ -29230,6 +29249,9 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "viewer_reported": {
+                        "type": "boolean"
                     },
                     "can_edit": {
                         "type": "boolean"
