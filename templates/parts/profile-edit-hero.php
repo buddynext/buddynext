@@ -239,7 +239,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 	<input
 		type="file"
 		id="bn-ep-cover-file"
-		accept="image/jpeg,image/png,image/gif,image/webp"
+		accept="image/jpeg,image/png,image/webp"
 		class="bn-ep-file-hidden"
 		tabindex="-1"
 		aria-hidden="true"

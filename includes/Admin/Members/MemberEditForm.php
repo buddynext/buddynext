@@ -97,18 +97,26 @@ class MemberEditForm {
 		 * neighbours.
 		 */
 		$bn_error_messages = array(
-			'avatar_size'     => __( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ),
-			'avatar_type'     => __( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
-			'slug_taken'      => __( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ),
-			'cover_size'      => __( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ),
-			'cover_type'      => __( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
-			'email_taken'     => __( 'Not saved: that email address is already in use by another account.', 'buddynext' ),
-			'email_invalid'   => __( 'Not saved: please enter a valid email address.', 'buddynext' ),
-			'role_invalid'    => __( 'Not saved: the selected role is not valid.', 'buddynext' ),
+			'avatar_size'       => __( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ),
+			'avatar_type'       => __( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'slug_taken'        => __( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ),
+			'cover_size'        => __( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ),
+			'cover_type'        => __( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'email_taken'       => __( 'Not saved: that email address is already in use by another account.', 'buddynext' ),
+			'email_invalid'     => __( 'Not saved: please enter a valid email address.', 'buddynext' ),
+			'role_invalid'      => __( 'Not saved: the selected role is not valid.', 'buddynext' ),
+			// Multisite: WordPress lets only a network administrator change another
+			// member's account details or a super admin's account at all.
+			'account_forbidden' => __( 'Not saved: you do not have permission to change this member\'s email, display name or profile URL.', 'buddynext' ),
+			'role_forbidden'    => __( 'Not saved: you do not have permission to change this member\'s role.', 'buddynext' ),
+			'member_forbidden'  => __( 'Not saved: this member is a network administrator, and only another network administrator can edit their account.', 'buddynext' ),
+			// Sent with saved=1: the rest of the edit was written.
+			'avatar_failed'     => __( 'Photo not saved: the image could not be processed. Try a different file. Your other changes were saved.', 'buddynext' ),
+			'cover_failed'      => __( 'Cover photo not saved: the image could not be processed. Try a different file. Your other changes were saved.', 'buddynext' ),
 			// Plural and absolute on purpose: the save is atomic, so one bad field
 			// means none of the profile fields were written. "Some changes were not
 			// saved" would be the same false reassurance this replaces.
-			'profile_invalid' => __( 'Profile fields were not saved. Nothing on this form was changed - fix the problems below and save again.', 'buddynext' ),
+			'profile_invalid'   => __( 'Profile fields were not saved. Nothing on this form was changed - fix the problems below and save again.', 'buddynext' ),
 		);
 
 		if ( isset( $bn_error_messages[ $bn_error ] ) ) {
@@ -424,25 +432,35 @@ class MemberEditForm {
 				$all_roles    = wp_roles()->get_names();
 				$current_role = array_values( (array) $wp_user->roles )[0] ?? '';
 				$other_roles  = array_slice( array_values( (array) $wp_user->roles ), 1 );
+				// Mirrors the save checks in Members::member_edit_error(): on a network a
+				// site administrator sees these fields but WordPress does not let them
+				// change another member's account details or role.
+				$bn_protected   = \BuddyNext\Admin\Members::is_protected_super_admin( $user_id );
+				$bn_account_ro  = $bn_protected || ! current_user_can( 'edit_user', $user_id );
+				$bn_role_locked = $bn_protected || ! current_user_can( 'promote_user', $user_id );
 				$this->open_section( __( 'Account', 'buddynext' ) );
+				if ( $bn_account_ro ) {
+					echo '<p class="bn-edit-hint">' . esc_html__( 'Only a network administrator can change this member\'s email, display name or profile URL.', 'buddynext' ) . '</p>';
+				}
 				$this->render_text_row(
 					'display_name',
 					__( 'Display name', 'buddynext' ),
 					$wp_user->display_name,
-					__( 'Shown publicly across the community.', 'buddynext' )
+					__( 'Shown publicly across the community.', 'buddynext' ),
+					$bn_account_ro
 				);
 				?>
 				<div class="bn-field-row">
 					<div class="bn-label"><label for="bn-user-email"><?php esc_html_e( 'Email address', 'buddynext' ); ?></label></div>
 					<div class="bn-control">
-						<input type="email" id="bn-user-email" name="bn_user_email" value="<?php echo esc_attr( $wp_user->user_email ); ?>" class="bn-input">
+						<input type="email" id="bn-user-email" name="bn_user_email" value="<?php echo esc_attr( $wp_user->user_email ); ?>" class="bn-input" <?php wp_readonly( $bn_account_ro ); ?>>
 					</div>
 				</div>
 				<div class="bn-field-row">
 					<div class="bn-label"><label for="bn-user-role"><?php esc_html_e( 'Role', 'buddynext' ); ?></label></div>
 					<div class="bn-control">
 						<?php $bn_own_account = get_current_user_id() === (int) $user_id; ?>
-						<select id="bn-user-role" name="bn_user_role" class="bn-select" <?php disabled( $bn_own_account ); ?>>
+						<select id="bn-user-role" name="bn_user_role" class="bn-select" <?php disabled( $bn_own_account || $bn_role_locked ); ?>>
 							<?php foreach ( $all_roles as $role_key => $role_label ) : ?>
 								<option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( $current_role, $role_key ); ?>>
 									<?php echo esc_html( translate_user_role( $role_label ) ); ?>
@@ -468,7 +486,7 @@ class MemberEditForm {
 				<div class="bn-field-row">
 					<div class="bn-label"><label for="bn-profile-slug"><?php esc_html_e( 'Profile URL slug', 'buddynext' ); ?></label></div>
 					<div class="bn-control">
-						<input type="text" id="bn-profile-slug" name="bn_profile_slug" value="<?php echo esc_attr( $slug ); ?>" class="bn-input">
+						<input type="text" id="bn-profile-slug" name="bn_profile_slug" value="<?php echo esc_attr( $slug ); ?>" class="bn-input" <?php wp_readonly( $bn_account_ro ); ?>>
 						<p class="bn-edit-hint"><?php esc_html_e( 'Leave blank to use the default (user-{id}). Must be unique.', 'buddynext' ); ?></p>
 					</div>
 				</div>
@@ -774,9 +792,10 @@ class MemberEditForm {
 	 * @param string $label       Row label.
 	 * @param string $value       Current value.
 	 * @param string $description Optional description shown below the input.
+	 * @param bool   $read_only   Render the input read-only.
 	 * @return void
 	 */
-	private function render_text_row( string $name, string $label, string $value, string $description = '' ): void {
+	private function render_text_row( string $name, string $label, string $value, string $description = '', bool $read_only = false ): void {
 		$input_id = 'bn-field-' . sanitize_key( $name );
 		?>
 		<div class="bn-field-row">
@@ -786,7 +805,8 @@ class MemberEditForm {
 					id="<?php echo esc_attr( $input_id ); ?>"
 					name="<?php echo esc_attr( $name ); ?>"
 					value="<?php echo esc_attr( $value ); ?>"
-					class="bn-input">
+					class="bn-input"
+					<?php wp_readonly( $read_only ); ?>>
 				<?php if ( '' !== $description ) : ?>
 					<p class="bn-edit-hint"><?php echo esc_html( $description ); ?></p>
 				<?php endif; ?>

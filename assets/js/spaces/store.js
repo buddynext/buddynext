@@ -3449,10 +3449,12 @@ document.addEventListener( 'keydown', function ( event ) {
 	}() );
 
 	// A throwaway file input drives the OS picker; we never keep a value in it.
-	function pickFile( onChosen ) {
+	// The accept list matches what REST takes for that kind: the icon (avatar)
+	// accepts GIF, the cover does not (SpaceController::handle_space_image_upload).
+	function pickFile( kind, onChosen ) {
 		var picker = document.createElement( 'input' );
 		picker.type   = 'file';
-		picker.accept = 'image/jpeg,image/png,image/webp,image/gif';
+		picker.accept = 'avatar' === kind ? 'image/jpeg,image/png,image/webp,image/gif' : 'image/jpeg,image/png,image/webp';
 		picker.style.display = 'none';
 		picker.addEventListener( 'change', function () {
 			var file = picker.files && picker.files[0];
@@ -3601,7 +3603,7 @@ document.addEventListener( 'keydown', function ( event ) {
 		}
 
 		function choose() {
-			pickFile( function ( file ) {
+			pickFile( 'cover', function ( file ) {
 				// Reposition first (drag to pan, scroll/slider to zoom) via the same
 				// modal the member cover uses, then upload the image with the chosen
 				// focal point. Cancelling the modal cancels the whole cover change -
@@ -3666,7 +3668,7 @@ document.addEventListener( 'keydown', function ( event ) {
 
 		btn.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
-			pickFile( function ( file ) {
+			pickFile( 'avatar', function ( file ) {
 				btn.disabled = true;
 				var orig = btn.textContent;
 				btn.textContent = t( 'uploading', 'Uploading…' );

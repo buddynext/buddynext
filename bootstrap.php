@@ -121,6 +121,11 @@ register_deactivation_hook(
 		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::SWEEP_HOOK );
 		// A switched-off plugin asks the store nothing; activation re-arms it.
 		wp_clear_scheduled_hook( \BuddyNext\Core\PresetActivation::HOOK );
+		// Every recurring job (digests, cleanups, recounts, the moderation queue
+		// check, log retention), from Action Scheduler and WP-Cron alike, so a
+		// switched-off plugin leaves nothing to fail. Each re-arms itself on the
+		// next cron run after reactivation.
+		( new \BuddyNext\Core\CronScheduler() )->clear_events();
 	}
 );
 

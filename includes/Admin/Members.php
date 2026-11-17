@@ -507,41 +507,6 @@ class Members extends AdminPageBase {
 		return $result;
 	}
 
-	/**
-	 * Export all community members as a CSV string.
-	 *
-	 * Returns a UTF-8 CSV with a header row and one data row per member,
-	 * ordered by registration date ascending.
-	 *
-	 * @return string CSV content ready to stream or save.
-	 */
-	public function export_members_csv(): string {
-		$users = get_users(
-			array(
-				'orderby' => 'registered',
-				'order'   => 'ASC',
-				'fields'  => array( 'ID', 'user_login', 'user_nicename', 'user_email', 'user_registered' ),
-			)
-		);
-
-		$rows   = array();
-		$rows[] = 'ID,Login,Email,Registered';
-
-		foreach ( $users as $user ) {
-			$rows[] = implode(
-				',',
-				array(
-					(int) $user->ID,
-					'"' . str_replace( '"', '""', $user->user_login ) . '"',
-					'"' . str_replace( '"', '""', $user->user_email ) . '"',
-					'"' . str_replace( '"', '""', $user->user_registered ) . '"',
-				)
-			);
-		}
-
-		return implode( "\n", $rows );
-	}
-
 	// ── Admin-post handlers ────────────────────────────────────────────────────
 
 	/**
@@ -811,14 +776,13 @@ class Members extends AdminPageBase {
 		$raw_ids = isset( $_POST['ids'] ) ? (array) wp_unslash( $_POST['ids'] ) : array();
 		$ids     = array_values( array_unique( array_filter( array_map( 'absint', $raw_ids ) ) ) );
 
-		$current = get_current_user_id();
-		$done    = 0;
+		$done = 0;
 		// One reason for the whole batch, from the same modal a single suspend uses.
 		$bn_bulk_suspend = 'suspend' === $bulk_action ? self::suspension_from_request() : array();
 		if ( '' !== $bulk_action && ! empty( $ids ) ) {
 			foreach ( $ids as $uid ) {
-				// Never let a bulk action hit yourself or another administrator.
-				if ( $uid === $current || user_can( $uid, 'manage_options' ) ) {
+				// Never let a bulk action hit an administrator (yourself included).
+				if ( user_can( $uid, 'manage_options' ) ) {
 					continue;
 				}
 				if ( 'suspend' === $bulk_action ) {
@@ -858,39 +822,60 @@ class Members extends AdminPageBase {
 	/**
 	 * The first reason this member edit cannot be saved, or '' when it can.
 	 *
-	 * Checks only; nothing is written here. Covers the avatar and cover uploads,
-	 * the email, the WordPress role and the handle. Profile fields are validated
-	 * by ProfileService::save_profile(), which the handler runs before any other
-	 * write.
+	 * Checks only; nothing is written here. Covers who may edit this member, the
+	 * avatar and cover uploads, the email, display name, WordPress role and the
+	 * handle. Profile fields are validated by ProfileService::save_profile(),
+	 * which the handler runs before any other write.
+	 *
+	 * Authorization follows WordPress's own user screens. The handler gate is
+	 * manage_options, which on a network a site administrator holds while core
+	 * refuses them `edit_user` on other members. So the account fields core owns
+	 * (email, display name, handle) need `edit_user` for this member, a role change
+	 * needs `promote_user`, and a network super admin can only be edited by a super
+	 * admin. Community data (profile fields, photos, type) stays a manage_options
+	 * job. On a single site an administrator holds every one of these caps, so
+	 * nothing changes there.
 	 *
 	 * @param int      $user_id Member being edited.
 	 * @param \WP_User $wp_user That member.
 	 * @return string An error code for the `bn_error` query arg, or ''.
 	 */
 	private function member_edit_error( int $user_id, \WP_User $wp_user ): string {
+		if ( self::is_protected_super_admin( $user_id ) ) {
+			return 'member_forbidden';
+		}
+
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- check_admin_referer() ran in the caller.
 		$images = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
 		foreach ( array(
 			'avatar' => 2,
 			'cover'  => 5,
 		) as $kind => $max_mb ) {
-			$file = isset( $_FILES[ 'bn_' . $kind ] ) && is_array( $_FILES[ 'bn_' . $kind ] ) ? $_FILES[ 'bn_' . $kind ] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- size and type are compared, never stored.
+			$file = isset( $_FILES[ 'bn_' . $kind ] ) && is_array( $_FILES[ 'bn_' . $kind ] ) ? $_FILES[ 'bn_' . $kind ] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- size and real type are checked, never stored.
 			if ( empty( $file['name'] ) ) {
 				continue;
 			}
 			if ( isset( $file['size'] ) && (int) $file['size'] > $max_mb * MB_IN_BYTES ) {
 				return $kind . '_size';
 			}
-			if ( isset( $file['type'] ) && ! in_array( $file['type'], $images, true ) ) {
+			// Judged on the file's bytes, never on $_FILES['type'], which the browser
+			// sets. The same core check the front-end uploads use.
+			$check = wp_check_filetype_and_ext( (string) ( $file['tmp_name'] ?? '' ), sanitize_file_name( (string) $file['name'] ) );
+			if ( empty( $check['type'] ) || ! in_array( $check['type'], $images, true ) ) {
 				return $kind . '_type';
 			}
 		}
+
+		$can_edit_account = current_user_can( 'edit_user', $user_id );
 
 		// Judged on what was typed: sanitize_email() turns a value with no "@" into '',
 		// which read as "left blank" and reported a save that never happened.
 		$raw_email = isset( $_POST['bn_user_email'] ) ? trim( (string) wp_unslash( $_POST['bn_user_email'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized on the next line.
 		$new_email = sanitize_email( $raw_email );
 		if ( '' !== $raw_email && $new_email !== $wp_user->user_email ) {
+			if ( ! $can_edit_account ) {
+				return 'account_forbidden';
+			}
 			if ( ! is_email( $new_email ) ) {
 				return 'email_invalid';
 			}
@@ -900,18 +885,53 @@ class Members extends AdminPageBase {
 			}
 		}
 
-		$new_role = isset( $_POST['bn_user_role'] ) ? sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) : '';
-		if ( '' !== $new_role && ! in_array( $new_role, array_keys( wp_roles()->get_names() ), true ) ) {
-			return 'role_invalid';
+		$new_name = isset( $_POST['display_name'] ) ? sanitize_text_field( wp_unslash( $_POST['display_name'] ) ) : '';
+		if ( '' !== $new_name && $new_name !== $wp_user->display_name && ! $can_edit_account ) {
+			return 'account_forbidden';
 		}
 
+		$new_role = isset( $_POST['bn_user_role'] ) ? sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) : '';
+		if ( '' !== $new_role ) {
+			if ( ! in_array( $new_role, array_keys( wp_roles()->get_names() ), true ) ) {
+				return 'role_invalid';
+			}
+			$current_role = (string) ( array_values( (array) $wp_user->roles )[0] ?? '' );
+			if ( $new_role !== $current_role && ! current_user_can( 'promote_user', $user_id ) ) {
+				return 'role_forbidden';
+			}
+		}
+
+		// Only a changed handle is judged: a member already holding a word that is
+		// reserved today keeps it through an unrelated edit.
 		$new_slug = isset( $_POST['bn_profile_slug'] ) ? sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) ) : '';
-		if ( '' !== $new_slug && ! \BuddyNext\Core\PageRouter::is_slug_available( $new_slug, $user_id ) ) {
-			return 'slug_taken';
+		if ( '' !== $new_slug && (string) get_user_meta( $user_id, 'bn_profile_slug', true ) !== $new_slug ) {
+			if ( ! $can_edit_account ) {
+				return 'account_forbidden';
+			}
+			// Asked as an administrator: this screen may give a staff account a
+			// reserved impersonation word (support, staff ...); route words stay
+			// refused for everyone.
+			if ( ! \BuddyNext\Core\PageRouter::is_slug_available( $new_slug, $user_id, true ) ) {
+				return 'slug_taken';
+			}
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		return '';
+	}
+
+	/**
+	 * Whether this member is a network super admin the current user may not edit.
+	 *
+	 * Core already refuses `edit_user` here, but `promote_user` and the community
+	 * fields are not tied to the target, so the edit screen refuses the whole
+	 * save rather than letting a site administrator reshape a super admin.
+	 *
+	 * @param int $user_id Member being edited.
+	 * @return bool
+	 */
+	public static function is_protected_super_admin( int $user_id ): bool {
+		return is_multisite() && is_super_admin( $user_id ) && ! is_super_admin();
 	}
 
 	/**
@@ -1036,6 +1056,11 @@ class Members extends AdminPageBase {
 			}
 		}
 
+		// A photo the image editor cannot process (or a handle lost to a race) is
+		// reported, not dropped: the rest of the edit still saves, and the notice
+		// says what did not.
+		$partial_error = '';
+
 		// Handle avatar removal.
 		if ( ! empty( $_POST['bn_remove_avatar'] ) ) {
 			delete_user_meta( $user_id, 'bn_avatar' );
@@ -1059,7 +1084,9 @@ class Members extends AdminPageBase {
 			$avatar_tmp = isset( $_FILES['bn_avatar']['tmp_name'] ) ? (string) $_FILES['bn_avatar']['tmp_name'] : '';
 			$uploaded   = ( new \BuddyNext\Media\ImageStorageService() )->store( $avatar_tmp, 'avatar', 'user', (int) $user_id );
 
-			if ( ! is_wp_error( $uploaded ) ) {
+			if ( is_wp_error( $uploaded ) ) {
+				$partial_error = 'avatar_failed';
+			} else {
 				update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $uploaded ) );
 				wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
 				wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
@@ -1081,12 +1108,14 @@ class Members extends AdminPageBase {
 			$cover_tmp      = isset( $_FILES['bn_cover']['tmp_name'] ) ? (string) $_FILES['bn_cover']['tmp_name'] : '';
 			$cover_uploaded = ( new \BuddyNext\Media\ImageStorageService() )->store( $cover_tmp, 'cover', 'user', (int) $user_id );
 
-			if ( ! is_wp_error( $cover_uploaded ) ) {
+			if ( is_wp_error( $cover_uploaded ) ) {
+				$partial_error = 'cover_failed';
+			} else {
 				( new \BuddyNext\Profile\AvatarService() )->save_cover_url( (int) $user_id, (string) $cover_uploaded );
 			}
 		}
 
-		// Handle display name update.
+		// Handle display name update (checked in member_edit_error() above).
 		if ( isset( $_POST['display_name'] ) && '' !== $_POST['display_name'] ) {
 			wp_update_user(
 				array(
@@ -1117,8 +1146,11 @@ class Members extends AdminPageBase {
 		// Handle profile slug update.
 		if ( isset( $_POST['bn_profile_slug'] ) && '' !== $_POST['bn_profile_slug'] ) {
 			$new_slug = sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) );
-			if ( '' !== $new_slug ) {
-				\BuddyNext\Profile\Handle::set( $user_id, $new_slug ); // Availability checked in member_edit_error() above.
+			if ( '' !== $new_slug && (string) get_user_meta( $user_id, 'bn_profile_slug', true ) !== $new_slug ) {
+				// Availability checked in member_edit_error() above; a lost race still reports.
+				if ( is_wp_error( \BuddyNext\Profile\Handle::set( $user_id, $new_slug, true ) ) ) {
+					$partial_error = 'slug_taken';
+				}
 			}
 		}
 
@@ -1137,9 +1169,12 @@ class Members extends AdminPageBase {
 		 */
 		do_action( 'buddynext_admin_member_profile_saved', $user_id, $wp_user, $profile_data );
 
-		wp_safe_redirect(
-			add_query_arg( 'saved', '1', $redirect_url )
-		);
+		$done = array( 'saved' => '1' );
+		if ( '' !== $partial_error ) {
+			$done['bn_error'] = $partial_error;
+		}
+
+		wp_safe_redirect( add_query_arg( $done, $redirect_url ) );
 		exit;
 	}
 

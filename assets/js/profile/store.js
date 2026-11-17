@@ -1678,7 +1678,8 @@ const profileStore = store( 'buddynext/profile', {
 			var nonce = getContext().restNonce;
 			var input = document.createElement( 'input' );
 			input.type   = 'file';
-			input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			// Covers refuse GIF on the server, so the picker does not offer it.
+			input.accept = 'cover' === kind ? 'image/jpeg,image/png,image/webp' : 'image/jpeg,image/png,image/gif,image/webp';
 			// Attached to the page: Safari never fires change on a detached file input.
 			input.hidden = true;
 			document.querySelectorAll( 'input[data-bn-photo-input]' ).forEach( function ( old ) { old.remove(); } );

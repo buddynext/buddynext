@@ -1023,7 +1023,8 @@ class ModerationQueue {
 		header( 'Content-Disposition: attachment; filename=moderation-log-' . gmdate( 'Ymd-His' ) . '.csv' );
 
 		$out = fopen( 'php://output', 'w' );
-		fputcsv( $out, array( 'When (UTC)', 'Moderator', 'Action', 'Target member', 'Object type', 'Object ID', 'Space ID', 'Note' ) );
+		// Core\Csv::row() defuses member labels and the free-text note.
+		\BuddyNext\Core\Csv::row( $out, array( 'When (UTC)', 'Moderator', 'Action', 'Target member', 'Object type', 'Object ID', 'Space ID', 'Note' ) );
 
 		// Page through so a large log never loads whole into memory.
 		$page = 1;
@@ -1039,7 +1040,7 @@ class ModerationQueue {
 			);
 			$items  = (array) ( $result['items'] ?? array() );
 			foreach ( $items as $row ) {
-				fputcsv(
+				\BuddyNext\Core\Csv::row(
 					$out,
 					array(
 						(string) ( $row['created_at'] ?? '' ),

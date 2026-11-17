@@ -60,7 +60,9 @@ class MemberExport {
 	 * sites. Suspension status is pre-fetched in a single query per batch so
 	 * there are no per-row DB round-trips.
 	 *
-	 * Columns: ID, Login, Email, Display Name, Registered, Suspended.
+	 * Columns: ID, Login, Email, Display Name, Registered, Suspended. Rows go
+	 * through Core\Csv::row(), which defuses member-controlled cells such as a
+	 * display name of `=HYPERLINK(...)`.
 	 *
 	 * @return void
 	 */
@@ -73,7 +75,7 @@ class MemberExport {
 		}
 
 		// Header row.
-		fputcsv(
+		\BuddyNext\Core\Csv::row(
 			$output,
 			array(
 				__( 'ID', 'buddynext' ),
@@ -120,7 +122,7 @@ class MemberExport {
 
 			foreach ( $users as $user ) {
 				$suspended = isset( $suspended_ids[ $user->ID ] ) ? 'yes' : 'no';
-				fputcsv(
+				\BuddyNext\Core\Csv::row(
 					$output,
 					array(
 						$user->ID,

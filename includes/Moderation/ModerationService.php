@@ -2268,6 +2268,19 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// Nobody suspends themselves: it has no purpose and locks the person out of
+		// the screen they would lift it from. One guard here covers the admin row
+		// action, bulk and REST.
+		if ( $actor_id > 0 && $actor_id === $user_id ) {
+			return new WP_Error( 'forbidden', __( 'You cannot suspend your own account.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// On a network a site administrator ranks equal to a super admin on this
+		// site, but WordPress keeps the network owner out of their reach.
+		if ( $actor_id > 0 && is_multisite() && is_super_admin( $user_id ) && ! is_super_admin( $actor_id ) ) {
+			return new WP_Error( 'forbidden', __( 'You cannot take moderation action against someone with more authority than you.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
 		if ( null !== $outranked ) {
 			return $outranked;

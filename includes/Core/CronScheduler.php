@@ -222,6 +222,9 @@ class CronScheduler {
 			self::JOB_CLEANUP_EMAIL_LOG,
 			self::JOB_CLEANUP_REPORTS,
 			self::JOB_RECOUNT_STATS,
+			// Recurring jobs armed outside this class, same 'buddynext' group.
+			'buddynext_daily_queue_check',
+			LogRetentionService::HOOK,
 			// Legacy hooks — may still be scheduled on older installs; clear them too.
 			'buddynext_trending_hashtags',
 			'buddynext_publish_scheduled',

@@ -3693,7 +3693,13 @@ class SpaceController extends BaseRestController {
 		}
 
 		if ( empty( $check['type'] ) || ! in_array( $check['type'], $allowed, true ) ) {
-			return new WP_Error( 'image_invalid_type', __( 'Only JPEG, PNG, or WebP images are accepted.', 'buddynext' ), array( 'status' => 422 ) );
+			// The message names exactly what this kind accepts (avatars take GIF,
+			// covers do not), worded as the member photo uploads word it.
+			return new WP_Error(
+				'image_invalid_type',
+				'avatar' === $kind ? __( 'Only JPEG, PNG, GIF, or WebP images are accepted.', 'buddynext' ) : __( 'Only JPEG, PNG, or WebP images are accepted.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
 		}
 
 		$stored = ( new \BuddyNext\Media\ImageStorageService() )->store( $tmp_name, $kind, 'space', $space_id );
