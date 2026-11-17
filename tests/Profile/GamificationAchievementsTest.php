@@ -226,4 +226,25 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 
 		$this->assertStringNotContainsString( 'Rank', $this->render() );
 	}
+
+	/**
+	 * The panel hands WB Gamification the member id for its member-choices block.
+	 *
+	 * @return void
+	 */
+	public function test_panel_offers_member_choices_seam(): void {
+		$this->set_badges( array( array( 'id' => 'first', 'name' => 'First', 'image_url' => '', 'is_credential' => false, 'earned_at' => '2026-01-01 00:00:00' ) ) );
+		$seen = array();
+		$cb   = static function ( $user_id ) use ( &$seen ): void {
+			$seen[] = (int) $user_id;
+			echo '<section class="wb-gam-member-prefs"></section>';
+		};
+		add_action( 'wb_gam_render_member_prefs', $cb );
+
+		$html = $this->render();
+		remove_action( 'wb_gam_render_member_prefs', $cb );
+
+		$this->assertSame( array( $this->member_id ), $seen );
+		$this->assertStringContainsString( 'wb-gam-member-prefs', $html );
+	}
 }

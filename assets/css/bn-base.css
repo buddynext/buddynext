@@ -925,6 +925,18 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
 	}
 }
+
+/* A modal's action buttons sit at the bottom of a phone screen, where the toast
+   lands, and the toast takes the tap. While a modal is open the toast moves to the
+   top instead. Nothing is held back: many toasts are the answer to a button pressed
+   inside that modal. An open modal is a .bn-modal-backdrop that is neither [hidden]
+   nor .is-hidden (the two conventions modal-a11y.js recognises). */
+@media (max-width: 640px) {
+	body:has(.bn-modal-backdrop:not([hidden]):not(.is-hidden), dialog[open]) .bn-toast-container {
+		top: calc(env(safe-area-inset-top, 0px) + var(--bn-s4));
+		bottom: auto;
+	}
+}
 .bn-toast {
 	display: flex;
 	align-items: center;

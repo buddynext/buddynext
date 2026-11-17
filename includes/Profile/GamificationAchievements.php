@@ -143,7 +143,20 @@ class GamificationAchievements {
 	 * @return void
 	 */
 	public function enqueue(): void {
-		if ( is_admin() || 'people' !== (string) get_query_var( 'bn_hub', '' ) ) {
+		if ( is_admin() ) {
+			return;
+		}
+		$hub = (string) get_query_var( 'bn_hub', '' );
+		// The member-choices panel (wb_gam_render_member_prefs) is often reached by a
+		// client-side navigation, and the router does not load classic scripts. Run the
+		// renderer once into a discarded buffer on every hub page for a logged-in member,
+		// so WB Gamification enqueues its own small script and style up front.
+		if ( '' !== $hub && is_user_logged_in() && has_action( 'wb_gam_render_member_prefs' ) && buddynext_integration_enabled( 'gamification', 'nav' ) ) {
+			ob_start();
+			do_action( 'wb_gam_render_member_prefs', get_current_user_id() );
+			ob_end_clean();
+		}
+		if ( 'people' !== $hub ) {
 			return;
 		}
 		$ver = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : false;
@@ -259,6 +272,12 @@ class GamificationAchievements {
 		echo '<div class="bn-achievements">';
 		$this->render_standing( $member_id );
 		$this->render_badges( $member_id );
+		/**
+		 * The member's own gamification choices (show my level, leaderboards, reward
+		 * emails), rendered and saved by WB Gamification 1.6.8+. It prints nothing on a
+		 * profile that is not the viewer's own, or on older versions.
+		 */
+		do_action( 'wb_gam_render_member_prefs', $member_id );
 		echo '</div>';
 	}
 
