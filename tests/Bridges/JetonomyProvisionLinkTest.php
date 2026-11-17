@@ -62,7 +62,7 @@ class JetonomyProvisionLinkTest extends \WP_UnitTestCase {
 		}
 	}
 
-	public function test_every_failed_provision_link_returns_with_its_reason(): void {
+	public function test_a_stale_or_unauthorised_provision_link_returns_with_its_reason(): void {
 		$space = $this->space( 'open' );
 		$id    = (int) $space->id;
 
@@ -71,15 +71,25 @@ class JetonomyProvisionLinkTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'bn_provision_error=expired', $expired );
 		$this->assertStringNotContainsString( 'bn_provision_forum', $expired );
 
+		wp_set_current_user( self::factory()->user->create() );
+		$this->assertStringContainsString( 'bn_provision_error=forbidden', $this->provision_redirect( $id, 'stale' ) );
+	}
+
+	public function test_a_provision_link_with_nothing_to_create_the_forum_with_says_it_failed(): void {
+		if ( class_exists( '\Jetonomy\Models\Space', false ) ) {
+			$this->markTestSkipped( 'An earlier test in this process loaded a Jetonomy stub, so a forum can be created; run this file on its own.' );
+		}
+
+		$space = $this->space( 'open' );
+		$id    = (int) $space->id;
+
+		wp_set_current_user( $this->owner );
 		// Valid nonce, nothing to create it with: no forum table here, so no forum URL.
 		global $wpdb;
 		$quiet  = $wpdb->suppress_errors( true );
 		$failed = $this->provision_redirect( $id, wp_create_nonce( 'bn_provision_forum_' . $id ) );
 		$wpdb->suppress_errors( $quiet );
 		$this->assertStringContainsString( 'bn_provision_error=failed', $failed );
-
-		wp_set_current_user( self::factory()->user->create() );
-		$this->assertStringContainsString( 'bn_provision_error=forbidden', $this->provision_redirect( $id, 'stale' ) );
 	}
 
 	public function test_a_hidden_spaces_slug_is_not_revealed_by_the_failure_redirect(): void {
