@@ -26,7 +26,7 @@ A report is filed by a member against an object (post, reply, user, etc.). Admin
 |--------|------|------|---------|
 | POST | `/reports` | Auth | File a report. Body: `object_type`, `object_id`, `reason`, optional `notes`, `space_id`. |
 | GET | `/reports` | Moderator | List reports for a given `object_type` + `object_id` (both required). |
-| GET | `/reports/queue` | Queue | Paginated moderation queue (pending + escalated). Query: `space_id`, `object_type`, `reason`, `page`, `per_page` (default 20). Space mods see only their spaces. |
+| GET | `/reports/queue` | Queue | Paginated moderation queue (pending + escalated). Query: `space_id`, `object_type`, `reason`, `page`, `per_page` (default 20, max 100). Space mods see only their spaces. |
 | POST | `/reports/{id}/dismiss` | Auth + report scope | Dismiss the report (no action warranted). |
 | PUT | `/reports/{id}/escalate` | Auth + report scope | Escalate the report to site-admin review. The report stays open (no resolver is stamped), site and community admins get a `bn.report_escalated` bell notification (never the escalator), and escalating it again returns `409`. |
 | PUT | `/reports/{id}/resolve` | Auth + report scope | Resolve the report (handled). |
@@ -47,10 +47,10 @@ These sit alongside the report queue and share the same queue-access plan.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/moderation/pending` | Queue | Posts awaiting pre-moderation approval (paginated). |
+| GET | `/moderation/pending` | Queue | Posts awaiting pre-moderation approval (paginated: `page`, `per_page`, default 20, max 100). |
 | POST | `/posts/{id}/approve` | Queue | Approve a pending post. |
 | POST | `/posts/{id}/reject` | Queue | Reject a pending post (optional reason). |
-| GET | `/moderation/log` | Moderator or queue | Moderation action log (paginated, filterable). Query: `space_id`, `user_id`, `action`, `since_days`, `page`, `per_page` (default 20). Moderators see the whole log; a space owner/moderator passes through the queue gate and is scoped to their spaces. |
+| GET | `/moderation/log` | Moderator or queue | Moderation action log (paginated, filterable). Query: `space_id`, `user_id`, `action`, `since_days`, `page`, `per_page` (default 20, max 100). Moderators see the whole log; a space owner/moderator passes through the queue gate and is scoped to their spaces. |
 | GET | `/moderation/suspension-reasons` | Moderator | The reason list the suspend dialogs use: `{ items: [ { code, label, note_required } ], note_max }`. |
 
 ## Appeal routes

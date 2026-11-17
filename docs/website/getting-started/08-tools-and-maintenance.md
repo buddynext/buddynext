@@ -14,7 +14,20 @@ BuddyNext runs digests, cleanups, scheduled posts, and emails as background task
 
 This panel confirms they are keeping up. If WordPress cron is switched off on your site (a common performance setup on larger installs) and tasks are piling up, the screen tells you plainly and shows the exact server cron line to add so the queue keeps processing. If cron is off but tasks are still clearing, it reassures you that a system cron is already driving them and no action is needed. BuddyNext never disables WordPress cron for you - it only reports what it finds.
 
+Deactivating BuddyNext removes all of its scheduled background jobs, including the moderation queue check and log retention, so nothing keeps running or failing on a site where the plugin is switched off. They are scheduled again after you reactivate it.
+
 WordPress **Tools > Site Health** shows the same warning. If a BuddyNext background task has been waiting for more than an hour, Site Health lists "BuddyNext background tasks are not running" with the steps to fix it and a link to the waiting tasks. New posts and spaces still appear in search straight away, because indexing a single post does not wait for the queue.
+
+## What BuddyNext checks in Site Health
+
+WordPress **Tools > Site Health** carries BuddyNext checks alongside WordPress's own. Each one says what it found in plain words and, when something is wrong, what to ask your host for.
+
+| Check | It warns when | What to do |
+|---|---|---|
+| BuddyNext visitor addresses | Your recent members all signed in from the same address, which means a proxy or CDN hides the real visitor address. Skipped on sites that already map the address with `buddynext_client_ip` and on local development sites. | Ask your host to restore the visitor address (Cloudflare Restore visitor IP, nginx `real_ip`, Apache `mod_remoteip`). See [System Requirements](01a-system-requirements.md). |
+| BuddyNext online status | Members posted in the last hour but nobody was recorded as online, so the online dots would look empty. | Skip page caching for signed-in visitors and allow `/wp-json/buddynext/v1/`. See [Online Presence](../members/09-presence-online.md). |
+| BuddyNext background tasks | A background task has been waiting for more than an hour. | Turn WP-Cron back on or add a server cron job, and make sure the site can call itself. |
+| BuddyNext database tables | A BuddyNext table or column is missing. | Use the panel under Database and default emails below. |
 
 ## Object cache
 

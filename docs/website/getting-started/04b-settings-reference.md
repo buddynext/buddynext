@@ -80,7 +80,7 @@ A section of its own in the BuddyNext menu. It controls how each connected compa
 | General | Community name and description, discovery and directory defaults. | [Appearance and Branding](07-appearance-and-branding.md) |
 | Appearance | Logo, brand color, default theme, page width, custom CSS. | [Appearance and Branding](07-appearance-and-branding.md) |
 | Navigation | Which menu items appear and their order, including the mobile bottom bar. | [Admin Overview](04-admin-overview.md) |
-| Pages & URLs | The address of each community page. | [Admin Setup Wizard](03-admin-setup-wizard.md) |
+| Pages & URLs | The address of each community page. Renaming one keeps every old link working with a permanent redirect; see [Rename Members and Spaces](../recipes/08-rename-members-and-spaces.md). | [Admin Setup Wizard](03-admin-setup-wizard.md) |
 
 ## Appearance, menus, and maintenance
 

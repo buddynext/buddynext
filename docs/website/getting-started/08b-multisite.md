@@ -23,6 +23,8 @@ Users created in Network Admin, or activated from a blog sign-up, are not member
 - Banned names, banned email domains and limited email domains from Network Admin > Settings apply to community sign-ups.
 - Upload size and quota keep BuddyNext's own limits.
 
+- Editing a member from wp-admin follows WordPress's own permissions: a site administrator cannot change another member's email, display name, profile URL or role without the matching permission, and cannot edit a network super admin. See [Editing a Member from the Admin](../members/14-admin-editing-a-member.md).
+
 ## Removing and deleting people
 
 - Removing someone from the main site, or rejecting a pending sign-up, removes their community data. Their account stays if they also belong to another site.

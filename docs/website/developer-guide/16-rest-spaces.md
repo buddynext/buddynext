@@ -45,8 +45,8 @@ The gating is authored from the Monetization admin (either the Paywall tab's spa
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/spaces/{id}/members` | Public | List members, keyset-paginated. Query: `cursor`, `per_page` (default 50), `search`, `role` (`owner`, `moderator`, `member`). |
-| GET | `/spaces/{id}/pending-requests` | Auth (owner/mod) | List pending join requests (paginated). |
+| GET | `/spaces/{id}/members` | Public | List members, keyset-paginated. Query: `cursor`, `per_page` (default 50, max 100), `search`, `role` (`owner`, `moderator`, `member`). |
+| GET | `/spaces/{id}/pending-requests` | Auth (owner/mod) | List pending join requests (paginated: `page`, `per_page`, max 100). |
 | POST | `/spaces/{id}/members/{user_id}/approve` | Auth (owner/mod) | Approve a pending join request. |
 | POST | `/spaces/{id}/members/{user_id}/decline` | Auth (owner/mod) | Decline a pending join request. |
 | POST | `/spaces/{id}/members/decide-bulk` | Auth (owner/mod) | Approve or decline several pending requests in one call. Body: `user_ids` (int[], required), `decision` (`approve` or `decline`, required). |

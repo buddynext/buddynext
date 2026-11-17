@@ -18,7 +18,7 @@ The BuddyNext frontend is 100% REST. Every data interaction from templates, fron
 | Error body | `{ "code": "...", "message": "...", "data": { "status": N } }` |
 | Permission | Every route declares a `permission_callback` - never omitted |
 | Pagination | Cursor-based (`next_cursor`) for timelines/directories; page-numbered for bounded admin/search lists |
-| `per_page` max | 50 on collection reads; webhook delivery log allows up to 100 |
+| `per_page` max | 50 on most collection reads; 100 on the routes listed under Ceilings below |
 
 Routes registered as editable accept `POST`, `PUT` and `PATCH` on the same path (the WordPress `EDITABLE` method set); the route pages list `PUT` for these. Creatable-only routes accept `POST` alone.
 
@@ -93,6 +93,17 @@ Errors are returned as a `WP_Error` carrying a `code`, a human-readable `message
 
 Common status codes in use: 400 (bad payload), 401 (not authenticated / bad nonce or signature), 403 (authenticated but lacks capability), 404 (object not found), 422 (validation failure, for example an invalid URL), 502/503 (an upstream/integration failure). A permission failure resolves to `rest_forbidden` with status 401 or 403 regardless of whether the callback returned `false` or a `WP_Error`, because WordPress normalizes both to the same envelope.
 
+### Error code conventions
+
+This describes how codes behave today. The surface grew over several releases, so the codes are consistent in shape but not in prefix.
+
+- **A code is a lowercase snake_case string.** Branch on `code` together with `data.status`, never on `message`: messages are translated and their wording can change between releases.
+- **Most codes are plain and descriptive**: `not_found`, `forbidden`, `space_not_found`, `post_not_found`, `user_not_found`, `invalid_user`, `empty_content`. A newer or cross-feature code carries a `bn_` prefix (for example `bn_discussion_taken`, `bn_album_not_found`, `bn_feature_disabled`). WordPress's own codes, such as `rest_forbidden` and `rest_not_logged_in`, appear where a permission check fails. Do not assume every code has a prefix, and do not assume a fixed list: read the code a route returns.
+- **Status maps to the kind of failure.** `400` bad request, `401` not signed in or a bad nonce, `403` signed in but not allowed (also a feature that is turned off, below), `404` the object does not exist or the viewer may not know it exists, `409` the request conflicts with current state (a handle or a discussion already taken, for example), `422` a field failed validation, `429` a rate limit (comment flooding, for example), `502`/`503` an upstream or integration problem.
+- **A field problem names the field.** Validation refusals use a code that says what is wrong, for example `handle_too_short`, `handle_too_long`, `handle_unusable_characters` (all `422`) and `handle_taken` (`409`), and the message is written for the member to read.
+- **A feature that is turned off is refused, not removed.** Free keeps the route registered and returns `{feature}_disabled` (for example `comments_disabled`, `polls_disabled`) or `feature_disabled`, status `403` (some routes use `404`), with `data.feature` set to the feature slug, so a client can tell "turned off" from "not allowed". See [the feature-off refusal helper](05-feature-groups-and-tiers.md#the-feature-off-refusal-helper).
+- **A held member gets the same refusal everywhere.** While a membership hold applies, a held member is refused on `buddynext/v1` and on the Jetonomy routes with the same code, message and `hold_url`.
+
 ## Permission callbacks
 
 Every `register_rest_route` call declares a `permission_callback`. This is a hard requirement - a route without one is a contract violation. The callback runs before the route's callback and returns `true`, `false`, or a `WP_Error`.
@@ -122,7 +133,24 @@ Bounded admin and search listings - global search, the webhook delivery log, Pro
 
 ### Ceilings
 
-- `per_page` maximum is 50 on collection reads, enforced per route. The webhook delivery log allows up to 100.
+- `per_page` maximum is 50 on most collection reads, enforced per route (the route's `per_page` argument declares `maximum`, so `GET /wp-json/buddynext/v1` shows the real value). These routes allow up to 100:
+
+  | Route | Default |
+  |---|---|
+  | `GET /users/{id}/mutual-connections` | 20 |
+  | `GET /me/scheduled-posts` | 20 |
+  | `GET /me/pending-posts` | 20 |
+  | `GET /me/shares` | 20 |
+  | `GET /reports/queue` | 20 |
+  | `GET /moderation/pending` | 20 |
+  | `GET /moderation/log` | 20 |
+  | `GET /spaces/{id}/media` | 24 |
+  | `GET /me/blocked`, `GET /me/muted`, `GET /me/restricted` | 50 |
+  | `GET /spaces/{id}/members` | 50 |
+  | `GET /spaces/{id}/pending-requests` | none (all) |
+  | `GET /webhooks/{id}/log` | 20 |
+
+  `GET /reactions/list` takes `limit` (up to 100, default 100) instead of `per_page`. The media and album routes clamp to 60 (see the media page).
 - Sidebar widgets cap at 5-10 rows.
 - Search results cap at 100 per page with a hard ceiling of 1000 rows across all pages.
 - Counts shown in the UI (post count, follower count, member count, unread count) come from cached/denormalized columns, never a live `SELECT COUNT(*)` in a page render.

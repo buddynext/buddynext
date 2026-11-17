@@ -58,11 +58,22 @@ Your profile has a web address. By default it uses a system-assigned address, bu
 
 When you type a handle, BuddyNext checks availability live as you type and tells you whether it is free or already taken before you save. A handle is accepted only when:
 
-- It is not blank.
+- It is between 3 and 30 characters.
+- It uses only letters, numbers, underscores and hyphens.
 - It is not already used by another member.
 - It is not a reserved system address belonging to a different member.
+- It is not a reserved word (see below).
 
-Handles are converted to a clean, URL-safe form automatically (lowercase, spaces and punctuation turned into hyphens), so what you save is always a valid link.
+A period is not allowed in a handle. If you type one (or a space), BuddyNext turns it into a hyphen as you type, so `john.doe` is saved as `john-doe` and the box never shows a handle the save would change. Handles are lowercase, so what you save is always a valid link and a working @mention.
+
+#### Reserved handles
+
+Some handles are held back so nobody can pose as the community or collide with one of its addresses. There are two tiers:
+
+- **Route words** (`me`, `edit`, `settings`, `admin`, `search`, `new`, `all`, `page`) are used in BuddyNext's own addresses. Nobody can take them, administrators included.
+- **Impersonation words** such as `support`, `administrator`, `moderator`, `staff`, `help`, `team` and `official` are refused for members. An administrator can still give one to a real staff account from the member's **Account** tab in wp-admin (see [Editing a Member from the Admin](14-admin-editing-a-member.md)).
+
+The rules apply at every door: the sign-up form (including a typed username and the WordPress registration form), Edit Profile, the REST API and wp-admin. A member who already held one of these words before the rule existed keeps it. At sign-up, an email like `support@example.com` is never refused: the member simply gets `support2` instead, and can change it later. A developer can add words (a brand name, for example) with the `buddynext_reserved_profile_slugs` filter; see the [hooks reference](../developer-guide/28-hooks-members-profiles-social.md).
 
 
 ### The Profile Header block
@@ -96,7 +107,7 @@ To remove a default avatar or cover image you previously set, use the remove con
 ## Good to know
 
 - **An admin can edit a member's whole profile, not just their avatar.** Beyond removing an avatar, administrators can open any member from **BuddyNext > Members > Directory** and edit their display name, email, role, handle, avatar and cover photo, and every custom profile field - see [Editing a Member from the Admin](14-admin-editing-a-member.md). After an avatar removal, the member falls back to the site's default avatar style until they upload a new one. Members can always re-upload their own.
-- **Handles are unique across the whole community.** No two members can hold the same handle, and the system-reserved address pattern is protected, so a member cannot claim an address that points to someone else.
+- **Handles are unique across the whole community.** No two members can hold the same handle, and the system-reserved address pattern is protected, so a member cannot claim an address that points to someone else. Reserved words are held back as described under Setting a username.
 - **Privacy is enforced on read, not just on display.** When a field is set to followers-only or connections-only, it is filtered out for everyone who does not qualify, both on the profile page and in any connected app - so a hidden field is genuinely hidden, not just visually removed.
 - **Empty profiles hide their own detail.** A field group with no filled values does not render, so a brand-new profile looks clean rather than showing a wall of blank rows. This is also why completing your profile matters - filled fields are what make the page worth visiting.
 - **Author links go to the profile while it lists the author's posts.** With WB Member Blog active (so profiles have an **Articles** tab), wherever a theme or plugin links to a post's author - the byline and author box under a post, category and search results, an author archive header - the link opens that member's BuddyNext profile instead of a WordPress author archive. Without Member Blog the profile has no list of the author's posts, so bylines keep the WordPress author archive, which does. The `/author/` address itself still opens. The link stays on the WordPress address when the viewer is not allowed to see that profile (private or followers-only), so a byline never leads to a wall, and for wp-admin, the REST API, feeds and the sitemap. To keep WordPress author archives, turn off the **nav** aspect of the **Blog posts** integration under **BuddyNext > Integration Settings**, or return `false` from the `buddynext_author_link_to_profile` filter (it receives the author's user ID).

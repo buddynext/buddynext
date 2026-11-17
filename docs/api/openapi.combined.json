@@ -3,7 +3,7 @@
     "info": {
         "title": "BuddyNext REST API (Free + Pro)",
         "description": "The complete REST surface of BuddyNext: the Free plugin under `buddynext/v1` and BuddyNext Pro under `buddynext-pro/v1` (membership, payments, AI, analytics, email, push, moderation). Generated from the live route registry by bin/gen-openapi.php; do not hand-edit. The narrative reference lives in the Developer Guide.",
-        "version": "1.2.7",
+        "version": "1.2.9",
         "contact": {
             "name": "Wbcom Designs",
             "url": "https://wbcomdesigns.com"
@@ -8835,6 +8835,12 @@
                                     },
                                     "parent_id": {
                                         "type": "integer"
+                                    },
+                                    "render": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -8854,6 +8860,18 @@
                 "operationId": "get_buddynext_v1_comments",
                 "summary": "GET /buddynext/v1/comments",
                 "parameters": [
+                    {
+                        "name": "render",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "html"
+                            ]
+                        }
+                    },
                     {
                         "name": "object_type",
                         "in": "query",
@@ -8920,6 +8938,52 @@
             }
         },
         "/buddynext/v1/comments/{id}": {
+            "get": {
+                "tags": [
+                    "Feed and Posts"
+                ],
+                "operationId": "get_buddynext_v1_comments_id_",
+                "summary": "GET /buddynext/v1/comments/{id}",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "render",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "html"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
             "post": {
                 "tags": [
                     "Feed and Posts"
@@ -8973,6 +9037,12 @@
                                 "properties": {
                                     "content": {
                                         "type": "string"
+                                    },
+                                    "render": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -9036,6 +9106,12 @@
                                 "properties": {
                                     "content": {
                                         "type": "string"
+                                    },
+                                    "render": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -9099,6 +9175,12 @@
                                 "properties": {
                                     "content": {
                                         "type": "string"
+                                    },
+                                    "render": {
+                                        "type": "string",
+                                        "enum": [
+                                            "html"
+                                        ]
                                     }
                                 },
                                 "required": [
@@ -15579,6 +15661,15 @@
                                     "placeholder": {
                                         "type": "string"
                                     },
+                                    "width": {
+                                        "type": "string",
+                                        "enum": [
+                                            "auto",
+                                            "half",
+                                            "full"
+                                        ],
+                                        "description": "Width on the edit and sign-up forms: auto (by field type), half or full row."
+                                    },
                                     "is_required": {
                                         "type": "boolean",
                                         "default": false
@@ -15680,6 +15771,15 @@
                                     },
                                     "placeholder": {
                                         "type": "string"
+                                    },
+                                    "width": {
+                                        "type": "string",
+                                        "enum": [
+                                            "auto",
+                                            "half",
+                                            "full"
+                                        ],
+                                        "description": "Width on the edit and sign-up forms: auto (by field type), half or full row."
                                     },
                                     "is_required": {
                                         "type": "boolean"
@@ -15912,6 +16012,10 @@
                                     "sort_order": {
                                         "type": "integer",
                                         "default": 0
+                                    },
+                                    "intro": {
+                                        "type": "string",
+                                        "description": "Optional text shown above the group's fields on the edit and sign-up forms."
                                     }
                                 },
                                 "required": [
@@ -15984,6 +16088,10 @@
                                     },
                                     "sort_order": {
                                         "type": "integer"
+                                    },
+                                    "intro": {
+                                        "type": "string",
+                                        "description": "Optional text shown above the group's fields on the edit and sign-up forms."
                                     }
                                 }
                             }
@@ -18000,7 +18108,7 @@
                         "name": "paginate",
                         "in": "query",
                         "required": false,
-                        "description": "Set to 1/true/yes to wrap rows with total + total_pages. Ignored on the search path -- see list_spaces().",
+                        "description": "Set to 1/true/yes to wrap rows with total + total_pages, with or without a search.",
                         "schema": {
                             "type": "string"
                         }
@@ -23990,6 +24098,15 @@
                                 "owner_cta": {
                                     "type": "object"
                                 },
+                                "owner_primary": {
+                                    "type": [
+                                        "array",
+                                        "object"
+                                    ]
+                                },
+                                "owner_empty": {
+                                    "type": "string"
+                                },
                                 "items": {
                                     "type": "array"
                                 }
@@ -25715,6 +25832,9 @@
                                 "sort_order": {
                                     "type": "integer"
                                 },
+                                "intro": {
+                                    "type": "string"
+                                },
                                 "locked": {
                                     "type": "boolean"
                                 },
@@ -25753,6 +25873,14 @@
                                 },
                                 "placeholder": {
                                     "type": "string"
+                                },
+                                "width": {
+                                    "type": "string",
+                                    "enum": [
+                                        "auto",
+                                        "half",
+                                        "full"
+                                    ]
                                 },
                                 "is_required": {
                                     "type": "boolean"
@@ -25954,6 +26082,9 @@
                                 "sort_order": {
                                     "type": "integer"
                                 },
+                                "intro": {
+                                    "type": "string"
+                                },
                                 "locked": {
                                     "type": "boolean"
                                 },
@@ -25992,6 +26123,14 @@
                                 },
                                 "placeholder": {
                                     "type": "string"
+                                },
+                                "width": {
+                                    "type": "string",
+                                    "enum": [
+                                        "auto",
+                                        "half",
+                                        "full"
+                                    ]
                                 },
                                 "is_required": {
                                     "type": "boolean"
@@ -26164,6 +26303,9 @@
                                 "type_restriction": {
                                     "type": "string"
                                 },
+                                "intro": {
+                                    "type": "string"
+                                },
                                 "fields": {
                                     "type": "array"
                                 }
@@ -26202,6 +26344,9 @@
                                     "type": "integer"
                                 },
                                 "type_restriction": {
+                                    "type": "string"
+                                },
+                                "intro": {
                                     "type": "string"
                                 }
                             }
@@ -30858,6 +31003,12 @@
                         "type": "integer"
                     },
                     "plan_name": {
+                        "type": "string"
+                    },
+                    "subscription_id": {
+                        "type": "integer"
+                    },
+                    "type": {
                         "type": "string"
                     },
                     "status": {

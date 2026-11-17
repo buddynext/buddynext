@@ -29,7 +29,7 @@ On the activity feed, BuddyNext checks for newer posts every 60 seconds. When ac
 
 ### Online presence
 
-Each member's "last active" time is recorded as they browse the community, so others can see who is around. Presence appears as an online dot on member cards, the direct-message rail, and profile headers, and powers the "Online now" filter and sort in the member directory. A member counts as online if they have been active in the last 5 minutes. Presence is recorded on every front-end page view, so it works even for members who have JavaScript disabled.
+Each member's "last active" time is recorded as they browse the community, so others can see who is around. Presence appears as an online dot on member cards, the direct-message rail, and profile headers, and powers the "Online now" filter and sort in the member directory. A member counts as online if they have been active in the last 10 minutes. Presence is recorded when a page loads, when a member moves between pages and when they return to a tab, with no background polling, so it also works behind a page cache and for members who have JavaScript disabled.
 
 ## Setting it up (for owners)
 
@@ -41,7 +41,7 @@ There are no settings to enable or tune this feature. It activates automatically
 
 - Polling is paused on hidden tabs and resumes on return, so it does not run when no one is watching.
 - The notification bell and "new posts" pill update in near-real-time, not instantly. Free uses polling on a short interval, so expect a new item to show within the poll window (up to 30 seconds for the bell when idle, up to 60 seconds for the feed pill) rather than the moment it happens.
-- Presence has a 5-minute window. A member who closes the tab keeps showing as online until that window passes, then drops off. This matches how mainstream networks treat "recently active".
+- Presence has a 10-minute window. A member who closes the tab keeps showing as online until that window passes, then drops off. This matches how mainstream networks treat "recently active".
 - Direct-message live updates are handled by the messaging layer, not by this feature. See Messaging for how conversations stay current.
 
 ## Free vs Pro

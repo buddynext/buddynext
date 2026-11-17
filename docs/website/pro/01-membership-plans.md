@@ -30,7 +30,7 @@ Members never touch the admin. They see two surfaces, and BuddyNext creates both
 - **The pricing page** - a normal, editable WordPress page at `/membership-plans/` by default. It carries the pricing block, and because it is a real page you can add a hero, testimonials, an FAQ, anything, with the editor you already use. Since 1.2.4 it renders inside the community layout (same header, menu, light and dark mode and phone layout as every community page) instead of the theme's page template, and it stays open to visitors when the community is private, so people can buy before they join.
 - **Settings > Membership** - the member's own billing area, at `/settings/membership/`, sitting alongside their notification settings.
 
-You can rename the pricing slug, or point it at a different page, from Settings → Pages & URLs. The default slug avoids the bare `/membership/` path, which other plugins sometimes claim. If the page is ever deleted, BuddyNext recreates it on the next admin screen load while Monetization is on. The billing area is a settings tab rather than a page, so it needs no Pages & URLs row.
+You can rename the pricing slug, or point it at a different page, from Settings → Pages & URLs; the old address then redirects to the new one (see [Rename Members and Spaces](../recipes/08-rename-members-and-spaces.md)). The default slug avoids the bare `/membership/` path, which other plugins sometimes claim. If the page is ever deleted, BuddyNext recreates it on the next admin screen load while Monetization is on. The billing area is a settings tab rather than a page, so it needs no Pages & URLs row.
 
 ### View the plans and subscribe
 
@@ -278,7 +278,7 @@ The Subscriptions tab is your record of who has access. It lists each subscripti
 - Reinstate - on an expired or cancelled row, makes it active again from today.
 
 The tab has three views: **Subscriptions**, **Orders**, and **Add order**.
-- **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders view has the same button.
+- **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders view has the same button. Cells that could run as a spreadsheet formula are written as plain text with a leading single quote.
 
 A subscription's source tells you how it was created: a gateway name (such as Stripe or PayPal) for a paid purchase, **Granted by admin** for access you granted outside checkout, **Default plan** for the plan every new member is placed on, or **Test payment** for a Test gateway purchase. A membership granted by another system - WooCommerce, Paid Memberships Pro, or any integration that uses the source contract - is named as that source and is deliberately **not** counted as revenue this site collected.
 

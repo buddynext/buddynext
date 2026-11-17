@@ -30,7 +30,7 @@ Registration is how people create an account and join your community. BuddyNext 
 | Terms of Service | Must be checked to continue. | Yes, when you have set a Terms page |
 | Profile fields | Any field you marked to show at registration. Required ones must be filled. | Only the ones you chose |
 
-> **Note on usernames:** BuddyNext does not ask a new member to invent a username. It generates a unique one from their email address, and the member can change it later in their settings. This is deliberate: "that username is taken" is one of the most common reasons someone abandons a sign-up form, and most people do not care what their handle is at the moment they join. If your community *is* about handles, switch **Let members choose their own username** on and the field appears.
+> **Note on usernames:** BuddyNext does not ask a new member to invent a username. It generates a unique one from their email address (a reserved word such as `support` or `me` gets a number added, so `support@` becomes `support2`), and the member can change it later in their settings. This is deliberate: "that username is taken" is one of the most common reasons someone abandons a sign-up form, and most people do not care what their handle is at the moment they join. If your community *is* about handles, switch **Let members choose their own username** on and the field appears.
 
 > **Note:** If you restrict registration to certain email domains, an address outside those domains is rejected at sign-up.
 
@@ -80,12 +80,16 @@ These live under **BuddyNext > Members > Registration & Login**.
 | Panel banner image | A full-width banner image behind the panel. | Built-in gradient artwork |
 | Protect the sign-up form | Turns on the built-in spam protection, which quietly screens out bots and fake sign-ups without a captcha service. | On |
 | Show a human-verification question | Adds a simple "what is three plus five?" question to the form. No images, no cookies, no external captcha. Requires spam protection to be on. | On |
-| Sign-ups per hour per IP | The most sign-up attempts allowed from a single IP address per hour. Untick the box to remove this limit. | 5 |
+| Sign-ups per hour per IP | The most sign-up attempts allowed from a single IP address per hour. Untick the box to remove this limit. Behind a proxy or CDN that hides visitor addresses, the whole site shares one limit; see the note below. | 5 |
 | Allowed email domains | One domain per line. When set, only addresses from these domains can register. Leave blank to allow all. | Blank (all domains) |
 | Blocked email domains | One domain per line. Addresses from these domains cannot register. | Blank |
 | Terms of Service page | The page the sign-up consent line links to. | None |
 | Sign-up form subtitle | The line shown under the sign-up form heading. | A built-in line |
 | After login / After logout / After onboarding | Where members go after each step. Leave blank for the activity feed, the login page, and the activity feed. | Blank |
+
+> **Sign-up behind a proxy or CDN:** the per-IP limit and the blocked-IP list both use the visitor address WordPress sees. If your site sits behind Cloudflare or a load balancer that does not pass the real address on, every visitor looks the same, so the limit trips for the whole site. Tools > Site Health shows a warning when this is happening, and [System Requirements](../getting-started/01a-system-requirements.md) lists the host-side fix. Sign-up, sign-in, password reset and social sign-in all read the same address as the blocklist.
+
+> **Reserved usernames:** a username such as `support`, `staff` or `admin` is refused at sign-up (typed on the BuddyNext form or the WordPress registration form). An email address like `support@` is never refused: the member simply gets `support2` as their handle. See [Member Profiles](../members/01-member-profiles.md#setting-a-username-your-profile-handle).
 
 > **Note:** Registration Mode also respects the core WordPress "Anyone can register" setting. If registration is closed in WordPress, sign-up is closed too, and visitors see a "Registration is currently closed" message. A fresh BuddyNext install (1.0.4+) turns the core setting on to match its default Open mode, so registration works out of the box; changing the Registration Mode keeps the two in sync from then on.
 

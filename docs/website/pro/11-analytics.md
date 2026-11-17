@@ -69,7 +69,7 @@ The dashboard is organized into views you switch between at the top of the page.
 
 ### Exporting to CSV
 
-The exportable views each have an export button in the section header: **Export overview (CSV)**, **Export cohorts (CSV)** or **Export funnel (CSV)**. Overview exports the headline numbers, the daily active users, the new registrations per day, and the top content and top members for the selected time window. Cohorts exports the retention matrix, and Funnel exports the step-by-step conversion report. Profile views is not exportable. Each file is spreadsheet-friendly, so you can keep records, chart it elsewhere, or share it with your team.
+The exportable views each have an export button in the section header: **Export overview (CSV)**, **Export cohorts (CSV)** or **Export funnel (CSV)**. Overview exports the headline numbers, the daily active users, the new registrations per day, and the top content and top members for the selected time window. Cohorts exports the retention matrix, and Funnel exports the step-by-step conversion report. Profile views is not exportable. Exports use the same CSV writer as the rest of BuddyNext, so a cell that starts with `=`, `+`, `-` or `@` is written with a leading single quote and a spreadsheet shows it as plain text instead of running it. Each file is spreadsheet-friendly, so you can keep records, chart it elsewhere, or share it with your team.
 
 ### Settings
 

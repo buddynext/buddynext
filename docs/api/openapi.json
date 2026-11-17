@@ -11,7 +11,7 @@
             "name": "GPL-2.0-or-later",
             "identifier": "GPL-2.0-or-later"
         },
-        "version": "1.2.7"
+        "version": "1.2.9"
     },
     "servers": [
         {
@@ -4026,6 +4026,64 @@
                         "appPassword": []
                     }
                 ]
+            }
+        },
+        "/kudos": {
+            "post": {
+                "tags": [
+                    "Social Graph"
+                ],
+                "operationId": "post_kudos",
+                "summary": "POST /buddynext/v1/kudos",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "receiver_id": {
+                                        "type": "string"
+                                    },
+                                    "message": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "receiver_id"
+                                ]
+                            }
+                        }
+                    }
+                }
             }
         },
         "/link-preview": {
@@ -14343,6 +14401,49 @@
                 ]
             }
         },
+        "/users/{id}/achievements": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_users_id_achievements",
+                "summary": "GET /buddynext/v1/users/{id}/achievements",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Achievement"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/users/{id}/albums": {
             "get": {
                 "tags": [
@@ -17286,6 +17387,15 @@
                                 },
                                 "owner_cta": {
                                     "type": "object"
+                                },
+                                "owner_primary": {
+                                    "type": [
+                                        "array",
+                                        "object"
+                                    ]
+                                },
+                                "owner_empty": {
+                                    "type": "string"
                                 },
                                 "items": {
                                     "type": "array"
@@ -23599,6 +23709,59 @@
                                 },
                                 "purpose": {
                                     "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Achievement": {
+                "type": "object",
+                "properties": {
+                    "has_standing": {
+                        "type": "boolean"
+                    },
+                    "standing": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "icon": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "badges": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "image_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                },
+                                "is_credential": {
+                                    "type": "boolean"
+                                },
+                                "earned_at": {
+                                    "type": "string"
+                                },
+                                "share_url": {
+                                    "type": "string",
+                                    "format": "uri"
                                 }
                             }
                         }

@@ -19,7 +19,7 @@ BuddyNext creates a notification when another member does something that involve
 | Event | When it fires |
 |---|---|
 | New follower | Someone starts following you |
-| Follow request | Someone requests to follow your private account |
+| Follow request | Someone requests to follow your private account. Opening it takes you to your own Followers tab, where you accept or decline. |
 | Connection request | Someone sends you a connection request |
 | Connection accepted | Someone accepts your connection request |
 | Reaction on your post | Someone reacts to a post you authored |

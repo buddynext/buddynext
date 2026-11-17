@@ -122,8 +122,40 @@ if ( $container->has( 'sidebar_widgets' ) ) {
 Turning a toggleable feature off removes it from the member's path - the nav links and the hub route - so a member never lands on a half-disabled page. BuddyNext enforces this at these points:
 
 1. **Service + listener may not bind.** A feature whose Service/Cache is registered behind an `is_enabled()` guard in `register_services()` (e.g. `sidebar`, `webhooks`) leaves its container keys unregistered when off, so nothing downstream resolves them. Not every feature is wired this way - many controllers are plain and always constructed.
-2. **REST controllers mostly register unconditionally.** `REST/Router::register_routes()` constructs every controller regardless of feature state; only `webhooks` is gated by `is_enabled('webhooks')`. So a disabled feature's endpoints usually still respond to a direct API caller - the toggle is a UI/hub control, not a route kill-switch. A route that must be closed when its feature is off enforces that in its own permission callback.
+2. **REST controllers mostly register unconditionally.** `REST/Router::register_routes()` constructs every controller regardless of feature state; only `webhooks` is gated by `is_enabled('webhooks')`. So a disabled feature's endpoints usually still respond to a direct API caller - the toggle is a UI/hub control, not a route kill-switch. A route that must be closed when its feature is off enforces that in its own permission callback, and since 1.3.0 it does so through one helper (below).
 3. **Hub routes redirect.** `PageRouter::dispatch_hub_template()` re-checks the registry for the toggleable hubs and bounces visitors away from a disabled surface. For example, when a toggleable hub is off, its `/hub/` path redirects to the activity hub; the same guard protects `onboarding`, the `hashtags` per-tag feed, and (via `MessagesData::entry_enabled()`) the `wpmediaverse`-backed messages hub. (`spaces` is mandatory, so it is never in this set.)
+
+### The feature-off refusal helper
+
+Feature routes stay registered when their toggle is off, so an app or a cached page that still calls one gets a stable error instead of a WordPress 404. Use `buddynext_feature_refusal()` (defined in `bootstrap.php`, since 1.3.0):
+
+```php
+buddynext_feature_refusal( string $slug, string $code = '', string $message = '', int $status = 403 ): ?WP_Error
+```
+
+It returns `null` while the feature is on, and otherwise a `WP_Error` whose code defaults to `{$slug}_disabled`, status `403`, and data `{ status, feature }`, where `feature` is the slug. A client can therefore tell "turned off" (`data.feature` is set) from "not allowed" (a plain `rest_forbidden`). In a permission callback:
+
+```php
+$off = buddynext_feature_refusal( 'bookmarks', 'bookmarks_disabled', __( 'Bookmarks are turned off on this community.', 'my-textdomain' ) );
+if ( $off ) {
+	return $off;
+}
+```
+
+Codes Free returns today:
+
+| Feature slug | Code | Status |
+|---|---|---|
+| `comments` | `comments_disabled` | 403 |
+| `reactions` | `reactions_disabled` | 403 |
+| `bookmarks` | `bookmarks_disabled` | 403 |
+| `polls` | `polls_disabled` (the poll vote route, and creating a post with a poll) | 403 |
+| `hashtags` | `hashtags_disabled` | 403 |
+| `shares` | `shares_disabled` | 403 |
+| `onboarding` | `feature_disabled` | 403 |
+| `announcements` | `feature_disabled` (creating an announcement: 403; dismissing one: 404) | 403 / 404 |
+
+Other routes use their own codes when a feature is off, for example `bn_feature_disabled` (404) on `/me/notifications/this-week` while Sidebar is off. Pro feature routes are different again: Pro registers a controller only while its feature is on (for example scheduled posts), so those routes 404 when the feature is off.
 
 Templates that optionally use a feature follow the plug-and-play degradation pattern - check `Container::has()`, and fall back to an empty result when the feature is absent:
 

@@ -28,7 +28,19 @@ Hero actions above the tabs also let you **mark the member's email verified** (s
 
 Selecting **Save Profile** submits everything on the page at once.
 
+## Who can edit what
+
+Editing follows WordPress's own rules for editing a user, so BuddyNext never lets someone change what WordPress would refuse them.
+
+- **On a single site** an administrator can change everything on this screen.
+- **On a multisite network**, a site administrator can edit a member's community data (profile fields, photos, member type) but needs WordPress's permission to change the account fields: **email, display name and profile URL** are read-only for them (a short hint says so) unless they hold the matching permission, and the **role** drop-down is disabled unless they may change that member's role. Saving a change they are not allowed to make is refused with a clear message instead of being skipped.
+- **A network super admin** can only be edited by another super admin. A site administrator who opens one is told so and nothing is saved.
+- **Reserved handles.** An administrator can give a staff account a reserved word such as `support` or `staff` in the **Profile URL** field. Words BuddyNext uses in its own addresses (`me`, `settings`, `edit`, `search`, `new`, `all`, `page`, `admin`) stay blocked for everyone. A member who already holds a reserved word can still be edited for unrelated changes. See [Member Profiles](01-member-profiles.md#setting-a-username-your-profile-handle).
+
 ## Good to know
+
+- **A photo that cannot be processed is reported.** If the image editor cannot process an avatar or cover, the rest of your edit is still saved and the notice tells you which photo was not. Uploads are checked by the file's real contents, not the type the browser reports.
+- **You cannot suspend your own account.** An administrator suspending themselves is refused, and on a network a site administrator cannot suspend a network super admin.
 
 - **The same validation applies.** A save goes through the identical profile-save logic a member's own edit uses - a required field left empty, an out-of-range number, or a malformed value is rejected with the same message, attributed to the same field, rather than silently accepted from the admin screen.
 - **The whole save is atomic.** If any field fails validation, nothing on the page is saved - not even the fields that were fine. This avoids a half-written profile that no longer matches what you see on screen. Fix the flagged field and save again.
@@ -36,6 +48,10 @@ Selecting **Save Profile** submits everything on the page at once.
 - **You edit values, not privacy.** This screen changes what a field holds; it does not change who is allowed to see it. Each field's audience stays whatever the member (or the field's default) has set - see [Custom Profile Fields](02-profile-fields.md).
 - **Repeater entries work the same way.** Work Experience, Education, or any repeating group you have built can be edited entry by entry, and new entries can be added, from the group's tab.
 - **This is not the same as the WordPress user-profile screen.** wp-admin's own **Users > Edit User** screen still exists and edits the WordPress account directly; this BuddyNext screen is where you edit the community-facing profile the member and everyone else actually sees.
+
+## Exporting members
+
+The **Export CSV** button at the top of **BuddyNext > Members > Directory** downloads every member as a CSV file (ID, login, email, display name, registered date and whether the member is suspended). Because members choose their own display names, a cell that starts with `=`, `+`, `-` or `@` is written with a leading single quote so a spreadsheet shows it as plain text and never runs it as a formula. The moderation log export is written the same way.
 
 ## Free vs Pro
 

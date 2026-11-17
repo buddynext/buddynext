@@ -23,10 +23,9 @@ Every post card shows a Save action for signed-in members. Tap it to save the po
 Tap Save again on a saved post to remove it. The icon returns to its normal state and the post drops out of your bookmarks list.
 
 
-### The bookmarks hub
+### The Bookmarks list
 
-Open your bookmarks hub to see everything you have saved in one place, newest first. The list is paginated so it stays fast even after you have saved hundreds of posts. From the hub you can read a saved post, jump to it, or unsave it.
-
+Open **Bookmarks** from your menu (the left navigation, in the group with your profile and settings) to see everything you have saved in one place, newest first. Its address is `/me/bookmarks/`, and it is for signed-in members only. Posts show as the same cards you see in the feed, so you can react, comment or unsave from the list. The list shows 15 posts at a time; **Older bookmarks** loads the next batch, so it stays fast even after you have saved hundreds of posts.
 
 ## Setting it up (for owners)
 
@@ -36,7 +35,7 @@ Bookmarks are on by default. One setting controls whether members can save posts
 |---------|--------------|---------|
 | Bookmarks (BuddyNext > Platform > Features) | Lets members save posts to a private bookmarks list. Turn it off to remove the Save action from post cards. | On |
 
-When the setting is off, the Save action no longer appears on post cards.
+When the setting is off, the Save action no longer appears on post cards, the **Bookmarks** menu item is hidden, and anyone who opens `/me/bookmarks/` is sent to the activity feed. Posts members saved earlier are kept, and come back if you turn the setting on again.
 
 ## Good to know
 

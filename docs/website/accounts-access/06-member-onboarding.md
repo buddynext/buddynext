@@ -9,7 +9,7 @@ BuddyNext greets every new member with a short welcome wizard the moment they fi
 The onboarding wizard is a guided first-session flow that opens right after a new member registers (or right after they verify their email, if email verification is turned on). It has up to six steps - profile, interests, spaces, follows, notifications, and an optional membership offer - and the Interests step appears only when your community has space categories set up, so a community with none shows one fewer. For the member-facing walkthrough of every screen, see [The Member Journey, Screen by Screen](../members/00-member-journey.md):
 
 1. **Profile** - set a display name, write a short bio, claim a username/handle, and upload an avatar.
-2. **Interests** - pick topics from your community's space categories; these personalize the member's suggestions and feed (see [Member Interests](../members/11-interests.md)).
+2. **Interests** - pick topics from your community's space categories (only categories shown in the directory and not limited to subspaces are offered); these personalize the member's suggestions and feed (see [Member Interests](../members/11-interests.md)).
 3. **Spaces** - join suggested spaces with one click.
 4. **Follows** - follow suggested members.
 5. **Notifications** - choose how to be notified (email, in-app, push).

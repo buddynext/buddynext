@@ -46,7 +46,9 @@ The tab is a per-space choice made by the space owner.
 2. Under **Discussion**, switch on **Enable discussion**. A discussion is created for the space automatically. If the space already has a discussion in Jetonomy, you can search for it and link it instead.
 3. Save. The **Discussions** tab now shows in the space.
 
-Switching it off hides the tab but keeps the discussion and everything in it, so switching it back on restores the same discussion. Only the space owner can change this.
+Switching it off hides the tab but keeps the discussion and everything in it, so switching it back on restores the same discussion. Only the space owner (or a site administrator) can change this, link a discussion or unlink one, on the screen and in the app; space moderators can open the screen but not change it. If the site administrator has switched the Jetonomy integration off, the choice cannot be changed until it is switched back on.
+
+A discussion belongs to one space. A discussion already linked to another space is left out of the search and cannot be linked a second time. **Start the first discussion** creates the discussion only after the owner has switched **Enable discussion** on.
 
 To link a different discussion, select **Unlink** next to **Linked discussion** and confirm. The forum, its posts and every space member stay where they are; only the link to this space is removed. Unlinking also switches **Enable discussion** off. Switching it on again brings back the discussion you just unlinked; clear it to create a new discussion instead, or search for another one to link. A member who is banned from or leaves the space afterwards loses access to the old discussion too.
 

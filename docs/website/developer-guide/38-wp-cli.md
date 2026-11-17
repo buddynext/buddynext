@@ -192,6 +192,8 @@ wp buddynext repair-space-owners
 
 A one-off sweep for Jetonomy discussions provisioned by the space-forum bridge before a discussion's visibility was derived from its space's type. It walks the affected rows and recomputes visibility from the current space type, chunked so it survives a large install.
 
+It then lists, read-only, any discussion linked to more than one space (older data can hold one; a discussion now belongs to a single space). For each it prints a line such as `Discussion #12 is linked to spaces #3, #9.` and warns that nothing was changed and that the first space listed is the one BuddyNext uses. Nothing is unlinked automatically, because which space keeps it is the owner's call: unlink it from the others in Space settings > Integrations. With no duplicates it prints `No discussion is linked to more than one space.`
+
 | Flag | What it does |
 |---|---|
 | `--dry-run` | Report what would change without writing anything. |
