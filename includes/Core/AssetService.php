@@ -908,7 +908,8 @@ class AssetService {
 		$map = array();
 		foreach ( array( array( 0xC0, 0x24F ), array( 0x1E00, 0x1EFF ) ) as $range ) {
 			for ( $cp = $range[0]; $cp <= $range[1]; $cp++ ) {
-				$char = mb_chr( $cp, 'UTF-8' );
+				// The entity form needs no mbstring extension (Plugin Check flagged it).
+				$char = html_entity_decode( '&#' . $cp . ';', ENT_QUOTES, 'UTF-8' );
 				$out  = remove_accents( $char );
 				if ( $out !== $char ) {
 					$map[ $char ] = $out;

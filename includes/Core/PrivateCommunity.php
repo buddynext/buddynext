@@ -223,18 +223,23 @@ final class PrivateCommunity {
 		 * own, so the list is now declarative and Pro adds its own.
 		 *
 		 * Built-ins: /auth so a guest can sign in at all (the whole point of a
-		 * login page), and /pwa because browsers fetch the manifest without
+		 * login page), /pwa because browsers fetch the manifest without
 		 * credentials and the service worker without a nonce — app-shell assets
-		 * only, no member data.
+		 * only, no member data — and the native app's pre-sign-in handshake,
+		 * /app/config and /app/strings (site identity, colours, feature flags,
+		 * translations: what the sign-in screen needs, no member data). Without
+		 * them the app could not even show its sign-in screen on a private
+		 * community. Other /app routes stay gated.
 		 *
 		 * @since 1.1.3
+		 * @since 1.3.1 /app/config and /app/strings are exempt by default.
 		 *
 		 * @param string[]         $exempt  Exempt route prefixes.
 		 * @param \WP_REST_Request $request Current request.
 		 */
 		$exempt = (array) apply_filters(
 			'buddynext_private_community_exempt_routes',
-			array( '/buddynext/v1/auth', '/buddynext/v1/pwa' ),
+			array( '/buddynext/v1/auth', '/buddynext/v1/pwa', '/buddynext/v1/app/config', '/buddynext/v1/app/strings' ),
 			$request
 		);
 

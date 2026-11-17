@@ -14,6 +14,8 @@ BuddyNext runs digests, cleanups, scheduled posts, and emails as background task
 
 This panel confirms they are keeping up. If WordPress cron is switched off on your site (a common performance setup on larger installs) and tasks are piling up, the screen tells you plainly and shows the exact server cron line to add so the queue keeps processing. If cron is off but tasks are still clearing, it reassures you that a system cron is already driving them and no action is needed. BuddyNext never disables WordPress cron for you - it only reports what it finds.
 
+WordPress **Tools > Site Health** shows the same warning. If a BuddyNext background task has been waiting for more than an hour, Site Health lists "BuddyNext background tasks are not running" with the steps to fix it and a link to the waiting tasks. New posts and spaces still appear in search straight away, because indexing a single post does not wait for the queue.
+
 ## Object cache
 
 A persistent object cache (such as Redis or Memcached) lets BuddyNext remember expensive results - the member directory, the online list, counts - between page loads, which keeps a large community fast.

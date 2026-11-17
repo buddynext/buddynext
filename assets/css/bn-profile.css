@@ -2738,16 +2738,19 @@ a.bn-space-row:hover .bn-space-name {
 }
 .bn-ep-slug-indicator svg { width: 14px; height: 14px; }
 
-/* The @handle this field also sets. Shown under the input as the member types,
-   because the field controls two things and only one of them is in the label. */
+/* The @handle this field also sets. Shown under the row as the member types,
+   because the field controls two things and only one of them is in the label.
+   Outside .bn-ep-slug-input-wrap so the input, base and button share one line. */
 .bn-ep-slug-handle {
-	display: block;
-	margin-block-start: var(--bn-s1);
-	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	margin-block: var(--bn-s2) 0;
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
+	overflow-wrap: anywhere;
 }
-.bn-ep-slug-handle:empty { display: none; }
+.bn-ep-slug-handle__name {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	color: var(--bn-ink-2);
+}
 .bn-ep-slug-ok { color: var(--bn-success); }
 .bn-ep-slug-err { color: var(--bn-danger); }
 

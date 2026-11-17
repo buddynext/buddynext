@@ -1950,8 +1950,12 @@ table.bn-table tr:hover td {
 	background: var(--bn-a-bg);
 }
 
+/* Wraps: a card can carry two status badges ("Not installed" + "Connects with
+   BuddyNext Pro" on a Free-only site), which do not fit beside the logo and
+   title in a narrow column. They drop to the next line instead of spilling out. */
 .bn-companion-card__head {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 10px;
 }
@@ -1965,8 +1969,10 @@ table.bn-table tr:hover td {
 }
 
 .bn-companion-card__title {
-	flex: 1;
+	flex: 1 1 auto;
+	min-width: 0;
 	margin: 0;
+	overflow-wrap: anywhere;
 	font-size: 15px;
 	font-weight: var(--bn-a-fw-semibold);
 	color: var(--bn-a-text-1);
@@ -2008,6 +2014,7 @@ table.bn-table tr:hover td {
 	font-weight: var(--bn-a-fw-bold);
 	line-height: 1.6;
 	white-space: nowrap;
+	max-width: 100%;
 }
 
 .bn-companion-badge--success {

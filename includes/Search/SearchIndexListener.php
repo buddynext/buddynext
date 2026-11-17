@@ -67,7 +67,7 @@ class SearchIndexListener implements ListenerInterface {
 		add_action( 'buddynext_space_updated', array( $this, 'on_space_updated' ), 10, 1 );
 		add_action( 'buddynext_space_deleted', array( $this, 'on_space_deleted' ), 10, 1 );
 
-		// Synchronous fallback handlers — run inline when Action Scheduler is absent.
+		// Workers: called inline for one post or space, and by queued bulk jobs.
 		add_action( 'buddynext_async_index_user', array( $this, 'async_index_user' ), 10, 1 );
 		add_action( 'buddynext_async_index_post', array( $this, 'async_index_post' ), 10, 2 );
 		add_action( 'buddynext_async_deindex_post', array( $this, 'async_deindex_post' ), 10, 1 );
@@ -240,7 +240,11 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_post_created( int $post_id, int $user_id = 0, string $type = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
-		$this->dispatch( 'buddynext_async_index_post', array( $post_id, $user_id ) );
+		// Inline, like a member (on_index_user()): one post is one SELECT and one
+		// upsert, and a queued job made post search depend on Action Scheduler
+		// running. On a host whose queue never runs, no new post was ever
+		// searchable (card 10501591033). Bulk work stays on the queue.
+		$this->async_index_post( $post_id, $user_id );
 	}
 
 	/**
@@ -250,7 +254,9 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_post_deleted( int $post_id ): void {
-		$this->dispatch( 'buddynext_async_deindex_post', array( $post_id ) );
+		// Inline for the same reason as on_post_created(): a deleted or removed
+		// post must leave search even when the queue does not run.
+		$this->async_deindex_post( $post_id );
 
 		// A reshare of this post is now a dead end — the shared original is gone, so a
 		// search hit opens to an "unavailable" card. Deindex the reshares at the
@@ -267,6 +273,8 @@ class SearchIndexListener implements ListenerInterface {
 				$post_id
 			)
 		);
+		// The reshares are the bulk part (a popular post has thousands), so they
+		// stay queued; SearchService also drops a dead reshare from results.
 		foreach ( $bn_reshare_ids as $bn_reshare_id ) {
 			$this->dispatch( 'buddynext_async_deindex_post', array( (int) $bn_reshare_id ) );
 		}
@@ -285,7 +293,7 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_post_updated( int $post_id, int $user_id = 0, array $fields = array() ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
-		$this->dispatch( 'buddynext_async_index_post', array( $post_id, $user_id ) );
+		$this->async_index_post( $post_id, $user_id );
 	}
 
 	/**
@@ -347,7 +355,8 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_space_created( int $space_id, int $user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
-		$this->dispatch( 'buddynext_async_index_space', array( $space_id ) );
+		// Inline: one space row, same reason as on_post_created().
+		$this->async_index_space( $space_id );
 	}
 
 	/**
@@ -357,7 +366,8 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_space_updated( int $space_id ): void {
-		$this->dispatch( 'buddynext_async_index_space', array( $space_id ) );
+		// The space's own row inline; its posts below are the bulk part.
+		$this->async_index_space( $space_id );
 
 		// The space row is not the only thing indexed under this space.
 		//
@@ -448,7 +458,7 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_space_deleted( int $space_id ): void {
-		$this->dispatch( 'buddynext_async_deindex_space', array( $space_id ) );
+		$this->async_deindex_space( $space_id );
 	}
 
 	/**
@@ -488,7 +498,7 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
-	 * Synchronous fallback: index a single post.
+	 * Index a single post (inline on create and edit; also the queued worker).
 	 *
 	 * Reads post data from bn_posts and upserts it into bn_search_index.
 	 * Skips posts that are not in published status so the index stays clean.
@@ -534,7 +544,7 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
-	 * Synchronous fallback: remove a post from the index.
+	 * Remove a single post from the index (inline on delete; also the queued worker).
 	 *
 	 * @param int $post_id Post ID.
 	 * @return void
@@ -544,7 +554,7 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
-	 * Synchronous fallback: index a single space.
+	 * Index a single space (inline on create and edit; also the queued worker).
 	 *
 	 * Reads space data from bn_spaces and upserts it into bn_search_index.
 	 * Secret spaces are indexed as private so they do not surface in public results.
@@ -642,7 +652,7 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
-	 * Synchronous fallback: remove a space from the index.
+	 * Remove a single space from the index (inline on delete; also the queued worker).
 	 *
 	 * @param int $space_id Space ID.
 	 * @return void

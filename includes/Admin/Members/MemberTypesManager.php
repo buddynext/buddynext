@@ -230,8 +230,9 @@ class MemberTypesManager {
 					<?php foreach ( $types as $t ) : ?>
 						<tr>
 							<td class="column-primary" data-colname="<?php esc_attr_e( 'Type', 'buddynext' ); ?>">
+								<?php // The text colour members see (member card, profile, directory filter). ?>
 								<span class="bn-type-badge-preview"
-									style="background:<?php echo esc_attr( $t['color'] ); ?>;color:<?php echo esc_attr( $t['text_color'] ); ?>">
+									style="background:<?php echo esc_attr( $t['color'] ); ?>;color:<?php echo esc_attr( buddynext_readable_text_color( (string) $t['color'], (string) $t['text_color'] ) ); ?>">
 									<?php if ( '' !== (string) $t['icon_svg'] ) : ?>
 										<?php echo $t['icon_svg']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- sanitized via wp_kses on save. ?>
 									<?php endif; ?>
@@ -388,7 +389,7 @@ class MemberTypesManager {
 
 						<?php if ( $current_type ) : ?>
 							<span class="bn-type-badge-preview"
-								style="background:<?php echo esc_attr( $current_type['color'] ); ?>;color:<?php echo esc_attr( $current_type['text_color'] ); ?>">
+								style="background:<?php echo esc_attr( $current_type['color'] ); ?>;color:<?php echo esc_attr( buddynext_readable_text_color( (string) $current_type['color'], (string) $current_type['text_color'] ) ); ?>">
 								<?php echo esc_html( $current_type['name'] ); ?>
 							</span>
 						<?php endif; ?>

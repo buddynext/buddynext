@@ -108,8 +108,6 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						<span hidden data-wp-bind--hidden="!state.slugIsOk"><?php buddynext_icon( 'check' ); ?></span>
 						<span hidden data-wp-bind--hidden="!state.slugIsTaken"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
 					</span>
-					<?php // The other half of what this field controls, shown rather than explained. ?>
-					<span class="bn-ep-slug-handle" data-wp-text="state.slugHandlePreview" aria-hidden="true">@<?php echo esc_html( $profile_slug ); ?></span>
 				</div>
 				<button class="bn-btn"
 					type="button"
@@ -121,6 +119,18 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 					<span hidden data-wp-bind--hidden="!context.slugSaved"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
 				</button>
 			</div>
+			<?php
+			// The other half of what this field controls, shown rather than explained.
+			// Below the row, not inside the input's wrapper: inside it made the wrapper
+			// taller than the input, so the row centred the button on the wrong line.
+			?>
+			<p class="bn-ep-slug-handle">
+				<?php
+				/* translators: Label before the member's @mention name, e.g. "Mentioned as @alex". */
+				esc_html_e( 'Mentioned as', 'buddynext' );
+				?>
+				<span class="bn-ep-slug-handle__name" data-wp-text="state.slugHandlePreview">@<?php echo esc_html( $profile_slug ); ?></span>
+			</p>
 		</div>
 		<?php endif; ?>
 

@@ -196,6 +196,8 @@ Never add a key to `buddynext_rest_timestamp_keys` that can carry site-local tim
 
 Answering `200` with `app_enabled: false` is deliberate. A Pro-only route would 404 on a free-only site, indistinguishable from a wrong URL, a firewall, or a site that is not BuddyNext at all. Serving the handshake from Free lets the app tell "this community does not have the app" apart from "something is broken", so it never has to infer a capability from a probe.
 
+On a private community (Members-only access) both `/app/config` and `/app/strings` stay reachable for a signed-out app, alongside `/auth` and `/pwa`. Since 1.3.1. Every other route still needs a session. Sites can change the exempt list with the `buddynext_private_community_exempt_routes` filter.
+
 | Property | Value |
 |---|---|
 | Method | `GET` |

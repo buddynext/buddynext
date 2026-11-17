@@ -95,6 +95,24 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Gate on: the native app's pre-sign-in handshake stays reachable. Both
+	 * routes are documented public (developer guide, REST contract): the app
+	 * themes its sign-in screen from them before it has credentials. Other /app
+	 * routes stay gated.
+	 */
+	public function test_gate_on_keeps_the_app_handshake_open(): void {
+		update_option( PrivateCommunity::OPTION, true );
+		wp_set_current_user( 0 );
+
+		$this->assertNull( PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'GET', '/buddynext/v1/app/config' ) ) );
+		$this->assertNull( PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'POST', '/buddynext/v1/app/strings' ) ) );
+		$this->assertSame( 200, rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/app/config' ) )->get_status(), 'the real route answers a guest' );
+
+		$other = PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'GET', '/buddynext/v1/app/configx' ) );
+		$this->assertInstanceOf( \WP_Error::class, $other, 'a lookalike route stays gated' );
+	}
+
+	/**
 	 * Gate on: a guest cannot bypass it by changing the route's case.
 	 *
 	 * WordPress dispatches routes case-insensitively (WP_REST_Server matches with

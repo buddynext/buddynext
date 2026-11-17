@@ -204,4 +204,27 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 		// For this unit test, verify it is no longer on the old recurrence.
 		$this->assertNotSame( 'buddynext_5min', wp_get_schedule( 'buddynext_recount_stats' ) );
 	}
+	/**
+	 * Site Health names a stalled background queue in plain words, and is green
+	 * when nothing of ours is overdue (card 10501591033).
+	 */
+	public function test_site_health_reports_a_stalled_background_queue(): void {
+		$this->assertSame( 'good', CronScheduler::site_health_queue_test()['status'] );
+
+		as_schedule_single_action( time() - 2 * HOUR_IN_SECONDS, 'buddynext_async_index_hashtags', array( 'post', 1, '' ), CronScheduler::GROUP );
+		$result = CronScheduler::site_health_queue_test();
+		$this->assertSame( 'recommended', $result['status'] );
+		$this->assertStringContainsString( 'server cron job', $result['description'] );
+
+		$tests = CronScheduler::register_site_health( array( 'direct' => array() ) );
+		$this->assertArrayHasKey( 'buddynext_background_tasks', $tests['direct'] );
+	}
+
+	/**
+	 * A task due a minute ago is a working queue catching up, not a stall.
+	 */
+	public function test_site_health_ignores_a_task_that_is_only_just_due(): void {
+		as_schedule_single_action( time() - MINUTE_IN_SECONDS, 'buddynext_async_index_hashtags', array( 'post', 2, '' ), CronScheduler::GROUP );
+		$this->assertSame( 'good', CronScheduler::site_health_queue_test()['status'] );
+	}
 }

@@ -1850,16 +1850,13 @@ class SearchService {
 					// `total` (the pre-enrichment SQL count) keeps counting it — a badge
 					// that says 6 over 4 cards, empty pages with live pagination, forever,
 					// because dropping the row here never removed it from the index. Turn
-					// the drop into a lazy repair: schedule the same async de-index the
-					// delete path uses, so the index and the total converge over reads and
-					// this dead row stops being re-filtered (card 10264292524). Idempotent
-					// and self-limiting — once de-indexed the row never reaches here again.
-					if ( function_exists( 'as_enqueue_async_action' ) ) {
-						as_enqueue_async_action( 'buddynext_async_deindex_post', array( $post_id ), 'buddynext' );
-					} else {
-						/** Fired by SearchIndexListener to drop one post from the index. */
-						do_action( 'buddynext_async_deindex_post', $post_id );
-					}
+					// the drop into a lazy repair: de-index the row here, so the index and
+					// the total converge over reads and this dead row stops being
+					// re-filtered (card 10264292524). Idempotent and self-limiting — once
+					// de-indexed the row never reaches here again. One DELETE, inline: a
+					// queued job never ran on a host whose Action Scheduler is stalled
+					// (card 10501591033).
+					$this->deindex( 'post', $post_id );
 					continue;
 				}
 			}

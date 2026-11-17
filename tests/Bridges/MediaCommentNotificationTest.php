@@ -176,4 +176,88 @@ class MediaCommentNotificationTest extends \WP_UnitTestCase {
 		$this->bridge->publish_media_activity( self::MEDIA, $this->owner, 'photo' );
 		$this->assertStringContainsString( '/p/', (string) apply_filters( 'buddynext_media_notification_url', '', self::MEDIA ), 'with a card: the post' );
 	}
+
+	/**
+	 * The owner chose "Open a dedicated media page": the notification opens it too
+	 * (card 10515576377).
+	 *
+	 * @return void
+	 */
+	public function test_media_notification_follows_the_dedicated_media_page_setting(): void {
+		$this->bridge->publish_media_activity( self::MEDIA, $this->owner, 'photo' );
+		update_option( 'buddynext_media_single_pages', 'dedicated' );
+		$this->assertSame( home_url( '/media/' . self::MEDIA . '/' ), apply_filters( 'buddynext_media_notification_url', '', self::MEDIA ) );
+	}
+
+	/**
+	 * The media card of a video upload (found by its /media/ link, not the photo index).
+	 *
+	 * @return int
+	 */
+	private function video_card(): int {
+		return ( new \BuddyNext\Feed\PostService() )->get_id_by_link( 'media', home_url( '/media/' . self::MEDIA . '/' ) );
+	}
+
+	private function comments_on( int $post_id ): int {
+		global $wpdb;
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d AND is_deleted = 0", $post_id ) );
+	}
+
+	private function comment_count( int $post_id ): int {
+		global $wpdb;
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT comment_count FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ) );
+	}
+
+	/**
+	 * A comment on a video reaches the media card the redirect and the
+	 * notification send the member to, once (card 10515576377).
+	 *
+	 * @return void
+	 */
+	public function test_a_video_comment_reaches_its_media_card_once(): void {
+		$this->bridge->publish_media_activity( self::MEDIA, $this->owner, 'video' );
+		$card = $this->video_card();
+		$this->assertGreaterThan( 0, $card, 'the video got a media card' );
+
+		$id = $this->comment( 'Great clip' );
+		$this->assertSame( 1, $this->comments_on( $card ), 'the comment is on the card' );
+		$this->assertSame( 1, $this->comment_count( $card ) );
+
+		do_action( 'mvs_comment_created', self::MEDIA, $this->commenter, $id, 'Great clip', 'lightbox' );
+		$this->assertSame( 1, $this->comments_on( $card ), 'a repeat fire adds nothing' );
+		$this->assertSame( 1, $this->comment_count( $card ) );
+		$this->assertSame( 0, $this->bell( 'bn.post_commented' ), 'the copy notifies nobody' );
+	}
+
+	public function test_comment_before_the_video_card_is_carried_onto_it(): void {
+		$this->comment( 'Early word' );
+		$this->bridge->publish_media_activity( self::MEDIA, $this->owner, 'audio' );
+		$this->assertSame( 1, $this->comments_on( $this->video_card() ) );
+	}
+
+	/**
+	 * A video card made before 1.3.1 never got its comments. The next comment
+	 * brings the earlier ones with it, without a background job.
+	 *
+	 * @return void
+	 */
+	public function test_an_older_video_card_heals_on_the_next_comment(): void {
+		// The old card: published without carrying the comments over.
+		\BuddyNext\Feed\IntegrationActivity::publish( $this->owner, 'shared a video', home_url( '/media/' . self::MEDIA . '/' ), '', 'media', '', 0, array( 'media_id' => self::MEDIA ) );
+		$card = $this->video_card();
+		// A comment written while the old code dropped it.
+		$old              = (int) wp_insert_comment(
+			array(
+				'user_id'          => $this->commenter,
+				'comment_content'  => 'Lost comment',
+				'comment_approved' => 1,
+			)
+		);
+		self::$comments[] = array( 'id' => $old );
+		$this->assertSame( 0, $this->comments_on( $card ) );
+
+		$this->comment( 'New comment' );
+		$this->assertSame( 2, $this->comments_on( $card ), 'the earlier comment came with the new one' );
+		$this->assertSame( 2, $this->comment_count( $card ) );
+	}
 }

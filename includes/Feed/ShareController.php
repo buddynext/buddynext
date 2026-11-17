@@ -92,7 +92,20 @@ class ShareController extends BaseRestController {
 			return $hidden;
 		}
 
-		$result = ( new ShareService() )->share( $user_id, $post_id, $content );
+		// Sharing a share card shares its original, so the original is what must
+		// be visible, published and open to this member: through someone's older
+		// share card a member could otherwise reshare a removed post, or one they
+		// cannot see (its author blocked them, a private space, a space ban).
+		$shares = new ShareService();
+		$root   = $shares->root_post_id( $post_id );
+		if ( $root !== $post_id ) {
+			$hidden = $this->engagement_target_error( 'post', $root );
+			if ( $hidden instanceof WP_Error ) {
+				return $hidden;
+			}
+		}
+
+		$result = $shares->share( $user_id, $post_id, $content );
 
 		if ( is_wp_error( $result ) ) {
 			return $this->preserve_status( $result, 400 );

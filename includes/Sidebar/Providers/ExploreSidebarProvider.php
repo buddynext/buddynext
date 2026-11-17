@@ -125,9 +125,16 @@ class ExploreSidebarProvider {
 				if ( ! function_exists( 'buddynext_get_template' ) ) {
 					return;
 				}
+				// Browse points at spaces to open, so a category with none is left
+				// out, before the limit of six so it does not take a slot. The
+				// spaces directory chip row keeps every category (owner's choice).
+				$bn_categories = array_filter(
+					( new SpaceService() )->directory_categories(),
+					static fn( array $c ): bool => (int) ( $c['space_count'] ?? 0 ) > 0
+				);
 				buddynext_get_template(
 					'parts/sidebar-explore-browse.php',
-					array( 'bn_categories' => ( new SpaceService() )->directory_categories( 6 ) )
+					array( 'bn_categories' => array_slice( array_values( $bn_categories ), 0, 6 ) )
 				);
 			},
 		);

@@ -519,6 +519,13 @@ $bn_hollow_share = $bn_dead_share
 	&& '' === (string) $link_url
 	&& empty( $poll_options );
 
+// Reposting a share card reposts its original. When the viewer cannot see that
+// original (removed, blocked, private space) there is nothing to repost, so the
+// Repost half of Share is not offered; ShareController refuses it as well.
+if ( $bn_dead_share ) {
+	$can_share = false;
+}
+
 /**
  * Whether to drop a dead-source reshare from the feed entirely.
  *

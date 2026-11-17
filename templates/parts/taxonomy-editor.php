@@ -49,9 +49,11 @@ $val_text_color = $bn_edit ? (string) ( $bn_edit['text_color'] ?? '' ) : '';
 $val_icon       = $bn_edit ? (string) ( $bn_edit['icon_svg'] ?? '' ) : '';
 $val_sort       = $bn_edit ? (int) ( $bn_edit['sort_order'] ?? 0 ) : 0;
 
-// The badge preview's effective text colour: an explicit override if set,
-// otherwise white (JS derives a readable colour on the fly).
-$preview_fg = '' !== $val_text_color ? $val_text_color : '#ffffff';
+// The badge preview's text colour: the one members see, so the saved colour
+// when it reads well on the background, else black or white (the same helper
+// the member card, profile and spaces directory use). JS keeps it live.
+$preview_fg = buddynext_readable_text_color( $val_color, $val_text_color );
+$preview_fg = '' !== $preview_fg ? $preview_fg : '#ffffff';
 ?>
 <div class="bn-settings-section">
 	<div class="bn-ss-header">
@@ -162,7 +164,7 @@ $preview_fg = '' !== $val_text_color ? $val_text_color : '#ffffff';
 									pattern="#?[A-Fa-f0-9]{6}"
 									placeholder="<?php esc_attr_e( 'auto for contrast', 'buddynext' ); ?>">
 							</div>
-							<span class="bn-field-hint"><?php esc_html_e( 'Leave blank to auto-derive a readable colour from the background.', 'buddynext' ); ?></span>
+							<span class="bn-field-hint"><?php esc_html_e( 'Leave blank to auto-derive a readable colour from the background. If this colour is hard to read on the background, members see black or white instead.', 'buddynext' ); ?></span>
 						</div>
 
 						<div class="bn-field bn-tax-sort">

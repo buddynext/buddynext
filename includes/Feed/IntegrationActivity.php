@@ -163,6 +163,10 @@ class IntegrationActivity {
 		$type    = '' !== $type ? $type : 'link';
 		$service = new PostService();
 
+		// This member's card from before 1.1.0, stored as a plain `link`, becomes
+		// this card instead of a duplicate (see PostService::adopt_legacy_link_cards()).
+		$service->adopt_legacy_link_cards( $type, $link_url, $member_id );
+
 		// Idempotent: one activity card per partner page, even if the partner
 		// hook fires more than once. Match on the same type the card is stored as.
 		if ( $service->exists_by_link( $type, $link_url ) ) {
@@ -260,6 +264,11 @@ class IntegrationActivity {
 	/**
 	 * Remove the activity card for a partner page (e.g. when the content is deleted).
 	 *
+	 * With a real type, also removes the same page's card from before 1.1.0, when
+	 * integrations stored their cards as a plain `link` (see
+	 * PostService::adopt_legacy_link_cards()). publish(), withdraw(), restore(),
+	 * refresh() and rewrite() adopt that card the same way; signatures unchanged.
+	 *
 	 * @param string $link_url The partner page the card linked to.
 	 * @param string $type     Post type the card was stored as. Defaults to 'link';
 	 *                         pass the same type used at publish() time.
@@ -271,7 +280,10 @@ class IntegrationActivity {
 		if ( '' === $link_url ) {
 			return 0;
 		}
-		return ( new PostService() )->delete_by_link( '' !== $type ? $type : 'link', $link_url );
+		$type    = '' !== $type ? $type : 'link';
+		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $link_url );
+		return $service->delete_by_link( $type, $link_url );
 	}
 
 	/**
@@ -295,7 +307,10 @@ class IntegrationActivity {
 		if ( '' === $link_url ) {
 			return false;
 		}
-		return ( new PostService() )->transition_link_status( '' !== $type ? $type : 'link', $link_url, 'published', 'draft' ) > 0;
+		$type    = '' !== $type ? $type : 'link';
+		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $link_url );
+		return $service->transition_link_status( $type, $link_url, 'published', 'draft' ) > 0;
 	}
 
 	/**
@@ -317,7 +332,10 @@ class IntegrationActivity {
 		if ( '' === $link_url ) {
 			return false;
 		}
-		return ( new PostService() )->transition_link_status( '' !== $type ? $type : 'link', $link_url, 'draft', 'published' ) > 0;
+		$type    = '' !== $type ? $type : 'link';
+		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $link_url );
+		return $service->transition_link_status( $type, $link_url, 'draft', 'published' ) > 0;
 	}
 
 	/**
@@ -353,6 +371,7 @@ class IntegrationActivity {
 		}
 
 		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $link_url );
 
 		return $service->update_link_meta(
 			$type,
@@ -517,7 +536,9 @@ class IntegrationActivity {
 		if ( '' === $old_link_url || '' === $type || '' === $link_url ) {
 			return 0;
 		}
-		return ( new PostService() )->rewrite_link_card( $type, $old_link_url, $content, $link_url, self::card_meta( $link_url, $link_title, $excerpt, $meta ) );
+		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $old_link_url );
+		return $service->rewrite_link_card( $type, $old_link_url, $content, $link_url, self::card_meta( $link_url, $link_title, $excerpt, $meta ) );
 	}
 
 	/**

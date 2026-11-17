@@ -3133,6 +3133,71 @@ class PostService {
 	}
 
 	/**
+	 * Give an integration card stored as a plain `link` its real type.
+	 *
+	 * Through 1.0.x every integration published its cards with no type, so they
+	 * were stored as `link`; from 1.1.0 they carry one ('listing', 'job',
+	 * 'course'...). Every lookup is by (type, link_url), so an old card was never
+	 * found again: a re-save published a duplicate, unpublishing or deleting the
+	 * item left the old card in the feed. Retyping it in place (same id, date,
+	 * reactions and comments) lets every later lookup find it.
+	 *
+	 * Only cards an integration wrote are adopted: their link_meta carries the
+	 * `url` key IntegrationActivity has always stored, which a member's own link
+	 * post (title, description, thumbnail) does not.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param string $type     The card's real type.
+	 * @param string $link_url Link the card points at.
+	 * @param int    $user_id  Only cards by this member (0 = any member).
+	 * @return int Cards retyped.
+	 */
+	public function adopt_legacy_link_cards( string $type, string $link_url, int $user_id = 0 ): int {
+		if ( '' === $type || 'link' === $type || '' === $link_url ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				  WHERE type = 'link' AND link_url = %s AND link_meta LIKE %s
+				    AND ( %d = 0 OR user_id = %d )",
+				$link_url,
+				'%' . $wpdb->esc_like( '"url"' ) . '%',
+				$user_id,
+				$user_id
+			),
+			ARRAY_A
+		);
+		if ( empty( $rows ) ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return 0;
+		}
+
+		$ids = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$in  = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// $in is a list of %d placeholders bound through ...$ids.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$updated = (int) $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET type = %s WHERE id IN ( {$in} )", $type, ...$ids ) );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( $rows as $row ) {
+			self::flush_cache( (int) $row['id'] );
+			if ( (int) $row['space_id'] > 0 ) {
+				/** Documented in create(). */
+				do_action( 'buddynext_space_posts_changed', (int) $row['space_id'] );
+			}
+		}
+
+		return $updated;
+	}
+
+	/**
 	 * Move an integration card between two statuses, matched by type + external link.
 	 *
 	 * The reversible alternative to delete_by_link() for a partner entity that was

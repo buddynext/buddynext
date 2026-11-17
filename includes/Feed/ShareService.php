@@ -49,20 +49,28 @@ class ShareService {
 
 		global $wpdb;
 
-		// If the target is itself a reshare, amplify the ORIGINAL post instead
-		// (flatten the chain). "Sharing a share" shares the root — matching what
-		// members expect and avoiding share-of-a-share nesting. All downstream
-		// logic (duplicate check, privacy inheritance, share_count, feed card)
-		// then operates on the original post.
+		// Sharing a share shares its ORIGINAL (see root_post_id()). Every check
+		// below, and the card, is about that original.
+		$post_id = $this->root_post_id( $post_id );
+
+		// Backstop for callers that skip the REST gate (ShareController asks the
+		// full engagement question on the original first): only a published
+		// original can be shared. A removed, held or deleted original reached
+		// through an older share card is refused here too.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$root_post_id = (int) $wpdb->get_var(
+		$original = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT shared_post_id FROM {$wpdb->prefix}bn_posts WHERE id = %d AND type = 'share' LIMIT 1",
+				"SELECT status, privacy FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
 				$post_id
-			)
+			),
+			ARRAY_A
 		);
-		if ( $root_post_id > 0 ) {
-			$post_id = $root_post_id;
+		if ( ! is_array( $original ) || empty( PostService::STATUSES[ (string) $original['status'] ]['readable'] ) ) {
+			return new WP_Error(
+				'post_not_found',
+				__( 'Post not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
 		}
 
 		$existing = $wpdb->get_var(
@@ -142,14 +150,8 @@ class ShareService {
 
 		// Publish a feed post so the share card appears in the home feed.
 		// Inherit the original post's privacy so visibility rules are respected.
-		$original_privacy = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT privacy FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
-				$post_id
-			)
-		);
-		$privacy          = in_array( $original_privacy, PostService::valid_privacy_values(), true )
-			? $original_privacy
+		$privacy = in_array( $original['privacy'], PostService::valid_privacy_values(), true )
+			? (string) $original['privacy']
 			: 'public';
 
 		$card = array(
@@ -204,6 +206,31 @@ class ShareService {
 		// The bn_shares row id is still passed to buddynext_post_shared above for
 		// listeners that key off the relationship.
 		return $feed_post_id;
+	}
+
+	/**
+	 * The post a share of `$post_id` actually shares.
+	 *
+	 * A share card is never shared as such: sharing one amplifies its ORIGINAL
+	 * (flatten the chain), which is what members expect and avoids share-of-a-share
+	 * nesting. Callers that gate a share (visibility, status, space ban) must ask
+	 * about this id, not the card that was clicked.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int $post_id Post or share card id.
+	 * @return int The original post id, or `$post_id` when it is not a share card.
+	 */
+	public function root_post_id( int $post_id ): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one indexed primary-key read.
+		$root = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT shared_post_id FROM {$wpdb->prefix}bn_posts WHERE id = %d AND type = 'share' LIMIT 1",
+				$post_id
+			)
+		);
+		return $root > 0 ? $root : $post_id;
 	}
 
 	/**

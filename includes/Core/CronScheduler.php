@@ -143,6 +143,83 @@ class CronScheduler {
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
 		add_action( self::JOB_CLEANUP_REPORTS, array( $handlers, 'handle_cleanup_reports' ) );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
+
+		add_filter( 'site_status_tests', array( self::class, 'register_site_health' ) );
+	}
+
+	/**
+	 * Add the "background tasks are running" Site Health test.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param array<string, mixed> $tests Site Health tests.
+	 * @return array<string, mixed>
+	 */
+	public static function register_site_health( array $tests ): array {
+		$tests['direct']['buddynext_background_tasks'] = array(
+			'label' => __( 'BuddyNext background tasks', 'buddynext' ),
+			'test'  => array( self::class, 'site_health_queue_test' ),
+		);
+		return $tests;
+	}
+
+	/**
+	 * Site Health: warn when BuddyNext's background tasks have stopped running.
+	 *
+	 * Signal: a task in the 'buddynext' Action Scheduler group still waiting an
+	 * hour after it was due. A working site runs them within minutes, so an hour
+	 * means nothing is driving the queue (WP-Cron disabled with no server cron, a
+	 * blocked loopback request, a host that stops background requests). Search,
+	 * email digests and bulk updates wait on it. One capped query, no stored state.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function site_health_queue_test(): array {
+		$badge   = array(
+			'label' => __( 'BuddyNext', 'buddynext' ),
+			'color' => 'blue',
+		);
+		$overdue = 0;
+		if ( function_exists( 'as_get_scheduled_actions' ) && function_exists( 'as_get_datetime_object' ) ) {
+			$ids     = as_get_scheduled_actions(
+				array(
+					'group'        => self::GROUP,
+					'status'       => 'pending',
+					'date'         => as_get_datetime_object( '-1 hour' ),
+					'date_compare' => '<=',
+					'per_page'     => 1,
+				),
+				'ids'
+			);
+			$overdue = is_array( $ids ) ? count( $ids ) : 0;
+		}
+
+		if ( 0 === $overdue ) {
+			return array(
+				'label'       => __( 'BuddyNext background tasks are running', 'buddynext' ),
+				'status'      => 'good',
+				'badge'       => $badge,
+				'description' => '<p>' . esc_html__( 'No BuddyNext background task is waiting past its time.', 'buddynext' ) . '</p>',
+				'test'        => 'buddynext_background_tasks',
+			);
+		}
+
+		$badge['color'] = 'orange';
+		return array(
+			'label'       => __( 'BuddyNext background tasks are not running', 'buddynext' ),
+			'status'      => 'recommended',
+			'badge'       => $badge,
+			'description' => '<p>' . esc_html__( 'Some BuddyNext background tasks have been waiting for more than an hour. A working site runs them within minutes. Until they run, email digests are not sent and large updates (re-indexing search, changes to a whole space) are not finished. New posts are still searchable straight away.', 'buddynext' ) . '</p>'
+				. '<p>' . esc_html__( 'The usual cause is that WordPress cannot start its own background requests: WP-Cron is turned off without a server cron job, or the host or a firewall blocks the site from calling itself. Ask your host to add a server cron job that runs wp-cron.php every minute, and check the loopback request result on this screen.', 'buddynext' ) . '</p>',
+			'actions'     => sprintf(
+				'<a href="%s">%s</a>',
+				esc_url( admin_url( 'tools.php?page=action-scheduler&status=past-due' ) ),
+				esc_html__( 'See the waiting tasks', 'buddynext' )
+			),
+			'test'        => 'buddynext_background_tasks',
+		);
 	}
 
 	/**

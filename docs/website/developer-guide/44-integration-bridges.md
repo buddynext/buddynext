@@ -86,6 +86,7 @@ add_filter(
 - **Explore uses the stored card details.** A registered type gets an Explore card with the type label and icon, cover (`image`), title, description, and for events a date tile (`month`, `day`) and place (`city`). An unregistered type shows the plain text teaser.
 - **Details resolved at render time** (per viewer, or for cards stored before a field existed) come from `buddynext_integration_card_preview( array $meta, string $type )`. MediaVerse uses it for the viewer-gated title and cover, WB Gamification for the artwork and description of badges shared before 1.2.6.
 - **Check both surfaces when you add a type.** A new bridge activity is not done until its feed card and its Explore card are both reviewed.
+- **Older untyped cards are adopted.** Before a bridge passed a type, its cards were stored as `link`. Since 1.3.1, `publish()`, `remove()`, `withdraw()`, `restore()`, `refresh()` and `rewrite()` find such a card by its URL and retype it to the type you pass, so an update or delete reaches it and a re-publish does not duplicate it. A member's own link post is never touched. The signatures are unchanged.
 
 ## Version floors and the staleness gate
 
@@ -256,6 +257,8 @@ A non-photo media upload (video / audio) becomes a `'media'` integration feed ca
 | `mvs_media_trashed` (soft delete) | `on_media_trashed` - withdraw the card by permalink (reversible) |
 | `mvs_media_restored` | `on_media_restored` - re-publish the card (reference-only, so it reconstructs exactly; idempotent by URL) |
 | `mvs_media_privacy_changed` | *not hooked* - privacy is resolved at render instead: `hydrate_media_preview()` gates BOTH title and cover behind `PrivacyService::can_view()`, so a viewer who may not see the media gets the coverless, titleless compact card. Per viewer, for every transition - a blunt privacy-change withdrawal would also hide members-scoped media from members who may still see it. |
+
+**Comments follow the media onto its card.** A comment made in the media lightbox shows on the video or audio card too, and comments made before the card existed are copied onto it when it is created. Cards created before 1.3.1 pick up their earlier comments the next time someone comments. Comments flow one way, from MediaVerse into the feed. A notification about a media comment opens the post it was shared in, or the media page when **Media links** is set to a dedicated media page.
 
 **Photo posts** are native `photo` posts holding media ids, not permalink cards, so `sync_photo_posts()` (called from the three media hooks above) keeps them in step. On trash, a post with no photo left to show goes to `draft` stamped `link_meta.media_withdrawn` (a post that still shows other photos stays; the renderer skips the trashed one). On restore, only stamped drafts come back, in place, so a member's own draft holding the same photo is never published. On permanent delete, the id is dropped from every post and a post left with no media is deleted through the normal cascade. The upload's own photo post is created inside `IntegrationActivity::as_mirror()`, so reward listeners do not pay the upload twice.
 

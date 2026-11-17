@@ -32,13 +32,13 @@
 	}
 
 	/**
-	 * Pick black or white text for a given background hex for readable contrast.
+	 * Relative luminance of a hex colour, or null when it is not one.
 	 *
-	 * @param {string} hex Background colour (e.g. "#0073aa").
-	 * @return {string} "#ffffff" or "#1a1a1a".
+	 * @param {string} hex Colour (#rgb or #rrggbb).
+	 * @return {?number} Luminance 0-1.
 	 */
-	function readableTextColor( hex ) {
-		var normalized = hex.replace( '#', '' );
+	function luminance( hex ) {
+		var normalized = String( hex || '' ).trim().replace( '#', '' );
 		if ( 3 === normalized.length ) {
 			normalized = normalized
 				.split( '' )
@@ -47,19 +47,40 @@
 				} )
 				.join( '' );
 		}
-		if ( 6 !== normalized.length ) {
-			return '#ffffff';
+		if ( ! /^[0-9a-fA-F]{6}$/.test( normalized ) ) {
+			return null;
 		}
-		var r = parseInt( normalized.substr( 0, 2 ), 16 ) / 255;
-		var g = parseInt( normalized.substr( 2, 2 ), 16 ) / 255;
-		var b = parseInt( normalized.substr( 4, 2 ), 16 ) / 255;
 
-		function channel( c ) {
+		function channel( offset ) {
+			var c = parseInt( normalized.substr( offset, 2 ), 16 ) / 255;
 			return c <= 0.03928 ? c / 12.92 : Math.pow( ( c + 0.055 ) / 1.055, 2.4 );
 		}
 
-		var luminance = 0.2126 * channel( r ) + 0.7152 * channel( g ) + 0.0722 * channel( b );
-		return luminance > 0.5 ? '#1a1a1a' : '#ffffff';
+		return 0.2126 * channel( 0 ) + 0.7152 * channel( 2 ) + 0.0722 * channel( 4 );
+	}
+
+	/**
+	 * The text colour members see on a badge: the saved one when it reads well
+	 * (4.5:1), else black or white. Mirrors buddynext_readable_text_color() in
+	 * PHP so the admin preview matches the member card, profile and directory.
+	 *
+	 * @param {string} bg        Background colour.
+	 * @param {string} preferred Saved text colour, or ''.
+	 * @return {string} Hex text colour.
+	 */
+	function readableTextColor( bg, preferred ) {
+		var bgLum = luminance( bg );
+		if ( null === bgLum ) {
+			return preferred || '#ffffff';
+		}
+		function ratio( a, b ) {
+			return ( Math.max( a, b ) + 0.05 ) / ( Math.min( a, b ) + 0.05 );
+		}
+		var wanted = preferred ? luminance( preferred ) : null;
+		if ( null !== wanted && ratio( wanted, bgLum ) >= 4.5 ) {
+			return preferred;
+		}
+		return ratio( 1, bgLum ) >= ratio( 0, bgLum ) ? '#ffffff' : '#000000';
 	}
 
 	function initEditor( form ) {
@@ -96,7 +117,7 @@
 
 			if ( bg ) {
 				preview.style.background = bg;
-				preview.style.color = fg !== '' ? fg : readableTextColor( bg );
+				preview.style.color = readableTextColor( bg, fg );
 			} else if ( fg !== '' ) {
 				preview.style.color = fg;
 			}
@@ -105,7 +126,7 @@
 			// the custom value when set, else the auto-derived contrast colour.
 			// A native colour input only accepts a full 6-digit hex.
 			if ( textSwatch ) {
-				var effective = fg !== '' ? fg : ( bg ? readableTextColor( bg ) : '#ffffff' );
+				var effective = fg !== '' ? fg : ( bg ? readableTextColor( bg, '' ) : '#ffffff' );
 				if ( /^#[0-9a-fA-F]{6}$/.test( effective ) ) {
 					textSwatch.value = effective;
 				}

@@ -94,6 +94,8 @@ One BuddyNext setting does apply to media, on **Settings > General**:
 | Open the activity it was posted in (default) | A media item's own `/media/` page redirects to the post it was shared in. Media is never exposed as a separate public URL, and viewers stay in the feed where the comments and reactions are. |
 | Open a dedicated media page | Each item keeps its own standalone page, which suits gallery-style sites where the image is the destination rather than the conversation around it. |
 
+Notifications follow the same choice: a notification about a comment on a photo, video or audio file opens the post it was shared in, or the media page when you pick the dedicated page.
+
 The setting is only available while MediaVerse is active - without the companion there is no media page for it to control, so it appears switched off.
 
 **Media reporting is on by default.** Members can report a photo or video from the viewer. MediaVerse owns this setting: to turn it off, untick **Member Reporting** in MediaVerse's settings. The Report button then disappears from the viewer rather than failing when a member taps it. Blocking an uploader is unaffected either way, because that is BuddyNext's own feature.

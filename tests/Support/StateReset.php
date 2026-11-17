@@ -155,6 +155,7 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\Bridges\WPMediaVerseBridge::class      => array(
 			'suppress_upload_activity' => false,
 			'mirroring_comment'        => false,
+			'carrying_comments'        => false,
 			'documents_config_memo'    => array(),
 			'document_memo'            => array(),
 			'moderation_answers'       => array(),

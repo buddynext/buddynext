@@ -1802,6 +1802,11 @@ class ModerationService {
 				$offender_ids[ $idx ] = $obj_id;
 			} elseif ( isset( $authors[ $type ][ $obj_id ] ) ) {
 				$offender_ids[ $idx ] = (int) $authors[ $type ][ $obj_id ];
+			} elseif ( $obj_id > 0 && ! isset( $by_type[ $type ] ) ) {
+				// A type an extension owns (MediaVerse media): ask the same seam the
+				// takedown notice uses (ModerationListener). Documented there. One
+				// call per such row on a page-sized queue; no batch seam needed yet.
+				$offender_ids[ $idx ] = (int) apply_filters( 'buddynext_removed_content_author', 0, $type, $obj_id );
 			} else {
 				$offender_ids[ $idx ] = 0;
 			}

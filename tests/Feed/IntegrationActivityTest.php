@@ -618,4 +618,108 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		}
 		$this->assertFalse( IntegrationActivity::is_mirror(), 'a throwing write does not leave the flag stuck' );
 	}
+	/**
+	 * Store a card the way a 1.0.x integration did: no type, so a plain `link`.
+	 *
+	 * @param string $url Partner page.
+	 * @return int Card id.
+	 */
+	private function legacy_card( string $url ): int {
+		return (int) IntegrationActivity::publish( $this->member_id, 'added a new listing', $url, 'Old listing' );
+	}
+
+	/**
+	 * Rows for a link, by type.
+	 *
+	 * @param string $url Partner page.
+	 * @return array<string,int>
+	 */
+	private function cards_for( string $url ): array {
+		global $wpdb;
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT type, COUNT(*) AS n FROM {$wpdb->prefix}bn_posts WHERE link_url = %s GROUP BY type", $url ), ARRAY_A );
+		$out  = array();
+		foreach ( $rows as $row ) {
+			$out[ $row['type'] ] = (int) $row['n'];
+		}
+		return $out;
+	}
+
+	/**
+	 * A listing re-saved after the 1.1.0 type change becomes the old card, not a
+	 * second one (card 10516739330).
+	 *
+	 * @return void
+	 */
+	public function test_publish_adopts_the_legacy_link_card_instead_of_duplicating_it(): void {
+		$url = 'https://example.test/listing/legacy-one/';
+		$old = $this->legacy_card( $url );
+
+		$this->assertSame( 0, IntegrationActivity::publish( $this->member_id, 'added a new listing', $url, 'Old listing', 'listing' ), 'no second card' );
+		$this->assertSame( array( 'listing' => 1 ), $this->cards_for( $url ) );
+		$this->assertSame( 'listing', ( new \BuddyNext\Feed\PostService() )->get( $old )['type'], 'same card, now typed' );
+
+		$this->assertTrue( IntegrationActivity::refresh( $url, 'listing', array( 'image' => 'https://example.test/cover.jpg' ) ), 'and it takes the typed snapshot' );
+	}
+
+	public function test_withdraw_and_remove_reach_the_legacy_card(): void {
+		$url = 'https://example.test/listing/legacy-two/';
+		$this->legacy_card( $url );
+		$this->assertTrue( IntegrationActivity::withdraw( $url, 'listing' ), 'an unpublished item hides its old card' );
+
+		$this->assertSame( 1, IntegrationActivity::remove( $url, 'listing' ) );
+		$this->assertSame( array(), $this->cards_for( $url ), 'a deleted item leaves no old card behind' );
+	}
+
+	/**
+	 * A site that already has the duplicate: removing the item removes both cards.
+	 *
+	 * @return void
+	 */
+	public function test_remove_deletes_an_existing_legacy_duplicate_too(): void {
+		global $wpdb;
+		$url = 'https://example.test/listing/legacy-three/';
+		$this->legacy_card( $url );
+		// The duplicate an earlier re-save made, written past the adoption.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'user_id'    => $this->member_id,
+				'type'       => 'listing',
+				'content'    => 'added a new listing',
+				'status'     => 'published',
+				'privacy'    => 'public',
+				'link_url'   => $url,
+				'created_at' => current_time( 'mysql', true ),
+			)
+		);
+
+		$this->assertSame( 2, IntegrationActivity::remove( $url, 'listing' ) );
+		$this->assertSame( array(), $this->cards_for( $url ) );
+	}
+
+	/**
+	 * A member's own link post to the same page is theirs, not the integration's.
+	 *
+	 * @return void
+	 */
+	public function test_a_members_own_link_post_is_never_adopted(): void {
+		$url  = 'https://example.test/listing/shared-by-hand/';
+		$mine = ( new \BuddyNext\Feed\PostService() )->create(
+			$this->member_id,
+			array(
+				'type'      => 'link',
+				'content'   => 'Look at this place',
+				'link_url'  => $url,
+				'link_meta' => array(
+					'title'       => 'A place',
+					'description' => '',
+					'thumbnail'   => '',
+				),
+			)
+		);
+		$this->assertIsInt( $mine );
+
+		IntegrationActivity::remove( $url, 'listing' );
+		$this->assertSame( array( 'link' => 1 ), $this->cards_for( $url ) );
+	}
 }

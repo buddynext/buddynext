@@ -77,6 +77,13 @@ class WPMediaVerseBridge {
 	private static bool $mirroring_comment = false;
 
 	/**
+	 * True while a media item's earlier comments are being carried onto its card.
+	 *
+	 * @var bool
+	 */
+	private static bool $carrying_comments = false;
+
+	/**
 	 * Attach the DM safety gates.
 	 *
 	 * Registered independently of the Platform > Features toggle and of this
@@ -757,6 +764,9 @@ class WPMediaVerseBridge {
 			0,
 			array( 'media_id' => $media_id )
 		);
+		// Same as a photo card: comments made before the card existed are carried
+		// onto it, so a video or audio post shows the conversation it links to.
+		$this->carry_comments_onto_card( $media_id );
 	}
 
 	/**
@@ -3683,8 +3693,8 @@ class WPMediaVerseBridge {
 	/**
 	 * Sync a WPMediaVerse lightbox comment to the BuddyNext activity feed.
 	 *
-	 * When a user comments on a photo via the MVS lightbox, find the bn_posts
-	 * entry that contains that media_id and create a bn_comments row threaded
+	 * When a user comments on a photo, video or audio item via the MVS lightbox,
+	 * find the bn_posts entry that shows it and create a bn_comments row threaded
 	 * under it — so the comment appears in the BuddyNext feed as a regular
 	 * post comment.
 	 *
@@ -3708,13 +3718,21 @@ class WPMediaVerseBridge {
 
 		global $wpdb;
 
-		// The newest published post showing this media, through the bn_post_media
-		// index (card 10344434252). None yet: publish_media_activity() carries the
-		// comment over when it creates the card.
-		$bn_post_ids = ( new PostService() )->ids_with_media( $media_id, 'published' );
-		$bn_post_id  = empty( $bn_post_ids ) ? 0 : max( $bn_post_ids );
+		// The post showing this media: a photo post through the bn_post_media index,
+		// a video, audio or file card through its /media/ link. The same lookup the
+		// /media/ redirect and the notification link use, so the post a member is
+		// sent to is the post the comment is on (card 10515576377). None yet:
+		// publish_media_activity() carries the comment over when it creates the card.
+		$bn_post_id = $this->source_post_for_media( $media_id );
 		if ( ! $bn_post_id ) {
 			return;
+		}
+
+		// A card that has never had a comment mirrored onto it (one created before
+		// 1.3.1 for a video or audio upload, whose comments were never copied) gets
+		// the earlier comments now, on the next comment, with no background job.
+		if ( ! self::$carrying_comments && ! self::has_mirrored_comment( $media_id, $bn_post_id ) ) {
+			$this->carry_comments_onto_card( $media_id );
 		}
 
 		// Dedup: this hook can re-fire for the same lightbox comment (re-saves,
@@ -3835,9 +3853,10 @@ class WPMediaVerseBridge {
 	/**
 	 * Copy a media item's existing comments onto the card just created for it.
 	 *
-	 * Runs inside the Action Scheduler job that creates a photo's card, so it adds
-	 * nothing to the member's request. Deduplicated by sync_lightbox_comment() and
-	 * silent (the owner was told when each comment was written).
+	 * Runs inside the Action Scheduler job that creates a media card, so it adds
+	 * nothing to the member's request; and once for a card that never had one
+	 * mirrored (sync_lightbox_comment()). Deduplicated by sync_lightbox_comment()
+	 * and silent (the owner was told when each comment was written).
 	 *
 	 * @param int $media_id Media id.
 	 * @return void
@@ -3847,15 +3866,43 @@ class WPMediaVerseBridge {
 		if ( ! is_object( $service ) || ! method_exists( $service, 'get_for_media' ) ) {
 			return;
 		}
-		// ponytail: the first 200 top-level comments; the card is two minutes old, so
-		// more than that before it exists is not a real case.
-		$page = (array) $service->get_for_media( $media_id, 200, 1 );
-		foreach ( (array) ( $page['comments'] ?? array() ) as $row ) {
-			$comment_id = (int) ( $row['id'] ?? 0 );
-			if ( $comment_id > 0 ) {
-				$this->sync_lightbox_comment( $media_id, 0, $comment_id );
+		// ponytail: the first 200 top-level comments; a card is created two minutes
+		// after the upload, and an older card is healed once. Page further if a
+		// site reports media with more than 200 comments before its card.
+		$page                    = (array) $service->get_for_media( $media_id, 200, 1 );
+		self::$carrying_comments = true;
+		try {
+			foreach ( (array) ( $page['comments'] ?? array() ) as $row ) {
+				$comment_id = (int) ( $row['id'] ?? 0 );
+				if ( $comment_id > 0 ) {
+					$this->sync_lightbox_comment( $media_id, 0, $comment_id );
+				}
 			}
+		} finally {
+			self::$carrying_comments = false;
 		}
+	}
+
+	/**
+	 * Whether any MediaVerse comment on this media was ever mirrored onto the post.
+	 *
+	 * Counts withdrawn copies too: a card that has had a mirror was already
+	 * carried over, so it is not carried again.
+	 *
+	 * @param int $media_id Media id.
+	 * @param int $post_id  BuddyNext post id.
+	 * @return bool
+	 */
+	private static function has_mirrored_comment( int $media_id, int $post_id ): bool {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one row on the (object_type, object_id) index, once per comment write.
+		return null !== $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d AND media_id = %d LIMIT 1",
+				$post_id,
+				$media_id
+			)
+		);
 	}
 
 	/**
@@ -3871,6 +3918,9 @@ class WPMediaVerseBridge {
 	/**
 	 * Where a media notification opens: the post the media is in, else its page.
 	 *
+	 * Follows the owner's "Media links" setting, like the /media/ redirect: when
+	 * the owner chose a dedicated media page, the notification opens that page.
+	 *
 	 * Hooked on: buddynext_media_notification_url.
 	 *
 	 * @param string $url      URL so far.
@@ -3882,7 +3932,7 @@ class WPMediaVerseBridge {
 		if ( $media_id <= 0 ) {
 			return (string) $url;
 		}
-		$post_id = $this->source_post_for_media( $media_id );
+		$post_id = 'dedicated' === (string) get_option( 'buddynext_media_single_pages', 'activity' ) ? 0 : $this->source_post_for_media( $media_id );
 		if ( $post_id > 0 ) {
 			return \BuddyNext\Core\PageRouter::post_url( $post_id );
 		}
