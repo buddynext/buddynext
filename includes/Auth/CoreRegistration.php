@@ -557,15 +557,18 @@ class CoreRegistration {
 	 * policy they configured.
 	 *
 	 * @param WP_Error $errors Existing registration errors.
-	 * @param string   $login  Submitted username (unused; the policy keys on email).
+	 * @param string   $login  Submitted username (checked against the reserved handles).
 	 * @param string   $email  Submitted email address.
 	 * @return WP_Error
 	 */
 	public function apply_policy( $errors, $login, $email ) {
-		unset( $login );
-
 		if ( ! $errors instanceof WP_Error ) {
 			$errors = new WP_Error();
+		}
+
+		// The login becomes the @handle, so the reserved handles bind here too.
+		if ( \BuddyNext\Core\PageRouter::is_reserved_profile_slug( (string) $login ) ) {
+			$errors->add( 'username_exists', __( 'This username is already taken.', 'buddynext' ) );
 		}
 
 		$policy = buddynext_service( 'registration_policy' );
@@ -580,7 +583,7 @@ class CoreRegistration {
 			array(
 				'source' => RegistrationPolicy::SOURCE_CORE,
 				'email'  => (string) $email,
-				'ip'     => AuthController::client_ip(),
+				'ip'     => \BuddyNext\Moderation\SafeguardService::client_ip(),
 			)
 		);
 		if ( is_wp_error( $guard ) ) {

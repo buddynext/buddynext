@@ -1534,6 +1534,63 @@ class FieldType {
 	}
 
 	/**
+	 * Render a profile field for a registration form, tagged for the sign-up store.
+	 *
+	 * The one renderer behind BOTH registration forms: the sign-up form
+	 * (auth/signup.php) and the social "finish sign-up" form (auth/complete.php).
+	 * They used to carry two copies of this tagging; the finish-sign-up copy
+	 * tagged only the FIRST control of a group, so picking any radio or
+	 * member-type option but the first (or more than one checkbox) sent an empty
+	 * value and a required field returned 422 forever.
+	 *
+	 * - Every input / select / textarea gets `data-bn-reg-field`, the attribute
+	 *   signup-store.js collects on.
+	 * - A group (radio, member_type, the multiselect family) gets
+	 *   `aria-labelledby` pointing at the visible label, since it has no single
+	 *   control a `<label for>` could target.
+	 * - Only radio groups get `required` on their inputs (native "pick one"); on
+	 *   a checkbox group it would mean "tick them all", so those are checked by
+	 *   the server instead.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string,mixed> $field    Field row (field_key, type, options...).
+	 * @param string              $name     Submitted name, e.g. `bn_field_role`.
+	 * @param bool                $required Whether the form requires this field.
+	 * @return array{html:string,is_group:bool,control_id:string,label_id:string}
+	 *         Escaped markup; whether it is a group; the id a `<label for>` uses
+	 *         (single controls); the id the visible label must carry (groups).
+	 */
+	public static function render_registration_input( array $field, string $name, bool $required ): array {
+		$field['is_required'] = $required ? 1 : 0;
+
+		$control_id = self::input_id( $name );
+		$label_id   = $control_id . '-label';
+		$html       = self::render_input( $field, '', $name );
+		$is_group   = false !== strpos( $html, '<fieldset' );
+
+		$html = str_replace(
+			array( '<input ', '<select ', '<textarea ' ),
+			array( '<input data-bn-reg-field ', '<select data-bn-reg-field ', '<textarea data-bn-reg-field ' ),
+			$html
+		);
+
+		if ( $is_group ) {
+			$html = str_replace( '<fieldset ', '<fieldset aria-labelledby="' . esc_attr( $label_id ) . '" ', $html );
+			if ( $required && false !== strpos( $html, 'bn-field-radio-group' ) ) {
+				$html = str_replace( '<input data-bn-reg-field type="radio"', '<input data-bn-reg-field required type="radio"', $html );
+			}
+		}
+
+		return array(
+			'html'       => $html,
+			'is_group'   => $is_group,
+			'control_id' => $control_id,
+			'label_id'   => $label_id,
+		);
+	}
+
+	/**
 	 * Render a multi-select field as a checkbox group.
 	 *
 	 * @param array  $field    Field definition (its options source).

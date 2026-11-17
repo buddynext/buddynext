@@ -1717,13 +1717,15 @@ const profileStore = store( 'buddynext/profile', {
 			if ( ! input ) { return; }
 
 			// The server's alphabet (Handle::CHARSET, lowercased): letters, digits,
-			// hyphen and underscore. A space becomes a hyphen; anything else is
+			// hyphen and underscore. A space or a dot becomes a hyphen, exactly as
+			// the server's sanitize_title() does (john.doe saves as john-doe), so
+			// the box never shows a handle the save would change; anything else is
 			// dropped. Leading and trailing hyphens are left alone here, or a hyphen
 			// could never be typed: the server trims them on save.
 			// Accents fold first, with the table Handle::make_safe() uses.
 			var slug = foldAccents( input.value )
 			                .toLowerCase()
-			                .replace( /\s+/g, '-' )
+			                .replace( /[\s.]+/g, '-' )
 			                .replace( /[^a-z0-9_-]/g, '' );
 
 			// The box is bound to this draft (data-wp-bind--value), so the box and

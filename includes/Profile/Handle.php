@@ -466,13 +466,20 @@ final class Handle {
 	 * adjudicate. It re-validates the handle itself because a write path that
 	 * trusts its callers is one refactor away from being wrong.
 	 *
-	 * @since 1.1.6
+	 * The reserved-names list is re-checked here for the same reason, but only
+	 * for a handle the member does not already hold: the list gates claims, so
+	 * a legacy @support keeps their handle (and HandleRepair can reconcile it).
 	 *
-	 * @param int    $user_id Member.
-	 * @param string $handle  New handle, already sanitized.
+	 * @since 1.1.6
+	 * @since 1.3.0 Added $is_admin_actor; refuses a newly claimed reserved handle.
+	 *
+	 * @param int    $user_id        Member.
+	 * @param string $handle         New handle, already sanitized.
+	 * @param bool   $is_admin_actor True when a site administrator assigns it
+	 *                               (impersonation words allowed).
 	 * @return true|\WP_Error
 	 */
-	public static function set( int $user_id, string $handle ): bool|\WP_Error {
+	public static function set( int $user_id, string $handle, bool $is_admin_actor = false ): bool|\WP_Error {
 		$handle = sanitize_title( $handle );
 		$valid  = self::validate( $handle );
 		if ( is_wp_error( $valid ) ) {
@@ -490,6 +497,15 @@ final class Handle {
 		// author-archive URL the whole time. Overwriting it without recording it
 		// would break links this class exists to keep alive.
 		$previous = array( self::current( $user_id ), (string) $user->user_nicename );
+
+		if ( ! in_array( $handle, $previous, true )
+			&& \BuddyNext\Core\PageRouter::is_reserved_profile_slug( $handle, $is_admin_actor ) ) {
+			return new \WP_Error(
+				'handle_taken',
+				__( 'That handle is already taken.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
 
 		// Refuse a handle that is spoken for BEFORE writing anything. Detecting the
 		// clash afterwards was not enough: wp_update_user() had already stored

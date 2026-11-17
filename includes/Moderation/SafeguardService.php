@@ -464,9 +464,18 @@ class SafeguardService {
 	/**
 	 * Resolve the requester's client IP, validated.
 	 *
-	 * Reads REMOTE_ADDR by default. Sites behind a proxy/CDN can map the real
-	 * client address (e.g. from X-Forwarded-For) via the `buddynext_client_ip`
-	 * filter. Returns '' when no valid IP can be resolved so callers fail open.
+	 * The ONE place BuddyNext reads the client address: the IP blocklist, the
+	 * login / lost-password / reset / change-email rate limits, the OAuth callback
+	 * limit and the sign-up guard (rate limit + blocklist) all call this, and
+	 * bin/check-client-ip.py fails the build on any other REMOTE_ADDR read.
+	 *
+	 * Reads REMOTE_ADDR by default and never trusts a forwarded header on its
+	 * own: X-Forwarded-For is client-supplied, so keying a limit on it would let
+	 * an attacker mint unlimited buckets. The host or CDN restores the visitor
+	 * address (nginx real_ip, Apache mod_remoteip, Cloudflare "restore visitor
+	 * IP"), as WordPress core expects; sites that cannot do that map it via the
+	 * `buddynext_client_ip` filter. Returns '' when no valid IP can be resolved
+	 * so callers fail open.
 	 *
 	 * @return string A valid IPv4/IPv6 address, or '' when none.
 	 */
@@ -485,6 +494,139 @@ class SafeguardService {
 		$ip = (string) apply_filters( 'buddynext_client_ip', $ip );
 
 		return false !== filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+	}
+
+	/**
+	 * Members sampled by the shared-address Site Health check.
+	 *
+	 * Bounded so the check is one indexed presence query plus one primed
+	 * usermeta read at any community size.
+	 */
+	private const PROXY_SAMPLE = 50;
+
+	/**
+	 * Distinct members needed before the check draws a conclusion.
+	 */
+	private const PROXY_MIN_MEMBERS = 5;
+
+	/**
+	 * Register the Site Health test that spots an unrestored proxy address.
+	 *
+	 * @return void
+	 */
+	public static function register_site_health(): void {
+		add_filter(
+			'site_status_tests',
+			static function ( array $tests ): array {
+				$tests['direct']['buddynext_client_ip'] = array(
+					'label' => __( 'BuddyNext visitor addresses', 'buddynext' ),
+					'test'  => array( self::class, 'site_health_client_ip_test' ),
+				);
+				return $tests;
+			}
+		);
+	}
+
+	/**
+	 * The one address every recently signed-in member shares, if they all share one.
+	 *
+	 * Reads what WordPress core already records: the IP on each member's login
+	 * session (usermeta `session_tokens`, written from REMOTE_ADDR). When several
+	 * different members all sign in from the same address, the server is seeing
+	 * a proxy, load balancer or CDN, not the visitors. No new data is stored.
+	 *
+	 * @param int[] $user_ids Members to inspect (most recently active first).
+	 * @return string The shared address, or '' when addresses differ or the sample is too small.
+	 */
+	public static function shared_visitor_ip( array $user_ids ): string {
+		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( count( $user_ids ) < self::PROXY_MIN_MEMBERS ) {
+			return '';
+		}
+		update_meta_cache( 'user', $user_ids );
+
+		$ips = array();
+		foreach ( $user_ids as $user_id ) {
+			$latest = null;
+			foreach ( \WP_Session_Tokens::get_instance( $user_id )->get_all() as $session ) {
+				if ( empty( $session['ip'] ) ) {
+					continue;
+				}
+				if ( null === $latest || (int) ( $session['login'] ?? 0 ) > (int) ( $latest['login'] ?? 0 ) ) {
+					$latest = $session;
+				}
+			}
+			if ( null !== $latest ) {
+				$ips[ $user_id ] = (string) $latest['ip'];
+			}
+		}
+
+		if ( count( $ips ) < self::PROXY_MIN_MEMBERS ) {
+			return '';
+		}
+		$distinct = array_unique( $ips );
+		return 1 === count( $distinct ) ? (string) reset( $distinct ) : '';
+	}
+
+	/**
+	 * Site Health: warn when every recent member shows the same address.
+	 *
+	 * Behind an unrestored proxy every visitor looks like one person, so the
+	 * sign-up limit (a few per hour) is shared by the whole site and ten wrong
+	 * passwords lock a member out for everyone. The fix belongs to the host, so
+	 * the result names the host-side steps in plain words.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function site_health_client_ip_test(): array {
+		$badge = array(
+			'label' => __( 'BuddyNext', 'buddynext' ),
+			'color' => 'blue',
+		);
+		$good  = array(
+			'label'       => __( 'BuddyNext sees each visitor\'s own address', 'buddynext' ),
+			'status'      => 'good',
+			'badge'       => $badge,
+			'description' => '<p>' . esc_html__( 'Recent members signed in from different addresses, so sign-up and sign-in limits apply to each visitor separately.', 'buddynext' ) . '</p>',
+			'test'        => 'buddynext_client_ip',
+		);
+
+		// A site that maps the address itself has already fixed this; local
+		// development installs legitimately see 127.0.0.1 for everyone.
+		if ( has_filter( 'buddynext_client_ip' ) || 'local' === wp_get_environment_type() ) {
+			return $good;
+		}
+
+		$shared = self::shared_visitor_ip(
+			\BuddyNext\Realtime\PresenceService::recent_online_ids( self::PROXY_SAMPLE, WEEK_IN_SECONDS )
+		);
+		if ( '' === $shared ) {
+			return $good;
+		}
+
+		$private = false === filter_var( $shared, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
+
+		return array(
+			'label'       => __( 'All your visitors appear to come from one address', 'buddynext' ),
+			'status'      => 'recommended',
+			'badge'       => $badge,
+			'description' => '<p>' . sprintf(
+				/* translators: %s: the IP address every recent member signed in from. */
+				esc_html__( 'Your recent members all signed in from the same address (%s). That usually means a proxy, load balancer or CDN sits in front of the site and the real visitor address is not passed on.', 'buddynext' ),
+				esc_html( $shared )
+			) . '</p><p>'
+				. ( $private
+					? esc_html__( 'It is a private network address, which is what a proxy in front of the server looks like.', 'buddynext' ) . ' '
+					: '' )
+				. esc_html__( 'Until it is fixed, BuddyNext treats every visitor as one person: the sign-up limit is shared by the whole site, and a few wrong passwords can lock a member out for everyone.', 'buddynext' )
+				. '</p><p>' . esc_html__( 'Ask your host to pass the real visitor address to WordPress. The usual fixes are:', 'buddynext' ) . '</p><ul>'
+				. '<li>' . esc_html__( 'Cloudflare: turn on "Restore visitor IP" (or install the Cloudflare plugin, or add the CF-Connecting-IP header rule on the server).', 'buddynext' ) . '</li>'
+				. '<li>' . esc_html__( 'nginx: enable the real_ip module with set_real_ip_from for your proxy and real_ip_header X-Forwarded-For.', 'buddynext' ) . '</li>'
+				. '<li>' . esc_html__( 'Apache: enable mod_remoteip with RemoteIPHeader X-Forwarded-For and RemoteIPTrustedProxy for your proxy.', 'buddynext' ) . '</li>'
+				. '</ul>',
+			'actions'     => '',
+			'test'        => 'buddynext_client_ip',
+		);
 	}
 
 	/**

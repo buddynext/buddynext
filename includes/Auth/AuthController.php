@@ -732,7 +732,9 @@ class AuthController {
 	 * @return WP_Error|null 429 error when over the cap, else null.
 	 */
 	private function rate_limit_guard( string $action, string $identifier, bool $per_ip_only = false ): ?WP_Error {
-		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		// One resolver for every IP reader (buddynext_client_ip applied, validated).
+		// An unresolvable address fails open, the documented client_ip() contract.
+		$ip = \BuddyNext\Moderation\SafeguardService::client_ip();
 		if ( '' === $ip ) {
 			return null;
 		}
@@ -1408,7 +1410,9 @@ class AuthController {
 				$errors['user_login'] = __( 'Username must be at least 3 characters.', 'buddynext' );
 			} elseif ( ! validate_username( $user_login ) ) {
 				$errors['user_login'] = __( 'Username contains invalid characters.', 'buddynext' );
-			} elseif ( username_exists( $user_login ) ) {
+			} elseif ( username_exists( $user_login ) || \BuddyNext\Core\PageRouter::is_reserved_profile_slug( $user_login ) ) {
+				// A reserved handle reads as taken: the login becomes the @handle,
+				// and naming the reserved list would only invite variations.
 				$errors['user_login'] = __( 'This username is already taken.', 'buddynext' );
 			}
 		}
@@ -1456,7 +1460,7 @@ class AuthController {
 				'source'           => RegistrationPolicy::SOURCE_FORM,
 				'email'            => $email,
 				'user_login'       => $user_login,
-				'ip'               => self::client_ip(),
+				'ip'               => \BuddyNext\Moderation\SafeguardService::client_ip(),
 				'honeypot'         => (string) $request->get_param( RegistrationGuard::honeypot_field() ),
 				'token'            => (string) $request->get_param( 'reg_token' ),
 				'challenge_token'  => (string) $request->get_param( 'challenge_token' ),
@@ -1726,17 +1730,6 @@ class AuthController {
 			),
 			200
 		);
-	}
-
-	/**
-	 * The caller's IP address, for the rate limiter.
-	 *
-	 * @return string
-	 */
-	public static function client_ip(): string {
-		return isset( $_SERVER['REMOTE_ADDR'] )
-			? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) )
-			: '';
 	}
 
 	/**

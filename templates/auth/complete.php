@@ -139,29 +139,24 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 							if ( ! FieldType::is_profile_field_active( $bn_rf, 0 ) ) {
 								continue;
 							}
-							$bn_rf_key   = (string) $bn_rf['field_key'];
-							$bn_rf_name  = 'bn_field_' . $bn_rf_key;
-							$bn_rf_id    = 'bn-complete-' . $bn_rf_key;
-							$bn_rf_input = FieldType::render_input( $bn_rf, '', $bn_rf_name );
-
-							// Tag the control so the shared signup store collects it, and
-							// mark it required for assistive tech. Radio groups already
-							// carry their own ids from render_input, so only inject an id
-							// where the control is a single input.
-							$bn_rf_input = preg_replace(
-								'/<(input|select|textarea)\s/',
-								'<$1 data-bn-reg-field="' . esc_attr( $bn_rf_key ) . '" required aria-required="true" ',
-								$bn_rf_input,
-								1
-							);
+							$bn_rf_name   = 'bn_field_' . (string) $bn_rf['field_key'];
+							$bn_rf_render = FieldType::render_registration_input( $bn_rf, $bn_rf_name, true );
+							$bn_rf_input  = $bn_rf_render['html'];
 							?>
 							<?php // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- field_wrapper_attributes() escapes. ?>
 							<div class="bn-auth-field"<?php echo FieldType::field_wrapper_attributes( $bn_rf, 0 ); ?>>
 							<?php // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-								<label class="bn-auth-label" for="<?php echo esc_attr( $bn_rf_id ); ?>">
+								<?php if ( $bn_rf_render['is_group'] ) : ?>
+								<span class="bn-auth-label" id="<?php echo esc_attr( $bn_rf_render['label_id'] ); ?>">
+									<?php echo esc_html( (string) $bn_rf['label'] ); ?>
+									<span class="bn-auth-required" aria-hidden="true">*</span>
+								</span>
+								<?php else : ?>
+								<label class="bn-auth-label" for="<?php echo esc_attr( $bn_rf_render['control_id'] ); ?>">
 									<?php echo esc_html( (string) $bn_rf['label'] ); ?>
 									<span class="bn-auth-required" aria-hidden="true">*</span>
 								</label>
+								<?php endif; ?>
 								<?php
 								// FieldType::render_input returns escaped, type-safe markup.
 								// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped

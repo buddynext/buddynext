@@ -422,6 +422,13 @@ py_gate bin/check-tab-url.py "an AdminHub::tab_url() call points at a tab that i
 section "Interactivity directive paths"
 py_gate bin/check-directive-paths.py "a directive is bound to an expression — move the comparison into a computed getter"
 
+# One client-IP reader. Up to 1.2.9 three of four REMOTE_ADDR readers skipped the
+# buddynext_client_ip filter, so behind a proxy the sign-up and sign-in limits were
+# shared by the whole site. Only SafeguardService::client_ip() may read it, and no
+# code may trust a forwarded header.
+section "Client IP reader"
+py_gate bin/check-client-ip.py "the client address is read outside SafeguardService::client_ip() - see above"
+
 # 3b-i-a. Raw manage_options checks outside the settings screens only go down
 # (permissions program, card 10322714806): a power belongs to an ability so a site
 # can give it to a moderator without making them a WordPress administrator.

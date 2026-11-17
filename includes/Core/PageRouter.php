@@ -4430,11 +4430,16 @@ class PageRouter {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $slug    Proposed slug (sanitized with sanitize_title internally).
-	 * @param int    $user_id User requesting the slug (excluded from conflict checks).
+	 * @since 1.3.0 Added $is_admin_actor.
+	 *
+	 * @param string $slug           Proposed slug (sanitized with sanitize_title internally).
+	 * @param int    $user_id        User requesting the slug (excluded from conflict checks).
+	 * @param bool   $is_admin_actor True when a site administrator assigns the slug
+	 *                               (wp-admin Edit Member): impersonation words are
+	 *                               allowed, route words still are not.
 	 * @return bool True when the slug is available.
 	 */
-	public static function is_slug_available( string $slug, int $user_id ): bool {
+	public static function is_slug_available( string $slug, int $user_id, bool $is_admin_actor = false ): bool {
 		$slug = sanitize_title( $slug );
 		if ( '' === $slug ) {
 			return false;
@@ -4461,7 +4466,7 @@ class PageRouter {
 			return false;
 		}
 
-		if ( in_array( $slug, self::reserved_profile_slugs(), true ) ) {
+		if ( self::is_reserved_profile_slug( $slug, $is_admin_actor ) ) {
 			return false;
 		}
 
@@ -4501,45 +4506,104 @@ class PageRouter {
 	}
 
 	/**
-	 * Profile slugs no member may claim.
+	 * Route words: no one may hold these, administrators included.
 	 *
-	 * Deliberately SHORT, and honest about what it is: defence in depth, not a
-	 * fix for a live collision. Measured on 1.1.6 — a member holding the slug
-	 * `edit` gets /members/edit/ and it resolves to them, while
-	 * /members/someone/edit/ still reaches the edit screen. The members rewrite
-	 * takes the first segment as a slug and the second as the action, so a
-	 * one-word slug cannot shadow a two-segment route today.
+	 * Each is, or is about to be, a path segment BuddyNext routes itself:
+	 * /me/..., /members/page/N/ (the directory pager), and the listing words a
+	 * members-base route would claim (search, new, all...). A member holding one
+	 * shadows the route, and by then the word is in links people have shared.
 	 *
-	 * What it guards is tomorrow: the moment anyone adds a LISTING route under
-	 * the members base — /members/search/, /members/online/ — a member already
-	 * holding that word shadows it, and by then the slug is in their profile URL
-	 * and in links other people have shared. Refusing a handful of routing words
-	 * now costs nothing; reclaiming one later costs a member their URL.
+	 * @since 1.3.0
+	 */
+	public const RESERVED_ROUTE_SLUGS = array( 'me', 'edit', 'settings', 'admin', 'search', 'new', 'all', 'page' );
+
+	/**
+	 * Impersonation words: a member may not take these, an administrator may assign them.
 	 *
-	 * `me` is here for a second reason: BuddyNext already routes /me/... at the
-	 * top level, and a member whose profile is /members/me/ makes every "me"
-	 * link in support ambiguous to read.
+	 * Handles a member could use to pose as the site or its staff ("@support",
+	 * "@moderator") or as one of its doors. A community that runs a real support
+	 * account gives it the handle from wp-admin > Edit Member.
 	 *
-	 * Owners extend it — a brand term, a landing page they intend to add — and
-	 * an owner who wants none of it can return an empty array.
+	 * @since 1.3.0
+	 */
+	public const RESERVED_IMPERSONATION_SLUGS = array(
+		'administrator',
+		'moderator',
+		'mod',
+		'support',
+		'help',
+		'staff',
+		'team',
+		'official',
+		'system',
+		'root',
+		'login',
+		'logout',
+		'register',
+		'api',
+		'wp-admin',
+		'members',
+		'spaces',
+		'activity',
+	);
+
+	/**
+	 * Profile slugs the given actor may not claim.
+	 *
+	 * The ONE reserved-names list, in two tiers: route words block everyone;
+	 * impersonation words block members but an administrator may assign them.
+	 * Every handle door reads it through is_slug_available(),
+	 * is_reserved_profile_slug(), Handle::set() or the registration checks, so
+	 * the sign-up form, the email-derived login, profile edit, REST and
+	 * wp-admin cannot disagree.
+	 *
+	 * The list gates CLAIMS, not holders: a member who already holds a word
+	 * keeps it (Handle::set() lets a member keep their own handle).
+	 *
+	 * Owners extend it through the filter (a brand term, a landing page they
+	 * intend to add); an owner who wants none of it can return an empty array.
 	 *
 	 * @since 1.1.6
+	 * @since 1.3.0 Two tiers; added $is_admin_actor.
 	 *
+	 * @param bool $is_admin_actor True when a site administrator assigns the slug.
 	 * @return string[] Sanitized, lowercase slugs.
 	 */
-	public static function reserved_profile_slugs(): array {
-		$reserved = array( 'me', 'edit', 'settings', 'admin', 'search', 'new', 'all' );
+	public static function reserved_profile_slugs( bool $is_admin_actor = false ): array {
+		$reserved = $is_admin_actor
+			? self::RESERVED_ROUTE_SLUGS
+			: array_merge( self::RESERVED_ROUTE_SLUGS, self::RESERVED_IMPERSONATION_SLUGS );
 
 		/**
 		 * Filter the profile slugs no member may claim.
 		 *
 		 * @since 1.1.6
+		 * @since 1.3.0 Added $is_admin_actor. The default list for an
+		 *              administrator holds route words only.
 		 *
-		 * @param string[] $reserved Default reserved slugs.
+		 * @param string[] $reserved       Reserved slugs for this actor.
+		 * @param bool     $is_admin_actor True when a site administrator assigns the slug.
 		 */
-		$reserved = (array) apply_filters( 'buddynext_reserved_profile_slugs', $reserved );
+		$reserved = (array) apply_filters( 'buddynext_reserved_profile_slugs', $reserved, $is_admin_actor );
 
 		return array_values( array_filter( array_map( 'sanitize_title', $reserved ) ) );
+	}
+
+	/**
+	 * Whether a handle or login is reserved for the given actor.
+	 *
+	 * Normalised the way WordPress turns a login into a nicename
+	 * (sanitize_title), so "Support", "support." and "SUPPORT" all match.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $slug           Proposed handle or login.
+	 * @param bool   $is_admin_actor True when a site administrator assigns it.
+	 * @return bool
+	 */
+	public static function is_reserved_profile_slug( string $slug, bool $is_admin_actor = false ): bool {
+		$slug = sanitize_title( $slug );
+		return '' !== $slug && in_array( $slug, self::reserved_profile_slugs( $is_admin_actor ), true );
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

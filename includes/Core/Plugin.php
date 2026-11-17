@@ -422,6 +422,10 @@ class Plugin {
 		// both session-minting chains — see LoginGuard.
 		( new \BuddyNext\Auth\LoginGuard() )->register();
 
+		// Site Health: warn when every visitor shows one proxy address (the
+		// sign-up and sign-in limits would then be shared site-wide).
+		\BuddyNext\Moderation\SafeguardService::register_site_health();
+
 		// Sign-in with the @handle on every login form, for logins whose handle
 		// differs (a dot becomes a hyphen) - see Handle::authenticate().
 		add_filter( 'authenticate', array( \BuddyNext\Profile\Handle::class, 'authenticate' ), 25, 3 );

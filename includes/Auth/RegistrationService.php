@@ -57,7 +57,11 @@ class RegistrationService {
 		$base = trim( (string) preg_replace( '/[.\s-]+/', '-', strtolower( sanitize_user( current( explode( '@', $email ) ), true ) ) ), '-' );
 		$base = '' !== $base ? $base : 'member';
 
-		if ( ! username_exists( $base ) ) {
+		// A reserved word (support@, me@, admin@...) is treated as taken, so it
+		// falls through to the numeric suffix below: nobody is refused at the
+		// door, they become @support2 instead of posing as @support.
+		$reserved = \BuddyNext\Core\PageRouter::is_reserved_profile_slug( $base );
+		if ( ! $reserved && ! username_exists( $base ) ) {
 			return $base;
 		}
 
@@ -137,7 +141,10 @@ class RegistrationService {
 
 		// On a network, the owner's banned names (Network Admin > Settings) apply to the
 		// username too. The email domain rules are checked with the other domain rules.
-		if ( is_multisite() && in_array( strtolower( (string) $data['user_login'] ), (array) get_site_option( 'illegal_names', array() ), true ) ) {
+		// The community's reserved handles (route and impersonation words) bind at
+		// every door, not only the REST form: the login becomes the @handle.
+		if ( \BuddyNext\Core\PageRouter::is_reserved_profile_slug( (string) $data['user_login'] )
+			|| ( is_multisite() && in_array( strtolower( (string) $data['user_login'] ), (array) get_site_option( 'illegal_names', array() ), true ) ) ) {
 			return new WP_Error(
 				'bn_reg_name',
 				__( 'That username is not allowed.', 'buddynext' ),
