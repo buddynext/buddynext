@@ -215,7 +215,7 @@ class MessagesData {
 	 * Whether a user is online, from the canonical presence reader.
 	 *
 	 * Delegates to BlockService::is_user_online() (bn_last_active within the
-	 * 300s window, block-aware) — the same source the member directory,
+	 * online window, block-aware) — the same source the member directory,
 	 * profile and member cards use, so presence is consistent across surfaces.
 	 *
 	 * @param int $viewer  Viewing user ID.

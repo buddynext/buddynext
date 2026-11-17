@@ -519,7 +519,7 @@ class BlockService {
 	 * green presence dot (member directory, profile hero, DM list rail,
 	 * DM thread header), reading the indexed bn_presence table via
 	 * PresenceService::last_active_at(). The window defaults to the shared
-	 * PresenceService::ONLINE_WINDOW so every surface agrees, and the restrict
+	 * PresenceService::online_window() so every surface agrees, and the restrict
 	 * gate applies: a user the viewer has restricted always reads as offline so
 	 * the viewer never sees activity signals from them.
 	 *
@@ -528,10 +528,10 @@ class BlockService {
 	 *
 	 * @param int $viewer_id    Viewer (0 = anonymous, no restrict gate applied).
 	 * @param int $target_id    User whose presence is being checked.
-	 * @param int $threshold_s  Optional. Window in seconds. Default PresenceService::ONLINE_WINDOW.
+	 * @param int $threshold_s  Optional. Window in seconds. 0 (default) = PresenceService::online_window().
 	 * @return bool
 	 */
-	public function is_user_online( int $viewer_id, int $target_id, int $threshold_s = \BuddyNext\Realtime\PresenceService::ONLINE_WINDOW ): bool {
+	public function is_user_online( int $viewer_id, int $target_id, int $threshold_s = 0 ): bool {
 		return $this->is_user_online_at(
 			$viewer_id,
 			$target_id,
@@ -550,10 +550,10 @@ class BlockService {
 	 * @param int $viewer_id   Viewer (0 = anonymous, no restrict gate applied).
 	 * @param int $target_id   User whose presence is being checked.
 	 * @param int $last_active Target's last_active UNIX timestamp (0 = never seen → offline).
-	 * @param int $threshold_s Optional. Window in seconds. Default PresenceService::ONLINE_WINDOW.
+	 * @param int $threshold_s Optional. Window in seconds. 0 (default) = PresenceService::online_window().
 	 * @return bool
 	 */
-	public function is_user_online_at( int $viewer_id, int $target_id, int $last_active, int $threshold_s = \BuddyNext\Realtime\PresenceService::ONLINE_WINDOW ): bool {
+	public function is_user_online_at( int $viewer_id, int $target_id, int $last_active, int $threshold_s = 0 ): bool {
 		if ( $target_id <= 0 || $last_active <= 0 ) {
 			return false;
 		}
@@ -587,7 +587,7 @@ class BlockService {
 			}
 		}
 
-		return $last_active >= ( time() - $threshold_s );
+		return $last_active >= ( time() - ( $threshold_s > 0 ? $threshold_s : \BuddyNext\Realtime\PresenceService::online_window() ) );
 	}
 
 	/**

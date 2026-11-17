@@ -42,8 +42,8 @@ class NotificationMessageService {
 	/**
 	 * Compose the full presentation payload for a single notification row.
 	 *
-	 * Accepts an associative array with keys: id, type, sender_id, object_id,
-	 * object_type, group_count, data, created_at, is_read. Returns an array
+	 * Accepts an associative array with keys: id, type, recipient_id, sender_id,
+	 * object_id, object_type, group_count, data, created_at, is_read. Returns an array
 	 * with keys: message, url, icon, tone, label, actor_id, actor_name,
 	 * group_count. Used by template, nav dropdown, REST list endpoint, and
 	 * email token resolver so every surface renders the same copy.
@@ -72,7 +72,11 @@ class NotificationMessageService {
 
 		$actor_name = $this->resolve_actor_name( $actor_id );
 		$meta       = $this->meta_for( $type );
-		$url        = $this->url_for( $type, $actor_id, $object_id, $data );
+		// The recipient resolves "me" links (a received request opens the
+		// recipient's own tab). Rows read from the table carry it; a caller that
+		// composes in someone else's request (Pro push runs in the sender's) must
+		// pass it, or the link would point at the current user instead.
+		$url        = $this->url_for( $type, $actor_id, $object_id, $data, isset( $row['recipient_id'] ) ? (int) $row['recipient_id'] : 0 );
 
 		$grouped_template = (string) ( $data['message_grouped'] ?? '' );
 		if ( $group_count > 1 && '' !== $grouped_template ) {
@@ -901,8 +905,13 @@ class NotificationMessageService {
 				$me = $viewer_id;
 				return $me > 0 ? PageRouter::connections_url( $me ) : '';
 
-			case 'bn.new_follower':
 			case 'bn.follow_requested':
+				// A received follow request: open the RECIPIENT's own Followers
+				// tab, where the pending requests are approved or declined. The
+				// requester's profile has no Accept control.
+				return $viewer_id > 0 ? PageRouter::followers_url( $viewer_id ) : '';
+
+			case 'bn.new_follower':
 			case 'bn.connection_accepted':
 				return $actor_id > 0 ? PageRouter::profile_url( $actor_id ) : '';
 

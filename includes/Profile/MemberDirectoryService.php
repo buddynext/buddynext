@@ -254,7 +254,7 @@ class MemberDirectoryService {
 	 *   'space_id'          (int)     — restrict to active members of this space.
 	 *   'connection_status' (string)  — 'connections' restricts to accepted connections
 	 *                                   of the viewer. 'everyone' (default) applies no filter.
-	 *   'online_only'       (bool)    — restrict to users active within the last 5 minutes.
+	 *   'online_only'       (bool)    — restrict to users active within PresenceService::online_window().
 	 *   'sort'              (string)  — 'newest' (default), 'alphabetical', 'most_active',
 	 *                                   or 'online' (alias: implies online_only + most_active order).
 	 *   'with_total'        (bool)    — false skips the exact COUNT (total is null) for
@@ -480,7 +480,7 @@ class MemberDirectoryService {
 		}
 
 		if ( $online_only ) {
-			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::ONLINE_WINDOW;
+			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::online_window();
 		}
 
 		// Snapshot the filter-only WHERE for the bounded total (A6e): the count must NOT
@@ -1062,7 +1062,7 @@ class MemberDirectoryService {
 		// so the count path matches list_members' own gated online_only and an
 		// anonymous visitor cannot narrow the community to its online members.
 		if ( ! empty( $args['online_only'] ) && PresenceService::visible_to_viewer( $viewer_id ) ) {
-			$online_window = PresenceService::ONLINE_WINDOW;
+			$online_window = PresenceService::online_window();
 			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )";
 		}
 
@@ -1134,7 +1134,10 @@ class MemberDirectoryService {
 		$search      = sanitize_text_field( wp_unslash( (string) ( $request['s'] ?? '' ) ) );
 		$orderby     = sanitize_key( (string) ( $request['orderby'] ?? 'registered' ) );
 		$relation    = sanitize_key( (string) ( $request['relation'] ?? 'all' ) );
-		$online_only = '1' === sanitize_key( wp_unslash( (string) ( $request['online'] ?? '' ) ) );
+		$online_only = '1' === sanitize_key( wp_unslash( (string) ( $request['online'] ?? '' ) ) )
+			// A viewer who cannot see presence gets no Online only filter (the bar
+			// hides it), so a shared ?online=1 link shows them no filters-active state.
+			&& PresenceService::visible_to_viewer( $viewer_id );
 		// Member type comes from ?type=, the one filter contract on this screen.
 		$member_type = sanitize_key( wp_unslash( (string) ( $request['type'] ?? '' ) ) );
 
@@ -1277,7 +1280,7 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * User IDs active within the online window (last 5 minutes).
+	 * User IDs active within the online window (PresenceService::online_window()).
 	 *
 	 * Used to apply the "Online only" filter to the server-rendered first page's
 	 * WP_User_Query (include set) so the rendered members AND the pager total
@@ -1292,7 +1295,7 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * Of a page of member IDs, which are active within the online window (<5 min).
+	 * Of a page of member IDs, which are active within the online window (PresenceService::online_window()).
 	 *
 	 * One bounded `IN` query over the indexed bn_presence table, replacing the
 	 * per-card `PresenceService::last_active_at()` lookup (uncached, one query each)
@@ -1321,7 +1324,7 @@ class MemberDirectoryService {
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE user_id IN ({$in}) AND last_active >= %d",
-				time() - PresenceService::ONLINE_WINDOW
+				time() - PresenceService::online_window()
 			)
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1481,7 +1484,7 @@ class MemberDirectoryService {
 				    {$self_where}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
-				time() - PresenceService::ONLINE_WINDOW,
+				time() - PresenceService::online_window(),
 				$fetch
 			)
 		);

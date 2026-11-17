@@ -28,6 +28,8 @@ use BuddyNext\Media\Galleries;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Nav\NavContext;
 use BuddyNext\Nav\NavRegistry;
+use BuddyNext\Profile\FieldType;
+use BuddyNext\Profile\ProfileService;
 
 /**
  * Core nav provider for the `profile` surface.
@@ -664,9 +666,14 @@ final class ProfileNav {
 
 	/**
 	 * Whether the profile has any "About" content — gates the About tab so it never
-	 * appears empty. Mirrors what the About panel renders: work / education entries,
-	 * interests, and any other admin-defined field beyond the hero keys (basic_info
-	 * headline/bio/pronouns/location/website) and the social-links group.
+	 * appears empty.
+	 *
+	 * Asks the About panel's own question (templates/parts/profile/about-panel.php):
+	 * the same `buddynext_profile_about_groups` filter over the same viewer-gated
+	 * groups, the same hero-key skip in basic_info, and a field counts only when
+	 * FieldType::render_display() returns something to show. A stored value the
+	 * panel drops (an unticked "current" box stored as '0', an unreadable add-on
+	 * payload, an invalid URL) therefore no longer opens a blank tab.
 	 *
 	 * @param NavContext $c Context.
 	 * @return bool
@@ -676,53 +683,49 @@ final class ProfileNav {
 		if ( ! is_array( $profile ) ) {
 			return false;
 		}
-		$hero = \BuddyNext\Profile\ProfileService::hero_field_keys();
-		foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
-			$gkey = (string) ( $group['group_key'] ?? '' );
+
+		/** This filter is documented in templates/parts/profile/about-panel.php */
+		$groups = (array) apply_filters(
+			'buddynext_profile_about_groups',
+			(array) ( $profile['groups'] ?? array() ),
+			$c->subject_id,
+			$c->viewer_id
+		);
+
+		$hero = ProfileService::hero_field_keys();
+		foreach ( $groups as $group ) {
+			$gkey = is_array( $group ) ? (string) ( $group['group_key'] ?? '' ) : '';
 			// Every group the About panel renders counts, social links included:
 			// the header shows a social field only when the owner flags it.
 			if ( '' === $gkey ) {
 				continue;
 			}
-			// Repeater entries (work / education) with any value.
+			$fields = array();
 			foreach ( (array) ( $group['entries'] ?? array() ) as $entry ) {
-				foreach ( (array) $entry as $field ) {
-					if ( is_array( $field ) && self::field_has_value( $field['value'] ?? '' ) ) {
-						return true;
+				foreach ( (array) $entry as $entry_key => $field ) {
+					if ( '_visibility' !== $entry_key ) {
+						$fields[] = $field;
 					}
 				}
 			}
-			// Flat fields with a value, skipping the hero keys in basic_info.
 			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
-				if ( ! is_array( $field ) ) {
+				if ( 'basic_info' !== $gkey || ! is_array( $field ) || ! in_array( (string) ( $field['field_key'] ?? '' ), $hero, true ) ) {
+					$fields[] = $field;
+				}
+			}
+			foreach ( $fields as $field ) {
+				if ( ! is_array( $field ) || empty( $field['field_key'] ) ) {
 					continue;
 				}
-				$fkey = (string) ( $field['field_key'] ?? '' );
-				if ( 'basic_info' === $gkey && in_array( $fkey, $hero, true ) ) {
+				$value = $field['value'] ?? '';
+				if ( is_array( $value ) ? array() === $value : '' === trim( (string) $value ) ) {
 					continue;
 				}
-				if ( self::field_has_value( $field['value'] ?? '' ) ) {
+				if ( '' !== trim( FieldType::render_display( $field, $value ) ) ) {
 					return true;
 				}
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * Whether a profile field value is non-empty, array-safe.
-	 *
-	 * Multi-value fields (e.g. the interests category_multiselect) carry an
-	 * ARRAY value - the old string cast tripped a PHP "Array to string
-	 * conversion" warning on every profile-nav render for members with picks.
-	 *
-	 * @param mixed $value Field value (string, scalar, or array of picks).
-	 * @return bool
-	 */
-	private static function field_has_value( $value ): bool {
-		if ( is_array( $value ) ) {
-			return array() !== array_filter( $value, static fn( $v ) => '' !== (string) $v );
-		}
-		return '' !== (string) $value;
 	}
 }

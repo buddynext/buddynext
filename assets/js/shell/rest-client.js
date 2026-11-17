@@ -258,6 +258,9 @@ function performRequest( path, opts, isRetry ) {
 		credentials: 'same-origin',
 		headers,
 		signal,
+		// Lets a small fire-and-forget request (the presence ping) finish even if
+		// the page is navigated away from mid-flight.
+		keepalive: !! opts.keepalive,
 		// Upload progress callback ( loaded, total ); switches the transport to XHR.
 		onUploadProgress: opts.onUploadProgress,
 	};

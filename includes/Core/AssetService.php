@@ -631,6 +631,17 @@ class AssetService {
 			$this->module_version( 'js/shell/nav-init.js' )
 		);
 
+		// `@buddynext/presence` keeps a signed-in member "online" across client
+		// navigation, a tab coming back into view, and page-cached views: an
+		// event-driven POST to /me/presence/heartbeat, at most once per ~4 minutes
+		// per tab. No timer. Enqueued by PresenceService::enqueue_ping().
+		wp_register_script_module(
+			'@buddynext/presence',
+			$this->assets_url . 'js/shell/presence.js',
+			array( array( 'id' => '@buddynext/rest-client' ) ),
+			$this->module_version( 'js/shell/presence.js' )
+		);
+
 		// `@buddynext/navigate` owns the bare-`buddynext` store's navigate
 		// action. The Interactivity router loads as a dynamic dependency, so it
 		// is fetched once on the first client-side navigation and reused.

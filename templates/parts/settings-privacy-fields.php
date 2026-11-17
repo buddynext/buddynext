@@ -136,7 +136,7 @@ $privacy_rows = array(
 	array( 'select', 'bn_privacy_profile_visibility', __( 'Who can see my profile', 'buddynext' ), $privacy_profile_visibility, 'bn-ep-privacy-visibility', '', $privacy_visibility_options ),
 	array( 'select', 'bn_privacy_who_can_follow', __( 'Who can follow me', 'buddynext' ), $privacy_who_can_follow, 'bn-ep-privacy-follow', '', $privacy_follow_options ),
 	array( 'select', 'bn_privacy_who_can_connect', __( 'Who can send me connection requests', 'buddynext' ), $privacy_who_can_connect, 'bn-ep-privacy-connect', '', $privacy_connect_options ),
-	array( 'select', 'bn_privacy_mention', __( 'Who can @mention me', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', __( 'Controls who can notify you with a mention, in posts and comments. Others can still type your name.', 'buddynext' ), $privacy_audiences ),
+	array( 'select', 'bn_privacy_mention', __( 'Who can notify me with an @mention', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', __( 'Choose whose @mentions in posts and comments send you a notification. Anyone can still type your name, and it still links to your profile.', 'buddynext' ), $privacy_audiences ),
 	array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( 'Only approved followers see your posts. New follows arrive as requests you can accept or decline.', 'buddynext' ), array() ),
 	array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to keep your profile out of the Members directory.', 'buddynext' ), array() ),
 	// Shown off while the community keeps profiles out of search; the member's own

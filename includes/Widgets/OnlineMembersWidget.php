@@ -56,7 +56,7 @@ class OnlineMembersWidget extends \WP_Widget {
 		// first — read from the indexed bn_presence table, not "recently
 		// registered". The bounded id list is cached briefly so a busy sidebar
 		// hits the table at most once per TTL regardless of traffic; the online
-		// window is 300s, so 30s of staleness is invisible.
+		// window is 10 minutes by default, so 30s of staleness is invisible.
 		$cache_key = 'online_widget_' . $limit;
 		$ids       = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false === $ids ) {
@@ -101,7 +101,7 @@ class OnlineMembersWidget extends \WP_Widget {
 	private const CACHE_GROUP = 'buddynext_presence';
 
 	/**
-	 * TTL for the cached online-id list, in seconds. Well under the 300s presence
+	 * TTL for the cached online-id list, in seconds. Well under the 600s presence
 	 * window so the list is never meaningfully stale.
 	 *
 	 * @var int

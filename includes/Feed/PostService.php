@@ -832,30 +832,70 @@ class PostService {
 			ModerationService::auto_flag( 'post', $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ), $flag_filed );
 		}
 
-		// Parse @username mentions and fire buddynext_user_mentioned for each.
-		$content = (string) ( $data['content'] ?? '' );
-		if ( '' !== $content ) {
-			preg_match_all( Handle::mention_regex(), $content, $mention_matches );
-			foreach ( $mention_matches[1] as $raw_username ) {
-				// Resolved as a HANDLE, not a login. The handle is what every
-				// surface shows and what the typeahead inserts; resolving by login
-				// missed every member whose login differs from their nicename (a
-				// space, a capital, a dot, an email, or a custom slug), so the
-				// mention linked correctly and the member was never notified.
-				$mentioned_user = Handle::resolve( (string) $raw_username );
-				if ( $mentioned_user instanceof \WP_User && $mentioned_user->ID !== $user_id
-					&& $this->mention_allowed( $user_id, (int) $mentioned_user->ID ) ) {
-					/**
-					 * Fires when a user is @mentioned in a BuddyNext post.
-					 *
-					 * @param int $mentioned_user_id ID of the user who was mentioned.
-					 * @param int $mentioner_id      ID of the user who wrote the post.
-					 * @param int $post_id           Post ID containing the mention.
-					 */
-					do_action( 'buddynext_user_mentioned', $mentioned_user->ID, $user_id, $post_id );
-				}
+		// Parse @handle mentions and fire buddynext_user_mentioned for each.
+		$this->notify_mentions( $user_id, $post_id, (string) ( $data['content'] ?? '' ) );
+	}
+
+	/**
+	 * Fire buddynext_user_mentioned for each member @mentioned in $content.
+	 *
+	 * The one mention seam for posts and comments, on create and on edit. On an
+	 * edit pass the text as it was before in $previous: only members the edit
+	 * newly mentions are told, so fixing a typo does not notify everyone again.
+	 * Each target's bn_privacy_mention audience decides whether they are told.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $author_id  Member who wrote the mention.
+	 * @param int    $context_id Post ID the mention deep-links to (a comment passes its post).
+	 * @param string $content    Text as it now reads.
+	 * @param string $previous   Text before an edit; '' on create.
+	 * @return void
+	 */
+	public function notify_mentions( int $author_id, int $context_id, string $content, string $previous = '' ): void {
+		$already = '' === $previous ? array() : self::mentioned_user_ids( $previous, $author_id );
+		foreach ( array_diff( self::mentioned_user_ids( $content, $author_id ), $already ) as $mentioned_id ) {
+			if ( $this->mention_allowed( $author_id, $mentioned_id ) ) {
+				/**
+				 * Fires when a user is @mentioned in a BuddyNext post or comment,
+				 * when it is created or when an edit adds the mention.
+				 *
+				 * @param int $mentioned_user_id ID of the user who was mentioned.
+				 * @param int $mentioner_id      ID of the user who wrote the mention.
+				 * @param int $post_id           Post ID containing the mention (the comment's post for a comment).
+				 */
+				do_action( 'buddynext_user_mentioned', $mentioned_id, $author_id, $context_id );
 			}
 		}
+	}
+
+	/**
+	 * Members @mentioned in a piece of text, excluding the author.
+	 *
+	 * Mentions resolve as HANDLES, not logins. The handle is what every surface
+	 * shows and what the typeahead inserts; resolving by login missed every
+	 * member whose login differs from their nicename (a space, a capital, a dot,
+	 * an email, or a custom slug), so the mention linked and nobody was told.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $content   Text to scan.
+	 * @param int    $author_id Author, never counted as mentioned.
+	 * @return int[] Unique user IDs.
+	 */
+	public static function mentioned_user_ids( string $content, int $author_id ): array {
+		if ( '' === $content ) {
+			return array();
+		}
+		preg_match_all( Handle::mention_regex(), $content, $matches );
+		$ids = array();
+		foreach ( array_unique( $matches[1] ) as $raw_handle ) {
+			$user = Handle::resolve( (string) $raw_handle );
+			if ( $user instanceof \WP_User && (int) $user->ID !== $author_id ) {
+				$ids[ (int) $user->ID ] = (int) $user->ID;
+			}
+		}
+		return array_values( $ids );
 	}
 
 	/**
@@ -2590,6 +2630,15 @@ class PostService {
 		// treatment create() gives a flagged post.
 		if ( '' !== $edit_flag_reason ) {
 			ModerationService::auto_flag( 'post', $post_id, $edit_flag_reason, $edit_space_id );
+		}
+
+		// An edit that adds an @mention tells that member, as create() would have.
+		// Only for a live post edited by its author: a scheduled or held post
+		// notifies at go-live from its final text, and a moderator's redaction
+		// must not send notifications in the author's name.
+		if ( in_array( 'content', $changed, true ) && ! empty( self::STATUSES[ $row_status ]['readable'] )
+			&& (int) ( $row['user_id'] ?? 0 ) === $user_id ) {
+			$this->notify_mentions( $user_id, $post_id, (string) $fields['content'], (string) ( $row['content'] ?? '' ) );
 		}
 
 		/**

@@ -58,7 +58,7 @@ If your community needs to ask visitors for cookie consent - for example under E
 
 ## What members control on their own Privacy tab
 
-Under **Settings > Privacy**, each change saves as soon as a member makes it. The controls are **Who can see my profile**, **Who can follow me**, **Who can send me connection requests**, **Who can @mention me** (Members, My connections or Nobody), **Private account** (only approved followers see posts; new follows arrive as requests), **Show me in the member directory**, **Show my profile to search engines** and **Hide my profile views**. **Who can message me** is shown here too, but it is set in MediaVerse and BuddyNext only displays it. With a current MediaVerse, a one-line explanation under the row says what the selected choice allows and changes when the choice changes. Older MediaVerse versions show the row without the explanation.
+Under **Settings > Privacy**, each change saves as soon as a member makes it. The controls are **Who can see my profile**, **Who can follow me**, **Who can send me connection requests**, **Who can notify me with an @mention** (Members, My connections or Nobody), **Private account** (only approved followers see posts; new follows arrive as requests), **Show me in the member directory**, **Show my profile to search engines** and **Hide my profile views**. **Who can message me** is shown here too, but it is set in MediaVerse and BuddyNext only displays it. With a current MediaVerse, a one-line explanation under the row says what the selected choice allows and changes when the choice changes. Older MediaVerse versions show the row without the explanation.
 
 ## Export my data
 

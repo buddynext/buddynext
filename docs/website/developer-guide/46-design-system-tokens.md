@@ -47,6 +47,7 @@ All tokens are `--bn-` prefixed. The families:
 | Motion | `--bn-dur`, `--bn-dur-fast`, `--bn-dur-slow`, `--bn-ease`, `--bn-ease-out` |
 | Layering | `--bn-z-menu`, `--bn-z-modal`, `--bn-z-lightbox`, `--bn-z-toast` |
 | Layout | `--bn-container`, `--bn-content-max`, `--bn-content-wide`, `--bn-railw` |
+| Reading measure | `--bn-post-measure` - widest line of post text in the feed and on the post page. Not set by default, so text caps at `58ch`; set it to `none` for full-width text. Media, polls and link previews always use the full card. |
 | Toasts and dialogs | `--bn-toast-min-w`, `--bn-toast-max-w`, `--bn-dialog-max-w`, `--bn-dialog-btn-h` |
 
 Bare-named aliases (`--bg`, `--text-1`, `--s4`, ...) exist only for back-compat. Always author against the `--bn-*` names.

@@ -14,7 +14,6 @@ declare( strict_types=1 );
 namespace BuddyNext\Comments;
 
 use WP_Error;
-use BuddyNext\Profile\Handle;
 use BuddyNext\Core\RateLimiter;
 use BuddyNext\Moderation\InteractionGuard;
 use BuddyNext\Moderation\ModerationService;
@@ -280,27 +279,11 @@ class CommentService {
 		 */
 		do_action( 'buddynext_comment_created', $comment_id, $object_type, $object_id, $user_id );
 
-		// Parse @username mentions in the comment and notify each mentioned user.
-		// Mirrors PostService's mention handling; for a comment the deep link is
-		// the post the comment is on, so the existing bn.mention listener
-		// (object_id = post id) resolves correctly with no signature change.
+		// Notify members @mentioned in the comment. For a comment the deep link is
+		// the post it is on, so the bn.mention listener (object_id = post id)
+		// resolves with no signature change. One seam with posts: PostService.
 		if ( 'post' === $object_type ) {
-			preg_match_all( Handle::mention_regex(), $content, $bn_mention_matches );
-			$bn_notified = array();
-			foreach ( $bn_mention_matches[1] as $bn_raw_username ) {
-				$bn_username = (string) $bn_raw_username;
-				if ( '' === $bn_username || isset( $bn_notified[ $bn_username ] ) ) {
-					continue;
-				}
-				$bn_notified[ $bn_username ] = true;
-				// Resolved as a HANDLE, not a login — see PostService for why.
-				$bn_mentioned = Handle::resolve( $bn_username );
-				if ( $bn_mentioned instanceof \WP_User && $bn_mentioned->ID !== $user_id
-					&& $this->mention_allowed( $user_id, (int) $bn_mentioned->ID ) ) {
-					/** This action is documented in includes/Feed/PostService.php */
-					do_action( 'buddynext_user_mentioned', $bn_mentioned->ID, $user_id, $object_id );
-				}
-			}
+			buddynext_service( 'post_service' )->notify_mentions( $user_id, $object_id, $content );
 		}
 
 		if ( 'post' === $object_type ) {
@@ -323,24 +306,6 @@ class CommentService {
 		}
 
 		return $comment_id;
-	}
-
-	/**
-	 * Whether an actor may @mention a target, honouring the target's
-	 * `bn_privacy_mention` audience preference. Mirrors PostService so a comment
-	 * mention obeys the same gate as a post mention. Fails open if the privacy
-	 * service is unavailable.
-	 *
-	 * @param int $actor_id  Comment author.
-	 * @param int $target_id Mentioned user.
-	 * @return bool
-	 */
-	private function mention_allowed( int $actor_id, int $target_id ): bool {
-		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
-		if ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
-			return $privacy->can_mention( $actor_id, $target_id );
-		}
-		return true;
 	}
 
 	/**
@@ -513,6 +478,12 @@ class CommentService {
 		);
 
 		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
+
+		// An edit that adds an @mention tells that member, as create() would have.
+		// Author edits only: a moderator's redaction must not notify in their name.
+		if ( 'post' === $comment['object_type'] && (int) $comment['user_id'] === $user_id ) {
+			buddynext_service( 'post_service' )->notify_mentions( $user_id, (int) $comment['object_id'], $content, (string) $comment['content'] );
+		}
 
 		/**
 		 * Fires after a comment is updated.

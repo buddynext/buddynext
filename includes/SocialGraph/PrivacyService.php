@@ -329,8 +329,9 @@ class PrivacyService {
 	}
 
 	/**
-	 * Check whether an actor may @mention a target user (i.e. trigger the
-	 * mention notification + link). Honours the target's `bn_privacy_mention`
+	 * Check whether an actor's @mention of a target user sends the target a
+	 * notification. It never controls typing the name or the profile link: a
+	 * mention links to the profile regardless. Honours the target's `bn_privacy_mention`
 	 * audience preference:
 	 *   - 'everyone'    — anyone may mention them (default).
 	 *   - 'members'     — any logged-in member may (every poster qualifies).

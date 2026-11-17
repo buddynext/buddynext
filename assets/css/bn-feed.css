@@ -540,9 +540,10 @@
 	   characters per line on both the feed and the permalink. Every typographic
 	   reference puts comfortable reading at 45-75 (Bringhurst, ~66 optimal);
 	   past that the eye loses the line return on the way back, which readers
-	   experience as tiring rather than notice as a fault. Facebook, LinkedIn and
-	   X all sit inside the band because their feed columns are narrower than
-	   ours -- we get there by limiting the text instead of rebuilding the layout.
+	   experience as tiring rather than notice as a fault. X sits near 70;
+	   Facebook and LinkedIn run longer (roughly 80-95) because they fill their
+	   columns edge to edge, so the reason here is reading comfort, not matching
+	   them. We get there by limiting the text instead of rebuilding the layout.
 
 	   ch units track the actual font, so this holds if a theme changes the face
 	   or the owner changes the size. Only the text is constrained: media, polls
@@ -552,8 +553,11 @@
 	   The value is 58 and not 66, because `ch` is the advance width of the "0"
 	   glyph and proportional text averages narrower than that -- 68ch measured
 	   as 79 real characters here, still outside the band. 58ch lands inside it.
-	   Any change to this number should be re-measured rather than reasoned. */
-	max-width: 58ch;
+	   Any change to this number should be re-measured rather than reasoned.
+
+	   A site that prefers full-width text sets --bn-post-measure: none (or any
+	   length) on :root or .bn-app; the default stays 58ch. */
+	max-width: var(--bn-post-measure, 58ch);
 }
 
 /* ── Long-post preview ──────────────────────────────────────────────────────
