@@ -236,7 +236,7 @@ class MediaCommentNotificationTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A video card made before 1.3.1 never got its comments. The next comment
+	 * A video card made before 1.3.0 never got its comments. The next comment
 	 * brings the earlier ones with it, without a background job.
 	 *
 	 * @return void

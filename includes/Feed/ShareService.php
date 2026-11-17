@@ -216,7 +216,7 @@ class ShareService {
 	 * nesting. Callers that gate a share (visibility, status, space ban) must ask
 	 * about this id, not the card that was clicked.
 	 *
-	 * @since 1.3.1
+	 * @since 1.3.0
 	 *
 	 * @param int $post_id Post or share card id.
 	 * @return int The original post id, or `$post_id` when it is not a share card.
@@ -289,7 +289,7 @@ class ShareService {
 			 * never fires it twice. The counterpart of buddynext_post_shared, with
 			 * the same arguments.
 			 *
-			 * @since 1.3.1
+			 * @since 1.3.0
 			 *
 			 * @param int $share_id         Removed bn_shares row ID.
 			 * @param int $original_post_id Original post that was shared.

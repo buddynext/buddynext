@@ -150,7 +150,7 @@ class CronScheduler {
 	/**
 	 * Add the "background tasks are running" Site Health test.
 	 *
-	 * @since 1.3.1
+	 * @since 1.3.0
 	 *
 	 * @param array<string, mixed> $tests Site Health tests.
 	 * @return array<string, mixed>
@@ -172,7 +172,7 @@ class CronScheduler {
 	 * blocked loopback request, a host that stops background requests). Search,
 	 * email digests and bulk updates wait on it. One capped query, no stored state.
 	 *
-	 * @since 1.3.1
+	 * @since 1.3.0
 	 *
 	 * @return array<string, mixed>
 	 */

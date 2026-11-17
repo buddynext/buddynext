@@ -22,7 +22,7 @@ The action and filter seams for the activity feed and everything members post in
 | `buddynext_feed_allowed_post_types` | filter | The feed resolves which post types it will store and render, so an add-on can register its own card/post type instead of being dropped as unknown | `string[] $types` (defaults to the built-in set) |
 | `buddynext_post_created` | action | A new post goes live (also fired for a share, with `$type = 'share'`) | `int $post_id, int $user_id, string $type` |
 | `buddynext_post_updated` | action | A post is edited | `int $post_id, int $user_id, array $fields` (columns written this update) |
-| `buddynext_post_deleted` | action | A post is deleted, on every path: by its author, by a moderator, or by an integration removing its card | `int $post_id, int $user_id, int $author_id` (`$user_id` is who deleted it, 0 for a system delete; `$author_id`, added in 1.3.1, is always the post's author, so key author-side state such as streaks or points on it) |
+| `buddynext_post_deleted` | action | A post is deleted, on every path: by its author, by a moderator, or by an integration removing its card | `int $post_id, int $user_id, int $author_id` (`$user_id` is who deleted it, 0 for a system delete; `$author_id`, added in 1.3.0, is always the post's author, so key author-side state such as streaks or points on it) |
 | `buddynext_purge_page_cache` | action | A feed change purged one of its pages from the page caches BuddyNext knows (WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache). Hook it to purge the same URL from a cache BuddyNext does not know, such as Cloudflare APO or a proxy. Fires once per URL per request. | `string $url` (absolute) |
 | `buddynext_link_preview_max_redirects` | filter | Fetching a link preview, capping how many redirect hops are followed (default `5`; every hop is re-validated against SSRF rules before it is followed) | `int $max, string $url` |
 | `buddynext_post_approved` | action | A held post is approved by a moderator | `int $post_id, int $author` |
@@ -41,7 +41,7 @@ The action and filter seams for the activity feed and everything members post in
 | `buddynext_post_comment_received` | action | The author's post receives a comment from someone else (recipient mirror) | `int $comment_id, int $post_id, int $author_id, int $commenter_id` |
 | `buddynext_comment_updated` | action | A comment is edited | `int $comment_id, int $user_id` |
 | `buddynext_comment_deleted` | action | A comment is deleted on its own (not when its post is deleted, see below) | `int $comment_id, int $user_id` |
-| `buddynext_post_comments_deleted` | action | A deleted post took its comments with it. Fires once per post that had comments, after the delete commits, with every removed comment id (1.3.1). The rows are already gone, so key on the ids. `buddynext_comment_deleted` does not fire for these | `int[] $comment_ids, int $post_id` |
+| `buddynext_post_comments_deleted` | action | A deleted post took its comments with it. Fires once per post that had comments, after the delete commits, with every removed comment id (1.3.0). The rows are already gone, so key on the ids. `buddynext_comment_deleted` does not fire for these | `int[] $comment_ids, int $post_id` |
 
 `$object_type` is the thing the comment is attached to (`'post'`, `'media'`, etc.). The post-counter and recipient-mirror logic only run when `$object_type === 'post'`.
 
@@ -66,7 +66,7 @@ The canonical six reaction slugs are `like`, `love`, `haha`, `wow`, `sad`, `angr
 | `buddynext_poll_voted` | action | A poll vote is cast or switched (not on toggle-off) | `int $post_id, int $option_id, int $user_id` |
 | `buddynext_share_before_save` | filter | A share is about to be written | `array $data, int $user_id` (`$data` has `user_id`, `post_id`, `content`) |
 | `buddynext_post_shared` | action | A post is shared | `int $share_id, int $original_post_id, int $user_id` |
-| `buddynext_post_unshared` | action | A member's share is removed, by un-sharing or by deleting the repost card. Fires once, only when a share row was really removed (1.3.1) | `int $share_id, int $original_post_id, int $user_id` (same as `buddynext_post_shared`) |
+| `buddynext_post_unshared` | action | A member's share is removed, by un-sharing or by deleting the repost card. Fires once, only when a share row was really removed (1.3.0) | `int $share_id, int $original_post_id, int $user_id` (same as `buddynext_post_shared`) |
 | `buddynext_post_bookmarked` | action | A post is bookmarked (first time only) | `int $post_id, int $user_id` |
 | `buddynext_post_unbookmarked` | action | A bookmark is removed (only when a row was deleted) | `int $post_id, int $user_id` |
 

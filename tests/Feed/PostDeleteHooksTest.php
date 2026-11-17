@@ -2,7 +2,7 @@
 /**
  * Delete and unshare hooks carry what a points or streak listener needs.
  *
- * Before 1.3.1: the two bulk delete paths fired buddynext_post_deleted with no
+ * Before 1.3.0: the two bulk delete paths fired buddynext_post_deleted with no
  * author, a moderator delete handed listeners the moderator (so the moderator's
  * streak was busted, not the author's), comments removed with a post fired
  * nothing, and un-sharing fired nothing.

@@ -2745,7 +2745,7 @@ class PostService {
 		 * points) reads arg 3, never arg 2.
 		 *
 		 * @since 1.0.0
-		 * @since 1.3.1 Added `$author_id`.
+		 * @since 1.3.0 Added `$author_id`.
 		 *
 		 * @param int $post_id   Deleted post ID.
 		 * @param int $user_id   User who deleted the post (0 for a system delete).
@@ -2781,7 +2781,7 @@ class PostService {
 			 * delete removed along with it. buddynext_comment_deleted does not fire
 			 * for these.
 			 *
-			 * @since 1.3.1
+			 * @since 1.3.0
 			 *
 			 * @param int[] $comment_ids Removed comment IDs (rows already gone).
 			 * @param int   $post_id     The deleted post they belonged to.
@@ -3198,7 +3198,7 @@ class PostService {
 	 * `url` key IntegrationActivity has always stored, which a member's own link
 	 * post (title, description, thumbnail) does not.
 	 *
-	 * @since 1.3.1
+	 * @since 1.3.0
 	 *
 	 * @param string $type     The card's real type.
 	 * @param string $link_url Link the card points at.

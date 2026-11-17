@@ -3729,7 +3729,7 @@ class WPMediaVerseBridge {
 		}
 
 		// A card that has never had a comment mirrored onto it (one created before
-		// 1.3.1 for a video or audio upload, whose comments were never copied) gets
+		// 1.3.0 for a video or audio upload, whose comments were never copied) gets
 		// the earlier comments now, on the next comment, with no background job.
 		if ( ! self::$carrying_comments && ! self::has_mirrored_comment( $media_id, $bn_post_id ) ) {
 			$this->carry_comments_onto_card( $media_id );

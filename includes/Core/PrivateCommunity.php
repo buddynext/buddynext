@@ -232,7 +232,7 @@ final class PrivateCommunity {
 		 * community. Other /app routes stay gated.
 		 *
 		 * @since 1.1.3
-		 * @since 1.3.1 /app/config and /app/strings are exempt by default.
+		 * @since 1.3.0 /app/config and /app/strings are exempt by default.
 		 *
 		 * @param string[]         $exempt  Exempt route prefixes.
 		 * @param \WP_REST_Request $request Current request.
