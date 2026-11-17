@@ -2708,8 +2708,9 @@ class PostService {
 		if ( $bn_use_txn ) {
 			$wpdb->query( 'START TRANSACTION' );
 		}
-		$bn_swept   = $this->cascade_post_children( array( $post_id ) );
-		$bn_removed = $wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
+		$bn_comments_by_post = array();
+		$bn_swept            = $this->cascade_post_children( array( $post_id ), $bn_comments_by_post );
+		$bn_removed          = $wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
 		if ( ! $bn_swept || false === $bn_removed ) {
 			if ( $bn_use_txn ) {
 				$wpdb->query( 'ROLLBACK' );
@@ -2736,12 +2737,22 @@ class PostService {
 		}
 
 		/**
-		 * Fires after a post is deleted.
+		 * Fires after a post is deleted, on every delete path.
 		 *
-		 * @param int $post_id Deleted post ID.
-		 * @param int $user_id User who deleted the post.
+		 * `$user_id` is who deleted it: the author, a moderator, or 0 for a system
+		 * delete (an integration removing its card). `$author_id` is always the
+		 * member who wrote the post, so a listener that keys on the author (streaks,
+		 * points) reads arg 3, never arg 2.
+		 *
+		 * @since 1.0.0
+		 * @since 1.3.1 Added `$author_id`.
+		 *
+		 * @param int $post_id   Deleted post ID.
+		 * @param int $user_id   User who deleted the post (0 for a system delete).
+		 * @param int $author_id Author of the deleted post.
 		 */
-		do_action( 'buddynext_post_deleted', $post_id, $user_id );
+		do_action( 'buddynext_post_deleted', $post_id, $user_id, (int) ( $bn_deleted_row['user_id'] ?? 0 ) );
+		$this->announce_comments_deleted( $bn_comments_by_post );
 
 		if ( $bn_deleted_space_id > 0 ) {
 			/** Documented in create(). */
@@ -2749,6 +2760,34 @@ class PostService {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Tell listeners which comments went with deleted posts: one call per post.
+	 *
+	 * The cascade removes a post's comments in bulk, so buddynext_comment_deleted
+	 * (one listener round per comment) is deliberately NOT fired for them: a post
+	 * with thousands of comments would run every comment listener thousands of
+	 * times inside the delete request. Fired after COMMIT, so the rows are gone and
+	 * listeners get ids only.
+	 *
+	 * @param array<int,array<int>> $comments_by_post post_id => removed comment ids.
+	 * @return void
+	 */
+	private function announce_comments_deleted( array $comments_by_post ): void {
+		foreach ( $comments_by_post as $post_id => $comment_ids ) {
+			/**
+			 * Fires once per deleted post that had comments, with every comment the
+			 * delete removed along with it. buddynext_comment_deleted does not fire
+			 * for these.
+			 *
+			 * @since 1.3.1
+			 *
+			 * @param int[] $comment_ids Removed comment IDs (rows already gone).
+			 * @param int   $post_id     The deleted post they belonged to.
+			 */
+			do_action( 'buddynext_post_comments_deleted', array_values( $comment_ids ), (int) $post_id );
+		}
 	}
 
 	/**
@@ -2787,10 +2826,16 @@ class PostService {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @param array<int,int> $post_ids Post ids whose children to remove.
+	 * Also reports which comments it removed, grouped by post, so the caller can
+	 * fire buddynext_post_comments_deleted once per post AFTER the delete commits
+	 * (see fire_post_deleted()). The comment rows are gone by then, so listeners get
+	 * ids only.
+	 *
+	 * @param array<int,int>        $post_ids         Post ids whose children to remove.
+	 * @param array<int,array<int>> $comments_by_post Filled with post_id => removed comment ids.
 	 * @return bool True when every delete statement succeeded; false if any errored.
 	 */
-	private function cascade_post_children( array $post_ids ): bool {
+	private function cascade_post_children( array $post_ids, array &$comments_by_post = array() ): bool {
 		global $wpdb;
 
 		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
@@ -2828,12 +2873,16 @@ class PostService {
 			// Comment ids for these posts, gathered before the comments go, so the
 			// comment-keyed sweep below has its targets.
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $in is an absint-mapped id list, injection-safe.
-			$comment_ids = $wpdb->get_col( "SELECT id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$comment_rows = (array) $wpdb->get_results( "SELECT id, object_id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})", ARRAY_A );
 
 			// Comment-keyed child rows first (reactions/notifications/reports whose
 			// object_type='comment'), chunked the same way for a post carrying tens
 			// of thousands of comments.
-			$comment_ids = array_values( array_filter( array_map( 'absint', (array) $comment_ids ) ) );
+			$comment_ids = array();
+			foreach ( $comment_rows as $comment_row ) {
+				$comment_ids[]                                         = (int) $comment_row['id'];
+				$comments_by_post[ (int) $comment_row['object_id'] ][] = (int) $comment_row['id'];
+			}
 			foreach ( array_chunk( $comment_ids, self::CASCADE_CHUNK ) as $comment_chunk ) {
 				$cin              = implode( ',', array_map( 'absint', $comment_chunk ) );
 				$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$cin})" ) );
@@ -2982,7 +3031,7 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s",
+				"SELECT id, space_id, user_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s",
 				$type,
 				$link_url
 			),
@@ -2995,6 +3044,7 @@ class PostService {
 		}
 
 		$post_ids  = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$authors   = array_combine( $post_ids, array_map( static fn( array $r ): int => (int) $r['user_id'], $rows ) );
 		$space_ids = array();
 		foreach ( $rows as $r ) {
 			$sid = (int) $r['space_id'];
@@ -3011,7 +3061,8 @@ class PostService {
 		if ( $bn_use_txn ) {
 			$wpdb->query( 'START TRANSACTION' );
 		}
-		$bn_swept = $this->cascade_post_children( $post_ids );
+		$bn_comments_by_post = array();
+		$bn_swept            = $this->cascade_post_children( $post_ids, $bn_comments_by_post );
 
 		$deleted      = 0;
 		$bn_delete_ok = true;
@@ -3043,8 +3094,9 @@ class PostService {
 		foreach ( $post_ids as $pid ) {
 			wp_cache_delete( "post_{$pid}", self::CACHE_GROUP );
 			/** Documented in delete(). */
-			do_action( 'buddynext_post_deleted', $pid, 0 );
+			do_action( 'buddynext_post_deleted', $pid, 0, $authors[ $pid ] ?? 0 );
 		}
+		$this->announce_comments_deleted( $bn_comments_by_post );
 
 		// One invalidation per affected space (documented in create()).
 		foreach ( array_keys( $space_ids ) as $sid ) {
@@ -3781,7 +3833,7 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				"SELECT id, space_id, user_id FROM {$wpdb->prefix}bn_posts
 				 WHERE type = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
@@ -3799,6 +3851,7 @@ class PostService {
 		}
 
 		$post_ids  = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$authors   = array_combine( $post_ids, array_map( static fn( array $r ): int => (int) $r['user_id'], $rows ) );
 		$space_ids = array();
 		foreach ( $rows as $r ) {
 			$sid = (int) $r['space_id'];
@@ -3817,7 +3870,8 @@ class PostService {
 		if ( $bn_use_txn ) {
 			$wpdb->query( 'START TRANSACTION' );
 		}
-		$bn_swept = $this->cascade_post_children( $post_ids );
+		$bn_comments_by_post = array();
+		$bn_swept            = $this->cascade_post_children( $post_ids, $bn_comments_by_post );
 
 		$deleted      = 0;
 		$bn_delete_ok = true;
@@ -3849,8 +3903,9 @@ class PostService {
 		foreach ( $post_ids as $pid ) {
 			wp_cache_delete( "post_{$pid}", self::CACHE_GROUP );
 			/** Documented in delete(). */
-			do_action( 'buddynext_post_deleted', $pid, 0 );
+			do_action( 'buddynext_post_deleted', $pid, 0, $authors[ $pid ] ?? 0 );
 		}
+		$this->announce_comments_deleted( $bn_comments_by_post );
 
 		// One invalidation per affected space (documented in create()).
 		foreach ( array_keys( $space_ids ) as $sid ) {

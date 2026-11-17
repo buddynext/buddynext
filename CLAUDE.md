@@ -771,7 +771,9 @@ do_action( 'buddynext_unblock',                 $blocker_id, $blocked_id );
 
 // ── Content ───────────────────────────────────────────────────────────────────────
 do_action( 'buddynext_post_created',            $post_id, $user_id, $type );
-do_action( 'buddynext_post_deleted',            $post_id, $user_id );
+do_action( 'buddynext_post_deleted',            $post_id, $user_id, $author_id );  // arg 2 = deleter (0 = system), arg 3 = author
+do_action( 'buddynext_post_comments_deleted',   $comment_ids, $post_id );          // once per deleted post that had comments
+do_action( 'buddynext_post_unshared',           $share_id, $post_id, $user_id );   // only when a share row was removed
 
 // NOTE: reactions and comments are OBJECT-GENERIC. Arg 1 (reactions) / arg 2 (comments) is a
 // STRING object_type ('post', 'comment', …), NOT an id. The old table claimed a $reaction_id /

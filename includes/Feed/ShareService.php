@@ -245,15 +245,19 @@ class ShareService {
 	public function unshare( int $user_id, int $post_id ): void {
 		global $wpdb;
 
+		// Read the share id first: buddynext_post_shared carried it, so the matching
+		// unshare event must too. UNIQUE user_post means one row at most.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$deleted = $wpdb->delete(
-			$wpdb->prefix . 'bn_shares',
-			array(
-				'user_id' => $user_id,
-				'post_id' => $post_id,
-			),
-			array( '%d', '%d' )
+		$share_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_shares WHERE user_id = %d AND post_id = %d",
+				$user_id,
+				$post_id
+			)
 		);
+		$deleted  = $share_id > 0
+			? $wpdb->delete( $wpdb->prefix . 'bn_shares', array( 'id' => $share_id ), array( '%d' ) )
+			: 0;
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( $deleted ) {
@@ -275,6 +279,23 @@ class ShareService {
 		);
 		foreach ( array_map( 'intval', (array) $repost_ids ) as $repost_id ) {
 			( new PostService() )->delete( $repost_id, $user_id );
+		}
+
+		if ( $deleted ) {
+			/**
+			 * Fires once when a member's share of a post is really removed: by
+			 * un-sharing, or by deleting the repost card. Not fired when there was
+			 * no share to remove, so the nested call from PostService::delete()
+			 * never fires it twice. The counterpart of buddynext_post_shared, with
+			 * the same arguments.
+			 *
+			 * @since 1.3.1
+			 *
+			 * @param int $share_id         Removed bn_shares row ID.
+			 * @param int $original_post_id Original post that was shared.
+			 * @param int $user_id          User whose share was removed.
+			 */
+			do_action( 'buddynext_post_unshared', $share_id, $post_id, $user_id );
 		}
 	}
 
