@@ -20,6 +20,11 @@ Any Pusher-compatible server works. The settings in BuddyNext are just protocol 
 
 If you do not want to run a server at all, pick one of the hosted options, copy its credentials into the Realtime tab, and skip the rest of this page.
 
+What goes in the Host field for a hosted option:
+
+- **Pusher Channels:** `https://api-YOUR-CLUSTER.pusher.com`, for example `https://api-eu.pusher.com` (the cluster is shown on your app's keys page). Copy the App ID, Key and Secret as they are. BuddyNext sends server events to that API host and connects browsers to the matching `ws-` host of the same cluster on its own, so the one Host field covers both.
+- **Ably:** `https://main.pusher.ably.net`. Your Ably API key looks like `appId.keyId:keySecret`: the App ID is the part before the first dot, the Key is everything before the colon, and the Secret is everything after it.
+
 ## What you need
 
 - A small VPS or container host. Realtime connections are cheap - a 1 GB instance handles a normal community comfortably.

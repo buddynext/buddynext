@@ -101,6 +101,44 @@ class IntegrationNotificationListener implements ListenerInterface {
 		add_filter( 'buddynext_notification_meta', array( $this, 'filter_meta' ), 10, 2 );
 		add_filter( 'buddynext_notification_visible_rows', array( $this, 'filter_visible_rows' ) );
 		add_filter( 'buddynext_notification_group_label', array( $this, 'filter_group_label' ), 10, 2 );
+		add_filter( 'buddynext_inbox_active', array( $this, 'filter_inbox_active' ), 10, 3 );
+	}
+
+	/**
+	 * Answer `buddynext_inbox_active` for one integration: true only when this
+	 * source has adopted the contract, so BuddyNext really shows its notifications.
+	 *
+	 * A partner asks before hiding its own bell:
+	 * `apply_filters( 'buddynext_inbox_active', false, 'career_board', $user_id )`.
+	 * With BuddyNext absent nobody answers and the default `false` stands. Not
+	 * "the Notifications module is on" (it is always on): a partner release that
+	 * has not adopted the contract is mirrored nowhere, and hiding its bell would
+	 * leave the member with no notifications at all. It also does not say whether a
+	 * bell is drawn on the page the partner is rendering; the theme decides that.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $active  Answer so far (default false).
+	 * @param mixed $source  Source slug (`career_board`) or the plugin's hook prefix (`wcb`).
+	 * @param mixed $user_id Member the partner is rendering for.
+	 * @return bool
+	 */
+	public function filter_inbox_active( $active, $source = '', $user_id = 0 ): bool {
+		$source = sanitize_key( (string) $source );
+		if ( (int) $user_id <= 0 || '' === $source ) {
+			return (bool) $active;
+		}
+		$sources = self::sources();
+		if ( ! isset( $sources[ $source ] ) ) {
+			// Accept the plugin's own prefix, which it already knows from the hook names.
+			foreach ( $sources as $slug => $info ) {
+				if ( $info['prefix'] === $source ) {
+					$source = $slug;
+					break;
+				}
+			}
+		}
+		return self::adopted( $source ) || (bool) $active;
 	}
 
 	/**

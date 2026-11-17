@@ -112,9 +112,11 @@ class PortfolioController extends BaseRestController {
 			if ( ! $is_owner && ! empty( $panel['owner_only'] ) ) {
 				continue;
 			}
-			// Owner-only "Manage" links never go to other viewers.
+			// Owner-only "Manage" links and actions never go to other viewers.
 			if ( ! $is_owner ) {
-				$panel['owner_cta'] = array();
+				$panel['owner_cta']     = array();
+				$panel['owner_primary'] = array();
+				$panel['owner_empty']   = '';
 			}
 			unset( $panel['priority'], $panel['owner_only'] );
 			$out[] = $panel;

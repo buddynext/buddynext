@@ -224,4 +224,79 @@ class SuitePanelHostTest extends \WP_UnitTestCase {
 		$this->assertSame( 'https://x/j1', $jobs['items'][0]['url'] );
 		$this->assertSame( 'Acme', $jobs['items'][0]['meta'] );
 	}
+
+	/**
+	 * Register an employer's empty Jobs panel: owner-only, an empty-state line and
+	 * a "Post a job" action, no items.
+	 *
+	 * @param bool $owner_only Whether the provider marks it owner-only.
+	 * @return void
+	 */
+	private function register_empty_owner_panel( bool $owner_only = true ): void {
+		add_filter(
+			'buddynext_member_suite_panels',
+			static function ( array $panels ) use ( $owner_only ): array {
+				$panels[] = array(
+					'key'           => 'jobs',
+					'label'         => 'Jobs',
+					'icon'          => 'briefcase',
+					'owner_only'    => $owner_only,
+					'owner_empty'   => 'You have not posted a job yet.',
+					'owner_primary' => array(
+						'label' => 'Post a job',
+						'url'   => 'https://x/post-a-job/',
+					),
+					'items'         => array(),
+				);
+				return $panels;
+			}
+		);
+	}
+
+	/**
+	 * Render the Jobs sub-tab the way the profile surface does, for a viewer.
+	 *
+	 * @param int $viewer_id Viewer.
+	 * @return string HTML, or '' when the viewer gets no Jobs sub-tab.
+	 */
+	private function render_jobs_subtab( int $viewer_id ): string {
+		$ctx = new \BuddyNext\Nav\NavContext( 'profile', $this->member_id, $viewer_id );
+		foreach ( ( new SuitePanelHost() )->add_subnav( array(), $ctx ) as $item ) {
+			if ( 'jobs' === $item['id'] ) {
+				ob_start();
+				( $item['render'] )( $ctx );
+				return (string) ob_get_clean();
+			}
+		}
+		return '';
+	}
+
+	public function test_owner_only_empty_state_survives_and_renders_the_action(): void {
+		$this->register_empty_owner_panel();
+		wp_set_current_user( $this->member_id );
+
+		$panels = ( new SuitePanelHost() )->panels( $this->member_id );
+		$this->assertCount( 1, $panels, 'an owner-only empty state is kept although it has no items' );
+
+		$html = $this->render_jobs_subtab( $this->member_id );
+		$this->assertStringContainsString( 'You have not posted a job yet.', $html );
+		$this->assertStringContainsString( 'https://x/post-a-job/', $html );
+		$this->assertStringContainsString( 'data-variant="primary"', $html );
+	}
+
+	public function test_owner_empty_state_never_reaches_a_visitor(): void {
+		$this->register_empty_owner_panel();
+		$visitor = self::factory()->user->create();
+		wp_set_current_user( $visitor );
+
+		$this->assertSame( '', $this->render_jobs_subtab( $visitor ), 'no Jobs sub-tab for anyone but the owner' );
+	}
+
+	public function test_empty_state_requires_owner_only(): void {
+		// A public panel cannot keep itself alive with an empty-state line: every
+		// visitor would see an empty card.
+		$this->register_empty_owner_panel( false );
+
+		$this->assertSame( array(), ( new SuitePanelHost() )->panels( $this->member_id ) );
+	}
 }

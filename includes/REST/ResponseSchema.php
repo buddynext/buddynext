@@ -4937,28 +4937,37 @@ final class ResponseSchema {
 					'items' => array(
 						'type'       => 'object',
 						'properties' => array(
-							'key'       => array(
+							'key'           => array(
 								'type' => 'string',
 							),
-							'label'     => array(
+							'label'         => array(
 								'type' => 'string',
 							),
-							'icon'      => array(
+							'icon'          => array(
 								'type' => 'string',
 							),
-							'count'     => array(
+							'count'         => array(
 								'type' => 'integer',
 							),
-							'cta'       => array(
+							'cta'           => array(
 								'type' => array(
 									'array',
 									'object',
 								),
 							),
-							'owner_cta' => array(
+							'owner_cta'     => array(
 								'type' => 'object',
 							),
-							'items'     => array(
+							'owner_primary' => array(
+								'type' => array(
+									'array',
+									'object',
+								),
+							),
+							'owner_empty'   => array(
+								'type' => 'string',
+							),
+							'items'         => array(
 								'type' => 'array',
 							),
 						),

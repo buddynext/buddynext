@@ -18,8 +18,11 @@ namespace BuddyNext\Addons;
  *
  * Each panel is an array: `key` (string, required), `label`, `icon` (a slug in
  * buddynext/assets/icons), `count`, `priority`, `items` (list of arrays), `cta`
- * (a link out to the partner), `owner_cta` (manage links, owner only), and
- * `owner_only` (true drops the panel for every other viewer).
+ * (a link out to the partner), `owner_cta` (manage links, owner only),
+ * `owner_primary` (one primary action such as "Post a job", owner only, drawn as
+ * a button), `owner_only` (true drops the panel for every other viewer), and
+ * `owner_empty` (on an `owner_only` panel with no items: the empty-state line the
+ * owner sees above `owner_primary`; without it an empty panel is dropped).
  *
  * The result is cached for "the member viewing their own profile" and "anyone
  * else", never per viewer. A panel that is not `owner_only` must therefore return

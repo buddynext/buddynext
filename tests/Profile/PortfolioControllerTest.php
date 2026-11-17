@@ -93,4 +93,37 @@ class PortfolioControllerTest extends \WP_UnitTestCase {
 		$this->assertFalse( $missing['is_owner'] );
 		$this->assertSame( array(), $missing['panels'] );
 	}
+
+	public function test_owner_primary_action_and_empty_state_are_owner_only(): void {
+		add_filter(
+			'buddynext_member_suite_panels',
+			static function ( array $panels ): array {
+				$panels[0]['owner_primary'] = array(
+					'label' => 'Post a job',
+					'url'   => 'https://x/post-a-job/',
+				);
+				$panels[] = array(
+					'key'         => 'applications',
+					'label'       => 'Applications',
+					'owner_only'  => true,
+					'owner_empty' => 'No applications yet.',
+					'items'       => array(),
+				);
+				return $panels;
+			},
+			20
+		);
+
+		wp_set_current_user( self::factory()->user->create() );
+		$data = $this->get_portfolio( $this->member_id )->get_data();
+		$this->assertCount( 1, $data['panels'], 'the owner-only empty panel is withheld from a visitor' );
+		$this->assertSame( array(), $data['panels'][0]['owner_primary'], 'a visitor never gets the owner action' );
+
+		wp_set_current_user( $this->member_id );
+		$data   = $this->get_portfolio( $this->member_id )->get_data();
+		$by_key = array_column( $data['panels'], null, 'key' );
+		$this->assertCount( 2, $by_key );
+		$this->assertSame( 'https://x/post-a-job/', $by_key['cb_jobs']['owner_primary']['url'] );
+		$this->assertSame( 'No applications yet.', $by_key['applications']['owner_empty'] );
+	}
 }

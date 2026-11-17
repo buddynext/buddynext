@@ -145,26 +145,36 @@ class SuitePanelHost {
 			if ( ! is_array( $panel ) || empty( $panel['key'] ) ) {
 				continue;
 			}
-			$items = isset( $panel['items'] ) && is_array( $panel['items'] ) ? $panel['items'] : array();
-			$count = isset( $panel['count'] ) ? (int) $panel['count'] : count( $items );
-			// A panel with neither items nor a positive count contributes nothing.
-			if ( empty( $items ) && $count <= 0 ) {
+			$items       = isset( $panel['items'] ) && is_array( $panel['items'] ) ? $panel['items'] : array();
+			$count       = isset( $panel['count'] ) ? (int) $panel['count'] : count( $items );
+			$owner_only  = ! empty( $panel['owner_only'] );
+			$owner_empty = $owner_only ? trim( (string) ( $panel['owner_empty'] ?? '' ) ) : '';
+			// A panel with neither items nor a positive count contributes nothing,
+			// except an owner-only empty state ("You have not posted a job yet" plus
+			// the action that fixes it): the member who most needs the action is the
+			// one with nothing listed yet.
+			if ( empty( $items ) && $count <= 0 && '' === $owner_empty ) {
 				continue;
 			}
 			$panels[] = array(
-				'key'        => (string) $panel['key'],
-				'label'      => (string) ( $panel['label'] ?? '' ),
-				'icon'       => $this->safe_icon( (string) ( $panel['icon'] ?? '' ), (string) $panel['key'] ),
-				'count'      => $count,
-				'priority'   => (int) ( $panel['priority'] ?? 50 ),
-				'cta'        => isset( $panel['cta'] ) && is_array( $panel['cta'] ) ? $panel['cta'] : array(),
+				'key'           => (string) $panel['key'],
+				'label'         => (string) ( $panel['label'] ?? '' ),
+				'icon'          => $this->safe_icon( (string) ( $panel['icon'] ?? '' ), (string) $panel['key'] ),
+				'count'         => $count,
+				'priority'      => (int) ( $panel['priority'] ?? 50 ),
+				'cta'           => isset( $panel['cta'] ) && is_array( $panel['cta'] ) ? $panel['cta'] : array(),
 				// Owner-only action (e.g. "Manage on Career Board" → their dashboard).
 				// Rendered only when the viewer is the profile owner.
-				'owner_cta'  => isset( $panel['owner_cta'] ) && is_array( $panel['owner_cta'] ) ? $panel['owner_cta'] : array(),
+				'owner_cta'     => isset( $panel['owner_cta'] ) && is_array( $panel['owner_cta'] ) ? $panel['owner_cta'] : array(),
+				// Owner-only primary action (e.g. "Post a job" → the partner's own
+				// form), drawn as a button beside the manage link. Owner view only.
+				'owner_primary' => isset( $panel['owner_primary'] ) && is_array( $panel['owner_primary'] ) ? $panel['owner_primary'] : array(),
 				// An owner-only panel (e.g. a personal "continue learning" shelf) is
 				// withheld whole from other viewers by the sub-nav + render + REST guards.
-				'owner_only' => ! empty( $panel['owner_only'] ),
-				'items'      => $items,
+				'owner_only'    => $owner_only,
+				// Empty-state line shown to the owner when the panel has no items.
+				'owner_empty'   => $owner_empty,
+				'items'         => $items,
 			);
 		}
 
@@ -425,8 +435,28 @@ class SuitePanelHost {
 			echo '<a class="bn-link bn-suite-panel__cta" href="' . esc_url( (string) $panel['cta']['url'] ) . '">'
 				. esc_html( (string) $panel['cta']['label'] ) . '</a>';
 		}
+		$primary = $is_owner && ! empty( $panel['owner_primary']['url'] ) && ! empty( $panel['owner_primary']['label'] )
+			? $panel['owner_primary']
+			: array();
+		if ( ! empty( $primary ) && ! empty( $panel['items'] ) ) {
+			echo '<a class="bn-btn bn-suite-panel__primary" data-variant="primary" data-size="sm" href="' . esc_url( (string) $primary['url'] ) . '">'
+				. esc_html( (string) $primary['label'] ) . '</a>';
+		}
 		echo '</span>';
 		echo '</header>';
+
+		// Owner-only empty state: the line says what is missing, the button fixes it.
+		if ( empty( $panel['items'] ) && $is_owner && '' !== (string) ( $panel['owner_empty'] ?? '' ) ) {
+			// The inline variant alone: the base .bn-empty-state's `p { margin: 0 }`
+			// would butt the button against the line.
+			echo '<div class="bn-empty-state--inline">';
+			echo '<p class="bn-empty-state__text">' . esc_html( (string) $panel['owner_empty'] ) . '</p>';
+			if ( ! empty( $primary ) ) {
+				echo '<a class="bn-btn" data-variant="primary" data-size="sm" href="' . esc_url( (string) $primary['url'] ) . '">'
+					. esc_html( (string) $primary['label'] ) . '</a>';
+			}
+			echo '</div>';
+		}
 
 		if ( ! empty( $panel['items'] ) ) {
 			echo '<ul class="bn-suite-panel__items" role="list">';

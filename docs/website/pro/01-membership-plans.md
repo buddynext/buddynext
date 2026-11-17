@@ -336,6 +336,8 @@ The same section shows the member's **Billing history** and links to all their o
 
 Separately, the Plans tab shows a **Plans granted by other systems** panel whenever a bridge to another Wbcom app or a supported third-party system (WooCommerce, Paid Memberships Pro, and the like) is active. It lists, read-only, which purchase or level on that system currently maps to which BuddyNext plan - so you can see at a glance that, say, a WooCommerce product grants your Premium plan, without visiting that system's own screen. A mapping that points at a plan you have since deleted is called out so you can fix it. The mapping itself is configured on each system's own screen, not here.
 
+These links only work while **Memberships** is on. If WooCommerce or Paid Memberships Pro is active and Memberships is off, a purchase there unlocks no community plan, so BuddyNext says so: a notice on BuddyNext admin screens, and one line on the PMPro level and WooCommerce product editors, each with a **Turn on Memberships** button that switches the feature on for you. Each admin can dismiss the notice for themselves.
+
 ### The printable invoice
 
 Every charge in a member's payment history has a printable invoice behind it. The member opens it from Settings > Membership and prints it or saves it as a PDF.

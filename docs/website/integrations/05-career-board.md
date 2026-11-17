@@ -27,7 +27,9 @@ The job board itself - submitting a job, browsing listings, applying, withdrawin
 - **Jobs are searchable in the community.** Each published job is added to community search, so a member searching for a role or skill finds open jobs alongside people and spaces.
 - **"Open to work" resumes appear in the feed.** When a member publishes a resume and marks it public, BuddyNext posts an "is open to work" activity linking to their resume. Private resumes are never broadcast, and turning "open to work" off withdraws the card. *(Resumes are a WP Career Board **Pro** feature - with the free WP Career Board there are no resumes to surface.)*
 - **Job notifications land in one place.** WP Career Board's notifications (an application received, a status change, and so on) appear in the BuddyNext bell in WP Career Board's own words, so a member has a single bell for everything across the community. Members can switch each type in their notification settings under **Jobs**. WP Career Board owns who may see each notification and sends its own emails.
-- **Jobs and resumes show on the profile.** A member's jobs appear in a **Portfolio** tab on their BuddyNext profile (a **Jobs** panel with company, location, type, salary and a View all Jobs link), and with WP Career Board Pro their public **Resume** panel does too, linking out to the WP Career Board pages. On their own profile the member also gets **Manage Jobs** and **Manage Resume** buttons that open the WP Career Board dashboards.
+- **Jobs and resumes show on the profile.** A member's jobs appear in a **Portfolio** tab on their BuddyNext profile (a **Jobs** panel with company, location, type, salary and a View all Jobs link), and with WP Career Board Pro their public **Resume** panel does too, linking out to the WP Career Board pages. On their own profile the member also gets **Manage Jobs** and **Manage Resume** links that open the matching tab of the WP Career Board dashboard (the Jobs view and the My Resumes tab).
+- **Post a job from the profile.** A member WP Career Board lets post jobs (employers and admins) sees a **Post a job** button on their own Jobs panel, which opens WP Career Board's Post a Job page (or the employer dashboard's Post a Job view when no page is set). An employer with no jobs yet still sees the panel on their own profile, with "You have not posted a job yet" and the button; visitors see nothing until a job is live.
+- **Your applications, for your eyes only.** On their own profile a member sees an **Applications** panel with their latest applications (job, company, date applied and the status in WP Career Board's words) and a **View all applications** link to the dashboard's Applications tab. Nobody else sees it, on the profile or through the REST API. Withdrawing, and everything else about an application, stays on WP Career Board.
 
 > **Note:** Job posting and its feed/profile/search surfacing work with the free WP Career Board. Resumes and the "open to work" card require **WP Career Board Pro** (alongside BuddyNext Pro).
 
@@ -49,7 +51,7 @@ WP Career Board gets a card on the **Integration Settings** screen, with the sam
 
 | Setting | What it does | Default |
 |---|---|---|
-| Navigation | Whether WP Career Board's panels appear on the profile Portfolio tab. WP Career Board adds more than one (Jobs, and Resume with WP Career Board Pro), so each sub-tab can be switched individually. Turning it off only hides the panels; WP Career Board notifications still reach the bell. | On |
+| Navigation | Whether WP Career Board's panels appear on the profile Portfolio tab. WP Career Board adds more than one (Jobs, Applications, and Resume with WP Career Board Pro), so each sub-tab can be switched individually. Turning it off only hides the panels; WP Career Board notifications still reach the bell. | On |
 | Feed | Whether a published job and a public "open to work" resume post a feed activity. | On |
 | Search | Whether published jobs are found in community search. Switching it off also removes the jobs already in the search index. | On |
 
@@ -57,6 +59,7 @@ The job board's own behavior - who can post, application rules, resume options -
 
 ## Good to know
 
+- **A Jobs link in the main menu.** To give members one tap to the job board, add a custom link to your job listing page in **Settings > Navigation**.
 - **Job posts and public resumes can appear in the feed.** A published job and a public "open to work" resume each post a feed activity that links out to WP Career Board. Private resumes are never broadcast.
 - **Notifications are shown, not re-sent.** BuddyNext shows WP Career Board's notifications in the bell but does not re-send them by email. WP Career Board owns its own emails, so members are not notified twice. Bell notifications need WP Career Board 1.8.0 or newer; on an older version they keep arriving only through WP Career Board's own screens.
 - **Inert when WP Career Board is not installed.** Without the WP Career Board plugin, the integration does nothing - no feed activity, no search entries, no profile panels. BuddyNext checks for WP Career Board before wiring anything in, so a site without it sees no errors and no empty surfaces.
