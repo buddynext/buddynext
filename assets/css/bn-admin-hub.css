@@ -86,7 +86,7 @@
 .bn-admin-hub__tab:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
+	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-sm, 4px);
 	color: var(--bn-ink);
 }
@@ -255,7 +255,7 @@
 .bn-segment__item:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-segment__item.is-active,
 .bn-segment__item[aria-selected="true"] {
@@ -532,7 +532,7 @@
 }
 .bn-admin-hub__main .button-primary:focus-visible,
 .bn-admin-hub__main--wide .button-primary:focus-visible {
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+	box-shadow: var(--bn-ring);
 }
 
 /* Danger / link-delete variant stays red so destruction reads. */
@@ -654,7 +654,7 @@
 .bn-hub-nav-group__label:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 2px color-mix( in oklch, var(--bn-accent) 45%, transparent );
+	box-shadow: var(--bn-ring);
 }
 .bn-hub-nav-group.is-current > .bn-hub-nav-group__label { color: var(--bn-ink); }
 .bn-hub-nav-group__name {
@@ -713,7 +713,7 @@
 .bn-hub-nav-link:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 2px color-mix( in oklch, var(--bn-accent) 45%, transparent );
+	box-shadow: var(--bn-ring);
 }
 .bn-hub-nav-link.is-active {
 	background: var(--bn-accent-100, var(--bn-sunken));

@@ -97,26 +97,28 @@ class MemberEditForm {
 		 * neighbours.
 		 */
 		$bn_error_messages = array(
-			'avatar_size'       => __( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ),
-			'avatar_type'       => __( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
-			'slug_taken'        => __( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ),
-			'cover_size'        => __( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ),
-			'cover_type'        => __( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
-			'email_taken'       => __( 'Not saved: that email address is already in use by another account.', 'buddynext' ),
-			'email_invalid'     => __( 'Not saved: please enter a valid email address.', 'buddynext' ),
-			'role_invalid'      => __( 'Not saved: the selected role is not valid.', 'buddynext' ),
+			'avatar_size'        => __( 'Photo not saved: file exceeds the 2MB limit.', 'buddynext' ),
+			'avatar_type'        => __( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'slug_taken'         => __( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ),
+			'slug_reserved'      => __( 'Profile URL slug is reserved. Please choose a different one.', 'buddynext' ),
+			'slug_default_taken' => __( 'Profile URL slug not cleared: the default, based on the username, is already in use by another member. Enter a different slug instead.', 'buddynext' ),
+			'cover_size'         => __( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ),
+			'cover_type'         => __( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ),
+			'email_taken'        => __( 'Not saved: that email address is already in use by another account.', 'buddynext' ),
+			'email_invalid'      => __( 'Not saved: please enter a valid email address.', 'buddynext' ),
+			'role_invalid'       => __( 'Not saved: the selected role is not valid.', 'buddynext' ),
 			// Multisite: WordPress lets only a network administrator change another
 			// member's account details or a super admin's account at all.
-			'account_forbidden' => __( 'Not saved: you do not have permission to change this member\'s email, display name or profile URL.', 'buddynext' ),
-			'role_forbidden'    => __( 'Not saved: you do not have permission to change this member\'s role.', 'buddynext' ),
-			'member_forbidden'  => __( 'Not saved: this member is a network administrator, and only another network administrator can edit their account.', 'buddynext' ),
+			'account_forbidden'  => __( 'Not saved: you do not have permission to change this member\'s email, display name or profile URL.', 'buddynext' ),
+			'role_forbidden'     => __( 'Not saved: you do not have permission to change this member\'s role.', 'buddynext' ),
+			'member_forbidden'   => __( 'Not saved: this member is a network administrator, and only another network administrator can edit their account.', 'buddynext' ),
 			// Sent with saved=1: the rest of the edit was written.
-			'avatar_failed'     => __( 'Photo not saved: the image could not be processed. Try a different file. Your other changes were saved.', 'buddynext' ),
-			'cover_failed'      => __( 'Cover photo not saved: the image could not be processed. Try a different file. Your other changes were saved.', 'buddynext' ),
+			'avatar_failed'      => __( 'Photo not saved: the image could not be processed. Try a different file. Your other changes were saved.', 'buddynext' ),
+			'cover_failed'       => __( 'Cover photo not saved: the image could not be processed. Try a different file. Your other changes were saved.', 'buddynext' ),
 			// Plural and absolute on purpose: the save is atomic, so one bad field
 			// means none of the profile fields were written. "Some changes were not
 			// saved" would be the same false reassurance this replaces.
-			'profile_invalid'   => __( 'Profile fields were not saved. Nothing on this form was changed - fix the problems below and save again.', 'buddynext' ),
+			'profile_invalid'    => __( 'Profile fields were not saved. Nothing on this form was changed - fix the problems below and save again.', 'buddynext' ),
 		);
 
 		if ( isset( $bn_error_messages[ $bn_error ] ) ) {
@@ -296,9 +298,10 @@ class MemberEditForm {
 							<?php esc_html_e( 'Unsuspend', 'buddynext' ); ?>
 						</button>
 					</form>
-				<?php else : ?>
+				<?php elseif ( null === buddynext_service( 'moderation' )->suspend_refusal( $user_id, get_current_user_id() ) ) : ?>
 					<?php
-					// Same confirm as the Directory row: a suspension needs a reason, and
+					// Offered only when the service would accept it (not your own account,
+					// not someone who outranks you). Same confirm as the Directory row: a suspension needs a reason, and
 					// the modal is where it is chosen. Without it this button always
 					// failed with "choose a reason" and nowhere to choose one.
 					?>
@@ -439,7 +442,11 @@ class MemberEditForm {
 				$bn_account_ro  = $bn_protected || ! current_user_can( 'edit_user', $user_id );
 				$bn_role_locked = $bn_protected || ! current_user_can( 'promote_user', $user_id );
 				$this->open_section( __( 'Account', 'buddynext' ) );
-				if ( $bn_account_ro ) {
+				// The greyed-out fields say why they are locked; when the role is locked
+				// too, the sentence names it so the disabled Role select is not a mystery.
+				if ( $bn_account_ro && $bn_role_locked ) {
+					echo '<p class="bn-edit-hint">' . esc_html__( 'Only a network administrator can change this member\'s email, display name, role or profile URL.', 'buddynext' ) . '</p>';
+				} elseif ( $bn_account_ro ) {
 					echo '<p class="bn-edit-hint">' . esc_html__( 'Only a network administrator can change this member\'s email, display name or profile URL.', 'buddynext' ) . '</p>';
 				}
 				$this->render_text_row(
@@ -469,6 +476,8 @@ class MemberEditForm {
 						</select>
 						<?php if ( $bn_own_account ) : ?>
 							<p class="bn-edit-hint"><?php esc_html_e( 'You cannot change your own role here.', 'buddynext' ); ?></p>
+						<?php elseif ( $bn_role_locked && ! $bn_account_ro ) : ?>
+							<p class="bn-edit-hint"><?php esc_html_e( 'Only a network administrator can change this member\'s role.', 'buddynext' ); ?></p>
 						<?php endif; ?>
 						<?php if ( $other_roles ) : ?>
 							<p class="bn-edit-hint">
@@ -487,7 +496,15 @@ class MemberEditForm {
 					<div class="bn-label"><label for="bn-profile-slug"><?php esc_html_e( 'Profile URL slug', 'buddynext' ); ?></label></div>
 					<div class="bn-control">
 						<input type="text" id="bn-profile-slug" name="bn_profile_slug" value="<?php echo esc_attr( $slug ); ?>" class="bn-input" <?php wp_readonly( $bn_account_ro ); ?>>
-						<p class="bn-edit-hint"><?php esc_html_e( 'Leave blank to use the default (user-{id}). Must be unique.', 'buddynext' ); ?></p>
+						<p class="bn-edit-hint">
+							<?php
+							printf(
+								/* translators: %s: the default profile URL slug, based on the username. */
+								esc_html__( 'Leave blank to use the default, based on the username (%s). Must be unique.', 'buddynext' ),
+								esc_html( \BuddyNext\Profile\Handle::default_for( $wp_user ) )
+							);
+							?>
+						</p>
 					</div>
 				</div>
 				<?php $this->close_section(); ?>

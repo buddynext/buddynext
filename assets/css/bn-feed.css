@@ -3157,10 +3157,15 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 /* Realtime "new posts" pill — appears above the feed when Pro Soketi
    delivers post.new events from other users. Click reloads the feed.
    Position: sticky so it stays visible as the user scrolls within the
-   list. */
+   list. It sticks below the host theme's header, not at the viewport edge:
+   Reign, BuddyX and most block themes pin their header, and a fixed 8px put
+   the pill underneath it. --bn-shell-chrome is the measured height of
+   everything above the shell (theme header + admin bar), published on #bn-app
+   by shell/extras.js fitShell(); before it is measured the pill falls back to
+   the viewport edge. */
 .bn-feed-new-pill {
 	position: sticky;
-	top: 8px;
+	top: calc(var(--bn-shell-chrome, 0px) + var(--bn-s2));
 	z-index: 10;
 	display: block;
 	margin: 0 auto var(--bn-s3);
@@ -3916,9 +3921,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-body);
 }
-/* Styled here rather than with .bn-btn--secondary: that modifier is defined in
-   bn-profile.css, which the feed does not enqueue, so the link rendered as bare
-   text. .bn-btn (bn-base.css) supplies the shape; the surface is set locally. */
+/* .bn-btn (bn-base.css) supplies the shape; the surface is set locally. */
 .bn-composer__blocked-action {
 	flex: 0 0 auto;
 	background: var(--bn-surface);

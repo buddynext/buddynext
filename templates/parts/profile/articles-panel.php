@@ -60,7 +60,7 @@ if ( empty( $bn_ar_rows ) ) :
 		</div>
 		<?php if ( $bn_ar_can_write ) : ?>
 			<div class="bn-empty-sub">
-				<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
+				<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
 					<?php esc_html_e( 'Write your first article', 'buddynext' ); ?>
 				</a>
 			</div>
@@ -74,12 +74,12 @@ endif;
 <?php if ( $bn_ar_manage ) : ?>
 	<div class="bn-articles__manage">
 		<?php if ( $bn_ar_can_write ) : ?>
-		<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
+		<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
 			<?php buddynext_icon( 'edit' ); ?>
 			<?php esc_html_e( 'Write a new article', 'buddynext' ); ?>
 		</a>
 		<?php endif; ?>
-		<a class="bn-btn bn-btn--secondary" href="<?php echo esc_url( $bn_ar_dashboard ); ?>">
+		<a class="bn-btn" data-variant="secondary" href="<?php echo esc_url( $bn_ar_dashboard ); ?>">
 			<?php esc_html_e( 'Manage articles', 'buddynext' ); ?>
 		</a>
 	</div>
@@ -146,7 +146,7 @@ endif;
 					<?php $bn_ar_edit = '' !== $bn_ar_edit ? $bn_ar_edit : $bn_ar_dashboard; ?>
 					<?php if ( $bn_ar_owner && '' !== $bn_ar_edit ) : ?>
 						<div class="bn-article-card__actions">
-							<a class="bn-btn bn-btn--secondary bn-btn--sm" href="<?php echo esc_url( $bn_ar_edit ); ?>">
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_ar_edit ); ?>">
 								<?php esc_html_e( 'Edit', 'buddynext' ); ?>
 							</a>
 						</div>
@@ -166,7 +166,7 @@ if ( $bn_ar_pages > 1 ) :
 	?>
 	<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Articles pagination', 'buddynext' ); ?>">
 		<?php if ( $bn_ar_page > 1 ) : ?>
-			<a class="bn-btn bn-btn--secondary" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( $bn_ar_base, $bn_ar_page - 1 ) ); ?>" rel="prev">
+			<a class="bn-btn" data-variant="secondary" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( $bn_ar_base, $bn_ar_page - 1 ) ); ?>" rel="prev">
 				<?php esc_html_e( 'Previous', 'buddynext' ); ?>
 			</a>
 		<?php endif; ?>
@@ -183,7 +183,7 @@ if ( $bn_ar_pages > 1 ) :
 		</span>
 
 		<?php if ( $bn_ar_page < $bn_ar_pages ) : ?>
-			<a class="bn-btn bn-btn--secondary" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( $bn_ar_base, $bn_ar_page + 1 ) ); ?>" rel="next">
+			<a class="bn-btn" data-variant="secondary" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( $bn_ar_base, $bn_ar_page + 1 ) ); ?>" rel="next">
 				<?php esc_html_e( 'Next', 'buddynext' ); ?>
 			</a>
 		<?php endif; ?>

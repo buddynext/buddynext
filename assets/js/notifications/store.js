@@ -126,7 +126,10 @@ function adjustUnreadTabBadges( ctx, delta, type ) {
 		return;
 	}
 	var filters = [ 'all', 'unread' ];
-	var typeKey = ( type && ctx.tabOfType && ctx.tabOfType[ type ] ) || '';
+	var typeKey =
+		( type && ctx.tabOfType && ctx.tabOfType[ type ] ) ||
+		( type && ctx.tabOfSource && ctx.tabOfSource[ String( type ).split( '.' )[ 0 ] ] ) ||
+		'';
 	if ( typeKey ) {
 		filters.push( typeKey );
 	}

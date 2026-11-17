@@ -210,7 +210,16 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.04), 0 2px 4px oklch(0% 0 0 / 0.04);
 	--bn-shadow-md: 0 2px 4px oklch(0% 0 0 / 0.04), 0 8px 16px oklch(0% 0 0 / 0.06);
 	--bn-shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.06), 0 24px 48px oklch(0% 0 0 / 0.08);
-	--bn-ring:      0 0 0 3px oklch(58% var(--bn-chroma) var(--bn-hue) / 0.18);
+	/* Focus. --bn-focus is the focus COLOUR (for `outline: 2px solid var(--bn-focus)`);
+	   --bn-ring is the box-shadow ring built from it: a surface-coloured gap, then a
+	   2px solid band. Up to 1.2.9 the ring was a 3px halo at 18% alpha, about 1.3:1
+	   against the page, below the 3:1 WCAG 2.2 asks of a focus indicator. The band is
+	   the brand colour mixed toward the ink (--bn-accent-text, >= 4.5:1 on every
+	   surface by design), so a light brand colour still draws a visible ring.
+	   Redeclared in every mode block: a var() inside a custom property resolves where
+	   it is declared, so an inherited ring would keep the light-mode colour. */
+	--bn-focus:     var(--bn-accent-text);
+	--bn-ring:      0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 
 	/* Scrim/backdrop behind modals and overlays. Mode-aware: a plain dark
 		rgba scrim is nearly invisible over an already-dark page, so the dark
@@ -487,7 +496,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.4), 0 2px 4px oklch(0% 0 0 / 0.3);
 	--bn-shadow-md: 0 2px 4px oklch(0% 0 0 / 0.3), 0 8px 16px oklch(0% 0 0 / 0.4);
 	--bn-shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.4), 0 24px 48px oklch(0% 0 0 / 0.5);
-	--bn-ring:      0 0 0 3px oklch(72% var(--bn-chroma) var(--bn-hue) / 0.3);
+	--bn-focus:     var(--bn-accent-text);
+	--bn-ring:      0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 
 	/* Heavier scrim so the modal/backdrop separation stays visible on a dark page. */
 	--bn-overlay: oklch(0% 0 0 / 0.66);
@@ -513,6 +523,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 		--bn-accent-solid: var(--bn-accent);
+		--bn-focus:      var(--bn-accent-text);
+		--bn-ring:       0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 	}
 }
 
@@ -649,7 +661,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.04);
 		--bn-shadow-md: 0 2px 4px rgba(0,0,0,0.04), 0 8px 16px rgba(0,0,0,0.06);
 		--bn-shadow-lg: 0 8px 16px rgba(0,0,0,0.06), 0 24px 48px rgba(0,0,0,0.08);
-		--bn-ring:      0 0 0 3px rgba(91,103,208,0.18);
+		--bn-focus:     var(--bn-accent);
+		--bn-ring:      0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 	}
 
 	[data-bn-theme="dark"],
@@ -690,7 +703,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-events-bg:   #3a2a1a;
 		--bn-paid-bg:     #1a3a2a;
 
-		--bn-ring: 0 0 0 3px rgba(141,150,224,0.32);
+		--bn-focus: var(--bn-accent);
+		--bn-ring:  0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 	}
 
 	/* Buttons + badges using color-mix gradients fall back to flat colour. */
@@ -710,6 +724,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line-faint:  oklch(60% 0 0);
 		--bn-ink-3:       oklch(30% 0 0);
 		--bn-ink-4:       oklch(40% 0 0);
+		--bn-focus:       oklch(20% 0 0);
 		--bn-ring:        0 0 0 3px oklch(20% 0 0);
 	}
 	[data-bn-theme="dark"],
@@ -720,6 +735,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line-faint:  oklch(60% 0 0);
 		--bn-ink-3:       oklch(85% 0 0);
 		--bn-ink-4:       oklch(75% 0 0);
+		--bn-focus:       oklch(95% 0 0);
 		--bn-ring:        0 0 0 3px oklch(95% 0 0);
 	}
 }
@@ -3024,7 +3040,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-textarea::placeholder { color: var(--bn-ink-4); }
 .bn-input:disabled,
 .bn-textarea:disabled,
-.bn-select:disabled {
+.bn-select:disabled,
+.bn-input[readonly],
+.bn-textarea[readonly] {
 	background: var(--bn-sunken);
 	color: var(--bn-ink-3);
 	cursor: not-allowed;
@@ -3235,7 +3253,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-field-checkbox-group .bn-field-checkbox:has(input:focus-visible),
 .bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -3282,7 +3300,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink);
 }
 .bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox):has(input:focus-visible) {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 	border-radius: var(--bn-r-sm);
 }

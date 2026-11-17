@@ -148,7 +148,7 @@
 }
 
 .bn-table .bn-more-btn:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -245,7 +245,7 @@
 }
 
 .bn-pagination .bn-page-link:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -483,7 +483,7 @@
 }
 
 .bn-repeater-remove:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -508,7 +508,7 @@
 }
 
 .bn-repeater-add:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 

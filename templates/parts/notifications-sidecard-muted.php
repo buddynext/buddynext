@@ -122,8 +122,9 @@ do_action( 'buddynext_part_notifications_sidecard_muted_before', $args );
 					<span class="bn-notif-sidecard__muted-handle">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $bn_muted_user->ID ) ); ?></span>
 				</div>
 				<button type="button"
-					class="bn-btn bn-btn--sm bn-notif-sidecard__muted-cta"
+					class="bn-btn bn-notif-sidecard__muted-cta"
 					data-variant="ghost"
+					data-size="sm"
 					data-bn-relation-remove
 					aria-label="
 					<?php

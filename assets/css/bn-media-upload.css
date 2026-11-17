@@ -371,7 +371,7 @@
 }
 
 .bn-media-subnav__tab:focus-visible {
-	outline: var(--bn-s1) solid var(--bn-ring);
+	outline: var(--bn-s1) solid var(--bn-focus);
 	outline-offset: var(--bn-s1);
 }
 

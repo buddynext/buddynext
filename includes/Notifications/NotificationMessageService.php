@@ -76,10 +76,14 @@ class NotificationMessageService {
 		// recipient's own tab). Rows read from the table carry it; a caller that
 		// composes in someone else's request (Pro push runs in the sender's) must
 		// pass it, or the link would point at the current user instead.
-		$url        = $this->url_for( $type, $actor_id, $object_id, $data, isset( $row['recipient_id'] ) ? (int) $row['recipient_id'] : 0 );
+		$url = $this->url_for( $type, $actor_id, $object_id, $data, isset( $row['recipient_id'] ) ? (int) $row['recipient_id'] : 0 );
 
 		$grouped_template = (string) ( $data['message_grouped'] ?? '' );
+		// True when the sentence itself already counts the others ("and 31
+		// others"), so a "x32" badge beside it would say the same thing twice.
+		$others_named = false;
 		if ( $group_count > 1 && '' !== $grouped_template ) {
+			$others_named = str_contains( $grouped_template, '{others}' );
 			// A row that carries its own grouped sentence (integration contract rows).
 			$message = strtr(
 				$grouped_template,
@@ -97,20 +101,22 @@ class NotificationMessageService {
 			// is left in the row, not the person the first event named.
 			$message = strtr( (string) $data['message_single'], array( '{actor}' => $actor_name ) );
 		} elseif ( $group_count > 1 && $this->supports_group_collapse( $type ) ) {
-			$message = $this->compose_grouped( $type, $actor_name, $group_count, $object_id, $data );
+			$message      = $this->compose_grouped( $type, $actor_name, $group_count, $object_id, $data );
+			$others_named = true;
 		} else {
 			$message = $this->compose_single( $type, $actor_name, $object_id, $data );
 		}
 
 		return array(
-			'message'     => $message,
-			'url'         => $url,
-			'icon'        => $meta['icon'],
-			'tone'        => $meta['tone'],
-			'label'       => $meta['label'],
-			'actor_id'    => $actor_id,
-			'actor_name'  => $actor_name,
-			'group_count' => $group_count,
+			'message'      => $message,
+			'url'          => $url,
+			'icon'         => $meta['icon'],
+			'tone'         => $meta['tone'],
+			'label'        => $meta['label'],
+			'actor_id'     => $actor_id,
+			'actor_name'   => $actor_name,
+			'group_count'  => $group_count,
+			'others_named' => $others_named,
 		);
 	}
 
@@ -902,14 +908,16 @@ class NotificationMessageService {
 				// (where the pending request is reviewed/accepted), not the
 				// requester's profile. The recipient is the user viewing the
 				// notification.
+				// #bn-requests lands on the request list itself: the profile header
+				// sits above the tab, so the list started below the fold.
 				$me = $viewer_id;
-				return $me > 0 ? PageRouter::connections_url( $me ) : '';
+				return $me > 0 ? PageRouter::connections_url( $me ) . '#bn-requests' : '';
 
 			case 'bn.follow_requested':
 				// A received follow request: open the RECIPIENT's own Followers
 				// tab, where the pending requests are approved or declined. The
 				// requester's profile has no Accept control.
-				return $viewer_id > 0 ? PageRouter::followers_url( $viewer_id ) : '';
+				return $viewer_id > 0 ? PageRouter::followers_url( $viewer_id ) . '#bn-requests' : '';
 
 			case 'bn.new_follower':
 			case 'bn.connection_accepted':

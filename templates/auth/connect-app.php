@@ -48,7 +48,7 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 					<p class="bn-auth-sub">
 						<?php esc_html_e( 'The link that opened this page did not come from an app this site recognises. Go back to the app and try connecting again.', 'buddynext' ); ?>
 					</p>
-					<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( home_url( '/' ) ); ?>">
+					<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( home_url( '/' ) ); ?>">
 						<?php esc_html_e( 'Back to the site', 'buddynext' ); ?>
 					</a>
 				</section>
@@ -118,7 +118,7 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 						data-wp-text="state.error"></div>
 
 					<div data-wp-bind--hidden="state.connected">
-						<button class="bn-btn bn-btn--primary bn-btn--block"
+						<button class="bn-btn" data-variant="primary" data-size="lg" data-full
 							type="button"
 							data-wp-on--click="actions.approve"
 							data-wp-bind--disabled="state.busy">
@@ -135,7 +135,7 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 
 					<div data-wp-bind--hidden="!state.connected">
 						<p class="bn-auth-sub"><?php esc_html_e( 'Connected. Opening the app…', 'buddynext' ); ?></p>
-						<a class="bn-btn bn-btn--primary bn-btn--block"
+						<a class="bn-btn" data-variant="primary" data-size="lg" data-full
 							data-wp-bind--href="state.deepLink">
 							<?php esc_html_e( 'Open the app', 'buddynext' ); ?>
 						</a>

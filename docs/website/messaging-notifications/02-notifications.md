@@ -64,7 +64,7 @@ Since 1.2.5 you can also select several notifications and delete them together, 
 
 ### Filtering
 
-The Notifications page has filter tabs: **All**, **Unread**, **Mentions**, **Comments**, **Reactions**, **Spaces**, **Follows** and **Messages** (the Messages tab is left out while messages are switched off). Switching tabs updates the list in place, without reloading the page.
+The Notifications page has filter tabs: **All**, **Unread**, **Mentions**, **Comments**, **Reactions**, **Spaces**, **Follows** and **Messages** (the Messages tab is left out while messages are switched off), plus **Jobs** and **Achievements** while WP Career Board and WB Gamification are active. On a wide screen every tab stays visible; on a phone the row scrolls sideways. Switching tabs updates the list in place, without reloading the page.
 
 ### Grouped notifications
 

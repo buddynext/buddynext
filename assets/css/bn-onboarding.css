@@ -351,7 +351,7 @@
 .bn-ob-username:focus,
 .bn-ob-bio:focus {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-ob-bio {
 	min-height: 84px;
@@ -373,7 +373,7 @@
 }
 .bn-ob-input-prefix:focus-within {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-ob-input-prefix__prefix {
 	background: var(--bn-sunken);
@@ -916,7 +916,7 @@
 	text-decoration: underline;
 }
 .bn-wizard__step-link:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -1061,7 +1061,7 @@
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 
 /* ── Colour picker ───────────────────────────────────────────────────── */
@@ -1086,7 +1086,7 @@
 .bn-wizard__swatch:hover { border-color: var(--bn-accent); }
 .bn-wizard__swatch:focus-within {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 22%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-wizard__swatch-fill {
 	position: absolute;
@@ -1154,7 +1154,7 @@
 .bn-wizard__option:hover { border-color: var(--bn-line-strong); }
 .bn-wizard__option:focus-within {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-wizard__option[data-selected="true"] {
 	border-color: var(--bn-accent);
@@ -1306,7 +1306,7 @@
 .bn-wizard__switch:hover { border-color: color-mix(in oklch, var(--bn-accent) 50%, var(--bn-line)); }
 .bn-wizard__switch:focus-within {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-wizard__switch-text {
 	display: flex;
@@ -1627,7 +1627,7 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 .bn-wizard__btn-secondary:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-wizard__btn-secondary,
 .bn-wizard__btn-secondary:hover,

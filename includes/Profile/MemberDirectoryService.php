@@ -162,12 +162,12 @@ class MemberDirectoryService {
 		$user_col = $wpdb->users . '.ID';
 
 		// Same exclusion set the GRID uses, or the number will not match what it shows.
-		// directory_exclusion_subqueries() drops suspended / shadow-banned / directory
+		// exclusion_clauses() drops suspended / shadow-banned / directory
 		// opt-out members (param-free NOT EXISTS strings); directory_filter_sql() adds the
 		// viewer-self, block, member_type and online_only clauses. list_members() combines
 		// exactly these two for its own count -- reusing both here is what keeps the header
 		// total and the grid honest with each other.
-		$clauses = $this->directory_exclusion_subqueries( $user_col );
+		$clauses = self::exclusion_clauses( $user_col );
 
 		list( $frag, $frag_params ) = $this->directory_filter_sql( $viewer_id, $filters, $user_col );
 		if ( '' !== trim( (string) $frag ) ) {
@@ -421,10 +421,10 @@ class MemberDirectoryService {
 		// (not NOT IN) both avoids the MySQL 5.7 "Can't reopen table" error with the
 		// self-joined mutual subquery AND stays bounded at scale. The three clauses
 		// are the canonical set shared with the server-rendered directory
-		// (directory_exclusion_subqueries) so the two surfaces never diverge.
+		// (exclusion_clauses) so the two surfaces never diverge.
 		$where_clauses = array_merge(
 			array( 'u.ID != %d' ),
-			$this->directory_exclusion_subqueries( 'u.ID' )
+			self::exclusion_clauses( 'u.ID' )
 		);
 
 		// Bidirectional block exclusion — viewer should not see users they have
@@ -828,27 +828,33 @@ class MemberDirectoryService {
 		return $result;
 	}
 
+
 	/**
-	 * The three literal exclusion subqueries every directory surface applies:
-	 * active suspensions, shadow-bans, and the "Show me in the member directory"
-	 * opt-out. Correlated `NOT EXISTS` (each indexed by user_id / meta_key) so the
-	 * cost is bounded and there is no materialised id list. Shared verbatim by
-	 * list_members() (REST) and directory_filter_sql() (SSR) so the two never
-	 * diverge. The fragments carry NO placeholders — $user_col is a caller-supplied
-	 * column reference (`u.ID` / `wp_users.ID`), never user input.
+	 * Who may be FOUND: the one rule every member-discovery surface applies.
 	 *
-	 * The suspension + shadow-ban part is the shared DISCOVERY gate (ANY active
-	 * suspension, the discoverability rule) — identical to
-	 * ModerationService::discovery_exclude_sql(), emitted as NOT EXISTS (not NOT IN)
-	 * because a NOT IN subquery can't be reopened alongside this query's self-joined
-	 * mutual-connection subquery on MySQL 5.7. Do NOT converge onto
-	 * moderation_exclude_sql() — that is the hide_posts content gate, a different rule.
+	 * The directory, its search, "People to follow" (friends-of-friends, shared
+	 * interests and the random fill) and the Explore people deck all read this,
+	 * so a member hidden from one is hidden from all. Excluded: an active
+	 * suspension, a shadow-ban, the "Show me in the member directory" opt-out,
+	 * and an account still waiting for administrator approval (it cannot sign in
+	 * and has not been admitted; the owner reviews it on the Members screen).
+	 * Each is a correlated NOT EXISTS on an indexed user_id / meta_key, so the
+	 * cost is bounded per candidate row and there is no materialised id list.
+	 * NOT EXISTS rather than NOT IN: a NOT IN subquery cannot be reopened beside
+	 * the directory's self-joined mutual-connection subquery on MySQL 5.7. Never
+	 * swap in moderation_exclude_sql(): that is the hide_posts CONTENT gate, a
+	 * different rule, and it let a suspended member be suggested.
 	 *
-	 * @param string $user_col Correlated user-id column for the outer query.
-	 * @return string[] The `NOT EXISTS (...)` clause strings, plus the network member scope.
+	 * @since 1.3.0 Public, shared by every suggestion source; adds the approval hold.
+	 *
+	 * @param string $user_col Correlated user-id column of the outer query, always
+	 *                         table-qualified (`u.ID`, `f.following_id`).
+	 * @return string[] Literal `NOT EXISTS (...)` clauses, plus the network member scope.
 	 */
-	private function directory_exclusion_subqueries( string $user_col ): array {
+	public static function exclusion_clauses( string $user_col ): array {
 		global $wpdb;
+
+		$user_col = (string) preg_replace( '/[^a-zA-Z0-9_.]/', '', $user_col );
 
 		$clauses = array(
 			"NOT EXISTS (
@@ -868,6 +874,12 @@ class MemberDirectoryService {
 			    WHERE um_dir.user_id = {$user_col}
 			      AND um_dir.meta_key = 'bn_privacy_show_in_directory'
 			      AND um_dir.meta_value = '0'
+			  )",
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->usermeta} um_hold
+			    WHERE um_hold.user_id = {$user_col}
+			      AND um_hold.meta_key = 'bn_pending_approval'
+			      AND um_hold.meta_value = '1'
 			  )",
 		);
 
@@ -937,7 +949,7 @@ class MemberDirectoryService {
 
 		// The gate fragments carry NO placeholders (they interpolate only trusted
 		// table names / literal meta keys), so they are safe to embed directly.
-		$exclusions = implode( "\n     AND ", $this->directory_exclusion_subqueries( 'u.ID' ) );
+		$exclusions = implode( "\n     AND ", self::exclusion_clauses( 'u.ID' ) );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
@@ -975,7 +987,7 @@ class MemberDirectoryService {
 	private function viewer_directory_type_ids( int $viewer_id ): array {
 		global $wpdb;
 
-		$exclusions = implode( "\n     AND ", $this->directory_exclusion_subqueries( 'u.ID' ) );
+		$exclusions = implode( "\n     AND ", self::exclusion_clauses( 'u.ID' ) );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$ids = $wpdb->get_col(
@@ -1027,10 +1039,10 @@ class MemberDirectoryService {
 		$bn_count_viewer = ! empty( $args['count_viewer'] );
 
 		$clauses = $bn_count_viewer
-			? $this->directory_exclusion_subqueries( $user_col )
+			? self::exclusion_clauses( $user_col )
 			: array_merge(
 				array( "{$user_col} != %d" ),
-				$this->directory_exclusion_subqueries( $user_col )
+				self::exclusion_clauses( $user_col )
 			);
 		$params  = $bn_count_viewer ? array() : array( $viewer_id );
 
@@ -1394,6 +1406,34 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * The directory header's count line, worded for what the list is showing.
+	 *
+	 * Unfiltered it states the community size ("1,225 members in the community").
+	 * With a filter on, that wording claimed the filtered number was the whole
+	 * community, and with Online only it did not say the people were online at
+	 * all. The members store words the same line for a live filter change from the
+	 * matching i18n keys (AssetService, buddynext/members: subtitle*).
+	 *
+	 * @param int  $total       The count the header states.
+	 * @param bool $online_only Online only is on.
+	 * @param bool $filtered    Any filter is on (search, relation, member type, online).
+	 * @return string
+	 */
+	public static function directory_subtitle( int $total, bool $online_only, bool $filtered ): string {
+		$count = number_format_i18n( $total );
+		if ( $online_only ) {
+			/* translators: %s: formatted number of members online. */
+			return sprintf( _n( '%s member online', '%s members online', $total, 'buddynext' ), $count );
+		}
+		if ( $filtered ) {
+			/* translators: %s: formatted number of members matching the filters. */
+			return sprintf( _n( '%s member found', '%s members found', $total, 'buddynext' ), $count );
+		}
+		/* translators: %s: formatted member count. */
+		return sprintf( _n( '%s member in the community', '%s members in the community', $total, 'buddynext' ), $count );
+	}
+
+	/**
 	 * Most-recently-active members for the "Online now" sidebar widget.
 	 *
 	 * Returns lightweight rows (ID, display_name, handle) for users active
@@ -1431,7 +1471,7 @@ class MemberDirectoryService {
 		// Same discovery gate the directory queries use — reuse the one canonical
 		// builder instead of re-inlining the suspended / shadow-banned / opt-out
 		// NOT EXISTS clauses here, so the two surfaces can never drift apart.
-		$exclusions = implode( ' AND ', $this->directory_exclusion_subqueries( 'u.ID' ) );
+		$exclusions = implode( ' AND ', self::exclusion_clauses( 'u.ID' ) );
 
 		// Bidirectional block exclusion, through the SAME canonical builder the
 		// member directory uses (see list_members) so the two surfaces cannot

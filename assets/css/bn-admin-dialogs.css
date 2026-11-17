@@ -187,14 +187,14 @@
 .bn-dialog__confirm-input:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: var(--bn-a-outline-offset, 2px);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+	box-shadow: var(--bn-ring);
 }
 
 .bn-dialog__cancel:focus-visible,
 .bn-dialog__ok:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: var(--bn-a-outline-offset, 2px);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+	box-shadow: var(--bn-ring);
 }
 
 /* ── Toast ──────────────────────────────────────────────────────────────── */

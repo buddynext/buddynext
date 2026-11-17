@@ -500,6 +500,18 @@
 	}
 }
 
+/* Above phone width the filter strip wraps instead of scrolling: with the
+   integration tabs it outgrows the main column at 1280px, and a strip with a
+   hidden scrollbar strands its last tabs for a mouse user. Phones keep the
+   swipeable single row from .bn-tabs. */
+@media (min-width: 641px) {
+	.bn-notif-tabs {
+		flex-wrap: wrap;
+		overflow-x: visible;
+		row-gap: var(--bn-s1);
+	}
+}
+
 /* ── Muted-list sidebar widget (Pattern D-15) ──────────────────────────────
    Rendered by parts/notifications-sidecard-muted.php. Shows up to 5 muted
    users with avatar + name + handle + per-row Unmute, plus a "Manage muted"

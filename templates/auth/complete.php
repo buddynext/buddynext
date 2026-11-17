@@ -48,7 +48,7 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 					<p class="bn-auth-sub">
 						<?php esc_html_e( 'Sign-up links are short-lived for your security. Start again and it will only take a moment.', 'buddynext' ); ?>
 					</p>
-					<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $signup_url ); ?>">
+					<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $signup_url ); ?>">
 						<?php esc_html_e( 'Back to sign-up', 'buddynext' ); ?>
 					</a>
 				</section>
@@ -211,7 +211,7 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 							</div>
 						<?php endif; ?>
 
-						<button class="bn-btn bn-btn--primary bn-btn--block"
+						<button class="bn-btn" data-variant="primary" data-size="lg" data-full
 							type="submit"
 							data-wp-bind--disabled="state.submitting">
 							<span data-wp-bind--hidden="state.submitting"><?php esc_html_e( 'Create my account', 'buddynext' ); ?></span>

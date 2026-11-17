@@ -163,7 +163,7 @@ class EmailEditor {
 					'trigger' => __( 'When someone asks to follow a private profile', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
 					'subject' => '{{actor_name}} would like to follow you',
-					'preview' => 'Approve or ignore the request',
+					'preview' => 'Approve or decline the request',
 					'body'    => "Hi {{user_name}},\n\n{{actor_name}} has asked to follow you on <strong>{{site_name}}</strong>.\n\n<a href=\"{{action_url}}\">Review the request →</a>",
 				),
 				'bn.comment_reply'        => array(

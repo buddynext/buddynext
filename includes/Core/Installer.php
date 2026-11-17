@@ -3983,6 +3983,11 @@ class Installer {
 					'body_html' => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 				),
 			),
+			// 1.3.0: the preheader said "ignore" while the request screen's button
+			// says Decline; the inbox preview now uses the same word as the button.
+			'bn.follow_requested'       => array(
+				array( 'preview_text' => 'Approve or ignore the request' ),
+			),
 			'bn.media_commented'        => array(
 				array(
 					'subject'   => 'New comment on your media on {{site_name}}',

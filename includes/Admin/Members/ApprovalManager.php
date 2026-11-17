@@ -436,7 +436,7 @@ class ApprovalManager {
 				<?php if ( $pages > 1 ) : ?>
 					<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Pending members pages', 'buddynext' ); ?>">
 						<?php if ( $page > 1 ) : ?>
-							<a class="bn-btn bn-btn--ghost" href="<?php echo esc_url( add_query_arg( 'bn_page', $page - 1, $base_url ) ); ?>">
+							<a class="bn-btn" data-variant="ghost" href="<?php echo esc_url( add_query_arg( 'bn_page', $page - 1, $base_url ) ); ?>">
 								<?php esc_html_e( 'Previous', 'buddynext' ); ?>
 							</a>
 						<?php endif; ?>
@@ -453,7 +453,7 @@ class ApprovalManager {
 						</span>
 
 						<?php if ( $page < $pages ) : ?>
-							<a class="bn-btn bn-btn--ghost" href="<?php echo esc_url( add_query_arg( 'bn_page', $page + 1, $base_url ) ); ?>">
+							<a class="bn-btn" data-variant="ghost" href="<?php echo esc_url( add_query_arg( 'bn_page', $page + 1, $base_url ) ); ?>">
 								<?php esc_html_e( 'Next', 'buddynext' ); ?>
 							</a>
 						<?php endif; ?>

@@ -292,6 +292,22 @@
 			return;
 		}
 
+		// The address preview under the field follows the typing. It was printed
+		// once by PHP, so it kept showing the saved slug while the owner typed a
+		// new one. Normalised the way the save does (sanitize_title): lower case,
+		// spaces to hyphens, anything else outside a-z 0-9 - dropped.
+		var previewEl = input.parentNode ? input.parentNode.querySelector( '[data-bn-slug-preview]' ) : null;
+		if ( previewEl ) {
+			input.addEventListener( 'input', function () {
+				var clean = input.value.trim().toLowerCase()
+					.replace( /[\s_]+/g, '-' )
+					.replace( /[^a-z0-9-]/g, '' )
+					.replace( /-+/g, '-' )
+					.replace( /^-|-$/g, '' );
+				previewEl.textContent = previewEl.getAttribute( 'data-base' ) + ( clean || previewEl.getAttribute( 'data-default' ) ) + '/';
+			} );
+		}
+
 		input.addEventListener( 'input', function () {
 			var slugVal = input.value.trim();
 			window.clearTimeout( timer );

@@ -2289,6 +2289,14 @@ a.bn-sh-statpill:focus-visible {
 	outline-offset: 2px;
 }
 
+/* No match: a plain line in the open list, not a pickable row. */
+.bn-space-settings__discussion-empty {
+	padding: var(--bn-s2) var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	cursor: default;
+}
+
 /* Toggle shell — checkbox-input bridged to a .bn-toggle visual track. */
 .bn-space-settings__toggle-shell {
 	position: relative;

@@ -213,16 +213,23 @@ $bn_initial_sort  = $bn_rest_sort_map[ $bn_orderby ] ?? 'newest';
 // other filters — the store reads ctx.onlineOnly when it builds the REST query
 // and rewrites the URL, so dropping it here stripped `online=1` from the address
 // bar and the checkbox stayed ticked while the results ignored it.
+// The header count: the community size unfiltered, else exactly what the grid
+// lists (the viewer is not in it), so "6 members online" sits over six cards and
+// agrees with the sidebar's Online now. The store rewords it on a live filter change.
+$bn_header_total = $bn_request['filters_active'] ? $total_users : $bn_community_total;
+
 $bn_directory_context = buddynext_members_directory_context(
 	array(
-		'search'     => $search_term,
-		'sort'       => $bn_initial_sort,
-		'relation'   => $bn_relation,
-		'memberType' => $type_slug_filter,
-		'onlineOnly' => $bn_online_only,
-		'restNonce'  => $bn_rest_nonce,
-		'isEmpty'    => empty( $members ),
-		'peopleUrl'  => $bn_directory_url,
+		'search'         => $search_term,
+		'sort'           => $bn_initial_sort,
+		'relation'       => $bn_relation,
+		'memberType'     => $type_slug_filter,
+		'onlineOnly'     => $bn_online_only,
+		'restNonce'      => $bn_rest_nonce,
+		'isEmpty'        => empty( $members ),
+		'peopleUrl'      => $bn_directory_url,
+		'subtitle'       => \BuddyNext\Profile\MemberDirectoryService::directory_subtitle( $bn_header_total, $bn_online_only, $bn_request['filters_active'] ),
+		'communityTotal' => $bn_community_total,
 	)
 );
 
@@ -263,7 +270,9 @@ if ( $current_user_id > 0 ) {
 	buddynext_get_template(
 		'parts/member-directory-hero.php',
 		array(
-			'total_members' => $bn_community_total,
+			'total_members' => $bn_header_total,
+			'online_only'   => $bn_online_only,
+			'filtered'      => $bn_request['filters_active'],
 			'current_type'  => $type_slug_filter,
 			'view_mode'     => 'grid',
 			'viewer_id'     => $current_user_id,

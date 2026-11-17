@@ -209,6 +209,9 @@ class NavManager extends AdminPageBase {
 							$page_val  = (int) get_option( $cfg['page_opt'], 0 );
 							$field_id  = 'bn-hub-' . sanitize_key( $hub );
 							$page_live = ( $page_val > 0 && 'publish' === get_post_status( $page_val ) );
+							// The hub whose page is the site's front page answers at the site
+							// root; its slug address redirects there. Show the real address.
+							$is_front = $page_live && 'page' === (string) get_option( 'show_on_front' ) && (int) get_option( 'page_on_front' ) === $page_val;
 							?>
 							<tr>
 								<td class="bn-pages-cell--hub">
@@ -232,7 +235,13 @@ class NavManager extends AdminPageBase {
 											pattern="[a-z0-9\-]+"
 											spellcheck="false"
 											placeholder="<?php echo esc_attr( $cfg['default'] ); ?>">
-										<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); // bn-route-ok: admin preview of the slug being edited. ?></span>
+										<?php if ( $is_front ) : ?>
+											<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' ) ) ); // bn-route-ok: admin preview, the hub is the front page. ?></span>
+											<span class="bn-field-hint"><?php esc_html_e( 'This hub is your site\'s front page, so it opens at the site address. Its slug address redirects there.', 'buddynext' ); ?></span>
+										<?php else : ?>
+											<?php // nav-manager.js rewrites this as the owner types (data-bn-slug-preview). ?>
+											<span class="bn-field-hint" data-bn-slug-preview data-base="<?php echo esc_attr( trailingslashit( home_url( '/' ) ) ); ?>" data-default="<?php echo esc_attr( $cfg['default'] ); ?>"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); // bn-route-ok: admin preview of the slug being edited. ?></span>
+										<?php endif; ?>
 										<span class="bn-field-hint"><?php esc_html_e( 'Leave empty to use the default. Old addresses redirect to the new one when the hub has a page.', 'buddynext' ); ?></span>
 										<?php // Live availability feedback target. nav-manager.js fills this from admin/slug-check as the owner types; without the element the whole check bails out. ?>
 										<span class="bn-cf-hint" aria-live="polite"></span>
@@ -289,7 +298,7 @@ class NavManager extends AdminPageBase {
 					</div><!-- .bn-table-wrap__scroll -->
 				</div>
 			</div>
-			<p class="submit"><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button></p>
+			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
 	}

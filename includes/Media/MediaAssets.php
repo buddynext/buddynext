@@ -103,6 +103,7 @@ class MediaAssets {
 					'favorited'        => __( 'Favorited', 'buddynext' ),
 					// Neutral: the same panel shows photos, videos and audio.
 					'noComments'       => __( 'No comments yet.', 'buddynext' ),
+					'allComments'      => __( 'View all comments on the post', 'buddynext' ),
 					'loginPrompt'      => __( 'Log in to react and comment.', 'buddynext' ),
 					'posting'          => __( 'Posting…', 'buddynext' ),
 					// Read by lightbox.js when the clipboard API is unavailable; the key

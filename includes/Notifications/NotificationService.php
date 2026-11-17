@@ -49,6 +49,37 @@ class NotificationService {
 		'message'  => array( 'bn.new_message' ),
 	);
 
+	/**
+	 * Inbox tabs that hold one integration's rows. A contract row's type is
+	 * `{source}.{slug}` and the slugs are the plugin's own, so these tabs match
+	 * on the source prefix instead of a fixed type list. A tab is offered only
+	 * while its plugin has adopted the contract (see inbox_filters()).
+	 */
+	public const SOURCE_TABS = array(
+		'jobs'         => 'career_board',
+		'achievements' => 'wb_gamification',
+	);
+
+	/**
+	 * The inbox tab a notification type belongs to, or '' for All only.
+	 *
+	 * @param string $type Notification type.
+	 * @return string
+	 */
+	public static function tab_of_type( string $type ): string {
+		foreach ( self::TAB_TYPES as $tab => $types ) {
+			if ( in_array( $type, $types, true ) ) {
+				return $tab;
+			}
+		}
+		foreach ( self::SOURCE_TABS as $tab => $source ) {
+			if ( str_starts_with( $type, $source . '.' ) ) {
+				return $tab;
+			}
+		}
+		return '';
+	}
+
 
 	/**
 	 * Cache group.
@@ -1233,6 +1264,11 @@ class NotificationService {
 		if ( function_exists( 'buddynext_feature_enabled' ) && ! buddynext_feature_enabled( 'reactions' ) ) {
 			$filters = array_values( array_diff( $filters, array( 'reaction' ) ) );
 		}
+		foreach ( self::SOURCE_TABS as $tab => $source ) {
+			if ( IntegrationNotificationListener::adopted( $source ) ) {
+				$filters[] = $tab;
+			}
+		}
 		return $filters;
 	}
 
@@ -1256,15 +1292,14 @@ class NotificationService {
 		$filter = in_array( $filter, self::inbox_filters(), true ) ? $filter : 'all';
 		$page   = max( 1, $page );
 		$offset = ( $page - 1 ) * self::INBOX_PER_PAGE;
-		$types  = self::TAB_TYPES[ $filter ] ?? array();
 		$items  = array();
 
-		if ( ! empty( $types ) ) {
+		if ( ! in_array( $filter, array( 'all', 'unread' ), true ) ) {
 			$listed  = $this->list_for_user( $user_id, null, 200, 'all', 0 );
 			$matched = array_values(
 				array_filter(
 					$listed['items'] ?? array(),
-					static fn( array $item ): bool => in_array( (string) ( $item['type'] ?? '' ), $types, true )
+					static fn( array $item ): bool => self::tab_of_type( (string) ( $item['type'] ?? '' ) ) === $filter
 				)
 			);
 			$total   = count( $matched );
@@ -1326,10 +1361,13 @@ class NotificationService {
 	public function unread_counts_by_tab( int $user_id ): array {
 		$by_type = $this->unread_counts_by_type( $user_id );
 		$tabs    = array( 'unread' => array_sum( array_map( 'intval', $by_type ) ) );
-		foreach ( self::TAB_TYPES as $tab => $types ) {
+		foreach ( array_merge( array_keys( self::TAB_TYPES ), array_keys( self::SOURCE_TABS ) ) as $tab ) {
 			$tabs[ $tab ] = 0;
-			foreach ( $types as $type ) {
-				$tabs[ $tab ] += (int) ( $by_type[ $type ] ?? 0 );
+		}
+		foreach ( $by_type as $type => $count ) {
+			$tab = self::tab_of_type( (string) $type );
+			if ( '' !== $tab ) {
+				$tabs[ $tab ] += (int) $count;
 			}
 		}
 		return $tabs;

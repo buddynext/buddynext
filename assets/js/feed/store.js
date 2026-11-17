@@ -627,6 +627,36 @@ function attachMentionHashtagTypeahead( textarea ) {
 			top = top - lineHeight - listHeight;
 		}
 
+		// Never cover the field's own buttons. The comment editor is a two-line
+		// box with its Save and Cancel icons right under it, so the list opened
+		// over Save and stayed there until Esc: the member could not save the
+		// edit they were making. When the list would overlap a button of the same
+		// form, open it above the caret line instead, as long as that stays on
+		// screen (the list is an overlay, so it may extend above the box).
+		// With no room above (the field at the top of the viewport), drop it
+		// below the buttons it would have covered instead.
+		const op = dropdown.offsetParent;
+		if ( op && listHeight > 0 ) {
+			const base    = op.getBoundingClientRect();
+			const box     = {
+				top: base.top + top,
+				bottom: base.top + top + listHeight,
+				left: base.left + left,
+				right: base.left + left + listWidth,
+			};
+			const owner   = textarea.closest( 'form' ) || textarea.parentElement;
+			const covered = Array.from( owner.querySelectorAll( 'button' ) )
+				.filter( ( b ) => ! dropdown.contains( b ) )
+				.map( ( b ) => b.getBoundingClientRect() )
+				.filter( ( r ) => r.width > 0 && r.top < box.bottom && r.bottom > box.top && r.left < box.right && r.right > box.left );
+			if ( covered.length ) {
+				const above = top - lineHeight - listHeight;
+				top = base.top + above >= 0
+					? above
+					: Math.max( ...covered.map( ( r ) => r.bottom ) ) - base.top + 4;
+			}
+		}
+
 		dropdown.style.top  = Math.round( top ) + 'px';
 		dropdown.style.left = Math.round( left ) + 'px';
 	};

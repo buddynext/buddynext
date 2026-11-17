@@ -79,7 +79,7 @@ class RequestNotificationDestinationTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_follow_request_opens_the_recipients_followers_tab(): void {
-		$expected = PageRouter::followers_url( $this->recipient );
+		$expected = PageRouter::followers_url( $this->recipient ) . '#bn-requests';
 
 		$this->assertSame( $expected, ( new NotificationMessageService() )->compose( $this->row( 'bn.follow_requested' ) )['url'] );
 		$this->assertSame(
@@ -96,7 +96,7 @@ class RequestNotificationDestinationTest extends WP_UnitTestCase {
 	 */
 	public function test_connection_request_resolves_me_as_the_recipient(): void {
 		$this->assertSame(
-			PageRouter::connections_url( $this->recipient ),
+			PageRouter::connections_url( $this->recipient ) . '#bn-requests',
 			( new NotificationMessageService() )->compose( $this->row( 'bn.connection_requested' ) )['url']
 		);
 	}
@@ -110,7 +110,7 @@ class RequestNotificationDestinationTest extends WP_UnitTestCase {
 		wp_set_current_user( 0 );
 
 		$this->assertSame(
-			PageRouter::connections_url( $this->recipient ),
+			PageRouter::connections_url( $this->recipient ) . '#bn-requests',
 			( new NotificationMessageService() )->compose( $this->row( 'bn.connection_requested' ) )['url']
 		);
 	}

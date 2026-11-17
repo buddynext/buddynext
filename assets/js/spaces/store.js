@@ -53,6 +53,8 @@ function bnSavebarRollback( form ) {
 
 /** Debounce handle for the Discussion search box. @type {number} */
 var discussionSearchTimer = null;
+// Latest discussion search per picker; an older answer that lands later is dropped.
+var discussionSearchSeq   = 0;
 var parentSearchTimer     = null;
 
 /**
@@ -106,10 +108,12 @@ async function renderDiscussionResults( picker, q ) {
 	var spaceId = picker.getAttribute( 'data-space-id' );
 	if ( ! list || ! spaceId ) { return; }
 
+	var seq = ++discussionSearchSeq;
 	var res = await restFetch(
 		'/spaces/' + spaceId + '/discussion-search?q=' + encodeURIComponent( q ),
 		{ method: 'GET', nonce: resolveNonce(), toastOnError: false }
 	);
+	if ( seq !== discussionSearchSeq ) { return; }
 
 	// A failed request (network / REST error) is NOT the same as "no matches".
 	// restFetch runs with toastOnError:false, so surface a manual danger toast
@@ -124,8 +128,18 @@ async function renderDiscussionResults( picker, q ) {
 	var results = ( res.data && res.data.results ) || [];
 
 	list.innerHTML = '';
+	var input = picker.querySelector( '[data-bn-discussion-search]' );
 	if ( ! results.length ) {
-		closeDiscussionResults( picker );
+		// Say so. The list used to just stay shut, so an owner could not tell "you
+		// have no discussion to link" from "the search did not run".
+		var none = document.createElement( 'li' );
+		none.className = 'bn-space-settings__discussion-empty';
+		none.setAttribute( 'role', 'option' );
+		none.setAttribute( 'aria-disabled', 'true' );
+		none.textContent = t( 'discussionNoMatch', 'No discussions found. Leave this empty to create a new one.' );
+		list.appendChild( none );
+		list.removeAttribute( 'hidden' );
+		if ( input ) { input.setAttribute( 'aria-expanded', 'true' ); }
 		return;
 	}
 
@@ -144,9 +158,34 @@ async function renderDiscussionResults( picker, q ) {
 	} );
 
 	list.removeAttribute( 'hidden' );
-	var input = picker.querySelector( '[data-bn-discussion-search]' );
 	if ( input ) { input.setAttribute( 'aria-expanded', 'true' ); }
 }
+
+// The open list closes on Escape (focus back in the box) and on a click outside
+// the picker, like every other listbox on the site. It stayed open over the rest
+// of the tab until a result was picked.
+document.addEventListener( 'keydown', function ( event ) {
+	if ( 'Escape' !== event.key || ! event.target || ! event.target.closest ) { return; }
+	var picker = event.target.closest( '[data-bn-discussion-picker]' );
+	var list   = picker && picker.querySelector( '[data-bn-discussion-results]' );
+	if ( ! list || list.hidden ) { return; }
+	event.preventDefault();
+	discussionSearchSeq++;
+	clearTimeout( discussionSearchTimer );
+	closeDiscussionResults( picker );
+	var input = picker.querySelector( '[data-bn-discussion-search]' );
+	if ( input ) { input.focus(); }
+} );
+document.addEventListener( 'click', function ( event ) {
+	document.querySelectorAll( '[data-bn-discussion-picker]' ).forEach( function ( picker ) {
+		if ( picker.contains( event.target ) ) { return; }
+		var list = picker.querySelector( '[data-bn-discussion-results]' );
+		if ( list && ! list.hidden ) {
+			discussionSearchSeq++;
+			closeDiscussionResults( picker );
+		}
+	} );
+} );
 
 /**
  * Commit a chosen discussion to a picker: fill the search box, set the hidden
@@ -1888,6 +1927,12 @@ var storeInstance = store( 'buddynext/spaces', {
 				? event.currentTarget
 				: ( event && event.target ? event.target.closest( 'form' ) : null );
 			if ( ! form ) { return; }
+			// A box with no name submits nothing, so typing in it changes nothing
+			// that Save would keep: the Discussion and parent-space search boxes.
+			// Counting it read as "Unsaved changes" and warned on reload. A pick
+			// from either sets a named field, and that marks the form itself.
+			var src = event && event.target;
+			if ( src && src.matches && src.matches( 'input:not([name]):not([type="checkbox"]):not([type="radio"])' ) ) { return; }
 			bnSavebarDirtyForm = form;
 			storeInstance.state.savebarPhase = 'dirty';
 		},

@@ -66,7 +66,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 	// row's context inherits from it, so a row's accept/decline decrements the
 	// shared count and the section hides itself when the last row is handled.
 	?>
-	<section class="bn-follow-requests" data-wp-interactive="<?php echo esc_attr( $bn_pp_store ); ?>" data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'pending' => count( $bn_pp_pending ) ) ) ); ?>' data-wp-bind--hidden="state.sectionHidden" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
+	<section id="bn-requests" class="bn-follow-requests" data-wp-interactive="<?php echo esc_attr( $bn_pp_store ); ?>" data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'pending' => count( $bn_pp_pending ) ) ) ); ?>' data-wp-bind--hidden="state.sectionHidden" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
 		<header class="bn-follow-requests__head">
 			<h3 class="bn-follow-requests__title">
 				<?php

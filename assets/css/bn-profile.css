@@ -218,75 +218,6 @@
 	flex-wrap: wrap;
 }
 
-/* Button primitives. Scoped to the profile's own pill variants: a bare `.bn-btn`
-   rule here restyled every plain button on the page (a dialog's Cancel lost its
-   border and gained a heavier weight), so a dialog looked different on a profile
-   than anywhere else. Plain buttons take bn-base.css and its --bn-btn-h/--bn-btn-r. */
-.bn-btn--sm,
-.bn-btn--primary,
-.bn-btn--secondary,
-.bn-btn--icon {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-p-s1);
-	font-family: var(--bn-p-font-body);
-	font-size: var(--bn-p-text-sm);
-	font-weight: var(--fw-semibold);
-	cursor: pointer;
-	text-decoration: none;
-	border: none;
-	transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.bn-btn--sm {
-	--bn-btn-py: 7px;
-	--bn-btn-px: var(--bn-p-s4);
-	border-radius: var(--bn-p-r-full);
-	font-size: var(--bn-p-text-xs);
-}
-
-.bn-btn--primary {
-	background: var(--bn-p-brand);
-	color: var(--text-on-brand);
-	border: 1.5px solid var(--bn-p-brand);
-	--bn-btn-py: 8px;
-	--bn-btn-px: var(--bn-p-s5);
-	border-radius: var(--bn-p-r-full);
-}
-.bn-btn--primary:hover,
-.bn-btn--primary:focus {
-	background: var(--bn-p-brand-hover);
-	border-color: var(--bn-p-brand-hover);
-	color: var(--text-on-brand);
-}
-
-.bn-btn--secondary {
-	background: var(--bn-p-surface);
-	color: var(--bn-p-text-1);
-	border: 1.5px solid var(--bn-p-border);
-	--bn-btn-py: 8px;
-	--bn-btn-px: var(--bn-p-s4);
-	border-radius: var(--bn-p-r-full);
-}
-.bn-btn--secondary:hover,
-.bn-btn--secondary:focus {
-	background: var(--bn-p-bg-hover);
-	color: var(--bn-p-text-1);
-}
-
-.bn-btn--icon {
-	background: var(--bn-p-surface);
-	color: var(--bn-p-text-2);
-	border: 1.5px solid var(--bn-p-border);
-	--bn-btn-py: 8px;
-	--bn-btn-px: 10px;
-	border-radius: var(--bn-p-r-full);
-	line-height: 1;
-}
-.bn-btn--icon:hover {
-	background: var(--bn-p-bg-hover);
-}
-
 .bn-following {
 	background: var(--bn-p-bg-subtle);
 	color: var(--bn-p-text-1);
@@ -1273,6 +1204,8 @@
    via the buddynext/follow-requests Interactivity store. */
 .bn-follow-requests {
 	margin: 0 0 var(--bn-s5);
+	/* Reached by #bn-requests from a request notification: clear the theme header. */
+	scroll-margin-top: calc(var(--bn-shell-chrome, 0px) + var(--bn-s4));
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-canvas);

@@ -762,6 +762,36 @@ function buildKebab( item ) {
 	return menuWrap;
 }
 
+/**
+ * The header count line for the current filters, worded like the server's
+ * MemberDirectoryService::directory_subtitle(). Unfiltered it is the community
+ * size the page was rendered with (the grid total leaves the viewer out); with a
+ * filter on it is exactly the number the grid lists.
+ *
+ * @param {Object} ctx   Store context.
+ * @param {number} total Grid total from the REST answer.
+ * @return {string} Line text.
+ */
+function directorySubtitle( ctx, total ) {
+	const filtered = !! ( ctx.search || ctx.memberType || ctx.onlineOnly || ( ctx.relation && ctx.relation !== 'all' ) );
+	const n        = filtered ? total : ( Number( ctx.communityTotal ) || total );
+	const count    = n.toLocaleString( document.documentElement.lang || undefined );
+	let key = 'subtitleCommunity';
+	let fb  = '%s members in the community';
+	if ( ctx.onlineOnly ) {
+		key = 'subtitleOnline';
+		fb  = '%s members online';
+	} else if ( filtered ) {
+		key = 'subtitleFound';
+		fb  = '%s members found';
+	}
+	if ( n === 1 ) {
+		key += 'One';
+		fb   = fb.replace( 'members', 'member' );
+	}
+	return fmt( t( key, fb ), count );
+}
+
 async function refresh( ctx ) {
 	ctx.loading  = true;
 	ctx.hasError = false;
@@ -780,6 +810,7 @@ async function refresh( ctx ) {
 		renderGrid( items );
 		ctx.isEmpty = items.length === 0;
 		ctx.totalLabel = ( json.total || 0 ) + '';
+		ctx.subtitle   = directorySubtitle( ctx, Number( json.total ) || 0 );
 		// Keep the numbered pager honest about the filtered total.
 		syncPager( json.total );
 	} catch ( _e ) {
@@ -796,6 +827,7 @@ async function refresh( ctx ) {
 const membersStore = store( 'buddynext/members', {
 	state: {
 		get hasSearch()     { return ( getContext().search || '' ).length > 0; },
+		get directorySubtitle() { return getContext().subtitle || ''; },
 		get isListView()    { return readView() === 'list'; },
 		get isGridPressed() { return readView() === 'grid' ? 'true' : 'false'; },
 		get isListPressed() { return readView() === 'list' ? 'true' : 'false'; },

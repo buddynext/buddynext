@@ -66,6 +66,17 @@ class MembersSidebarProvider {
 			: array();
 
 		if ( ! empty( $online_rows ) ) {
+			// The heading states how many are online, not how many rows fit in the
+			// card: counting the (capped) rows read "Online now (6)" on a site with
+			// 40 online, and disagreed with the directory's Online only count. Same
+			// count, same filter shape and cache key as /members/?online=1.
+			$online_total  = (int) buddynext_service( 'member_directory' )->directory_total(
+				$current_user_id,
+				array(
+					'member_type' => '',
+					'online_only' => true,
+				)
+			);
 			$descriptors[] = array(
 				'id'       => 'members-online-now',
 				'priority' => 20,
@@ -73,7 +84,7 @@ class MembersSidebarProvider {
 				'title'    => sprintf(
 					/* translators: %s: number of online members */
 					__( 'Online now (%s)', 'buddynext' ),
-					number_format_i18n( count( $online_rows ) )
+					number_format_i18n( max( $online_total, count( $online_rows ) ) )
 				),
 				'icon'     => 'users',
 				'render'   => static function () use ( $online_rows ): void {

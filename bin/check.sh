@@ -429,6 +429,12 @@ py_gate bin/check-directive-paths.py "a directive is bound to an expression — 
 section "Client IP reader"
 py_gate bin/check-client-ip.py "the client address is read outside SafeguardService::client_ip() - see above"
 
+# One button API. The retired bn-btn--primary/--secondary/--sm/--block modifiers
+# lived only in bn-profile.css, so any page without that file drew them as bare grey
+# boxes (finish-sign-up, 1.2.9). Markup uses class="bn-btn" + data-variant/data-size/data-full.
+section "Legacy button classes"
+py_gate bin/check-legacy-button-classes.py "a retired bn-btn-- modifier is back - use data-variant / data-size / data-full"
+
 # 3b-i-a. Raw manage_options checks outside the settings screens only go down
 # (permissions program, card 10322714806): a power belongs to an ability so a site
 # can give it to a moderator without making them a WordPress administrator.

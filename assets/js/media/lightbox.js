@@ -300,6 +300,11 @@
 		// Private DM media has no social layer — skip reactions/comments/favorite/
 		// views entirely (the chrome is also hidden via .bn-lightbox--dm).
 		var isDM = !! ( gallery[ index ] && gallery[ index ].dm );
+		// The post parent the tile names, set before anything reads it: the
+		// comment thread loads below, before the meta fetch that re-seeds it in
+		// applyAbuseControls(). Without this a second photo read the FIRST one's
+		// post id and showed the wrong thread.
+		currentPostId = ( gallery[ index ] && gallery[ index ].postId ) || 0;
 		// reset transient state
 		resetReactions();
 		clear( panel.author );
@@ -313,7 +318,13 @@
 
 		// Media meta (author, views, urls). DM media renders into the floating
 		// stage chrome (sender + download); social media into the side panel.
-		api( '/media/' + id ).then( function ( m ) {
+		//
+		// The view is recorded FIRST and the meta read after it. Both used to fire
+		// together, so the total painted was the one from before this open: a photo
+		// opened for the first time read "0 views" while it was on screen. DM media
+		// records no view, so it reads straight away.
+		var viewed = isDM ? Promise.resolve() : api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+		viewed.then( function () { return api( '/media/' + id ); } ).then( function ( m ) {
 			if ( current !== id ) { return; }
 			renderAuthor( m, isDM ? panel.dmAuthor : panel.author );
 			applyAbuseControls( m );
@@ -346,10 +357,7 @@
 		// was the JS half of that bug; the template gated the panel, this gated
 		// the fetch, and either alone was enough to hide the thread.
 		if ( ! LOGGED_IN ) {
-			api( '/media/' + id + '/comments' ).then( function ( list ) {
-				if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
-			} ).catch( function () {} );
-			api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+			loadComments( id );
 			return;
 		}
 
@@ -371,13 +379,9 @@
 			if ( current === id && 0 === currentPostId ) { applyReactions( r ); }
 		} ).catch( function () {} );
 
-		// Comments.
-		api( '/media/' + id + '/comments' ).then( function ( list ) {
-			if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
-		} ).catch( function () { renderComments( [] ); } );
-
-		// View tracking (best-effort; logged-in or not).
-		api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+		// Comments: the post's thread when the tile names its post, else the
+		// media's own (loadPostContext re-reads once space-context answers).
+		loadComments( id );
 	}
 
 	// The uploader of the media currently open. Needed for Block (which blocks the MEMBER, not
@@ -593,6 +597,7 @@
 					// answer already on screen.
 					if ( ! alreadySeeded ) {
 						paintPostReactions( forId, currentPostId );
+						loadComments( forId );
 					}
 
 					// ...and the post's bookmark, which is what Save writes. The
@@ -912,7 +917,7 @@
 		notify( ( I18N.copyManual || 'Copy this link: ' ) + text, 'info' );
 	}
 
-	function renderComments( list ) {
+	function renderComments( list, total ) {
 		if ( ! panel.comments ) { return; }
 		clear( panel.comments );
 		if ( ! list.length ) {
@@ -923,6 +928,65 @@
 			return;
 		}
 		list.forEach( function ( c ) { panel.comments.appendChild( commentEl( c ) ); } );
+		// A long thread is read in pages; the rest is one click away on the post.
+		var item = gallery[ index ] || {};
+		if ( total > list.length && item.permalink ) {
+			var more = document.createElement( 'a' );
+			more.className = 'bn-lightbox__comments-more';
+			more.href = item.permalink;
+			more.textContent = I18N.allComments || __( 'View all comments on the post' );
+			panel.comments.appendChild( more );
+		}
+	}
+
+	/*
+	 * ONE PHOTO, ONE THREAD.
+	 *
+	 * Same split as the reactions above. A photo posted in the feed carries its
+	 * conversation on the BuddyNext post: comments left on the card live there,
+	 * and lightbox comments were mirrored there too (WPMediaVerseBridge::
+	 * sync_lightbox_comment). The lightbox read only the media's own thread, so a
+	 * photo with 18 comments on its card opened to "No comments yet.".
+	 *
+	 * So with a post parent the lightbox reads and writes the POST thread through
+	 * BuddyNext's own /comments routes, and a write publishes the stored total on
+	 * buddynext:post-counts so the card under the viewer shows it at once. Media
+	 * with no post parent keeps the engine's thread.
+	 */
+	var THREAD_PAGE = 50; // CommentController per_page maximum.
+
+	function loadComments( id ) {
+		var postId = currentPostId;
+		var read = postId > 0
+			? bnApi( '/comments?object_type=post&object_id=' + postId + '&per_page=' + THREAD_PAGE ).then( function ( r ) {
+				var rows = [];
+				( ( r && r.items ) || [] ).forEach( function ( c ) {
+					rows.push( c );
+					( c.replies || [] ).forEach( function ( reply ) { rows.push( reply ); } );
+				} );
+				return { list: rows, total: parseInt( r && r.total, 10 ) || rows.length };
+			} )
+			: api( '/media/' + id + '/comments' ).then( function ( list ) {
+				var rows = Array.isArray( list ) ? list : ( list.comments || [] );
+				return { list: rows, total: rows.length };
+			} );
+		read.then( function ( res ) {
+			if ( current === id && postId === currentPostId ) { renderComments( res.list, res.total ); }
+		} ).catch( function () {
+			if ( current === id ) { renderComments( [], 0 ); }
+		} );
+	}
+
+	/** Tell every card for this post its stored comment total (post-card.js listens). */
+	function publishCommentCount( postId, data ) {
+		var n = data && parseInt( data.comment_count, 10 );
+		if ( ! postId || ! isFinite( n ) ) { return; }
+		document.dispatchEvent( new CustomEvent( 'buddynext:post-counts', { detail: { postId: postId, comments: n } } ) );
+	}
+
+	/** True when the row came from the BuddyNext post thread, not the engine. */
+	function isPostComment( c ) {
+		return 'post' === ( c && c.object_type );
 	}
 
 	/**
@@ -943,7 +1007,7 @@
 		// per comment; render it when present so the thread reads as a social
 		// conversation, not flat text. The row still lays out correctly without one
 		// (card 10268182721).
-		var avatarUrl = c.author_avatar || ( c.author_data && c.author_data.avatar ) || '';
+		var avatarUrl = c.author_avatar || c.author_avatar_url || ( c.author_data && c.author_data.avatar ) || '';
 		if ( avatarUrl ) {
 			var av = document.createElement( 'img' );
 			av.className = 'bn-lightbox__comment-avatar';
@@ -1033,8 +1097,10 @@
 		var save = commentAction( __( 'Save' ), 'save', function () {
 			var text = ( input.value || '' ).trim();
 			if ( ! text || ! current ) { return; }
-			api( '/media/' + current + '/comments/' + c.id, { method: 'PATCH', json: { content: text } } )
-				.then( reloadComments )
+			var edit = isPostComment( c )
+				? bnApi( '/comments/' + c.id, { method: 'PATCH', json: { content: text } } )
+				: api( '/media/' + current + '/comments/' + c.id, { method: 'PATCH', json: { content: text } } );
+			edit.then( reloadComments )
 				.catch( function () {} );
 		} );
 		var cancel = commentAction( __( 'Cancel' ), 'cancel', reloadComments );
@@ -1067,9 +1133,11 @@
 		label.textContent = __( 'Delete this comment?' );
 
 		var yes = commentAction( __( 'Delete' ), 'delete', function () {
-			api( '/media/' + current + '/comments/' + c.id, { method: 'DELETE' } )
-				.then( reloadComments )
-				.catch( reloadComments );
+			var postId = isPostComment( c ) ? currentPostId : 0;
+			var del = postId
+				? bnApi( '/comments/' + c.id, { method: 'DELETE' } ).then( function ( data ) { publishCommentCount( postId, data ); } )
+				: api( '/media/' + current + '/comments/' + c.id, { method: 'DELETE' } );
+			del.then( reloadComments ).catch( reloadComments );
 		} );
 		var no = commentAction( __( 'Cancel' ), 'cancel', reloadComments );
 
@@ -1246,24 +1314,25 @@
 	}
 
 	function reloadComments() {
-		if ( ! current ) { return; }
-		var id = current;
-		api( '/media/' + id + '/comments' ).then( function ( list ) {
-			if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
-		} ).catch( function () {} );
+		if ( current ) { loadComments( current ); }
 	}
 
 	function addComment() {
 		if ( ! requireLogin() || ! current ) { return; }
 		var val = ( panel.input.value || '' ).trim();
 		if ( ! val ) { return; }
-		var id = current;
+		var id     = current;
+		var postId = currentPostId;
 		panel.input.value = '';
-		api( '/media/' + id + '/comments', { method: 'POST', json: { content: val } } ).then( function () {
-			return api( '/media/' + id + '/comments' );
-		} ).then( function ( list ) {
-			if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
-		} ).catch( function () {} );
+		var write = postId > 0
+			? bnApi( '/comments', { method: 'POST', json: { object_type: 'post', object_id: postId, content: val } } ).then( function ( data ) { publishCommentCount( postId, data ); } )
+			: api( '/media/' + id + '/comments', { method: 'POST', json: { content: val } } );
+		write.then( function () {
+			if ( current === id ) { loadComments( id ); }
+		} ).catch( function () {
+			// Give the text back rather than losing what the member typed.
+			if ( current === id && ! panel.input.value ) { panel.input.value = val; }
+		} );
 	}
 
 	function requireLogin() {

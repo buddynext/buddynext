@@ -1439,6 +1439,20 @@ class AssetService {
 					'toastReportSubmitted'          => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'toastCouldNotReport'           => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'errorLoadMembers'              => __( 'Could not load members. Check your connection and try again.', 'buddynext' ),
+					// Header count line on a live filter change; worded like
+					// MemberDirectoryService::directory_subtitle(). One / many forms.
+					/* translators: %s: formatted member count (exactly 1). */
+					'subtitleCommunityOne'          => _n( '%s member in the community', '%s members in the community', 1, 'buddynext' ),
+					/* translators: %s: formatted member count. */
+					'subtitleCommunity'             => _n( '%s member in the community', '%s members in the community', 2, 'buddynext' ),
+					/* translators: %s: formatted number of members online (exactly 1). */
+					'subtitleOnlineOne'             => _n( '%s member online', '%s members online', 1, 'buddynext' ),
+					/* translators: %s: formatted number of members online. */
+					'subtitleOnline'                => _n( '%s member online', '%s members online', 2, 'buddynext' ),
+					/* translators: %s: formatted number of members found (exactly 1). */
+					'subtitleFoundOne'              => _n( '%s member found', '%s members found', 1, 'buddynext' ),
+					/* translators: %s: formatted number of members found. */
+					'subtitleFound'                 => _n( '%s member found', '%s members found', 2, 'buddynext' ),
 				),
 			)
 		);
@@ -1614,6 +1628,7 @@ class AssetService {
 					// Space feed search + join request. Read by spaces/store.js via
 					// t() but never injected, so they always rendered English.
 					'discussionSearchFailed'          => __( 'Could not search discussions. Check your connection and try again.', 'buddynext' ),
+					'discussionNoMatch'               => __( 'No discussions found. Leave this empty to create a new one.', 'buddynext' ),
 					'unlinkDiscussionTitle'           => __( 'Unlink this discussion?', 'buddynext' ),
 					'unlinkDiscussionBody'            => __( 'The discussion and its posts stay where they are, and everyone who is a member of this space stays a member. New discussion posts stop appearing in this space. You can turn Discussion on again later to create or link one.', 'buddynext' ),
 					'unlinkDiscussionOk'              => __( 'Unlink', 'buddynext' ),
@@ -2097,7 +2112,8 @@ class AssetService {
 					'previewBio'               => __( "Add a short bio so people know what you're into.", 'buddynext' ),
 					'usernameChecking'         => __( 'Checking…', 'buddynext' ),
 					'usernameAvailable'        => __( 'Available', 'buddynext' ),
-					'usernameTaken'            => __( 'Taken', 'buddynext' ),
+					// One badge for every refusal (taken or reserved); the save says which.
+					'usernameTaken'            => __( 'Not available', 'buddynext' ),
 					'btnJoin'                  => __( 'Join', 'buddynext' ),
 					'btnJoined'                => __( 'Joined', 'buddynext' ),
 					'btnFollow'                => __( 'Follow', 'buddynext' ),
@@ -2126,7 +2142,7 @@ class AssetService {
 					// success screen. Each failure now keeps the member on the wizard with
 					// the reason, so their data is never lost behind "You're all set".
 					'errorProfileSaveFailed'   => __( 'Your profile could not be saved. Please check your details and try again.', 'buddynext' ),
-					'errorHandleTaken'         => __( 'That username is already taken. Please choose another.', 'buddynext' ),
+					'errorHandleTaken'         => __( 'That username is not available. Please choose another.', 'buddynext' ),
 					'errorChannelsSaveFailed'  => __( 'Your notification settings could not be saved. Try again.', 'buddynext' ),
 				),
 

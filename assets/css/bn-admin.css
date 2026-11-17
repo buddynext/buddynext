@@ -192,7 +192,7 @@
 	--bn-a-input-radius:      var(--bn-a-r-sm);
 	--bn-a-input-pad-y:       var(--bn-a-s2);
 	--bn-a-input-pad-x:       var(--bn-a-s3);
-	--bn-a-focus-ring:        0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 22%, transparent);
+	--bn-a-focus-ring:        var(--bn-ring, 0 0 0 2px var(--bn-a-brand));
 
 	/* -- Card / dropdown min-widths -------------------------------------- */
 	--bn-a-dropdown-min-w:    140px;
@@ -1004,6 +1004,27 @@ select.bn-select-input,
 	box-shadow: none !important;
 	height: auto !important;
 	transition: border-color var(--bn-a-transition), box-shadow var(--bn-a-transition);
+}
+
+/* The uniform field above forces one look with !important, which also erased
+ * the locked state: a read-only or disabled field (an account detail only a
+ * network admin may change, a role the viewer cannot grant) looked exactly
+ * like an editable one that ignored typing. Give it the muted fill, stepped-
+ * down text and dashed edge, at the same strength. */
+input.bn-text-input[readonly],
+textarea.bn-text-input[readonly],
+.bn-input[readonly],
+.bn-textarea[readonly],
+input.bn-text-input:disabled,
+select.bn-text-input:disabled,
+select.bn-select-input:disabled,
+.bn-input:disabled,
+.bn-textarea:disabled,
+.bn-select:disabled {
+	color: var(--bn-a-text-3) !important;
+	background-color: var(--bn-a-bg-hover) !important;
+	border-style: dashed !important;
+	cursor: not-allowed;
 }
 
 input.bn-text-input:focus,
@@ -2146,7 +2167,7 @@ table.bn-table tr:hover td {
 .bn-btn:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 25%, transparent);
+	box-shadow: var(--bn-ring);
 }
 
 .bn-btn-primary {

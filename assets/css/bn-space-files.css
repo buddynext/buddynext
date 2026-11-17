@@ -112,7 +112,7 @@
 
 .bn-files__search-input:focus-visible {
 	border-color: var(--bn-accent);
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 1px;
 }
 
@@ -1132,7 +1132,7 @@ a.bn-files__name:focus-visible {
 
 .bn-files-link__input:focus {
 	border-color: var(--bn-accent);
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 1px;
 }
 

@@ -246,7 +246,7 @@ class Appearance {
 			$hex
 		);
 
-		// Some BuddyNext components (e.g. .bn-btn--primary) read the host theme's
+		// Some BuddyNext components read the host theme's
 		// own --wp--preset--color--primary directly. Override it — but only inside
 		// the .bn-app surface, so the host theme's header/footer chrome keeps its
 		// palette while the community UI follows the admin accent.
@@ -267,10 +267,10 @@ class Appearance {
 		// The Follow button in a sidebar member row is an accent OUTLINE on
 		// purpose (bn-base.css, .bn-member-row .bn-follow-btn); it takes the
 		// accent through its text and border, so the fill reassert skips it.
-		$bn_primary = '.bn-app .bn-btn--primary,.bn-app .bn-btn[data-variant="primary"]:not(.bn-member-row .bn-follow-btn)';
+		$bn_primary = '.bn-app .bn-btn[data-variant="primary"]:not(.bn-member-row .bn-follow-btn)';
 		$css       .= $bn_primary . '{'
 			. 'background-color:var(--bn-accent-solid)!important;border-color:var(--bn-accent-solid)!important;color:var(--bn-accent-fg)!important;}'
-			. '.bn-app .bn-btn--primary:hover,.bn-app .bn-btn[data-variant="primary"]:not(.bn-member-row .bn-follow-btn):hover{'
+			. '.bn-app .bn-btn[data-variant="primary"]:not(.bn-member-row .bn-follow-btn):hover{'
 			. 'background-color:color-mix(in oklch,var(--bn-accent-solid) 82%,black)!important;'
 			. 'border-color:color-mix(in oklch,var(--bn-accent-solid) 82%,black)!important;}';
 
