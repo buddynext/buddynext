@@ -108,7 +108,7 @@ apply_filters( 'buddynext_realtime_transport', RealtimeTransport $transport )
 // Default: new PollingTransport()  (clients poll via REST)
 ```
 
-Free ships a polling transport (5s active poll). Pro returns a WebSocket-backed transport so events push to connected clients instantly:
+Free ships a light polling transport (the bell every 30s, or every 5s for the first minute after an action, and the new-posts pill every 60s, paused on hidden tabs). Pro returns a WebSocket-backed transport so events push to connected clients instantly:
 
 ```php
 add_filter(

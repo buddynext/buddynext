@@ -183,7 +183,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Send broadcast email or drip sequences? | PRO | |
 | Show deep event analytics? | PRO | free ships at-a-glance Insights (see Owner administration); Pro adds event-level analytics |
 | Send push notifications? | PRO | |
-| Push live updates over websockets? | PRO | free uses REST polling - 5s active, adaptive |
+| Push live updates over websockets? | PRO | free uses light REST polling that pauses on hidden tabs: the notification bell every 30s (every 5s for the first minute after an action) and the new-posts pill every 60s |
 | White-label the plugin? | PRO | |
 | Run direct messaging on its own? | NO | BuddyNext is the UI; the conversation store belongs to MediaVerse |
 | Replace or disable WordPress core behaviour? | NO | by design. `/feed/`, `wp/v2` and `wp-login.php` stay core's |
