@@ -27,8 +27,14 @@
  * the centred header + left rail by the scrollbar width on every tab change.
  * Reserving the gutter keeps the layout fixed across tab navigations. Scoped via
  * :has() to pages that render a BuddyNext hub so pure host-theme pages are left
- * untouched. */
-html:has( .bn-app__main ) { scrollbar-gutter: stable; }
+ * untouched.
+ *
+ * The reserved gutter is also what keeps the 100vw shell burst-out (bn-shell.css)
+ * inside the page: with a stable gutter 100vw excludes the scrollbar, without one
+ * it includes it and the shell hangs the scrollbar's width past the right edge.
+ * The auth shell (login, signup, verify) has no .bn-app__main, so it is named
+ * too: it scrolled sideways by 7-15px under every classic-scrollbar theme. */
+html:has( .bn-app__main, .bn-app--auth ) { scrollbar-gutter: stable; }
 
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 
@@ -2888,10 +2894,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
+/* The doubled class is deliberate: themes style typed inputs by element +
+   attribute (Reign: input[type="search"]:focus, specificity 0,2,1), which beat a
+   single-class rule and swapped the ring for a 10% tint nobody can see, as on the
+   Messages "Search conversations" box. 0,3,0 wins on any theme, and a component
+   rule that styles its own focus (.x .bn-input:focus-visible) still loads later. */
 .bn-btn:focus-visible,
-.bn-input:focus-visible,
-.bn-textarea:focus-visible,
-.bn-select:focus-visible {
+.bn-input.bn-input:focus-visible,
+.bn-textarea.bn-textarea:focus-visible,
+.bn-select.bn-select:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 	box-shadow: var(--bn-ring);

@@ -320,14 +320,15 @@ class Appearance {
 
 	/**
 	 * Expose the admin's default theme to the shell bootstrap so it applies to
-	 * visitors who have not yet chosen one (localStorage empty). 'auto' is the
-	 * built-in fallback, so only a light/dark default needs seeding.
+	 * visitors who have not yet chosen one (localStorage empty). 'auto' (match
+	 * the host theme) is the built-in fallback, so only light / dark / system
+	 * needs seeding.
 	 *
 	 * @return void
 	 */
 	public function seed_default_theme(): void {
 		$theme = (string) get_option( 'buddynext_default_theme', 'auto' );
-		if ( ! in_array( $theme, array( 'light', 'dark' ), true ) ) {
+		if ( ! in_array( $theme, array( 'light', 'dark', 'system' ), true ) ) {
 			return;
 		}
 		wp_add_inline_script(

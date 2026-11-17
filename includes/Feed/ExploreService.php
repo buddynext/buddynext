@@ -124,7 +124,7 @@ class ExploreService {
 		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
-			self::prime_card_users( (array) ( $cached['items'] ?? array() ) );
+			self::prime_card_users( (array) ( $cached['items'] ?? array() ), $viewer );
 			return $cached;
 		}
 
@@ -148,27 +148,41 @@ class ExploreService {
 		$result['filter'] = $filter;
 
 		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
-		self::prime_card_users( (array) ( $result['items'] ?? array() ) );
+		self::prime_card_users( (array) ( $result['items'] ?? array() ), $viewer );
 
 		return $result;
 	}
 
 	/**
-	 * Warm the users and avatars a deck renders: member cards and post authors.
+	 * Warm the users and avatars a deck renders: member cards and post authors,
+	 * and the viewer's follow / pending / block state toward the member cards
+	 * (each card's Follow button asked those three, one query each per card).
 	 *
 	 * Runs on a cache hit too, because the deck cache holds rows, not the user
 	 * and avatar caches the cards read.
 	 *
-	 * @param array<int,array<string,mixed>> $items Deck cards.
+	 * @param array<int,array<string,mixed>> $items  Deck cards.
+	 * @param int                            $viewer Current user (0 = guest).
 	 * @return void
 	 */
-	private static function prime_card_users( array $items ): void {
-		$ids = array();
+	private static function prime_card_users( array $items, int $viewer = 0 ): void {
+		$ids     = array();
+		$members = array();
 		foreach ( $items as $card ) {
 			$ids[] = (int) ( $card['user_id'] ?? 0 );
 			$ids[] = (int) ( $card['post']['user_id'] ?? 0 );
+			if ( (int) ( $card['user_id'] ?? 0 ) > 0 ) {
+				$members[] = (int) $card['user_id'];
+			}
 		}
 		\BuddyNext\Profile\AvatarService::prime( $ids );
+
+		$peers = array_values( array_diff( array_unique( $members ), array( $viewer ) ) );
+		if ( $viewer > 0 && $peers ) {
+			buddynext_service( 'follows' )->following_map( $viewer, $peers );
+			buddynext_service( 'follows' )->pending_map( $viewer, $peers );
+			buddynext_service( 'blocks' )->blocking_either_map( $viewer, $peers );
+		}
 	}
 
 	/**

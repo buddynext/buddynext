@@ -159,6 +159,33 @@ final class IntegrationRegistry {
 	}
 
 	/**
+	 * Load every integration's on/off switches in one query.
+	 *
+	 * The switches (buddynext_integration_{key}_{nav|feed|search} and the sub-tab
+	 * ones) exist only once an owner turns one off, so on most sites each read was
+	 * its own query on every page that draws the navigation. Priming also
+	 * remembers the missing ones for the rest of the request.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public function prime_switches(): void {
+		$names = array();
+		foreach ( $this->all() as $key => $entry ) {
+			foreach ( array( 'nav', 'feed', 'search' ) as $aspect ) {
+				$names[] = "buddynext_integration_{$key}_{$aspect}";
+			}
+			foreach ( array_keys( (array) $entry['subtabs'] ) as $sub ) {
+				$names[] = "buddynext_integration_{$key}_subtab_{$sub}";
+			}
+		}
+		if ( $names ) {
+			wp_prime_option_caches( $names );
+		}
+	}
+
+	/**
 	 * Normalise the unavailable sub-tabs an entry declares, keeping only known sub-tabs.
 	 *
 	 * @param mixed                $raw     Declared map.

@@ -55,8 +55,49 @@ class RequestOptionsPrimedTest extends \WP_UnitTestCase {
 		PluginIsolation::owner_strip_list();
 		$persist = new \ReflectionMethod( CoreHubs::class, 'persist_hub_slugs' );
 		$persist->invoke( null, HubRegistry::instance() );
+		// Shell appearance readers that run on every community page.
+		\BuddyNext\Theme\Appearance::display_brand();
+		\BuddyNext\Theme\Appearance::container_width();
+		( new \BuddyNext\Theme\Appearance() )->seed_default_theme();
 
 		remove_filter( 'query', $spy );
 		$this->assertSame( array(), $seen, 'Every-request options missing from Plugin::REQUEST_OPTIONS.' );
+	}
+
+	/**
+	 * Every integration's on/off switches load in one query, not one per tab.
+	 *
+	 * @return void
+	 */
+	public function test_integration_switches_are_primed_together(): void {
+		$register = static function ( array $items ): array {
+			$items['alpha'] = array( 'label' => 'Alpha', 'has_nav' => true, 'subtabs' => array( 'one' => 'One' ) );
+			$items['beta']  = array( 'label' => 'Beta', 'has_nav' => true );
+			return $items;
+		};
+		add_filter( 'buddynext_integrations', $register );
+		$registry = \BuddyNext\Integrations\IntegrationRegistry::instance();
+		$resolved = new \ReflectionProperty( $registry, 'resolved' );
+		$resolved->setAccessible( true );
+		$resolved->setValue( $registry, null );
+		wp_cache_delete( 'notoptions', 'options' );
+
+		$registry->prime_switches();
+
+		$seen = array();
+		$spy  = static function ( $sql ) use ( &$seen ) {
+			if ( preg_match( "/option_name = '([^']+)'/", $sql, $m ) ) {
+				$seen[] = $m[1];
+			}
+			return $sql;
+		};
+		add_filter( 'query', $spy );
+		buddynext_integration_enabled( 'alpha', 'nav', 'one' );
+		buddynext_integration_enabled( 'beta', 'feed' );
+		remove_filter( 'query', $spy );
+		remove_filter( 'buddynext_integrations', $register );
+		$resolved->setValue( $registry, null );
+
+		$this->assertSame( array(), $seen );
 	}
 }

@@ -3379,10 +3379,13 @@ document.addEventListener( 'keydown', function ( event ) {
 	// driven by the store's savebar* actions (data-wp-on--input/change/click in
 	// the SSR markup), which set storeInstance.state.savebarPhase. This IIFE
 	// only owns the pristine snapshot + the beforeunload guard.
+	var editable = false;
 	for ( var i = 0; i < forms.length; i++ ) {
 		captureDefaults( forms[ i ] );
+		// A read-only panel (Integrations for a moderator) has nothing to save.
+		editable = editable || ! forms[ i ].hasAttribute( 'data-bn-readonly' );
 	}
-	storeInstance.state.savebarHasForm = true;
+	storeInstance.state.savebarHasForm = editable;
 
 	// If the page server-rendered with a success notice, flash "saved" briefly,
 	// then settle back to idle — both via reactive state, no .hidden poke.

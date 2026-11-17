@@ -865,6 +865,14 @@ function buddynext_integration_enabled( string $key, string $aspect = 'nav', str
 	$key = sanitize_key( $key );
 	$sub = '' !== $sub ? sanitize_key( $sub ) : '';
 
+	// Every integration switch in one query, the first time any is asked about.
+	// The flag is set first: a bridge that asks while registering must not recurse.
+	static $bn_switches_primed = false;
+	if ( ! $bn_switches_primed && did_action( 'init' ) ) {
+		$bn_switches_primed = true;
+		\BuddyNext\Integrations\IntegrationRegistry::instance()->prime_switches();
+	}
+
 	switch ( $aspect ) {
 		case 'feed':
 			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_feed", '1' );

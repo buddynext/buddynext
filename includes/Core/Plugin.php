@@ -95,6 +95,36 @@ class Plugin {
 		'buddynext_features',
 		'buddynext_cookie_consent',
 		'buddynext_isolation_strip',
+		// Read by the shell, theme bridge and member gates on every community page.
+		// Most exist only once an owner changes them from the default, so each was
+		// a query per page without a persistent object cache (measured 1.3.0).
+		'bn_avatar_style',
+		'bn_default_cover_url',
+		'bn_role_map_overrides',
+		'buddynext_2fa_required',
+		'buddynext_brand_color',
+		'buddynext_connection_require_note',
+		'buddynext_container_width',
+		'buddynext_custom_css',
+		'buddynext_default_theme',
+		'buddynext_email_verify',
+		'buddynext_enable_community_mobile_nav',
+		'buddynext_enable_community_rail',
+		'buddynext_enabled_reactions',
+		'buddynext_google_indexing',
+		'buddynext_isolation_enabled',
+		'buddynext_logo_url',
+		'buddynext_post_edit_window',
+		'buddynext_private_community',
+		'buddynext_space_creation_role',
+		// Directory and feed surfaces: one entry in the same query costs nothing.
+		'buddynext_featured_announcement',
+		'buddynext_featured_spaces',
+		'buddynext_member_dir_columns',
+		'buddynext_space_allow_sub',
+		'buddynext_space_default_category',
+		'buddynext_space_default_type',
+		'buddynext_spaces_dir_columns',
 	);
 
 	/**

@@ -162,6 +162,27 @@ class CategoryVisibleCountTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The /spaces/ chip row drops a category whose spaces are all secret: it led
+	 * to "No spaces match" and told guests those spaces exist. Same rule as the
+	 * interests list; an empty category the owner just made stays.
+	 *
+	 * @return void
+	 */
+	public function test_directory_chips_drop_secret_only_categories(): void {
+		$secret = $this->category( 'Careers club' );
+		$empty  = $this->category( 'Just added' );
+		$open   = $this->category( 'Running' );
+		$this->space( $secret, 'secret' );
+		$this->space( $open, 'open' );
+
+		$chips = array_map( static fn( array $c ): int => (int) $c['id'], ( new \BuddyNext\Spaces\SpaceService() )->directory_categories() );
+
+		$this->assertNotContains( $secret, $chips );
+		$this->assertContains( $empty, $chips );
+		$this->assertContains( $open, $chips );
+	}
+
+	/**
 	 * Explore Browse links to the contract the directory reads (bn_cat).
 	 *
 	 * @return void

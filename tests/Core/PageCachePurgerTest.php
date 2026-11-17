@@ -77,6 +77,52 @@ class PageCachePurgerTest extends \WP_UnitTestCase {
 		$this->assertContains( PageRouter::post_url( 51 ), $this->purged );
 	}
 
+	/**
+	 * A comment added, edited or deleted purges the page of the post it is on.
+	 * Guests behind a page cache kept seeing the old thread (and count) until the
+	 * cache expired, because only post events purged.
+	 *
+	 * @return void
+	 */
+	public function test_comment_changes_purge_the_post_page(): void {
+		global $wpdb;
+
+		$author = self::factory()->user->create();
+		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'user_id'    => $author,
+				'content'    => 'A post guests read from the page cache',
+				'type'       => 'text',
+				'privacy'    => 'public',
+				'status'     => 'published',
+				'space_id'   => 0,
+				'created_at' => current_time( 'mysql', true ),
+			)
+		);
+		$post_id  = (int) $wpdb->insert_id;
+		$comments = buddynext_service( 'comments' );
+		$reset    = function (): void {
+			$this->purged = array();
+			$prop         = new \ReflectionProperty( PageCachePurger::class, 'purged' );
+			$prop->setAccessible( true );
+			$prop->setValue( null, array() );
+		};
+
+		$reset();
+		$comment_id = (int) $comments->create( $author, 'post', $post_id, 'First comment' );
+		$this->assertGreaterThan( 0, $comment_id );
+		$this->assertContains( PageRouter::post_url( $post_id ), $this->purged, 'Creating a comment purges the post page.' );
+
+		$reset();
+		$comments->update( $comment_id, $author, 'First comment, edited' );
+		$this->assertContains( PageRouter::post_url( $post_id ), $this->purged, 'Editing a comment purges the post page.' );
+
+		$reset();
+		$comments->soft_delete( $comment_id, $author );
+		$this->assertContains( PageRouter::post_url( $post_id ), $this->purged, 'Deleting a comment purges the post page.' );
+	}
+
 	public function test_a_space_post_change_purges_the_space_page(): void {
 		do_action( 'buddynext_space_posts_changed', 9 );
 

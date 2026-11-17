@@ -56,6 +56,9 @@ class PageCachePurger implements ListenerInterface {
 			add_action( $hook, array( $this, 'on_post_change' ), 10, 1 );
 		}
 		add_action( 'buddynext_space_posts_changed', array( $this, 'on_space_change' ), 10, 1 );
+		// A comment added, edited, deleted, hidden or restored changes the thread and
+		// the count on every page that shows the post: guests saw the old thread.
+		add_action( 'buddynext_comment_thread_changed', array( $this, 'on_comment_thread_change' ), 10, 2 );
 
 		// The hub registry is filled on init:0, so its slug options are known from init:1.
 		if ( did_action( 'init' ) ) {
@@ -147,6 +150,19 @@ class PageCachePurger implements ListenerInterface {
 		// The site's front page may be the activity hub (a static front page).
 		self::purge( home_url( '/' ) );
 		self::purge( PageRouter::post_url( $post_id ) );
+	}
+
+	/**
+	 * A comment thread changed. Only a post's thread is on a cached page.
+	 *
+	 * @param string $object_type Thread owner type.
+	 * @param int    $object_id   Thread owner ID.
+	 * @return void
+	 */
+	public function on_comment_thread_change( string $object_type, int $object_id ): void {
+		if ( 'post' === $object_type && $object_id > 0 ) {
+			$this->on_post_change( $object_id );
+		}
 	}
 
 	/**

@@ -616,6 +616,38 @@ class SpaceService {
 	}
 
 	/**
+	 * Load many spaces into get()'s cache in one query.
+	 *
+	 * A page of feed posts hydrates each post's space through get(), one query per
+	 * space on a cold cache. Callers that are about to do that hand the ids here.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int[] $space_ids Space IDs.
+	 * @return void
+	 */
+	public function prime( array $space_ids ): void {
+		$missing = array();
+		foreach ( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) as $space_id ) {
+			if ( false === wp_cache_get( "space_{$space_id}", self::CACHE_GROUP ) ) {
+				$missing[] = $space_id;
+			}
+		}
+		if ( ! $missing ) {
+			return;
+		}
+
+		global $wpdb;
+		$placeholders = implode( ', ', array_fill( 0, count( $missing ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders from array_fill( %d ), every id bound; cached below.
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_spaces WHERE id IN ( {$placeholders} )", ...$missing ), ARRAY_A );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		foreach ( $this->hydrate_all( $rows ) as $space ) {
+			wp_cache_set( 'space_' . (int) $space['id'], $space, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+	}
+
+	/**
 	 * Update a space.
 	 *
 	 * Only the owner (or a user with manage_options) may update a space.
@@ -1857,13 +1889,21 @@ class SpaceService {
 	}
 
 	/**
-	 * Hydrate a list of rows, loading their cover framing first in one query.
+	 * Hydrate a list of rows, loading every row's space meta first in one query.
+	 *
+	 * Every row, not only those with a cover: hydrate() runs the
+	 * buddynext_prepare_space filter, and add-ons answer it from space meta (Pro's
+	 * plan gate reads it per space). Priming only the covered rows left one meta
+	 * query per uncovered space on every directory page, warm cache or not.
 	 *
 	 * @param array<int, array<string,mixed>|object> $rows bn_spaces rows.
 	 * @return array<int, array<string,mixed>>
 	 */
 	private function hydrate_all( array $rows ): array {
-		self::prime_cover_focal( $rows );
+		$ids = array_values( array_filter( array_map( static fn( $row ): int => (int) ( ( (array) $row )['id'] ?? 0 ), $rows ) ) );
+		if ( $ids ) {
+			update_meta_cache( 'bn_space', $ids );
+		}
 		return array_map( array( $this, 'hydrate' ), $rows );
 	}
 
@@ -3227,20 +3267,19 @@ class SpaceService {
 	/**
 	 * Categories offered as filters on the spaces directory and the Explore browse card.
 	 *
-	 * Visible categories only, and none the owner limited to subspaces: the
-	 * directory lists main spaces, so such a chip would always show nothing.
+	 * The member-facing category set (SpaceCategoryService::get_for_members(), the
+	 * one the onboarding interests use): visible categories only, none the owner
+	 * limited to subspaces (the directory lists main spaces), and none whose
+	 * spaces are all hidden. A secret-only category used to sit in the chip row
+	 * for guests and members alike, led to "No spaces match", and told everyone
+	 * those secret spaces exist. An empty category stays: the owner just made it.
 	 * Label lookups keep using categories_with_counts(), which returns them all.
 	 *
 	 * @param int $limit Max categories; 0 = no limit.
 	 * @return array<int, array<string, mixed>> Hydrated category rows + space_count.
 	 */
 	public function directory_categories( int $limit = 0 ): array {
-		$rows = array_values(
-			array_filter(
-				$this->categories_with_counts( 0, true ),
-				static fn( array $c ): bool => 'sub' !== ( $c['level'] ?? 'both' )
-			)
-		);
+		$rows = ( new SpaceCategoryService() )->get_for_members();
 		return $limit > 0 ? array_slice( $rows, 0, $limit ) : $rows;
 	}
 

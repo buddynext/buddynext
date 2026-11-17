@@ -438,7 +438,15 @@
 	transform: translateY(0);
 }
 
-.bn-header-user.is-open .bn-header-user__caret {
+/* Turn the glyph, not the button. On phones (and in Reign's avatar slot) the
+   button is a 40px box laid over the avatar with the chip in its bottom-end
+   corner; rotating the box swung the chip to the top-start corner, over the
+   member's face, whenever the menu was open. */
+.bn-header-user__caret svg {
+	transition: transform var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
+}
+
+.bn-header-user.is-open .bn-header-user__caret svg {
 	transform: rotate(180deg);
 }
 

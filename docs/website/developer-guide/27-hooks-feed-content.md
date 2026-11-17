@@ -42,6 +42,7 @@ The action and filter seams for the activity feed and everything members post in
 | `buddynext_post_comment_received` | action | The author's post receives a comment from someone else (recipient mirror) | `int $comment_id, int $post_id, int $author_id, int $commenter_id` |
 | `buddynext_comment_updated` | action | A comment is edited | `int $comment_id, int $user_id` |
 | `buddynext_comment_deleted` | action | A comment is deleted on its own (not when its post is deleted, see below) | `int $comment_id, int $user_id` |
+| `buddynext_comment_thread_changed` | action | Anything that changes what a thread shows: a comment added, edited, deleted, hidden or restored (1.3.0). Fires once per change with the object the thread belongs to, so one listener covers every path. BuddyNext uses it to purge the post's page from a page cache | `string $object_type, int $object_id` |
 | `buddynext_post_comments_deleted` | action | A deleted post took its comments with it. Fires once per post that had comments, after the delete commits, with every removed comment id (1.3.0). The rows are already gone, so key on the ids. `buddynext_comment_deleted` does not fire for these | `int[] $comment_ids, int $post_id` |
 
 `$object_type` is the thing the comment is attached to (`'post'`, `'media'`, etc.). The post-counter and recipient-mirror logic only run when `$object_type === 'post'`.

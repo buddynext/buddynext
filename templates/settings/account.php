@@ -70,6 +70,7 @@ $profile_url  = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 				'slugDraft'                => $profile_slug,
 				'profileUrl'               => $profile_url,
 				'slugAvailable'            => null,
+				'slugReason'               => '',
 				'slugChecking'             => false,
 				'slugSaved'                => false,
 				'slugSaving'               => false,

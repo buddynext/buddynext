@@ -977,11 +977,18 @@
 		} );
 	}
 
-	/** Tell every card for this post its stored comment total (post-card.js listens). */
-	function publishCommentCount( postId, data ) {
+	/**
+	 * Tell every card for this post its stored comment total (post-card.js listens).
+	 * `change` names the comment just added or removed, so an open thread under the
+	 * viewer (the /p/ page) shows it in place instead of after a reload.
+	 */
+	function publishCommentCount( postId, data, change ) {
 		var n = data && parseInt( data.comment_count, 10 );
 		if ( ! postId || ! isFinite( n ) ) { return; }
-		document.dispatchEvent( new CustomEvent( 'buddynext:post-counts', { detail: { postId: postId, comments: n } } ) );
+		var detail = { postId: postId, comments: n };
+		if ( change && change.added ) { detail.addedCommentId = change.added; }
+		if ( change && change.removed ) { detail.removedCommentId = change.removed; }
+		document.dispatchEvent( new CustomEvent( 'buddynext:post-counts', { detail: detail } ) );
 	}
 
 	/** True when the row came from the BuddyNext post thread, not the engine. */
@@ -1135,7 +1142,7 @@
 		var yes = commentAction( __( 'Delete' ), 'delete', function () {
 			var postId = isPostComment( c ) ? currentPostId : 0;
 			var del = postId
-				? bnApi( '/comments/' + c.id, { method: 'DELETE' } ).then( function ( data ) { publishCommentCount( postId, data ); } )
+				? bnApi( '/comments/' + c.id, { method: 'DELETE' } ).then( function ( data ) { publishCommentCount( postId, data, { removed: c.id } ); } )
 				: api( '/media/' + current + '/comments/' + c.id, { method: 'DELETE' } );
 			del.then( reloadComments ).catch( reloadComments );
 		} );
@@ -1325,7 +1332,7 @@
 		var postId = currentPostId;
 		panel.input.value = '';
 		var write = postId > 0
-			? bnApi( '/comments', { method: 'POST', json: { object_type: 'post', object_id: postId, content: val } } ).then( function ( data ) { publishCommentCount( postId, data ); } )
+			? bnApi( '/comments', { method: 'POST', json: { object_type: 'post', object_id: postId, content: val } } ).then( function ( data ) { publishCommentCount( postId, data, { added: data && data.id } ); } )
 			: api( '/media/' + id + '/comments', { method: 'POST', json: { content: val } } );
 		write.then( function () {
 			if ( current === id ) { loadComments( id ); }

@@ -74,7 +74,7 @@ These are read-only list views of the caller's own social-graph state. The write
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/me/onboarding` | require_auth | Read the caller's onboarding wizard state (current step, completion) |
-| POST | `/me/onboarding/step` | require_auth | Persist progress for one onboarding step |
+| POST | `/me/onboarding/step` | require_auth | Persist progress for one onboarding step. On step 1 a non-empty `data.slug` is the member's chosen handle: it is saved with the step, and a reserved or taken handle returns 409 (`handle_reserved` / `handle_taken`) with nothing saved (1.3.0) |
 | POST | `/me/onboarding/skip` | require_auth | Skip the onboarding wizard |
 | POST | `/me/onboarding/complete` | require_auth | Mark onboarding complete (fires `buddynext_onboarding_completed`). Optional body carries the wizard's answers: `display_name`, `bio`, `slug`, `channels`, `spaces`, `user_ids`, `interests`. |
 | GET | `/me/interests` | require_auth | Read the caller's picked interest categories as `{ interests: [ { id, name }, ... ] }` (deleted categories drop out) |

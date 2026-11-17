@@ -33,7 +33,7 @@ You will see the wizard automatically after you join. Here is what each step doe
 |-------|--------------|
 | Display name | The name shown across the community. |
 | Bio | A short line about you, shown on your profile. |
-| Username / handle | Your unique profile address. A live check tells you instantly whether the handle is available before you continue. |
+| Username / handle | Your unique profile address. A live check tells you instantly whether the handle is available, reserved or taken before you continue. Continue saves the handle you typed; a reserved or taken one keeps you on this step with the reason, so you never finish onboarding under a different handle. |
 | Avatar | Upload a profile photo. |
 
 A live preview updates as you type so you can see how your profile will look.

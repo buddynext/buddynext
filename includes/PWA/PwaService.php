@@ -595,6 +595,7 @@ JS;
 		// a dark community. 'auto' is the default and resolves through the
 		// prefers-color-scheme block in bn-base.css, exactly as every other page does.
 		$theme = (string) get_option( 'buddynext_default_theme', 'auto' );
+		// 'system' (follow the device) is what 'auto' does on this theme-less page.
 		$theme = in_array( $theme, array( 'light', 'dark', 'auto' ), true ) ? $theme : 'auto';
 
 		// The <link> and <script> tags below are hand-written rather than enqueued,

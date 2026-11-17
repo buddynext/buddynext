@@ -127,7 +127,7 @@ class ExploreSidebarProvider {
 				}
 				// Browse points at spaces to open, so a category with none is left
 				// out, before the limit of six so it does not take a slot. The
-				// spaces directory chip row keeps every category (owner's choice).
+				// spaces directory chip row keeps an empty category (owner's choice).
 				$bn_categories = array_filter(
 					( new SpaceService() )->directory_categories(),
 					static fn( array $c ): bool => (int) ( $c['space_count'] ?? 0 ) > 0

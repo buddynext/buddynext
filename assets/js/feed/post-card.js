@@ -287,6 +287,20 @@ document.addEventListener( 'buddynext:post-counts', ( event ) => {
 			setCommentCount( card.el, d.comments );
 		}
 	} );
+
+	// A comment added or removed elsewhere on this page (the media lightbox):
+	// mirror it in the open thread. Only an already-open thread; a closed one
+	// fetches the fresh list when it opens.
+	const list = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
+	if ( ! list || ! list.dataset.loaded ) return;
+	const removed = Number( d.removedCommentId ) || 0;
+	if ( removed ) {
+		list.querySelector( `[data-comment-id="${ removed }"]` )?.remove();
+	}
+	const added = Number( d.addedCommentId ) || 0;
+	if ( added ) {
+		bnShowLiveComments( list, [ added ] );
+	}
 } );
 
 /**

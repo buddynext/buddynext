@@ -118,6 +118,57 @@ class OnboardingControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 'Alice', get_userdata( $this->user_id )->display_name );
 	}
 
+	/**
+	 * The handle typed on step 1 is saved with the step, so the reload after the
+	 * interests step (which rebuilds the wizard from stored values) keeps it.
+	 */
+	public function test_save_step_one_saves_the_chosen_handle(): void {
+		wp_set_current_user( $this->user_id );
+		$request = new WP_REST_Request( 'POST', '/buddynext/v1/me/onboarding/step' );
+		$request->set_param( 'step', 1 );
+		$request->set_param( 'data', array( 'display_name' => 'Zoe', 'slug' => 'zoe-fresh-handle' ) );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 'zoe-fresh-handle', \BuddyNext\Profile\Handle::current( $this->user_id ) );
+	}
+
+	/**
+	 * A reserved handle is refused on step 1 with its own reason, and the step
+	 * pointer does not move, so the member stays on the step that can fix it.
+	 */
+	public function test_save_step_one_refuses_a_reserved_handle_and_stays(): void {
+		wp_set_current_user( $this->user_id );
+		$before = \BuddyNext\Profile\Handle::current( $this->user_id );
+
+		$request = new WP_REST_Request( 'POST', '/buddynext/v1/me/onboarding/step' );
+		$request->set_param( 'step', 1 );
+		$request->set_param( 'data', array( 'display_name' => 'Zoe', 'slug' => 'support' ) );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 409, $response->get_status() );
+		$this->assertSame( 'handle_reserved', $response->get_data()['code'] );
+		$this->assertSame( $before, \BuddyNext\Profile\Handle::current( $this->user_id ) );
+		$this->assertNotSame( 2, (int) get_user_meta( $this->user_id, 'bn_onboarding_step', true ) );
+	}
+
+	/**
+	 * A handle another member holds is refused as taken, not reserved.
+	 */
+	public function test_save_step_one_refuses_a_taken_handle(): void {
+		$other = self::factory()->user->create( array( 'user_nicename' => 'already-here' ) );
+		$this->assertGreaterThan( 0, $other );
+		wp_set_current_user( $this->user_id );
+
+		$request = new WP_REST_Request( 'POST', '/buddynext/v1/me/onboarding/step' );
+		$request->set_param( 'step', 1 );
+		$request->set_param( 'data', array( 'slug' => 'already-here' ) );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 409, $response->get_status() );
+		$this->assertSame( 'handle_taken', $response->get_data()['code'] );
+	}
+
 	// ── POST /me/onboarding/skip ─────────────────────────────────────────────
 
 	/**

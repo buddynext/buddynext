@@ -390,10 +390,13 @@ class AppConfigController {
 		// Pass "never picked an accent" through rather than dressing it up as a choice.
 		$accent = \BuddyNext\Theme\Appearance::picked_brand();
 
-		// auto | light | dark. 'auto' means follow the device, which is what the
-		// web does for a visitor who has not chosen — so the app must honour the
-		// tri-state and not collapse it to light.
+		// auto | light | dark. The app has no host theme to match, so 'auto' (match
+		// the theme) and 'system' (follow the device) both reach it as 'auto':
+		// follow the device. The app contract keeps its three values.
 		$scheme = (string) get_option( 'buddynext_default_theme', 'auto' );
+		if ( 'system' === $scheme ) {
+			$scheme = 'auto';
+		}
 		if ( ! in_array( $scheme, array( 'auto', 'light', 'dark' ), true ) ) {
 			$scheme = 'auto';
 		}

@@ -86,8 +86,10 @@ if ( ! empty( $bn_posts ) ) :
 	// real privacy. The previous hand-rolled array hardcoded privacy=public and
 	// dropped media/link data, so hashtag cards silently differed from the feed.
 	$bn_ht_post_service = new \BuddyNext\Feed\PostService();
-	foreach ( $bn_posts as $post_row ) :
-		$ht_post = $bn_ht_post_service->hydrate( (array) $post_row );
+	$bn_ht_items        = array_map( static fn( $row ) => $bn_ht_post_service->hydrate( (array) $row ), $bn_posts );
+	// Per-viewer card state for the whole page up front, as the home feed does.
+	buddynext_service( 'feed' )->prime_viewer_state( $bn_ht_items, (int) $bn_viewer_id );
+	foreach ( $bn_ht_items as $ht_post ) :
 		buddynext_get_template(
 			'partials/post-card.php',
 			array(

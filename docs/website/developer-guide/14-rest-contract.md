@@ -241,7 +241,7 @@ Top-level response keys:
 | `app_enabled` | bool | Whether the app may run here. Fails closed - unlocks on `=== true` and nothing else. Pro flips it on a valid licence. |
 | `pro_active` | bool | Whether BuddyNext Pro is active on the site. |
 | `min_app_version` | string | Lowest app version this site will serve. Fails open - empty (the default) or unparseable means "no floor". |
-| `branding` | object | Pre-auth theming: `app_name`, `accent_color`, `logo_url`, `login_bg_url`, `color_scheme_default` (`auto`/`light`/`dark`). Empty values mean "use your own default". |
+| `branding` | object | Pre-auth theming: `app_name`, `accent_color`, `logo_url`, `login_bg_url`, `color_scheme_default` (`auto`/`light`/`dark`). The site's "Follow the visitor's device" choice (`system`) is sent as `auto`, since an app has no host theme to match. Empty values mean "use your own default". |
 | `features` | object | Feature flags keyed by slug, resolved through `FeatureRegistry` so the app sees the same answer the site does (mandatory tiers, unmet dependencies, and absent partner plugins already folded in). Always `map<string, bool>` - integrations live in their own key precisely so this shape stays flat. |
 | `integrations` | object | Installed integrations keyed by integration key, each `{ enabled: bool, version: string\|null }`. See below. |
 | `limits` | object | Server-side limits the app enforces locally: `connect_note_max_length`, `max_connections`, `max_following`, `viewer_state_max_ids`, `face_stack_size` (how many faces each feed item's `top_reactors` carries). |

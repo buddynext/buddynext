@@ -21,7 +21,7 @@ For the site owner, spaces turn one busy feed into a set of self-running rooms. 
 
 ### Browse the spaces directory
 
-The Spaces directory is the front door. It lists every space a member is allowed to see (secret spaces stay hidden), with search, category, and type filters plus sorting so a member can find the right group fast even when there are hundreds. Search, category, sort and the sub-spaces filter work together: searching inside a category keeps that category, and the page count and total always match what you searched for.
+The Spaces directory is the front door. It lists every space a member is allowed to see (secret spaces stay hidden), with search, category, and type filters plus sorting so a member can find the right group fast even when there are hundreds. Search, category, sort and the sub-spaces filter work together: searching inside a category keeps that category, and the page count and total always match what you searched for. A category whose spaces are all secret gets no category chip, so the row never offers a filter that finds nothing or hints that secret spaces exist; a category you just created, with no spaces yet, still shows.
 
 
 ### Filter by category

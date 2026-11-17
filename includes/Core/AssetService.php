@@ -1841,6 +1841,9 @@ class AssetService {
 					'profileSaved'                     => __( 'Profile saved', 'buddynext' ),
 					'fieldsNeedAttention'              => __( 'Some fields need attention', 'buddynext' ),
 					'saveFailed'                       => __( 'Could not save. Try again.', 'buddynext' ),
+					'handleReserved'                   => __( 'Reserved', 'buddynext' ),
+					'handleTaken'                      => __( 'Taken', 'buddynext' ),
+					'handleUnavailable'                => __( 'Not available', 'buddynext' ),
 					'present'                          => __( 'Present', 'buddynext' ),
 					'unmute'                           => __( 'Unmute', 'buddynext' ),
 					'mute'                             => __( 'Mute', 'buddynext' ),
@@ -2112,8 +2115,11 @@ class AssetService {
 					'previewBio'               => __( "Add a short bio so people know what you're into.", 'buddynext' ),
 					'usernameChecking'         => __( 'Checking…', 'buddynext' ),
 					'usernameAvailable'        => __( 'Available', 'buddynext' ),
-					// One badge for every refusal (taken or reserved); the save says which.
-					'usernameTaken'            => __( 'Not available', 'buddynext' ),
+					// Badge words by the server's refusal code: reserved and taken are
+					// different advice (a free variant of a reserved word is still reserved).
+					'usernameTaken'            => __( 'Taken', 'buddynext' ),
+					'usernameReserved'         => __( 'Reserved', 'buddynext' ),
+					'usernameUnavailable'      => __( 'Not available', 'buddynext' ),
 					'btnJoin'                  => __( 'Join', 'buddynext' ),
 					'btnJoined'                => __( 'Joined', 'buddynext' ),
 					'btnFollow'                => __( 'Follow', 'buddynext' ),

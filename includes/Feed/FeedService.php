@@ -2499,6 +2499,8 @@ class FeedService {
 		}
 
 		BlogPostListener::prime_sources( $rows );
+		// Each post in a space hydrates that space: one query for the page instead.
+		buddynext_service( 'spaces' )->prime( array_map( static fn( $row ): int => (int) ( ( (array) $row )['space_id'] ?? 0 ), $rows ) );
 		$items = array_map(
 			fn( $row ) => $this->post_service->hydrate( $row ),
 			$rows
@@ -2647,6 +2649,14 @@ class FeedService {
 				buddynext_service( 'blocks' )->blocking_either_map( $viewer, $peers );
 				buddynext_service( 'connections' )->degrees_for( $viewer, $peers );
 			}
+		}
+
+		// A card in a space asks whether the viewer is banned there (it hides the
+		// write controls): answer the page's spaces in two queries, not two per card.
+		$space_ids = array_values( array_unique( array_filter( array_map( static fn( $item ): int => absint( is_array( $item ) ? ( $item['space_id'] ?? 0 ) : 0 ), $items ) ) ) );
+		if ( $space_ids ) {
+			buddynext_service( 'space_members' )->membership_map( $viewer, $space_ids );
+			buddynext_service( 'permissions' )->prime_space_bans( $viewer, $space_ids );
 		}
 
 		buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );

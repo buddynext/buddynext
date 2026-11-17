@@ -130,6 +130,11 @@ if ( $bn_viewer_id > 0 && ! empty( $bn_member_ids ) && function_exists( 'buddyne
 	$bn_reported_map = buddynext_service( 'moderation' )->user_reported_map( $bn_viewer_id, 'user', $bn_member_ids );
 }
 
+if ( ! empty( $bn_member_ids ) ) {
+	/** This action is documented in includes/Profile/MemberDirectoryController.php */
+	do_action( 'buddynext_directory_members_primed', $bn_member_ids, $bn_viewer_id );
+}
+
 // Per-member state is read straight from the relevant services here, so a
 // caller only needs to pass `members` (+ optionally `viewer_id`). Callers that
 // already have cached lookups (the directory) may still pass their own

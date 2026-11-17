@@ -1005,9 +1005,12 @@ foreach ( $builtin_tabs as $bn_t ) {
 
 		// general / privacy / integrations share the outer general-settings form.
 		$bn_wrap_form = in_array( $settings_tab, array( 'general', 'privacy', 'integrations' ), true );
+		// Integrations is owner-only and renders read-only for a moderator: nothing
+		// in it can be saved, so the shared save bar must not offer Save.
+		$bn_form_readonly = 'integrations' === $settings_tab && ! $bn_is_space_owner;
 		if ( $bn_wrap_form ) :
 			?>
-			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form" data-bn-settings-general-form data-space-id="<?php echo esc_attr( (string) $space_id ); ?>" data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>" data-wp-on--input="actions.savebarMarkDirty" data-wp-on--change="actions.savebarMarkDirty">
+			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form"<?php echo $bn_form_readonly ? ' data-bn-readonly' : ''; ?> data-bn-settings-general-form data-space-id="<?php echo esc_attr( (string) $space_id ); ?>" data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>" data-wp-on--input="actions.savebarMarkDirty" data-wp-on--change="actions.savebarMarkDirty">
 				<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
 				<input type="hidden" name="bn_settings_subtab" value="<?php echo esc_attr( $settings_tab ); ?>" />
 				<?php

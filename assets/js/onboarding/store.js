@@ -100,6 +100,22 @@ function reason( res, fallback ) {
 	return restError( res, fallback );
 }
 
+/**
+ * Badge word for a refused handle, from the server's refusal code.
+ *
+ * "Taken" sends a member looking for a free variant of a name nobody may use,
+ * so a reserved word says reserved. Anything else (too short, bad characters)
+ * is just not available; the hint under the field says the rules.
+ *
+ * @param {string} code Refusal code (handle_reserved, handle_taken, ...).
+ * @return {string} Badge text.
+ */
+function handleLabel( code ) {
+	if ( 'handle_reserved' === code ) { return t( 'usernameReserved', 'Reserved' ); }
+	if ( 'handle_taken' === code ) { return t( 'usernameTaken', 'Taken' ); }
+	return t( 'usernameUnavailable', 'Not available' );
+}
+
 function rest( c, path, opts ) {
 	opts = opts || {};
 	const init = {
@@ -199,6 +215,40 @@ const onboardingStore = store( 'buddynext/onboarding', {
 		nextStep() {
 			const c = ctx();
 			const total = c.totalSteps || 5;
+			if ( 1 === ( c.step || 1 ) && total > 1 ) {
+				// Step 1 owns the handle, and the member must not leave it with a
+				// handle the server will refuse. Later steps reload the page (the
+				// interests step re-renders the suggestions), and the reload rebuilds
+				// the wizard from what is STORED - so a handle that was only typed
+				// was silently replaced by the old one before Finish ever sent it.
+				// Save it with the step and wait: a refusal keeps the member here
+				// with the server's own reason (reserved vs taken).
+				if ( c.saving ) { return; }
+				c.saving = true;
+				c.error  = '';
+				rest( c, 'me/onboarding/step', {
+					method: 'POST',
+					body:   { step: 1, data: {
+						display_name: c.displayName || '',
+						description:  c.bio || '',
+						slug:         String( c.userLogin || '' ).trim(),
+					} },
+				} ).then( ( r ) => {
+					c.saving = false;
+					if ( ! r.ok ) {
+						const code = ( r.data && r.data.code ) || '';
+						if ( code ) {
+							c.usernameAvailable   = false;
+							c.usernameStatusLabel = handleLabel( code );
+						}
+						c.error = reason( r, t( 'errorProfileSaveFailed', 'Your profile could not be saved. Please check your details and try again.' ) );
+						return;
+					}
+					c.step = 2;
+					scrollToStepTop();
+				} );
+				return;
+			}
 			if ( ( c.step || 1 ) < total ) {
 				c.step = ( c.step || 1 ) + 1;
 				scrollToStepTop();
@@ -350,6 +400,8 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			const c = ctx();
 			c.userLogin = event && event.target ? String( event.target.value || '' ) : '';
 			const captured = c.userLogin;
+			// A refused handle's message is about the old value; the badge speaks for the new one.
+			c.error = '';
 
 			// Too short — clear feedback, no network call.
 			if ( captured.length < 3 ) {
@@ -375,7 +427,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 						const ok = !! ( data && data.available );
 						c.usernameAvailable  = ok;
 						c.usernameChecking   = false;
-						c.usernameStatusLabel = ok ? t( 'usernameAvailable', 'Available' ) : t( 'usernameTaken', 'Taken' );
+						c.usernameStatusLabel = ok ? t( 'usernameAvailable', 'Available' ) : handleLabel( data && data.reason );
 					} )
 					.catch( () => {
 						c.usernameChecking    = false;
@@ -667,7 +719,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 					} );
 					if ( ! slugRes.ok ) {
 						c.usernameAvailable   = false;
-						c.usernameStatusLabel = t( 'usernameTaken', 'Taken' );
+						c.usernameStatusLabel = handleLabel( slugRes.data && slugRes.data.code );
 						stop( 1, reason( slugRes, t( 'errorHandleTaken', 'That username is already taken. Please choose another.' ) ) );
 						return;
 					}

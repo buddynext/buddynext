@@ -1884,6 +1884,13 @@ class SpaceMemberService {
 			);
 		}
 
+		// The answer is known for every space asked about, rows or not, so fill
+		// get_status()'s cache with it: the per-card Join gate (can_join() ->
+		// is_space_banned() -> get_status()) was one query per card on a cold cache.
+		foreach ( $space_ids as $space_id ) {
+			wp_cache_set( "status_{$space_id}_{$user_id}", $map[ $space_id ]['status'] ?? 'none', self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
 		return $map;
 	}
 

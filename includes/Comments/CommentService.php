@@ -1385,6 +1385,20 @@ class CommentService {
 	 */
 	private function bust_cache( string $object_type, int $object_id ): void {
 		CacheService::set_last_changed( self::CACHE_GROUP, "thread:{$object_type}:{$object_id}" );
+
+		/**
+		 * Fires after a comment thread changed: a comment was added, edited,
+		 * deleted, hidden, restored or brought back.
+		 *
+		 * The one signal for "what this thread shows is different now", so a page
+		 * cache can drop the page that renders it (PageCachePurger listens).
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param string $object_type Thread owner type ('post', ...).
+		 * @param int    $object_id   Thread owner ID.
+		 */
+		do_action( 'buddynext_comment_thread_changed', $object_type, $object_id );
 	}
 
 	/**

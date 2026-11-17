@@ -13,7 +13,11 @@
  *
  * Storage keys:
  *   bn_font_scale  '100' | '110' | '120'
- *   bn_theme       'light' | 'dark'
+ *   bn_theme       'light' | 'dark' | 'system' | 'auto'
+ *
+ * Theme values: 'auto' matches the HOST theme (dark only when the theme is in
+ * dark mode or itself follows the device), 'system' follows the visitor's
+ * device, 'light' / 'dark' are fixed.
  *
  * Data attributes consumed by the v2 token system:
  *   data-bn-font-scale
@@ -70,12 +74,16 @@
 		document.documentElement.setAttribute( 'data-bn-font-scale', s );
 	}
 
-	var THEMES = [ 'light', 'dark', 'auto' ];
+	var THEMES = [ 'light', 'dark', 'system', 'auto' ];
+
+	// What the host theme said about colour mode in the server markup, read
+	// before applyTheme() below writes data-theme itself.
+	var hostDataTheme = document.documentElement.getAttribute( 'data-theme' );
 
 	function readThemePref() {
 		// Site default (set in Settings → Appearance) applies until the visitor
-		// makes their own choice; falls back to 'auto' when unset.
-		var fallback = ( 'light' === window.bnThemeDefault || 'dark' === window.bnThemeDefault )
+		// makes their own choice; falls back to 'auto' (match the theme) when unset.
+		var fallback = THEMES.indexOf( window.bnThemeDefault ) !== -1
 			? window.bnThemeDefault
 			: 'auto';
 		try {
@@ -94,15 +102,39 @@
 		}
 	}
 
-	function effectiveFromPref( pref ) {
-		if ( 'light' === pref || 'dark' === pref ) {
-			return pref;
-		}
+	function systemMode() {
 		try {
 			return window.matchMedia( '(prefers-color-scheme: dark)' ).matches ? 'dark' : 'light';
 		} catch ( e ) {
 			return 'light';
 		}
+	}
+
+	// Does the host theme follow the device's dark setting? Reign/BuddyX say so
+	// with data-bx-mode="auto"; any other theme says so the standard way, a
+	// <meta name="color-scheme"> that lists "dark". A theme that says nothing is a
+	// light theme: following the OS there painted a dark community inside a light
+	// page (Twenty Twenty-Five with the OS in dark mode).
+	function hostFollowsSystem() {
+		if ( 'auto' === document.documentElement.getAttribute( 'data-bx-mode' ) ) {
+			return true;
+		}
+		var meta = document.querySelector( 'meta[name="color-scheme"]' );
+		return !! ( meta && /\bdark\b/.test( meta.getAttribute( 'content' ) || '' ) );
+	}
+
+	function effectiveFromPref( pref ) {
+		if ( 'light' === pref || 'dark' === pref ) {
+			return pref;
+		}
+		if ( 'system' === pref ) {
+			return systemMode();
+		}
+		// 'auto': match the host theme.
+		if ( 'dark' === hostDataTheme || 'light' === hostDataTheme ) {
+			return hostDataTheme;
+		}
+		return hostFollowsSystem() ? systemMode() : 'light';
 	}
 
 	function applyTheme( effective ) {
@@ -231,12 +263,23 @@
 		syncPressed();
 	} );
 
-	// Auto pref tracks the OS — re-apply when system flips dark/light.
+	// A <meta name="color-scheme"> printed after this head script is only in the
+	// document once it has parsed: settle 'auto' again then.
+	onNavReadyOnce( function () {
+		var pref = currentPref();
+		if ( 'auto' === pref ) {
+			applyTheme( effectiveFromPref( pref ) );
+		}
+	} );
+
+	// 'system' (and 'auto' on a host that follows the device) tracks the OS -
+	// re-apply when the system flips dark/light.
 	try {
 		var mql = window.matchMedia( '(prefers-color-scheme: dark)' );
 		var onSystemChange = function () {
-			if ( 'auto' === currentPref() ) {
-				applyTheme( effectiveFromPref( 'auto' ) );
+			var pref = currentPref();
+			if ( 'system' === pref || 'auto' === pref ) {
+				applyTheme( effectiveFromPref( pref ) );
 			}
 		};
 		if ( mql.addEventListener ) {
@@ -251,7 +294,7 @@
 	// Delegated click handler — themes / settings UI ship controls and
 	// trigger updates via the documented data attributes.
 	//   [data-bn-action="set-font-scale"][data-scale="100|110|120"]
-	//   [data-bn-action="set-theme"][data-theme="light|dark|auto"]
+	//   [data-bn-action="set-theme"][data-theme="light|dark|system|auto"]
 	//   [data-bn-action="toggle-theme"]   ← binary flip (light ↔ dark)
 	document.addEventListener( 'click', function ( e ) {
 		if ( ! e.target || ! e.target.closest ) {

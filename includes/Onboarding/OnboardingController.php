@@ -260,7 +260,31 @@ class OnboardingController {
 			return $too_long;
 		}
 
+		// Step 1 carries the chosen handle. It is saved here, with the step, because
+		// the wizard reloads after the interests step and rebuilds itself from what
+		// is stored: a handle that was only typed was replaced by the old one before
+		// Finish sent it. A refused handle keeps the member on step 1 with the reason.
+		$slug = 1 === $step && isset( $data['slug'] ) && is_string( $data['slug'] ) ? trim( $data['slug'] ) : '';
+		if ( '' !== $slug ) {
+			$refusal = $this->service->slug_refusal( $user_id, $slug );
+			if ( null !== $refusal ) {
+				return new WP_REST_Response(
+					array(
+						'saved'   => false,
+						'code'    => $refusal->get_error_code(),
+						'message' => $refusal->get_error_message(),
+						'errors'  => array( 'slug' => $refusal->get_error_message() ),
+					),
+					409
+				);
+			}
+		}
+
 		$this->service->save_step( $user_id, $step, $data );
+
+		if ( '' !== $slug ) {
+			$this->service->save_slug( $user_id, $slug );
+		}
 
 		return new WP_REST_Response(
 			array(

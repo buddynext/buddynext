@@ -1163,6 +1163,14 @@ const profileStore = store( 'buddynext/profile', {
 		get slugStatusHidden() { const c = getContext(); return c.slugChecking || c.slugAvailable === null; },
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
+		// Reserved and taken are different advice: a free variant of a reserved
+		// word is still reserved. The server's refusal code says which.
+		get slugStatusText() {
+			const code = getContext().slugReason || '';
+			if ( 'handle_reserved' === code ) { return t( 'handleReserved', 'Reserved' ); }
+			if ( 'handle_taken' === code ) { return t( 'handleTaken', 'Taken' ); }
+			return t( 'handleUnavailable', 'Not available' );
+		},
 		// Field error flags for the account forms. The Interactivity expression parser
 		// honours ONE leading "!", so "!!context.errors.x" in markup always evaluated true
 		// and every field opened in its error state; a getter returns a real boolean.
@@ -1757,6 +1765,7 @@ const profileStore = store( 'buddynext/profile', {
 					if ( thisAbort.signal.aborted ) { return; }
 					if ( res.ok && res.data ) {
 						ctx.slugAvailable = res.data.available;
+						ctx.slugReason    = res.data.reason || '';
 					}
 					ctx.slugChecking = false;
 				} );
@@ -1788,7 +1797,10 @@ const profileStore = store( 'buddynext/profile', {
 				} else {
 					toastRestError( res, t( 'saveFailed', 'Could not save. Try again.' ) );
 					// Taken in the meantime: the live check's "available" is out of date.
-					if ( 409 === res.status ) { ctx.slugAvailable = false; }
+					if ( 409 === res.status ) {
+						ctx.slugAvailable = false;
+						ctx.slugReason    = ( res.data && res.data.code ) || '';
+					}
 				}
 			} )
 			   .finally( function () { ctx.slugSaving = false; } );
