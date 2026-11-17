@@ -50,7 +50,7 @@ Switching it off hides the tab but keeps the discussion and everything in it, so
 
 A discussion belongs to one space. A discussion already linked to another space is left out of the search and cannot be linked a second time. **Start the first discussion** creates the discussion only after the owner has switched **Enable discussion** on.
 
-To link a different discussion, select **Unlink** next to **Linked discussion** and confirm. The forum, its posts and every space member stay where they are; only the link to this space is removed. Unlinking also switches **Enable discussion** off. Switching it on again brings back the discussion you just unlinked; clear it to create a new discussion instead, or search for another one to link. A member who is banned from or leaves the space afterwards loses access to the old discussion too.
+To link a different discussion, select **Unlink** next to **Linked discussion** and confirm. Only the space owner sees **Unlink** and the discussion picker; a moderator sees which discussion is linked but cannot change it. The forum, its posts and every space member stay where they are; only the link to this space is removed. Unlinking also switches **Enable discussion** off. Switching it on again brings back the discussion you just unlinked; clear it to create a new discussion instead, or search for another one to link. A member who is banned from or leaves the space afterwards loses access to the old discussion too.
 
 > **Note:** Until Jetonomy is active, the forum does not exist. BuddyNext registers none of its forum navigation or behavior, and pages render exactly as they did before. The integration adds zero overhead on sites that do not use it.
 

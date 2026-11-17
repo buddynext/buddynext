@@ -19574,6 +19574,14 @@
                     },
                     "available": {
                         "type": "boolean"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why the slug is not available: handle_reserved, handle_taken or a handle_* validation code. Empty when available."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The refusal in words for the member. Empty when available."
                     }
                 }
             },

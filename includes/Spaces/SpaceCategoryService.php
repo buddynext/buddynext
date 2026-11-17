@@ -105,16 +105,21 @@ class SpaceCategoryService {
 	 * would lead nowhere from the For You feed and space suggestions). Label
 	 * lookups and saved values keep using get_all(), so a member's earlier pick
 	 * of a category hidden later is neither shown as a choice nor lost on save.
+	 * A category whose spaces are all hidden from visitors is left out too.
 	 *
 	 * @since 1.3.0
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function get_for_members(): array {
+		// A category whose spaces are all hidden (secret, archived) leads nowhere and its
+		// presence hints at what is hidden, so it is left out. An empty category stays:
+		// the owner just made it and spaces are on the way.
 		return array_values(
 			array_filter(
-				$this->get_all( true ),
+				$this->get_all_with_counts( true ),
 				static fn( array $category ): bool => 'sub' !== (string) ( $category['level'] ?? 'both' )
+					&& ( empty( $category['has_spaces'] ) || (int) ( $category['space_count'] ?? 0 ) > 0 )
 			)
 		);
 	}
@@ -148,11 +153,25 @@ class SpaceCategoryService {
 	}
 
 	/**
-	 * Return all categories with a live space-count per row.
+	 * Return all categories with a space count per row.
 	 *
-	 * Cached with a short TTL: the global category+count list is rendered on the
-	 * spaces directory and the explore aside on every visit, but the count moves on
-	 * space-category reassignment, so the TTL caps that staleness.
+	 * Admin callers ($visible_only = false) get the raw total: every space in the
+	 * category, whatever its type or state, because the admin manages all of them.
+	 *
+	 * Member-facing callers ($visible_only = true) get `space_count` = the spaces a
+	 * logged-out visitor finds in the directory grid for that category: a listed
+	 * type, not archived, top level. The raw count used to be shown here, so a
+	 * category holding only secret spaces read "2 spaces" to guests and then listed
+	 * nothing, which told everyone those secret spaces exist. `has_spaces` says
+	 * whether the category holds any space at all, so a caller can tell an empty
+	 * category from one whose spaces are all hidden.
+	 *
+	 * ponytail: one count for every viewer, so it can be cached once. A member of a
+	 * secret space sees one fewer than they could open (an undercount, never a leak);
+	 * per-viewer counts would need a cache entry per member.
+	 *
+	 * One GROUP BY over KEY category, cached against the spaces-listing salt
+	 * (SpaceService::lists_salt()), so any space write retires it with the listings.
 	 *
 	 * @param bool $visible_only Only categories flagged show_in_dir (member-facing callers).
 	 * @return array<int, array<string, mixed>>
@@ -169,7 +188,7 @@ class SpaceCategoryService {
 		 * this is a parameter, not a blanket WHERE - and it carries its own cache key, or the two
 		 * callers would poison each other's cached list.
 		 */
-		$cache_key = $visible_only ? 'visible_counts' : 'all_counts';
+		$cache_key = $visible_only ? 'visible_counts_' . SpaceService::lists_salt() : 'all_counts';
 
 		$hit = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $hit ) {
@@ -180,24 +199,42 @@ class SpaceCategoryService {
 		$cats   = $wpdb->prefix . 'bn_space_categories';
 		$spaces = $wpdb->prefix . 'bn_spaces';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $visible_only selects between two LITERAL queries; no value is interpolated into the SQL.
-		$rows = $wpdb->get_results(
-			$visible_only
-				? "SELECT c.*, ( SELECT COUNT(*) FROM {$spaces} s WHERE s.category_id = c.id ) AS space_count
-					 FROM {$cats} c
-					WHERE c.show_in_dir = 1
-					ORDER BY c.sort_order ASC, c.name ASC"
-				: "SELECT c.*, ( SELECT COUNT(*) FROM {$spaces} s WHERE s.category_id = c.id ) AS space_count
+		if ( $visible_only ) {
+			// Registry keys are sanitize_key()'d, so each is bound as a %s.
+			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
+			$listed   = $unlisted
+				? 'type NOT IN ( ' . implode( ', ', array_fill( 0, count( $unlisted ), '%s' ) ) . ' )'
+				: '1 = 1';
+			$sql      = "SELECT c.*, COALESCE( n.total, 0 ) AS space_total, COALESCE( n.listed, 0 ) AS space_count
+				 FROM {$cats} c
+				 LEFT JOIN (
+					SELECT category_id, COUNT(*) AS total,
+					       SUM( CASE WHEN {$listed} AND is_archived = 0 AND parent_id IS NULL THEN 1 ELSE 0 END ) AS listed
+					  FROM {$spaces}
+					 WHERE category_id > 0
+					 GROUP BY category_id
+				 ) n ON n.category_id = c.id
+				WHERE c.show_in_dir = 1
+				ORDER BY c.sort_order ASC, c.name ASC";
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- table names are prefix constants; the type list is %s placeholders bound here.
+			$rows = $wpdb->get_results( $unlisted ? $wpdb->prepare( $sql, ...$unlisted ) : $sql, ARRAY_A );
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		} else {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- LITERAL query; only the prefixed table names are interpolated.
+			$rows = $wpdb->get_results(
+				"SELECT c.*, ( SELECT COUNT(*) FROM {$spaces} s WHERE s.category_id = c.id ) AS space_count
 					 FROM {$cats} c
 					ORDER BY c.sort_order ASC, c.name ASC",
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		}
 
 		$out = array_map(
 			function ( array $row ): array {
 				$cat                = $this->hydrate( $row );
 				$cat['space_count'] = (int) ( $row['space_count'] ?? 0 );
+				$cat['has_spaces']  = (int) ( $row['space_total'] ?? $row['space_count'] ?? 0 ) > 0;
 				return $cat;
 			},
 			(array) ( $rows ?? array() )
@@ -215,10 +252,11 @@ class SpaceCategoryService {
 		wp_cache_delete( 'all', self::CACHE_GROUP );
 		wp_cache_delete( 'visible', self::CACHE_GROUP );
 		wp_cache_delete( 'all_counts', self::CACHE_GROUP );
-		// The directory's visible-only list is a SEPARATE cache key. Miss it here and switching
-		// show_in_dir off leaves the category sitting in the directory until the TTL expires -
-		// the toggle would look like it still does nothing.
-		wp_cache_delete( 'visible_counts', self::CACHE_GROUP );
+		// The directory's visible-only list is salted by the spaces-listing salt. A category
+		// write changes what the listings show too (show_in_dir fences spaces out of them), so
+		// retiring that salt evicts both - miss it and switching show_in_dir off leaves the
+		// category sitting in the directory until the TTL expires.
+		SpaceService::flush_space_lists();
 		// The hidden-id set feeds the directory space-list exclusion; same staleness trap.
 		wp_cache_delete( 'hidden_ids', self::CACHE_GROUP );
 	}

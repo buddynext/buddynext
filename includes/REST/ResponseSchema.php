@@ -5296,6 +5296,14 @@ final class ResponseSchema {
 				'available' => array(
 					'type' => 'boolean',
 				),
+				'reason'    => array(
+					'type'        => 'string',
+					'description' => 'Why the slug is not available: handle_reserved, handle_taken or a handle_* validation code. Empty when available.',
+				),
+				'message'   => array(
+					'type'        => 'string',
+					'description' => 'The refusal in words for the member. Empty when available.',
+				),
 			),
 		);
 	}

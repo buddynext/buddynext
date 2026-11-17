@@ -539,9 +539,24 @@ class SafeguardService {
 	 * @return string The shared address, or '' when addresses differ or the sample is too small.
 	 */
 	public static function shared_visitor_ip( array $user_ids ): string {
+		$ips = self::recent_sign_in_ips( $user_ids );
+		if ( count( $ips ) < self::PROXY_MIN_MEMBERS ) {
+			return '';
+		}
+		$distinct = array_unique( $ips );
+		return 1 === count( $distinct ) ? (string) reset( $distinct ) : '';
+	}
+
+	/**
+	 * The address of each member's latest sign-in, from core's session tokens.
+	 *
+	 * @param int[] $user_ids Members to inspect.
+	 * @return array<int,string> User id => address; members with no recorded address are left out.
+	 */
+	private static function recent_sign_in_ips( array $user_ids ): array {
 		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
 		if ( count( $user_ids ) < self::PROXY_MIN_MEMBERS ) {
-			return '';
+			return array();
 		}
 		update_meta_cache( 'user', $user_ids );
 
@@ -561,11 +576,7 @@ class SafeguardService {
 			}
 		}
 
-		if ( count( $ips ) < self::PROXY_MIN_MEMBERS ) {
-			return '';
-		}
-		$distinct = array_unique( $ips );
-		return 1 === count( $distinct ) ? (string) reset( $distinct ) : '';
+		return $ips;
 	}
 
 	/**
@@ -583,26 +594,57 @@ class SafeguardService {
 			'label' => __( 'BuddyNext', 'buddynext' ),
 			'color' => 'blue',
 		);
-		$good  = array(
-			'label'       => __( 'BuddyNext sees each visitor\'s own address', 'buddynext' ),
-			'status'      => 'good',
-			'badge'       => $badge,
-			'description' => '<p>' . esc_html__( 'Recent members signed in from different addresses, so sign-up and sign-in limits apply to each visitor separately.', 'buddynext' ) . '</p>',
-			'test'        => 'buddynext_client_ip',
-		);
+		// Every passing result says what was actually found: the check is skipped in
+		// two cases and cannot judge in a third, and none of those saw different
+		// addresses.
+		$good = static function ( string $label, string $description ) use ( $badge ): array {
+			return array(
+				'label'       => $label,
+				'status'      => 'good',
+				'badge'       => $badge,
+				'description' => '<p>' . esc_html( $description ) . '</p>',
+				'test'        => 'buddynext_client_ip',
+			);
+		};
 
-		// A site that maps the address itself has already fixed this; local
-		// development installs legitimately see 127.0.0.1 for everyone.
-		if ( has_filter( 'buddynext_client_ip' ) || 'local' === wp_get_environment_type() ) {
-			return $good;
+		// A site that maps the address itself has already fixed this.
+		if ( has_filter( 'buddynext_client_ip' ) ) {
+			return $good(
+				__( 'BuddyNext uses the visitor address your site supplies', 'buddynext' ),
+				__( 'Code on this site sets the visitor address through the buddynext_client_ip filter, so BuddyNext uses that address and does not check recent sign-ins.', 'buddynext' )
+			);
 		}
 
-		$shared = self::shared_visitor_ip(
+		// Local development installs legitimately see 127.0.0.1 for everyone.
+		if ( 'local' === wp_get_environment_type() ) {
+			return $good(
+				__( 'Visitor address check skipped on a local site', 'buddynext' ),
+				__( 'This is a local development site, where every visitor shares one address, so the check is skipped. It runs on your live site.', 'buddynext' )
+			);
+		}
+
+		$ips = self::recent_sign_in_ips(
 			\BuddyNext\Realtime\PresenceService::recent_online_ids( self::PROXY_SAMPLE, WEEK_IN_SECONDS )
 		);
-		if ( '' === $shared ) {
-			return $good;
+		if ( count( $ips ) < self::PROXY_MIN_MEMBERS ) {
+			return $good(
+				__( 'Not enough recent sign-ins to check visitor addresses', 'buddynext' ),
+				sprintf(
+					/* translators: %d: number of members needed. */
+					__( 'Fewer than %d members signed in during the last week, which is too few to tell whether BuddyNext sees each visitor\'s own address. The check runs again as more members sign in.', 'buddynext' ),
+					self::PROXY_MIN_MEMBERS
+				)
+			);
 		}
+
+		$distinct = array_unique( $ips );
+		if ( 1 !== count( $distinct ) ) {
+			return $good(
+				__( 'BuddyNext sees each visitor\'s own address', 'buddynext' ),
+				__( 'Recent members signed in from different addresses, so sign-up and sign-in limits apply to each visitor separately.', 'buddynext' )
+			);
+		}
+		$shared = (string) reset( $distinct );
 
 		$private = false === filter_var( $shared, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
 

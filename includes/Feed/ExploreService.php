@@ -387,16 +387,40 @@ class ExploreService {
 	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
 	private function newest_members( int $limit, ?string $cursor ): array {
+		global $wpdb;
+
 		$offset = $this->decode_offset( $cursor );
+
+		// Who may be found is the member directory's rule (suspended, shadow-banned,
+		// directory opt-out, awaiting approval), applied in the query as correlated
+		// NOT EXISTS; only the viewer and their blocks are an id list. The newest
+		// members are exactly where held sign-ups sit, so this deck needs the hold.
+		$skip     = $this->excluded_member_ids();
+		$where    = implode( ' AND ', \BuddyNext\Profile\MemberDirectoryService::exclusion_clauses( 'u.ID' ) );
+		$skip_sql = '';
+		if ( ! empty( $skip ) ) {
+			$skip_sql = ' AND u.ID NOT IN (' . implode( ',', array_map( 'intval', $skip ) ) . ')';
+		}
+
+		// $where is literal SQL from the shared seam; $skip_sql is an int-cast list.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$ids = (array) $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT u.ID FROM {$wpdb->users} u
+				  WHERE {$where}{$skip_sql}
+				  ORDER BY u.user_registered DESC, u.ID DESC
+				  LIMIT %d OFFSET %d",
+				$limit + 1,
+				$offset
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$query = new \WP_User_Query(
 			array(
-				'number'      => $limit + 1,
-				'offset'      => $offset,
-				'orderby'     => 'registered',
-				'order'       => 'DESC',
+				'include'     => empty( $ids ) ? array( 0 ) : array_map( 'intval', $ids ),
+				'orderby'     => 'include',
 				'fields'      => 'all',
-				'exclude'     => $this->excluded_member_ids(),
 				'count_total' => false,
 			)
 		);
@@ -657,33 +681,14 @@ class ExploreService {
 	}
 
 	/**
-	 * User IDs to exclude from member discovery: active suspensions,
-	 * shadow-banned users, and (for a logged-in viewer) blocked users.
+	 * The viewer and the members they have a block with (either direction).
+	 *
+	 * Everything else that hides a member from discovery is the directory's
+	 * rule, applied in the query (MemberDirectoryService::exclusion_clauses()).
 	 *
 	 * @return array<int,int>
 	 */
 	private function excluded_member_ids(): array {
-		global $wpdb;
-
-		// This is the shared discovery gate (ANY active suspension + shadow-ban — see
-		// ModerationService::discovery_exclude_sql(), NOT the hide_posts content gate),
-		// but resolved to an ID list here on purpose: Explore merges it with the
-		// viewer's bidirectional blocks into one exclusion set, which the deck applies
-		// as IDs. Same gate, materialised differently — do not converge onto the SQL
-		// helper, and never onto moderation_exclude_sql() (wrong, hide_posts, gate).
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$suspended = $wpdb->get_col(
-			"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
-		);
-		$shadow    = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s AND meta_value = '1'",
-				'bn_shadow_banned'
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
 		$viewer  = get_current_user_id();
 		$blocked = array();
 		if ( $viewer > 0 && function_exists( 'buddynext_service' ) ) {
@@ -701,8 +706,6 @@ class ExploreService {
 				array_map(
 					'intval',
 					array_merge(
-						(array) $suspended,
-						(array) $shadow,
 						$blocked,
 						$viewer > 0 ? array( $viewer ) : array()
 					)

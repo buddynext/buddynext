@@ -480,11 +480,50 @@ class Members extends AdminPageBase {
 			case 'reason_required':
 			case 'invalid_reason':
 				return __( 'The member was not suspended: choose a reason, and add a note when you pick Other.', 'buddynext' );
+			case 'self':
+				return __( 'The member was not suspended: you cannot suspend your own account.', 'buddynext' );
+			case 'outranked':
+			case 'network_admin':
+				return __( 'The member was not suspended: they hold more authority than you.', 'buddynext' );
+			case 'indefinite':
+				return __( 'The member was not suspended: only a community or site admin can suspend without an end date. Choose a duration.', 'buddynext' );
+			case 'permission':
 			case 'forbidden':
 				return __( 'The member was not suspended: you do not have permission for this suspension.', 'buddynext' );
 			default:
 				return __( 'The member was not suspended. Please try again.', 'buddynext' );
 		}
+	}
+
+	/**
+	 * Whether the edit form cleared a custom profile slug the member holds.
+	 *
+	 * Only a field that was sent and is blank counts, and only when there is a
+	 * custom slug to clear, so an unrelated save never touches the handle.
+	 * Callers verify the nonce first.
+	 *
+	 * @param int $user_id Member being edited.
+	 * @return bool
+	 */
+	private static function slug_cleared( int $user_id ): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- every caller runs check_admin_referer() first.
+		return isset( $_POST['bn_profile_slug'] ) && '' === trim( sanitize_text_field( wp_unslash( (string) $_POST['bn_profile_slug'] ) ) )
+			&& '' !== (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+	}
+
+	/**
+	 * The notice key for a refused suspension: the service's refusal reason when
+	 * it gave one (self, outranked ...), else the error code.
+	 *
+	 * Several refusals share the `forbidden` code, so the code alone collapsed
+	 * "you cannot suspend your own account" into "no permission".
+	 *
+	 * @param \WP_Error $error Refusal from suspension_from_request() or suspend_user().
+	 * @return string
+	 */
+	public static function suspend_error_key( \WP_Error $error ): string {
+		$data = $error->get_error_data();
+		return is_array( $data ) && ! empty( $data['reason'] ) ? sanitize_key( (string) $data['reason'] ) : (string) $error->get_error_code();
 	}
 
 	/**
@@ -581,7 +620,7 @@ class Members extends AdminPageBase {
 					? array(
 						'page'     => 'buddynext-members',
 						'action'   => 'suspend_failed',
-						'bn_error' => $result->get_error_code(),
+						'bn_error' => self::suspend_error_key( $result ),
 					)
 					: array(
 						'page'    => 'buddynext-members',
@@ -806,7 +845,7 @@ class Members extends AdminPageBase {
 					? array(
 						'page'     => 'buddynext-members',
 						'action'   => 'suspend_failed',
-						'bn_error' => $bn_bulk_suspend->get_error_code(),
+						'bn_error' => self::suspend_error_key( $bn_bulk_suspend ),
 					)
 					: array(
 						'page'        => 'buddynext-members',
@@ -911,8 +950,18 @@ class Members extends AdminPageBase {
 			// Asked as an administrator: this screen may give a staff account a
 			// reserved impersonation word (support, staff ...); route words stay
 			// refused for everyone.
-			if ( ! \BuddyNext\Core\PageRouter::is_slug_available( $new_slug, $user_id, true ) ) {
-				return 'slug_taken';
+			$refusal = \BuddyNext\Core\PageRouter::slug_refusal( $new_slug, $user_id, true );
+			if ( null !== $refusal ) {
+				return 'handle_reserved' === $refusal->get_error_code() ? 'slug_reserved' : 'slug_taken';
+			}
+		} elseif ( self::slug_cleared( $user_id ) ) {
+			// A cleared field means "back to the default handle": it must be free.
+			if ( ! $can_edit_account ) {
+				return 'account_forbidden';
+			}
+			$bn_default = \BuddyNext\Profile\Handle::default_for( $wp_user );
+			if ( $bn_default !== $wp_user->user_nicename && ! \BuddyNext\Core\PageRouter::is_slug_available( $bn_default, $user_id, true ) ) {
+				return 'slug_default_taken';
 			}
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
@@ -1143,8 +1192,14 @@ class Members extends AdminPageBase {
 			self::swap_primary_role( $user_id, sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) );
 		}
 
-		// Handle profile slug update.
-		if ( isset( $_POST['bn_profile_slug'] ) && '' !== $_POST['bn_profile_slug'] ) {
+		// Handle profile slug update. A cleared field returns the member to the
+		// default handle (their username); it used to be ignored, so a custom slug
+		// could never be removed.
+		if ( self::slug_cleared( $user_id ) ) {
+			if ( is_wp_error( \BuddyNext\Profile\Handle::reset( $user_id ) ) ) {
+				$partial_error = 'slug_default_taken';
+			}
+		} elseif ( isset( $_POST['bn_profile_slug'] ) && '' !== $_POST['bn_profile_slug'] ) {
 			$new_slug = sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) );
 			if ( '' !== $new_slug && (string) get_user_meta( $user_id, 'bn_profile_slug', true ) !== $new_slug ) {
 				// Availability checked in member_edit_error() above; a lost race still reports.
@@ -1955,6 +2010,12 @@ class Members extends AdminPageBase {
 										<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-btn" data-variant="secondary" data-size="sm">
 											<?php esc_html_e( 'Edit', 'buddynext' ); ?>
 										</a>
+										<?php
+										// Offer Suspend only when the service would accept it: not on your own
+										// account, nor on someone who outranks you. With nothing to offer, no menu.
+										$bn_can_suspend = null === buddynext_service( 'moderation' )->suspend_refusal( absint( $member['id'] ), get_current_user_id() );
+										if ( $member['suspended'] || $bn_can_suspend ) :
+											?>
 										<div class="bn-more-menu" data-uid="<?php echo absint( $member['id'] ); ?>">
 											<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
 											<?php
@@ -1974,7 +2035,7 @@ class Members extends AdminPageBase {
 															<?php esc_html_e( 'Unsuspend', 'buddynext' ); ?>
 														</button>
 													</form>
-												<?php else : ?>
+												<?php elseif ( $bn_can_suspend ) : ?>
 													<form method="post"
 														action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 														data-bn-confirm="1"
@@ -1992,6 +2053,7 @@ class Members extends AdminPageBase {
 												<?php endif; ?>
 											</div>
 										</div>
+										<?php endif; ?>
 									</div>
 								</td>
 							</tr>

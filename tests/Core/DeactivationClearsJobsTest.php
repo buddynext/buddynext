@@ -50,4 +50,22 @@ class DeactivationClearsJobsTest extends \WP_UnitTestCase {
 			$this->assertFalse( wp_next_scheduled( $hook ), "{$hook} is still on WP-Cron." );
 		}
 	}
+
+	/**
+	 * The per-member onboarding nudges are one-shot actions with the user id as an
+	 * argument, so the recurring-job loop never matched them: 2,450 stayed pending
+	 * after deactivation on a seeded site.
+	 */
+	public function test_deactivation_cancels_the_per_member_onboarding_nudges(): void {
+		foreach ( array( 11, 12, 13 ) as $user_id ) {
+			as_schedule_single_action( time() + DAY_IN_SECONDS, 'bn_onboarding_nudge_24h', array( $user_id ), CronScheduler::GROUP );
+			as_schedule_single_action( time() + 3 * DAY_IN_SECONDS, 'bn_onboarding_nudge_72h', array( $user_id ), CronScheduler::GROUP );
+		}
+
+		do_action( 'deactivate_' . plugin_basename( BUDDYNEXT_FILE ) );
+
+		foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
+			$this->assertFalse( as_has_scheduled_action( $hook ), "{$hook} actions are still pending." );
+		}
+	}
 }

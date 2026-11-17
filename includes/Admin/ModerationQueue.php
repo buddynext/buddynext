@@ -1658,24 +1658,12 @@ class ModerationQueue {
 	}
 
 	/**
-	 * Human "x ago" / "in x" for a MySQL datetime, or '' when empty.
+	 * Human "x ago" / "in x" for a stored UTC datetime, or '' when empty.
 	 *
-	 * @param string $datetime MySQL datetime.
+	 * @param string $datetime UTC MySQL datetime.
 	 * @return string
 	 */
 	private function ago( string $datetime ): string {
-		if ( '' === $datetime ) {
-			return '';
-		}
-		$ts = strtotime( $datetime );
-		if ( ! $ts ) {
-			return '';
-		}
-		$now = current_time( 'timestamp' ); // phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested
-		return $ts <= $now
-			/* translators: %s: human-readable time difference, e.g. "3 hours". */
-			? sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $ts, $now ) )
-			/* translators: %s: human time difference, e.g. "3 days" */
-			: sprintf( __( 'in %s', 'buddynext' ), human_time_diff( $now, $ts ) );
+		return \BuddyNext\Core\Dates::relative( $datetime );
 	}
 }

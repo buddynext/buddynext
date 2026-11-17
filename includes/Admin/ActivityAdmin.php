@@ -795,14 +795,7 @@ class ActivityAdmin implements ListenerInterface {
 	 * @return string
 	 */
 	private function ago( string $created_at ): string {
-		$ts = strtotime( $created_at . ' UTC' );
-		if ( ! $ts ) {
-			return $created_at;
-		}
-		return sprintf(
-			/* translators: %s: human-readable time difference, e.g. "3 hours". */
-			__( '%s ago', 'buddynext' ),
-			human_time_diff( $ts, time() )
-		);
+		$label = \BuddyNext\Core\Dates::relative( $created_at );
+		return '' !== $label ? $label : $created_at;
 	}
 }

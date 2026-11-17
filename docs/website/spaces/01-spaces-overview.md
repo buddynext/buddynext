@@ -26,7 +26,7 @@ The Spaces directory is the front door. It lists every space a member is allowed
 
 ### Filter by category
 
-Spaces can be grouped into categories (for example "Teams", "Regions", "Hobbies"). A member picks a category to narrow the directory to just those spaces. The site owner manages the category list and can set a default category for new spaces.
+Spaces can be grouped into categories (for example "Teams", "Regions", "Hobbies"). A member picks a category to narrow the directory to just those spaces. The space count next to each category counts only the spaces a guest can see in the directory, so a category holding only secret spaces never reveals how many it holds, and it is left out of the interests offered during onboarding. The site owner manages the category list and can set a default category for new spaces.
 
 ### View a space
 

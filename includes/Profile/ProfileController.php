@@ -1906,12 +1906,16 @@ class ProfileController extends BaseRestController {
 			return $valid;
 		}
 
-		if ( ! \BuddyNext\Core\PageRouter::is_slug_available( $requested_slug, $user_id ) ) {
-			return new WP_Error(
-				'slug_taken',
-				__( 'That profile URL is already taken.', 'buddynext' ),
-				array( 'status' => 409 )
-			);
+		$refusal = \BuddyNext\Core\PageRouter::slug_refusal( $requested_slug, $user_id );
+		if ( null !== $refusal ) {
+			// A reserved word says so; anything else keeps the established code.
+			return 'handle_reserved' === $refusal->get_error_code()
+				? $refusal
+				: new WP_Error(
+					'slug_taken',
+					__( 'That profile URL is already taken.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
 		}
 
 		// One writer for the handle: it also keeps user_nicename in step and
@@ -1937,14 +1941,17 @@ class ProfileController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function check_slug_availability( WP_REST_Request $request ): WP_REST_Response {
-		$user_id   = get_current_user_id();
-		$slug      = sanitize_title( (string) $request->get_param( 'slug' ) );
-		$available = '' !== $slug && \BuddyNext\Core\PageRouter::is_slug_available( $slug, $user_id );
+		$user_id = get_current_user_id();
+		$slug    = sanitize_title( (string) $request->get_param( 'slug' ) );
+		$refusal = '' === $slug ? null : \BuddyNext\Core\PageRouter::slug_refusal( $slug, $user_id );
 
 		return new WP_REST_Response(
 			array(
 				'slug'      => $slug,
-				'available' => $available,
+				'available' => '' !== $slug && null === $refusal,
+				// Why not, in words a member can act on (reserved vs taken vs unusable).
+				'reason'    => null === $refusal ? '' : (string) $refusal->get_error_code(),
+				'message'   => null === $refusal ? '' : $refusal->get_error_message(),
 			),
 			200
 		);

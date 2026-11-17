@@ -314,6 +314,17 @@ class CronScheduler {
 			}
 			wp_clear_scheduled_hook( $hook );
 		}
+
+		// The per-member onboarding nudges (one 24h and one 72h single action per
+		// sign-up, carrying the user id). A busy community holds thousands, and a
+		// switched-off plugin would leave every one to fail with no listener. Passed
+		// with no group, Action Scheduler cancels them by hook in batched UPDATEs
+		// rather than one query per action. New sign-ups schedule their own again.
+		if ( function_exists( 'as_unschedule_all_actions' ) ) {
+			foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
+				as_unschedule_all_actions( $hook );
+			}
+		}
 	}
 
 	/**

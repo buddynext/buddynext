@@ -106,7 +106,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						data-wp-class--bn-ep-slug-ok="state.slugIsOk"
 						data-wp-class--bn-ep-slug-err="state.slugIsTaken">
 						<span hidden data-wp-bind--hidden="!state.slugIsOk"><?php buddynext_icon( 'check' ); ?></span>
-						<span hidden data-wp-bind--hidden="!state.slugIsTaken"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
+						<span hidden data-wp-bind--hidden="!state.slugIsTaken"><?php esc_html_e( 'Not available', 'buddynext' ); ?></span>
 					</span>
 				</div>
 				<button class="bn-btn"

@@ -1093,21 +1093,21 @@ class FollowService {
 		$friends_ph = implode( ', ', array_fill( 0, count( $following ), '%d' ) );
 		$exclude_ph = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
 
-		// Suspended + shadow-banned users must not surface here either — every
-		// other discovery surface (feed, directory) applies the same canonical
-		// moderation exclusion, so friend-of-friend suggestions follow suit.
+		// A suggestion is someone the member directory would show: the directory's
+		// own rule (suspended, shadow-banned, directory opt-out, awaiting approval).
+		// The hide_posts content gate used before let a suspended member through.
 		// Private accounts ARE intentionally suggestible: bn_account_private
 		// gates activity visibility, not discoverability.
-		$moderation_where = buddynext_service( 'moderation' )->moderation_exclude_sql( 'following_id' );
+		$moderation_where = 'AND ' . implode( ' AND ', \BuddyNext\Profile\MemberDirectoryService::exclusion_clauses( 'f.following_id' ) );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $friends_ph/$exclude_ph are generated %d lists bound via array_merge(); $moderation_where is a self-built, word-char-sanitised fragment with no placeholders.
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT DISTINCT following_id
-				 FROM {$table}
-				 WHERE follower_id IN ({$friends_ph})
-				   AND status = 'approved'
-				   AND following_id NOT IN ({$exclude_ph})
+				"SELECT DISTINCT f.following_id
+				 FROM {$table} f
+				 WHERE f.follower_id IN ({$friends_ph})
+				   AND f.status = 'approved'
+				   AND f.following_id NOT IN ({$exclude_ph})
 				   {$moderation_where}
 				 LIMIT %d",
 				array_merge( $following, $exclude, array( self::FOF_LIMIT ) )
@@ -1208,18 +1208,19 @@ class FollowService {
 		$picks_ph    = implode( ', ', array_fill( 0, count( $pick_values ), '%s' ) );
 		$exclude_ph  = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
 
-		$moderation_where = buddynext_service( 'moderation' )->moderation_exclude_sql( 'user_id' );
+		// The member directory's "who may be found" rule, as for friends-of-friends.
+		$moderation_where = 'AND ' . implode( ' AND ', \BuddyNext\Profile\MemberDirectoryService::exclusion_clauses( 'pv.user_id' ) );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $picks_ph/$exclude_ph are generated placeholder lists; every placeholder is bound via one array_merge() argument; $moderation_where is a self-built, word-char-sanitised fragment with no placeholders.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT user_id, COUNT(*) AS shared
-				 FROM {$wpdb->prefix}bn_profile_values
-				 WHERE field_id = %d
-				   AND value IN ({$picks_ph})
-				   AND user_id NOT IN ({$exclude_ph})
+				"SELECT pv.user_id, COUNT(*) AS shared
+				 FROM {$wpdb->prefix}bn_profile_values pv
+				 WHERE pv.field_id = %d
+				   AND pv.value IN ({$picks_ph})
+				   AND pv.user_id NOT IN ({$exclude_ph})
 				   {$moderation_where}
-				 GROUP BY user_id
+				 GROUP BY pv.user_id
 				 ORDER BY shared DESC
 				 LIMIT %d",
 				array_merge( array( $field_id ), $pick_values, $exclude, array( self::INTEREST_LIMIT ) )

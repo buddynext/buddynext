@@ -521,6 +521,11 @@ class WidgetService {
 		$start = wp_rand( 1, $max_id );
 		$found = array();
 
+		// The directory's own "who may be found" rule (suspended, shadow-banned,
+		// directory opt-out, awaiting approval, network scope), so a member the
+		// directory hides is never offered as someone to follow.
+		$discoverable = implode( ' AND ', \BuddyNext\Profile\MemberDirectoryService::exclusion_clauses( 'u.ID' ) );
+
 		// Pass 1 reads forward from the random point; pass 2 wraps around to the start and
 		// picks up whatever is still missing.
 		foreach ( array( array( '>=', $start ), array( '<', $start ) ) as $pass ) {
@@ -543,7 +548,8 @@ class WidgetService {
 					'SELECT u.ID
 					 FROM ' . $wpdb->users . ' u
 					 WHERE u.ID ' . $op . ' %d
-					   AND u.ID NOT IN (' . $skip_ph . ') ' . buddynext_member_scope_sql( 'u.ID', ' AND ' ) . '
+					   AND u.ID NOT IN (' . $skip_ph . ')
+					   AND ' . $discoverable . '
 					   AND NOT EXISTS (
 						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
 						   WHERE f.follower_id = %d AND f.following_id = u.ID
@@ -553,20 +559,8 @@ class WidgetService {
 						   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
 							  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
 					   )
-					   AND NOT EXISTS (
-						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_user_suspensions s_ex
-						   WHERE s_ex.user_id = u.ID
-							 AND s_ex.lifted_at IS NULL
-							 AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() )
-					   )
-					   AND NOT EXISTS (
-						   SELECT 1 FROM ' . $wpdb->usermeta . " um_ban
-						   WHERE um_ban.user_id = u.ID
-							 AND um_ban.meta_key = 'bn_shadow_banned'
-							 AND um_ban.meta_value = '1'
-					   )
 					 ORDER BY u.ID ASC
-					 LIMIT %d",
+					 LIMIT %d',
 					array_merge(
 						array( $boundary ),
 						$skip,

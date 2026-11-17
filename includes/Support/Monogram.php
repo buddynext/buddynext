@@ -28,15 +28,15 @@ final class Monogram {
 	/**
 	 * Up to two uppercase initials for a label (first word + last word).
 	 *
-	 * Matches MemberDisplay::get_initials() semantics, mb-safe. Falls back to a
-	 * neutral bullet when there is nothing letter-like to show.
+	 * Words are runs of letters and digits, so punctuation never becomes an
+	 * initial: "Senior Engineer (Remote)" is "SR", not "S(". mb-safe. Falls back
+	 * to a neutral bullet when there is nothing letter-like to show.
 	 *
 	 * @param string $text Source label (e.g. a company or item title).
 	 * @return string One or two characters, or '•'.
 	 */
 	public static function initials( string $text ): string {
-		$split = preg_split( '/\s+/', trim( $text ) );
-		$parts = array_values( array_filter( false === $split ? array() : $split ) );
+		$parts = preg_match_all( '/[\p{L}\p{N}][\p{L}\p{M}\p{N}]*/u', $text, $m ) ? $m[0] : array();
 		if ( empty( $parts ) ) {
 			return '•';
 		}

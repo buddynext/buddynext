@@ -619,9 +619,7 @@ class Spaces extends AdminPageBase {
 										<?php
 										$bn_last_active = (string) ( $space['last_active_at'] ?? '' );
 										if ( '' !== $bn_last_active ) {
-											$bn_la_ts = strtotime( $bn_last_active . ' UTC' );
-											/* translators: %s: human-readable time difference, e.g. "3 hours". */
-											echo esc_html( sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $bn_la_ts, time() ) ) );
+											echo esc_html( \BuddyNext\Core\Dates::relative( $bn_last_active ) );
 										} else {
 											echo '<span aria-hidden="true">&#8212;</span><span class="screen-reader-text">' . esc_html__( 'No activity yet', 'buddynext' ) . '</span>';
 										}

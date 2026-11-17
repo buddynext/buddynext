@@ -2085,6 +2085,21 @@ class SpaceService {
 	}
 
 	/**
+	 * The current salt of every cached spaces listing.
+	 *
+	 * Lets a cache that is derived from the spaces table (the category counts in
+	 * SpaceCategoryService) retire with the listings, on the same writes, without
+	 * knowing this service's cache group.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string
+	 */
+	public static function lists_salt(): string {
+		return CacheService::last_changed( self::CACHE_GROUP, 'space_lists' );
+	}
+
+	/**
 	 * Names and links for the parents of sub-spaces, for "in {parent}" labels.
 	 *
 	 * One query for every parent on a list, so a rail, a profile or a page of

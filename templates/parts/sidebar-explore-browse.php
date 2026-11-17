@@ -40,7 +40,7 @@ ob_start();
 			continue;
 		}
 		?>
-		<a class="bn-ex-cat" href="<?php echo esc_url( add_query_arg( 'category', $bn_cat_slug, $bn_spaces_base ) ); ?>">
+		<a class="bn-ex-cat" href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_slug, $bn_spaces_base ) ); ?>">
 			<span class="bn-ex-cat__name"><?php echo esc_html( $bn_cat_name ); ?></span>
 			<span class="bn-ex-cat__count">
 				<?php

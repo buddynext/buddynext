@@ -68,7 +68,7 @@ See [Two-Factor Authentication](../accounts-access/05-two-factor-authentication.
 **Likely causes and fixes:**
 
 - **It's genuinely taken**, or it's a reserved system address belonging to a different member. Handles are unique across the whole community - try a different one.
-- **It is a reserved word.** Words such as `support`, `staff`, `moderator` or `admin` cannot be claimed by members, and the form says the handle is taken. If a real staff account needs one, an administrator can assign it from **BuddyNext > Members > Directory > Edit Member**. Words BuddyNext uses in its own addresses (`me`, `settings`, `edit`, `search`, `new`, `all`, `page`, `admin`) stay blocked for everyone.
+- **It is a reserved word.** Words such as `support`, `staff`, `moderator` or `admin` cannot be claimed by members. The availability check shows **Not available**, and saving says the handle is reserved, so the member knows to pick a different word rather than a variant. If a real staff account needs one, an administrator can assign it from **BuddyNext > Members > Directory > Edit Member**. Words BuddyNext uses in its own addresses (`me`, `settings`, `edit`, `search`, `new`, `all`, `page`, `admin`) stay blocked for everyone.
 - **They haven't set one yet.** By default, BuddyNext assigns a system address; a member claims a custom handle from their profile settings, with live availability checking as they type.
 - **The handle contains characters that don't survive conversion.** Handles are converted to a clean, URL-safe form automatically (lowercase; spaces and periods turned into hyphens; anything other than letters, numbers, underscores and hyphens removed) - what gets saved may look different from what was typed, which is expected.
 

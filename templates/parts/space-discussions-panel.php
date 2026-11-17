@@ -69,7 +69,7 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 					</span>
 					<div class="bn-reply-card__meta">
 						<span><?php echo esc_html( $bn_author ); ?></span>
-						<span class="bn-reply-card__time"><?php echo esc_html( sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( (string) $bn_disc->created_at ) ) ) ); ?></span>
+						<span class="bn-reply-card__time"><?php echo esc_html( \BuddyNext\Core\Dates::relative( (string) $bn_disc->created_at ) ); ?></span>
 					</div>
 					<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( (string) $bn_disc->title ); ?></div>
 					<div class="bn-reply-card__context">

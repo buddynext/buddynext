@@ -17,7 +17,7 @@ A community account holds your conversations, connections, and identity. Strong 
 
 ## Change your handle
 
-Your handle is your profile address and your @mention name. On the **Account** tab, type a new handle and choose **Update handle**. Handles are 3 to 30 characters of letters, numbers, underscores and hyphens; a period is turned into a hyphen as you type. If the handle is already in use, or is a word the community keeps reserved (such as `support`), you are told it is **Taken**. Your old handle keeps working, and nobody else can take it.
+Your handle is your profile address and your @mention name. On the **Account** tab, type a new handle and choose **Update handle**. Handles are 3 to 30 characters of letters, numbers, underscores and hyphens; a period is turned into a hyphen as you type. If the handle is already in use, or is a word the community keeps reserved (such as `support`), the check shows **Not available**, and saving tells you whether it is taken or reserved. Onboarding does the same: a reserved or taken handle stops the last step with that message instead of finishing with a different handle. Your old handle keeps working, and nobody else can take it.
 
 ## Change your password
 

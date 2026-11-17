@@ -1410,10 +1410,12 @@ class AuthController {
 				$errors['user_login'] = __( 'Username must be at least 3 characters.', 'buddynext' );
 			} elseif ( ! validate_username( $user_login ) ) {
 				$errors['user_login'] = __( 'Username contains invalid characters.', 'buddynext' );
-			} elseif ( username_exists( $user_login ) || \BuddyNext\Core\PageRouter::is_reserved_profile_slug( $user_login ) ) {
-				// A reserved handle reads as taken: the login becomes the @handle,
-				// and naming the reserved list would only invite variations.
+			} elseif ( username_exists( $user_login ) ) {
 				$errors['user_login'] = __( 'This username is already taken.', 'buddynext' );
+			} elseif ( \BuddyNext\Core\PageRouter::is_reserved_profile_slug( $user_login ) ) {
+				// The login becomes the @handle. Say it is reserved, not taken, so
+				// nobody hunts for a free variant; the list itself is not named.
+				$errors['user_login'] = __( 'This username is reserved. Please choose another.', 'buddynext' );
 			}
 		}
 

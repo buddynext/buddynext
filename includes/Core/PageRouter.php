@@ -4577,9 +4577,29 @@ class PageRouter {
 	 * @return bool True when the slug is available.
 	 */
 	public static function is_slug_available( string $slug, int $user_id, bool $is_admin_actor = false ): bool {
+		return null === self::slug_refusal( $slug, $user_id, $is_admin_actor );
+	}
+
+	/**
+	 * Why a profile slug cannot be claimed by this user, or null when it can.
+	 *
+	 * The same checks as is_slug_available(), with the answer a member needs:
+	 * an unusable handle (Handle::validate()'s own error), a reserved word
+	 * (`handle_reserved`) or one somebody holds (`slug_taken`). A reserved word
+	 * used to read as "already taken", which sent people hunting for a free
+	 * variant of a name nobody may use.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $slug           Proposed slug (sanitized with sanitize_title internally).
+	 * @param int    $user_id        User requesting the slug.
+	 * @param bool   $is_admin_actor True when a site administrator assigns the slug.
+	 * @return \WP_Error|null
+	 */
+	public static function slug_refusal( string $slug, int $user_id, bool $is_admin_actor = false ): ?\WP_Error {
 		$slug = sanitize_title( $slug );
 		if ( '' === $slug ) {
-			return false;
+			return \BuddyNext\Profile\Handle::taken_error();
 		}
 
 		// Usable at all? Charset and length, before any uniqueness lookup — an
@@ -4594,17 +4614,18 @@ class PageRouter {
 		// Handle::mention_regex() stops at `%`, so the member could never be
 		// @mentioned again. HandleRepair already used is_safe() to repair
 		// nicenames in that state; nothing stopped a member creating one here.
-		if ( is_wp_error( \BuddyNext\Profile\Handle::validate( $slug ) ) ) {
-			return false;
+		$valid = \BuddyNext\Profile\Handle::validate( $slug );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
 		}
 
 		// Block the reserved "user-{id}" pattern for any other user's ID.
 		if ( preg_match( '/^user-(\d+)$/', $slug, $m ) && (int) $m[1] !== $user_id ) {
-			return false;
+			return \BuddyNext\Profile\Handle::taken_error();
 		}
 
 		if ( self::is_reserved_profile_slug( $slug, $is_admin_actor ) ) {
-			return false;
+			return \BuddyNext\Profile\Handle::reserved_error();
 		}
 
 		// A handle somebody USED to hold stays theirs. Without this, Alice renames,
@@ -4615,7 +4636,7 @@ class PageRouter {
 		// is the same record that keeps her old links working.
 		$previous_owner = \BuddyNext\Profile\Handle::previous_owner( $slug );
 		if ( $previous_owner instanceof \WP_User && (int) $previous_owner->ID !== $user_id ) {
-			return false;
+			return \BuddyNext\Profile\Handle::taken_error();
 		}
 
 		// user_nicename. Checked EVEN IF that member also has a custom slug: the
@@ -4623,7 +4644,7 @@ class PageRouter {
 		// reaches them and handing it to someone else would silently redirect it.
 		$nicename_owner = get_user_by( 'slug', $slug );
 		if ( $nicename_owner instanceof \WP_User && (int) $nicename_owner->ID !== $user_id ) {
-			return false;
+			return \BuddyNext\Profile\Handle::taken_error();
 		}
 
 		// Check bn_profile_slug usermeta (indexed; slow-query warning is a false positive).
@@ -4639,7 +4660,7 @@ class PageRouter {
 		);
 		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 
-		return empty( $taken_by_meta );
+		return empty( $taken_by_meta ) ? null : \BuddyNext\Profile\Handle::taken_error();
 	}
 
 	/**

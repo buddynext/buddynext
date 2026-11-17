@@ -2234,6 +2234,78 @@ class ModerationService {
 	}
 
 	/**
+	 * Why this actor may not suspend this member, or null when they may.
+	 *
+	 * The one answer behind the suspend guard and every place that offers a
+	 * Suspend control, so a button is never shown for a suspension the service
+	 * would refuse. The error data carries a `reason` key (`permission`, `self`,
+	 * `network_admin`, `outranked`) a screen can turn into its own wording.
+	 *
+	 * Actor 0 is the automated-rule system actor and is never refused here.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $user_id  Member to suspend.
+	 * @param int $actor_id Person suspending (0 = system).
+	 * @return WP_Error|null
+	 */
+	public function suspend_refusal( int $user_id, int $actor_id ): ?WP_Error {
+		if ( $actor_id <= 0 ) {
+			return null;
+		}
+
+		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You do not have permission to suspend members.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'permission',
+				)
+			);
+		}
+
+		// Nobody suspends themselves: it has no purpose and locks the person out of
+		// the screen they would lift it from.
+		if ( $actor_id === $user_id ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot suspend your own account.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'self',
+				)
+			);
+		}
+
+		// On a network a site administrator ranks equal to a super admin on this
+		// site, but WordPress keeps the network owner out of their reach.
+		if ( is_multisite() && is_super_admin( $user_id ) && ! is_super_admin( $actor_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot take moderation action against someone with more authority than you.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'network_admin',
+				)
+			);
+		}
+
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			$outranked->add_data(
+				array(
+					'status' => 403,
+					'reason' => 'outranked',
+				)
+			);
+			return $outranked;
+		}
+
+		return null;
+	}
+
+	/**
 	 * Suspend a user.
 	 *
 	 * Creates a row in bn_user_suspensions. A user may have multiple historical
@@ -2269,26 +2341,9 @@ class ModerationService {
 		// path resolves it from get_current_user_id() (ModerationController:1266,
 		// behind require_admin) or from the admin queue's own actor. A 0 can only be
 		// passed by server code.
-		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-
-		// Nobody suspends themselves: it has no purpose and locks the person out of
-		// the screen they would lift it from. One guard here covers the admin row
-		// action, bulk and REST.
-		if ( $actor_id > 0 && $actor_id === $user_id ) {
-			return new WP_Error( 'forbidden', __( 'You cannot suspend your own account.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-
-		// On a network a site administrator ranks equal to a super admin on this
-		// site, but WordPress keeps the network owner out of their reach.
-		if ( $actor_id > 0 && is_multisite() && is_super_admin( $user_id ) && ! is_super_admin( $actor_id ) ) {
-			return new WP_Error( 'forbidden', __( 'You cannot take moderation action against someone with more authority than you.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-
-		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
-		if ( null !== $outranked ) {
-			return $outranked;
+		$refusal = $this->suspend_refusal( $user_id, $actor_id );
+		if ( null !== $refusal ) {
+			return $refusal;
 		}
 
 		// A person suspending someone must say why: the member is shown this text on
@@ -2312,7 +2367,10 @@ class ModerationService {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only a community or site admin can suspend a member indefinitely. Set a duration to suspend as a moderator.', 'buddynext' ),
-				array( 'status' => 403 )
+				array(
+					'status' => 403,
+					'reason' => 'indefinite',
+				)
 			);
 		}
 
@@ -2829,7 +2887,7 @@ class ModerationService {
 	 * is the dropped hide_posts predicate.
 	 *
 	 * (The member directory itself emits the same gate as NOT EXISTS clauses instead
-	 * — MemberDirectoryService::directory_exclusion_subqueries() — because a NOT IN
+	 * MemberDirectoryService::exclusion_clauses(), because a NOT IN
 	 * subquery can't be reopened alongside its self-joined mutual-connection
 	 * subquery on MySQL 5.7; the gate is identical, only the SQL shape differs.)
 	 *

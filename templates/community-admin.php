@@ -237,7 +237,7 @@ if ( ! function_exists( 'bn_time_diff' ) ) {
 	 * @return string Localized time diff.
 	 */
 	function bn_time_diff( string $datetime ): string {
-		return sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $datetime ), time() ) );
+		return \BuddyNext\Core\Dates::relative( $datetime );
 	}
 }
 
@@ -959,7 +959,7 @@ $posts_pct_abs = abs( $posts_pct );
 								: __( 'Report', 'buddynext' );
 							$rpt_ts       = ! empty( $rpt['created_at'] ) ? (int) strtotime( (string) $rpt['created_at'] . ' UTC' ) : 0;
 							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
-							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';
+							$rpt_time     = \BuddyNext\Core\Dates::relative( (string) ( $rpt['created_at'] ?? '' ) );
 							// Interactivity context the moderation store's dismiss/removeContent
 							// actions read. data-report-id is the selector they use to drop the
 							// row on success.
@@ -1315,9 +1315,9 @@ $posts_pct_abs = abs( $posts_pct );
 							$su_name  = '' !== (string) ( $signup->display_name ?? '' ) ? (string) $signup->display_name : __( 'Member', 'buddynext' );
 							$su_init  = \BuddyNext\Profile\AvatarService::initials_for( $su_name );
 							$su_email = (string) ( $signup->user_email ?? '' );
-							$su_ts    = isset( $signup->user_registered ) ? (int) strtotime( (string) $signup->user_registered ) : 0;
+							$su_ts    = \BuddyNext\Core\Dates::utc_timestamp( (string) ( $signup->user_registered ?? '' ) );
 							$su_iso   = $su_ts ? gmdate( DATE_ATOM, $su_ts ) : '';
-							$su_time  = $su_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $su_ts, time() ) ) : '';
+							$su_time  = \BuddyNext\Core\Dates::relative( (string) ( $signup->user_registered ?? '' ) );
 							?>
 							<div class="bn-ca-row">
 								<span class="bn-avatar" data-size="sm" aria-label="<?php echo esc_attr( $su_name ); ?>"><?php echo esc_html( $su_init ); ?></span>

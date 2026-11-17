@@ -169,7 +169,7 @@ class MemberEditAuthorizationTest extends WP_UnitTestCase {
 		$this->admin();
 		$member = self::factory()->user->create();
 
-		$this->assertSame( 'slug_taken', $this->check( $member, array( 'bn_profile_slug' => 'settings' ) ) );
+		$this->assertSame( 'slug_reserved', $this->check( $member, array( 'bn_profile_slug' => 'settings' ) ) );
 	}
 
 	public function test_an_unchanged_reserved_handle_does_not_block_other_edits(): void {

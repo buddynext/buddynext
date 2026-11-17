@@ -85,7 +85,7 @@ $bn_sft_back  = remove_query_arg( array( 'bn_trash', 'bn_files_page' ), (string)
 				}
 				if ( ! empty( $bn_sft_f['purge_at'] ) ) {
 					/* translators: %s: time until purge. */
-					$bn_sft_info[] = sprintf( __( 'removed in %s', 'buddynext' ), human_time_diff( time(), (int) strtotime( (string) $bn_sft_f['purge_at'] ) ) );
+					$bn_sft_info[] = sprintf( __( 'removed in %s', 'buddynext' ), human_time_diff( time(), \BuddyNext\Core\Dates::utc_timestamp( (string) $bn_sft_f['purge_at'] ) ) );
 				}
 				?>
 				<li class="bn-files__row bn-files__row--folder bn-files-trash__row">

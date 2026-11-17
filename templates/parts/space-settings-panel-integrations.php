@@ -201,8 +201,14 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 						<?php if ( '' !== $bn_disc_url ) : ?>
 							&middot; <a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View discussion', 'buddynext' ); ?></a>
 						<?php endif; ?>
-						&middot;
-						<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>" data-wp-on--click="actions.unlinkDiscussion"><?php esc_html_e( 'Unlink', 'buddynext' ); ?></button>
+						<?php
+						// Unlink is the owner's, like the toggle beside it: the route refuses
+						// a moderator, so a moderator gets no button that can only fail.
+						if ( $args['is_space_owner'] ) :
+							?>
+							&middot;
+							<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>" data-wp-on--click="actions.unlinkDiscussion"><?php esc_html_e( 'Unlink', 'buddynext' ); ?></button>
+						<?php endif; ?>
 					</p>
 				<?php endif; ?>
 			<?php else : ?>
@@ -219,7 +225,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<?php endif; ?>
 	</div>
 
-	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) ) : ?>
+	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) && $args['is_space_owner'] ) : ?>
 		<?php
 		// First-time setup only: create a new dedicated discussion (default)
 		// or link an existing one. The typeahead search scopes results by

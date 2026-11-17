@@ -35,6 +35,13 @@ class PageCachePurger implements ListenerInterface {
 	private static array $purged = array();
 
 	/**
+	 * Whether the whole page cache was already flushed in this request.
+	 *
+	 * @var bool
+	 */
+	private static bool $purged_all = false;
+
+	/**
 	 * Register the hooks.
 	 *
 	 * @return void
@@ -49,6 +56,71 @@ class PageCachePurger implements ListenerInterface {
 			add_action( $hook, array( $this, 'on_post_change' ), 10, 1 );
 		}
 		add_action( 'buddynext_space_posts_changed', array( $this, 'on_space_change' ), 10, 1 );
+
+		// The hub registry is filled on init:0, so its slug options are known from init:1.
+		if ( did_action( 'init' ) ) {
+			$this->watch_hub_slugs();
+		} else {
+			add_action( 'init', array( $this, 'watch_hub_slugs' ), 1 );
+		}
+	}
+
+	/**
+	 * Listen for a hub slug change (Settings > Pages, the setup wizard, WP-CLI).
+	 *
+	 * Every rename writes the hub's slug option, so this is the one place they all
+	 * pass. A first rename creates the option, so its old slug is the default.
+	 *
+	 * @return void
+	 */
+	public function watch_hub_slugs(): void {
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			add_action(
+				'update_option_' . $hub->slug_option,
+				function ( $old_slug, $new_slug ): void {
+					$this->on_hub_renamed( (string) $old_slug, (string) $new_slug );
+				},
+				10,
+				2
+			);
+			add_action(
+				'add_option_' . $hub->slug_option,
+				function ( $option, $new_slug ) use ( $hub ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- add_option_{name} passes the name first.
+					$this->on_hub_renamed( $hub->default_slug, (string) $new_slug );
+				},
+				10,
+				2
+			);
+		}
+	}
+
+	/**
+	 * A hub moved to a new address.
+	 *
+	 * Every cached page carries the hub links in its header and nav, so after a
+	 * rename every cached copy points at the old address, and the old hub URL
+	 * itself was still served as a cached 200 instead of redirecting. The whole
+	 * page cache is flushed (a rare, owner-made change), and the old and new hub
+	 * URLs go through the per-URL purge so a cache that only listens to
+	 * `buddynext_purge_page_cache` drops them too.
+	 *
+	 * @param string $old_slug Slug the hub is leaving.
+	 * @param string $new_slug Slug the hub now answers to.
+	 * @return void
+	 */
+	public function on_hub_renamed( string $old_slug, string $new_slug ): void {
+		$old_slug = sanitize_title( $old_slug );
+		$new_slug = sanitize_title( $new_slug );
+		if ( $old_slug === $new_slug ) {
+			return;
+		}
+
+		self::purge_all();
+		foreach ( array( $old_slug, $new_slug ) as $slug ) {
+			if ( '' !== $slug ) {
+				self::purge( trailingslashit( home_url( '/' . $slug ) ) );
+			}
+		}
 	}
 
 	/**
@@ -85,6 +157,43 @@ class PageCachePurger implements ListenerInterface {
 	 */
 	public function on_space_change( int $space_id ): void {
 		self::purge( PageRouter::space_url( $space_id ) );
+	}
+
+	/**
+	 * Flush every page cache that is active, once per request.
+	 *
+	 * For a change that alters every page (a hub address in the nav), not for
+	 * content changes, which purge their own URLs.
+	 *
+	 * @return void
+	 */
+	private static function purge_all(): void {
+		if ( self::$purged_all ) {
+			return;
+		}
+		self::$purged_all = true;
+
+		if ( function_exists( 'wp_cache_clear_cache' ) ) {
+			wp_cache_clear_cache(); // WP Super Cache.
+		}
+		if ( function_exists( 'rocket_clean_domain' ) ) {
+			rocket_clean_domain(); // WP Rocket.
+		}
+		if ( function_exists( 'w3tc_flush_all' ) ) {
+			w3tc_flush_all(); // W3 Total Cache.
+		}
+		do_action( 'litespeed_purge_all' ); // LiteSpeed Cache.
+
+		/**
+		 * Fires after BuddyNext flushed the whole page cache of the known caches.
+		 *
+		 * Runs when a hub address changes, because every cached page links to the
+		 * hubs. A page cache BuddyNext does not know (Cloudflare APO, Varnish, a
+		 * proxy) flushes everything here.
+		 *
+		 * @since 1.3.0
+		 */
+		do_action( 'buddynext_purge_page_cache_all' );
 	}
 
 	/**

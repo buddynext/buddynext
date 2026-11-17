@@ -352,6 +352,25 @@ class OnboardingController {
 			return $too_long;
 		}
 
+		// A handle that cannot be had stops the finish with the reason, before
+		// anything is written. It used to be dropped silently: the response said
+		// completed while the member kept a different handle than the one chosen.
+		$slug = $request->get_param( 'slug' );
+		if ( is_string( $slug ) && '' !== trim( $slug ) ) {
+			$refusal = $this->service->slug_refusal( $user_id, $slug );
+			if ( null !== $refusal ) {
+				return new WP_REST_Response(
+					array(
+						'completed' => false,
+						'code'      => $refusal->get_error_code(),
+						'message'   => $refusal->get_error_message(),
+						'errors'    => array( 'slug' => $refusal->get_error_message() ),
+					),
+					409
+				);
+			}
+		}
+
 		// Step 1 — profile (display name + bio).
 		$profile = array();
 		if ( null !== $request->get_param( 'display_name' ) ) {
@@ -373,7 +392,6 @@ class OnboardingController {
 		// the member first learned their real one from their profile URL.
 		// Reported as onboarding showing "shubham.qa" and publishing "@shubham-qa".
 		$bn_saved_handle = '';
-		$slug            = $request->get_param( 'slug' );
 		if ( is_string( $slug ) && '' !== trim( $slug ) ) {
 			$bn_saved_handle = $this->service->save_slug( $user_id, $slug );
 		}

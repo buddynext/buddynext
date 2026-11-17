@@ -82,4 +82,55 @@ class PageCachePurgerTest extends \WP_UnitTestCase {
 
 		$this->assertContains( PageRouter::space_url( 9 ), $this->purged );
 	}
+
+	/**
+	 * Renaming a hub flushes the whole page cache (every page links to the hub)
+	 * and hands the old and new hub URLs to the per-URL purge. On a page-cached
+	 * site the old /members/ was still served as a cached 200 after a rename.
+	 *
+	 * @return void
+	 */
+	public function test_renaming_a_hub_flushes_every_cached_page(): void {
+		$flushed   = 0;
+		$litespeed = 0;
+		add_action(
+			'buddynext_purge_page_cache_all',
+			static function () use ( &$flushed ): void {
+				++$flushed;
+			}
+		);
+		add_action(
+			'litespeed_purge_all',
+			static function () use ( &$litespeed ): void {
+				++$litespeed;
+			}
+		);
+
+		update_option( 'buddynext_slug_people', 'people' );
+		update_option( 'buddynext_slug_people', 'community' );
+
+		$this->assertSame( 1, $flushed, 'A hub rename flushes the whole page cache, once per request.' );
+		$this->assertSame( 1, $litespeed, 'LiteSpeed is told to purge everything.' );
+		$this->assertContains( trailingslashit( home_url( '/people' ) ), $this->purged, 'The old hub URL is purged.' );
+		$this->assertContains( trailingslashit( home_url( '/community' ) ), $this->purged, 'The new hub URL is purged.' );
+	}
+
+	/**
+	 * Saving the same slug again is not a rename and flushes nothing.
+	 *
+	 * @return void
+	 */
+	public function test_an_unchanged_hub_slug_flushes_nothing(): void {
+		$flushed = 0;
+		add_action(
+			'buddynext_purge_page_cache_all',
+			static function () use ( &$flushed ): void {
+				++$flushed;
+			}
+		);
+
+		( new PageCachePurger() )->on_hub_renamed( 'members', 'members' );
+
+		$this->assertSame( 0, $flushed );
+	}
 }

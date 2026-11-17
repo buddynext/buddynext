@@ -1762,10 +1762,11 @@ class AdminHub {
 		}
 		// A tab the placement map knows for this section but nobody registered belongs
 		// to a feature that is off (or a plugin that is inactive), not to a moved setting.
+		// The filtered map, so a tab an add-on places through bn_admin_hub_tab_placement counts too.
 		$bn_tab_unavailable = false;
 		if ( $bn_tab_misrouted ) {
-			foreach ( self::TAB_PLACEMENT as $bn_key => $bn_place ) {
-				if ( str_ends_with( (string) $bn_key, ':' . $bn_requested_tab ) && $bn_place['section'] === $section_key ) {
+			foreach ( self::tab_placement() as $bn_key => $bn_place ) {
+				if ( str_ends_with( (string) $bn_key, ':' . $bn_requested_tab ) && ( $bn_place['section'] ?? '' ) === $section_key ) {
 					$bn_tab_unavailable = true;
 					break;
 				}
@@ -1809,15 +1810,20 @@ class AdminHub {
 				esc_html__( 'Turn features on or off', 'buddynext' )
 			);
 		} elseif ( $bn_tab_misrouted ) {
+			// Not every tab is in the placement map (add-on tabs keep their own home), so an
+			// unknown slug may still be a feature that is off. Say what may be true and point
+			// to Features, rather than claiming the tab is gone.
 			printf(
-				'<div class="notice notice-warning"><p>%s</p></div>',
+				'<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
 				esc_html(
 					sprintf(
 						/* translators: %s: the tab actually shown. */
-						__( 'That setting has moved: showing “%s” instead. The link you followed pointed at a tab that no longer exists.', 'buddynext' ),
+						__( 'The screen you asked for is not available here. It may belong to a feature that is turned off or a plugin that is not active, or the setting may have moved. Showing “%s” instead.', 'buddynext' ),
 						(string) $active['label']
 					)
-				)
+				),
+				esc_url( self::tab_url( 'settings', 'features' ) ),
+				esc_html__( 'Turn features on or off', 'buddynext' )
 			);
 		}
 		call_user_func( $active['render'] );

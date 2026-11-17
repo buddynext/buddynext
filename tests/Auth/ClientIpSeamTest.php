@@ -221,6 +221,26 @@ class ClientIpSeamTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A passing result says what was found. It used to claim "Recent members signed
+	 * in from different addresses" when it had skipped the check or had too few
+	 * sign-ins to judge.
+	 */
+	public function test_site_health_passing_result_says_what_was_checked(): void {
+		$few = SafeguardService::site_health_client_ip_test();
+		$this->assertSame( 'good', $few['status'] );
+		$this->assertStringNotContainsString( 'different addresses', $few['description'], 'No sign-ins were compared.' );
+		$this->assertStringContainsString( 'too few', $few['description'] );
+
+		$this->members_from( array( '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5' ) );
+		$this->assertStringContainsString( 'different addresses', SafeguardService::site_health_client_ip_test()['description'] );
+
+		add_filter( 'buddynext_client_ip', static fn( $ip ) => $ip );
+		$mapped = SafeguardService::site_health_client_ip_test();
+		$this->assertStringNotContainsString( 'different addresses', $mapped['description'], 'The check was skipped.' );
+		$this->assertStringContainsString( 'buddynext_client_ip', $mapped['description'] );
+	}
+
+	/**
 	 * The test is registered with Site Health.
 	 */
 	public function test_site_health_registers(): void {

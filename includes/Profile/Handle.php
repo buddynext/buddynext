@@ -500,11 +500,7 @@ final class Handle {
 
 		if ( ! in_array( $handle, $previous, true )
 			&& \BuddyNext\Core\PageRouter::is_reserved_profile_slug( $handle, $is_admin_actor ) ) {
-			return new \WP_Error(
-				'handle_taken',
-				__( 'That handle is already taken.', 'buddynext' ),
-				array( 'status' => 409 )
-			);
+			return self::reserved_error();
 		}
 
 		// Refuse a handle that is spoken for BEFORE writing anything. Detecting the
@@ -515,20 +511,12 @@ final class Handle {
 		// apart than when we started.
 		$owner = get_user_by( 'slug', $handle );
 		if ( $owner instanceof \WP_User && (int) $owner->ID !== $user_id ) {
-			return new \WP_Error(
-				'handle_taken',
-				__( 'That handle is already taken.', 'buddynext' ),
-				array( 'status' => 409 )
-			);
+			return self::taken_error();
 		}
 
 		$reserved = self::previous_owner( $handle );
 		if ( $reserved instanceof \WP_User && (int) $reserved->ID !== $user_id ) {
-			return new \WP_Error(
-				'handle_taken',
-				__( 'That handle is already taken.', 'buddynext' ),
-				array( 'status' => 409 )
-			);
+			return self::taken_error();
 		}
 
 		update_user_meta( $user_id, 'bn_profile_slug', $handle );
@@ -573,6 +561,88 @@ final class Handle {
 		}
 
 		self::remember( $user_id, $previous, $handle );
+		clean_user_cache( $user_id );
+
+		return true;
+	}
+
+	/**
+	 * The refusal for a handle another member holds (or held).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return \WP_Error
+	 */
+	public static function taken_error(): \WP_Error {
+		return new \WP_Error(
+			'handle_taken',
+			__( 'That handle is already taken.', 'buddynext' ),
+			array( 'status' => 409 )
+		);
+	}
+
+	/**
+	 * The refusal for a reserved word (a route or a staff-sounding name).
+	 *
+	 * Says it is reserved, not taken: "taken" sends a member looking for a free
+	 * variant of a name nobody may use. The list itself is not named.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return \WP_Error
+	 */
+	public static function reserved_error(): \WP_Error {
+		return new \WP_Error(
+			'handle_reserved',
+			__( 'That handle is reserved. Please choose another.', 'buddynext' ),
+			array( 'status' => 409 )
+		);
+	}
+
+	/**
+	 * The handle a member gets when no one has chosen one: their username, made
+	 * URL-safe the way WordPress makes a nicename, or user-{id} when nothing of
+	 * the username survives (a username in a non-Latin script).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param \WP_User $user Member.
+	 * @return string
+	 */
+	public static function default_for( \WP_User $user ): string {
+		// The way core derives a nicename: strict ASCII username, then a slug.
+		$safe = sanitize_title( sanitize_user( mb_substr( (string) $user->user_login, 0, 50 ), true ) );
+		return true === self::validate( $safe ) ? $safe : 'user-' . (int) $user->ID;
+	}
+
+	/**
+	 * Put a member back on their default handle (see default_for()).
+	 *
+	 * Goes through set(), so availability is checked, user_nicename follows and
+	 * the custom handle is kept in the history (old links and mentions still
+	 * reach them). Then the custom-handle meta is removed, so the member reads
+	 * as "using the default" again.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $user_id Member.
+	 * @return true|\WP_Error
+	 */
+	public static function reset( int $user_id ): bool|\WP_Error {
+		$user = get_userdata( $user_id );
+		if ( ! $user instanceof \WP_User ) {
+			return new \WP_Error( 'no_user', __( 'No account found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$default = self::default_for( $user );
+		if ( $default !== $user->user_nicename || '' !== (string) get_user_meta( $user_id, 'bn_profile_slug', true ) ) {
+			$set = self::set( $user_id, $default, true );
+			if ( is_wp_error( $set ) ) {
+				return $set;
+			}
+		}
+
+		delete_user_meta( $user_id, 'bn_profile_slug' );
 		clean_user_cache( $user_id );
 
 		return true;

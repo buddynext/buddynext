@@ -568,7 +568,7 @@ class CoreRegistration {
 
 		// The login becomes the @handle, so the reserved handles bind here too.
 		if ( \BuddyNext\Core\PageRouter::is_reserved_profile_slug( (string) $login ) ) {
-			$errors->add( 'username_exists', __( 'This username is already taken.', 'buddynext' ) );
+			$errors->add( 'username_exists', __( 'This username is reserved. Please choose another.', 'buddynext' ) );
 		}
 
 		$policy = buddynext_service( 'registration_policy' );

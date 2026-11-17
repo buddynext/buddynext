@@ -131,6 +131,35 @@ final class Dates {
 	}
 
 	/**
+	 * "3 hours ago" / "in 2 days" for a stored UTC "Y-m-d H:i:s" value.
+	 *
+	 * The one long-form relative label for admin screens and lists (the compact
+	 * feed byline is buddynext_time_ago()). Both ends of the gap are true UTC
+	 * instants - the stored value read as UTC and time() - so the label is right
+	 * on every site timezone. Comparing with current_time( 'timestamp' ) shifted
+	 * "now" by the site's offset and turned past events into "in 5 hours" on any
+	 * site outside UTC.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $mysql_utc UTC datetime as stored (no timezone marker).
+	 * @return string Unescaped label, or '' when empty/zero/invalid.
+	 */
+	public static function relative( string $mysql_utc ): string {
+		$ts = self::utc_timestamp( $mysql_utc );
+		if ( 0 === $ts ) {
+			return '';
+		}
+		$now = time();
+
+		return $ts <= $now
+			/* translators: %s: human-readable time difference, e.g. "3 hours". */
+			? sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $ts, $now ) )
+			/* translators: %s: human time difference, e.g. "3 days" */
+			: sprintf( __( 'in %s', 'buddynext' ), human_time_diff( $now, $ts ) );
+	}
+
+	/**
 	 * Recursively add `<key>_gmt` ISO-8601 siblings for whitelisted timestamp
 	 * keys.
 	 *
