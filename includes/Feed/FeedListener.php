@@ -89,8 +89,8 @@ class FeedListener implements ListenerInterface {
 	/**
 	 * Invalidate the REPORTER's own first-page feed after they report something.
 	 *
-	 * The call to invalidate_writer() is right despite the name: the version stamp it
-	 * bumps (`home:ver:<id>`) is the same one home_page_1_key() salts the VIEWER's
+	 * The call to invalidate_writer() is right despite the name: the salt it
+	 * moves (family `home:<id>`) is the same one home_page_1_key() salts the VIEWER's
 	 * key with, so bumping it for the reporter rebuilds the reporter's own feed.
 	 *
 	 * @param int    $report_id   Report row (unused - shape only).

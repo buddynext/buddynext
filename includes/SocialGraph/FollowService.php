@@ -14,6 +14,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\SocialGraph;
 
+use BuddyNext\Core\CacheService;
 use WP_Error;
 
 /**
@@ -1025,29 +1026,7 @@ class FollowService {
 		if ( $user_id <= 0 ) {
 			return;
 		}
-		// Bump the per-user version salt embedded in the cache key — the
-		// cheapest portable invalidation without an object-cache group flush
-		// (same pattern as SpaceSuggestionService::flush_for_user()).
-		wp_cache_set(
-			'ver:' . $user_id,
-			$this->suggestions_cache_version( $user_id ) . '.' . wp_rand( 1, 99999 ),
-			self::SUGGEST_CACHE_GROUP
-		);
-	}
-
-	/**
-	 * Current per-user suggestion cache-version salt (seeded on first read).
-	 *
-	 * @param int $user_id Viewer user ID.
-	 * @return string
-	 */
-	private function suggestions_cache_version( int $user_id ): string {
-		$ver = wp_cache_get( 'ver:' . $user_id, self::SUGGEST_CACHE_GROUP );
-		if ( ! is_string( $ver ) || '' === $ver ) {
-			$ver = '1';
-			wp_cache_set( 'ver:' . $user_id, $ver, self::SUGGEST_CACHE_GROUP );
-		}
-		return $ver;
+		CacheService::set_last_changed( self::SUGGEST_CACHE_GROUP, 'suggest:' . $user_id );
 	}
 
 	/**
@@ -1057,7 +1036,7 @@ class FollowService {
 	 * @return int[] Candidate user IDs in rank order.
 	 */
 	private function ranked_suggestion_ids( int $user_id ): array {
-		$cache_key = $user_id . ':' . $this->suggestions_cache_version( $user_id );
+		$cache_key = $user_id . ':' . CacheService::last_changed( self::SUGGEST_CACHE_GROUP, 'suggest:' . $user_id );
 		$cached    = wp_cache_get( $cache_key, self::SUGGEST_CACHE_GROUP );
 		if ( is_array( $cached ) ) {
 			return array_map( 'intval', $cached );

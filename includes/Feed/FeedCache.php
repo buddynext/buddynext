@@ -18,6 +18,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Core\CacheService;
+
 /**
  * Cache groups + TTLs + get/set/bust helpers for the feed.
  */
@@ -77,8 +79,8 @@ class FeedCache {
 		// changes every key derived from it, the object-cache-safe way to
 		// "delete" keys a store cannot wildcard-match.
 		return 'home:p1:' . $user_id . ':' . $per_page
-			. ':u' . $this->user_version( $user_id )
-			. ':g' . $this->global_version();
+			. ':u' . $this->user_salt( $user_id )
+			. ':g' . $this->global_salt();
 	}
 
 	/**
@@ -104,9 +106,9 @@ class FeedCache {
 	 */
 	public function space_page_1_key( int $space_id, int $viewer_id, int $per_page ): string {
 		return 'space:p1:' . $space_id . ':' . $viewer_id . ':' . $per_page
-			. ':s' . $this->space_version( $space_id )
-			. ':v' . $this->user_version( $viewer_id )
-			. ':g' . $this->global_version();
+			. ':s' . $this->space_salt( $space_id )
+			. ':v' . $this->user_salt( $viewer_id )
+			. ':g' . $this->global_salt();
 	}
 
 	/**
@@ -129,25 +131,38 @@ class FeedCache {
 	 */
 	public function profile_page_1_key( int $profile_id, int $viewer_id, int $per_page ): string {
 		return 'prof:p1:' . $profile_id . ':' . $viewer_id . ':' . $per_page
-			. ':o' . $this->user_version( $profile_id )
-			. ':v' . $this->user_version( $viewer_id )
-			. ':g' . $this->global_version();
+			. ':o' . $this->user_salt( $profile_id )
+			. ':v' . $this->user_salt( $viewer_id )
+			. ':g' . $this->global_salt();
 	}
 
 	/**
-	 * Per-space feed cache version (defaults to 1, lazily seeded).
+	 * Last-changed salt of one space's feed.
 	 *
 	 * @param int $space_id Space.
-	 * @return int
+	 * @return string
 	 */
-	private function space_version( int $space_id ): int {
-		$key   = 'space:ver:' . $space_id;
-		$value = wp_cache_get( $key, self::GROUP_GLOBAL );
-		if ( false === $value ) {
-			$value = 1;
-			wp_cache_set( $key, $value, self::GROUP_GLOBAL );
-		}
-		return (int) $value;
+	private function space_salt( int $space_id ): string {
+		return CacheService::last_changed( self::GROUP_GLOBAL, 'space:' . $space_id );
+	}
+
+	/**
+	 * Last-changed salt of one member's feed reads (as viewer, writer or profile owner).
+	 *
+	 * @param int $user_id Member.
+	 * @return string
+	 */
+	private function user_salt( int $user_id ): string {
+		return CacheService::last_changed( self::GROUP_USER, 'home:' . $user_id );
+	}
+
+	/**
+	 * Site-wide feed salt, part of every page-1 key.
+	 *
+	 * @return string
+	 */
+	private function global_salt(): string {
+		return CacheService::last_changed( self::GROUP_GLOBAL, 'home' );
 	}
 
 	/**
@@ -163,38 +178,7 @@ class FeedCache {
 		if ( $space_id <= 0 ) {
 			return;
 		}
-		$key = 'space:ver:' . $space_id;
-		wp_cache_set( $key, ( (int) wp_cache_get( $key, self::GROUP_GLOBAL ) ) + 1, self::GROUP_GLOBAL );
-	}
-
-	/**
-	 * Per-user feed cache version (defaults to 1, lazily seeded).
-	 *
-	 * @param int $user_id Viewer.
-	 * @return int
-	 */
-	private function user_version( int $user_id ): int {
-		$key   = 'home:ver:' . $user_id;
-		$value = wp_cache_get( $key, self::GROUP_USER );
-		if ( false === $value ) {
-			$value = 1;
-			wp_cache_set( $key, $value, self::GROUP_USER );
-		}
-		return (int) $value;
-	}
-
-	/**
-	 * Global feed cache version (defaults to 1, lazily seeded).
-	 *
-	 * @return int
-	 */
-	private function global_version(): int {
-		$value = wp_cache_get( 'home:gver', self::GROUP_GLOBAL );
-		if ( false === $value ) {
-			$value = 1;
-			wp_cache_set( 'home:gver', $value, self::GROUP_GLOBAL );
-		}
-		return (int) $value;
+		CacheService::set_last_changed( self::GROUP_GLOBAL, 'space:' . $space_id );
 	}
 
 	/**
@@ -212,8 +196,7 @@ class FeedCache {
 		if ( $writer_id <= 0 ) {
 			return;
 		}
-		$key = 'home:ver:' . $writer_id;
-		wp_cache_set( $key, ( (int) wp_cache_get( $key, self::GROUP_USER ) ) + 1, self::GROUP_USER );
+		CacheService::set_last_changed( self::GROUP_USER, 'home:' . $writer_id );
 	}
 
 	/**
@@ -227,6 +210,6 @@ class FeedCache {
 	 * @return void
 	 */
 	public function invalidate_all_users(): void {
-		wp_cache_set( 'home:gver', ( (int) wp_cache_get( 'home:gver', self::GROUP_GLOBAL ) ) + 1, self::GROUP_GLOBAL );
+		CacheService::set_last_changed( self::GROUP_GLOBAL, 'home' );
 	}
 }

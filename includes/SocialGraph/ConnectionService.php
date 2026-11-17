@@ -16,6 +16,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\SocialGraph;
 
+use BuddyNext\Core\CacheService;
 use WP_Error;
 
 /**
@@ -802,7 +803,7 @@ class ConnectionService {
 	public function connections( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "connections_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
+		$cache_key = "connections_{$user_id}_{$limit}_{$offset}_v" . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_id}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -848,7 +849,7 @@ class ConnectionService {
 	public function pending_sent( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "pending_sent_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
+		$cache_key = "pending_sent_{$user_id}_{$limit}_{$offset}_v" . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_id}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -888,7 +889,7 @@ class ConnectionService {
 	public function pending_received( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "pending_received_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
+		$cache_key = "pending_received_{$user_id}_{$limit}_{$offset}_v" . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_id}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -984,7 +985,7 @@ class ConnectionService {
 			);
 		}
 
-		$cache_key = 'connections_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . $this->version( $user_id );
+		$cache_key = 'connections_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_id}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (array) $cached;
@@ -1035,7 +1036,7 @@ class ConnectionService {
 			);
 		}
 
-		$cache_key = 'pending_sent_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . $this->version( $user_id );
+		$cache_key = 'pending_sent_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_id}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (array) $cached;
@@ -1085,7 +1086,7 @@ class ConnectionService {
 			);
 		}
 
-		$cache_key = 'pending_received_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . $this->version( $user_id );
+		$cache_key = 'pending_received_ks_' . $user_id . '_' . $per_page . '_' . ( null !== $cursor && '' !== $cursor ? md5( $cursor ) : 'first' ) . '_v' . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_id}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (array) $cached;
@@ -1141,7 +1142,7 @@ class ConnectionService {
 			return array();
 		}
 
-		$cache_key = 'pending_notes_' . $user_id . '_' . md5( implode( ',', $ids ) ) . '_v' . $this->version( $user_id );
+		$cache_key = 'pending_notes_' . $user_id . '_' . md5( implode( ',', $ids ) ) . '_v' . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_id}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -1195,7 +1196,7 @@ class ConnectionService {
 
 		global $wpdb;
 
-		$cache_key = "mutual_count_{$user_a}_{$user_b}_v" . $this->version( $user_a ) . '_' . $this->version( $user_b );
+		$cache_key = "mutual_count_{$user_a}_{$user_b}_v" . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_a}" ) . '_' . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_b}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (int) $cached;
@@ -1263,7 +1264,7 @@ class ConnectionService {
 			$limit = (int) apply_filters( 'buddynext_mutual_list_cap', self::MUTUAL_LIST_CAP, $user_a, $user_b );
 		}
 
-		$cache_key = "mutual_{$user_a}_{$user_b}_{$limit}_v" . $this->version( $user_a ) . '_' . $this->version( $user_b );
+		$cache_key = "mutual_{$user_a}_{$user_b}_{$limit}_v" . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_a}" ) . '_' . CacheService::last_changed( self::CACHE_GROUP, "conn:{$user_b}" );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (array) $cached;
@@ -1511,59 +1512,6 @@ class ConnectionService {
 	}
 
 	/**
-	 * The per-member cache version.
-	 *
-	 * Every unbounded key set (the paged lists, and the pairwise `mutual_` keys) embeds the
-	 * version of the member(s) it depends on. Bumping the version makes every one of those keys
-	 * unreachable at once, without touching any other member's cache — which is what
-	 * delete-by-key cannot do for a key set whose offsets you cannot enumerate.
-	 *
-	 * Seeded from `time()`, not from 1, and deliberately. If the object cache evicts a version
-	 * key under memory pressure while data keyed on it is still cached, a re-seed must produce a
-	 * NEW value — never one that was used before, or the old entries become reachable again and
-	 * we would resurrect stale data. A monotonic seed makes that impossible.
-	 *
-	 * Stored with no expiry: the version must outlive the data it versions.
-	 *
-	 * @since 1.0.8
-	 *
-	 * @param int $uid Member ID.
-	 * @return int Current version.
-	 */
-	private function version( int $uid ): int {
-		$key = "conn_ver_{$uid}";
-		$ver = wp_cache_get( $key, self::CACHE_GROUP );
-
-		if ( false === $ver ) {
-			$ver = time();
-			wp_cache_set( $key, $ver, self::CACHE_GROUP, 0 );
-		}
-
-		return (int) $ver;
-	}
-
-	/**
-	 * Bump a member's cache version, retiring every unbounded key that embeds it.
-	 *
-	 * @since 1.0.8
-	 *
-	 * @param int $uid Member ID.
-	 * @return void
-	 */
-	private function bump_version( int $uid ): void {
-		$key = "conn_ver_{$uid}";
-
-		if ( false === wp_cache_get( $key, self::CACHE_GROUP ) ) {
-			// Nothing cached under this version yet; seeding is enough.
-			wp_cache_set( $key, time(), self::CACHE_GROUP, 0 );
-
-			return;
-		}
-
-		wp_cache_incr( $key, 1, self::CACHE_GROUP );
-	}
-
-	/**
 	 * Invalidate the cache for the two members a write actually touched.
 	 *
 	 * This used to be `wp_cache_flush_group()`, and that was wrong twice over.
@@ -1610,8 +1558,8 @@ class ConnectionService {
 
 		$this->invalidate_connection_counts( $user_a, $user_b );
 
-		$this->bump_version( $user_a );
-		$this->bump_version( $user_b );
+		CacheService::set_last_changed( self::CACHE_GROUP, "conn:{$user_a}" );
+		CacheService::set_last_changed( self::CACHE_GROUP, "conn:{$user_b}" );
 	}
 
 	/**

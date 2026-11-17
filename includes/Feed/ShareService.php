@@ -13,6 +13,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Core\CacheService;
 use WP_Error;
 
 /**
@@ -41,12 +42,9 @@ class ShareService {
 	 *                      WP_Error('already_shared') on duplicate.
 	 */
 	public function share( int $user_id, int $post_id, string $content = '', ?string $created_at = null ): int|WP_Error {
-		if ( ! buddynext_feature_enabled( 'shares' ) ) {
-			return new WP_Error(
-				'shares_disabled',
-				__( 'Sharing is disabled on this community.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		$off = buddynext_feature_refusal( 'shares', 'shares_disabled', __( 'Sharing is disabled on this community.', 'buddynext' ) );
+		if ( $off ) {
+			return $off;
 		}
 
 		global $wpdb;
@@ -356,7 +354,7 @@ class ShareService {
 		// Two queries (rows + COUNT) on the profile Reshares tab. Cached per member and
 		// per page, and busted whenever that member shares or unshares — the only two
 		// things that can change the answer.
-		$cache_key = 'shares_v' . self::shares_version( $user_id ) . "_{$user_id}_{$per_page}_{$page}";
+		$cache_key = 'shares_v' . CacheService::last_changed( self::CACHE_GROUP, "shares:{$user_id}" ) . "_{$user_id}_{$per_page}_{$page}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -409,23 +407,6 @@ class ShareService {
 	}
 
 	/**
-	 * Version of one member's cached reshare pages.
-	 *
-	 * @param int $user_id Member.
-	 * @return int
-	 */
-	private static function shares_version( int $user_id ): int {
-		$version = wp_cache_get( "shares_ver_{$user_id}", self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( "shares_ver_{$user_id}", $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
 	 * Invalidate every cached reshare page for one member.
 	 *
 	 * A version bump, because the list is cached per page AND per page size: a share
@@ -437,7 +418,7 @@ class ShareService {
 	 */
 	private static function flush_shares( int $user_id ): void {
 		if ( $user_id > 0 ) {
-			wp_cache_set( "shares_ver_{$user_id}", self::shares_version( $user_id ) + 1, self::CACHE_GROUP );
+			CacheService::set_last_changed( self::CACHE_GROUP, "shares:{$user_id}" );
 		}
 	}
 }

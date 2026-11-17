@@ -16,6 +16,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Spaces;
 
+use BuddyNext\Core\CacheService;
 use WP_Error;
 
 /**
@@ -32,11 +33,6 @@ class SpaceService {
 	 * Cache TTL in seconds (10 minutes).
 	 */
 	private const CACHE_TTL = 600;
-
-	/**
-	 * Version counter for every cached spaces-directory listing.
-	 */
-	private const LIST_VERSION_KEY = 'spaces_list_version';
 
 	/**
 	 * Slugs reserved for spaces-hub routes — a member must never create a space
@@ -2067,23 +2063,7 @@ class SpaceService {
 	 * @return string
 	 */
 	private static function list_cache_key( string $kind, array $scope ): string {
-		return 'spaces_' . $kind . '_v' . self::list_version() . '_' . md5( (string) wp_json_encode( $scope ) );
-	}
-
-	/**
-	 * Current version of the spaces-directory listings.
-	 *
-	 * @return int
-	 */
-	private static function list_version(): int {
-		$version = wp_cache_get( self::LIST_VERSION_KEY, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( self::LIST_VERSION_KEY, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
+		return 'spaces_' . $kind . '_v' . CacheService::last_changed( self::CACHE_GROUP, 'space_lists' ) . '_' . md5( (string) wp_json_encode( $scope ) );
 	}
 
 	/**
@@ -2101,7 +2081,7 @@ class SpaceService {
 	 * @return void
 	 */
 	public static function flush_space_lists(): void {
-		wp_cache_set( self::LIST_VERSION_KEY, self::list_version() + 1, self::CACHE_GROUP );
+		CacheService::set_last_changed( self::CACHE_GROUP, 'space_lists' );
 	}
 
 	/**
@@ -2668,7 +2648,7 @@ class SpaceService {
 		// It reuses the spaces LIST version, so every write that already invalidates the
 		// directory (create, update, archive, delete, ownership, member count) invalidates
 		// the sub-space rails too — which is correct, because a sub-space IS a space.
-		$cache_key = 'subspaces_v' . self::list_version() . '_' . md5( (string) wp_json_encode( array( $where_sql, $params ) ) );
+		$cache_key = 'subspaces_v' . CacheService::last_changed( self::CACHE_GROUP, 'space_lists' ) . '_' . md5( (string) wp_json_encode( array( $where_sql, $params ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {

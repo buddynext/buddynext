@@ -20,6 +20,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Spaces;
 
+use BuddyNext\Core\CacheService;
 use WP_Error;
 
 /**
@@ -1404,7 +1405,7 @@ class SpaceMemberService {
 		// role/search filters + limit + offset) so no two shapes collide. Finishes a
 		// previously half-wired cache — invalidate_cache() already dropped a members_*
 		// key, but nothing ever wrote it, so every space-page roster read hit the DB.
-		$cache_key = 'members_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+		$cache_key = 'members_v' . CacheService::last_changed( self::CACHE_GROUP, "members:{$space_id}" ) . '_'
 			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $limit, max( 0, $offset ), $args ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
@@ -1518,7 +1519,7 @@ class SpaceMemberService {
 
 		// Per-space version salt (the membership_rows() idiom) — invalidate_cache()
 		// bumps it on every join / leave / role change, retiring all pages at once.
-		$cache_key = 'member_ids_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+		$cache_key = 'member_ids_v' . CacheService::last_changed( self::CACHE_GROUP, "members:{$space_id}" ) . '_'
 			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $limit, $offset, $args ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
@@ -1636,7 +1637,7 @@ class SpaceMemberService {
 			);
 		}
 
-		$cache_key = 'members_ks_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+		$cache_key = 'members_ks_v' . CacheService::last_changed( self::CACHE_GROUP, "members:{$space_id}" ) . '_'
 			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $per_page, (string) $cursor, $args ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
@@ -1761,7 +1762,7 @@ class SpaceMemberService {
 			);
 		}
 
-		$cache_key = 'member_ids_ks_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+		$cache_key = 'member_ids_ks_v' . CacheService::last_changed( self::CACHE_GROUP, "members:{$space_id}" ) . '_'
 			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $per_page, (string) $cursor, $args ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
@@ -1999,7 +2000,7 @@ class SpaceMemberService {
 		// that only changes when the member joins or leaves something. Cache the
 		// unfiltered ceiling once per member (not per requested limit); the addon
 		// filter + the slice run per call so an exclusion change is never served stale.
-		$cache_key = 'membership_rows3_v' . self::membership_summary_version( $user_id ) . "_{$user_id}"; // v3: rows carry parent_id.
+		$cache_key = 'membership_rows3_v' . CacheService::last_changed( self::CACHE_GROUP, "membership:{$user_id}" ) . "_{$user_id}"; // v3: rows carry parent_id.
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -2105,7 +2106,7 @@ class SpaceMemberService {
 			return 0;
 		}
 
-		$cache_key = 'membership_count_v' . self::membership_summary_version( $user_id ) . "_{$user_id}";
+		$cache_key = 'membership_count_v' . CacheService::last_changed( self::CACHE_GROUP, "membership:{$user_id}" ) . "_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -2343,7 +2344,7 @@ class SpaceMemberService {
 		// Roster list: bump the per-space version salt (not a single fixed-key
 		// delete) — get_members() is parameterised by viewer/role/limit/offset, so
 		// it lives under many keys; one bump retires them all.
-		self::bump_cache_version( "members_ver_{$space_id}" );
+		CacheService::set_last_changed( self::CACHE_GROUP, "members:{$space_id}" );
 
 		// The member's own "My spaces" rail. It is rebuilt from these same rows, so it
 		// goes stale on exactly the events this method already handles — joining, leaving,
@@ -2351,49 +2352,6 @@ class SpaceMemberService {
 		// means a new membership path cannot forget it: everything that changes a
 		// membership already comes through this choke point.
 		self::invalidate_membership_summary( $user_id );
-	}
-
-	/**
-	 * Version of one member's cached "My spaces" summary.
-	 *
-	 * @param int $user_id Member.
-	 * @return int
-	 */
-	private static function membership_summary_version( int $user_id ): int {
-		return self::cache_version( "membership_ver_{$user_id}" );
-	}
-
-	/**
-	 * Read a version salt for a parameterised cache (seeding it to 1 when absent).
-	 *
-	 * The shared primitive behind every versioned cache in this service — the
-	 * per-user "My spaces" summary and the per-space members roster both embed a
-	 * salt from here in their keys, so a single bump retires every variant at once
-	 * (the object-cache-safe substitute for a wildcard delete).
-	 *
-	 * @param string $key Salt cache key (e.g. "membership_ver_{uid}", "members_ver_{space}").
-	 * @return int
-	 */
-	private static function cache_version( string $key ): int {
-		$version = wp_cache_get( $key, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( $key, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
-	 * Bump a version salt, retiring every cache entry keyed on it. Call AFTER the
-	 * DB write it invalidates, never before.
-	 *
-	 * @param string $key Salt cache key.
-	 * @return void
-	 */
-	private static function bump_cache_version( string $key ): void {
-		wp_cache_set( $key, self::cache_version( $key ) + 1, self::CACHE_GROUP );
 	}
 
 	/**
@@ -2408,7 +2366,7 @@ class SpaceMemberService {
 	 * @return void
 	 */
 	private static function invalidate_membership_summary( int $user_id ): void {
-		self::bump_cache_version( "membership_ver_{$user_id}" );
+		CacheService::set_last_changed( self::CACHE_GROUP, "membership:{$user_id}" );
 	}
 
 	/**

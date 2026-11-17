@@ -25,6 +25,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Core\CacheService;
 use BuddyNext\SocialGraph\FollowService;
 
 defined( 'ABSPATH' ) || exit;
@@ -50,11 +51,6 @@ class ExploreService {
 	 * Deck TTL. A backstop — the events that matter (a block, a new post) bust explicitly.
 	 */
 	private const CACHE_TTL = 300;
-
-	/**
-	 * Version counter for every cached deck.
-	 */
-	private const DECK_VERSION_KEY = 'explore_deck_version';
 
 	/**
 	 * How many new members to weave into the blended "all" first page.
@@ -117,8 +113,8 @@ class ExploreService {
 		// which is correct: no blocks, no interests, one identical deck.
 		$viewer    = get_current_user_id();
 		$cache_key = sprintf(
-			'deck_v%d_%s_%s_%d_u%d',
-			self::deck_version(),
+			'deck_v%s_%s_%s_%d_u%d',
+			CacheService::last_changed( self::CACHE_GROUP, 'explore_decks' ),
 			$filter,
 			null === $cursor ? '' : md5( $cursor ),
 			$per_page,
@@ -176,22 +172,6 @@ class ExploreService {
 	}
 
 	/**
-	 * Current version of the Explore decks.
-	 *
-	 * @return int
-	 */
-	private static function deck_version(): int {
-		$version = wp_cache_get( self::DECK_VERSION_KEY, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( self::DECK_VERSION_KEY, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
 	 * Invalidate every cached Explore deck, for every viewer, in O(1).
 	 *
 	 * Explore is a discovery surface, so a short TTL would mostly do — but not for the two
@@ -209,7 +189,7 @@ class ExploreService {
 	 * @return void
 	 */
 	public static function flush_decks(): void {
-		wp_cache_set( self::DECK_VERSION_KEY, self::deck_version() + 1, self::CACHE_GROUP );
+		CacheService::set_last_changed( self::CACHE_GROUP, 'explore_decks' );
 	}
 
 	/**

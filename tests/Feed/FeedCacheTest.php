@@ -143,4 +143,37 @@ class FeedCacheTest extends \WP_UnitTestCase {
 		remove_all_actions( 'buddynext_space_posts_changed' );
 		remove_all_actions( 'buddynext_report_created' );
 	}
+
+	/**
+	 * Losing the invalidation keys (eviction) never lets a key repeat one a payload was cached under.
+	 *
+	 * The old counters were seeded to 1, so after an eviction the next bump landed
+	 * back on 2 and the feed cached at 2 before the eviction was served again.
+	 */
+	public function test_keys_never_repeat_after_the_invalidation_keys_are_lost(): void {
+		$user = 7;
+		$seen = array(
+			$this->cache->home_page_1_key( $user, 20 ),
+			$this->cache->space_page_1_key( 3, $user, 20 ),
+		);
+
+		for ( $i = 0; $i < 3; $i++ ) {
+			$this->cache->invalidate_writer( $user );
+			$this->cache->invalidate_space( 3 );
+			$seen[] = $this->cache->home_page_1_key( $user, 20 );
+			$seen[] = $this->cache->space_page_1_key( 3, $user, 20 );
+
+			// Eviction of every invalidation key, under the old and the new names.
+			foreach ( array( 'home:ver:' . $user, 'last_changed:home:' . $user ) as $key ) {
+				wp_cache_delete( $key, FeedCache::GROUP_USER );
+			}
+			foreach ( array( 'home:gver', 'space:ver:3', 'last_changed:home', 'last_changed:space:3' ) as $key ) {
+				wp_cache_delete( $key, FeedCache::GROUP_GLOBAL );
+			}
+			$seen[] = $this->cache->home_page_1_key( $user, 20 );
+			$seen[] = $this->cache->space_page_1_key( 3, $user, 20 );
+		}
+
+		$this->assertSame( $seen, array_values( array_unique( $seen ) ), 'every page-1 key is new; no cached feed can come back' );
+	}
 }

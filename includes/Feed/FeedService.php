@@ -23,6 +23,7 @@ namespace BuddyNext\Feed;
 use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
 use BuddyNext\SocialGraph\ConnectionService;
+use BuddyNext\Core\CacheService;
 use BuddyNext\Core\CursorCodec;
 use BuddyNext\Media\MediaClient;
 
@@ -84,11 +85,6 @@ class FeedService {
 	 * than this many LIVE announcements at once, only the newest 20 are candidates.
 	 */
 	private const ANNOUNCEMENT_CANDIDATES = 20;
-
-	/**
-	 * Version counter for every cached announcement id list.
-	 */
-	private const ANNOUNCEMENT_VERSION_KEY = 'announcement_ids_version';
 
 	/**
 	 * Ceiling for the "N new posts" pill.
@@ -1397,22 +1393,6 @@ class FeedService {
 	}
 
 	/**
-	 * Current version of the announcement id lists.
-	 *
-	 * @return int
-	 */
-	private static function announcement_version(): int {
-		$version = wp_cache_get( self::ANNOUNCEMENT_VERSION_KEY, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( self::ANNOUNCEMENT_VERSION_KEY, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
 	 * Invalidate EVERY cached announcement id list, site-wide and per space, in O(1).
 	 *
 	 * Called from every write that can add or remove an announcement. A version bump is
@@ -1424,7 +1404,7 @@ class FeedService {
 	 * @return void
 	 */
 	public static function flush_announcement_ids(): void {
-		wp_cache_set( self::ANNOUNCEMENT_VERSION_KEY, self::announcement_version() + 1, self::CACHE_GROUP );
+		CacheService::set_last_changed( self::CACHE_GROUP, 'announcement_ids' );
 	}
 
 	/**
@@ -1444,7 +1424,7 @@ class FeedService {
 	 */
 	private function announcement_ids( ?int $space_id ): array {
 		$scope     = null === $space_id ? 'site' : 'space_' . $space_id;
-		$cache_key = 'ann_ids_v' . self::announcement_version() . '_' . $scope;
+		$cache_key = 'ann_ids_v' . CacheService::last_changed( self::CACHE_GROUP, 'announcement_ids' ) . '_' . $scope;
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {

@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Comments;
 
 use WP_Error;
+use BuddyNext\Core\CacheService;
 use BuddyNext\Core\RateLimiter;
 use BuddyNext\Moderation\InteractionGuard;
 use BuddyNext\Moderation\ModerationService;
@@ -1283,8 +1284,8 @@ class CommentService {
 		$limit     = $per_page;
 		$offset    = ( $page - 1 ) * $per_page;
 		$pinned_id = (int) get_option( 'bn_pinned_comment_' . sanitize_key( $object_type ) . '_' . $object_id, 0 );
-		$gen       = $this->get_generation( $object_type, $object_id );
-		$cache_key = "list_{$object_type}_{$object_id}_{$gen}_{$per_page}_{$page}_{$pinned_id}";
+		$salt      = CacheService::last_changed( self::CACHE_GROUP, "thread:{$object_type}:{$object_id}" );
+		$cache_key = "list_{$object_type}_{$object_id}_{$salt}_{$per_page}_{$page}_{$pinned_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached && is_array( $cached ) ) {
@@ -1377,28 +1378,13 @@ class CommentService {
 	}
 
 	/**
-	 * Return the current cache generation counter for an object.
-	 *
-	 * @param string $object_type Object type.
-	 * @param int    $object_id   Object ID.
-	 * @return int
-	 */
-	private function get_generation( string $object_type, int $object_id ): int {
-		// (int), not is_int(): Redis and Memcached hand an integer back as a numeric
-		// string, and refusing it pinned the generation at 0, so new, deleted and pinned
-		// comments never reached the cached thread until it expired.
-		return (int) wp_cache_get( "gen_{$object_type}_{$object_id}", self::CACHE_GROUP );
-	}
-
-	/**
-	 * Increment the cache generation to invalidate all paginated list keys for an object.
+	 * Retire every cached page of an object's thread (all page sizes, all pages).
 	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
 	 */
 	private function bust_cache( string $object_type, int $object_id ): void {
-		$gen = $this->get_generation( $object_type, $object_id );
-		wp_cache_set( "gen_{$object_type}_{$object_id}", $gen + 1, self::CACHE_GROUP, self::CACHE_TTL );
+		CacheService::set_last_changed( self::CACHE_GROUP, "thread:{$object_type}:{$object_id}" );
 	}
 
 	/**

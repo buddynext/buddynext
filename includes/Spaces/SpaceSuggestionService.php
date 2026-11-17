@@ -24,6 +24,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Spaces;
 
+use BuddyNext\Core\CacheService;
+
 /**
  * Suggested-spaces ranking engine.
  */
@@ -56,7 +58,7 @@ final class SpaceSuggestionService {
 		// re-query. The pool is keyed independently of $limit, so widgets asking
 		// for different counts share one cached pool.
 		$pool_size = min( 24, max( $limit * 4, 12 ) );
-		$cache_key = $user_id . ':pool' . $pool_size . ':' . $this->cache_version( $user_id );
+		$cache_key = $user_id . ':pool' . $pool_size . ':' . CacheService::last_changed( self::CACHE_GROUP, 'suggest:' . $user_id );
 		$pool      = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( ! is_array( $pool ) ) {
 			$pool = $this->rank( $user_id, $pool_size );
@@ -153,24 +155,7 @@ final class SpaceSuggestionService {
 	 * @return void
 	 */
 	public function flush_for_user( int $user_id ): void {
-		// Bumping a per-user version salt (embedded in the cache key) is the cheapest
-		// portable invalidation without an object-cache group flush.
-		wp_cache_set( 'ver:' . (int) $user_id, (string) $this->cache_version( $user_id ) . '.' . wp_rand( 1, 99999 ), self::CACHE_GROUP );
-	}
-
-	/**
-	 * Current per-user cache-version salt (seeded on first read).
-	 *
-	 * @param int $user_id Viewer user ID.
-	 * @return string
-	 */
-	private function cache_version( int $user_id ): string {
-		$ver = wp_cache_get( 'ver:' . $user_id, self::CACHE_GROUP );
-		if ( ! is_string( $ver ) || '' === $ver ) {
-			$ver = '1';
-			wp_cache_set( 'ver:' . $user_id, $ver, self::CACHE_GROUP );
-		}
-		return $ver;
+		CacheService::set_last_changed( self::CACHE_GROUP, 'suggest:' . $user_id );
 	}
 
 	/**

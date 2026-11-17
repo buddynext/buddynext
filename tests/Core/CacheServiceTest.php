@@ -84,4 +84,21 @@ class CacheServiceTest extends \WP_UnitTestCase {
 		$this->cache->forget_group( 'buddynext' );
 		$this->addToAssertionCount( 1 ); // explicit assertion that we got here.
 	}
+
+	/**
+	 * A family salt is stable until a write, then moves, and never comes back after it is lost.
+	 */
+	public function test_last_changed_salt_moves_on_write_and_never_repeats(): void {
+		$first = CacheService::last_changed( 'buddynext_test', 'thread:post:1' );
+		$this->assertSame( $first, CacheService::last_changed( 'buddynext_test', 'thread:post:1' ), 'stable between writes' );
+		$this->assertNotSame( $first, CacheService::last_changed( 'buddynext_test', 'thread:post:2' ), 'families are independent' );
+
+		$second = CacheService::set_last_changed( 'buddynext_test', 'thread:post:1' );
+		$this->assertNotSame( $first, $second, 'a write moves the salt' );
+		$this->assertSame( $second, CacheService::last_changed( 'buddynext_test', 'thread:post:1' ) );
+
+		wp_cache_delete( 'last_changed:thread:post:1', 'buddynext_test' );
+		$third = CacheService::last_changed( 'buddynext_test', 'thread:post:1' );
+		$this->assertNotContains( $third, array( $first, $second ), 'an evicted salt is replaced by a new one, never an old one' );
+	}
 }

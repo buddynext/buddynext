@@ -15,6 +15,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Profile;
 
+use BuddyNext\Core\CacheService;
 use BuddyNext\Realtime\PresenceService;
 
 /**
@@ -124,7 +125,7 @@ class MemberDirectoryService {
 	public function directory_total( int $viewer_id, array $filters = array() ): int {
 		global $wpdb;
 
-		$cache_ver = (int) wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_ver = CacheService::last_changed( self::CACHE_GROUP, 'dir:' . $viewer_id );
 		$cache_key = 'bn_dir_total_' . md5( (string) wp_json_encode( array( $viewer_id, $filters, $cache_ver ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -325,7 +326,7 @@ class MemberDirectoryService {
 		// invalidates a blocker's cached pages the instant their block list changes
 		// — without enumerating every cursor/filter key, and works with or without a
 		// persistent object cache. 60-second TTL otherwise balances freshness vs load.
-		$cache_ver     = (int) wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_ver     = CacheService::last_changed( self::CACHE_GROUP, 'dir:' . $viewer_id );
 		$cache_key     = 'bn_dir_' . md5( (string) wp_json_encode( array( $viewer_id, $cursor, $per_page, $filters, $cache_ver ) ) );
 		$cached_result = wp_cache_get( $cache_key, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( false !== $cached_result ) {
@@ -1225,7 +1226,7 @@ class MemberDirectoryService {
 	 *
 	 * The landing's first paint ran an uncached WP_User_Query on every load while
 	 * only the REST re-fetches were cached. This runs that query (with the same
-	 * pre_user_query filter injection) once behind the per-viewer cache_version
+	 * pre_user_query filter injection) once behind the per-viewer last-changed
 	 * salt, so a block / membership / directory-opt-out change busts BOTH surfaces
 	 * together. Returns IDs only (count_total off — the total comes from the
 	 * already-cached directory_total()); the caller hydrates WP_User objects from
@@ -1237,10 +1238,7 @@ class MemberDirectoryService {
 	 * @return int[] Ordered member IDs for the page.
 	 */
 	public function ssr_page_user_ids( int $viewer_id, array $query_args, array $filter_args ): array {
-		$cache_ver = wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP );
-		if ( false === $cache_ver ) {
-			$cache_ver = 0;
-		}
+		$cache_ver = CacheService::last_changed( self::CACHE_GROUP, 'dir:' . $viewer_id );
 		$cache_key = 'bn_dir_ssr_' . md5( (string) wp_json_encode( array( $viewer_id, $query_args, $filter_args, $cache_ver ) ) );
 
 		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -1765,16 +1763,6 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * Object-cache key holding a viewer's directory cache version salt.
-	 *
-	 * @param int $viewer_id Viewer whose directory pages are versioned.
-	 * @return string
-	 */
-	private static function cache_version_key( int $viewer_id ): string {
-		return 'bn_dir_ver_' . $viewer_id;
-	}
-
-	/**
 	 * Invalidate a viewer's cached directory pages by bumping their version salt.
 	 *
 	 * Block/unblock changes viewer-aware exclusion, so a blocker's (and the
@@ -1789,12 +1777,7 @@ class MemberDirectoryService {
 		if ( $viewer_id <= 0 ) {
 			return;
 		}
-		$key = self::cache_version_key( $viewer_id );
-		// wp_cache_incr seeds nothing when the key is absent, so set a baseline first.
-		if ( false === wp_cache_get( $key, self::CACHE_GROUP ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
-			wp_cache_set( $key, 0, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
-		}
-		wp_cache_incr( $key, 1, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		CacheService::set_last_changed( self::CACHE_GROUP, 'dir:' . $viewer_id );
 	}
 
 	/**

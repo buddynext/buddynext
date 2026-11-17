@@ -82,8 +82,7 @@ class MemberDirectorySsrCacheTest extends WP_UnitTestCase {
 
 		// Bump the shared per-viewer directory salt — exactly what a block / join /
 		// leave / directory-opt-out does — and the SSR page must refresh.
-		$key = 'bn_dir_ver_' . $viewer;
-		wp_cache_set( $key, (int) wp_cache_get( $key, self::GROUP ) + 1, self::GROUP );
+		MemberDirectoryService::bust_viewer( $viewer );
 
 		$after = $service->ssr_page_user_ids( $viewer, $this->args(), array() );
 		$this->assertContains(
