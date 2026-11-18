@@ -65,6 +65,7 @@ class StreakListener implements ListenerInterface {
 		// ( $comment_id, $user_id ) — only 2 args are fired. Asking for 3 would be an
 		// ArgumentCountError under PHP 8.
 		add_action( 'buddynext_comment_deleted', array( $this, 'bust_from_comment_deleted' ), 10, 2 );
+		add_action( 'buddynext_post_comments_deleted', array( $this, 'bust_from_post_comments_deleted' ), 10, 3 );
 
 		// ( $object_type, $object_id, $user_id, $emoji ) — the user is arg 3.
 		add_action( 'buddynext_reaction_added', array( $this, 'bust_from_reaction' ), 10, 3 );
@@ -109,6 +110,24 @@ class StreakListener implements ListenerInterface {
 	 */
 	public function bust_from_comment_deleted( int $comment_id, int $user_id ): void {
 		StreakService::forget( $user_id );
+	}
+
+	/**
+	 * A post was deleted with its comments: every commenter's streak changed.
+	 *
+	 * The comment rows are gone, so the author map the hook carries is the only way
+	 * to know whose they were.
+	 *
+	 * @param int[]          $comment_ids Removed comment IDs (unused).
+	 * @param int            $post_id     The deleted post (unused).
+	 * @param array<int,int> $authors     Removed comment ID => author user ID.
+	 * @return void
+	 */
+	public function bust_from_post_comments_deleted( array $comment_ids, int $post_id, array $authors = array() ): void {
+		unset( $comment_ids, $post_id );
+		foreach ( array_unique( array_map( 'intval', $authors ) ) as $user_id ) {
+			StreakService::forget( $user_id );
+		}
 	}
 
 	/**

@@ -2771,7 +2771,7 @@ class PostService {
 	 * times inside the delete request. Fired after COMMIT, so the rows are gone and
 	 * listeners get ids only.
 	 *
-	 * @param array<int,array<int>> $comments_by_post post_id => removed comment ids.
+	 * @param array<int,array<int,int>> $comments_by_post post_id => ( removed comment id => its author id ).
 	 * @return void
 	 */
 	private function announce_comments_deleted( array $comments_by_post ): void {
@@ -2783,10 +2783,13 @@ class PostService {
 			 *
 			 * @since 1.3.0
 			 *
-			 * @param int[] $comment_ids Removed comment IDs (rows already gone).
-			 * @param int   $post_id     The deleted post they belonged to.
+			 * @param int[]            $comment_ids Removed comment IDs (rows already gone).
+			 * @param int              $post_id     The deleted post they belonged to.
+			 * @param array<int,int>   $authors     Removed comment ID => its author's user ID. The rows are
+			 *                                      gone, so this is the only way a listener learns whose
+			 *                                      comments went (a reward, a streak).
 			 */
-			do_action( 'buddynext_post_comments_deleted', array_values( $comment_ids ), (int) $post_id );
+			do_action( 'buddynext_post_comments_deleted', array_map( 'intval', array_keys( $comment_ids ) ), (int) $post_id, array_map( 'intval', $comment_ids ) );
 		}
 	}
 
@@ -2831,8 +2834,8 @@ class PostService {
 	 * (see fire_post_deleted()). The comment rows are gone by then, so listeners get
 	 * ids only.
 	 *
-	 * @param array<int,int>        $post_ids         Post ids whose children to remove.
-	 * @param array<int,array<int>> $comments_by_post Filled with post_id => removed comment ids.
+	 * @param array<int,int>            $post_ids         Post ids whose children to remove.
+	 * @param array<int,array<int,int>> $comments_by_post Filled with post_id => ( removed comment id => author id ).
 	 * @return bool True when every delete statement succeeded; false if any errored.
 	 */
 	private function cascade_post_children( array $post_ids, array &$comments_by_post = array() ): bool {
@@ -2873,15 +2876,15 @@ class PostService {
 			// Comment ids for these posts, gathered before the comments go, so the
 			// comment-keyed sweep below has its targets.
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $in is an absint-mapped id list, injection-safe.
-			$comment_rows = (array) $wpdb->get_results( "SELECT id, object_id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})", ARRAY_A );
+			$comment_rows = (array) $wpdb->get_results( "SELECT id, object_id, user_id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})", ARRAY_A );
 
 			// Comment-keyed child rows first (reactions/notifications/reports whose
 			// object_type='comment'), chunked the same way for a post carrying tens
 			// of thousands of comments.
 			$comment_ids = array();
 			foreach ( $comment_rows as $comment_row ) {
-				$comment_ids[]                                         = (int) $comment_row['id'];
-				$comments_by_post[ (int) $comment_row['object_id'] ][] = (int) $comment_row['id'];
+				$comment_ids[] = (int) $comment_row['id'];
+				$comments_by_post[ (int) $comment_row['object_id'] ][ (int) $comment_row['id'] ] = (int) $comment_row['user_id'];
 			}
 			foreach ( array_chunk( $comment_ids, self::CASCADE_CHUNK ) as $comment_chunk ) {
 				$cin              = implode( ',', array_map( 'absint', $comment_chunk ) );

@@ -89,6 +89,41 @@ class PollServiceTest extends \WP_UnitTestCase {
 		$this->assertNull( $row, 'Bob should no longer have a vote row after toggling.' );
 	}
 
+	public function test_taking_a_vote_back_fires_the_removal_hook_once_per_removal(): void {
+		$log = array();
+		add_action(
+			'buddynext_poll_voted',
+			static function ( $post, $option, $user ) use ( &$log ): void {
+				$log[] = array( 'voted', $option, $user );
+			},
+			10,
+			3
+		);
+		add_action(
+			'buddynext_poll_vote_removed',
+			static function ( $post, $option, $user ) use ( &$log ): void {
+				$log[] = array( 'removed', $option, $user );
+			},
+			10,
+			3
+		);
+
+		$this->service->vote( $this->bob, $this->poll_id, $this->option_a ); // cast.
+		$this->service->vote( $this->bob, $this->poll_id, $this->option_b ); // switch: removed A, voted B.
+		$this->service->vote( $this->bob, $this->poll_id, $this->option_b ); // toggle off.
+
+		$this->assertSame(
+			array(
+				array( 'voted', $this->option_a, $this->bob ),
+				array( 'removed', $this->option_a, $this->bob ),
+				array( 'voted', $this->option_b, $this->bob ),
+				array( 'removed', $this->option_b, $this->bob ),
+			),
+			$log,
+			'a reward listener can net every vote to what the member now holds'
+		);
+	}
+
 	public function test_vote_returns_error_for_wrong_post(): void {
 		$other_id = $this->posts->create(
 			$this->alice,

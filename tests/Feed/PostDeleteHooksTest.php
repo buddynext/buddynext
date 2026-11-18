@@ -236,6 +236,15 @@ class PostDeleteHooksTest extends \WP_UnitTestCase {
 		ksort( $expected );
 
 		$this->assertSame( $expected, $batches, 'one batch per post that had comments; none for the post without' );
+
+		// The rows are gone by the time the hook fires, so it must name whose comments
+		// they were; a listener cannot look them up.
+		foreach ( $this->fired['buddynext_post_comments_deleted'] ?? array() as $args ) {
+			$this->assertSame( array_map( 'intval', $args[0] ), array_map( 'intval', array_keys( $args[2] ) ), 'the author map covers exactly the removed comments' );
+			foreach ( $args[2] as $comment_author ) {
+				$this->assertGreaterThan( 0, $comment_author, 'every removed comment names its author' );
+			}
+		}
 		$this->assertArrayNotHasKey( 'buddynext_comment_deleted', $this->fired, 'the per-comment hook must not fire for a cascade' );
 	}
 

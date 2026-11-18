@@ -43,7 +43,7 @@ The action and filter seams for the activity feed and everything members post in
 | `buddynext_comment_updated` | action | A comment is edited | `int $comment_id, int $user_id` |
 | `buddynext_comment_deleted` | action | A comment is deleted on its own (not when its post is deleted, see below) | `int $comment_id, int $user_id` |
 | `buddynext_comment_thread_changed` | action | Anything that changes what a thread shows: a comment added, edited, deleted, hidden or restored (1.3.0). Fires once per change with the object the thread belongs to, so one listener covers every path. BuddyNext uses it to purge the post's page from a page cache | `string $object_type, int $object_id` |
-| `buddynext_post_comments_deleted` | action | A deleted post took its comments with it. Fires once per post that had comments, after the delete commits, with every removed comment id (1.3.0). The rows are already gone, so key on the ids. `buddynext_comment_deleted` does not fire for these | `int[] $comment_ids, int $post_id` |
+| `buddynext_post_comments_deleted` | action | A deleted post took its comments with it. Fires once per post that had comments, after the delete commits, with every removed comment id and a map of comment id to its author (1.3.0). The rows are already gone, so the map is how you learn whose comments went. `buddynext_comment_deleted` does not fire for these | `int[] $comment_ids, int $post_id, array<int,int> $authors` |
 
 `$object_type` is the thing the comment is attached to (`'post'`, `'media'`, etc.). The post-counter and recipient-mirror logic only run when `$object_type === 'post'`.
 
@@ -66,13 +66,14 @@ The canonical six reaction slugs are `like`, `love`, `haha`, `wow`, `sad`, `angr
 |---|---|---|---|
 | `buddynext_poll_vote_before_save` | filter | A poll vote is about to be written | `array $data, int $user_id` (`$data` has `user_id`, `post_id`, `option_id`) |
 | `buddynext_poll_voted` | action | A poll vote is cast or switched (not on toggle-off) | `int $post_id, int $option_id, int $user_id` |
+| `buddynext_poll_vote_removed` | action | A poll vote is taken back: a toggle off, or the old vote of a switch (1.3.0). A switch fires this for the old option, then `buddynext_poll_voted` for the new one | `int $post_id, int $option_id, int $user_id` |
 | `buddynext_share_before_save` | filter | A share is about to be written | `array $data, int $user_id` (`$data` has `user_id`, `post_id`, `content`) |
 | `buddynext_post_shared` | action | A post is shared | `int $share_id, int $original_post_id, int $user_id` |
 | `buddynext_post_unshared` | action | A member's share is removed, by un-sharing or by deleting the repost card. Fires once, only when a share row was really removed (1.3.0) | `int $share_id, int $original_post_id, int $user_id` (same as `buddynext_post_shared`) |
 | `buddynext_post_bookmarked` | action | A post is bookmarked (first time only) | `int $post_id, int $user_id` |
 | `buddynext_post_unbookmarked` | action | A bookmark is removed (only when a row was deleted) | `int $post_id, int $user_id` |
 
-> **Note:** `buddynext_poll_voted` does not fire when a member clicks the same option again to remove their vote (toggle-off returns early). A vote switch to a different option fires once, after the new vote is recorded.
+> **Note:** `buddynext_poll_voted` does not fire when a member clicks the same option again to remove their vote; `buddynext_poll_vote_removed` fires instead. A vote switch fires `buddynext_poll_vote_removed` for the old option, then `buddynext_poll_voted` once for the new one.
 
 ## Feed query and rendering
 
