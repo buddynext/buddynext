@@ -1086,12 +1086,12 @@
 	display: block;
 }
 
-/* The verb ("posted a new job", "completed a course"). Quiet by design - it is
-   context for the title, not the headline. */
-.bn-post-card__bridge-lead {
-	margin: 0 0 var(--bn-s1);
+/* What the member did ("added a new listing"), after their name in the header.
+   Quiet by design: the name stays the headline. */
+.bn-post-card__action {
 	color: var(--bn-ink-3);
 	font-size: var(--bn-text-sm);
+	overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {

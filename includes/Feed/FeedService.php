@@ -2331,7 +2331,10 @@ class FeedService {
 				$filter_where = " AND type IN ('discussion','forum_post','forum')";
 				break;
 			case 'posts':
-				$filter_where = " AND type NOT IN ('discussion','forum_post','forum') AND ( media_ids IS NULL OR media_ids = '' OR media_ids = '[]' )";
+				// An allowlist of what members write themselves. A denylist lost a type
+				// every time an integration was deactivated (its card type left
+				// card_types()), and a job or listing card then showed up as a "post".
+				$filter_where = " AND type IN ('text','link','poll','announcement','file') AND ( media_ids IS NULL OR media_ids = '' OR media_ids = '[]' )";
 				break;
 		}
 

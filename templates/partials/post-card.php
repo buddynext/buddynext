@@ -704,9 +704,24 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 	<?php
 	// Head row — byline part renders the options-menu inline so the flex
 	// container preserves byte-identical sibling ordering.
+	// "Alice added a new listing": an integration card names what the member did
+	// in the header, the way every feed does, so the card body shows only the item.
+	// The title is read through the same per-viewer preview filter the card body
+	// uses, so a verb is never printed over a title it just repeats.
+	$bn_action_meta = (array) apply_filters( 'buddynext_integration_card_preview', $link_meta, (string) $bn_post_type );
+	$bn_action_line = \BuddyNext\Feed\IntegrationActivity::action_line(
+		(string) $bn_post_type,
+		(string) $post_content,
+		(string) ( $bn_action_meta['title'] ?? '' )
+	);
+	if ( '' === trim( (string) ( $bn_action_meta['title'] ?? '' ) ) ) {
+		$bn_action_line = '';
+	}
+
 	buddynext_get_template(
 		'parts/post-byline.php',
 		array(
+			'action_line'       => $bn_action_line,
 			'bn_post'           => $bn_post,
 			'bn_post_id'        => $bn_post_id,
 			'author_id'         => $post_author_id,

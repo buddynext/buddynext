@@ -89,7 +89,24 @@ echo get_block_wrapper_attributes(
 				$bn_ca_pid     = (int) ( $bn_ca_item['id'] ?? 0 );
 				$bn_ca_link    = $bn_ca_pid > 0 ? (string) PageRouter::post_url( $bn_ca_pid ) : '';
 				$bn_ca_excerpt = wp_trim_words( wp_strip_all_tags( (string) ( $bn_ca_item['content'] ?? '' ) ), 18 );
-				$bn_ca_when    = buddynext_time_ago( (string) ( $bn_ca_item['created_at'] ?? '' ) );
+
+				// A job, listing, course or event post stores what the member did
+				// ("posted a new job") as its content, not words of their own. The row
+				// then reads "<name> posted a new job" over the item's own title,
+				// instead of "<name> posted" over the verb.
+				$bn_ca_meta = $bn_ca_item['link_meta'] ?? array();
+				if ( is_string( $bn_ca_meta ) ) {
+					$bn_ca_meta = json_decode( $bn_ca_meta, true );
+				}
+				$bn_ca_meta  = is_array( $bn_ca_meta ) ? $bn_ca_meta : array();
+				$bn_ca_title = trim( (string) ( $bn_ca_meta['title'] ?? '' ) );
+				$bn_ca_verb  = '' !== $bn_ca_title
+					? \BuddyNext\Feed\IntegrationActivity::action_line( (string) ( $bn_ca_item['type'] ?? '' ), (string) ( $bn_ca_item['content'] ?? '' ), $bn_ca_title )
+					: '';
+				if ( '' !== $bn_ca_verb ) {
+					$bn_ca_excerpt = wp_trim_words( $bn_ca_title, 18 );
+				}
+				$bn_ca_when = buddynext_time_ago( (string) ( $bn_ca_item['created_at'] ?? '' ) );
 
 				$bn_ca_space_name = '';
 				if ( $bn_ca_space && ! empty( $bn_ca_item['space_id'] ) ) {
@@ -109,7 +126,9 @@ echo get_block_wrapper_attributes(
 					<span class="bn-ca-item__body">
 						<span class="bn-ca-item__head">
 							<a class="bn-ca-item__author" href="<?php echo esc_url( PageRouter::profile_url( $bn_ca_author ) ); ?>"><?php echo esc_html( $bn_ca_name ); ?></a>
-							<?php if ( '' !== $bn_ca_space_name ) : ?>
+							<?php if ( '' !== $bn_ca_verb ) : ?>
+								<?php echo esc_html( $bn_ca_verb ); ?>
+							<?php elseif ( '' !== $bn_ca_space_name ) : ?>
 								<?php
 								printf(
 									/* translators: %s: space name. */
