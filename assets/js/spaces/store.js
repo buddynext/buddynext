@@ -215,8 +215,9 @@ function pickDiscussion( picker, row ) {
  * @param {boolean} enabled Desired checked state.
  */
 function setDiscussionEnabled( picker, enabled ) {
-	var row    = picker && picker.closest( '.bn-toggle-row' );
-	var toggle = row && row.querySelector( 'input[name="bn_discussion_enabled"]' );
+	// The toggle row closes before the picker, so look in the settings panel.
+	var panel  = picker && picker.closest( 'form' );
+	var toggle = panel && panel.querySelector( 'input[name="bn_discussion_enabled"]' );
 	if ( toggle ) { toggle.checked = !! enabled; }
 }
 

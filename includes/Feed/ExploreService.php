@@ -43,6 +43,21 @@ class ExploreService {
 	public const FILTERS = array( 'all', 'members', 'spaces', 'posts', 'discussions', 'media' );
 
 	/**
+	 * The filters this site can actually serve.
+	 *
+	 * Discussions need Jetonomy with its feed integration on; without them the
+	 * facet only ever shows an empty state that invites a post nobody can make.
+	 *
+	 * @return string[]
+	 */
+	public static function available_filters(): array {
+		if ( class_exists( 'Jetonomy\\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'feed' ) ) {
+			return self::FILTERS;
+		}
+		return array_values( array_diff( self::FILTERS, array( 'discussions' ) ) );
+	}
+
+	/**
 	 * Object-cache group for the Explore decks.
 	 */
 	private const CACHE_GROUP = 'buddynext_explore';
@@ -102,7 +117,7 @@ class ExploreService {
 	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null, filter: string}
 	 */
 	public function deck( string $filter, ?string $cursor = null, int $per_page = 12 ): array {
-		$filter   = in_array( $filter, self::FILTERS, true ) ? $filter : 'all';
+		$filter   = in_array( $filter, self::available_filters(), true ) ? $filter : 'all';
 		$per_page = max( 1, min( $per_page, FeedService::MAX_PER_PAGE ) );
 
 		// The deck IS viewer-dependent, even though nothing in the signature says so: it

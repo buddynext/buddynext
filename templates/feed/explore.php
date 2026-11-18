@@ -33,7 +33,7 @@ $is_guest        = ( 0 === $current_user_id );
 
 // ── Active filter facet ────────────────────────────────────────────────────
 $explore_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-if ( ! in_array( $explore_filter, ExploreService::FILTERS, true ) ) {
+if ( ! in_array( $explore_filter, ExploreService::available_filters(), true ) ) {
 	$explore_filter = 'all';
 }
 
@@ -132,6 +132,7 @@ $bn_explore_filters = array(
 	'discussions' => __( 'Discussions', 'buddynext' ),
 	'media'       => __( 'Media', 'buddynext' ),
 );
+$bn_explore_filters = array_intersect_key( $bn_explore_filters, array_flip( ExploreService::available_filters() ) );
 ?>
 <div class="bn-feed-stack bn-explore" data-wp-interactive="buddynext/feed">
 	<div class="bn-explore-content">

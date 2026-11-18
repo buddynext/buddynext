@@ -149,7 +149,7 @@ final class RestHoldGate implements ListenerInterface {
 
 		// Same administrator carve-out gate() makes — never trap an owner out of
 		// their own site.
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		if ( $this->is_site_admin( $user_id ) ) {
 			return false;
 		}
 
@@ -174,6 +174,17 @@ final class RestHoldGate implements ListenerInterface {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Whether this user runs the site. Administrators are never held, so an
+	 * owner cannot be locked out of their own site; one place for the rule.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	private function is_site_admin( int $user_id ): bool {
+		return user_can( $user_id, 'manage_options' );
 	}
 
 	/**
@@ -222,7 +233,7 @@ final class RestHoldGate implements ListenerInterface {
 
 		// Never trap an administrator out of their own site — the same carve-out
 		// both web gates make.
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		if ( $this->is_site_admin( $user_id ) ) {
 			return $result;
 		}
 
@@ -283,7 +294,7 @@ final class RestHoldGate implements ListenerInterface {
 		}
 
 		$user_id = get_current_user_id();
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		if ( $this->is_site_admin( $user_id ) ) {
 			return null;
 		}
 

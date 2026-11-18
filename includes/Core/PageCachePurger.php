@@ -121,7 +121,7 @@ class PageCachePurger implements ListenerInterface {
 		self::purge_all();
 		foreach ( array( $old_slug, $new_slug ) as $slug ) {
 			if ( '' !== $slug ) {
-				self::purge( trailingslashit( home_url( '/' . $slug ) ) );
+				self::purge( trailingslashit( home_url( '/' . $slug ) ) ); // bn-route-ok: an old or new hub slug, not a registered route.
 			}
 		}
 	}

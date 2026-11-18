@@ -187,6 +187,7 @@ class JetonomyBridge {
 		// alone would let the leak back in the first time an owner locks a
 		// space down.
 		add_action( 'buddynext_space_updated', array( $this, 'sync_discussion_visibility' ), 10, 3 );
+		add_action( 'buddynext_async_reindex_forum_discussions', array( $this, 'reindex_forum_discussions' ), 10, 2 );
 		// The space's "who can post" holds in its forum too.
 		add_action( 'buddynext_space_fields_saved', array( $this, 'sync_discussion_posting' ), 10, 2 );
 		add_action( 'admin_init', array( $this, 'backfill_discussion_posting' ) );
@@ -1601,6 +1602,9 @@ class JetonomyBridge {
 			}
 		}
 
+		// A forum linked to a private or secret space must not stay open to everyone.
+		$this->sync_discussion_visibility( $space_id );
+
 		$this->set_discussion_enabled( $space_id, true );
 		return true;
 	}
@@ -1900,13 +1904,83 @@ class JetonomyBridge {
 			return;
 		}
 
-		$want = self::discussion_visibility_for( (string) ( $space['type'] ?? '' ) );
+		$type = (string) ( $space['type'] ?? '' );
+		$want = self::discussion_visibility_for( $type );
+		$join = self::discussion_join_policy_for( $type );
 		$jt   = \Jetonomy\Models\Space::find( $forum_id );
-		if ( ! $jt || (string) ( $jt->visibility ?? '' ) === $want ) {
+		if ( ! $jt ) {
 			return;
 		}
 
-		\Jetonomy\Models\Space::update( $forum_id, array( 'visibility' => $want ) );
+		// Visibility and join policy move together: the forum is only as open as
+		// the space. Writing visibility alone left a reopened space's forum on
+		// "approval" and a newly linked public forum open to anyone.
+		$change = array();
+		if ( (string) ( $jt->visibility ?? '' ) !== $want ) {
+			$change['visibility'] = $want;
+		}
+		if ( (string) ( $jt->join_policy ?? '' ) !== $join ) {
+			$change['join_policy'] = $join;
+		}
+		if ( empty( $change ) ) {
+			return;
+		}
+
+		\Jetonomy\Models\Space::update( $forum_id, $change );
+
+		// The search rows were written under the old type. Going private is clamped
+		// by the search service, but a reopened space needs each topic decided
+		// again, so re-index them in the background.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_async_reindex_forum_discussions', array( $forum_id, 0 ), 'buddynext' );
+		} else {
+			$this->reindex_forum_discussions( $forum_id, 0 );
+		}
+	}
+
+	/**
+	 * Re-index one forum's published topics in batches of 200.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $offset   Rows already done.
+	 * @return void
+	 */
+	public function reindex_forum_discussions( int $forum_id, int $offset = 0 ): void {
+		global $wpdb;
+		$batch = 200;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish' ORDER BY id ASC LIMIT %d OFFSET %d",
+				$forum_id,
+				$batch,
+				$offset
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		foreach ( $ids as $id ) {
+			$this->sync_discussion( (int) $id, $forum_id );
+		}
+		if ( count( $ids ) === $batch && function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_async_reindex_forum_discussions', array( $forum_id, $offset + $batch ), 'buddynext' );
+		}
+	}
+
+	/**
+	 * How a space's linked forum admits people, from the space's type.
+	 *
+	 * @param string $space_type Space type (open, private, secret).
+	 * @return string Jetonomy join_policy: open, approval or invite.
+	 */
+	public static function discussion_join_policy_for( string $space_type ): string {
+		switch ( $space_type ) {
+			case \BuddyNext\Spaces\SpaceService::TYPE_OPEN:
+				return 'open';
+			case \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE:
+				return 'approval';
+			default:
+				return 'invite';
+		}
 	}
 
 	/**
@@ -3451,6 +3525,38 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Take the viewer's blocked authors out of the shared topic count, so the tab
+	 * badge matches the list under it. Costs a query only for a viewer who has
+	 * blocked someone.
+	 *
+	 * @param int $count    Shared count.
+	 * @param int $forum_id Jetonomy forum id.
+	 * @return int
+	 */
+	private function count_without_blocked( int $count, int $forum_id ): int {
+		$viewer_id = get_current_user_id();
+		if ( $viewer_id <= 0 || $count <= 0 ) {
+			return $count;
+		}
+		$blocked = array_filter( array_map( 'intval', (array) buddynext_service( 'blocks' )->blocked_users( $viewer_id ) ) );
+		if ( empty( $blocked ) ) {
+			return $count;
+		}
+		global $wpdb;
+		$marks = implode( ',', array_fill( 0, count( $blocked ), '%d' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$hidden = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish' AND is_private = 0 AND author_id IN ({$marks})",
+				array_merge( array( $forum_id ), array_values( $blocked ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		return max( 0, $count - $hidden );
+	}
+
+	/**
 	 * Which of a member's topics their profile may list (aliases p = topic, s = forum).
 	 *
 	 * A profile is a public page, so it lists what the feed would mirror: published,
@@ -3744,7 +3850,7 @@ class JetonomyBridge {
 		$viewer_id = get_current_user_id();
 		$forum_id  = $viewer_id > 0 && class_exists( 'Jetonomy\Models\Post' ) ? $this->forum_id_for_space( $space_id ) : 0;
 		if ( $forum_id <= 0 ) {
-			return $rows;
+			return $this->without_blocked( $rows, $viewer_id );
 		}
 
 		global $wpdb;
@@ -3766,13 +3872,35 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( empty( $own ) ) {
-			return $rows;
+			return $this->without_blocked( $rows, $viewer_id );
 		}
 
 		$rows = array_merge( $rows, $own );
 		usort( $rows, static fn( $a, $b ): int => strcmp( (string) $b->created_at, (string) $a->created_at ) );
 
-		return array_slice( $rows, 0, $limit );
+		return $this->without_blocked( array_slice( $rows, 0, $limit ), $viewer_id );
+	}
+
+	/**
+	 * Drop topics by members the viewer has blocked.
+	 *
+	 * The shared list is cached once for everyone, so the block is applied per
+	 * viewer on top of it, as the forum itself does through
+	 * jetonomy_blocked_user_ids.
+	 *
+	 * @param array<int,object> $rows      Topic rows.
+	 * @param int               $viewer_id Viewer (0 = logged out).
+	 * @return array<int,object>
+	 */
+	private function without_blocked( array $rows, int $viewer_id ): array {
+		if ( $viewer_id <= 0 || empty( $rows ) ) {
+			return $rows;
+		}
+		$blocked = array_map( 'intval', (array) buddynext_service( 'blocks' )->blocked_users( $viewer_id ) );
+		if ( empty( $blocked ) ) {
+			return $rows;
+		}
+		return array_values( array_filter( $rows, static fn( $row ): bool => ! in_array( (int) $row->author_id, $blocked, true ) ) );
 	}
 
 	/**
@@ -3867,7 +3995,7 @@ class JetonomyBridge {
 		$cache_key = 'jt_scount_' . $forum_id;
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
-			return (int) $cached;
+			return $this->count_without_blocked( (int) $cached, $forum_id );
 		}
 
 		global $wpdb;
@@ -3883,7 +4011,7 @@ class JetonomyBridge {
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
-		return $count;
+		return $this->count_without_blocked( $count, $forum_id );
 	}
 
 	/**

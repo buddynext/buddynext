@@ -3,7 +3,7 @@
  "includes/Auth/CoreRegistration.php": 5,
  "includes/Auth/MemberHold.php": 1,
  "includes/Auth/RegistrationService.php": 1,
- "includes/Auth/RestHoldGate.php": 2,
+ "includes/Auth/RestHoldGate.php": 1,
  "includes/Auth/VerificationService.php": 1,
  "includes/Bridges/JetonomyBridge.php": 3,
  "includes/Bridges/WPMediaVerseBridge.php": 3,
