@@ -1708,16 +1708,15 @@ class WPMediaVerseBridge {
 		for ( $page = 1; $page <= 5; $page++ ) {
 			$album_ids = get_posts(
 				array(
-					'post_type'        => 'mvs_album',
-					'author'           => $author_id,
-					'post_status'      => 'any',
-					'fields'           => 'ids',
-					'posts_per_page'   => 100,
-					'paged'            => $page,
-					'orderby'          => 'ID',
-					'order'            => 'DESC',
-					'no_found_rows'    => true,
-					'suppress_filters' => true,
+					'post_type'      => 'mvs_album',
+					'author'         => $author_id,
+					'post_status'    => 'any',
+					'fields'         => 'ids',
+					'posts_per_page' => 100,
+					'paged'          => $page,
+					'orderby'        => 'ID',
+					'order'          => 'DESC',
+					'no_found_rows'  => true,
 				)
 			);
 

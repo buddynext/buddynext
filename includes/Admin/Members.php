@@ -1977,7 +1977,7 @@ class Members extends AdminPageBase {
 								</td>
 								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Joined', 'buddynext' ); ?>">
 									<time datetime="<?php echo esc_attr( \BuddyNext\Core\Dates::iso8601( $member['registered'] ) ); ?>">
-										<?php echo buddynext_date_local( $member['registered'], 'M j, Y' ); ?>
+										<?php echo wp_kses_post( buddynext_date_local( $member['registered'], 'M j, Y' ) ); ?>
 									</time>
 								</td>
 								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last active', 'buddynext' ); ?>">

@@ -738,7 +738,7 @@ $posts_pct_abs = abs( $posts_pct );
 											printf(
 												/* translators: %s: formatted expiry date. */
 												esc_html__( 'Expires %s', 'buddynext' ),
-												buddynext_date_local( (string) $bn_inv_exp )
+												wp_kses_post( buddynext_date_local( (string) $bn_inv_exp ) )
 											);
 										}
 										?>

@@ -157,7 +157,7 @@ do_action( 'buddynext_part_space_about_panel_before', $args );
 		<?php if ( ! empty( $bn_space->created_at ) ) : ?>
 			<div>
 				<dt><?php esc_html_e( 'Created', 'buddynext' ); ?></dt>
-				<dd><?php echo buddynext_date_local( (string) $bn_space->created_at ); ?></dd>
+				<dd><?php echo wp_kses_post( buddynext_date_local( (string) $bn_space->created_at ) ); ?></dd>
 			</div>
 		<?php endif; ?>
 		<div>

@@ -5400,7 +5400,13 @@ class Installer {
 		}
 
 		wp_mkdir_p( WP_CONTENT_DIR . '/mu-plugins/' );
-		file_put_contents( $dest, $content ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+
+		// Core's own direct writer: the same write as before, as the PHP user, with no
+		// credentials prompt (the generated file belongs in wp-content, so the
+		// connection-based writers that ask for FTP details do not fit).
+		require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-base.php';
+		require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-direct.php';
+		( new \WP_Filesystem_Direct( null ) )->put_contents( $dest, $content, 0644 );
 	}
 
 	/**
