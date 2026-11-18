@@ -76,6 +76,25 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		$this->assertSame( '1', get_user_meta( $user_id, 'bn_onboarding_done', true ), 'Only the network owner\'s choice reaches user meta.' );
 	}
 
+	public function test_a_default_uninstall_keeps_the_owners_settings(): void {
+		delete_option( 'buddynext_delete_data_on_uninstall' );
+		update_option( 'buddynext_keep_me_probe', 'configured' );
+
+		$this->uninstall();
+
+		$this->assertSame( 'configured', get_option( 'buddynext_keep_me_probe' ), 'The screen promises a delete keeps settings.' );
+	}
+
+	public function test_the_opt_in_uninstall_removes_the_settings(): void {
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
+		update_option( 'buddynext_keep_me_probe', 'configured' );
+
+		$this->uninstall();
+		wp_cache_flush(); // The script deletes options straight from the table.
+
+		$this->assertFalse( get_option( 'buddynext_keep_me_probe' ) );
+	}
+
 	public function test_the_main_site_opt_in_wipes_member_meta(): void {
 		update_option( 'buddynext_delete_data_on_uninstall', '1' );
 		$user_id = self::factory()->user->create();

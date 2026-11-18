@@ -200,9 +200,14 @@ $bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_me
 		\BuddyNext\Core\Installer::delete_hub_pages();
 		$bn_drop_tables( $prefix );
 	}
-	// Settings and flags always go, so a clean reinstall starts from defaults.
+	// Settings and flags go only with the opt-in wipe. The default keeps them with
+	// the spaces, posts and members the owner is told are kept, so a reinstall
+	// restores the site as it was (the tables are kept, so their version flags
+	// must be too, or a reinstall would re-seed over existing rows).
 	// Member user meta is network-wide and handled once, below.
-	$bn_purge_meta( true );
+	if ( $bn_delete_data ) {
+		$bn_purge_meta( true );
+	}
 };
 
 $bn_clean_site( $wpdb->prefix );
