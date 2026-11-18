@@ -24,6 +24,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+defined( 'ABSPATH' ) || exit;
+
 /**
  * BuddyX ↔ BuddyNext integration layer.
  *

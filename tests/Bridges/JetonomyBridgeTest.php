@@ -141,7 +141,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	private function publish_jt_post( int $post_id, int $space_id = 0 ): void {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $space_id, 'status' => 'publish' ), array( 'id' => $post_id ) );
+		$wpdb->update(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'space_id' => $space_id,
+				'status'   => 'publish',
+			),
+			array( 'id' => $post_id )
+		);
 		do_action( 'jetonomy_post_publish_transition', $post_id, 1, '' );
 	}
 
@@ -220,7 +227,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$still_there = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s", $expected_url )
 		);
-		$published = (int) $wpdb->get_var(
+		$published   = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s AND status = 'published'", $expected_url )
 		);
 		$this->assertSame( 1, $still_there, 'the card row is preserved on a soft delete (withdrawn, not removed)' );
@@ -238,7 +245,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$this->seed_jt_space( 11, 'approvals' );
 		$this->seed_jt_post( 60, $this->author_id, 'Pending', 'Body', 'pending-thread' );
-		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 11, 'status' => 'pending' ), array( 'id' => 60 ) );
+		$wpdb->update(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'space_id' => 11,
+				'status'   => 'pending',
+			),
+			array( 'id' => 60 )
+		);
 		$url  = home_url( '/community' ) . '/s/approvals/t/pending-thread/';
 		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT id, status FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
 
@@ -271,7 +285,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->publish_jt_post( 70, 12 );
 		$wpdb->insert(
 			$wpdb->prefix . 'jt_replies',
-			array( 'id' => 700, 'post_id' => 70, 'author_id' => $this->user_id, 'content' => '<p>A forum reply</p>', 'content_plain' => 'A forum reply' ),
+			array(
+				'id'            => 700,
+				'post_id'       => 70,
+				'author_id'     => $this->user_id,
+				'content'       => '<p>A forum reply</p>',
+				'content_plain' => 'A forum reply',
+			),
 			array( '%d', '%d', '%d', '%s', '%s' )
 		);
 		$comment = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT id, is_deleted, content FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d", 700 ) );
@@ -382,8 +402,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'is_anonymous' => 1 ), array( 'id' => 2601 ) );
 		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
 
-		$hook   = \BuddyNext\Bridges\JetonomyBridge::REPAIR_ANONYMOUS_HOOK;
-		$queued = static function () use ( $hook ): bool {
+		$hook    = \BuddyNext\Bridges\JetonomyBridge::REPAIR_ANONYMOUS_HOOK;
+		$queued  = static function () use ( $hook ): bool {
 			return function_exists( 'as_has_scheduled_action' )
 				? (bool) as_has_scheduled_action( $hook, array(), 'buddynext' )
 				: false !== wp_next_scheduled( $hook );
@@ -436,7 +456,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 27, 'card-only' );
 		$this->seed_jt_post( 270, $this->author_id, 'Card only', 'Body', 'card-only' );
 		$this->publish_jt_post( 270, 27 );
-		$wpdb->delete( $wpdb->prefix . 'bn_search_index', array( 'object_type' => 'discussion', 'object_id' => 270 ) );
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_search_index',
+			array(
+				'object_type' => 'discussion',
+				'object_id'   => 270,
+			)
+		);
 		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 270 ) );
 		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
 		$this->assertSame( 1, $this->discussion_cards( $this->author_id ), 'Fixture: a published card.' );
@@ -459,7 +485,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		// as after search was switched off and time passed.
 		foreach ( array( 280, 281 ) as $topic_id ) {
 			$this->seed_jt_post( $topic_id, $this->author_id, 'Reindex topic ' . $topic_id, 'Body', 'reindex-' . $topic_id );
-			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 28, 'status' => 'publish' ), array( 'id' => $topic_id ) );
+			$wpdb->update(
+				$wpdb->prefix . 'jt_posts',
+				array(
+					'space_id' => 28,
+					'status'   => 'publish',
+				),
+				array( 'id' => $topic_id )
+			);
 		}
 		$indexed = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id IN ( 280, 281 )" );
 		$this->assertSame( 0, $indexed(), 'Fixture: not indexed.' );
@@ -481,7 +514,10 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 23, 'anon-replies' );
 		$this->seed_jt_post( 230, $this->author_id, 'Thread', 'Body', 'anon-reply-thread' );
 		$this->publish_jt_post( 230, 23 );
-		foreach ( array( 2301 => 'is_anonymous', 2302 => 'is_private' ) as $reply_id => $flag ) {
+		foreach ( array(
+			2301 => 'is_anonymous',
+			2302 => 'is_private',
+		) as $reply_id => $flag ) {
 			$wpdb->insert(
 				$wpdb->prefix . 'jt_replies',
 				array(
@@ -511,7 +547,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 24, 'public-forum' );
 		$this->seed_jt_space( 25, 'private-forum' );
 		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'private' ), array( 'id' => 25 ) );
-		foreach ( array( 240 => 24, 241 => 24, 242 => 24, 243 => 25 ) as $post_id => $forum_id ) {
+		foreach ( array(
+			240 => 24,
+			241 => 24,
+			242 => 24,
+			243 => 25,
+		) as $post_id => $forum_id ) {
 			$this->seed_jt_post( $post_id, $this->author_id, 'Topic ' . $post_id, 'Body', 'topic-' . $post_id );
 			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $forum_id ), array( 'id' => $post_id ) );
 		}
@@ -549,7 +590,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$commenter = self::factory()->user->create();
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
-			array( 'object_type' => 'post', 'object_id' => $card_id, 'user_id' => $commenter, 'content' => 'great thread' ),
+			array(
+				'object_type' => 'post',
+				'object_id'   => $card_id,
+				'user_id'     => $commenter,
+				'content'     => 'great thread',
+			),
 			array( '%s', '%d', '%d', '%s' )
 		);
 		$this->assertGreaterThan( 0, (int) $wpdb->insert_id );
@@ -587,7 +633,18 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT status, link_meta FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
 
 		// A card from before the post_id stamp: matched by URL and stamped.
-		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'link_meta' => wp_json_encode( array( 'url' => $url, 'title' => 'Old' ) ) ), array( 'link_url' => $url ) );
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'link_meta' => wp_json_encode(
+					array(
+						'url'   => $url,
+						'title' => 'Old',
+					)
+				),
+			),
+			array( 'link_url' => $url )
+		);
 		$this->assertSame( $url, $this->bridge->verify_discussion_card( $url, array() ) );
 		$this->assertSame( 50, (int) ( json_decode( $card()->link_meta, true )['post_id'] ?? 0 ), 'an unstamped card is stamped' );
 
@@ -651,7 +708,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function test_discussion_choice_round_trip_keeps_one_discussion(): void {
 		global $wpdb;
 		$owner    = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Choice', 'slug' => 'choice-' . wp_rand( 1000, 9999 ) ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Choice',
+				'slug' => 'choice-' . wp_rand( 1000, 9999 ),
+			)
+		);
 
 		$this->assertTrue( $this->bridge->apply_discussion_choice( $space_id, true, 0, $owner ) );
 		$first = $this->bridge->space_discussion_status( $space_id );
@@ -679,7 +742,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$owner    = self::factory()->user->create();
 		$member   = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Trail runners', 'slug' => 'trail-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Trail runners',
+				'slug' => 'trail-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
 		buddynext_service( 'space_members' )->join( $space_id, $member );
 		$this->bridge->apply_discussion_choice( $space_id, true, 0, $owner );
 		$forum_id = $this->bridge->space_discussion_status( $space_id )['forum_id'];
@@ -705,7 +775,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	 */
 	public function test_discussion_route_is_for_space_managers(): void {
 		$owner    = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Gate', 'slug' => 'gate-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Gate',
+				'slug' => 'gate-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
 		$request  = new \WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $space_id . '/discussion' );
 		$request->set_url_params( array( 'id' => $space_id ) );
 
@@ -746,9 +823,23 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$spaces->ban_from_space( $open, $banned, $owner );
 
 		foreach ( array_merge( $members, array( $banned, 999999 ) ) as $user_id ) {
-			$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $user_id, 'source' => 'manual' ) );
+			$wpdb->insert(
+				$wpdb->prefix . 'jt_space_members',
+				array(
+					'space_id' => 7,
+					'user_id'  => $user_id,
+					'source'   => 'manual',
+				)
+			);
 		}
-		$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $by_tier, 'source' => 'tier' ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_space_members',
+			array(
+				'space_id' => 7,
+				'user_id'  => $by_tier,
+				'source'   => 'tier',
+			)
+		);
 
 		// Not linked to forum 7: nothing is copied.
 		$this->bridge->copy_forum_members( $open, 7, 0 );
@@ -874,7 +965,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 					'type'       => 'link',
 					'content'    => 'Card',
 					'link_url'   => $link,
-					'link_meta'  => wp_json_encode( array( 'url' => $link, 'title' => '100%25 sure' ) ),
+					'link_meta'  => wp_json_encode(
+						array(
+							'url'   => $link,
+							'title' => '100%25 sure',
+						)
+					),
 					'privacy'    => 'public',
 					'status'     => 'published',
 					'created_at' => current_time( 'mysql', true ),
@@ -956,7 +1052,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$owner         = self::factory()->user->create();
 		$moderator     = self::factory()->user->create();
 		$community_mod = self::factory()->user->create();
-		$space_id      = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Team', 'slug' => 'team-' . wp_rand( 1000, 99999 ), 'type' => 'open' ) );
+		$space_id      = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Team',
+				'slug' => 'team-' . wp_rand( 1000, 99999 ),
+				'type' => 'open',
+			)
+		);
 		$members       = buddynext_service( 'space_members' );
 		$members->join( $space_id, $moderator );
 		$members->change_role( $space_id, $moderator, 'moderator', $owner );
@@ -1058,9 +1161,23 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function test_a_forum_is_linked_to_one_space_only(): void {
 		global $wpdb;
 		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
-		$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => 'shared', 'title' => 'Shared forum', 'author_id' => $admin ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_spaces',
+			array(
+				'slug'      => 'shared',
+				'title'     => 'Shared forum',
+				'author_id' => $admin,
+			)
+		);
 		$forum = (int) $wpdb->insert_id;
-		$make  = static fn( string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $admin, array( 'name' => $name, 'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ), 'type' => 'open' ) );
+		$make  = static fn( string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$admin,
+			array(
+				'name' => $name,
+				'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ),
+				'type' => 'open',
+			)
+		);
 		$first = $make( 'First' );
 		$other = $make( 'Other' );
 
@@ -1080,7 +1197,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		// An integration offering it for adoption is passed over; a fresh one is made.
 		$offer = static fn(): int => $forum;
 		add_filter( 'buddynext_adopt_discussion_space', $offer );
-		$made = $this->bridge->provision_space_forum( $other );
+		$made  = $this->bridge->provision_space_forum( $other );
 		remove_filter( 'buddynext_adopt_discussion_space', $offer );
 		$this->assertGreaterThan( 0, $made );
 		$this->assertNotSame( $forum, $made );
@@ -1096,7 +1213,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function test_forum_lookup_is_deterministic_and_remembers_a_miss(): void {
 		global $wpdb;
 		$owner  = self::factory()->user->create();
-		$make   = static fn( string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => $name, 'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ) ) );
+		$make   = static fn( string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => $name,
+				'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ),
+			)
+		);
 		$first  = $make( 'Lookup one' );
 		$second = $make( 'Lookup two' );
 		$lookup = new \ReflectionMethod( JetonomyBridge::class, 'space_id_for_forum' );
@@ -1137,6 +1260,18 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => (string) ( $data['slug'] ?? '' ) ), array( '%s' ) );
 			return (int) $wpdb->insert_id;
+		}
+
+		/**
+		 * Look a forum up. The stub keeps no rows to read back, so nothing is found
+		 * and the visibility sync has nothing to align.
+		 *
+		 * @param int $id Forum id.
+		 * @return object|null
+		 */
+		public static function find( int $id ): ?object {
+			unset( $id );
+			return null;
 		}
 
 		/**

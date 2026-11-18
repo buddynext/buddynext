@@ -9,6 +9,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+defined( 'ABSPATH' ) || exit;
+
 use WP_CLI;
 
 /**

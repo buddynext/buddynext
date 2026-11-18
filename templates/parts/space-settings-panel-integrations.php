@@ -170,6 +170,11 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		</p>
 	<?php endif; ?>
 
+	<?php
+	// No row at all without Jetonomy: a switch-less "turn the switch on" line
+	// told the owner to do something they could not.
+	if ( class_exists( 'Jetonomy\\Jetonomy' ) ) :
+		?>
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
 			<div class="bn-toggle-row__label"><?php esc_html_e( 'Discussion', 'buddynext' ); ?></div>
@@ -183,7 +188,6 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 				?>
 			</div>
 			<?php $bn_off_note( 'jetonomy' ); ?>
-			<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
 				<?php if ( $bn_disc_has ) : ?>
 					<?php
 					// This Space already owns its one dedicated discussion. Show WHICH
@@ -211,19 +215,13 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 						<?php endif; ?>
 					</p>
 				<?php endif; ?>
-			<?php else : ?>
-				<p class="bn-space-settings__hint">
-					<?php esc_html_e( 'Discussions are unavailable on this site right now.', 'buddynext' ); ?>
-				</p>
-			<?php endif; ?>
 		</div>
-		<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
-			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable discussion', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'jetonomy' ) ); ?>>
-				<span class="bn-toggle" aria-hidden="true"></span>
-			</label>
-		<?php endif; ?>
+		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable discussion', 'buddynext' ); ?>">
+			<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'jetonomy' ) ); ?>>
+			<span class="bn-toggle" aria-hidden="true"></span>
+		</label>
 	</div>
+	<?php endif; ?>
 
 	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) && $args['is_space_owner'] ) : ?>
 		<?php

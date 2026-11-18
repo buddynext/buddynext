@@ -22,6 +22,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+defined( 'ABSPATH' ) || exit;
+
 use BuddyNext\Auth\MemberHold;
 use BuddyNext\Auth\RestHoldGate;
 use BuddyNext\Core\RestRoute;
@@ -208,6 +210,13 @@ class JetonomyBridge {
 			add_action( 'buddynext_space_member_left', array( $this, 'revoke_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_member_removed', array( $this, 'revoke_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_user_banned', array( $this, 'revoke_forum_access' ), 10, 2 );
+
+			// The other direction: the forum's own joins, leaves and role edits. The
+			// space stays the authority, so none of these can bypass its approval or
+			// hand out a power the space did not give.
+			add_action( 'jetonomy_space_member_joined', array( $this, 'on_forum_member_joined' ), 10, 2 );
+			add_action( 'jetonomy_space_member_left', array( $this, 'on_forum_member_left' ), 10, 2 );
+			add_action( 'jetonomy_space_member_role_changed', array( $this, 'on_forum_role_changed' ), 10, 3 );
 		}
 
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
@@ -1468,6 +1477,104 @@ class JetonomyBridge {
 		if ( 'active' === $members->get_status( (int) $space_id, (int) $user_id ) ) {
 			$this->put_on_forum( $forum_id, (int) $user_id, (string) $members->get_role( (int) $space_id, (int) $user_id ) );
 		}
+	}
+
+	/**
+	 * Someone joined the linked forum from the forum side.
+	 *
+	 * One member list, not two that drift: a join into the forum of an OPEN space
+	 * makes them a member of the space. A private or secret space is never entered
+	 * through its forum: the roster row is withdrawn and, for a private space, the
+	 * person's request goes to the space's own approval. Joins the space itself
+	 * wrote (active members) are left alone, which also ends the loop.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $user_id  Member who joined.
+	 * @return void
+	 */
+	public function on_forum_member_joined( $forum_id, $user_id ): void {
+		$forum_id = (int) $forum_id;
+		$user_id  = (int) $user_id;
+		$space_id = $this->space_id_for_forum( $forum_id );
+		if ( $space_id <= 0 || $user_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
+			return;
+		}
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		if ( 'active' === $members->get_status( $space_id, $user_id ) ) {
+			return;
+		}
+
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		$type  = (string) ( $space['type'] ?? '' );
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_OPEN === $type ) {
+			$members->join( $space_id, $user_id );
+			return;
+		}
+
+		\Jetonomy\Models\SpaceMember::remove( $forum_id, $user_id );
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === $type && null === $members->get_status( $space_id, $user_id ) ) {
+			$members->request_join( $space_id, $user_id );
+		}
+		$this->invalidate_member_caches( $user_id );
+	}
+
+	/**
+	 * Someone left the linked forum: an ordinary member leaves the space too.
+	 *
+	 * Owners and moderators keep their place: their role comes from the space, and
+	 * the space puts the forum row back when they next act.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $user_id  Member who left.
+	 * @return void
+	 */
+	public function on_forum_member_left( $forum_id, $user_id ): void {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		$user_id  = (int) $user_id;
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return;
+		}
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		if ( 'active' !== $members->get_status( $space_id, $user_id ) || 'member' !== (string) $members->get_role( $space_id, $user_id ) ) {
+			return;
+		}
+		$members->leave( $space_id, $user_id );
+	}
+
+	/**
+	 * A role was changed inside the forum: the space's role wins.
+	 *
+	 * A space owner or moderator is a forum admin or moderator because the space
+	 * says so. A role set only in the forum is put back to what the space gave, and
+	 * a person the space does not know cannot be made a forum moderator, so no
+	 * power is created on a screen the space owner is not watching.
+	 *
+	 * @param int    $forum_id Jetonomy forum id.
+	 * @param int    $user_id  Member.
+	 * @param string $role     New forum role.
+	 * @return void
+	 */
+	public function on_forum_role_changed( $forum_id, $user_id, $role ): void {
+		$forum_id = (int) $forum_id;
+		$user_id  = (int) $user_id;
+		$space_id = $this->space_id_for_forum( $forum_id );
+		if ( $space_id <= 0 || $user_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
+			return;
+		}
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$active  = 'active' === $members->get_status( $space_id, $user_id );
+		$bn_role = $active ? (string) $members->get_role( $space_id, $user_id ) : '';
+		$want    = in_array( $bn_role, array( 'owner', 'admin' ), true ) ? 'admin' : ( 'moderator' === $bn_role ? 'moderator' : 'member' );
+		if ( (string) $role === $want ) {
+			return;
+		}
+
+		// Setting the wanted role fires this hook again, now equal, which ends it.
+		\Jetonomy\Models\SpaceMember::set_role( $forum_id, $user_id, $want );
+		$this->invalidate_member_caches( $user_id );
 	}
 
 	/**
