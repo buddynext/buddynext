@@ -1243,14 +1243,34 @@ select.bn-text-input {
 .bn-int-matrix__none {
 	color: var(--bn-a-text-3);
 }
-/* The sub-tab row reads as part of the integration above it. */
+/* One integration is one block: its own row and its sub-tab row. No line between
+   the two, a clear line between blocks, and the sub-tabs indented under the name
+   with an accent edge so they read as belonging to it. */
 .bn-admin-hub__content .bn-int-matrix tr:has(+ .bn-int-matrix__subrow) > * {
 	border-bottom: none;
+}
+.bn-admin-hub__content .bn-int-matrix tbody tr:not(.bn-int-matrix__subrow):not(:first-child) > * {
+	border-top: 1px solid var(--bn-a-border);
+}
+/* The same edge runs over the integration's own row, so row and sub-tabs are one
+   block. Plain rows keep a transparent edge so every name lines up. */
+.bn-admin-hub__content .bn-int-matrix tbody tr > :first-child {
+	border-inline-start: 3px solid transparent;
+}
+.bn-admin-hub__content .bn-int-matrix tbody tr:has(+ .bn-int-matrix__subrow) > :first-child,
+.bn-admin-hub__content .bn-int-matrix tbody tr.bn-int-matrix__subrow > :first-child {
+	border-inline-start-color: var(--bn-accent);
 }
 .bn-int-matrix .bn-int-matrix__subrow td,
 .bn-int-matrix tr.bn-int-matrix__subrow:hover td {
 	padding-top: 0;
+	padding-inline-start: var(--bn-a-s6, 1.5rem);
 	background: var(--bn-sunken);
+	border-top: none;
+	border-inline-start: 3px solid var(--bn-accent);
+}
+.bn-int-subtab-group__kicker {
+	padding-top: var(--bn-a-s1);
 }
 .bn-int-matrix__subtabs {
 	display: flex;

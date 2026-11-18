@@ -219,8 +219,7 @@ class IntegrationControlsAdmin {
 										<td colspan="4">
 											<span class="bn-int-subtab-group__kicker">
 												<?php
-												/* translators: %s: integration name. */
-												echo esc_html( sprintf( __( '%s navigation sub-tabs', 'buddynext' ), $bn_product ) );
+												esc_html_e( 'Navigation sub-tabs', 'buddynext' );
 												?>
 											</span>
 											<div class="bn-int-matrix__subtabs">
