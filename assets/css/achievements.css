@@ -401,12 +401,3 @@ a.bn-achievements__badge-link:focus-visible {
 }
 
 /* Kudos give-result notice: the shared front-end .bn-notice in bn-base.css. */
-
-/* Jetonomy credential strip on the profile Discussions tab. The shared .bn-stat-grid
-   lays out for many stats (leaves empty columns for just 3) and has no bottom margin,
-   so the tiles ran full-bleed into the discussion list — fit the 3 tiles to the row
-   and add breathing room below. */
-.bn-jt-cred-strip {
-	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-	margin-bottom: var(--bn-s4);
-}

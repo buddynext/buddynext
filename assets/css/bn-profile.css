@@ -3503,3 +3503,14 @@ a.bn-space-row:hover .bn-space-name {
 .bn-more-menu-item--reported,
 .bn-more-menu-item--reported:hover,
 .bn-more-menu-item--reported:focus { background: transparent; color: var(--bn-ink-3); cursor: default; }
+
+/* Jetonomy credential strip on the profile Discussions tab. Lives here, not in
+   achievements.css, which only loads with WB Gamification: without it the tiles ran
+   straight into the topic list. The shared .bn-stat-grid lays out for many stats
+   (leaves empty columns for just 3) and has no bottom margin, so the tiles ran
+   full-bleed into the discussion list: fit the 3 tiles to the row and add breathing
+   room below. */
+.bn-jt-cred-strip {
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	margin-bottom: var(--bn-s4);
+}

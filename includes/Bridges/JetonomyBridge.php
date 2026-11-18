@@ -1296,25 +1296,29 @@ class JetonomyBridge {
 		$moderation = new \BuddyNext\Moderation\ModerationService();
 		$can_ban    = class_exists( '\\Jetonomy\\Models\\Restriction' );
 		$last_id    = $after_id;
-		foreach ( $rows as $row ) {
-			$user_id = (int) $row->user_id;
-			$last_id = max( $last_id, $user_id );
+		// An exception inside the batch must not leave the quiet filter on for the rest
+		// of the request, which would swallow every other join notification.
+		try {
+			foreach ( $rows as $row ) {
+				$user_id = (int) $row->user_id;
+				$last_id = max( $last_id, $user_id );
 
-			// An allow list: only the two ways a person puts themselves in a forum.
-			// ponytail: one ban lookup per member (memoised by Jetonomy), in a
-			// background batch of 200; a set query if a forum of many thousands is slow.
-			if ( $user_id <= 0 || false === get_userdata( $user_id )
-				|| ! in_array( (string) $row->source, array( 'manual', 'invite' ), true )
-				|| ( $can_ban && \Jetonomy\Models\Restriction::is_banned( $user_id ) )
-				|| $moderation->is_suspended( $user_id ) ) {
-				continue;
+				// An allow list: only the two ways a person puts themselves in a forum.
+				// ponytail: one ban lookup per member (memoised by Jetonomy), in a
+				// background batch of 200; a set query if a forum of many thousands is slow.
+				if ( $user_id <= 0 || false === get_userdata( $user_id )
+					|| ! in_array( (string) $row->source, array( 'manual', 'invite' ), true )
+					|| ( $can_ban && \Jetonomy\Models\Restriction::is_banned( $user_id ) )
+					|| $moderation->is_suspended( $user_id ) ) {
+					continue;
+				}
+
+				// A copy of the forum's roster. A refusal (banned from the space, gated) leaves them out.
+				\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $members->join( $space_id, $user_id ) );
 			}
-
-			// A copy of the forum's roster. A refusal (banned from the space, gated) leaves them out.
-			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $members->join( $space_id, $user_id ) );
+		} finally {
+			remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
 		}
-
-		remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
 
 		if ( count( $rows ) >= self::COPY_MEMBERS_BATCH ) {
 			self::queue_member_copy( $space_id, $forum_id, $last_id );
