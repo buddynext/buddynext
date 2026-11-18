@@ -202,6 +202,13 @@
 	color: var(--bn-ink, #0f172a);
 }
 
+/* The header is on every page, and a theme's button reset removes the browser
+   ring: draw our own, the same ring the avatar link beside it has. */
+.bn-header-user__caret:focus-visible {
+	outline: 2px solid var(--bn-accent, #2563eb);
+	outline-offset: 2px;
+}
+
 /* ── Notification bell preview panel ──────────────────────────────────────
    The avatar dropdown's surface (Menu recipe: --bn-r-md, --bn-shadow-md,
    --bn-z-menu), opened by assets/js/header/user-menu.js. Phones never open it:
