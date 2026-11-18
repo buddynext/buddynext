@@ -179,4 +179,42 @@ class PageCachePurgerTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 0, $flushed );
 	}
+
+	/**
+	 * Saving an owner setting flushes the page cache; a runtime flag does not.
+	 *
+	 * Guests are served a cached page, so a changed appearance, width or name must
+	 * reach them when the owner saves, not when the cache expires.
+	 *
+	 * @return void
+	 */
+	public function test_saving_an_owner_setting_flushes_the_page_cache_but_a_runtime_flag_does_not(): void {
+		$reset = new \ReflectionProperty( PageCachePurger::class, 'purged_all' );
+		$reset->setAccessible( true );
+		$reset->setValue( null, false );
+
+		$flushed = 0;
+		add_action(
+			'buddynext_purge_page_cache_all',
+			static function () use ( &$flushed ): void {
+				++$flushed;
+			}
+		);
+
+		register_setting( 'buddynext_appearance', 'buddynext_probe_owner_setting', array( 'type' => 'string' ) );
+
+		update_option( 'buddynext_probe_runtime_flag', 'a' );
+		update_option( 'buddynext_probe_runtime_flag', 'b' );
+		$this->assertSame( 0, $flushed, 'a flag the plugin writes by itself is not an owner change' );
+
+		update_option( 'buddynext_probe_owner_setting', 'dark' );
+		$this->assertSame( 1, $flushed, 'an owner setting reaches every cached guest page' );
+
+		unregister_setting( 'buddynext_appearance', 'buddynext_probe_owner_setting' );
+
+		// The Appearance screen saves its own options rather than registering them.
+		$reset->setValue( null, false );
+		update_option( 'buddynext_default_theme', 'dark' );
+		$this->assertSame( 2, $flushed, 'saving the default appearance reaches guests too' );
+	}
 }

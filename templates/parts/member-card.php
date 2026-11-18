@@ -125,11 +125,14 @@ $bn_conn_state    = (string) $args['connection_state'];
 $bn_conn_status   = (string) $args['connection_status'];
 $bn_is_muted      = (bool) $args['is_muted'];
 // The directory grid primes the reported map once per page; other callers ask per card (cached).
-$bn_md_reported   = null !== $args['has_reported']
+$bn_md_reported = null !== $args['has_reported']
 	? (bool) $args['has_reported']
 	: ( $bn_viewer_id > 0 && buddynext_service( 'moderation' )->user_has_reported( $bn_viewer_id, 'user', $bn_member_id ) );
-$bn_mutual        = (int) $args['mutual_count'];
-$bn_presence_attr = (string) $args['presence'];
+$bn_mutual      = (int) $args['mutual_count'];
+// Presence is hidden from visitors who are not signed in, so for them there is no
+// dot and no "(Offline)" text at all: saying "Offline" about a member who is online
+// is a false statement, not a hidden one. PresenceService owns who may see it.
+$bn_presence_attr = \BuddyNext\Realtime\PresenceService::visible_to_viewer( get_current_user_id() ) ? (string) $args['presence'] : '';
 $bn_type_label    = (string) $args['member_type_label'];
 $bn_type_color    = (string) $args['member_type_color'];
 $bn_type_text     = (string) $args['member_type_text_color'];
@@ -271,7 +274,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 		<span
 			class="bn-avatar bn-md-card__avatar"
 			data-size="xl"
-			data-presence="<?php echo esc_attr( $bn_presence_attr ); ?>"
+			<?php echo '' !== $bn_presence_attr ? 'data-presence="' . esc_attr( $bn_presence_attr ) . '"' : ''; ?>
 			data-tone="<?php echo esc_attr( $bn_avatar_tone ); ?>"
 		>
 			<?php if ( '' !== $bn_avatar_url ) : ?>

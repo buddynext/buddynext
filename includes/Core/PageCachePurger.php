@@ -60,6 +60,12 @@ class PageCachePurger implements ListenerInterface {
 		// the count on every page that shows the post: guests saw the old thread.
 		add_action( 'buddynext_comment_thread_changed', array( $this, 'on_comment_thread_change' ), 10, 2 );
 
+		// An owner setting changes what every guest page looks like (appearance, width,
+		// names, navigation), and only the setting that moved a hub was ever caught:
+		// guests kept the old page until the cache expired.
+		add_action( 'updated_option', array( $this, 'on_option_saved' ), 10, 1 );
+		add_action( 'added_option', array( $this, 'on_option_saved' ), 10, 1 );
+
 		// The hub registry is filled on init:0, so its slug options are known from init:1.
 		if ( did_action( 'init' ) ) {
 			$this->watch_hub_slugs();
@@ -95,6 +101,60 @@ class PageCachePurger implements ListenerInterface {
 				2
 			);
 		}
+	}
+
+	/**
+	 * An owner setting was saved.
+	 *
+	 * The settings screens register every field they own through register_setting(),
+	 * so "registered under our prefix" is exactly the set an owner can change, and
+	 * runtime flags and counters (never registered) do not flush the cache. Owner
+	 * saves are rare, so the whole cache goes rather than a guess at which pages a
+	 * given setting reaches.
+	 *
+	 * @param string $option Option name that was added or changed.
+	 * @return void
+	 */
+	public function on_option_saved( string $option ): void {
+		if ( 0 !== strpos( $option, 'buddynext' ) ) {
+			return;
+		}
+		if ( ! isset( get_registered_settings()[ $option ] ) && ! in_array( $option, self::public_markup_options(), true ) ) {
+			return;
+		}
+		self::purge_all();
+	}
+
+	/**
+	 * Options an owner saves that are not registered settings but change every
+	 * guest page: the Appearance screen saves its own, and the navigation manager
+	 * stores its overrides in four.
+	 *
+	 * @return string[]
+	 */
+	private static function public_markup_options(): array {
+		$options = array(
+			'buddynext_default_theme',
+			'buddynext_container_width',
+			'buddynext_container_width_custom',
+			'buddynext_brand_color',
+			'buddynext_logo_url',
+			'buddynext_custom_css',
+			'buddynext_nav_overrides',
+			'buddynext_nav_overrides_profile',
+			'buddynext_nav_overrides_space',
+			'buddynext_nav_overrides_mobile',
+		);
+
+		/**
+		 * Filter the options whose change flushes the page cache. An add-on whose
+		 * setting reaches every guest page (a brand name, a logo) adds its key here.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param string[] $options Option names.
+		 */
+		return array_map( 'strval', (array) apply_filters( 'buddynext_public_markup_options', $options ) );
 	}
 
 	/**
