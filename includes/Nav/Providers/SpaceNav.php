@@ -443,7 +443,7 @@ final class SpaceNav {
 		$archived   = ! empty( $space->is_archived );
 		// An archived space is read-only for everyone (mirrors the post/comment/join
 		// guards); otherwise the composer follows the space's "who can post" rule.
-		$can_post = $is_member && ! $archived && SpacePostGuard::can_post( $space_id, $viewer_id );
+		$can_post = $is_member && SpacePostGuard::can_contribute( $space_id, $viewer_id );
 
 		$feed = buddynext_service( 'feed' );
 

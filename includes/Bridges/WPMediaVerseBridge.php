@@ -27,6 +27,7 @@ use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Media\Galleries;
+use BuddyNext\Spaces\SpacePostGuard;
 use BuddyNext\Spaces\SpaceVisibility;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\IntegrationActivity;
@@ -2560,26 +2561,21 @@ class WPMediaVerseBridge {
 			return $level;
 		}
 		$role = buddynext_service( 'space_members' )->get_role( $drive_id, $user_id );
-		if ( 'owner' === $role ) {
-			return 'own';
-		}
-		if ( 'moderator' === $role ) {
-			return 'write';
-		}
 		if ( null !== $role ) {
-			// Any space member may CONTRIBUTE. MediaVerse built this ladder for
-			// exactly this case - its own docblock says a yes/no "cannot express
-			// 'may contribute but does not own', which is what a Space member is,
-			// and why a Space upload is impossible while ownership is the only
-			// write gate". Answering 'read' here was that impossibility: a member's
-			// photo could never land on the space drive, so space-scoped media
-			// privacy was unreachable and the file fell back to a level readable by
-			// every signed-in member of the site.
-			//
-			// `write` is contribution, not control. Editing or deleting an
-			// individual item is a per-item decision MediaVerse makes separately
-			// (PermissionService::permission_for), so this grants nobody rights over
-			// anyone else's upload.
+			// A member's level follows the Space's own rule for putting something in
+			// it: the same one that gates a post. In a Space where only the owner
+			// posts, or one that is archived, the drive is read-only for members
+			// (and for the owner too when archived); it was `write` for any member.
+			if ( ! SpacePostGuard::can_contribute( $drive_id, $user_id ) ) {
+				return 'read';
+			}
+			if ( 'owner' === $role ) {
+				return 'own';
+			}
+			// `write` is contribution, not control. MediaVerse's own docblock says a
+			// yes/no "cannot express 'may contribute but does not own', which is
+			// what a Space member is"; editing or deleting an individual item is a
+			// per-item decision it makes separately (PermissionService::permission_for).
 			return 'write';
 		}
 		return SpaceVisibility::can_view_content( $space, $user_id ) ? 'read' : 'none';
@@ -3747,6 +3743,21 @@ class WPMediaVerseBridge {
 			return;
 		}
 
+		// The feed shows this comment to every viewer of the post, so it runs the
+		// same content safeguard a feed comment does. A hard block keeps it off the
+		// feed (the engine still holds it on the lightbox, which this plugin does
+		// not own); a flag lets it through and files a report below.
+		$scan_flag = '';
+		$guard     = function_exists( 'buddynext_service' ) ? buddynext_service( 'safeguard' ) : null;
+		if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) && '' !== trim( (string) $comment->comment_content ) ) {
+			$verdict = $guard->check_content( (string) $comment->comment_content, '', $user_id, 0, 'create', 'comment' );
+			if ( SafeguardService::is_flag_verdict( $verdict ) ) {
+				$scan_flag = (string) $verdict->get_error_message();
+			} elseif ( is_wp_error( $verdict ) ) {
+				return;
+			}
+		}
+
 		// Create the bn_comments entry, dated when the member wrote it (a comment
 		// carried onto a card created later keeps its own time).
 		$now     = current_time( 'mysql', true );
@@ -3790,6 +3801,9 @@ class WPMediaVerseBridge {
 		// that CommentService fires and every listener expects — a short 3-arg
 		// form would ArgumentCountError-fatal the 4-arg listeners.
 		$new_comment_id = (int) $wpdb->insert_id;
+		if ( $new_comment_id > 0 && '' !== $scan_flag ) {
+			ModerationService::auto_flag( 'comment', $new_comment_id, $scan_flag );
+		}
 		if ( $new_comment_id > 0 ) {
 			// A mirror of a comment MediaVerse already recorded: flag it so reward
 			// listeners do not pay the same comment twice, and mute notifications -

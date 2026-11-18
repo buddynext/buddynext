@@ -141,4 +141,24 @@ class SpacePostGuard {
 		 */
 		return (bool) apply_filters( 'buddynext_space_can_post', $can, $space_id, $user_id, $role );
 	}
+
+	/**
+	 * Whether a member may put something INTO a space: a post, a photo, an album,
+	 * a file. One rule for all of them, so a Space set to "only owners post" is not
+	 * quietly open to members through the media drive, and an archived Space is
+	 * read-only for everyone, owner included.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User ID.
+	 * @return bool
+	 */
+	public static function can_contribute( int $space_id, int $user_id ): bool {
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return false;
+		}
+		if ( buddynext_service( 'spaces' )->is_archived( $space_id ) ) {
+			return false;
+		}
+		return self::can_post( $space_id, $user_id );
+	}
 }

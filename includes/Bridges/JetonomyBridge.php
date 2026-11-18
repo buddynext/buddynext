@@ -3470,7 +3470,7 @@ class JetonomyBridge {
 
 		// Same gate as the feed composer: an active member whose role meets the space's
 		// "who can post", or a site admin, on a non-archived space.
-		$can_post = empty( $space->is_archived ) && \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $viewer_id );
+		$can_post = \BuddyNext\Spaces\SpacePostGuard::can_contribute( $space_id, $viewer_id );
 
 		$forum_ctx = $this->space_forum_context( $space_id );
 

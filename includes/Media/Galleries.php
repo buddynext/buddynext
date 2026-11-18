@@ -59,6 +59,12 @@ class Galleries {
 			return false;
 		}
 
+		// The Space's own rule first: who-can-post and the archive state apply to an
+		// album as they do to a post, for a site admin too when it is archived.
+		if ( ! \BuddyNext\Spaces\SpacePostGuard::can_contribute( $space_id, $viewer_id ) ) {
+			return false;
+		}
+
 		if ( current_user_can( 'manage_options' ) ) {
 			return true;
 		}

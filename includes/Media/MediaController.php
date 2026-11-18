@@ -1277,14 +1277,7 @@ class MediaController extends BaseRestController {
 			return false;
 		}
 
-		if ( current_user_can( 'manage_options' ) ) {
-			return true;
-		}
-
-		$viewer = get_current_user_id();
-
-		return $viewer > 0
-			&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer );
+		return \BuddyNext\Spaces\SpacePostGuard::can_contribute( $space_id, get_current_user_id() );
 	}
 
 	/**
