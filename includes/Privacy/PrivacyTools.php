@@ -163,9 +163,14 @@ class PrivacyTools implements ListenerInterface {
 		$page = max( 1, (int) $page );
 		$user = get_user_by( 'email', $email_address );
 
+		// Invitations are keyed by email, not by account: a person invited before they
+		// ever registered has no user row, and erase() already finds them by email, so
+		// the export must too (right of access, not only erasure).
+		$invitations = 1 === $page ? $this->export_invites( $email_address ) : array();
+
 		if ( ! $user instanceof \WP_User ) {
 			return array(
-				'data' => array(),
+				'data' => $invitations,
 				'done' => true,
 			);
 		}
@@ -180,7 +185,8 @@ class PrivacyTools implements ListenerInterface {
 			$items = array_merge(
 				$this->export_profile_meta( $user_id ),
 				$this->export_profile_values( $user_id ),
-				$this->export_notification_prefs( $user_id )
+				$this->export_notification_prefs( $user_id ),
+				$invitations
 			);
 		}
 
@@ -997,6 +1003,70 @@ class PrivacyTools implements ListenerInterface {
 				'data'        => $data,
 			),
 		);
+	}
+
+	/**
+	 * Export the invitations sent to an email address.
+	 *
+	 * @param string $email_address Email of the person being exported.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function export_invites( string $email_address ): array {
+		global $wpdb;
+
+		// Keyed on the indexed email column, the same lookup erase() uses. The invite
+		// token is a credential for joining, never exported.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, email, first_name, space_id, status, expires_at, created_at FROM {$wpdb->prefix}bn_invites WHERE email = %s ORDER BY id LIMIT 200",
+				$email_address
+			),
+			ARRAY_A
+		);
+
+		$items = array();
+		foreach ( (array) $rows as $row ) {
+			$data = array(
+				array(
+					'name'  => __( 'Email', 'buddynext' ),
+					'value' => (string) $row['email'],
+				),
+				array(
+					'name'  => __( 'Status', 'buddynext' ),
+					'value' => (string) $row['status'],
+				),
+				array(
+					'name'  => __( 'Invited on', 'buddynext' ),
+					'value' => (string) $row['created_at'],
+				),
+				array(
+					'name'  => __( 'Invitation expires', 'buddynext' ),
+					'value' => (string) $row['expires_at'],
+				),
+			);
+			if ( '' !== (string) $row['first_name'] ) {
+				$data[] = array(
+					'name'  => __( 'First name', 'buddynext' ),
+					'value' => (string) $row['first_name'],
+				);
+			}
+			if ( (int) $row['space_id'] > 0 ) {
+				$space  = buddynext_service( 'spaces' )->get( (int) $row['space_id'] );
+				$data[] = array(
+					'name'  => __( 'Space', 'buddynext' ),
+					'value' => is_array( $space ) && ! empty( $space['name'] ) ? (string) $space['name'] : (string) (int) $row['space_id'],
+				);
+			}
+			$items[] = array(
+				'group_id'    => 'buddynext-invitations',
+				'group_label' => __( 'BuddyNext invitations', 'buddynext' ),
+				'item_id'     => 'buddynext-invitation-' . (int) $row['id'],
+				'data'        => $data,
+			);
+		}
+
+		return $items;
 	}
 
 	/**

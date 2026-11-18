@@ -266,14 +266,7 @@ class WPMediaVerseBridge {
 		// as well as by the installer: a site that updates BuddyNext before
 		// MediaVerse cannot run it yet, and must still get it once it can.
 		add_action( 'init', array( self::class, 'maybe_queue_privacy_repair' ), 20, 0 );
-		add_action(
-			MediaPrivacyRepairCommand::HOOK,
-			static function (): void {
-				MediaPrivacyRepairCommand::run();
-			},
-			10,
-			0
-		);
+		add_action( MediaPrivacyRepairCommand::HOOK, array( self::class, 'run_privacy_repair' ), 10, 0 );
 
 		// A member switching their account between public and private changes the
 		// audience of their public posts, so their attached media follows.
@@ -1444,16 +1437,24 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Queue the one-time repair of media stored wider than its post, once.
+	 * Queue the one-time repair of media stored wider than its post.
 	 *
-	 * Only when MediaVerse has the writers the repair needs (2.6.2), and only
-	 * once per site: the flag is set when the job is queued. Action Scheduler
-	 * when present, a single WP-Cron event otherwise.
+	 * Only when MediaVerse has the writers the repair needs (2.6.2). The option
+	 * holds the time it was queued until a run finishes, then 'done'. A queued
+	 * run that never finished (a timeout or a fatal on a very large site) is
+	 * queued again once a day until one does, so old media is never left wider
+	 * than its post without anyone noticing. Action Scheduler when present, a
+	 * single WP-Cron event otherwise.
 	 *
 	 * @return void
 	 */
 	public static function maybe_queue_privacy_repair(): void {
-		if ( get_option( 'buddynext_media_privacy_repair_queued' ) ) {
+		$state = get_option( 'buddynext_media_privacy_repair_queued' );
+		if ( 'done' === $state ) {
+			return;
+		}
+		// Queued recently: give that run time to finish.
+		if ( is_numeric( $state ) && (int) $state > time() - DAY_IN_SECONDS ) {
 			return;
 		}
 
@@ -1462,16 +1463,33 @@ class WPMediaVerseBridge {
 			return;
 		}
 
+		$hook = MediaPrivacyRepairCommand::HOOK;
+		// Still waiting in the queue: nothing to add.
+		if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( $hook ) ) {
+			return;
+		}
+		if ( wp_next_scheduled( $hook ) ) {
+			return;
+		}
+
 		update_option( 'buddynext_media_privacy_repair_queued', time(), true );
 
-		$hook = MediaPrivacyRepairCommand::HOOK;
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action( $hook, array(), 'buddynext' );
 			return;
 		}
 
-		if ( ! wp_next_scheduled( $hook ) ) {
-			wp_schedule_single_event( time() + 60, $hook );
+		wp_schedule_single_event( time() + 60, $hook );
+	}
+
+	/**
+	 * The queued repair: run it, and only when it finished record that it did.
+	 *
+	 * @return void
+	 */
+	public static function run_privacy_repair(): void {
+		if ( null !== MediaPrivacyRepairCommand::run() ) {
+			update_option( 'buddynext_media_privacy_repair_queued', 'done', true );
 		}
 	}
 
@@ -1878,7 +1896,7 @@ class WPMediaVerseBridge {
 	 *
 	 * ponytail: the newest 5,000 connections. A single item is always checked
 	 * exactly through are_friends(); only a list would miss friends-only media of
-	 * a connection past that number. Raise it, or page it, if a member gets there.
+	 * a connection past that number. The cap is read from the same filter a connection is accepted under.
 	 *
 	 * @param int[] $friend_ids Earlier answer.
 	 * @param int   $user_id    Member.
@@ -1887,7 +1905,11 @@ class WPMediaVerseBridge {
 	public function friend_ids( $friend_ids, int $user_id ): array {
 		unset( $friend_ids );
 
-		return array_map( 'intval', (array) buddynext_service( 'connections' )->connections( $user_id, 5000, 0 ) );
+		// The same cap a connection is accepted under, so the list and the limit can
+		// never disagree: a site that raises it still lists every friend.
+		$cap = max( 1, (int) apply_filters( 'buddynext_max_connections', \BuddyNext\SocialGraph\ConnectionService::MAX_CONNECTIONS, $user_id ) );
+
+		return array_map( 'intval', (array) buddynext_service( 'connections' )->connections( $user_id, $cap, 0 ) );
 	}
 
 	/**

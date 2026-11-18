@@ -181,4 +181,34 @@ class ExportCoverageTest extends WP_UnitTestCase {
 			'The push-token VALUE must be redacted from the export — it is a live credential, not a fact about the member.'
 		);
 	}
+
+	/**
+	 * An invitation is keyed by email, so a person invited before they registered is
+	 * exported by it, and the join token never is.
+	 *
+	 * @return void
+	 */
+	public function test_the_export_includes_invitations_sent_to_the_email_without_the_token(): void {
+		global $wpdb;
+		$email = 'invited-' . wp_rand( 1000, 9999 ) . '@example.test';
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_invites',
+			array(
+				'email'      => $email,
+				'first_name' => 'Ivy',
+				'token'      => 'secret-token-' . wp_rand( 1000, 9999 ),
+				'status'     => 'pending',
+				'expires_at' => gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS ),
+			)
+		);
+
+		$result = ( new PrivacyTools() )->export( $email, 1 );
+
+		$this->assertCount( 1, $result['data'], 'an invited non-member still has an export' );
+		$this->assertSame( 'buddynext-invitations', $result['data'][0]['group_id'] );
+		$this->assertStringNotContainsString( 'secret-token', wp_json_encode( $result ), 'the token is a credential, never exported' );
+		$this->assertStringContainsString( 'Ivy', wp_json_encode( $result ) );
+
+		$wpdb->delete( $wpdb->prefix . 'bn_invites', array( 'email' => $email ) );
+	}
 }

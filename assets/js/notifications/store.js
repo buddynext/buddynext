@@ -752,23 +752,22 @@ I18N = ( notificationsStore.state && notificationsStore.state.i18n ) || {};
 
 /**
  * Recount the day group labels whenever the rows under them change.
+ *
+ * Runs on every client navigation as well as the first load: a member who lands
+ * on Notifications from another page gets a freshly swapped list, and a watcher
+ * bound only once at load is attached to nothing there. A list already watched is
+ * skipped, so a repeat run never stacks a second observer on the same DOM.
  */
 function watchNotifGroups() {
-	var groups = document.querySelectorAll( '.bn-notif-group' );
-	if ( ! groups.length || typeof MutationObserver === 'undefined' ) { return; }
+	if ( typeof MutationObserver === 'undefined' ) { return; }
 	var observer = new MutationObserver( syncGroupUnreadLabels );
-	groups.forEach( function ( group ) {
-		var list = group.querySelector( '.bn-notif-list' );
-		if ( list ) {
-			observer.observe( list, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
-		}
+	document.querySelectorAll( '.bn-notif-group .bn-notif-list' ).forEach( function ( list ) {
+		if ( list.dataset.bnNotifWatched ) { return; }
+		list.dataset.bnNotifWatched = '1';
+		observer.observe( list, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
 	} );
 }
-if ( document.readyState === 'loading' ) {
-	document.addEventListener( 'DOMContentLoaded', watchNotifGroups );
-} else {
-	watchNotifGroups();
-}
+onNavReady( watchNotifGroups );
 
 /**
  * Background unread-count polling.
