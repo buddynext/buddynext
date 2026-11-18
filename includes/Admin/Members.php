@@ -705,6 +705,9 @@ class Members extends AdminPageBase {
 						</select>
 						<span class="bn-field-hint">
 							<?php esc_html_e( 'Controls moderation powers inside the community. Separate from the WordPress role above. Saved with the profile.', 'buddynext' ); ?>
+							<?php if ( \BuddyNext\Media\MediaClient::available() ) : ?>
+								<?php esc_html_e( 'Moderators can open any member\'s media, private included, so they can act on reports.', 'buddynext' ); ?>
+							<?php endif; ?>
 						</span>
 					</div>
 				</div>
