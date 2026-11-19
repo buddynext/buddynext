@@ -1508,3 +1508,15 @@
 @media ( max-width: 480px ) {
 	.bn-admin-hub__brand-ver { display: none; }
 }
+
+/* Phones: a card with a title, a line of text and one action gives the action its own row instead of
+   squeezing the title into a narrow column beside it. */
+@media ( max-width: 600px ) {
+	.bn-home-welcome .bn-setup-card__head,
+	.bn-demo-promo .bn-setup-card__head,
+	.bn-videos__more .bn-setup-card__head { flex-direction: column; align-items: stretch; }
+	.bn-home-welcome .bn-setup-card__actions .bn-btn,
+	.bn-demo-promo .bn-setup-card__head > .bn-btn,
+	.bn-demo-promo .bn-demo-promo__form .bn-btn,
+	.bn-videos__more .bn-setup-card__head > .bn-btn { inline-size: 100%; justify-content: center; }
+}
