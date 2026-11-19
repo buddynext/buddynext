@@ -184,16 +184,10 @@ class ModerationQueue {
 				<?php if ( empty( $items ) && $filtered ) : ?>
 					<p><?php esc_html_e( 'No reports match these filters.', 'buddynext' ); ?></p>
 				<?php elseif ( empty( $items ) ) : ?>
-					<p><?php esc_html_e( 'Nothing to review. The queue is clear.', 'buddynext' ); ?></p>
 					<?php
-					$this->empty_queue_shape(
-						array(
-							__( 'Reported content', 'buddynext' ),
-							__( 'Reason', 'buddynext' ),
-							__( 'Reporter', 'buddynext' ),
-							__( 'When', 'buddynext' ),
-							__( 'Actions', 'buddynext' ),
-						)
+					AdminPageBase::render_empty_state(
+						__( 'Nothing to review. The queue is clear.', 'buddynext' ),
+						__( 'Reports from members appear here with the content, the reason and who reported it.', 'buddynext' )
 					);
 					?>
 				<?php else : ?>
@@ -334,29 +328,17 @@ class ModerationQueue {
 			</div>
 			<div class="bn-ss-body">
 				<?php if ( empty( $items ) ) : ?>
-					<p>
-						<?php
-						if ( 'off' === $mode ) {
-							// No "turn it on under Settings" any more — there is no
-							// setting to point at. Pre-moderation is developer-only
-							// (see PreModerationService), so telling an owner to go
-							// looking for a switch would send them somewhere it is
-							// not.
-							esc_html_e( 'Posts go live as soon as they are written, so nothing waits here. Reported content is handled under Reports.', 'buddynext' );
-						} else {
-							esc_html_e( 'Nothing waiting. All held posts have been reviewed.', 'buddynext' );
-						}
-						?>
-					</p>
 					<?php
-					$this->empty_queue_shape(
-						array(
-							__( 'Post', 'buddynext' ),
-							__( 'Author', 'buddynext' ),
-							__( 'Space', 'buddynext' ),
-							__( 'Held', 'buddynext' ),
-							__( 'Actions', 'buddynext' ),
-						)
+					// No "turn it on under Settings" any more - there is no setting to point
+					// at. Pre-moderation is developer-only (see PreModerationService), so
+					// telling an owner to go looking for a switch would send them nowhere.
+					AdminPageBase::render_empty_state(
+						'off' === $mode
+							? __( 'Posts are not held for approval', 'buddynext' )
+							: __( 'Nothing waiting', 'buddynext' ),
+						'off' === $mode
+							? __( 'Posts go live as soon as they are written. Reported content is handled under Reports.', 'buddynext' )
+							: __( 'All held posts have been reviewed.', 'buddynext' )
 					);
 					?>
 				<?php else : ?>
@@ -646,16 +628,10 @@ class ModerationQueue {
 			</div>
 			<div class="bn-ss-body">
 				<?php if ( empty( $suspensions ) ) : ?>
-					<p><?php esc_html_e( 'No members are currently suspended.', 'buddynext' ); ?></p>
 					<?php
-					$this->empty_queue_shape(
-						array(
-							__( 'Member', 'buddynext' ),
-							__( 'Reason', 'buddynext' ),
-							__( 'Suspended by', 'buddynext' ),
-							__( 'Expires', 'buddynext' ),
-							__( 'Actions', 'buddynext' ),
-						)
+					AdminPageBase::render_empty_state(
+						__( 'No members are currently suspended.', 'buddynext' ),
+						__( 'A suspended member appears here with the reason, who suspended them and when it ends.', 'buddynext' )
 					);
 					?>
 				<?php else : ?>
@@ -713,15 +689,10 @@ class ModerationQueue {
 			</div>
 			<div class="bn-ss-body">
 				<?php if ( empty( $appeals ) ) : ?>
-					<p><?php esc_html_e( 'No appeals are waiting for review.', 'buddynext' ); ?></p>
 					<?php
-					$this->empty_queue_shape(
-						array(
-							__( 'Member', 'buddynext' ),
-							__( 'Appeal', 'buddynext' ),
-							__( 'When', 'buddynext' ),
-							__( 'Decision', 'buddynext' ),
-						)
+					AdminPageBase::render_empty_state(
+						__( 'No appeals are waiting for review.', 'buddynext' ),
+						__( 'When a suspended member appeals, the request appears here for you to decide.', 'buddynext' )
 					);
 					?>
 				<?php else : ?>
@@ -1319,46 +1290,6 @@ class ModerationQueue {
 	}
 
 	// ── Small render + flow helpers ─────────────────────────────────────────
-
-	/**
-	 * Render the column shape of an empty queue - headers only, no invented rows.
-	 *
-	 * This used to render four rows of fabricated reports: Post: "Buy followers
-	 * cheap" / Spam / Sample Reporter / 1 hour ago, a fake impersonation report
-	 * against "Admin Team", and two more. They were dimmed and badged "example
-	 * only", but they still read as content: an owner glancing at Moderation saw
-	 * four rows that looked like work waiting for them.
-	 *
-	 * Invented records do not belong on a screen whose entire job is telling the
-	 * owner what is really happening in their community - least of all one where
-	 * the fake rows name plausible members and accuse them of spam and
-	 * impersonation.
-	 *
-	 * Headers only, and no message: each caller already prints its own accurate
-	 * empty line immediately above ("Nothing to review. The queue is clear.",
-	 * "No members are currently suspended.", "No appeals are waiting for
-	 * review."). A sentence in here would be redundant on one tab and wrong on
-	 * the other three.
-	 *
-	 * @param array<int,string> $columns Column headers.
-	 * @return void
-	 */
-	private function empty_queue_shape( array $columns ): void {
-		?>
-		<div class="bn-mod-preview">
-			<table class="widefat bn-mod-preview__table">
-				<thead>
-					<tr>
-						<?php foreach ( $columns as $col ) : ?>
-							<th><?php echo esc_html( (string) $col ); ?></th>
-						<?php endforeach; ?>
-					</tr>
-				</thead>
-
-			</table>
-		</div>
-		<?php
-	}
 
 	/**
 	 * Render a single-button report-action form.
