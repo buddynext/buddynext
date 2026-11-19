@@ -792,6 +792,16 @@ class AdminHub {
 			true
 		);
 
+		// Save bar: "Unsaved changes" indicator + leave-page guard on every settings tab.
+		wp_enqueue_script(
+			'bn-admin-save-bar',
+			$assets_url . 'js/admin/save-bar.js',
+			array(),
+			$version,
+			true
+		);
+		wp_localize_script( 'bn-admin-save-bar', 'bnSaveBar', array( 'unsaved' => __( 'Unsaved changes', 'buddynext' ) ) );
+
 		// Register every BuddyNext admin screen into WordPress core's native
 		// command palette (Cmd/Ctrl+K) — no competing overlay. Indexed from the
 		// AdminHub registry (Free + standalone), capability-filtered.

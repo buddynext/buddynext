@@ -69,7 +69,7 @@ class Members extends AdminPageBase {
 		AdminHub::register_tab(
 			'members',
 			'directory',
-			__( 'Directory', 'buddynext' ),
+			__( 'Members directory', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array(
 				'subtitle' => __( 'Manage your community members', 'buddynext' ),

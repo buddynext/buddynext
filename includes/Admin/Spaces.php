@@ -74,7 +74,7 @@ class Spaces extends AdminPageBase {
 		AdminHub::register_tab(
 			'spaces',
 			'directory',
-			__( 'Directory', 'buddynext' ),
+			__( 'Spaces directory', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array(
 				'subtitle' => __( 'Manage all spaces and categories.', 'buddynext' ),

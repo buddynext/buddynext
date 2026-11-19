@@ -58,15 +58,52 @@ class ModerationQueue {
 			array( $this, 'render_pending' ),
 			array(
 				'position' => 5,
+				'subtitle' => __( 'Posts held for approval. Approve them to publish, or reject to remove.', 'buddynext' ),
 				// Counter pill on the tab so the owner sees at a glance how many
 				// posts are held for approval without opening the tab.
 				'badge'    => static fn(): int => ( new \BuddyNext\Feed\PostService() )->count_pending(),
 			)
 		);
-		AdminHub::register_tab( 'moderation', 'reports', __( 'Reports', 'buddynext' ), array( $this, 'render_reports' ), array( 'position' => 10 ) );
-		AdminHub::register_tab( 'moderation', 'suspensions', __( 'Suspensions', 'buddynext' ), array( $this, 'render_suspensions' ), array( 'position' => 20 ) );
-		AdminHub::register_tab( 'moderation', 'appeals', __( 'Appeals', 'buddynext' ), array( $this, 'render_appeals' ), array( 'position' => 30 ) );
-		AdminHub::register_tab( 'moderation', 'log', __( 'Moderation Log', 'buddynext' ), array( $this, 'render_log' ), array( 'position' => 40 ) );
+		AdminHub::register_tab(
+			'moderation',
+			'reports',
+			__( 'Reports', 'buddynext' ),
+			array( $this, 'render_reports' ),
+			array(
+				'position' => 10,
+				'subtitle' => __( 'Content members flagged. Review each report, then act or dismiss it.', 'buddynext' ),
+			)
+		);
+		AdminHub::register_tab(
+			'moderation',
+			'suspensions',
+			__( 'Suspensions', 'buddynext' ),
+			array( $this, 'render_suspensions' ),
+			array(
+				'position' => 20,
+				'subtitle' => __( 'Members currently suspended, with the reason and when it ends.', 'buddynext' ),
+			)
+		);
+		AdminHub::register_tab(
+			'moderation',
+			'appeals',
+			__( 'Appeals', 'buddynext' ),
+			array( $this, 'render_appeals' ),
+			array(
+				'position' => 30,
+				'subtitle' => __( 'Members asking for a moderation decision to be reviewed.', 'buddynext' ),
+			)
+		);
+		AdminHub::register_tab(
+			'moderation',
+			'log',
+			__( 'Moderation Log', 'buddynext' ),
+			array( $this, 'render_log' ),
+			array(
+				'position' => 40,
+				'subtitle' => __( 'A record of every moderation action, who took it and when.', 'buddynext' ),
+			)
+		);
 	}
 
 	/**

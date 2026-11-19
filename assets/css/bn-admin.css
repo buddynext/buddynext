@@ -1437,6 +1437,27 @@ select.bn-text-input {
 	box-shadow: var(--bn-a-shadow-md);
 }
 
+.bn-save-bar__status {
+	margin-inline-end: auto;
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-3);
+}
+
+.bn-save-bar[data-dirty="true"] .bn-save-bar__status {
+	color: var(--bn-a-text-1);
+	font-weight: 600;
+}
+
+.bn-save-bar[data-dirty="true"] .bn-save-bar__status::before {
+	content: "";
+	display: inline-block;
+	inline-size: var(--bn-s2);
+	block-size: var(--bn-s2);
+	margin-inline-end: var(--bn-a-s2);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-a-amber);
+}
+
 /* A control scrolled or tabbed to near the bottom of a long tab lands above the
    sticky bar, not under it (WCAG 2.4.11 Focus Not Obscured). The padding covers
    the bar's height plus its bottom offset. */
