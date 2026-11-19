@@ -57,6 +57,20 @@ class HomeDemoCardsTest extends \WP_UnitTestCase {
 		$this->assertSame( '', trim( $this->html( 'render_promo' ) ) );
 	}
 
+	public function test_run_guided_setup_shows_only_while_setup_is_open(): void {
+		$screen = new \BuddyNext\Admin\GetStartedScreen();
+		ob_start();
+		$screen->render();
+		$open = (string) ob_get_clean();
+		$this->assertStringContainsString( 'Run guided setup', $open );
+
+		update_option( 'buddynext_setup_dismissed', 1 );
+		ob_start();
+		$screen->render();
+		$done = (string) ob_get_clean();
+		$this->assertStringNotContainsString( 'Run guided setup', $done );
+	}
+
 	public function test_a_demo_on_the_site_keeps_its_remove_card_after_setup(): void {
 		update_option( 'buddynext_setup_dismissed', 1 );
 		update_option( 'bn_demo_manifest', array( 'users' => array( 1 ) ) );

@@ -84,7 +84,8 @@ class GetStartedScreen {
 				// It sits here as a secondary action rather than a headline: the
 				// checklist below is the answer to "am I set up", and the wizard is one
 				// way to work through it, not a competing scoreboard.
-				?>
+				if ( ! SetupChecklist::is_done() ) :
+					?>
 				<div class="bn-setup-card__actions">
 					<a
 						class="bn-btn"
@@ -95,6 +96,9 @@ class GetStartedScreen {
 						<?php esc_html_e( 'Run guided setup', 'buddynext' ); ?>
 					</a>
 				</div>
+					<?php
+				endif;
+				?>
 			</div>
 		</div>
 
