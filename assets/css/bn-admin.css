@@ -1207,110 +1207,114 @@ select.bn-text-input {
 	color: var(--bn-a-text-3);
 }
 
-/* Integration Settings: one row per integration, one switch column per surface.
-   The wrapper is the scroll context (admin table contract), never the table. */
-.bn-int-matrix-wrap {
-	overflow-x: auto;
+/* Integration Settings: one card per integration. Its name and version on top,
+   a switch for each place it can appear beneath, its navigation sub-tabs last.
+   Every switch stays in the page at all times: the save handler records an opt-out
+   for any switch that is missing from the form. */
+.bn-int-list {
+	list-style: none;
+	margin: 0;
+	padding: var(--bn-a-s4) var(--bn-a-s5) var(--bn-a-s5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s3);
 }
-.bn-admin-hub__content .bn-int-matrix th[data-align="center"],
-.bn-admin-hub__content .bn-int-matrix td[data-align="center"] {
-	width: 7rem;
-	text-align: center;
+.bn-int-card {
+	margin: 0;
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	overflow: hidden;
 }
-/* Scoped under the hub so it outranks `.bn-admin-hub__content table:not(.form-table) th`. */
-.bn-admin-hub__content .bn-int-matrix tbody th.bn-int-matrix__name {
-	padding: var(--bn-a-s3) var(--bn-a-s4);
-	text-align: start;
-	text-transform: none;
-	letter-spacing: normal;
-	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-normal, 400);
-	color: var(--bn-a-text-1);
-	background: transparent;
-	vertical-align: middle;
+.bn-int-card__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	column-gap: var(--bn-a-s2);
+	row-gap: var(--bn-a-s1);
+	padding: var(--bn-a-s4) var(--bn-a-s4) var(--bn-a-s3);
 }
-.bn-admin-hub__content .bn-int-matrix tbody tr:hover th {
-	background: var(--bn-a-bg-hover);
-}
-.bn-int-matrix__title {
+.bn-int-card__title {
+	font-family: var(--bn-a-font-display);
+	font-size: var(--bn-a-text-base);
 	font-weight: var(--bn-a-fw-semibold);
-	margin-inline-end: var(--bn-a-s2);
+	color: var(--bn-a-text-1);
 }
-/* A status chip moves to its own line as a whole rather than breaking inside. */
-.bn-int-matrix__name .bn-badge {
+.bn-int-card__head .bn-badge {
 	white-space: nowrap;
 }
-.bn-int-matrix__meta,
-.bn-int-matrix__name .bn-field-hint {
-	display: block;
-	margin: var(--bn-a-s1) 0 0;
+.bn-int-card__meta {
 	font-size: var(--bn-a-text-xs);
 	color: var(--bn-a-text-3);
 }
-.bn-int-matrix__none {
-	color: var(--bn-a-text-3);
+.bn-int-card__head .bn-field-hint {
+	flex-basis: 100%;
+	margin: 0;
 }
-/* One integration is one block: its own row and its sub-tab row. No line between
-   the two, a clear line between blocks, and the sub-tabs indented under the name
-   with an accent edge so they read as belonging to it. */
-.bn-admin-hub__content .bn-int-matrix tr:has(+ .bn-int-matrix__subrow) > * {
-	border-bottom: none;
+.bn-int-card__surfaces {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	border-top: 1px solid var(--bn-a-border-soft);
 }
-.bn-admin-hub__content .bn-int-matrix tbody tr:not(.bn-int-matrix__subrow):not(:first-child) > * {
-	border-top: 1px solid var(--bn-a-border);
+.bn-int-surface {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
 }
-/* The same edge runs over the integration's own row, so row and sub-tabs are one
-   block. Plain rows keep a transparent edge so every name lines up. */
-.bn-admin-hub__content .bn-int-matrix tbody tr > :first-child {
-	border-inline-start: 3px solid transparent;
+.bn-int-surface + .bn-int-surface {
+	border-inline-start: 1px solid var(--bn-a-border-soft);
 }
-.bn-admin-hub__content .bn-int-matrix tbody tr:has(+ .bn-int-matrix__subrow) > :first-child,
-.bn-admin-hub__content .bn-int-matrix tbody tr.bn-int-matrix__subrow > :first-child {
-	border-inline-start-color: var(--bn-accent);
+.bn-int-surface__copy {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s1);
 }
-.bn-int-matrix .bn-int-matrix__subrow td,
-.bn-int-matrix tr.bn-int-matrix__subrow:hover td {
-	padding-top: 0;
-	padding-inline-start: var(--bn-a-s6, 1.5rem);
+.bn-int-surface__label {
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+}
+.bn-int-surface .bn-field-hint {
+	margin: 0;
+}
+.bn-int-card__subtabs-wrap {
+	padding: var(--bn-a-s3) var(--bn-a-s4) var(--bn-a-s3);
 	background: var(--bn-sunken);
-	border-top: none;
-	border-inline-start: 3px solid var(--bn-accent);
+	border-top: 1px solid var(--bn-a-border-soft);
 }
-.bn-int-subtab-group__kicker {
-	padding-top: var(--bn-a-s1);
-}
-.bn-int-matrix__subtabs {
+.bn-int-card__subtabs {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--bn-a-s2) var(--bn-a-s6);
-	padding: var(--bn-a-s2) 0 var(--bn-a-s1);
+	padding-top: var(--bn-a-s2);
 }
-.bn-int-matrix__subtab {
+.bn-int-card__subtab {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	gap: var(--bn-a-s1);
 }
-.bn-int-matrix__subtab .bn-toggle-label {
+.bn-int-card__subtab .bn-toggle-label {
 	gap: var(--bn-a-s2);
 	min-height: 40px;
 }
-.bn-int-matrix__subtab .bn-field-hint {
+.bn-int-card__subtab .bn-field-hint {
 	margin: 0;
 }
 
-@media (max-width: 640px) {
-	.bn-admin-hub__content .bn-int-matrix th[data-align="center"],
-	.bn-admin-hub__content .bn-int-matrix td[data-align="center"] {
-		width: 4.5rem;
-		padding-inline: var(--bn-a-s1);
-	}
-	.bn-admin-hub__content .bn-int-matrix tbody th.bn-int-matrix__name,
-	.bn-int-matrix .bn-int-matrix__subrow td {
+@media (max-width: 782px) {
+	.bn-int-list {
 		padding-inline: var(--bn-a-s3);
 	}
-	.bn-int-matrix thead th {
-		letter-spacing: normal;
+	.bn-int-card__surfaces {
+		grid-template-columns: 1fr;
+	}
+	.bn-int-surface + .bn-int-surface {
+		border-inline-start: 0;
+		border-top: 1px solid var(--bn-a-border-soft);
 	}
 }
 

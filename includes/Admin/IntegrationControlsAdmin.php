@@ -2,9 +2,9 @@
 /**
  * BuddyNext — Integration display & activity controls (admin tab).
  *
- * Renders one table row per registered integration (from the open
+ * Renders one card per registered integration (from the open
  * `buddynext_integrations` registry) with a switch per surface: navigation, the
- * activity feed and search, with its navigation sub-tabs folded under the row.
+ * activity feed and search, with its navigation sub-tabs folded under the card.
  * Settings an integration adds of its own get their own section below the table. 100% registry-driven: a new in-house or
  * third-party integration appears here automatically with no change to this class.
  *
@@ -42,7 +42,7 @@ class IntegrationControlsAdmin {
 	}
 
 	/**
-	 * Render the per-integration toggle matrix.
+	 * Render the per-integration cards.
 	 *
 	 * @return void
 	 */
@@ -115,20 +115,10 @@ class IntegrationControlsAdmin {
 					<div class="bn-ss-header">
 						<div class="bn-ss-heading">
 							<span class="bn-ss-title"><?php esc_html_e( 'Where each integration appears', 'buddynext' ); ?></span>
-							<span class="bn-ss-sub"><?php esc_html_e( 'Navigation adds its tab to member menus. Feed posts its new activity to the community feed. Search lets members find its content; switching search off also removes what was already indexed.', 'buddynext' ); ?></span>
+							<span class="bn-ss-sub"><?php esc_html_e( 'Switch off any place you do not want an integration to show up. Each switch takes effect when you save.', 'buddynext' ); ?></span>
 						</div>
 					</div>
-					<div class="bn-int-matrix-wrap">
-						<table class="bn-table bn-int-matrix">
-							<thead>
-								<tr>
-									<th scope="col"><?php esc_html_e( 'Integration', 'buddynext' ); ?></th>
-									<th scope="col" data-align="center"><?php esc_html_e( 'Navigation', 'buddynext' ); ?></th>
-									<th scope="col" data-align="center"><?php esc_html_e( 'Feed', 'buddynext' ); ?></th>
-									<th scope="col" data-align="center"><?php esc_html_e( 'Search', 'buddynext' ); ?></th>
-								</tr>
-							</thead>
-							<tbody>
+						<ul class="bn-int-list">
 							<?php foreach ( $integrations as $key => $entry ) : ?>
 								<?php
 								$key        = (string) $key;
@@ -161,16 +151,16 @@ class IntegrationControlsAdmin {
 									$bn_meta[] = sprintf( __( 'Version %s', 'buddynext' ), $bn_version );
 								}
 								?>
-								<tr>
-									<th scope="row" class="bn-int-matrix__name">
-										<span class="bn-int-matrix__title"><?php echo esc_html( $bn_product ); ?></span>
+								<li class="bn-int-card">
+									<div class="bn-int-card__head">
+										<span class="bn-int-card__title"><?php echo esc_html( $bn_product ); ?></span>
 										<?php if ( $bn_stale ) : ?>
 											<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Update needed', 'buddynext' ); ?></span>
 										<?php elseif ( $bn_behind ) : ?>
 											<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Newer partner', 'buddynext' ); ?></span>
 										<?php endif; ?>
 										<?php if ( ! empty( $bn_meta ) ) : ?>
-											<span class="bn-int-matrix__meta"><?php echo esc_html( implode( ' · ', $bn_meta ) ); ?></span>
+											<span class="bn-int-card__meta"><?php echo esc_html( implode( ' · ', $bn_meta ) ); ?></span>
 										<?php endif; ?>
 										<?php if ( $bn_stale ) : ?>
 											<span class="bn-field-hint">
@@ -195,42 +185,58 @@ class IntegrationControlsAdmin {
 												?>
 											</span>
 										<?php endforeach; ?>
-									</th>
-									<?php
-									$bn_nav_label = (string) ( $entry['nav_label'] ?? '' );
-									$this->toggle_cell(
-										! empty( $entry['has_nav'] ),
-										"nav[{$key}]",
-										buddynext_integration_enabled( $key, 'nav' ),
-										'' !== $bn_nav_label
-											/* translators: 1: name of the tab, e.g. Discussions, 2: integration name. */
-											? sprintf( __( 'Show the %1$s tab (%2$s) in navigation', 'buddynext' ), $bn_nav_label, $bn_label )
+									</div>
+									<div class="bn-int-card__surfaces">
+										<?php
+										$bn_nav_label = (string) ( $entry['nav_label'] ?? '' );
+										$this->surface(
+											__( 'Navigation', 'buddynext' ),
+											__( 'Adds its tab to member menus.', 'buddynext' ),
+											! empty( $entry['has_nav'] ),
+											"nav[{$key}]",
+											buddynext_integration_enabled( $key, 'nav' ),
+											'' !== $bn_nav_label
+												/* translators: 1: name of the tab, e.g. Discussions, 2: integration name. */
+												? sprintf( __( 'Show the %1$s tab (%2$s) in navigation', 'buddynext' ), $bn_nav_label, $bn_label )
+												/* translators: %s: integration name. */
+												: sprintf( __( 'Show %s in navigation', 'buddynext' ), $bn_label )
+										);
+										$this->surface(
+											__( 'Feed', 'buddynext' ),
+											__( 'Posts its new activity to the community feed.', 'buddynext' ),
+											! empty( $entry['has_feed'] ),
+											"feed[{$key}]",
+											buddynext_integration_enabled( $key, 'feed' ),
 											/* translators: %s: integration name. */
-											: sprintf( __( 'Show %s in navigation', 'buddynext' ), $bn_label )
-									);
-									/* translators: %s: integration name. */
-									$this->toggle_cell( ! empty( $entry['has_feed'] ), "feed[{$key}]", buddynext_integration_enabled( $key, 'feed' ), sprintf( __( 'Post %s events to the activity feed', 'buddynext' ), $bn_label ) );
-									/* translators: %s: integration name. */
-									$this->toggle_cell( ! empty( $entry['has_search'] ), "search[{$key}]", buddynext_integration_enabled( $key, 'search' ), sprintf( __( 'Include %s content in community search', 'buddynext' ), $bn_label ) );
-									?>
-								</tr>
+											sprintf( __( 'Post %s events to the activity feed', 'buddynext' ), $bn_label )
+										);
+										$this->surface(
+											__( 'Search', 'buddynext' ),
+											__( 'Lets members find its content. Switching off also removes what was already indexed.', 'buddynext' ),
+											! empty( $entry['has_search'] ),
+											"search[{$key}]",
+											buddynext_integration_enabled( $key, 'search' ),
+											/* translators: %s: integration name. */
+											sprintf( __( 'Include %s content in community search', 'buddynext' ), $bn_label )
+										);
+										?>
+									</div>
 								<?php if ( ! empty( $bn_subtabs ) ) : ?>
-									<tr class="bn-int-matrix__subrow">
-										<td colspan="4">
+									<div class="bn-int-card__subtabs-wrap">
 											<span class="bn-int-subtab-group__kicker">
 												<?php
 												esc_html_e( 'Navigation sub-tabs', 'buddynext' );
 												?>
 											</span>
-											<div class="bn-int-matrix__subtabs">
+											<div class="bn-int-card__subtabs">
 												<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
 													<?php $bn_sub_off = $entry['subtabs_unavailable'][ $bn_sub ] ?? null; ?>
-													<div class="bn-int-matrix__subtab">
+													<div class="bn-int-card__subtab">
 														<label class="bn-toggle-label">
 															<?php // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false and the next save would write explicit 0s. ?>
 															<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( null === $bn_sub_off && '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> <?php disabled( null !== $bn_sub_off ); ?> role="switch">
 															<span class="bn-toggle--inline"></span>
-															<span class="bn-int-matrix__subtab-label"><?php echo esc_html( (string) $bn_sub_label ); ?></span>
+															<span class="bn-int-card__subtab-label"><?php echo esc_html( (string) $bn_sub_label ); ?></span>
 														</label>
 														<?php if ( null !== $bn_sub_off ) : ?>
 															<span class="bn-field-hint"><?php echo esc_html( $bn_sub_off['note'] ); ?></span>
@@ -241,13 +247,11 @@ class IntegrationControlsAdmin {
 													</div>
 												<?php endforeach; ?>
 											</div>
-										</td>
-									</tr>
+									</div>
 								<?php endif; ?>
+								</li>
 							<?php endforeach; ?>
-							</tbody>
-						</table>
-					</div>
+						</ul>
 				</div>
 
 				<?php foreach ( $bn_extras as list( $bn_extra_title, $bn_extra_html ) ) : ?>
@@ -322,17 +326,21 @@ class IntegrationControlsAdmin {
 	}
 
 	/**
-	 * Print one switch cell of the integration table, or a dash when the
-	 * integration has no such surface.
+	 * Print one surface of an integration card: what the surface does, and its
+	 * switch, or "Not offered" when the integration has no such surface.
 	 *
+	 * @param string $label     Surface name (Navigation, Feed, Search).
+	 * @param string $hint      One line on what switching it on does.
 	 * @param bool   $available Whether the integration offers this surface.
 	 * @param string $name      Field name.
 	 * @param bool   $on        Current state.
 	 * @param string $aria      Accessible name of the switch.
 	 * @return void
 	 */
-	private function toggle_cell( bool $available, string $name, bool $on, string $aria ): void {
-		echo '<td data-align="center">';
+	private function surface( string $label, string $hint, bool $available, string $name, bool $on, string $aria ): void {
+		echo '<div class="bn-int-surface">';
+		echo '<div class="bn-int-surface__copy"><span class="bn-int-surface__label">' . esc_html( $label ) . '</span>';
+		echo '<span class="bn-field-hint">' . esc_html( $available ? $hint : __( 'Not offered by this integration.', 'buddynext' ) ) . '</span></div>';
 		if ( $available ) {
 			printf(
 				'<label class="bn-toggle-label"><input type="checkbox" name="%1$s" value="1" %2$s role="switch" aria-label="%3$s"><span class="bn-toggle--inline"></span></label>',
@@ -340,10 +348,8 @@ class IntegrationControlsAdmin {
 				checked( $on, true, false ),
 				esc_attr( $aria )
 			);
-		} else {
-			echo '<span class="bn-int-matrix__none" aria-hidden="true">&ndash;</span><span class="screen-reader-text">' . esc_html__( 'Not available', 'buddynext' ) . '</span>';
 		}
-		echo '</td>';
+		echo '</div>';
 	}
 
 	/**
