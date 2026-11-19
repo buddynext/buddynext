@@ -1283,7 +1283,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function test_discussions_off_shows_no_card_and_no_search_row(): void {
 		global $wpdb;
 
-		$bn_space = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $this->user_id, array( 'name' => 'Off switch', 'slug' => 'off-switch', 'type' => 'open' ) );
+		$bn_space = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$this->user_id,
+			array(
+				'name' => 'Off switch',
+				'slug' => 'off-switch',
+				'type' => 'open',
+			)
+		);
 		$this->seed_jt_space( 8, 'off-switch' );
 		update_space_meta( $bn_space, 'jetonomy_forum_id', 8 );
 		$this->seed_jt_post( 81, $this->author_id, 'Hidden while off', 'Body', 'hidden-while-off' );
@@ -1298,6 +1305,34 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->bridge->sync_discussion( 81, 8 );
 		$this->assertSame( 1, $count( 'bn_search_index', "object_type = 'discussion' AND object_id = 81" ), 'Back on: the topic is searchable again.' );
 		$this->assertSame( 1, $count( 'bn_posts', "type = 'discussion' AND status = 'published' AND link_url LIKE '%hidden-while-off%'" ), 'Back on: the card is back.' );
+	}
+
+	/**
+	 * A join made through the forum cannot get round the space: refused while the space is archived,
+	 * but never for a member already in it or for the bridge's own roster copies.
+	 */
+	public function test_forum_join_cannot_get_round_the_space(): void {
+		$sv       = new \BuddyNext\Spaces\SpaceService();
+		$bn_space = (int) $sv->create(
+			$this->user_id,
+			array(
+				'name' => 'Join veto',
+				'slug' => 'join-veto',
+				'type' => 'open',
+			)
+		);
+		$this->seed_jt_space( 9, 'join-veto' );
+		update_space_meta( $bn_space, 'jetonomy_forum_id', 9 );
+		$outsider = self::factory()->user->create();
+
+		$this->assertTrue( $this->bridge->veto_forum_join( true, $outsider, 9 ), 'An open space lets an outsider join its forum.' );
+
+		$sv->archive( $bn_space, $this->user_id );
+		$this->assertWPError( $this->bridge->veto_forum_join( true, $outsider, 9 ), 'An archived space takes no new members, forum or not.' );
+		$this->assertTrue( $this->bridge->veto_forum_join( true, $this->user_id, 9 ), 'The owner is already in the space.' );
+		\BuddyNext\Feed\IntegrationActivity::as_mirror(
+			fn() => $this->assertTrue( $this->bridge->veto_forum_join( true, $outsider, 9 ), 'The bridge\'s own roster copies pass.' )
+		);
 	}
 }
 

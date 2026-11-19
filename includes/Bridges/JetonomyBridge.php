@@ -217,6 +217,9 @@ class JetonomyBridge {
 			add_action( 'buddynext_space_member_left', array( $this, 'revoke_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_member_removed', array( $this, 'revoke_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_user_banned', array( $this, 'revoke_forum_access' ), 10, 2 );
+			add_action( 'buddynext_space_user_banned', array( $this, 'restrict_forum_for_ban' ), 10, 2 );
+			add_action( 'buddynext_space_user_unbanned', array( $this, 'lift_forum_ban' ), 10, 2 );
+			add_filter( 'jetonomy_before_join_space', array( $this, 'veto_forum_join' ), 10, 3 );
 
 			// The other direction: the forum's own joins, leaves and role edits. The
 			// space stays the authority, so none of these can bypass its approval or
@@ -1608,6 +1611,75 @@ class JetonomyBridge {
 		// Setting the wanted role fires this hook again, now equal, which ends it.
 		\Jetonomy\Models\SpaceMember::set_role( $forum_id, $user_id, $want );
 		$this->invalidate_member_caches( $user_id );
+	}
+
+	/**
+	 * A member banned from a space cannot post in, or rejoin, its forum.
+	 *
+	 * Revoking the roster row alone left the ban open: the member could post at once and rejoin. The
+	 * ban is issued as the system (0) because BuddyNext already decided who may ban whom.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $space_id BuddyNext space ID.
+	 * @param int|string $user_id  Banned member.
+	 * @return void
+	 */
+	public function restrict_forum_for_ban( $space_id, $user_id ): void {
+		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		if ( $forum_id > 0 && class_exists( '\\Jetonomy\\Models\\Restriction' ) ) {
+			\Jetonomy\Models\Restriction::ban( (int) $user_id, 'space_ban', 0, $forum_id, 'Banned from the BuddyNext space' );
+			$this->invalidate_member_caches( (int) $user_id );
+		}
+	}
+
+	/**
+	 * Lift the forum restriction when the space ban is lifted.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $space_id BuddyNext space ID.
+	 * @param int|string $user_id  Member whose ban was lifted.
+	 * @return void
+	 */
+	public function lift_forum_ban( $space_id, $user_id ): void {
+		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		if ( $forum_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\Restriction' ) ) {
+			return;
+		}
+
+		foreach ( \Jetonomy\Models\Restriction::active_rows_for_users( array( (int) $user_id ), $forum_id ) as $row ) {
+			\Jetonomy\Models\Restriction::remove_ban( (int) $row->id );
+		}
+		$this->invalidate_member_caches( (int) $user_id );
+	}
+
+	/**
+	 * Refuse a forum-side join the space itself would refuse (banned, archived, plan-gated).
+	 *
+	 * The space is the authority for who is in its forum, so a join through the forum cannot get round
+	 * it. The bridge's own roster copies and members already in the space pass.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param true|\WP_Error $proceed  Answer so far.
+	 * @param int            $user_id  Member joining.
+	 * @param int            $forum_id Jetonomy forum.
+	 * @return true|\WP_Error
+	 */
+	public function veto_forum_join( $proceed, $user_id = 0, $forum_id = 0 ) {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		if ( is_wp_error( $proceed ) || $space_id <= 0 || IntegrationActivity::is_mirror() ) {
+			return $proceed;
+		}
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$space   = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		if ( null === $space || 'active' === $members->get_status( $space_id, (int) $user_id ) || $members->can_join( $space, (int) $user_id ) ) {
+			return $proceed;
+		}
+
+		return new \WP_Error( 'bn_space_join_refused', __( 'You cannot join this discussion right now.', 'buddynext' ), array( 'status' => 403 ) );
 	}
 
 	/**
