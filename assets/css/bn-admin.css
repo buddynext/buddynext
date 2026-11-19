@@ -756,6 +756,13 @@
 	padding: var(--bn-a-s2) var(--bn-a-s5) var(--bn-a-s5);
 }
 
+/* A card with no header (Plans, Features, the Subscriptions panel) opens straight
+   into its content, so the tight top that binds a first row to a header would pin
+   that content to the card edge. Give it the same gutter the sides use. */
+.bn-settings-section > .bn-ss-body:first-child {
+	padding-top: var(--bn-a-s5);
+}
+
 /* Section-body intro paragraph. Shared by every admin tab that opens a
    section with a lead sentence (Tools, Appearance, Roles, Demo, Members).
    It lives in this always-loaded sheet — not a page-specific one — so every
