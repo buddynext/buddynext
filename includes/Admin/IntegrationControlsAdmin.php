@@ -55,14 +55,18 @@ class IntegrationControlsAdmin {
 			AdminPageBase::render_notice( __( 'Integration settings saved.', 'buddynext' ), 'success' );
 		}
 
+		$base    = defined( 'BUDDYNEXT_URL' ) ? constant( 'BUDDYNEXT_URL' ) : plugins_url( '', __DIR__ );
+		$version = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '1.0.0';
+		wp_enqueue_script( 'bn-admin-integration-controls', $base . 'assets/js/admin/integration-controls.js', array(), $version, true );
+
 		$integrations = buddynext_integrations();
 		$bn_waiting   = \BuddyNext\Integrations\CompanionRegistry::waiting_for_pro();
 		$bn_pro       = \BuddyNext\Integrations\CompanionRegistry::pro_action();
 
-		echo '<p class="bn-field-hint">';
+		echo '<p class="bn-field-hint bn-int-intro">';
 		printf(
 			/* translators: %s: link to the Add-ons tab. */
-			esc_html__( 'Choose where each installed integration appears. Install them under %s.', 'buddynext' ),
+			esc_html__( 'Choose where each connected product appears in BuddyNext. Nothing changes for members until you save. Install more under %s.', 'buddynext' ),
 			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ) . '">' . esc_html__( 'Add-ons', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 		);
 		echo '</p>';
@@ -110,149 +114,203 @@ class IntegrationControlsAdmin {
 					</div>
 				</div>
 			<?php else : ?>
-				<?php $bn_extras = array(); ?>
-				<div class="bn-settings-section">
-					<div class="bn-ss-header">
-						<div class="bn-ss-heading">
-							<span class="bn-ss-title"><?php esc_html_e( 'Where each integration appears', 'buddynext' ); ?></span>
-							<span class="bn-ss-sub"><?php esc_html_e( 'Switch off any place you do not want an integration to show up. Each switch takes effect when you save.', 'buddynext' ); ?></span>
-						</div>
+				<?php
+				$bn_extras  = array();
+				$bn_palette = array( '#7a4fd1', '#0e7c86', '#c2410c', '#1a64c8', '#be185d', '#a16207', '#15803d', '#b91c1c' );
+				$bn_rows    = array();
+				foreach ( $integrations as $key => $entry ) {
+					$key          = (string) $key;
+					$bn_label     = (string) ( $entry['label'] ?? $key );
+					$bn_version   = (string) ( $entry['version'] ?? '' );
+					$bn_floor     = (string) ( $entry['min_version'] ?? '' );
+					$bn_tested    = (string) ( $entry['tested_version'] ?? '' );
+					$bn_stale     = ( '' !== $bn_floor && '' !== $bn_version && version_compare( $bn_version, $bn_floor, '<' ) );
+					$bn_behind    = ( ! $bn_stale && '' !== $bn_tested && '' !== $bn_version && version_compare( $bn_version, $bn_tested, '>' ) );
+					$bn_needs     = \BuddyNext\Integrations\IntegrationRegistry::features_needing_update( $entry );
+					$bn_unavail   = array_filter( (array) ( $entry['subtabs_unavailable'] ?? array() ) );
+					$bn_companion = \BuddyNext\Integrations\CompanionRegistry::for_integration( $key );
+					$bn_product   = (string) ( $bn_companion['label'] ?? $bn_label );
+					$bn_rows[]    = array(
+						'key'       => $key,
+						'entry'     => $entry,
+						'label'     => $bn_label,
+						'product'   => $bn_product,
+						'version'   => $bn_version,
+						'floor'     => $bn_floor,
+						'tested'    => $bn_tested,
+						'stale'     => $bn_stale,
+						'behind'    => $bn_behind,
+						'needs'     => $bn_needs,
+						'attention' => $bn_stale || ! empty( $bn_unavail ) || ! empty( $bn_needs ),
+					);
+				}
+				?>
+				<div class="bn-int-tools">
+					<input type="search" class="bn-int-search" data-bn-int-search placeholder="<?php esc_attr_e( 'Search integrations', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Search integrations', 'buddynext' ); ?>">
+					<div class="bn-int-filters" role="group" aria-label="<?php esc_attr_e( 'Filter integrations', 'buddynext' ); ?>">
+						<button type="button" class="bn-int-pill is-active" data-bn-int-filter="all" aria-pressed="true"><?php esc_html_e( 'All', 'buddynext' ); ?> <span data-bn-int-count="all"><?php echo esc_html( (string) count( $bn_rows ) ); ?></span></button>
+						<button type="button" class="bn-int-pill" data-bn-int-filter="attention" aria-pressed="false"><?php esc_html_e( 'Needs attention', 'buddynext' ); ?> <span data-bn-int-count="attention"><?php echo esc_html( (string) count( array_filter( array_column( $bn_rows, 'attention' ) ) ) ); ?></span></button>
+						<button type="button" class="bn-int-pill" data-bn-int-filter="hidden" aria-pressed="false"><?php esc_html_e( 'Hidden from members', 'buddynext' ); ?> <span data-bn-int-count="hidden">0</span></button>
 					</div>
-						<ul class="bn-int-list">
-							<?php foreach ( $integrations as $key => $entry ) : ?>
-								<?php
-								$key        = (string) $key;
-								$bn_label   = (string) ( $entry['label'] ?? $key );
-								$bn_subtabs = (array) ( $entry['subtabs'] ?? array() );
-								$bn_version = (string) ( $entry['version'] ?? '' );
-								// Below the floor the bridge's seams no-op ("Update needed"); above the
-								// tested version the partner is ahead of the bridge ("Newer partner": the
-								// bridge still works and is due a refresh, the owner has nothing to update).
-								$bn_floor     = (string) ( $entry['min_version'] ?? '' );
-								$bn_tested    = (string) ( $entry['tested_version'] ?? '' );
-								$bn_stale     = ( '' !== $bn_floor && '' !== $bn_version && version_compare( $bn_version, $bn_floor, '<' ) );
-								$bn_behind    = ( ! $bn_stale && '' !== $bn_tested && '' !== $bn_version && version_compare( $bn_version, $bn_tested, '>' ) );
-								$bn_companion = \BuddyNext\Integrations\CompanionRegistry::for_integration( $key );
-								$bn_product   = (string) ( $bn_companion['label'] ?? $bn_label );
+				</div>
 
-								ob_start();
-								( new \BuddyNext\Addons\AddonSettingsForm() )->render( $key );
-								$bn_extra = trim( (string) ob_get_clean() );
-								if ( '' !== $bn_extra ) {
-									$bn_extras[] = array( $bn_product, $bn_extra );
-								}
+				<ul class="bn-int-list" data-bn-int-list data-label-on="<?php echo esc_attr__( 'Connected', 'buddynext' ); ?>" data-label-hidden="<?php echo esc_attr__( 'Hidden', 'buddynext' ); ?>">
+					<?php foreach ( $bn_rows as $bn_row ) : ?>
+						<?php
+						$key        = $bn_row['key'];
+						$entry      = $bn_row['entry'];
+						$bn_label   = $bn_row['label'];
+						$bn_product = $bn_row['product'];
+						$bn_subtabs = (array) ( $entry['subtabs'] ?? array() );
+						$bn_version = $bn_row['version'];
+						$bn_stale   = $bn_row['stale'];
+						$bn_behind  = $bn_row['behind'];
 
-								$bn_meta = array();
-								if ( $bn_product !== $bn_label ) {
-									$bn_meta[] = $bn_label;
-								}
-								if ( '' !== $bn_version ) {
-									/* translators: %s: installed partner version. */
-									$bn_meta[] = sprintf( __( 'Version %s', 'buddynext' ), $bn_version );
-								}
-								?>
-								<li class="bn-int-card">
-									<div class="bn-int-card__head">
-										<span class="bn-int-card__title"><?php echo esc_html( $bn_product ); ?></span>
-										<?php if ( $bn_stale ) : ?>
-											<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Update needed', 'buddynext' ); ?></span>
-										<?php elseif ( $bn_behind ) : ?>
-											<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Newer partner', 'buddynext' ); ?></span>
+						ob_start();
+						( new \BuddyNext\Addons\AddonSettingsForm() )->render( $key );
+						$bn_extra = trim( (string) ob_get_clean() );
+						if ( '' !== $bn_extra ) {
+							$bn_extras[] = array( $bn_product, $bn_extra );
+						}
+
+						$bn_surfaces = array(
+							'nav'    => array( 'has_nav', __( 'Navigation', 'buddynext' ), __( 'Adds its tab to member menus.', 'buddynext' ) ),
+							'feed'   => array( 'has_feed', __( 'Feed', 'buddynext' ), __( 'Posts its new activity to the community feed.', 'buddynext' ) ),
+							'search' => array( 'has_search', __( 'Search', 'buddynext' ), __( 'Lets members find its content. Switching off also removes what was already indexed.', 'buddynext' ) ),
+						);
+						$bn_on_count = 0;
+						foreach ( $bn_surfaces as $bn_sk => $bn_sd ) {
+							if ( ! empty( $entry[ $bn_sd[0] ] ) && buddynext_integration_enabled( $key, $bn_sk ) ) {
+								++$bn_on_count;
+							}
+						}
+						$bn_offered = count( array_filter( array_map( static fn( array $d ): bool => ! empty( $entry[ $d[0] ] ), $bn_surfaces ) ) );
+						$bn_meta    = array();
+						if ( $bn_product !== $bn_label ) {
+							$bn_meta[] = $bn_label;
+						}
+						if ( '' !== $bn_version ) {
+							/* translators: %s: installed partner version. */
+							$bn_meta[] = sprintf( __( 'Version %s', 'buddynext' ), $bn_version );
+						}
+						$bn_initial = function_exists( 'mb_substr' ) ? mb_strtoupper( mb_substr( $bn_product, 0, 1 ) ) : strtoupper( substr( $bn_product, 0, 1 ) );
+						$bn_color   = $bn_palette[ abs( crc32( $key ) ) % count( $bn_palette ) ];
+						?>
+						<li
+							class="bn-int-card<?php echo $bn_row['attention'] ? ' is-open' : ''; ?>"
+							data-bn-int-card
+							data-name="<?php echo esc_attr( strtolower( $bn_product . ' ' . $bn_label ) ); ?>"
+							data-attention="<?php echo $bn_row['attention'] ? '1' : '0'; ?>"
+						>
+							<div class="bn-int-row">
+								<span class="bn-int-tile" style="background: <?php echo esc_attr( $bn_color ); ?>" aria-hidden="true"><?php echo esc_html( $bn_initial ); ?></span>
+								<div class="bn-int-id">
+									<span class="bn-int-card__title"><?php echo esc_html( $bn_product ); ?></span>
+									<?php if ( ! empty( $bn_meta ) ) : ?>
+										<span class="bn-int-card__meta"><?php echo esc_html( implode( ' · ', $bn_meta ) ); ?></span>
+									<?php endif; ?>
+								</div>
+								<span class="bn-int-chip" data-bn-int-chip data-state="<?php echo esc_attr( $bn_row['attention'] ? 'attention' : ( $bn_on_count > 0 ? 'on' : 'hidden' ) ); ?>">
+									<?php
+									if ( $bn_row['attention'] ) {
+										esc_html_e( 'Needs attention', 'buddynext' );
+									} elseif ( $bn_on_count > 0 ) {
+										esc_html_e( 'Connected', 'buddynext' );
+									} else {
+										esc_html_e( 'Hidden', 'buddynext' );
+									}
+									?>
+								</span>
+								<span class="bn-int-areas" aria-label="<?php esc_attr_e( 'Where it appears', 'buddynext' ); ?>">
+									<?php foreach ( $bn_surfaces as $bn_sk => $bn_sd ) : ?>
+										<?php if ( ! empty( $entry[ $bn_sd[0] ] ) ) : ?>
+											<span class="bn-int-area<?php echo buddynext_integration_enabled( $key, $bn_sk ) ? '' : ' is-off'; ?>" data-bn-int-area="<?php echo esc_attr( $bn_sk ); ?>"><?php echo esc_html( $bn_sd[1] ); ?></span>
 										<?php endif; ?>
-										<?php if ( ! empty( $bn_meta ) ) : ?>
-											<span class="bn-int-card__meta"><?php echo esc_html( implode( ' · ', $bn_meta ) ); ?></span>
-										<?php endif; ?>
+									<?php endforeach; ?>
+								</span>
+								<?php if ( $bn_offered > 0 ) : ?>
+									<?php // Master switch: sets every place at once. It has no name, so it is never saved on its own - the three switches below are. ?>
+									<label class="bn-toggle-label bn-int-master">
+										<input type="checkbox" role="switch" data-bn-int-master <?php checked( $bn_on_count > 0 ); ?> aria-label="<?php echo esc_attr( sprintf( /* translators: %s: integration name. */ __( 'Show %s in BuddyNext', 'buddynext' ), $bn_product ) ); ?>">
+										<span class="bn-toggle--inline"></span>
+									</label>
+								<?php endif; ?>
+								<button type="button" class="bn-int-chev" data-bn-int-toggle aria-expanded="<?php echo $bn_row['attention'] ? 'true' : 'false'; ?>" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: integration name. */ __( 'Details for %s', 'buddynext' ), $bn_product ) ); ?>"><?php echo \BuddyNext\Core\IconService::render( 'chevron-down', 'bn-int-chev__icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup. ?></button>
+							</div>
+
+							<div class="bn-int-detail">
+								<?php if ( $bn_stale || $bn_behind || ! empty( $bn_row['needs'] ) ) : ?>
+									<div class="bn-int-note">
 										<?php if ( $bn_stale ) : ?>
-											<span class="bn-field-hint">
+											<span>
 												<?php
 												/* translators: %s: required minimum version. */
-												printf( esc_html__( 'Update to %s or newer to enable every feature this integration offers.', 'buddynext' ), esc_html( $bn_floor ) );
+												printf( esc_html__( 'Update to %s or newer to enable every feature this integration offers.', 'buddynext' ), esc_html( $bn_row['floor'] ) );
 												?>
 											</span>
 										<?php elseif ( $bn_behind ) : ?>
-											<span class="bn-field-hint">
+											<span>
 												<?php
 												/* translators: %s: version the bridge was built for. */
-												printf( esc_html__( 'Built for %s. Its newest features may not be wired yet.', 'buddynext' ), esc_html( $bn_tested ) );
+												printf( esc_html__( 'Built for %s. Its newest features may not be wired yet.', 'buddynext' ), esc_html( $bn_row['tested'] ) );
 												?>
 											</span>
 										<?php endif; ?>
-										<?php foreach ( \BuddyNext\Integrations\IntegrationRegistry::features_needing_update( $entry ) as $bn_feature => $bn_needs ) : ?>
-											<span class="bn-field-hint">
+										<?php foreach ( $bn_row['needs'] as $bn_feature => $bn_needs ) : ?>
+											<span>
 												<?php
 												/* translators: 1: feature name (may be plural), 2: partner version it needs. */
-												printf( esc_html__( '%1$s: available from version %2$s. Everything else works now.', 'buddynext' ), esc_html( $bn_feature ), esc_html( $bn_needs ) );
+												printf( esc_html__( '%1$s: available from version %2$s. Everything else works now.', 'buddynext' ), esc_html( (string) $bn_feature ), esc_html( (string) $bn_needs ) );
 												?>
 											</span>
 										<?php endforeach; ?>
 									</div>
-									<div class="bn-int-card__surfaces">
-										<?php
-										$bn_nav_label = (string) ( $entry['nav_label'] ?? '' );
-										$this->surface(
-											__( 'Navigation', 'buddynext' ),
-											__( 'Adds its tab to member menus.', 'buddynext' ),
-											! empty( $entry['has_nav'] ),
-											"nav[{$key}]",
-											buddynext_integration_enabled( $key, 'nav' ),
-											'' !== $bn_nav_label
-												/* translators: 1: name of the tab, e.g. Discussions, 2: integration name. */
-												? sprintf( __( 'Show the %1$s tab (%2$s) in navigation', 'buddynext' ), $bn_nav_label, $bn_label )
-												/* translators: %s: integration name. */
-												: sprintf( __( 'Show %s in navigation', 'buddynext' ), $bn_label )
-										);
-										$this->surface(
-											__( 'Feed', 'buddynext' ),
-											__( 'Posts its new activity to the community feed.', 'buddynext' ),
-											! empty( $entry['has_feed'] ),
-											"feed[{$key}]",
-											buddynext_integration_enabled( $key, 'feed' ),
+								<?php endif; ?>
+								<div class="bn-int-opts">
+									<?php
+									$bn_nav_label = (string) ( $entry['nav_label'] ?? '' );
+									$bn_arias     = array(
+										'nav'    => '' !== $bn_nav_label
+											/* translators: 1: name of the tab, e.g. Discussions, 2: integration name. */
+											? sprintf( __( 'Show the %1$s tab (%2$s) in navigation', 'buddynext' ), $bn_nav_label, $bn_label )
 											/* translators: %s: integration name. */
-											sprintf( __( 'Post %s events to the activity feed', 'buddynext' ), $bn_label )
-										);
-										$this->surface(
-											__( 'Search', 'buddynext' ),
-											__( 'Lets members find its content. Switching off also removes what was already indexed.', 'buddynext' ),
-											! empty( $entry['has_search'] ),
-											"search[{$key}]",
-											buddynext_integration_enabled( $key, 'search' ),
-											/* translators: %s: integration name. */
-											sprintf( __( 'Include %s content in community search', 'buddynext' ), $bn_label )
-										);
-										?>
-									</div>
+											: sprintf( __( 'Show %s in navigation', 'buddynext' ), $bn_label ),
+										/* translators: %s: integration name. */
+										'feed'   => sprintf( __( 'Post %s events to the activity feed', 'buddynext' ), $bn_label ),
+										/* translators: %s: integration name. */
+										'search' => sprintf( __( 'Include %s content in community search', 'buddynext' ), $bn_label ),
+									);
+									foreach ( $bn_surfaces as $bn_sk => $bn_sd ) {
+										$this->surface( $bn_sd[1], $bn_sd[2], ! empty( $entry[ $bn_sd[0] ] ), "{$bn_sk}[{$key}]", buddynext_integration_enabled( $key, $bn_sk ), $bn_arias[ $bn_sk ] );
+									}
+									?>
+								</div>
 								<?php if ( ! empty( $bn_subtabs ) ) : ?>
-									<div class="bn-int-card__subtabs-wrap">
-											<span class="bn-int-subtab-group__kicker">
-												<?php
-												esc_html_e( 'Navigation sub-tabs', 'buddynext' );
-												?>
+									<div class="bn-int-subs">
+										<span class="bn-int-subs__label"><?php esc_html_e( 'Tabs inside Navigation', 'buddynext' ); ?></span>
+										<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
+											<?php $bn_sub_off = $entry['subtabs_unavailable'][ $bn_sub ] ?? null; ?>
+											<span class="bn-int-sub">
+												<label class="bn-int-pillswitch">
+													<?php // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false and the next save would write explicit 0s. ?>
+													<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( (string) $bn_sub ); ?>]" value="1" <?php checked( null === $bn_sub_off && '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> <?php disabled( null !== $bn_sub_off ); ?> role="switch">
+													<span><?php echo esc_html( (string) $bn_sub_label ); ?></span>
+												</label>
+												<?php if ( null !== $bn_sub_off ) : ?>
+													<span class="bn-field-hint"><?php echo esc_html( $bn_sub_off['note'] ); ?></span>
+													<?php if ( '' !== $bn_sub_off['action_url'] && '' !== $bn_sub_off['action_label'] ) : ?>
+														<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_sub_off['action_url'] ); ?>"><?php echo esc_html( $bn_sub_off['action_label'] ); ?></a>
+													<?php endif; ?>
+												<?php endif; ?>
 											</span>
-											<div class="bn-int-card__subtabs">
-												<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
-													<?php $bn_sub_off = $entry['subtabs_unavailable'][ $bn_sub ] ?? null; ?>
-													<div class="bn-int-card__subtab">
-														<label class="bn-toggle-label">
-															<?php // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false and the next save would write explicit 0s. ?>
-															<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( null === $bn_sub_off && '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> <?php disabled( null !== $bn_sub_off ); ?> role="switch">
-															<span class="bn-toggle--inline"></span>
-															<span class="bn-int-card__subtab-label"><?php echo esc_html( (string) $bn_sub_label ); ?></span>
-														</label>
-														<?php if ( null !== $bn_sub_off ) : ?>
-															<span class="bn-field-hint"><?php echo esc_html( $bn_sub_off['note'] ); ?></span>
-															<?php if ( '' !== $bn_sub_off['action_url'] && '' !== $bn_sub_off['action_label'] ) : ?>
-																<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_sub_off['action_url'] ); ?>"><?php echo esc_html( $bn_sub_off['action_label'] ); ?></a>
-															<?php endif; ?>
-														<?php endif; ?>
-													</div>
-												<?php endforeach; ?>
-											</div>
+										<?php endforeach; ?>
 									</div>
 								<?php endif; ?>
-								</li>
-							<?php endforeach; ?>
-						</ul>
-				</div>
+							</div>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+				<p class="bn-int-empty" data-bn-int-empty hidden><?php esc_html_e( 'No integrations match.', 'buddynext' ); ?></p>
 
 				<?php foreach ( $bn_extras as list( $bn_extra_title, $bn_extra_html ) ) : ?>
 					<div class="bn-settings-section">
@@ -288,39 +346,38 @@ class IntegrationControlsAdmin {
 			}
 		}
 		if ( ! empty( $bn_available ) ) :
+			$bn_palette = array( '#7a4fd1', '#0e7c86', '#c2410c', '#1a64c8', '#be185d', '#a16207', '#15803d', '#b91c1c' );
 			?>
-			<div class="bn-settings-section">
-				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Available to add', 'buddynext' ); ?></span>
-				</div>
-				<div class="bn-ss-body">
-					<?php
-					foreach ( $bn_available as list( $bn_c, $bn_step ) ) :
-						$bn_al = (string) ( $bn_c['label'] ?? '' );
-						$bn_aw = (string) ( $bn_c['why'] ?? ( $bn_c['unlocks'] ?? '' ) );
-						if ( '' === $bn_al ) {
-							continue;
-						}
-						?>
-						<div class="bn-toggle-row">
-							<div class="bn-toggle-row__copy">
-								<span class="bn-toggle-row__label"><?php echo esc_html( $bn_al ); ?></span>
+			<h2 class="bn-int-group"><?php esc_html_e( 'Available to connect', 'buddynext' ); ?></h2>
+			<ul class="bn-int-list">
+				<?php
+				foreach ( $bn_available as list( $bn_c, $bn_step ) ) :
+					$bn_al = (string) ( $bn_c['label'] ?? '' );
+					$bn_aw = (string) ( $bn_c['why'] ?? ( $bn_c['unlocks'] ?? '' ) );
+					if ( '' === $bn_al ) {
+						continue;
+					}
+					$bn_ai = function_exists( 'mb_substr' ) ? mb_strtoupper( mb_substr( $bn_al, 0, 1 ) ) : strtoupper( substr( $bn_al, 0, 1 ) );
+					?>
+					<li class="bn-int-card">
+						<div class="bn-int-row">
+							<span class="bn-int-tile is-muted" aria-hidden="true"><?php echo esc_html( $bn_ai ); ?></span>
+							<div class="bn-int-id">
+								<span class="bn-int-card__title"><?php echo esc_html( $bn_al ); ?></span>
 								<?php if ( '' !== $bn_aw ) : ?>
-									<p class="bn-field-hint"><?php echo esc_html( $bn_aw ); ?></p>
+									<span class="bn-int-card__meta"><?php echo esc_html( $bn_aw ); ?></span>
 								<?php endif; ?>
 							</div>
-							<span class="bn-toggle-row__action">
-								<?php if ( 'needs_pro' === $bn_step['state'] ) : ?>
-									<span class="bn-field-hint"><?php esc_html_e( 'Needs BuddyNext Pro', 'buddynext' ); ?></span>
-								<?php endif; ?>
-								<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $bn_step['url'] ); ?>"<?php echo $bn_step['external'] ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>>
-									<?php echo esc_html( $bn_step['label'] ); ?>
-								</a>
-							</span>
+							<?php if ( 'needs_pro' === $bn_step['state'] ) : ?>
+								<span class="bn-int-chip" data-state="hidden"><?php esc_html_e( 'Needs BuddyNext Pro', 'buddynext' ); ?></span>
+							<?php endif; ?>
+							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_step['url'] ); ?>"<?php echo $bn_step['external'] ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>>
+								<?php echo esc_html( $bn_step['label'] ); ?>
+							</a>
 						</div>
-					<?php endforeach; ?>
-				</div>
-			</div>
+					</li>
+				<?php endforeach; ?>
+			</ul>
 			<?php
 		endif;
 	}
@@ -338,18 +395,19 @@ class IntegrationControlsAdmin {
 	 * @return void
 	 */
 	private function surface( string $label, string $hint, bool $available, string $name, bool $on, string $aria ): void {
-		echo '<div class="bn-int-surface">';
-		echo '<div class="bn-int-surface__copy"><span class="bn-int-surface__label">' . esc_html( $label ) . '</span>';
-		echo '<span class="bn-field-hint">' . esc_html( $available ? $hint : __( 'Not offered by this integration.', 'buddynext' ) ) . '</span></div>';
-		if ( $available ) {
-			printf(
-				'<label class="bn-toggle-label"><input type="checkbox" name="%1$s" value="1" %2$s role="switch" aria-label="%3$s"><span class="bn-toggle--inline"></span></label>',
-				esc_attr( $name ),
-				checked( $on, true, false ),
-				esc_attr( $aria )
-			);
+		if ( ! $available ) {
+			echo '<div class="bn-int-opt is-off"><span class="bn-int-opt__copy"><span class="bn-int-opt__label">' . esc_html( $label ) . '</span><span class="bn-int-opt__hint">' . esc_html__( 'Not offered by this integration.', 'buddynext' ) . '</span></span></div>';
+			return;
 		}
-		echo '</div>';
+		printf(
+			'<label class="bn-int-opt"><span class="bn-toggle-label"><input type="checkbox" name="%1$s" value="1" %2$s role="switch" aria-label="%3$s" data-bn-int-area-input="%6$s"><span class="bn-toggle--inline"></span></span><span class="bn-int-opt__copy"><span class="bn-int-opt__label">%4$s</span><span class="bn-int-opt__hint">%5$s</span></span></label>',
+			esc_attr( $name ),
+			checked( $on, true, false ),
+			esc_attr( $aria ),
+			esc_html( $label ),
+			esc_html( $hint ),
+			esc_attr( (string) strstr( $name, '[', true ) )
+		);
 	}
 
 	/**
