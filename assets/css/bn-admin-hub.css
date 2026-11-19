@@ -1457,7 +1457,12 @@
 .bn-videos__row-meta { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--bn-muted, #6b7480); }
 .bn-videos__now { display: none; align-self: flex-start; padding: 1px 8px; border-radius: 999px; background: var(--bn-accent-600, #1a64c8); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .bn-videos__row.is-current .bn-videos__now { display: inline-block; }
-.bn-videos__more .bn-videos__series { padding: 0 var(--bn-s5, 20px) var(--bn-s5, 20px); }
+.bn-videos__more .bn-videos__series { margin-block-start: var(--bn-s3, 12px); }
+.bn-videos li { margin: 0; }
+.bn-videos__series li { display: flex; }
+.bn-videos__chip, .bn-videos__row, .bn-videos__thumb { box-sizing: border-box; }
+/* The tab's own gap sets the spacing between its cards, so a card's own margin must not add to it. */
+.bn-videos > .bn-setup-card, .bn-videos__stage > .bn-setup-card { margin: 0; }
 .bn-videos__more .bn-videos__chip { min-block-size: 36px; padding: 0 var(--bn-s4, 14px); font-size: 13px; }
 @media ( max-width: 1100px ) {
 	.bn-videos__stage { grid-template-columns: minmax(0, 1fr); }
