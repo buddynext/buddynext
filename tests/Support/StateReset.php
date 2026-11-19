@@ -160,6 +160,8 @@ final class StateReset implements BeforeTestHook {
 			'document_memo'            => array(),
 			'moderation_answers'       => array(),
 		),
+		// Per-request answers to the wp-admin moderation capability.
+		\BuddyNext\Admin\ModerationQueue::class           => array( 'moderate_answers' => array() ),
 		\BuddyNext\Feed\IntegrationActivity::class        => array(
 			'system_publish' => false,
 			'mirror_depth'   => 0,

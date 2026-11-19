@@ -34,6 +34,21 @@ use BuddyNext\Moderation\ModerationService;
 class ModerationQueue {
 
 	/**
+	 * The capability that opens the daily moderation tabs (Pending, Reports,
+	 * Suspensions, Log). Private to this screen and never stored on a role:
+	 * grant_moderate_cap() answers it from the community ability layer, so a
+	 * BuddyNext moderator works these tabs without holding manage_options.
+	 */
+	public const CAP = 'buddynext_moderate';
+
+	/**
+	 * Per-request answers to CAP, keyed by user id.
+	 *
+	 * @var array<int, bool>
+	 */
+	private static array $moderate_answers = array();
+
+	/**
 	 * Register hooks + the three moderation tabs.
 	 *
 	 * @return void
@@ -46,6 +61,7 @@ class ModerationQueue {
 		add_action( 'admin_post_bn_mod_premod_action', array( $this, 'handle_premod_action' ) );
 		add_action( 'admin_post_bn_mod_log_export', array( $this, 'handle_export_log' ) );
 		add_action( 'admin_post_bn_mod_run_now', array( $this, 'handle_run_now' ) );
+		add_filter( 'user_has_cap', array( $this, 'grant_moderate_cap' ), 10, 4 );
 
 		// Pending approval queue first — it is proactive (clear held posts so they
 		// go live) rather than reactive like reports. Hidden by AdminHub when the
@@ -58,6 +74,7 @@ class ModerationQueue {
 			array( $this, 'render_pending' ),
 			array(
 				'position' => 5,
+				'cap'      => self::CAP,
 				'subtitle' => __( 'Posts held for approval. Approve them to publish, or reject to remove.', 'buddynext' ),
 				// Counter pill on the tab so the owner sees at a glance how many
 				// posts are held for approval without opening the tab.
@@ -71,6 +88,7 @@ class ModerationQueue {
 			array( $this, 'render_reports' ),
 			array(
 				'position' => 10,
+				'cap'      => self::CAP,
 				'subtitle' => __( 'Content members flagged. Review each report, then act or dismiss it.', 'buddynext' ),
 			)
 		);
@@ -81,6 +99,7 @@ class ModerationQueue {
 			array( $this, 'render_suspensions' ),
 			array(
 				'position' => 20,
+				'cap'      => self::CAP,
 				'subtitle' => __( 'Members currently suspended, with the reason and when it ends.', 'buddynext' ),
 			)
 		);
@@ -91,6 +110,8 @@ class ModerationQueue {
 			array( $this, 'render_appeals' ),
 			array(
 				'position' => 30,
+				// No CAP: deciding an appeal reviews a moderator's own call, so it
+				// stays with site admins (separation of duties, resolve-appeals).
 				'subtitle' => __( 'Members asking for a moderation decision to be reviewed.', 'buddynext' ),
 			)
 		);
@@ -101,9 +122,40 @@ class ModerationQueue {
 			array( $this, 'render_log' ),
 			array(
 				'position' => 40,
+				'cap'      => self::CAP,
 				'subtitle' => __( 'A record of every moderation action, who took it and when.', 'buddynext' ),
 			)
 		);
+	}
+
+	/**
+	 * Answer CAP from the community ability layer.
+	 *
+	 * Only answers when CAP itself is asked, so every other capability check
+	 * passes straight through (and the manage_options check inside
+	 * can_moderate_site() cannot loop back here). Same pattern as
+	 * WPMediaVerseBridge::grant_media_moderation().
+	 *
+	 * @param array<string, bool> $allcaps Capabilities the user holds.
+	 * @param string[]            $caps    Primitive capabilities being checked.
+	 * @param array<int, mixed>   $args    Original has_cap() arguments.
+	 * @param \WP_User|null       $user    The user.
+	 * @return array<string, bool>
+	 */
+	public function grant_moderate_cap( $allcaps, $caps, $args, $user = null ): array {
+		$allcaps = (array) $allcaps;
+		if ( ! in_array( self::CAP, (array) $caps, true ) || ! $user instanceof \WP_User || $user->ID <= 0 ) {
+			return $allcaps;
+		}
+
+		// The hub asks once per tab and per menu entry; answer once per member per request.
+		$uid = (int) $user->ID;
+		if ( ! isset( self::$moderate_answers[ $uid ] ) ) {
+			self::$moderate_answers[ $uid ] = buddynext_service( 'roles' )->can_moderate_site( $uid );
+		}
+		$allcaps[ self::CAP ] = self::$moderate_answers[ $uid ];
+
+		return $allcaps;
 	}
 
 	/**
@@ -553,7 +605,12 @@ class ModerationQueue {
 					// dismiss the report, or take the content down. Everything else
 					// (card 10331285055: 8-10 flat buttons was unscannable) folds into
 					// the row's "... More" overflow below.
-					$this->report_button( $report_id, 'dismiss', __( 'Dismiss', 'buddynext' ), 'secondary' );
+					// Report actions render from the same ability guard() checks, so a
+					// regraded role never sees a button that would 403.
+					$bn_can_act = buddynext_can( get_current_user_id(), 'buddynext-moderation/dismiss' );
+					if ( $bn_can_act ) {
+						$this->report_button( $report_id, 'dismiss', __( 'Dismiss', 'buddynext' ), 'secondary' );
+					}
 					// "Remove content" only applies to removable objects — remove_object()
 					// returns a 422 (bn_removal_unsupported) for user/space reports. Gate
 					// the button on the same object types Community Admin does
@@ -565,7 +622,7 @@ class ModerationQueue {
 					// same 422 — remove_object() finds nothing to take down — and a
 					// queue accumulates those: this surfaced with six of them sitting
 					// in the seeded queue, each still offering the button.
-					if ( in_array( $object_type, ModerationService::removable_types(), true ) && ! $bn_missing ) {
+					if ( $bn_can_act && in_array( $object_type, ModerationService::removable_types(), true ) && ! $bn_missing ) {
 						$this->report_button( $report_id, 'remove', __( 'Remove content', 'buddynext' ), 'delete', __( 'Remove the reported content? It is hidden, not hard-deleted.', 'buddynext' ) );
 					}
 					?>
@@ -575,14 +632,16 @@ class ModerationQueue {
 						</button>
 						<div class="bn-more-dropdown" role="menu">
 							<?php
-							$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary', '', true );
+							if ( $bn_can_act ) {
+								$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary', '', true );
+							}
 							// Content warning: a softer alternative to removal, post-only (the
 							// blur/reveal overlay renders on posts). Without this the warning
 							// could only be set via a raw REST call (card 10325560448).
-							if ( 'post' === $object_type && ! $bn_missing ) {
+							if ( $bn_can_act && 'post' === $object_type && ! $bn_missing ) {
 								$this->content_warning_controls( $report_id, $object_id );
 							}
-							if ( ! $escalated ) {
+							if ( $bn_can_act && ! $escalated ) {
 								$this->report_button( $report_id, 'escalate', __( 'Escalate', 'buddynext' ), 'secondary', '', true );
 							}
 							if ( $author_id > 0 && 'user' !== $object_type ) {
@@ -620,6 +679,8 @@ class ModerationQueue {
 			}
 		}
 		buddynext_prime_object_labels( $bn_sus_pairs );
+		$bn_viewer = get_current_user_id();
+		$bn_roles  = buddynext_service( 'roles' );
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
@@ -661,7 +722,19 @@ class ModerationQueue {
 								?>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $s['suspended_by'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
 								<td><?php echo esc_html( $s['expires_at'] ? $this->ago( (string) $s['expires_at'] ) : __( 'Permanent', 'buddynext' ) ); ?></td>
-								<td><?php $this->user_button( (int) $s['user_id'], 'unsuspend', __( 'Lift suspension', 'buddynext' ), 'secondary' ); ?></td>
+								<td>
+									<?php
+									// The rule unsuspend_user() enforces: the suspend ability, and
+									// neither the member nor whoever suspended them outranks the viewer.
+									if (
+										buddynext_can( $bn_viewer, 'buddynext-moderation/suspend-user' )
+										&& ! $bn_roles->outranks( (int) $s['user_id'], $bn_viewer )
+										&& ! $bn_roles->outranks( (int) ( $s['suspended_by'] ?? 0 ), $bn_viewer )
+									) {
+										$this->user_button( (int) $s['user_id'], 'unsuspend', __( 'Lift suspension', 'buddynext' ), 'secondary' );
+									}
+									?>
+								</td>
 							</tr>
 						<?php endforeach; ?>
 					</tbody>
@@ -1000,6 +1073,11 @@ class ModerationQueue {
 				</label>
 				<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Filter', 'buddynext' ); ?></button>
 			</form>
+			<?php
+			// Export (member data) and Run now (site background jobs) stay with
+			// site admins; a community moderator reads the log only.
+			if ( current_user_can( 'manage_options' ) ) :
+				?>
 			<div class="bn-modlog-actions">
 				<a class="bn-btn" data-variant="ghost" href="<?php echo esc_url( $export_url ); ?>"><?php esc_html_e( 'Export CSV', 'buddynext' ); ?></a>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-modlog-runnow">
@@ -1008,6 +1086,7 @@ class ModerationQueue {
 					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Run now', 'buddynext' ); ?></button>
 				</form>
 			</div>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -1159,11 +1238,13 @@ class ModerationQueue {
 	 * @return void
 	 */
 	public function handle_user_action(): void {
-		$this->guard( 'bn_mod_user_action' );
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer() before anything acts on the request.
+		$op = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		$this->guard( 'bn_mod_user_action', $op ); // The op picks the ability: strike or suspend.
 
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$user_id = isset( $_POST['user_id'] ) ? absint( wp_unslash( $_POST['user_id'] ) ) : 0;
-		$op      = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
 		$actor   = get_current_user_id();
 		$service = new ModerationService();
 		$tab     = isset( $_POST['return_tab'] ) ? sanitize_key( wp_unslash( (string) $_POST['return_tab'] ) ) : 'reports';
@@ -1393,7 +1474,10 @@ class ModerationQueue {
 			return;
 		}
 		$is_member = 'member' === $who;
-		$this->user_button( $user_id, 'strike', $is_member ? __( 'Strike member', 'buddynext' ) : __( 'Strike author', 'buddynext' ), 'secondary', '', true );
+		$viewer    = get_current_user_id();
+		if ( buddynext_can( $viewer, 'buddynext-moderation/issue-strike' ) ) {
+			$this->user_button( $user_id, 'strike', $is_member ? __( 'Strike member', 'buddynext' ) : __( 'Strike author', 'buddynext' ), 'secondary', '', true );
+		}
 
 		// Already suspended: show the state, not a Suspend button. Re-suspending is
 		// a server-side no-op (suspend_user() returns the existing active
@@ -1402,6 +1486,9 @@ class ModerationQueue {
 		// queue's "Already suspended" state.
 		if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) {
 			echo '<span class="bn-badge" data-tone="warn">' . esc_html__( 'Already suspended', 'buddynext' ) . '</span>';
+			return;
+		}
+		if ( ! buddynext_can( $viewer, 'buddynext-moderation/suspend-user' ) ) {
 			return;
 		}
 
@@ -1507,16 +1594,42 @@ class ModerationQueue {
 	}
 
 	/**
-	 * Shared handler guard: capability + nonce.
+	 * Shared handler guard: the action's own community ability + nonce.
+	 *
+	 * Checks the same ability the button was rendered from (see
+	 * action_ability()), so a role the owner regrades on Roles & Capabilities
+	 * loses the action and its button together. A site admin passes every
+	 * ability through buddynext_can().
 	 *
 	 * @param string $action Nonce/action name.
+	 * @param string $op     Operation, for actions whose ability depends on it.
 	 * @return void
 	 */
-	private function guard( string $action ): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+	private function guard( string $action, string $op = '' ): void {
+		if ( ! buddynext_can( get_current_user_id(), self::action_ability( $action, $op ) ) ) {
 			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
 		}
 		check_admin_referer( $action );
+	}
+
+	/**
+	 * The community ability a queue action needs.
+	 *
+	 * @param string $action admin-post action.
+	 * @param string $op     Operation within it.
+	 * @return string Ability slug.
+	 */
+	private static function action_ability( string $action, string $op = '' ): string {
+		switch ( $action ) {
+			case 'bn_mod_report_action':
+				return 'buddynext-moderation/dismiss';
+			case 'bn_mod_user_action':
+				return 'strike' === $op ? 'buddynext-moderation/issue-strike' : 'buddynext-moderation/suspend-user';
+			case 'bn_mod_premod_action':
+				return 'buddynext-moderation/review-queue';
+			default:
+				return 'buddynext-moderation/resolve-appeals';
+		}
 	}
 
 	/**

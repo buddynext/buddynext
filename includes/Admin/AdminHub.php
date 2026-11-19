@@ -1608,7 +1608,9 @@ class AdminHub {
 				$bn_linked ? self::TOP_SLUG : null,
 				$section['label'],
 				$section['label'],
-				'manage_options',
+				// Core registers the page (and its menu row) only for a user holding
+				// this cap, so a section opens to whoever may open one of its tabs.
+				self::section_capability( (string) $key ),
 				$section['slug'],
 				array( $this, 'render_section' )
 			);
@@ -1749,16 +1751,15 @@ class AdminHub {
 	 * @return void
 	 */
 	public function render_section(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to view this page.', 'buddynext' ) );
-		}
-
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only screen routing.
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( (string) $_GET['page'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		$section_key = $this->section_from_slug( $page );
-		$tabs        = null !== $section_key ? self::get_tabs( $section_key ) : array();
+		if ( ! current_user_can( null !== $section_key ? self::section_capability( $section_key ) : 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to view this page.', 'buddynext' ) );
+		}
+		$tabs = null !== $section_key ? self::get_tabs( $section_key ) : array();
 		if ( null === $section_key || empty( $tabs ) ) {
 			echo '<div class="wrap"><h1>' . esc_html__( 'BuddyNext', 'buddynext' ) . '</h1><p>'
 				. esc_html__( 'Nothing is registered here yet.', 'buddynext' )
@@ -1792,7 +1793,9 @@ class AdminHub {
 					break;
 				}
 			}
-			$active_slug      = '' !== $bn_owner ? $bn_owner : (string) array_key_first( $tabs );
+			// With no usable request, open the first tab this user may see, so a
+			// section that also holds admin-only tabs still opens for a moderator.
+			$active_slug      = '' !== $bn_owner ? $bn_owner : (string) array_key_first( self::visible_tabs( $section_key ) ?: $tabs ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found
 			$bn_tab_misrouted = ( '' === $bn_owner && '' !== $bn_requested_tab );
 		}
 		// A tab the placement map knows for this section but nobody registered belongs
@@ -2064,6 +2067,25 @@ class AdminHub {
 	}
 
 	/**
+	 * The capability that opens a section's page for the current user.
+	 *
+	 * A site admin gets manage_options, as does anyone with no tab here; anyone
+	 * else gets the capability of the first tab they may open. Every built-in tab
+	 * except the daily Moderation tabs needs manage_options, so every other
+	 * section still refuses a community moderator.
+	 *
+	 * @param string $section_key Section key.
+	 * @return string
+	 */
+	private static function section_capability( string $section_key ): string {
+		if ( current_user_can( 'manage_options' ) ) {
+			return 'manage_options';
+		}
+		$visible = self::visible_tabs( $section_key );
+		return empty( $visible ) ? 'manage_options' : (string) reset( $visible )['cap'];
+	}
+
+	/**
 	 * Every group that has at least one tab the user can open, in bar order, each
 	 * with its label and the first tab it opens.
 	 *
@@ -2253,17 +2275,20 @@ class AdminHub {
 				'icon'  => 'message-circle',
 				'url'   => self::DOCS_BASE . 'faq/',
 			),
-			array(
+		);
+		// Developer resources are for whoever runs the site, not a community moderator.
+		if ( current_user_can( 'manage_options' ) ) {
+			$links[] = array(
 				'label' => __( 'API docs', 'buddynext' ),
 				'icon'  => 'code',
 				'url'   => self::DOCS_BASE . 'developer-guide/14-rest-contract/',
-			),
-			array(
+			);
+			$links[] = array(
 				'label' => __( 'Code snippets on GitHub', 'buddynext' ),
 				'icon'  => 'github',
 				'url'   => 'https://github.com/buddynext/buddynext-snippets',
-			),
-		);
+			);
+		}
 		echo '<nav class="bn-hub-resources" aria-label="' . esc_attr__( 'Help and resources', 'buddynext' ) . '">';
 		echo '<p class="bn-hub-resources__title">' . esc_html__( 'Help and resources', 'buddynext' ) . '</p>';
 		foreach ( $links as $link ) {

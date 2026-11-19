@@ -2221,7 +2221,9 @@ class Members extends AdminPageBase {
 							<option value="7" selected><?php esc_html_e( '7 days', 'buddynext' ); ?></option>
 							<option value="30"><?php esc_html_e( '30 days', 'buddynext' ); ?></option>
 							<option value="90"><?php esc_html_e( '90 days', 'buddynext' ); ?></option>
-							<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
+							<?php if ( buddynext_can( get_current_user_id(), 'buddynext-moderation/suspend-indefinitely' ) ) : // Same ability suspend_user() enforces. ?>
+								<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
+							<?php endif; ?>
 						</select>
 					</div>
 					<div class="bn-field">

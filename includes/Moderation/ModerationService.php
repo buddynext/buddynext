@@ -2543,6 +2543,23 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// The same rank rule as suspend: a moderator cannot lift a suspension on
+		// someone above them, nor undo one that someone above them issued. Equal
+		// ranks may, and a system suspension (suspended_by 0) outranks no one.
+		$roles     = new \BuddyNext\Core\RoleService();
+		$active    = $this->get_active_suspension( $user_id );
+		$outranked = $roles->outranked_error( $user_id, $actor_id )
+			?? ( null !== $active ? $roles->outranked_error( (int) $active['suspended_by'], $actor_id ) : null );
+		if ( null !== $outranked ) {
+			$outranked->add_data(
+				array(
+					'status' => 403,
+					'reason' => 'outranked',
+				)
+			);
+			return $outranked;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
