@@ -214,6 +214,75 @@ class GamificationBridge {
 		// offering its own public-profile switches, which BuddyNext members cannot
 		// reach: its /u/ page redirects to the BuddyNext profile (card 10343975769).
 		add_filter( 'wb_gam_can_view_public_profile', array( $this, 'can_view_public_profile' ), 10, 3 );
+
+		// One join, one award: a join BuddyNext copies from the forum, and the forum
+		// join an approved request admits, are paid by the award the original earns.
+		add_filter( 'wb_gam_before_evaluate', array( $this, 'skip_copied_awards' ), 10, 2 );
+	}
+
+	/**
+	 * Refuse the extra award a single join used to add (card 10526710521).
+	 *
+	 * - A write BuddyNext makes as a copy of another plugin's action (the space join a
+	 *   forum-side join or a forum link copies over) is not paid: the original was.
+	 *   This is WB Gamification's own HostActivity::is_copy() contract, enforced here for
+	 *   every trigger, so a trigger without its own check (bn_space_joined) cannot pay twice.
+	 * - The forum join an approved request admits is not paid as a join: the approval
+	 *   award (jetonomy_join_request_approved) is the one award for that entry.
+	 *
+	 * @param bool   $proceed Whether WB Gamification may award.
+	 * @param object $event   WB Gamification event (action_id, user_id, metadata, created_at).
+	 * @return bool
+	 */
+	public function skip_copied_awards( $proceed, $event ): bool {
+		if ( ! $proceed || ! is_object( $event ) ) {
+			return (bool) $proceed;
+		}
+		if ( IntegrationActivity::is_mirror() || IntegrationActivity::is_system_publish() ) {
+			return false;
+		}
+		if ( 'jetonomy_space_joined' === ( $event->action_id ?? '' ) ) {
+			return ! self::admitted_by_approval(
+				(int) ( $event->metadata['space_id'] ?? 0 ),
+				(int) ( $event->user_id ?? 0 ),
+				(string) ( $event->created_at ?? '' )
+			);
+		}
+		return true;
+	}
+
+	/**
+	 * Whether a forum join was the admission of a request approved at that moment.
+	 *
+	 * Jetonomy writes the approval and then the roster row in one request, so the two
+	 * times are seconds apart. An approval from a membership that ended earlier is long
+	 * before the new join and does not count, so a later self-join still pays.
+	 *
+	 * @param int    $forum_id  Jetonomy forum.
+	 * @param int    $user_id   Member.
+	 * @param string $joined_at When the join was recorded (UTC).
+	 * @return bool
+	 */
+	private static function admitted_by_approval( int $forum_id, int $user_id, string $joined_at ): bool {
+		$joined = strtotime( $joined_at );
+		if ( $forum_id <= 0 || $user_id <= 0 || false === $joined || ! class_exists( '\Jetonomy\Models\JoinRequest' ) ) {
+			return false;
+		}
+
+		global $wpdb;
+		// JoinRequest has no read by member and status; (space_id, user_id, status) is its unique key.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$reviewed = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT reviewed_at FROM {$wpdb->prefix}jt_join_requests WHERE space_id = %d AND user_id = %d AND status = 'approved'",
+				$forum_id,
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$reviewed = null === $reviewed ? false : strtotime( $reviewed . ' UTC' );
+
+		return false !== $reviewed && abs( $joined - $reviewed ) <= MINUTE_IN_SECONDS;
 	}
 
 	/**
