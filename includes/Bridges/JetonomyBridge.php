@@ -598,7 +598,10 @@ class JetonomyBridge {
 		$title     = (string) $post->title;
 		$content   = (string) $post->content_plain;
 		$anonymous = ! empty( $post->is_anonymous );
-		$is_public = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status, $anonymous );
+		// A space whose Discussions are switched off keeps the forum's data but shows none of it:
+		// no card, no search row. Switching back on republishes both.
+		$off       = $this->discussion_switched_off( $space_id );
+		$is_public = ! $off && $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status, $anonymous );
 
 		// Search index: drop, then re-index while published. A private topic keeps a
 		// 'private' row (space members can find it); the search gate reads the
@@ -615,7 +618,7 @@ class JetonomyBridge {
 				array( '%s', '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			if ( 'publish' === (string) $post->status && ! $anonymous ) {
+			if ( 'publish' === (string) $post->status && ! $anonymous && ! $off ) {
 				( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, $is_public ? 'public' : 'private', $this->space_id_for_forum( $space_id ) );
 			}
 		}
@@ -1185,6 +1188,21 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Whether the owner has explicitly switched a forum's space to Discussions off.
+	 *
+	 * Only an explicit off counts: a space linked before the flag existed has none, and
+	 * its forum must not be closed because a flag is missing.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @return bool
+	 */
+	private function discussion_switched_off( int $forum_id ): bool {
+		$space_id = $this->space_id_for_forum( $forum_id );
+
+		return $space_id > 0 && '0' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
+	}
+
+	/**
 	 * Whether a space's dedicated Discussion is currently ENABLED (shown to
 	 * members). A space keeps its one dedicated discussion for its lifetime; the
 	 * owner toggles it on/off with this flag, which hides the tab without ever
@@ -1675,6 +1693,8 @@ class JetonomyBridge {
 	 */
 	public function set_discussion_enabled( int $space_id, bool $enabled ): void {
 		update_space_meta( absint( $space_id ), 'discussion_enabled', $enabled ? '1' : '0' );
+		// The forum follows the switch: off hides and locks it, on opens it again.
+		$this->sync_discussion_visibility( $space_id );
 	}
 
 	/**
@@ -2158,8 +2178,8 @@ class JetonomyBridge {
 		}
 
 		// The space decides the forum's state: open, read-only while archived, closed while
-		// it is being deleted. Without this a type change reopened a forum the delete had hidden.
-		if ( \BuddyNext\Spaces\SpaceService::is_deleting( $space_id ) ) {
+		// it is being deleted or its Discussions are off. Without this a type change reopened a forum the delete had hidden.
+		if ( \BuddyNext\Spaces\SpaceService::is_deleting( $space_id ) || '0' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' ) ) {
 			$want   = 'hidden';
 			$status = 'locked';
 		} else {

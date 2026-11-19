@@ -1275,6 +1275,30 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 'unlink', $this->bridge->forum_fate_on_delete( $space_id ), 'A claimed forum outlives the space.' );
 		remove_filter( 'buddynext_space_forum_claimed', $claim );
 	}
+
+	/**
+	 * A space whose Discussions are switched off keeps the forum's topics but shows none of
+	 * them: no feed card, no search row. Switching back on republishes both.
+	 */
+	public function test_discussions_off_shows_no_card_and_no_search_row(): void {
+		global $wpdb;
+
+		$bn_space = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $this->user_id, array( 'name' => 'Off switch', 'slug' => 'off-switch', 'type' => 'open' ) );
+		$this->seed_jt_space( 8, 'off-switch' );
+		update_space_meta( $bn_space, 'jetonomy_forum_id', 8 );
+		$this->seed_jt_post( 81, $this->author_id, 'Hidden while off', 'Body', 'hidden-while-off' );
+		$count = fn( string $table, string $where ) => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}{$table} WHERE {$where}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		update_space_meta( $bn_space, 'discussion_enabled', '0' );
+		$this->publish_jt_post( 81, 8 );
+		$this->assertSame( 0, $count( 'bn_search_index', "object_type = 'discussion' AND object_id = 81" ), 'No search row while off.' );
+		$this->assertSame( 0, $count( 'bn_posts', "type = 'discussion' AND status = 'published' AND link_url LIKE '%hidden-while-off%'" ), 'No card while off.' );
+
+		update_space_meta( $bn_space, 'discussion_enabled', '1' );
+		$this->bridge->sync_discussion( 81, 8 );
+		$this->assertSame( 1, $count( 'bn_search_index', "object_type = 'discussion' AND object_id = 81" ), 'Back on: the topic is searchable again.' );
+		$this->assertSame( 1, $count( 'bn_posts', "type = 'discussion' AND status = 'published' AND link_url LIKE '%hidden-while-off%'" ), 'Back on: the card is back.' );
+	}
 }
 
 namespace Jetonomy\Models;
