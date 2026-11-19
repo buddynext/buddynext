@@ -291,6 +291,13 @@ class WPMediaVerseBridge {
 		// so a grant another rule already made (a competition entry) is left alone.
 		add_filter( 'mvs_privacy_can_view', array( $this, 'followers_only_needs_a_bn_follow' ), 20, 4 );
 
+		// A BuddyNext block is a block here too: the blocked member cannot open,
+		// favourite, react to or comment on the blocker's media, and either side
+		// disappears from the other's lists. MediaVerse keeps its own block list;
+		// these two filters add BuddyNext's to it. MediaVerse 2.6.5+.
+		add_filter( 'mvs_safety_refuses', array( $this, 'bn_block_refuses_media' ), 10, 4 );
+		add_filter( 'mvs_blocked_either_way_ids', array( $this, 'bn_blocked_ids' ), 10, 2 );
+
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
 		// event whose only native listener (the MVS chat panel) is suppressed
 		// while BN owns /messages/. Enqueue a tiny listener that routes the click
@@ -2335,6 +2342,48 @@ class WPMediaVerseBridge {
 		} finally {
 			$this->mirroring_follow = false;
 		}
+	}
+
+	/**
+	 * Refuse a blocked member the blocker's media.
+	 *
+	 * Same single-item rule MediaVerse applies to its own blocks: the person who
+	 * was blocked loses the item, the blocker can still open a direct link.
+	 * MediaVerse has already let the author and moderators through.
+	 *
+	 * @param bool  $refuses  What MediaVerse decided.
+	 * @param int   $media_id Item id.
+	 * @param int   $user_id  Viewer.
+	 * @param array $args     The caller's values; author_id when known.
+	 * @return bool
+	 */
+	public function bn_block_refuses_media( $refuses, $media_id, $user_id, $args = array() ): bool {
+		if ( $refuses || (int) $user_id <= 0 ) {
+			return (bool) $refuses;
+		}
+
+		$author = isset( $args['author_id'] ) ? (int) $args['author_id'] : 0;
+		if ( $author <= 0 ) {
+			$repo   = MediaClient::repo();
+			$author = is_object( $repo ) ? (int) $repo->get( (int) $media_id, 'post_author' ) : 0;
+		}
+
+		return $author > 0 && buddynext_service( 'blocks' )->has_blocked( $author, (int) $user_id );
+	}
+
+	/**
+	 * Add the members BuddyNext blocks, either way, to MediaVerse's hidden list.
+	 *
+	 * @param int[] $ids     Ids MediaVerse already hides.
+	 * @param int   $user_id The viewer.
+	 * @return int[]
+	 */
+	public function bn_blocked_ids( $ids, $user_id ): array {
+		$ids = (array) $ids;
+
+		return (int) $user_id > 0
+			? array_values( array_unique( array_merge( $ids, buddynext_service( 'blocks' )->block_related_ids( (int) $user_id ) ) ) )
+			: $ids;
 	}
 
 	/**

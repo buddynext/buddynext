@@ -96,6 +96,30 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A BuddyNext block closes the blocker's media to the blocked member only, and
+	 * hides either side from the other's lists.
+	 */
+	public function test_bn_block_refuses_media_and_hides_lists(): void {
+		$blocker = self::factory()->user->create();
+		$blocked = self::factory()->user->create();
+		$other   = self::factory()->user->create();
+		$args    = array( 'author_id' => $blocker );
+
+		$this->assertFalse( $this->bridge->bn_block_refuses_media( false, 1, $blocked, $args ) );
+
+		buddynext_service( 'blocks' )->block( $blocker, $blocked );
+
+		$this->assertTrue( $this->bridge->bn_block_refuses_media( false, 1, $blocked, $args ) );
+		$this->assertFalse( $this->bridge->bn_block_refuses_media( false, 1, $other, $args ) );
+		$this->assertFalse( $this->bridge->bn_block_refuses_media( false, 1, $blocker, array( 'author_id' => $blocked ) ) );
+		$this->assertTrue( $this->bridge->bn_block_refuses_media( true, 1, $other, $args ) );
+
+		$this->assertSame( array( $blocked ), $this->bridge->bn_blocked_ids( array(), $blocker ) );
+		$this->assertSame( array( $blocker ), $this->bridge->bn_blocked_ids( array(), $blocked ) );
+		$this->assertSame( array(), $this->bridge->bn_blocked_ids( array(), $other ) );
+	}
+
+	/**
 	 * Prove the gate actually refuses, not merely that a filter is attached.
 	 *
 	 * Attachment alone is a weak assertion — it would still pass if check_block()
