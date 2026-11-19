@@ -23,6 +23,7 @@
  * @var string   $provision_url On-demand provision-trigger URL (empty-state CTA).
  * @var array    $empty_state   parts/empty-state.php arguments for a linked forum with no threads, by what this viewer may do.
  * @var bool     $can_provision Whether the viewer may provision (create) the forum — gates the empty-state CTA.
+ * @var bool     $can_post      Whether the viewer may start a discussion — gates the header "Start a discussion" button.
  */
 
 declare( strict_types=1 );
@@ -36,22 +37,33 @@ $bn_forum_linked  = isset( $forum_linked ) ? (bool) $forum_linked : ( '' !== $bn
 $bn_provision     = isset( $provision_url ) ? (string) $provision_url : '';
 $bn_empty_state   = isset( $empty_state ) && is_array( $empty_state ) ? $empty_state : array();
 $bn_can_provision = isset( $can_provision ) ? (bool) $can_provision : false;
+$bn_can_post      = isset( $can_post ) ? (bool) $can_post : false;
 
 // Thread permalinks derive from the forum URL (which already carries the
 // Jetonomy space slug), never the BN space slug — the two can differ.
 $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/' : '';
 ?>
 <div class="bn-space-discussions">
-	<?php if ( $bn_discussions ) : ?>
-		<?php if ( '' !== $bn_forum_url ) : ?>
-			<header class="bn-space-discussions__head">
-				<a href="<?php echo esc_url( $bn_forum_url ); ?>" class="bn-btn" data-variant="ghost" data-size="sm">
-					<?php buddynext_icon( 'external-link' ); ?>
-					<?php esc_html_e( 'Open in Community', 'buddynext' ); ?>
+	<?php if ( '' !== $bn_forum_url ) : ?>
+		<header class="bn-space-discussions__head">
+			<?php
+			// The empty state carries its own "Start a discussion" CTA, so the header
+			// button is only for a forum that already has threads.
+			if ( $bn_discussions && $bn_can_post ) :
+				?>
+				<a href="<?php echo esc_url( trailingslashit( $bn_forum_url ) . 'new/' ); ?>" class="bn-btn" data-variant="primary" data-size="sm">
+					<?php buddynext_icon( 'plus' ); ?>
+					<?php esc_html_e( 'Start a discussion', 'buddynext' ); ?>
 				</a>
-			</header>
-		<?php endif; ?>
+			<?php endif; ?>
+			<a href="<?php echo esc_url( $bn_forum_url ); ?>" class="bn-btn" data-variant="ghost" data-size="sm">
+				<?php buddynext_icon( 'external-link' ); ?>
+				<?php esc_html_e( 'Open in Community', 'buddynext' ); ?>
+			</a>
+		</header>
+	<?php endif; ?>
 
+	<?php if ( $bn_discussions ) : ?>
 		<div class="bn-space-discussions__list">
 			<?php
 			foreach ( $bn_discussions as $bn_disc ) :

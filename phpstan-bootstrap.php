@@ -380,6 +380,14 @@ if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 			public static function find( $id ) { return null; }
 
 			/**
+			 * Fetch one discussion by slug (cached by Jetonomy).
+			 *
+			 * @param string $slug Discussion slug.
+			 * @return object|null
+			 */
+			public static function find_by_slug( string $slug ): ?object { return null; }
+
+			/**
 			 * Update a discussion.
 			 *
 			 * @param int                 $id   Discussion id.

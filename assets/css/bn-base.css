@@ -1346,6 +1346,8 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 /* In-hub space Discussions panel — header action sits above the thread list. */
 .bn-space-discussions__head {
 	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
 	justify-content: flex-end;
 	margin-block-end: var(--bn-s3);
 }

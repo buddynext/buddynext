@@ -2514,17 +2514,19 @@ class NavManager extends AdminPageBase {
 	 */
 	private function partner_main_tabs(): array {
 		$rows = array(
-			'media'       => array( __( 'Media', 'buddynext' ), 'image', 205, __( 'The member\'s own media library.', 'buddynext' ) ),
-			'discussions' => array( __( 'Discussions', 'buddynext' ), 'list', 206, __( 'Discussions the member has started.', 'buddynext' ) ),
-			'events'      => array( __( 'Events', 'buddynext' ), 'calendar', 207, __( 'Events the member is hosting or attending.', 'buddynext' ) ),
-			'leaderboard' => array( __( 'Leaderboard', 'buddynext' ), 'award', 95, __( 'Community points leaderboard.', 'buddynext' ) ),
+			'media'          => array( __( 'Media', 'buddynext' ), 'image', 205, __( 'The member\'s own media library.', 'buddynext' ) ),
+			'discussions'    => array( __( 'Discussions', 'buddynext' ), 'messages-square', 60, __( 'The community forum home.', 'buddynext' ) ),
+			'my-discussions' => array( __( 'My discussions', 'buddynext' ), 'list', 206, __( 'Discussions the member has started.', 'buddynext' ) ),
+			'events'         => array( __( 'Events', 'buddynext' ), 'calendar', 207, __( 'Events the member is hosting or attending.', 'buddynext' ) ),
+			'leaderboard'    => array( __( 'Leaderboard', 'buddynext' ), 'award', 95, __( 'Community points leaderboard.', 'buddynext' ) ),
 		);
 		// Rail key => integration registry key.
 		$integration = array(
-			'media'       => 'media',
-			'discussions' => 'jetonomy',
-			'events'      => 'eventonomy',
-			'leaderboard' => 'gamification',
+			'media'          => 'media',
+			'discussions'    => 'jetonomy',
+			'my-discussions' => 'jetonomy',
+			'events'         => 'eventonomy',
+			'leaderboard'    => 'gamification',
 		);
 		$registered  = buddynext_integrations();
 		$tabs        = array();

@@ -17,6 +17,7 @@
  * @var int      $accepted_answers Replies of this member marked as the accepted answer.
  * @var int      $reputation       Jetonomy reputation score.
  * @var int      $trust_level      Jetonomy trust level (0-4); surfaced via REST, not the strip.
+ * @var string   $forum_url        Forum home URL ('' hides the "Open the forum" link).
  */
 
 declare( strict_types=1 );
@@ -28,6 +29,19 @@ $bn_pd_rows     = isset( $discussions ) && is_array( $discussions ) ? $discussio
 $bn_pd_accepted = isset( $accepted_answers ) ? (int) $accepted_answers : 0;
 $bn_pd_rep      = isset( $reputation ) ? (int) $reputation : 0;
 $bn_pd_count    = isset( $discussion_count ) ? (int) $discussion_count : count( $bn_pd_rows );
+$bn_pd_forum    = isset( $forum_url ) ? (string) $forum_url : '';
+
+// The way into the forum itself, above the empty state and the list alike.
+if ( '' !== $bn_pd_forum ) :
+	?>
+	<header class="bn-space-discussions__head">
+		<a href="<?php echo esc_url( $bn_pd_forum ); ?>" class="bn-btn" data-variant="ghost" data-size="sm">
+			<?php buddynext_icon( 'external-link' ); ?>
+			<?php esc_html_e( 'Open the forum', 'buddynext' ); ?>
+		</a>
+	</header>
+	<?php
+endif;
 
 // Nothing worth showing — no credentials and no discussions.
 if ( empty( $bn_pd_rows ) && 0 === $bn_pd_accepted && 0 === $bn_pd_rep && 0 === $bn_pd_count ) :

@@ -170,7 +170,8 @@ BuddyNext owns the member profile. Opening Jetonomy's own profile directly (`{ba
 
 | Hook / surface | Purpose |
 |---|---|
-| `buddynext_rail_items` (filter) | Adds a "Discussions" item to the BuddyNext left rail, linking to the Jetonomy community home. Active state derived from `REQUEST_URI`. |
+| `buddynext_rail_items` (filter) | Adds two rail items: `discussions` (the Jetonomy forum home, shown to guests too) and `my-discussions` (the member's own profile Discussions tab, in the `you` group, active state derived from `REQUEST_URI`). |
+| `jetonomy_breadcrumb_html` (filter, consumed) | On a forum linked to a space, prepends a "Back to <space>" link to Jetonomy's breadcrumb when the viewer can see that space. |
 | `buddynext_register_nav` (action) | Registers a "Discussions" tab on both the profile surface (with a lazy count badge of the member's published discussions) and the space surface (linking to the linked forum, or the on-demand provision trigger). |
 | `buddynext_context_nav` (filter) | Injects Home / Search / Leaderboard sub-nav when the active section is `discussions`. |
 | `buddynext_hashtag_related_discussions` (filter) | Returns Jetonomy discussions sharing a hashtag slug, so the hashtag feed can show "Related Discussions". |

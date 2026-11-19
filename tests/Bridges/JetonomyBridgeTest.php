@@ -1344,6 +1344,308 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 'secret', JetonomyBridge::forum_type_for( array( 'type' => 'secret', 'is_gated' => true ) ) );
 		$this->assertSame( 'private', JetonomyBridge::discussion_visibility_for( JetonomyBridge::forum_type_for( array( 'type' => 'open', 'is_gated' => true ) ) ) );
 	}
+
+	/**
+	 * Rail item keys by rail key.
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	private function rail_items(): array {
+		return array_column( $this->bridge->inject_discussions_nav_item( array() ), null, 'key' );
+	}
+
+	/**
+	 * The forum keeps the "discussions" rail key (so saved nav overrides still apply)
+	 * and reaches guests; "my-discussions" is the member's own tab, logged in only.
+	 *
+	 * @return void
+	 */
+	public function test_rail_links_the_forum_for_everyone_and_my_discussions_for_members(): void {
+		wp_set_current_user( 0 );
+		$guest = $this->rail_items();
+		$this->assertSame( array( 'discussions' ), array_keys( $guest ) );
+		$this->assertSame( trailingslashit( home_url( '/community' ) ), $guest['discussions']['url'] );
+		$this->assertSame( 60, $guest['discussions']['order'] );
+		$this->assertArrayNotHasKey( 'active', $guest['discussions'] );
+		$this->assertArrayNotHasKey( 'group', $guest['discussions'] );
+
+		wp_set_current_user( $this->user_id );
+		$member = $this->rail_items();
+		$this->assertSame( array( 'discussions', 'my-discussions' ), array_keys( $member ) );
+		$this->assertSame( 'you', $member['my-discussions']['group'] );
+		$this->assertSame( 206, $member['my-discussions']['order'] );
+		$this->assertStringEndsWith( '/discussions/', $member['my-discussions']['url'] );
+		$this->assertStringContainsString( (string) wp_parse_url( \BuddyNext\Core\PageRouter::profile_url( $this->user_id ), PHP_URL_PATH ), $member['my-discussions']['url'] );
+	}
+
+	/**
+	 * Integration Settings > Show in navigation off hides both rail items.
+	 *
+	 * @return void
+	 */
+	public function test_rail_links_follow_the_navigation_switch(): void {
+		wp_set_current_user( $this->user_id );
+		update_option( 'buddynext_integration_jetonomy_nav', '0' );
+		$this->assertSame( array(), $this->rail_items() );
+	}
+
+	/**
+	 * A linked forum is on unless the owner explicitly switched it off: a link made
+	 * before the flag existed must not lose its tab.
+	 *
+	 * @return void
+	 */
+	public function test_a_linked_forum_is_on_unless_explicitly_switched_off(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$this->user_id,
+			array(
+				'name' => 'Flag',
+				'slug' => 'flag-' . wp_rand( 1000, 99999 ),
+				'type' => 'open',
+			)
+		);
+		$this->assertFalse( $this->bridge->space_discussion_enabled( $space_id ), 'No forum linked.' );
+
+		update_space_meta( $space_id, 'jetonomy_forum_id', 5150 );
+		delete_space_meta( $space_id, 'discussion_enabled' );
+		$this->assertTrue( $this->bridge->space_discussion_enabled( $space_id ), 'Linked, flag unset.' );
+		$this->assertTrue( $this->bridge->space_discussion_status( $space_id )['enabled'], 'The settings switch shows on.' );
+		$this->assertNotNull( $this->resolve_space_discussions_url( $space_id ), 'The tab shows.' );
+
+		update_space_meta( $space_id, 'discussion_enabled', '0' );
+		$this->assertFalse( $this->bridge->space_discussion_enabled( $space_id ), "Linked, flag '0'." );
+
+		update_space_meta( $space_id, 'discussion_enabled', '1' );
+		$this->assertTrue( $this->bridge->space_discussion_enabled( $space_id ), "Linked, flag '1'." );
+	}
+
+	/**
+	 * An open space with a linked forum holding one thread.
+	 *
+	 * @param string $type Space type.
+	 * @return array{space:int,owner:int,forum:int,slug:string}
+	 */
+	private function space_with_forum( string $type = 'open' ): array {
+		global $wpdb;
+		$owner    = self::factory()->user->create();
+		$name     = 'Forum space ' . wp_rand( 1000, 99999 );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => $name,
+				'slug' => sanitize_title( $name ),
+				'type' => $type,
+			)
+		);
+		$slug = 'jt-' . $space_id;
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_spaces',
+			array(
+				'slug'  => $slug,
+				'title' => $name,
+			)
+		);
+		$forum = (int) $wpdb->insert_id;
+		update_space_meta( $space_id, 'jetonomy_forum_id', $forum );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'id'        => 9000 + $forum,
+				'space_id'  => $forum,
+				'author_id' => $owner,
+				'slug'      => 'first-thread',
+				'title'     => 'First thread',
+			)
+		);
+		wp_cache_flush();
+
+		return array(
+			'space' => $space_id,
+			'owner' => $owner,
+			'forum' => $forum,
+			'slug'  => $slug,
+		);
+	}
+
+	/**
+	 * Render the space Discussions panel for a viewer.
+	 *
+	 * @param int $space_id Space.
+	 * @param int $viewer   Viewer.
+	 * @return string
+	 */
+	private function space_panel_html( int $space_id, int $viewer ): string {
+		wp_set_current_user( $viewer );
+		ob_start();
+		$this->bridge->render_space_discussions_panel( $space_id, $viewer );
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * With threads present the panel header offers "Start a discussion" to someone
+	 * who may post, and never to someone who may not; the forum link is there for both.
+	 *
+	 * @return void
+	 */
+	public function test_start_a_discussion_is_in_the_header_only_for_a_poster(): void {
+		$fx       = $this->space_with_forum();
+		$composer = '/community/s/' . $fx['slug'] . '/new/';
+
+		$owner = $this->space_panel_html( $fx['space'], $fx['owner'] );
+		$this->assertStringContainsString( 'First thread', $owner );
+		$this->assertStringContainsString( $composer, $owner );
+		$this->assertStringContainsString( 'Open in Community', $owner );
+
+		$outsider = $this->space_panel_html( $fx['space'], $this->user_id );
+		$this->assertStringContainsString( 'First thread', $outsider );
+		$this->assertStringNotContainsString( $composer, $outsider );
+		$this->assertStringContainsString( 'Open in Community', $outsider );
+	}
+
+	/**
+	 * An empty linked forum still links to the forum, and its one "Start a
+	 * discussion" is the empty-state CTA, not a second header button.
+	 *
+	 * @return void
+	 */
+	public function test_an_empty_forum_links_to_the_forum_with_one_start_button(): void {
+		global $wpdb;
+		$fx = $this->space_with_forum();
+		$wpdb->delete( $wpdb->prefix . 'jt_posts', array( 'space_id' => $fx['forum'] ) );
+		wp_cache_flush();
+
+		$html = $this->space_panel_html( $fx['space'], $fx['owner'] );
+		$this->assertStringContainsString( 'Open in Community', $html );
+		$this->assertSame( 1, substr_count( $html, '/new/' ) );
+	}
+
+	/**
+	 * Render the owner hint above the About panel.
+	 *
+	 * @param int $space_id Space.
+	 * @param int $viewer   Viewer.
+	 * @return string
+	 */
+	private function owner_hint_html( int $space_id, int $viewer ): string {
+		wp_set_current_user( $viewer );
+		ob_start();
+		$this->bridge->render_discussion_owner_hint( array( 'space' => ( new \BuddyNext\Spaces\SpaceService() )->get_object( $space_id ) ) );
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Only the owner of a space with no forum is pointed at the Discussion switch.
+	 *
+	 * @return void
+	 */
+	public function test_turn_on_discussions_hint_is_for_the_owner_of_a_forumless_space(): void {
+		$team = $this->space_with_team();
+
+		$owner = $this->owner_hint_html( $team['space'], $team['owner'] );
+		$this->assertStringContainsString( 'Turn on Discussions', $owner );
+		$this->assertStringContainsString( 'bn_stab=integrations', $owner );
+
+		$this->assertSame( '', $this->owner_hint_html( $team['space'], $team['moderator'] ) );
+		$this->assertSame( '', $this->owner_hint_html( $team['space'], $this->user_id ) );
+		$this->assertSame( '', $this->owner_hint_html( $team['space'], 0 ) );
+
+		update_space_meta( $team['space'], 'jetonomy_forum_id', 6160 );
+		update_space_meta( $team['space'], 'discussion_enabled', '0' );
+		$this->assertSame( '', $this->owner_hint_html( $team['space'], $team['owner'] ), 'A forum switched off is a choice already made.' );
+	}
+
+	/**
+	 * Run the breadcrumb filter on a Jetonomy route.
+	 *
+	 * @param array<string,string> $vars Query vars.
+	 * @param int                  $viewer Viewer.
+	 * @return string
+	 */
+	private function crumb_html( array $vars, int $viewer ): string {
+		wp_set_current_user( $viewer );
+		foreach ( array( 'jetonomy_route', 'jetonomy_slug', 'jetonomy_space_slug' ) as $var ) {
+			set_query_var( $var, $vars[ $var ] ?? '' );
+		}
+		return $this->bridge->add_space_breadcrumb( self::CRUMB );
+	}
+
+	/**
+	 * Jetonomy's breadcrumb as its partial renders it.
+	 *
+	 * @var string
+	 */
+	private const CRUMB = '<nav class="jt-crumb" aria-label="Breadcrumb"><a href="http://example.org/community/">Home</a><span aria-hidden="true">/</span><span aria-current="page" dir="auto">Forum</span></nav>';
+
+	/**
+	 * A linked forum's pages lead back to its Space, on the forum and topic routes.
+	 *
+	 * @return void
+	 */
+	public function test_breadcrumb_leads_back_to_the_linked_space(): void {
+		$fx    = $this->space_with_forum();
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $fx['space'] );
+		$back  = '<a href="' . esc_url( buddynext_space_url( (string) $space['slug'] ) ) . '" dir="auto">Back to ' . esc_html( (string) $space['name'] ) . '</a> <span aria-hidden="true">/</span> ';
+
+		$forum = $this->crumb_html(
+			array(
+				'jetonomy_route' => 'space',
+				'jetonomy_slug'  => $fx['slug'],
+			),
+			$this->user_id
+		);
+		$this->assertStringStartsWith( '<nav class="jt-crumb" aria-label="Breadcrumb">' . $back . '<a href="http://example.org/community/">Home</a>', $forum, 'The link leads the trail, inside Jetonomy\'s nav.' );
+
+		$topic = $this->crumb_html(
+			array(
+				'jetonomy_route'      => 'post',
+				'jetonomy_space_slug' => $fx['slug'],
+				'jetonomy_slug'       => 'first-thread',
+			),
+			0
+		);
+		$this->assertStringContainsString( $back, $topic, 'Guests see the link to a space they may view.' );
+	}
+
+	/**
+	 * Unlinked forum, a Space the viewer may not see, and an unknown route all
+	 * leave the trail untouched.
+	 *
+	 * @return void
+	 */
+	public function test_breadcrumb_is_unchanged_when_the_space_cannot_be_shown(): void {
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_spaces',
+			array(
+				'slug'  => 'loose-forum',
+				'title' => 'Loose',
+			)
+		);
+		$this->assertSame(
+			self::CRUMB,
+			$this->crumb_html(
+				array(
+					'jetonomy_route' => 'space',
+					'jetonomy_slug'  => 'loose-forum',
+				),
+				$this->user_id
+			),
+			'Unlinked forum.'
+		);
+
+		$secret = $this->space_with_forum( 'secret' );
+		$vars   = array(
+			'jetonomy_route' => 'space',
+			'jetonomy_slug'  => $secret['slug'],
+		);
+		$this->assertSame( self::CRUMB, $this->crumb_html( $vars, $this->user_id ), 'A secret space is never named to a non-member.' );
+		$this->assertSame( self::CRUMB, $this->crumb_html( $vars, 0 ), 'Nor to a guest.' );
+		$this->assertStringContainsString( 'Back to', $this->crumb_html( $vars, $secret['owner'] ), 'Its owner gets the link.' );
+
+		$this->assertSame( self::CRUMB, $this->crumb_html( array( 'jetonomy_route' => 'profile', 'jetonomy_slug' => $secret['slug'] ), $secret['owner'] ), 'Not a forum route.' );
+		$this->assertSame( self::CRUMB, $this->crumb_html( array( 'jetonomy_route' => 'space', 'jetonomy_slug' => 'no-such-forum' ), $this->user_id ), 'Unknown forum.' );
+		$this->assertSame( '', $this->bridge->add_space_breadcrumb( '' ), 'No breadcrumb at all.' );
+	}
 }
 
 namespace Jetonomy\Models;
@@ -1378,6 +1680,19 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 		public static function find( int $id ): ?object {
 			unset( $id );
 			return null;
+		}
+
+		/**
+		 * Look a forum up by slug in the shadow jt_spaces table.
+		 *
+		 * @param string $slug Forum slug.
+		 * @return object|null
+		 */
+		public static function find_by_slug( string $slug ): ?object {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_spaces WHERE slug = %s", $slug ) );
+			return $id > 0 ? (object) array( 'id' => $id ) : null;
 		}
 
 		/**

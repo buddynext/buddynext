@@ -165,8 +165,11 @@ class JetonomyBridge {
 		// settings: Jetonomy renders and saves them, BuddyNext only gives them a place.
 		add_action( 'buddynext_notification_prefs_after', array( $this, 'render_partner_prefs' ), 20 );
 
-		// Inject a Discussions link into the BuddyNext left navigation rail.
+		// Inject the forum and "My discussions" links into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
+
+		// A forum linked to a Space leads back to it from Jetonomy's breadcrumb.
+		add_filter( 'jetonomy_breadcrumb_html', array( $this, 'add_space_breadcrumb' ), 10, 1 );
 
 		// Bridge: hashtag ↔ tag — when BuddyNext renders a hashtag feed, pull
 		// related Jetonomy discussions that share the same tag slug.
@@ -249,6 +252,8 @@ class JetonomyBridge {
 		// (/spaces/?bn_provision_forum=N) shows the directory instead.
 		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ), 5 );
 		add_action( 'buddynext_part_space_hero_after', array( $this, 'render_provision_failure_notice' ) );
+		// The owner of a space with no forum is pointed at the switch that adds one.
+		add_action( 'buddynext_part_space_about_panel_before', array( $this, 'render_discussion_owner_hint' ) );
 
 		// BuddyNext owns the member profile: Jetonomy's own profile pages hand over
 		// to it, as its generated links already do (filter_jetonomy_profile_url).
@@ -1065,6 +1070,23 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * The forum home URL (no trailing slash), through \Jetonomy\base_url() so the
+	 * owner's configured base slug is honoured. Falls back to the stored
+	 * `jetonomy_settings['base_slug']` (Jetonomy's default `community`) only when the
+	 * Jetonomy helper is unavailable.
+	 *
+	 * @return string
+	 */
+	private function forum_home_url(): string {
+		if ( function_exists( 'Jetonomy\base_url' ) ) {
+			return untrailingslashit( (string) \Jetonomy\base_url() );
+		}
+		$settings  = get_option( 'jetonomy_settings', array() );
+		$base_slug = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
+		return home_url( '/' . ltrim( $base_slug, '/' ) ); // bn-route-ok: built from Jetonomy's configured base slug.
+	}
+
+	/**
 	 * Build a Jetonomy discussion (topic) permalink from its space + post slug.
 	 *
 	 * Single source of truth for the discussion URL shape. The base segment always
@@ -1083,13 +1105,7 @@ class JetonomyBridge {
 			return '';
 		}
 
-		if ( function_exists( 'Jetonomy\base_url' ) ) {
-			$base = (string) \Jetonomy\base_url();
-		} else {
-			$settings  = get_option( 'jetonomy_settings', array() );
-			$base_slug = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
-			$base      = home_url( '/' . ltrim( $base_slug, '/' ) ); // bn-route-ok: built from Jetonomy's configured base slug.
-		}
+		$base = $this->forum_home_url();
 
 		// Slugs are used as stored, the way Jetonomy's own templates build this link:
 		// sanitize_title() already keeps them URL-safe and stores non-ASCII as
@@ -1099,12 +1115,15 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Inject a person-specific Discussions link into the BuddyNext left rail.
+	 * Inject the Jetonomy links into the BuddyNext left rail.
 	 *
-	 * Appends a "Discussions" rail item pointing at the logged-in member's OWN
-	 * profile Discussions tab (their authored discussions), not the global forum
-	 * home — a "my discussions" shortcut. Hidden for guests. The `active` flag is
-	 * computed from the current REQUEST_URI against that profile-tab path.
+	 * Two items, both hidden under Integration Settings > Show in navigation:
+	 * - `discussions`: the forum home, shown to guests too. It keeps the rail key the
+	 *   single Discussions item always had, so an owner's saved rename, hide or
+	 *   reorder of "Discussions" (admin nav overrides are keyed by rail key) still
+	 *   applies. No `active` flag: the rail is not drawn on Jetonomy pages.
+	 * - `my-discussions`: the logged-in member's own profile Discussions tab, in the
+	 *   personal "You" group, active while that tab is open.
 	 *
 	 * Hooked on: buddynext_rail_items( array $items, string $hub )
 	 *
@@ -1112,15 +1131,21 @@ class JetonomyBridge {
 	 * @return array<int, array{key: string, label: string, url: string, icon: string, show: bool, active?: bool}>
 	 */
 	public function inject_discussions_nav_item( array $items ): array {
-		// Person-specific: the rail "Discussions" link points the viewer at their
-		// OWN profile Discussions tab (the in-hub panel listing the discussions they
-		// authored), not the global forum landing page. Only shown when logged in —
-		// there is no "my discussions" for a guest.
+		if ( ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
+			return $items;
+		}
+
+		$items[] = array(
+			'key'   => 'discussions',
+			'label' => __( 'Discussions', 'buddynext' ),
+			'url'   => trailingslashit( $this->forum_home_url() ),
+			'icon'  => 'messages-square',
+			'show'  => true,
+			'order' => 60,
+		);
+
 		$uid = get_current_user_id();
-		// Hidden under Integration Settings > Show in navigation: the profile tab
-		// this links to is gated on the same flag, so the rail must follow it (the
-		// Leaderboard, Media and Events rail items already do).
-		if ( $uid <= 0 || ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
+		if ( $uid <= 0 ) {
 			return $items;
 		}
 
@@ -1129,17 +1154,14 @@ class JetonomyBridge {
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
 		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
-		$is_active   = '' !== $disc_path && str_starts_with( rtrim( $request_uri, '/' ), $disc_path );
 
 		$items[] = array(
-			'key'    => 'discussions',
-			'label'  => __( 'Discussions', 'buddynext' ),
+			'key'    => 'my-discussions',
+			'label'  => __( 'My discussions', 'buddynext' ),
 			'url'    => $disc_url,
 			'icon'   => 'list',
 			'show'   => true,
-			'active' => $is_active,
-			// Personal "You" group — it is the viewer's own discussions, so it sits
-			// with Profile / Media / Bookmarks, not in the community group up top.
+			'active' => '' !== $disc_path && str_starts_with( rtrim( $request_uri, '/' ), $disc_path ),
 			'group'  => 'you',
 			'order'  => 206,
 		);
@@ -1209,13 +1231,15 @@ class JetonomyBridge {
 	 * discarding the discussion or its content.
 	 *
 	 * @param int $space_id BuddyNext space ID.
-	 * @return bool True when a discussion exists AND is toggled on.
+	 * @return bool True when a discussion exists and the owner has not switched it off.
 	 */
 	public function space_discussion_enabled( int $space_id ): bool {
 		if ( ! $this->space_has_discussion( $space_id ) ) {
 			return false;
 		}
-		return '1' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
+		// Same reading as discussions_off(): only an explicit '0' is off, so a forum
+		// linked before the flag existed still shows its tab.
+		return ! $this->discussions_off( $space_id );
 	}
 
 	/**
@@ -2572,12 +2596,9 @@ class JetonomyBridge {
 			update_space_meta( $space_id, self::PROVISIONED_META, $forum_id );
 			$this->apply_discussion_posting( $space_id, false );
 
-			// Provisioning a forum IS the intent to use it: the Discussions tab
-			// only renders when BOTH a linked forum exists AND the
-			// discussion_enabled flag is set (space_discussion_enabled()), so a
-			// programmatic provision used to create a working forum members
-			// could never see until someone separately called
-			// set_discussion_enabled(). One call now yields a visible tab.
+			// Provisioning a forum IS the intent to use it: record the flag as on,
+			// so an earlier explicit '0' (space_discussion_enabled() reads only an
+			// explicit '0' as off) cannot hide the forum just created.
 			$this->set_discussion_enabled( $space_id, true );
 
 			/**
@@ -2836,6 +2857,82 @@ class JetonomyBridge {
 			<?php endif; ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Point the space owner at the Discussion switch while the space has no forum.
+	 *
+	 * Printed above the About panel, for the owner only (can_manage_discussion(), the
+	 * rule the switch itself applies), and only while no forum is linked: a forum the
+	 * owner switched off is a choice already made, so it gets no hint.
+	 *
+	 * @param array $args About panel arguments (space).
+	 * @return void
+	 */
+	public function render_discussion_owner_hint( $args ): void {
+		$space    = is_array( $args ) ? ( $args['space'] ?? null ) : null;
+		$space_id = is_object( $space ) ? (int) ( $space->id ?? 0 ) : 0;
+		if ( $space_id <= 0
+			|| $this->space_has_discussion( $space_id )
+			|| ! $this->can_manage_discussion( $space_id, get_current_user_id() ) ) {
+			return;
+		}
+
+		$url = add_query_arg( 'bn_stab', 'integrations', buddynext_space_settings_url( (string) ( $space->slug ?? '' ) ) );
+		?>
+		<p class="bn-notice">
+			<?php esc_html_e( 'This space has no Discussions tab yet.', 'buddynext' ); ?>
+			<a class="bn-notice__cta" href="<?php echo esc_url( $url ); ?>"><?php esc_html_e( 'Turn on Discussions', 'buddynext' ); ?></a>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Add a "Back to <Space>" link to Jetonomy's breadcrumb on the pages of a forum
+	 * linked to a BuddyNext Space.
+	 *
+	 * The filter does not pass the forum, so it is read from the route: the topic
+	 * route carries the forum slug in jetonomy_space_slug, the forum routes in
+	 * jetonomy_slug. The link is one <a> plus Jetonomy's own "/" separator, placed
+	 * first inside its <nav class="jt-crumb">, so Jetonomy's CSS styles it (RTL and
+	 * dark mode included). A Space the viewer may not see is never named.
+	 *
+	 * Hooked on: jetonomy_breadcrumb_html( string $html, array $crumbs )
+	 *
+	 * @param string $html Rendered breadcrumb markup.
+	 * @return string
+	 */
+	public function add_space_breadcrumb( $html ): string {
+		$html = (string) $html;
+		$nav  = strpos( $html, '<nav class="jt-crumb"' );
+		$open = false !== $nav ? strpos( $html, '>', $nav ) : false;
+		if ( false === $open ) {
+			return $html;
+		}
+
+		$route = (string) get_query_var( 'jetonomy_route', '' );
+		$slug  = 'post' === $route
+			? (string) get_query_var( 'jetonomy_space_slug', '' )
+			: ( in_array( $route, array( 'space', 'space-members', 'space-roadmap', 'space-moderation' ), true ) ? (string) get_query_var( 'jetonomy_slug', '' ) : '' );
+		if ( '' === $slug || ! is_callable( array( '\\Jetonomy\\Models\\Space', 'find_by_slug' ) ) ) {
+			return $html;
+		}
+
+		$forum    = \Jetonomy\Models\Space::find_by_slug( $slug );
+		$space_id = is_object( $forum ) ? $this->space_id_for_forum( (int) ( $forum->id ?? 0 ) ) : 0;
+		$space    = $space_id > 0 ? ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ) : null;
+		if ( null === $space || ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			return $html;
+		}
+
+		$link = sprintf(
+			'<a href="%1$s" dir="auto">%2$s</a> <span aria-hidden="true">/</span> ',
+			esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ),
+			/* translators: %s: space name. */
+			esc_html( sprintf( __( 'Back to %s', 'buddynext' ), (string) ( $space['name'] ?? '' ) ) )
+		);
+
+		return substr( $html, 0, $open + 1 ) . $link . substr( $html, $open + 1 );
 	}
 
 	/**
@@ -3808,6 +3905,8 @@ class JetonomyBridge {
 				'forum_linked'  => (bool) $forum_ctx['linked'],
 				'provision_url' => (string) $forum_ctx['provision_url'],
 				'empty_state'   => $this->discussion_empty_state( $space, $viewer_id, $can_post, (string) $forum_ctx['forum_url'] ),
+				// The header "Start a discussion" button follows the same rule as the empty-state CTA.
+				'can_post'      => $can_post,
 				// Provisioning (creating the forum) is gated to the space owner /
 				// moderator, unlike posting. The empty-state "Start the first
 				// discussion" CTA must follow provisioning, not posting: a member who
@@ -3913,6 +4012,7 @@ class JetonomyBridge {
 				'accepted_answers' => $profile['accepted_answers'],
 				'reputation'       => $profile['reputation'],
 				'trust_level'      => $profile['trust_level'],
+				'forum_url'        => trailingslashit( $this->forum_home_url() ),
 			)
 		);
 	}

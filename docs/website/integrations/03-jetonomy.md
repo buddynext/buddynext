@@ -20,11 +20,13 @@ Once Jetonomy is active, these become available to members inside BuddyNext:
 
 ### The Discussions area
 
-A **Discussions** link appears in the BuddyNext left navigation rail for logged-in members, in the personal group with Profile and Bookmarks. It opens the member's own profile **Discussions** tab. Every member profile has that tab, listing the discussions the member has started, with a count badge. The forum itself (browse, search, leaderboard, new topic) is Jetonomy's own set of pages, which the space tab and feed cards link out to.
+A **Discussions** link in the BuddyNext left navigation rail opens the forum home, for members and guests alike. Logged-in members also get **My discussions** in the personal group with Profile and Bookmarks, which opens their own profile **Discussions** tab. Every member profile has that tab, listing the discussions the member has started, with a count badge and an **Open the forum** button. The forum itself (browse, search, leaderboard, new topic) is Jetonomy's own set of pages, which the space tab and feed cards link out to.
+
+On the pages of a forum that belongs to a space, Jetonomy's breadcrumb starts with a **Back to** link to that space, shown only to people who can see the space.
 
 ### Per-space forum tab
 
-A space gets a **Discussions** tab once its owner turns on **Discussion** under **Manage space > Integrations** (off until then). The tab lists the space's recent discussions with the author, reply count and vote count, and an **Open in Community** button that opens the full forum. When the forum has no threads yet, the **Start a discussion** button opens the forum's new-topic composer directly. The full member experience of a space forum - starting a topic, replying, voting - is covered in Space Forum.
+A space gets a **Discussions** tab once its owner turns on **Discussion** under **Manage space > Integrations** (off until then). Until then the space owner sees a **Turn on Discussions** link above the space's About tab; nobody else sees it. The tab lists the space's recent discussions with the author, reply count and vote count, an **Open in Community** button that opens the full forum, and a **Start a discussion** button for members who may post. When the forum has no threads yet, the **Start a discussion** button in the empty state opens the forum's new-topic composer directly. The full member experience of a space forum - starting a topic, replying, voting - is covered in Space Forum.
 
 ### Discussions in the activity feed
 
@@ -59,7 +61,7 @@ Once Jetonomy is active, it gets a card on the **Integration Settings** screen, 
 
 | Setting | What it does | Default |
 |---|---|---|
-| Navigation (Jetonomy row) | Shows the Discussions link in the left rail and the Discussions tab on member profiles. Turning it off also hides the space Discussions tab. Jetonomy notifications still reach the bell. | On |
+| Navigation (Jetonomy row) | Shows the Discussions and My discussions links in the left rail and the Discussions tab on member profiles. Turning it off also hides the space Discussions tab. Jetonomy notifications still reach the bell. | On |
 | Feed (Jetonomy row) | When on, a new discussion started in a public space appears as a card in the BuddyNext activity feed, linking back to the full thread. Only public discussions in public, published topics are surfaced; private spaces and private topics are never mirrored. | On |
 | Search (Jetonomy row) | When on, discussions are indexed for BuddyNext's community search, so members find them alongside posts, members, and spaces. Switching it off also removes the discussions already in the search index. | On |
 
