@@ -3353,7 +3353,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						</label>
 						<div class="bn-copy-row">
 							<input type="text" class="bn-input" id="<?php echo esc_attr( $cb_id ); ?>" value="<?php echo esc_attr( $cb ); ?>" readonly onfocus="this.select()" />
-							<button type="button" class="bn-btn bn-copy-btn" data-variant="secondary" data-size="sm" data-bn-copy="<?php echo esc_attr( $cb_id ); ?>"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
+							<button type="button" class="bn-btn bn-copy-btn" data-variant="secondary" data-size="sm" data-bn-copy="<?php echo esc_attr( $cb_id ); ?>" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: provider name (e.g. Google). */ __( 'Copy the redirect link for %s', 'buddynext' ), $label ) ); ?>"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
 						</div>
 					</div>
 

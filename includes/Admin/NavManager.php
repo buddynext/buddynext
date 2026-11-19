@@ -1739,11 +1739,11 @@ class NavManager extends AdminPageBase {
 		<div class="bn-config-body">
 
 			<div class="bn-cf">
-				<label for="bn-cfg-label-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-label-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Label', 'buddynext' ); ?>
 				</label>
 				<input type="text"
-						id="bn-cfg-label-<?php echo esc_attr( $slug ); ?>"
+						id="bn-cfg-label-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'label' ) ); ?>"
 						value="<?php echo esc_attr( $label ); ?>"
 						maxlength="50">
@@ -1761,10 +1761,10 @@ class NavManager extends AdminPageBase {
 				}
 				?>
 			<div class="bn-cf">
-				<label for="bn-cfg-icon-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-icon-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Icon', 'buddynext' ); ?>
 				</label>
-				<select id="bn-cfg-icon-<?php echo esc_attr( $slug ); ?>"
+				<select id="bn-cfg-icon-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'icon' ) ); ?>">
 					<?php foreach ( $bn_icon_choices as $bn_icon_slug ) : ?>
 						<option value="<?php echo esc_attr( $bn_icon_slug ); ?>" <?php selected( $icon, $bn_icon_slug ); ?>>
@@ -1791,11 +1791,11 @@ class NavManager extends AdminPageBase {
 			?>
 			<?php if ( ! $bn_position_fixed ) : ?>
 			<div class="bn-cf">
-				<label for="bn-cfg-order-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-order-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Position', 'buddynext' ); ?>
 				</label>
 				<input type="number"
-						id="bn-cfg-order-<?php echo esc_attr( $slug ); ?>"
+						id="bn-cfg-order-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'order' ) ); ?>"
 						value="<?php echo esc_attr( (string) $order ); ?>"
 						min="1"
@@ -1828,10 +1828,10 @@ class NavManager extends AdminPageBase {
 			<?php endif; ?>
 
 			<div class="bn-cf">
-				<label for="bn-cfg-vis-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-vis-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Visibility', 'buddynext' ); ?>
 				</label>
-				<select id="bn-cfg-vis-<?php echo esc_attr( $slug ); ?>"
+				<select id="bn-cfg-vis-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'visibility' ) ); ?>">
 					<option value="all" <?php selected( $visibility, 'all' ); ?>>
 						<?php esc_html_e( 'All members', 'buddynext' ); ?>
@@ -1859,11 +1859,11 @@ class NavManager extends AdminPageBase {
 			<details class="bn-cf-advanced" <?php echo 'cap' === $visibility ? 'open' : ''; ?>>
 				<summary><?php esc_html_e( 'Advanced', 'buddynext' ); ?></summary>
 				<div class="bn-cf">
-					<label for="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>">
+					<label for="bn-cfg-cap-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 						<?php esc_html_e( 'Required capability', 'buddynext' ); ?>
 					</label>
 					<input type="text"
-							id="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>"
+							id="bn-cfg-cap-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 							name="<?php echo esc_attr( $n( 'capability' ) ); ?>"
 							value="<?php echo esc_attr( $capability ); ?>"
 							maxlength="80">
@@ -1878,10 +1878,10 @@ class NavManager extends AdminPageBase {
 			<div class="bn-cf">
 				<div class="bn-config-toggle-row">
 					<div>
-						<div class="bn-config-toggle-label" id="bn-cfg-loginreq-label-<?php echo esc_attr( $slug ); ?>">
+						<div class="bn-config-toggle-label" id="bn-cfg-loginreq-label-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 							<?php esc_html_e( 'Login required', 'buddynext' ); ?>
 						</div>
-						<div class="bn-config-toggle-sub" id="bn-cfg-loginreq-desc-<?php echo esc_attr( $slug ); ?>">
+						<div class="bn-config-toggle-sub" id="bn-cfg-loginreq-desc-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 							<?php esc_html_e( 'Redirect guests to login page', 'buddynext' ); ?>
 						</div>
 					</div>
@@ -1897,18 +1897,18 @@ class NavManager extends AdminPageBase {
 							class="bn-cfg-toggle-chk"
 							name="<?php echo esc_attr( $n( 'login_required' ) ); ?>"
 							value="1"
-							aria-labelledby="bn-cfg-loginreq-label-<?php echo esc_attr( $slug ); ?>"
-							aria-describedby="bn-cfg-loginreq-desc-<?php echo esc_attr( $slug ); ?>"
+							aria-labelledby="bn-cfg-loginreq-label-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
+							aria-describedby="bn-cfg-loginreq-desc-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 							<?php checked( $login_req ); ?>>
 				</div>
 			</div>
 
 			<div class="bn-cf">
-				<label for="bn-cfg-guest-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-guest-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Guest label', 'buddynext' ); ?>
 				</label>
 				<input type="text"
-						id="bn-cfg-guest-<?php echo esc_attr( $slug ); ?>"
+						id="bn-cfg-guest-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'guest_label' ) ); ?>"
 						value="<?php echo esc_attr( $guest_label ); ?>"
 						placeholder="<?php esc_attr_e( 'Shown to guests instead', 'buddynext' ); ?>"
