@@ -342,6 +342,20 @@ if ( ! class_exists( 'Member_Blog_Compat' ) ) {
 // Stubbed rather than baselined so the signatures stay visible and honest: if
 // Jetonomy changes either method, the mismatch surfaces here instead of hiding
 // behind a suppressed error.
+// Jetonomy's cache facade: the bridge clears the sidebar list it keeps for five minutes
+// when a forum is hidden or removed (called behind is_callable()).
+if ( ! class_exists( '\Jetonomy\Cache' ) ) {
+	// phpcs:disable
+	eval(
+		'namespace Jetonomy;
+		class Cache {
+			/** @param string[] $keys */
+			public static function delete_many( array $keys ): void {}
+		}'
+	);
+	// phpcs:enable
+}
+
 if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 	// phpcs:disable
 	eval(

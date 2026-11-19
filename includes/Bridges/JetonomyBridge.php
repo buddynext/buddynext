@@ -195,6 +195,7 @@ class JetonomyBridge {
 		add_action( 'buddynext_space_unarchived', array( $this, 'sync_discussion_visibility' ), 10, 1 );
 		add_action( 'buddynext_space_delete_queued', array( $this, 'retire_space_forum' ), 10, 1 );
 		add_action( 'buddynext_space_deleting', array( $this, 'retire_space_forum' ), 10, 1 );
+		add_action( 'buddynext_async_withdraw_forum_surfaces', array( $this, 'withdraw_forum_surfaces' ), 10, 2 );
 		add_action( 'buddynext_async_reindex_forum_discussions', array( $this, 'reindex_forum_discussions' ), 10, 2 );
 		// The space's "who can post" holds in its forum too.
 		add_action( 'buddynext_space_fields_saved', array( $this, 'sync_discussion_posting' ), 10, 2 );
@@ -2068,9 +2069,89 @@ class JetonomyBridge {
 			array( '%s', '%d' )
 		);
 		$this->invalidate_space_caches( $forum_id );
+		$this->purge_forum_pages( $forum_id );
+
+		if ( 'hide' === $fate ) {
+			// Topics of a forum linked after it filled have cards that belong to no space, so the
+			// space's own deletion never reaches them.
+			$this->withdraw_forum_surfaces( $forum_id, 0 );
+		}
 
 		if ( 'purge' === $fate && defined( 'JETONOMY_VERSION' ) && version_compare( JETONOMY_VERSION, '2.0.3', '>=' ) ) {
 			\Jetonomy\Models\Space::delete( $forum_id );
+			// Each member was granted the forum with a usermeta row; none of them point anywhere now.
+			delete_metadata( 'user', 0, self::GRANTED_META, (string) $forum_id, true );
+		}
+	}
+
+	/**
+	 * Take a forum's topics off the feed and out of search, in batches.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $forum_id Jetonomy forum id.
+	 * @param int|string $after    Last topic id already handled.
+	 * @return void
+	 */
+	public function withdraw_forum_surfaces( $forum_id, $after = 0 ): void {
+		global $wpdb;
+		$forum_id = (int) $forum_id;
+		$after    = (int) $after;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND id > %d ORDER BY id ASC LIMIT 200", $forum_id, $after )
+			)
+		);
+		foreach ( $ids as $id ) {
+			$url = $this->discussion_url( $id, $forum_id );
+			if ( '' !== $url ) {
+				IntegrationActivity::withdraw( $url, 'discussion' );
+			}
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_search_index',
+				array(
+					'object_type' => 'discussion',
+					'object_id'   => $id,
+				),
+				array( '%s', '%d' )
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( 200 === count( $ids ) && function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_async_withdraw_forum_surfaces', array( $forum_id, end( $ids ) ), 'buddynext' );
+		}
+	}
+
+	/**
+	 * Purge the community index and a forum's own page from the page cache.
+	 *
+	 * Guests are served cached copies, so a forum that was closed or removed stayed listed, and its
+	 * link a 404, until the cache expired. Also clears the guest and admin copies of Jetonomy's own
+	 * sidebar list, which lists topics from hidden forums for five minutes.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @return void
+	 */
+	private function purge_forum_pages( int $forum_id ): void {
+		// Jetonomy keeps its sidebar "Trending" list for five minutes and does not clear it when a
+		// forum is hidden or removed, so a closed forum's topic title kept showing to guests.
+		if ( is_callable( array( '\\Jetonomy\\Cache', 'delete_many' ) ) ) {
+			\Jetonomy\Cache::delete_many( array( 'sidebar:trending:0:guest', 'sidebar:trending:0:priv', "sidebar:trending:{$forum_id}:guest", "sidebar:trending:{$forum_id}:priv" ) );
+		}
+
+		if ( ! function_exists( '\\Jetonomy\\base_url' ) ) {
+			return;
+		}
+
+		$base  = trailingslashit( \Jetonomy\base_url() );
+		$forum = class_exists( '\\Jetonomy\\Models\\Space' ) ? \Jetonomy\Models\Space::find( $forum_id ) : null;
+		\BuddyNext\Core\PageCachePurger::purge( $base );
+		if ( null !== $forum && '' !== (string) $forum->slug ) {
+			\BuddyNext\Core\PageCachePurger::purge( $base . 's/' . $forum->slug . '/' );
 		}
 	}
 
@@ -2204,6 +2285,7 @@ class JetonomyBridge {
 		}
 
 		\Jetonomy\Models\Space::update( $forum_id, $change );
+		$this->purge_forum_pages( $forum_id );
 
 		// The search rows were written under the old type. Going private is clamped
 		// by the search service, but a reopened space needs each topic decided

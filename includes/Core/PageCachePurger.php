@@ -284,7 +284,7 @@ class PageCachePurger implements ListenerInterface {
 	 * @param string $url Absolute URL; ignored when empty or already purged.
 	 * @return void
 	 */
-	private static function purge( string $url ): void {
+	public static function purge( string $url ): void {
 		if ( '' === $url || isset( self::$purged[ $url ] ) ) {
 			return;
 		}
