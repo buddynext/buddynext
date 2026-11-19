@@ -38,10 +38,23 @@
 /* Outer split: BN-canon two-pane editor. Override min-height + border so the
  * editor fills the available admin canvas. */
 .bn-email-editor .bn-split {
-	min-height: calc(100vh - 96px);
+	/* A height of its own (not just a minimum): with ~30 templates the list used to stretch the whole
+	   page while the editor sat at the top out of sight. Now the list and the editor each scroll. */
+	height: clamp(520px, calc(100vh - 140px), 900px);
+	min-height: 0;
 	border-radius: 0;
 	border-inline: none;
 	border-bottom: none;
+}
+.bn-email-editor .bn-split > * {
+	min-height: 0;
+	overflow-y: auto;
+}
+/* Long template names wrap to a second line rather than ending in an ellipsis. */
+.bn-email-editor .bn-split__rail-item-title {
+	white-space: normal;
+	overflow: visible;
+	text-overflow: clip;
 }
 
 /* Search input at the top of the rail. Sticks to the top while scrolling. */
@@ -292,8 +305,10 @@
 @media (max-width: 900px) {
 	.bn-email-editor .bn-split {
 		grid-template-columns: minmax(0, 1fr);
+		height: auto;
 		min-height: 0;
 	}
+	.bn-email-editor .bn-split > * { overflow-y: visible; }
 	.bn-email-editor .bn-split__rail {
 		border-inline-end: none;
 		border-bottom: 1px solid var(--bn-line-faint);
