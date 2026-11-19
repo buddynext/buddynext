@@ -281,6 +281,57 @@ final class NavOverrides {
 	}
 
 	/**
+	 * Keep a parent tab that owns no panel pointing at a child that still shows.
+	 *
+	 * A parent such as Network only forwards to its first child. When an owner
+	 * hides that child, the parent's built-in link would land on a route with no
+	 * panel, so it follows the first remaining child (lowest priority) instead,
+	 * and a parent whose children are all hidden is dropped.
+	 *
+	 * @param array<int,array<string,mixed>> $items  Items after overrides.
+	 * @param array<int,array<string,mixed>> $before Items before overrides.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function repoint_parents( array $items, array $before ): array {
+		$had_children = array();
+		foreach ( $before as $item ) {
+			if ( is_array( $item ) && ! empty( $item['parent'] ) ) {
+				$had_children[ sanitize_key( (string) $item['parent'] ) ] = true;
+			}
+		}
+
+		$first = array();
+		foreach ( $items as $item ) {
+			$parent = sanitize_key( (string) ( $item['parent'] ?? '' ) );
+			if ( '' === $parent || ! isset( $item['url'] ) ) {
+				continue;
+			}
+			$priority = (int) ( $item['priority'] ?? 10 );
+			if ( ! isset( $first[ $parent ] ) || $priority < $first[ $parent ]['priority'] ) {
+				$first[ $parent ] = array(
+					'priority' => $priority,
+					'url'      => $item['url'],
+				);
+			}
+		}
+
+		$out = array();
+		foreach ( $items as $item ) {
+			$id = sanitize_key( (string) ( $item['id'] ?? '' ) );
+			// Only a parent that owns no panel of its own forwards to a child.
+			if ( '' !== $id && empty( $item['parent'] ) && empty( $item['render'] ) && isset( $had_children[ $id ] ) ) {
+				if ( ! isset( $first[ $id ] ) ) {
+					continue;
+				}
+				$item['url'] = $first[ $id ]['url'];
+			}
+			$out[] = $item;
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Apply per-surface overrides to the unified Nav registry items.
 	 *
 	 * Hooked on `buddynext_nav_items` (which passes the raw registration arrays +
@@ -332,6 +383,8 @@ final class NavOverrides {
 			}
 			$kept[] = $item;
 		}
+
+		$kept = $this->repoint_parents( $kept, $items );
 
 		// Append admin-created custom tabs (mirrors apply_rail). NavManager stores
 		// these flagged custom => true; rendered as a real link tab (url only).

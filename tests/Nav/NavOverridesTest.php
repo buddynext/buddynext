@@ -22,6 +22,55 @@ class NavOverridesTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A parent tab that forwards to its first child follows the first child that
+	 * is still shown, and goes away when every child is hidden, so Network never
+	 * links to a route with no panel.
+	 *
+	 * @return void
+	 */
+	public function test_parent_tab_follows_its_first_visible_child(): void {
+		$items = array(
+			array(
+				'id'       => 'network',
+				'layer'    => 'primary',
+				'priority' => 55,
+				'url'      => static fn() => '/connections/',
+			),
+			array(
+				'id'       => 'connections',
+				'parent'   => 'network',
+				'priority' => 10,
+				'url'      => static fn() => '/connections/',
+			),
+			array(
+				'id'       => 'followers',
+				'parent'   => 'network',
+				'priority' => 20,
+				'url'      => static fn() => '/followers/',
+			),
+		);
+		$ctx   = new \BuddyNext\Nav\NavContext( 'profile', 1 );
+		$nav   = new NavOverrides();
+
+		update_option( 'buddynext_nav_overrides_profile', array( 'connections' => array( 'hidden' => true ) ) );
+		$out    = $nav->apply_nav_items( $items, $ctx );
+		$parent = array_values( array_filter( $out, static fn( $i ) => 'network' === $i['id'] ) );
+		$this->assertSame( '/followers/', ( $parent[0]['url'] )() );
+
+		update_option(
+			'buddynext_nav_overrides_profile',
+			array(
+				'connections' => array( 'hidden' => true ),
+				'followers'   => array( 'hidden' => true ),
+			)
+		);
+		$out = $nav->apply_nav_items( $items, $ctx );
+		$this->assertSame( array(), $out );
+
+		delete_option( 'buddynext_nav_overrides_profile' );
+	}
+
+	/**
 	 * A saved main-scope override for 'explore' must reach the rail item the
 	 * same way it already does for every other core row (feed, people, spaces,
 	 * …). Before card 10351394819 this key could never be saved in the first
@@ -93,7 +142,15 @@ class NavOverridesTest extends \WP_UnitTestCase {
 		wp_set_current_user( $admin );
 		$this->assertFalse( $nav->denies_hub( 'spaces' ), 'an admin is let in' );
 
-		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'cap', 'capability' => 'manage_options' ) ) );
+		update_option(
+			'buddynext_nav_overrides',
+			array(
+				'spaces' => array(
+					'visibility' => 'cap',
+					'capability' => 'manage_options',
+				),
+			)
+		);
 		wp_set_current_user( $member );
 		$this->assertTrue( $nav->denies_hub( 'spaces' ), 'a member lacking the capability is denied' );
 
@@ -113,8 +170,16 @@ class NavOverridesTest extends \WP_UnitTestCase {
 		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$items  = array(
-			array( 'key' => 'feed', 'label' => 'Activity', 'show' => true ),
-			array( 'key' => 'spaces', 'label' => 'Spaces', 'show' => true ),
+			array(
+				'key'   => 'feed',
+				'label' => 'Activity',
+				'show'  => true,
+			),
+			array(
+				'key'   => 'spaces',
+				'label' => 'Spaces',
+				'show'  => true,
+			),
 		);
 		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
 		$shown = static fn( array $out ): array => array_column( array_filter( $out, static fn( $i ) => false !== ( $i['show'] ?? true ) ), 'key' );
@@ -149,7 +214,15 @@ class NavOverridesTest extends \WP_UnitTestCase {
 		$this->assertSame( 'My spaces', $ov->label( 'my-spaces', 'My spaces' ) );
 		$this->assertFalse( $ov->is_hidden( 'my-spaces' ) );
 
-		update_option( 'buddynext_nav_overrides', array( 'my-spaces' => array( 'label' => 'Your groups', 'visibility' => 'admins' ) ) );
+		update_option(
+			'buddynext_nav_overrides',
+			array(
+				'my-spaces' => array(
+					'label'      => 'Your groups',
+					'visibility' => 'admins',
+				),
+			)
+		);
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
 
 		$this->assertSame( 'Your groups', $ov->label( 'my-spaces', 'My spaces' ) );
