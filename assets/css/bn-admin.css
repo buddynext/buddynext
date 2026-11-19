@@ -691,6 +691,46 @@
 	gap: var(--bn-a-s2);
 }
 
+/* The filters sit on an even grid, not a wrapping row. Each label sized itself, so the
+   second row started at a different position from the first and the page read as
+   scattered boxes. Three equal columns keep every field and the Filter button on the
+   same lines, two on a tablet, one on a phone. */
+.bn-modlog-toolbar .bn-modlog-filters {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	align-items: end;
+	gap: var(--bn-a-s3);
+}
+.bn-modlog-filters .bn-modlog-field :is(input, select) {
+	width: 100%;
+	max-width: none;
+	/* The native date input is taller than a text input; one height keeps the row level. */
+	height: 2.5rem;
+	box-sizing: border-box;
+}
+.bn-settings-section .bn-ss-body .bn-modlog-filters .bn-modlog-field input[type="date"] {
+	height: 2.5rem;
+	/* A shared rule forces height:auto !important on inputs, so the cap is what holds. */
+	max-height: 2.5rem;
+	padding-block: 0;
+}
+.bn-modlog-filters > .bn-btn {
+	height: 2.5rem;
+}
+.bn-modlog-filters > .bn-btn {
+	justify-self: start;
+}
+@media (max-width: 960px) {
+	.bn-modlog-toolbar .bn-modlog-filters {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+@media (max-width: 480px) {
+	.bn-modlog-toolbar .bn-modlog-filters {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
 @media screen and ( max-width: 782px ) {
 
 	.bn-toolbar.bn-modlog-toolbar {
@@ -4864,4 +4904,13 @@ code.bn-ep-code {
 .bn-appeal-decision .bn-input {
 	flex: 1 1 100%;
 	min-inline-size: 0;
+}
+
+/* Profile Fields: the Visible to dropdown held a 192px minimum, which pushed each field
+   table 9 to 22px past its card and added a sideways scrollbar. A narrower select still
+   shows every option ("Members only", "Connections only"). */
+.bn-settings-section .bn-ss-body .bn-pf-table select {
+	width: 100%;
+	min-width: 0;
+	max-width: 10.5rem;
 }
