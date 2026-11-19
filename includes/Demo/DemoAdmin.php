@@ -182,7 +182,7 @@ class DemoAdmin {
 
 		if ( 'missing' === $status ) {
 			$title = __( 'Preview your whole site with the Wbcom Demo Installer', 'buddynext' );
-			$sub   = __( 'A free plugin that sets up your theme, BuddyNext and the other Wbcom products with sample people and content and a designed home page, then removes it all in one click.', 'buddynext' );
+			$sub   = __( 'A free plugin that sets up your theme and the Wbcom products with sample people and content and a designed home page, then removes it all in one click.', 'buddynext' );
 			$label = __( 'Get the installer', 'buddynext' );
 			$url   = 'https://github.com/buddynext/wbcom-demo-installer/releases/latest';
 			$ext   = true;
