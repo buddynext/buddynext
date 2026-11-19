@@ -88,6 +88,7 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 | `buddynext_auto_hide_min_account_age_days` | filter | Counting reports toward the auto-hide threshold, and the default for Pro's report-threshold rules. Reports from accounts younger than this many days do not count, so a batch of new accounts cannot hide a post with no moderator involved. Default `7`; the system reporter (id `0`) always counts (1.2.0) | `int $days` |
 | `buddynext_post_restored` | action | An auto-hidden post is restored when its reports are cleared | `int $post_id, int $actor_id` |
 | `buddynext_comment_hidden` | action | A comment reaches the report threshold and is put "Under review" (the comment mirror of `buddynext_post_auto_hidden`) | `int $comment_id, int $actor_id` (actor `0` = the automatic threshold) |
+| `buddynext_reports_actioned` | action | Every open report on one object is resolved or dismissed; an integration closes its own copy | `string $object_type, int $object_id, string $status, int $actor_id` |
 | `buddynext_comment_restored` | action | An auto-hidden comment is restored when its reports are cleared | `int $comment_id, int $actor_id` |
 | `buddynext_user_warned` | action | A member is issued a warning | `int $user_id, int $actor_id, string $reason` |
 | `buddynext_strike_issued` | action | A strike is recorded against a member | `int $strike_id, int $user_id, int $actor_id` |

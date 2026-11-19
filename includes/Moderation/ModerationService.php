@@ -903,6 +903,29 @@ class ModerationService {
 	}
 
 	/**
+	 * Id of one still-open report on an object, or 0 when none is open.
+	 *
+	 * Resolving or dismissing any one clears every open report on the same object,
+	 * so a caller that only knows the object needs just this one id.
+	 *
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object id.
+	 * @return int
+	 */
+	public function open_report_id_for( string $object_type, int $object_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_reports WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated') ORDER BY id ASC LIMIT 1",
+				sanitize_key( $object_type ),
+				$object_id
+			)
+		);
+	}
+
+	/**
 	 * Escalate a report for senior review.
 	 *
 	 * @param int      $report_id   Report to escalate.
@@ -3645,6 +3668,23 @@ class ModerationService {
 
 		if ( $escalating ) {
 			$this->notify_escalation( $recorded_actor, (string) $target['object_type'], (int) $target['object_id'] );
+		}
+
+		if ( in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
+			/**
+			 * Fires when every open report on one object is resolved or dismissed.
+			 *
+			 * An integration that keeps its own copy of the report closes it here, so a
+			 * moderator never finds the same report open in two places.
+			 *
+			 * @since 1.3.1
+			 *
+			 * @param string $object_type Reported object type.
+			 * @param int    $object_id   Reported object id.
+			 * @param string $status      resolved | dismissed.
+			 * @param int    $actor_id    Moderator recorded on the reports.
+			 */
+			do_action( 'buddynext_reports_actioned', (string) $target['object_type'], (int) $target['object_id'], $status, $recorded_actor );
 		}
 
 		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a

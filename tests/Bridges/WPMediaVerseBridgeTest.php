@@ -120,6 +120,30 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A report closed on the MediaVerse side closes the BuddyNext row, only for
+	 * media, and an unrelated target is left alone.
+	 */
+	public function test_closing_a_media_report_in_mediaverse_closes_the_buddynext_row(): void {
+		global $wpdb;
+		$reporter = self::factory()->user->create();
+		$mod      = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $mod );
+		$exists = static fn( $found, $type, $id ) => 'media' === $type && 9003 === $id ? true : $found;
+		add_filter( 'buddynext_object_exists', $exists, 20, 3 );
+
+		$this->bridge->queue_media_report( 1, $reporter, 'media', 9003, 'spam' );
+		$status = fn() => $wpdb->get_var( "SELECT status FROM {$wpdb->prefix}bn_reports WHERE object_type = 'media' AND object_id = 9003" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( 'pending', $status() );
+
+		$this->bridge->close_bn_media_report( 1, $reporter, 'resolved', 'user', 9003 );
+		$this->assertSame( 'pending', $status(), 'Another kind of report is not ours to close.' );
+
+		$this->bridge->close_bn_media_report( 1, $reporter, 'dismissed', 'media', 9003 );
+		remove_filter( 'buddynext_object_exists', $exists, 20 );
+		$this->assertSame( 'dismissed', $status() );
+	}
+
+	/**
 	 * A BuddyNext block closes the blocker's media to the blocked member only, and
 	 * hides either side from the other's lists.
 	 */

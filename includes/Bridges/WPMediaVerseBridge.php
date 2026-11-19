@@ -61,6 +61,13 @@ class WPMediaVerseBridge {
 	private bool $mirroring_follow = false;
 
 	/**
+	 * Raised while a report status is copied across, so the two sides do not echo it back.
+	 *
+	 * @var bool
+	 */
+	private bool $mirroring_report = false;
+
+	/**
 	 * Flag reason carried from the pre-send content gate to the post-send report.
 	 *
 	 * A DM is checked before it is written (mvs_message_content_check), so at flag
@@ -302,6 +309,8 @@ class WPMediaVerseBridge {
 		// moderator's Remove, Warn, Strike and Suspend already work. MediaVerse
 		// keeps its own row (it owns the duplicate check and the auto-hide count).
 		add_action( 'mvs_report_submitted', array( $this, 'queue_media_report' ), 10, 5 );
+		add_action( 'buddynext_reports_actioned', array( $this, 'close_mvs_media_report' ), 10, 3 );
+		add_action( 'mvs_report_resolved', array( $this, 'close_bn_media_report' ), 10, 5 );
 
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
 		// event whose only native listener (the MVS chat panel) is suppressed
@@ -2280,6 +2289,23 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * MediaVerse's report service, or null when unavailable.
+	 *
+	 * @return object|null
+	 */
+	private function mvs_reports(): ?object {
+		if ( ! class_exists( '\WPMediaVerse\Core\Plugin' ) ) {
+			return null;
+		}
+		$container = \WPMediaVerse\Core\Plugin::container();
+		if ( ! is_object( $container ) || ! $container->has( 'reports' ) ) {
+			return null;
+		}
+		$svc = $container->get( 'reports' );
+		return is_object( $svc ) ? $svc : null;
+	}
+
+	/**
 	 * Resolve the WPMediaVerse follow service, or null when unavailable.
 	 *
 	 * @return object|null
@@ -2382,6 +2408,64 @@ class WPMediaVerseBridge {
 		// A duplicate or rate-limited copy is not an error for the member: the
 		// MediaVerse report already went through.
 		buddynext_service( 'moderation' )->report( (int) $reporter_id, 'media', (int) $target_id, $mapped, 0, $note );
+	}
+
+	/**
+	 * A moderator closed a media report in BuddyNext: close MediaVerse's copy too.
+	 *
+	 * @param string $object_type Reported kind.
+	 * @param int    $object_id   Reported id.
+	 * @param string $status      resolved | dismissed.
+	 * @return void
+	 */
+	public function close_mvs_media_report( $object_type, $object_id, $status ): void {
+		if ( 'media' !== $object_type || $this->mirroring_report ) {
+			return;
+		}
+
+		$reports = $this->mvs_reports();
+		if ( null === $reports || ! method_exists( $reports, 'close_pending_for_target' ) ) {
+			return;
+		}
+
+		$this->mirroring_report = true;
+		try {
+			$reports->close_pending_for_target( 'media', (int) $object_id, (string) $status );
+		} finally {
+			$this->mirroring_report = false;
+		}
+	}
+
+	/**
+	 * A moderator closed a media report in MediaVerse: close the BuddyNext row too.
+	 *
+	 * @param int    $report_id   MediaVerse report id.
+	 * @param int    $reporter_id Reporter.
+	 * @param string $status      resolved | dismissed.
+	 * @param string $target_type Reported kind (MediaVerse 2.6.5+).
+	 * @param int    $target_id   Reported id (MediaVerse 2.6.5+).
+	 * @return void
+	 */
+	public function close_bn_media_report( $report_id, $reporter_id, $status, $target_type = '', $target_id = 0 ): void {
+		if ( 'media' !== $target_type || (int) $target_id <= 0 || $this->mirroring_report ) {
+			return;
+		}
+
+		$moderation             = buddynext_service( 'moderation' );
+		$actor                  = get_current_user_id();
+		$this->mirroring_report = true;
+		try {
+			// An already-actioned or missing BuddyNext row answers with an error; that
+			// is fine, the two sides already agree.
+			$open = $moderation->open_report_id_for( 'media', (int) $target_id );
+			if ( $open > 0 ) {
+				'dismissed' === $status
+					? $moderation->dismiss( $open, $actor )
+					: $moderation->resolve( $open, $actor );
+			}
+		} finally {
+			$this->mirroring_report = false;
+		}
 	}
 
 	/**
