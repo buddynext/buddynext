@@ -709,15 +709,12 @@
 	box-sizing: border-box;
 }
 .bn-settings-section .bn-ss-body .bn-modlog-filters .bn-modlog-field input[type="date"] {
-	height: 2.5rem;
 	/* A shared rule forces height:auto !important on inputs, so the cap is what holds. */
 	max-height: 2.5rem;
 	padding-block: 0;
 }
 .bn-modlog-filters > .bn-btn {
 	height: 2.5rem;
-}
-.bn-modlog-filters > .bn-btn {
 	justify-self: start;
 }
 @media (max-width: 960px) {
@@ -1228,13 +1225,6 @@ select.bn-text-input {
 .bn-toggle-row__copy > .bn-btn {
 	align-self: flex-start;
 	margin-block-start: var(--bn-a-s2);
-}
-
-.bn-int-subtab-group {
-	margin-top: var(--bn-a-s3);
-	padding: var(--bn-a-s2) var(--bn-a-s4);
-	background: var(--bn-sunken);
-	border-radius: var(--bn-a-r-md);
 }
 
 .bn-int-subtab-group__kicker {
