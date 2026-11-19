@@ -489,6 +489,26 @@ class Spaces extends AdminPageBase {
 							<span class="bn-segment__count">(<?php echo esc_html( (string) $bn_featured_count ); ?>)</span>
 						</a>
 				</div>
+				<?php
+				// Sort sits beside the type filter so it still works where the Last activity and
+				// Created column headings are hidden to fit the card (see .bn-col-secondary).
+				$bn_sort_args = array(
+					's'    => $search,
+					'type' => $type,
+				);
+				?>
+				<div class="bn-segment bn-spaces-sort" role="group" aria-label="<?php esc_attr_e( 'Sort spaces', 'buddynext' ); ?>">
+					<a href="<?php echo esc_url( add_query_arg( array_merge( $bn_sort_args, array( 'orderby' => 'created_at' ) ), $base_url ) ); ?>"
+						class="bn-segment__item<?php echo 'last_active_at' === $bn_orderby ? '' : ' is-active'; ?>"
+						aria-selected="<?php echo 'last_active_at' === $bn_orderby ? 'false' : 'true'; ?>">
+						<?php esc_html_e( 'Newest', 'buddynext' ); ?>
+					</a>
+					<a href="<?php echo esc_url( add_query_arg( array_merge( $bn_sort_args, array( 'orderby' => 'last_active_at' ) ), $base_url ) ); ?>"
+						class="bn-segment__item<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"
+						aria-selected="<?php echo 'last_active_at' === $bn_orderby ? 'true' : 'false'; ?>">
+						<?php esc_html_e( 'Recently active', 'buddynext' ); ?>
+					</a>
+				</div>
 
 			<?php
 			// Bulk-action form. Row checkboxes associate via form="bn-spaces-bulk"
@@ -524,8 +544,8 @@ class Spaces extends AdminPageBase {
 							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Join requests', 'buddynext' ); ?></th>
-							<th scope="col"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'last_active_at' ) ); ?>" class="bn-th-sort<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Last activity', 'buddynext' ); ?></a></th>
-							<th scope="col"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'created_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Created', 'buddynext' ); ?></a></th>
+							<th scope="col" class="bn-col-secondary"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'last_active_at' ) ); ?>" class="bn-th-sort<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Last activity', 'buddynext' ); ?></a></th>
+							<th scope="col" class="bn-col-secondary"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'created_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Created', 'buddynext' ); ?></a></th>
 							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
 					</thead>
@@ -598,6 +618,24 @@ class Spaces extends AdminPageBase {
 													?>
 												</span>
 											<?php endif; ?>
+											<?php // Shown only where the Last activity and Created columns are hidden to fit the card. ?>
+											<span class="bn-member-sub">
+												<?php $bn_sub_active = (string) ( $space['last_active_at'] ?? '' ); ?>
+												<?php if ( '' !== $bn_sub_active ) : ?>
+													<span>
+														<?php
+														/* translators: %s: how long ago the space last had activity, for example "3h ago". */
+														echo esc_html( sprintf( __( 'Active %s', 'buddynext' ), \BuddyNext\Core\Dates::relative( $bn_sub_active ) ) );
+														?>
+													</span>
+												<?php endif; ?>
+												<span>
+													<?php
+													/* translators: %s: date the space was created. */
+													echo esc_html( sprintf( __( 'Created %s', 'buddynext' ), wp_strip_all_tags( (string) $created ) ) );
+													?>
+												</span>
+											</span>
 										</div>
 										<button type="button" class="toggle-row">
 											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
@@ -617,7 +655,7 @@ class Spaces extends AdminPageBase {
 											<span class="bn-row-meta" aria-hidden="true">-</span>
 										<?php endif; ?>
 									</td>
-									<td data-colname="<?php esc_attr_e( 'Last activity', 'buddynext' ); ?>">
+									<td class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Last activity', 'buddynext' ); ?>">
 										<?php
 										$bn_last_active = (string) ( $space['last_active_at'] ?? '' );
 										if ( '' !== $bn_last_active ) {
@@ -627,7 +665,7 @@ class Spaces extends AdminPageBase {
 										}
 										?>
 									</td>
-									<td data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) $created ); ?></td>
+									<td class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) $created ); ?></td>
 									<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 										<div class="bn-row-actions">
 											<?php if ( empty( $space['is_deleting'] ) ) : // A space on its way out has no page to view or manage. ?>

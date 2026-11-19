@@ -1678,6 +1678,28 @@ class Members extends AdminPageBase {
 		$bn_order = strtoupper( sanitize_key( wp_unslash( $_GET['order'] ?? 'DESC' ) ) );
 		$bn_order = 'ASC' === $bn_order ? 'ASC' : 'DESC';
 
+		// The Sort menu in the filter bar sends both parts as one value, so it works on a
+		// narrow screen where the Joined and Last active column headings are hidden. It
+		// wins over the heading links, which clear it when used.
+		$bn_sorts = array(
+			'registered' => array( 'registered', 'DESC' ),
+			'name'       => array( 'display_name', 'ASC' ),
+			'active'     => array( 'last_active', 'DESC' ),
+			'dormant'    => array( 'last_active', 'ASC' ),
+		);
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$bn_sort_key = sanitize_key( wp_unslash( $_GET['sort'] ?? '' ) );
+		if ( isset( $bn_sorts[ $bn_sort_key ] ) ) {
+			list( $bn_orderby, $bn_order ) = $bn_sorts[ $bn_sort_key ];
+		}
+		if ( 'display_name' === $bn_orderby ) {
+			$bn_sort_now = 'name';
+		} elseif ( 'last_active' === $bn_orderby ) {
+			$bn_sort_now = 'ASC' === $bn_order ? 'dormant' : 'active';
+		} else {
+			$bn_sort_now = 'registered';
+		}
+
 		$data    = $this->list_members(
 			array(
 				'page'    => $page,
@@ -1823,6 +1845,13 @@ class Members extends AdminPageBase {
 							</option>
 						<?php endforeach; ?>
 					</select>
+					<label for="bn-members-sort" class="screen-reader-text"><?php esc_html_e( 'Sort members', 'buddynext' ); ?></label>
+					<select id="bn-members-sort" name="sort" class="bn-select">
+						<option value="registered" <?php selected( $bn_sort_now, 'registered' ); ?>><?php esc_html_e( 'Newest members', 'buddynext' ); ?></option>
+						<option value="name" <?php selected( $bn_sort_now, 'name' ); ?>><?php esc_html_e( 'Name A to Z', 'buddynext' ); ?></option>
+						<option value="active" <?php selected( $bn_sort_now, 'active' ); ?>><?php esc_html_e( 'Recently active', 'buddynext' ); ?></option>
+						<option value="dormant" <?php selected( $bn_sort_now, 'dormant' ); ?>><?php esc_html_e( 'Least recently active', 'buddynext' ); ?></option>
+					</select>
 					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
 						<?php esc_html_e( 'Filter', 'buddynext' ); ?>
 					</button>
@@ -1866,11 +1895,22 @@ class Members extends AdminPageBase {
 								<th scope="col" class="bn-table__cb" data-align="center">
 									<input type="checkbox" id="bn-members-cb-all" aria-label="<?php esc_attr_e( 'Select all members', 'buddynext' ); ?>">
 								</th>
-								<th scope="col" class="column-primary"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'display_name' ) ); ?>" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
+								<th scope="col" class="column-primary"><a href="
+								<?php
+								echo esc_url(
+									add_query_arg(
+										array(
+											'orderby' => 'display_name',
+											'sort'    => false,
+										)
+									)
+								);
+								?>
+								" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
 								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
-								<th scope="col"><?php esc_html_e( 'Community role', 'buddynext' ); ?></th>
+								<th scope="col" class="bn-col-secondary"><?php esc_html_e( 'Community role', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
-								<th scope="col" class="bn-col-muted"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
+								<th scope="col" class="bn-col-muted bn-col-secondary"><a href="<?php echo esc_url( remove_query_arg( array( 'orderby', 'sort' ) ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
 								<?php
 								// Clicking the active column flips direction, so the owner can
 								// go from most-recently-active to dormant-first without a second
@@ -1879,7 +1919,7 @@ class Members extends AdminPageBase {
 								$bn_la_active = 'last_active' === $bn_orderby;
 								$bn_la_next   = ( $bn_la_active && 'DESC' === $bn_order ) ? 'ASC' : 'DESC';
 								?>
-								<th scope="col" class="bn-col-muted"
+								<th scope="col" class="bn-col-muted bn-col-secondary"
 									<?php
 									if ( $bn_la_active ) :
 										?>
@@ -1891,6 +1931,7 @@ class Members extends AdminPageBase {
 											array(
 												'orderby' => 'last_active',
 												'order'   => $bn_la_next,
+												'sort'    => false,
 											)
 										)
 									);
@@ -1935,6 +1976,26 @@ class Members extends AdminPageBase {
 												<span class="bn-member-sep" aria-hidden="true">&middot;</span>
 												<a class="bn-member-email" href="<?php echo esc_url( 'mailto:' . $member['email'] ); ?>"><?php echo esc_html( $member['email'] ); ?></a>
 											</div>
+											<?php
+											// Shown only where the Joined and Last active columns are hidden to fit the card
+											// (see .bn-col-secondary in bn-admin.css); hidden everywhere else.
+											?>
+											<div class="bn-member-sub">
+												<span>
+													<?php
+													/* translators: %s: date the member joined. */
+													echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), wp_strip_all_tags( (string) buddynext_date_local( $member['registered'], 'M j, Y' ) ) ) );
+													?>
+												</span>
+												<?php if ( $member['last_active'] > 0 ) : ?>
+													<span>
+														<?php
+														/* translators: %s: how long ago the member was last active, for example "3h ago". */
+														echo esc_html( sprintf( __( 'Active %s', 'buddynext' ), buddynext_time_ago( gmdate( 'Y-m-d H:i:s', (int) $member['last_active'] ) ) ) );
+														?>
+													</span>
+												<?php endif; ?>
+											</div>
 										</div>
 										<button type="button" class="toggle-row">
 											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
@@ -1943,7 +2004,7 @@ class Members extends AdminPageBase {
 									</div>
 								</td>
 								<td data-colname="<?php esc_attr_e( 'Role', 'buddynext' ); ?>"><?php MemberDisplay::render_role_badge( $member['role'] ); ?></td>
-								<td data-colname="<?php esc_attr_e( 'Community role', 'buddynext' ); ?>">
+								<td class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Community role', 'buddynext' ); ?>">
 									<?php
 									// bn_community_role (member < moderator < admin). get_user_meta is
 									// served from the batch cache list_members() already primed, so this
@@ -1975,12 +2036,12 @@ class Members extends AdminPageBase {
 										<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 									<?php endif; ?>
 								</td>
-								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Joined', 'buddynext' ); ?>">
+								<td class="bn-col-muted bn-col-secondary" data-colname="<?php esc_attr_e( 'Joined', 'buddynext' ); ?>">
 									<time datetime="<?php echo esc_attr( \BuddyNext\Core\Dates::iso8601( $member['registered'] ) ); ?>">
 										<?php echo wp_kses_post( buddynext_date_local( $member['registered'], 'M j, Y' ) ); ?>
 									</time>
 								</td>
-								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last active', 'buddynext' ); ?>">
+								<td class="bn-col-muted bn-col-secondary" data-colname="<?php esc_attr_e( 'Last active', 'buddynext' ); ?>">
 									<?php if ( $member['last_active'] > 0 ) : ?>
 										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_active'] ) ); ?>">
 											<?php echo esc_html( buddynext_time_ago( gmdate( 'Y-m-d H:i:s', (int) $member['last_active'] ) ) ); ?>

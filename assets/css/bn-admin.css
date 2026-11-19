@@ -1647,6 +1647,66 @@ table.bn-table tr:hover td {
 	background: var(--bn-a-bg-hover);
 }
 
+/* Fit the card, not the data. A list with eight columns does not fit a 753px card on a
+   laptop, and the pinned Actions column then covered Role and Status. Columns marked
+   .bn-col-secondary (Community role, Joined, Last active) step aside when the card is
+   narrower than 960px and the member's name carries their dates in a muted line; wide
+   screens show every column. The query is on the CARD's width, not the window's, so it
+   holds whatever the sidebar and admin menu take. Below 783px WordPress's own stacked
+   layout (the row toggle) takes over, so it is left alone. */
+.bn-table-wrap__scroll {
+	container: bn-tbl / inline-size;
+}
+.bn-member-sub {
+	display: none;
+	margin-block-start: 2px;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+.bn-member-sub > span {
+	display: block;
+}
+@media (min-width: 783px) {
+	@container bn-tbl (max-width: 960px) {
+		.bn-table .bn-col-secondary {
+			display: none;
+		}
+		.bn-table .bn-member-sub {
+			display: block;
+		}
+		/* The email is the widest thing in the row; letting it wrap is what lets Role and
+		   Status sit beside the name instead of under the pinned Actions. */
+		.bn-admin-hub__content table.bn-table:not(.form-table) :is(th, td).column-primary {
+			min-width: 0;
+			max-width: 14rem;
+		}
+		.bn-table .bn-member-info {
+			max-width: 11rem;
+		}
+		.bn-table .bn-member-meta {
+			flex-wrap: wrap;
+			white-space: normal;
+			overflow-wrap: anywhere;
+		}
+		.bn-table .bn-member-email {
+			white-space: normal;
+		}
+		.bn-admin-hub__content table.bn-table:not(.form-table) :is(th, td) {
+			padding-inline: var(--bn-a-s3);
+		}
+		/* WordPress's row toggle only exists for the stacked mobile layout, but its flex
+		   gap still took 32px of the name cell here. */
+		.bn-table .bn-member-cell .toggle-row,
+		.bn-table .bn-activity-author .toggle-row,
+		.bn-table td.column-primary > .toggle-row {
+			display: none;
+		}
+		.bn-table .bn-space-row-info {
+			max-width: 13rem;
+		}
+	}
+}
+
 /* A wrap-enabled flex cluster reports a tiny min-content width, so the auto
    table layout starves the pinned column and the buttons stack one-per-line
    (Spaces: 3 controls got a 114px cell). Inside a STICKY actions cell the
@@ -2276,6 +2336,22 @@ button.bn-btn-danger:hover {
 	background: var(--bn-a-red);
 	border-color: var(--bn-a-red);
 	filter: brightness(0.94);
+}
+
+/* A destructive action repeated down a list (Delete, Revoke) reads as an outline, not a
+   solid red block per row: 40 filled red buttons make a table shout and hide the one
+   thing that needs attention. Still red, still clearly destructive, and it fills on
+   hover and focus. Standalone and modal danger buttons keep their solid style. */
+td .bn-btn[data-variant="danger"] {
+	background: transparent;
+	color: var(--bn-danger);
+	border-color: color-mix(in oklch, var(--bn-danger) 45%, transparent);
+}
+td .bn-btn[data-variant="danger"]:hover,
+td .bn-btn[data-variant="danger"]:focus-visible {
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger);
+	border-color: var(--bn-danger);
 }
 
 /* S9 — One secondary/outline button color (gray, not blue).
