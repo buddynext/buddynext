@@ -268,6 +268,15 @@ class JetonomyBridge {
 			add_action( 'jetonomy_space_member_joined', array( $this, 'on_forum_member_joined' ), 10, 2 );
 			add_action( 'jetonomy_space_member_left', array( $this, 'on_forum_member_left' ), 10, 2 );
 			add_action( 'jetonomy_space_member_role_changed', array( $this, 'on_forum_role_changed' ), 10, 3 );
+
+			// One join request, asked or answered in either place. Before Jetonomy's own
+			// notices (priority 10), so they can tell BuddyNext has already answered.
+			add_action( 'jetonomy_join_request_created', array( $this, 'on_forum_request_created' ), 5, 2 );
+			add_action( 'jetonomy_join_request_denied', array( $this, 'on_forum_request_denied' ), 5, 3 );
+			add_action( 'jetonomy_join_request_withdrawn', array( $this, 'on_forum_request_withdrawn' ), 5, 2 );
+			add_action( 'buddynext_space_join_approved', array( $this, 'settle_forum_request' ), 10, 2 );
+			add_action( 'buddynext_space_join_declined', array( $this, 'settle_forum_request' ), 10, 2 );
+			add_action( 'buddynext_space_join_request_cancelled', array( $this, 'settle_forum_request' ), 10, 2 );
 		}
 
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
@@ -1630,11 +1639,170 @@ class JetonomyBridge {
 			return;
 		}
 
+		// A request approved in the forum's queue is an approval of the space request:
+		// veto_forum_join() has already checked the reviewer may approve it here.
+		$request = self::approved_request( $forum_id, $user_id );
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === $type && null !== $request && $this->admit_approved( $space_id, $forum_id, $user_id, (int) $request->reviewed_by ) ) {
+			return;
+		}
+
 		\Jetonomy\Models\SpaceMember::remove( $forum_id, $user_id );
 		if ( \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === $type && null === $members->get_status( $space_id, $user_id ) ) {
 			$members->request_join( $space_id, $user_id );
 		}
 		$this->invalidate_member_caches( $user_id );
+	}
+
+	/**
+	 * Admit a member whose request the forum's queue approved into the private space.
+	 *
+	 * The forum row stays and is marked as the space's grant (leaving the space takes
+	 * it away again). The space records the request if it never saw it, then approves
+	 * it as the forum reviewer: the member gets the space's approval notice, and the
+	 * forum's approval award is the one award for this entry.
+	 *
+	 * @param int $space_id    BuddyNext space.
+	 * @param int $forum_id    Linked forum.
+	 * @param int $user_id     Approved member.
+	 * @param int $reviewer_id Who approved it in the forum.
+	 * @return bool True when the member is now active in the space.
+	 */
+	private function admit_approved( int $space_id, int $forum_id, int $user_id, int $reviewer_id ): bool {
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$status  = $members->get_status( $space_id, $user_id );
+		if ( null === $status ) {
+			// Recorded only to be approved at once: nobody is asked to review it.
+			self::mirror( static fn() => $members->request_join( $space_id, $user_id ) );
+		}
+
+		$admitted = IntegrationActivity::as_mirror(
+			static fn() => 'invited' === $status
+				? $members->join( $space_id, $user_id )
+				: $members->approve_request( $space_id, $reviewer_id, $user_id )
+		);
+		if ( true !== $admitted ) {
+			return false;
+		}
+
+		if ( ! in_array( (string) $forum_id, (array) get_user_meta( $user_id, self::GRANTED_META, false ), true ) ) {
+			add_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
+		}
+		self::$answered_in_space[ $forum_id . ':' . $user_id ] = true;
+		$this->invalidate_member_caches( $user_id );
+		return true;
+	}
+
+	/**
+	 * The approved forum join request a join at that moment admits, or null.
+	 *
+	 * Jetonomy writes the approval and then the roster row in one request, so the two
+	 * times are seconds apart. An approval from a membership that ended earlier is long
+	 * before the new join and does not count.
+	 *
+	 * @param int    $forum_id Jetonomy forum.
+	 * @param int    $user_id  Member.
+	 * @param string $at       When the join happened (UTC); empty means now.
+	 * @return object|null Request row (reviewed_by, reviewed_at).
+	 */
+	public static function approved_request( int $forum_id, int $user_id, string $at = '' ): ?object {
+		$joined = '' === $at ? time() : strtotime( $at );
+		if ( $forum_id <= 0 || $user_id <= 0 || false === $joined || ! class_exists( '\Jetonomy\Models\JoinRequest' ) ) {
+			return null;
+		}
+
+		global $wpdb;
+		// JoinRequest has no read by member and status; (space_id, user_id, status) is its unique key.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT reviewed_by, reviewed_at FROM {$wpdb->prefix}jt_join_requests WHERE space_id = %d AND user_id = %d AND status = 'approved'",
+				$forum_id,
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$reviewed = is_object( $row ) && null !== $row->reviewed_at ? strtotime( $row->reviewed_at . ' UTC' ) : false;
+
+		return false !== $reviewed && abs( $joined - $reviewed ) <= MINUTE_IN_SECONDS ? $row : null;
+	}
+
+	/**
+	 * A member asked to join a private space's forum: the space holds the request.
+	 *
+	 * The space's own staff are told by the space; the forum's notice to the same
+	 * owner is dropped as a duplicate (drop_duplicate_report_notice()).
+	 *
+	 * @param int $forum_id Jetonomy forum.
+	 * @param int $user_id  Requester.
+	 * @return void
+	 */
+	public function on_forum_request_created( $forum_id, $user_id ): void {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		if ( $space_id <= 0 || IntegrationActivity::is_mirror() ) {
+			return;
+		}
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === (string) ( $space['type'] ?? '' ) ) {
+			( new \BuddyNext\Spaces\SpaceMemberService() )->request_join( $space_id, (int) $user_id );
+		}
+	}
+
+	/**
+	 * A request was denied in the forum's queue: the space declines it too.
+	 *
+	 * A reviewer the space would not let decline leaves the space request pending,
+	 * and keeps the forum's own notice, so the member is still told.
+	 *
+	 * @param int $forum_id    Jetonomy forum.
+	 * @param int $user_id     Requester.
+	 * @param int $reviewer_id Reviewer.
+	 * @return void
+	 */
+	public function on_forum_request_denied( $forum_id, $user_id, $reviewer_id = 0 ): void {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		if ( $space_id <= 0 || IntegrationActivity::is_mirror() ) {
+			return;
+		}
+		$members  = new \BuddyNext\Spaces\SpaceMemberService();
+		$declined = IntegrationActivity::as_mirror( static fn() => $members->decline_request( $space_id, (int) $reviewer_id, (int) $user_id ) );
+		if ( true === $declined ) {
+			self::$answered_in_space[ (int) $forum_id . ':' . (int) $user_id ] = true;
+		}
+	}
+
+	/**
+	 * A member withdrew their forum request: the space request goes with it.
+	 *
+	 * @param int $forum_id Jetonomy forum.
+	 * @param int $user_id  Requester.
+	 * @return void
+	 */
+	public function on_forum_request_withdrawn( $forum_id, $user_id ): void {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		if ( $space_id <= 0 || IntegrationActivity::is_mirror() ) {
+			return;
+		}
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		IntegrationActivity::as_mirror( static fn() => $members->cancel_request( $space_id, (int) $user_id ) );
+	}
+
+	/**
+	 * The space decided or cancelled a request: no forum request stays pending.
+	 *
+	 * Left pending, it could be approved again in the forum's queue later and pay a
+	 * second award for an entry the space already made. Withdrawing also clears the
+	 * forum's "new join request" notices to its staff.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @param int $user_id  Requester.
+	 * @return void
+	 */
+	public function settle_forum_request( $space_id, $user_id ): void {
+		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		if ( $forum_id <= 0 || IntegrationActivity::is_mirror() || ! class_exists( '\Jetonomy\Models\JoinRequest' ) ) {
+			return;
+		}
+		IntegrationActivity::as_mirror( static fn() => \Jetonomy\Models\JoinRequest::withdraw( $forum_id, (int) $user_id ) );
 	}
 
 	/**
@@ -1753,11 +1921,25 @@ class JetonomyBridge {
 
 		$members = new \BuddyNext\Spaces\SpaceMemberService();
 		$space   = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
-		if ( null === $space || 'active' === $members->get_status( $space_id, (int) $user_id ) || $members->can_join( $space, (int) $user_id ) ) {
+		if ( null === $space || 'active' === $members->get_status( $space_id, (int) $user_id ) ) {
 			return $proceed;
 		}
+		if ( ! $members->can_join( $space, (int) $user_id ) ) {
+			return new \WP_Error( 'bn_space_join_refused', __( 'You cannot join this discussion right now.', 'buddynext' ), array( 'status' => 403 ) );
+		}
 
-		return new \WP_Error( 'bn_space_join_refused', __( 'You cannot join this discussion right now.', 'buddynext' ), array( 'status' => 403 ) );
+		// Approving a private space's forum request admits the member to the space, so
+		// the reviewer must be someone the space lets approve (owner, moderator, site
+		// admin). Refused here, Jetonomy hands the request back as pending.
+		$request = \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === (string) ( $space['type'] ?? '' )
+			? self::approved_request( (int) $forum_id, (int) $user_id )
+			: null;
+		$refused = null === $request ? null : $members->approval_refusal( $space_id, (int) $request->reviewed_by, (int) $user_id, false );
+		if ( null !== $refused ) {
+			return new \WP_Error( 'bn_space_approval_refused', $refused->get_error_message(), array( 'status' => 403 ) );
+		}
+
+		return $proceed;
 	}
 
 	/**
@@ -2634,16 +2816,16 @@ class JetonomyBridge {
 		}
 
 		$owner_id = (int) ( $space['owner_id'] ?? 0 );
-		$created  = \Jetonomy\Models\Space::create(
-			array(
-				'title'      => (string) ( $space['name'] ?? '' ),
-				'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
-				'author_id'  => $owner_id,
-				'visibility' => self::discussion_visibility_for( self::forum_type_for( $space ) ),
-				'status'     => 'active',
-			),
-			$owner_id
+		$args     = array(
+			'title'      => (string) ( $space['name'] ?? '' ),
+			'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
+			'author_id'  => $owner_id,
+			'visibility' => self::discussion_visibility_for( self::forum_type_for( $space ) ),
+			'status'     => 'active',
 		);
+		// The owner's forum admin row is a copy of their space role, not a join of
+		// their own: as a mirror write it earns no forum join award.
+		$created = IntegrationActivity::as_mirror( static fn() => \Jetonomy\Models\Space::create( $args, $owner_id ) );
 		// Jetonomy 2.0.1 can answer with a WP_Error. Casting that to int gives 1,
 		// which would link this space to whichever forum has id 1.
 		$forum_id = is_wp_error( $created ) ? 0 : (int) $created;
@@ -5157,12 +5339,20 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Recipients whose Jetonomy report-reviewed notice was dropped in favour of BuddyNext's own,
-	 * so the email Jetonomy sends right after the notice is dropped too.
+	 * Recipients whose Jetonomy notice was dropped in favour of BuddyNext's own, keyed to
+	 * the dropped type, so the email Jetonomy sends right after the notice is dropped too.
 	 *
-	 * @var array<int,bool>
+	 * @var array<int,string>
 	 */
-	private static array $dropped_report_notice = array();
+	private static array $dropped_notice = array();
+
+	/**
+	 * Forum join requests ("forum:user") the space answered in this request, so the
+	 * forum's own answer to the member is not a second notice.
+	 *
+	 * @var array<string,bool>
+	 */
+	private static array $answered_in_space = array();
 
 	/**
 	 * Honour BuddyNext's Email channel on Jetonomy's instant forum email.
@@ -5184,8 +5374,8 @@ class JetonomyBridge {
 		if ( ! $send || $user_id <= 0 ) {
 			return (bool) $send;
 		}
-		if ( 'flag_resolved' === $type && ! empty( self::$dropped_report_notice[ $user_id ] ) ) {
-			unset( self::$dropped_report_notice[ $user_id ] );
+		if ( '' !== (string) $type && ( self::$dropped_notice[ $user_id ] ?? '' ) === (string) $type ) {
+			unset( self::$dropped_notice[ $user_id ] );
 			return false;
 		}
 		$channels = buddynext_service( 'notification_prefs' )->get_channel_prefs( $user_id );
@@ -5193,35 +5383,68 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * One notification for one resolved forum report.
+	 * One notification for one forum event BuddyNext has already told the member about.
 	 *
-	 * A member who reported a forum topic or reply also has the report in BuddyNext, and
-	 * BuddyNext tells them when it is reviewed. Jetonomy tells them too, in other words,
-	 * so the second bell row (and its email) is dropped. Jetonomy's own row is marked read
-	 * so its unread count does not keep an item nobody can open. A report BuddyNext does not
-	 * hold (for example one it rate-limited) keeps Jetonomy's notice, so nobody is left untold.
+	 * A resolved forum report the member also filed in BuddyNext, a join request the
+	 * space answered, or a new request the space owner was told of by the space: Jetonomy
+	 * tells them too, in other words, so the second bell row (and its email) is dropped
+	 * (space_already_told()). Jetonomy's own row is marked read so its unread count does
+	 * not keep an item nobody can open. An event BuddyNext did not tell them of (a report
+	 * it rate-limited, a denial the space refused to follow) keeps Jetonomy's notice, so
+	 * nobody is left untold.
 	 *
 	 * @param mixed $payload Contract payload.
 	 * @param mixed $source  Source slug.
 	 * @return mixed
 	 */
 	public function drop_duplicate_report_notice( $payload, $source = '' ) {
-		if ( 'jetonomy' !== $source || ! is_array( $payload ) || 'flag_resolved' !== ( $payload['type'] ?? '' ) ) {
+		if ( 'jetonomy' !== $source || ! is_array( $payload ) ) {
 			return $payload;
 		}
-		$bn_type   = self::BN_FORUM_TYPES[ (string) ( $payload['object_type'] ?? '' ) ] ?? '';
+		$type      = (string) ( $payload['type'] ?? '' );
 		$recipient = (int) ( $payload['recipient_id'] ?? 0 );
 		$object_id = (int) ( $payload['object_id'] ?? 0 );
-		if ( '' === $bn_type || $recipient <= 0 || $object_id <= 0 || ! buddynext_service( 'moderation' )->user_has_reported( $recipient, $bn_type, $object_id ) ) {
+		if ( $recipient <= 0 || $object_id <= 0 || ! $this->space_already_told( $type, $payload, $recipient, $object_id ) ) {
 			return $payload;
 		}
 
-		self::$dropped_report_notice[ $recipient ] = true;
-		$row_id                                    = (int) ( $payload['notification_id'] ?? 0 );
+		self::$dropped_notice[ $recipient ] = $type;
+		$row_id                             = (int) ( $payload['notification_id'] ?? 0 );
 		if ( $row_id > 0 && class_exists( '\\Jetonomy\\Models\\Notification' ) ) {
 			\Jetonomy\Models\Notification::mark_read_for_user( $recipient, array( $row_id ) );
 		}
 		$payload['recipient_id'] = 0; // BuddyNext stores no row for a payload without a recipient.
 		return $payload;
+	}
+
+	/**
+	 * Whether BuddyNext has already sent this recipient its own notice for a forum event.
+	 *
+	 * - flag_resolved: they reported the forum item in BuddyNext too, which tells them.
+	 * - join_request_result: the space answered the request in this same request.
+	 * - join_request: the recipient owns the space, which already holds the request
+	 *   and tells its owner. Forum moderators and site admins keep the forum's notice.
+	 *
+	 * @param string              $type      Jetonomy notification type.
+	 * @param array<string,mixed> $payload   Contract payload.
+	 * @param int                 $recipient Recipient.
+	 * @param int                 $object_id Object id (a forum id for join requests).
+	 * @return bool
+	 */
+	private function space_already_told( string $type, array $payload, int $recipient, int $object_id ): bool {
+		if ( 'flag_resolved' === $type ) {
+			$bn_type = self::BN_FORUM_TYPES[ (string) ( $payload['object_type'] ?? '' ) ] ?? '';
+			return '' !== $bn_type && buddynext_service( 'moderation' )->user_has_reported( $recipient, $bn_type, $object_id );
+		}
+		if ( 'join_request_result' === $type ) {
+			return ! empty( self::$answered_in_space[ $object_id . ':' . $recipient ] );
+		}
+		if ( 'join_request' === $type ) {
+			$space_id = $this->space_id_for_forum( $object_id );
+			$space    = $space_id > 0 ? ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ) : null;
+			return null !== $space && (int) ( $space['owner_id'] ?? 0 ) === $recipient
+				&& 'pending' === ( new \BuddyNext\Spaces\SpaceMemberService() )->get_status( $space_id, (int) ( $payload['actor_id'] ?? 0 ) );
+		}
+		return false;
 	}
 }

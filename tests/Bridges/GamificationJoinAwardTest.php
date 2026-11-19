@@ -7,14 +7,8 @@
 
 declare( strict_types=1 );
 
-namespace Jetonomy\Models {
-	if ( ! class_exists( JoinRequest::class ) ) {
-		/**
-		 * Presence stub: the bridge only checks Jetonomy is active and reads its table.
-		 */
-		class JoinRequest {
-		}
-	}
+namespace {
+	require_once __DIR__ . '/stubs/jetonomy-membership.php';
 }
 
 namespace BuddyNext\Tests\Bridges {
@@ -55,6 +49,7 @@ namespace BuddyNext\Tests\Bridges {
 					space_id BIGINT UNSIGNED NOT NULL,
 					user_id BIGINT UNSIGNED NOT NULL,
 					status VARCHAR(20) NOT NULL DEFAULT 'pending',
+					reviewed_by BIGINT UNSIGNED NULL,
 					reviewed_at DATETIME NULL,
 					PRIMARY KEY (id),
 					UNIQUE KEY space_user_status (space_id, user_id, status)

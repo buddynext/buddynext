@@ -242,47 +242,13 @@ class GamificationBridge {
 			return false;
 		}
 		if ( 'jetonomy_space_joined' === ( $event->action_id ?? '' ) ) {
-			return ! self::admitted_by_approval(
+			return null === JetonomyBridge::approved_request(
 				(int) ( $event->metadata['space_id'] ?? 0 ),
 				(int) ( $event->user_id ?? 0 ),
 				(string) ( $event->created_at ?? '' )
 			);
 		}
 		return true;
-	}
-
-	/**
-	 * Whether a forum join was the admission of a request approved at that moment.
-	 *
-	 * Jetonomy writes the approval and then the roster row in one request, so the two
-	 * times are seconds apart. An approval from a membership that ended earlier is long
-	 * before the new join and does not count, so a later self-join still pays.
-	 *
-	 * @param int    $forum_id  Jetonomy forum.
-	 * @param int    $user_id   Member.
-	 * @param string $joined_at When the join was recorded (UTC).
-	 * @return bool
-	 */
-	private static function admitted_by_approval( int $forum_id, int $user_id, string $joined_at ): bool {
-		$joined = strtotime( $joined_at );
-		if ( $forum_id <= 0 || $user_id <= 0 || false === $joined || ! class_exists( '\Jetonomy\Models\JoinRequest' ) ) {
-			return false;
-		}
-
-		global $wpdb;
-		// JoinRequest has no read by member and status; (space_id, user_id, status) is its unique key.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$reviewed = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT reviewed_at FROM {$wpdb->prefix}jt_join_requests WHERE space_id = %d AND user_id = %d AND status = 'approved'",
-				$forum_id,
-				$user_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$reviewed = null === $reviewed ? false : strtotime( $reviewed . ' UTC' );
-
-		return false !== $reviewed && abs( $joined - $reviewed ) <= MINUTE_IN_SECONDS;
 	}
 
 	/**

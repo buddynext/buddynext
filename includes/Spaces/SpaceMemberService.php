@@ -451,39 +451,9 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function approve_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
-		$space = $this->load_space_row( $space_id );
-		if ( empty( $space ) ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'This space no longer exists.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		$actor_role = $this->get_role( $space_id, $actor_id );
-
-		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Only the space owner or a moderator can approve join requests.', 'buddynext' )
-			);
-		}
-
-		$current_status = $this->get_status( $space_id, $user_id );
-
-		if ( 'pending' !== $current_status ) {
-			return new WP_Error(
-				'no_pending_request',
-				__( 'No pending join request found for this member.', 'buddynext' )
-			);
-		}
-
-		// Approval is a join: the same buddynext_can_join_space gate join() and
-		// request_join() run (seat caps, paid plans, invite-only rules), or an admin
-		// approval bypassed every limit. A refused request stays pending.
-		/** This filter is documented in includes/Spaces/SpaceMemberService.php (join()). */
-		if ( ! (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'approve' ) ) {
-			return $this->denied_join_error( $space_id, $user_id, $space, 'approve' );
+		$refused = $this->approval_refusal( $space_id, $actor_id, $user_id );
+		if ( null !== $refused ) {
+			return $refused;
 		}
 
 		global $wpdb;
@@ -522,6 +492,56 @@ class SpaceMemberService {
 		do_action( 'buddynext_space_member_joined', $space_id, $user_id, 'member' );
 
 		return true;
+	}
+
+	/**
+	 * Why approve_request() would refuse this approval, or null when it would pass.
+	 *
+	 * The one set of approval rules, shared with the linked forum's own queue: an
+	 * approval made there admits the member here, so it must pass the same checks.
+	 *
+	 * @param int  $space_id      Space ID.
+	 * @param int  $actor_id      User approving the request.
+	 * @param int  $user_id       User whose request is being approved.
+	 * @param bool $needs_pending False when the request is still to be recorded here
+	 *                            (no row yet, or an invitation): only a member or a
+	 *                            banned row is refused then.
+	 * @return WP_Error|null
+	 */
+	public function approval_refusal( int $space_id, int $actor_id, int $user_id, bool $needs_pending = true ): ?WP_Error {
+		$space = $this->load_space_row( $space_id );
+		if ( empty( $space ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'This space no longer exists.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( ! SpaceRoles::can_moderate( $this->get_role( $space_id, $actor_id ), $actor_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can approve join requests.', 'buddynext' )
+			);
+		}
+
+		$status = $this->get_status( $space_id, $user_id );
+		if ( $needs_pending ? 'pending' !== $status : in_array( $status, array( 'active', 'banned' ), true ) ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'No pending join request found for this member.', 'buddynext' )
+			);
+		}
+
+		// Approval is a join: the same buddynext_can_join_space gate join() and
+		// request_join() run (seat caps, paid plans, invite-only rules), or an admin
+		// approval bypassed every limit. A refused request stays pending.
+		/** This filter is documented in includes/Spaces/SpaceMemberService.php (join()). */
+		if ( ! (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'approve' ) ) {
+			return $this->denied_join_error( $space_id, $user_id, $space, 'approve' );
+		}
+
+		return null;
 	}
 
 	/**

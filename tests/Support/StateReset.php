@@ -146,8 +146,10 @@ final class StateReset implements BeforeTestHook {
 		// Re-entrancy flags. A test that dies mid-sync leaves these true and every
 		// later test silently skips the work they guard.
 		\BuddyNext\Bridges\JetonomyBridge::class          => array(
-			'syncing'          => false,
-			'forum_space_memo' => array(),
+			'syncing'           => false,
+			'forum_space_memo'  => array(),
+			'dropped_notice'    => array(),
+			'answered_in_space' => array(),
 		),
 		\BuddyNext\Feed\BlogCommentSync::class            => array( 'syncing' => false ),
 		// Re-entrancy flags, plus the per-request documents config keyed by viewer.

@@ -700,6 +700,24 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The owner's forum admin row is a copy of their space role: creating the forum
+	 * runs as a mirror write, so it pays no forum join award (only the space creation pays).
+	 */
+	public function test_provisioning_the_forum_is_a_mirror_write_so_the_owner_row_pays_nothing(): void {
+		\Jetonomy\Models\Space::$created_as_mirror = array();
+		$space_id = ( new \BuddyNext\Spaces\SpaceService() )->create(
+			self::factory()->user->create(),
+			array(
+				'name' => 'Owner row',
+				'slug' => 'owner-row',
+			)
+		);
+
+		$this->assertGreaterThan( 0, $this->bridge->provision_space_forum( (int) $space_id ) );
+		$this->assertSame( array( true ), \Jetonomy\Models\Space::$created_as_mirror );
+	}
+
+	/**
 	 * The owner's on/off choice: first on creates the discussion, off keeps it,
 	 * on again restores the same one. Web settings and REST share this path.
 	 *
@@ -1657,6 +1675,13 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 	 */
 	class Space {
 		/**
+		 * Whether each create() ran as a bridge mirror write.
+		 *
+		 * @var bool[]
+		 */
+		public static array $created_as_mirror = array();
+
+		/**
 		 * Create a forum space.
 		 *
 		 * @param array<string,mixed> $data        Space data (slug, title, ...).
@@ -1665,6 +1690,8 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 		 */
 		public static function create( array $data, ?int $owner_id = null ): int {
 			global $wpdb;
+			// The real model seeds the creator's admin roster row here, which pays a join award.
+			self::$created_as_mirror[] = \BuddyNext\Feed\IntegrationActivity::is_mirror();
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => (string) ( $data['slug'] ?? '' ) ), array( '%s' ) );
 			return (int) $wpdb->insert_id;
