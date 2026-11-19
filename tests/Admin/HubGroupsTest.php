@@ -74,6 +74,19 @@ class HubGroupsTest extends \WP_UnitTestCase {
 		$this->assertSame( 'buddynext-automation', AdminHub::section_slug( 'automation' ) );
 	}
 
+	public function test_a_tab_can_show_under_another_group_without_changing_its_page(): void {
+		AdminHub::register_tab( 'settings', 'webhooks', 'Webhooks', static function (): void {} );
+		AdminHub::register_tab( 'settings', 'license', 'License', static function (): void {} );
+
+		$webhooks = AdminHub::get_tabs( 'platform' )['webhooks'];
+		$license  = AdminHub::get_tabs( 'get-started' )['license'];
+
+		$this->assertSame( 'connect', $this->hub( 'tab_group', array( 'platform', $webhooks ) ), 'Webhooks shows under Connect.' );
+		$this->assertSame( 'settings', $this->hub( 'tab_group', array( 'get-started', $license ) ), 'License shows under Settings.' );
+		$this->assertSame( 'buddynext-platform', AdminHub::section_slug( 'platform' ), 'Webhooks keeps its Platform page.' );
+		$this->assertSame( 'buddynext', AdminHub::section_slug( 'get-started' ), 'License keeps its page.' );
+	}
+
 	public function test_a_filter_added_section_with_no_group_is_its_own_bar_entry(): void {
 		add_filter(
 			'bn_admin_hub_sections',

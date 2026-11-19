@@ -1319,3 +1319,12 @@
 	font-style: italic;
 	opacity: 1;
 }
+
+/* A group with six tabs or fewer lists them flat, with no section headings. */
+.bn-hub-nav-list.is-flat .bn-hub-nav-group__label { display: none; }
+.bn-hub-nav-list.is-flat .bn-hub-nav-group { margin-bottom: 0; }
+.bn-hub-nav-list.is-flat .bn-hub-nav-group__items { padding-top: 0; }
+.bn-hub-nav-list.is-flat .bn-hub-nav-link { padding-inline-start: var(--bn-s4, 16px); }
+/* A section that only lends one tab to this group (License from Get Started) has no
+   heading of its own: the tab sits with the group's other tabs. */
+.bn-hub-nav-group.is-borrowed > .bn-hub-nav-group__label { display: none; }

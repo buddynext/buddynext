@@ -127,18 +127,6 @@ class AdminHub {
 				'label' => __( 'Campaigns', 'buddynext' ),
 				'icon'  => 'megaphone',
 			),
-			'realtime'             => array(
-				'group' => 'messaging',
-				'slug'  => 'buddynext-realtime',
-				'label' => __( 'Realtime & Push', 'buddynext' ),
-				'icon'  => 'zap',
-			),
-			'platform'             => array(
-				'group' => 'settings',
-				'slug'  => 'buddynext-platform',
-				'label' => __( 'Platform', 'buddynext' ),
-				'icon'  => 'layers',
-			),
 			// Integration Settings is its own top-level section, not a tab under
 			// Platform (owner decision 3 on card 10114177928): managing the family
 			// bridges is a distinct owner task from the raw platform plumbing
@@ -155,6 +143,18 @@ class AdminHub {
 				'slug'  => 'buddynext-settings',
 				'label' => __( 'Settings', 'buddynext' ),
 				'icon'  => 'settings',
+			),
+			'platform'             => array(
+				'group' => 'settings',
+				'slug'  => 'buddynext-platform',
+				'label' => __( 'Platform', 'buddynext' ),
+				'icon'  => 'layers',
+			),
+			'realtime'             => array(
+				'group' => 'messaging',
+				'slug'  => 'buddynext-realtime',
+				'label' => __( 'Realtime & Push', 'buddynext' ),
+				'icon'  => 'zap',
 			),
 			'upgrade'              => array(
 				'slug'  => 'buddynext-upgrade',
@@ -178,7 +178,11 @@ class AdminHub {
 	 * `bn_admin_hub_tab_placement` filter — `array( 'hidden' => true )` drops
 	 * a tab, a different `section`/`position` moves it — without touching code.
 	 *
-	 * @var array<string, array{section?:string, position?:int, group?:string, hidden?:bool}>
+	 * `nav_group` shows one tab under a different top-bar group than its section's own
+	 * (Add-ons and Webhooks sit in the Platform section but show under Connect). It
+	 * changes only which group's rail lists the tab, never its URL.
+	 *
+	 * @var array<string, array{section?:string, position?:int, group?:string, nav_group?:string, hidden?:bool}>
 	 */
 	private const TAB_PLACEMENT = array(
 		// Settings — identity & look.
@@ -207,8 +211,9 @@ class AdminHub {
 			'position' => 10,
 		),
 		'settings:integrations'         => array(
-			'section'  => 'platform',
-			'position' => 20,
+			'section'   => 'platform',
+			'position'  => 20,
+			'nav_group' => 'connect',
 		),
 		'settings:integration-controls' => array(
 			'section'  => 'integration-settings',
@@ -245,8 +250,9 @@ class AdminHub {
 		// live (Integrations, Tools), so the tab is at home and the Pro section
 		// can hide as designed.
 		'settings:webhooks'             => array(
-			'section'  => 'platform',
-			'position' => 50,
+			'section'   => 'platform',
+			'position'  => 50,
+			'nav_group' => 'connect',
 		),
 
 		// Members — roster, access, registration.
@@ -321,8 +327,9 @@ class AdminHub {
 
 		// Realtime & Push (Pro). Hidden in free (no tabs register).
 		'settings:realtime'             => array(
-			'section'  => 'realtime',
-			'position' => 10,
+			'section'   => 'realtime',
+			'position'  => 10,
+			'nav_group' => 'connect',
 		),
 		'settings:push'                 => array(
 			'section'  => 'realtime',
@@ -424,8 +431,9 @@ class AdminHub {
 		// (General, Appearance, Navigation, Pages & URLs, White-label) is genuinely
 		// about how the community looks and is addressed.
 		'settings:license'              => array(
-			'section'  => 'get-started',
-			'position' => 90,
+			'section'   => 'get-started',
+			'position'  => 90,
+			'nav_group' => 'settings',
 		),
 		// A diagnostic, so it sits with Tools and Features rather than with the
 		// look-and-feel tabs it was filed among.
@@ -1064,6 +1072,9 @@ class AdminHub {
 			// the rule sets one, so legacy "Advanced" eyebrows don't leak into
 			// the flat, capped sections.
 			$args['group'] = isset( $rule['group'] ) ? (string) $rule['group'] : '';
+			if ( isset( $rule['nav_group'] ) ) {
+				$args['nav_group'] = (string) $rule['nav_group'];
+			}
 		}
 
 		if ( ! isset( self::sections()[ $section ] ) ) {
@@ -1071,23 +1082,24 @@ class AdminHub {
 		}
 
 		self::$tabs[ $section ][ $slug ] = array(
-			'label'    => $label,
-			'render'   => $render,
-			'cap'      => isset( $args['cap'] ) ? (string) $args['cap'] : 'manage_options',
-			'position' => isset( $args['position'] ) ? (int) $args['position'] : 50,
-			'layout'   => isset( $args['layout'] ) && 'wide' === $args['layout'] ? 'wide' : 'sidebar',
-			'badge'    => isset( $args['badge'] ) && is_callable( $args['badge'] ) ? $args['badge'] : null,
-			'icon'     => isset( $args['icon'] ) ? (string) $args['icon'] : self::default_icon_for( $slug ),
-			'group'    => isset( $args['group'] ) ? (string) $args['group'] : '',
-			'order'    => count( self::$tabs[ $section ] ?? array() ),
-			'subtitle' => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
-			'action'   => isset( $args['action'] ) ? (string) $args['action'] : '',
+			'label'     => $label,
+			'render'    => $render,
+			'cap'       => isset( $args['cap'] ) ? (string) $args['cap'] : 'manage_options',
+			'position'  => isset( $args['position'] ) ? (int) $args['position'] : 50,
+			'layout'    => isset( $args['layout'] ) && 'wide' === $args['layout'] ? 'wide' : 'sidebar',
+			'badge'     => isset( $args['badge'] ) && is_callable( $args['badge'] ) ? $args['badge'] : null,
+			'icon'      => isset( $args['icon'] ) ? (string) $args['icon'] : self::default_icon_for( $slug ),
+			'group'     => isset( $args['group'] ) ? (string) $args['group'] : '',
+			'nav_group' => isset( $args['nav_group'] ) ? (string) $args['nav_group'] : '',
+			'order'     => count( self::$tabs[ $section ] ?? array() ),
+			'subtitle'  => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
+			'action'    => isset( $args['action'] ) ? (string) $args['action'] : '',
 			// Nested tab slugs this tab's own page consumes via the SAME ?tab= var
 			// (e.g. Members: invites, profile-fields). They are not hub tabs, so the
 			// misroute guard in render_section() would otherwise flag them as broken
 			// links; declaring them here tells the router the slug is valid and which
 			// hub tab owns it (card 10264294727).
-			'subtabs'  => isset( $args['subtabs'] ) && is_array( $args['subtabs'] ) ? array_map( 'sanitize_key', $args['subtabs'] ) : array(),
+			'subtabs'   => isset( $args['subtabs'] ) && is_array( $args['subtabs'] ) ? array_map( 'sanitize_key', $args['subtabs'] ) : array(),
 		);
 
 		// Claim the old standalone page slug, if this tab replaced one.
@@ -1809,7 +1821,7 @@ class AdminHub {
 		// since the panel already conveys the section context.
 		echo '<div class="wrap bn-admin-hub bn-admin-hub--paneled' . ( $is_wide ? ' is-wide' : '' ) . '" data-section="' . esc_attr( $section_key ) . '">';
 		$this->render_brand_bar( (string) $section_key, $active_slug );
-		$this->render_group_bar( (string) $section_key );
+		$this->render_group_bar( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__shell">';
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
@@ -2022,6 +2034,19 @@ class AdminHub {
 	}
 
 	/**
+	 * The group a tab is shown under: its own `nav_group` when the placement map sets
+	 * one, otherwise its section's group.
+	 *
+	 * @param string               $section_key Section key.
+	 * @param array<string, mixed> $tab         Tab.
+	 * @return string Group key.
+	 */
+	private static function tab_group( string $section_key, array $tab ): string {
+		$group = (string) ( $tab['nav_group'] ?? '' );
+		return '' !== $group ? $group : self::section_group( $section_key );
+	}
+
+	/**
 	 * The tabs of a section that the current user may open.
 	 *
 	 * @param string $section_key Section key.
@@ -2047,18 +2072,16 @@ class AdminHub {
 		$labels = self::groups();
 		$found  = array();
 		foreach ( self::sections() as $skey => $section ) {
-			$tabs = self::visible_tabs( (string) $skey );
-			if ( empty( $tabs ) ) {
-				continue;
+			foreach ( self::visible_tabs( (string) $skey ) as $tslug => $tab ) {
+				$gkey = self::tab_group( (string) $skey, $tab );
+				if ( isset( $found[ $gkey ] ) ) {
+					continue;
+				}
+				$found[ $gkey ] = array(
+					'label' => isset( $labels[ $gkey ] ) ? $labels[ $gkey ] : (string) ( $section['label'] ?? $gkey ),
+					'url'   => self::tab_url( (string) $skey, (string) $tslug ),
+				);
 			}
-			$gkey = self::section_group( (string) $skey );
-			if ( isset( $found[ $gkey ] ) ) {
-				continue;
-			}
-			$found[ $gkey ] = array(
-				'label' => isset( $labels[ $gkey ] ) ? $labels[ $gkey ] : (string) ( $section['label'] ?? $gkey ),
-				'url'   => self::tab_url( (string) $skey, (string) array_key_first( $tabs ) ),
-			);
 		}
 		// Known groups first, in their fixed order; any other group after them.
 		$ordered = array();
@@ -2074,10 +2097,11 @@ class AdminHub {
 	 * The top bar of groups. The left rail then lists only the current group's tabs.
 	 *
 	 * @param string $active_section Active section key.
+	 * @param string $active_slug    Active tab slug.
 	 * @return void
 	 */
-	private function render_group_bar( string $active_section ): void {
-		$active_group = self::section_group( $active_section );
+	private function render_group_bar( string $active_section, string $active_slug ): void {
+		$active_group = self::tab_group( $active_section, self::get_tabs( $active_section )[ $active_slug ] ?? array() );
 		echo '<nav class="bn-hub-groupbar" aria-label="' . esc_attr__( 'BuddyNext sections', 'buddynext' ) . '">';
 		foreach ( self::visible_groups() as $gkey => $group ) {
 			$is_active = ( (string) $gkey === $active_group );
@@ -2110,7 +2134,7 @@ class AdminHub {
 		// Phones: the whole menu folds behind one button naming where you are, so
 		// the page's own content comes first instead of a screen of nav. Shown and
 		// wired by nav-accordion.js only, so without JS the full list stays visible.
-		$active_group    = self::section_group( $active_section );
+		$active_group    = self::tab_group( $active_section, self::get_tabs( $active_section )[ $active_slug ] ?? array() );
 		$bn_here_section = (string) ( self::visible_groups()[ $active_group ]['label'] ?? ( self::sections()[ $active_section ]['label'] ?? '' ) );
 		$bn_here_tab     = (string) ( self::get_tabs( $active_section )[ $active_slug ]['label'] ?? '' );
 		printf(
@@ -2118,7 +2142,17 @@ class AdminHub {
 			esc_html( implode( ' › ', array_filter( array( $bn_here_section, $bn_here_tab ) ) ) ?: __( 'Menu', 'buddynext' ) ),
 			\BuddyNext\Core\IconService::render( 'chevron-down', 'bn-hub-nav-toggle__chevron' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
 		);
-		echo '<div class="bn-hub-nav-list" id="bn-hub-nav-list">';
+		// A group with only a few tabs reads better as one plain list than as sections
+		// with their own headings; past six tabs the section headings earn their place.
+		$bn_group_tabs = 0;
+		foreach ( self::sections() as $skey => $section ) {
+			foreach ( self::visible_tabs( (string) $skey ) as $tab ) {
+				if ( self::tab_group( (string) $skey, $tab ) === $active_group ) {
+					++$bn_group_tabs;
+				}
+			}
+		}
+		echo '<div class="bn-hub-nav-list' . ( $bn_group_tabs <= 6 ? ' is-flat' : '' ) . '" id="bn-hub-nav-list">';
 		// Phones have no room for the top bar, so the same groups sit at the head of
 		// the opened menu (hidden from 783px up, where the bar is shown instead).
 		echo '<nav class="bn-hub-nav-groups" aria-label="' . esc_attr__( 'BuddyNext sections', 'buddynext' ) . '">';
@@ -2131,12 +2165,19 @@ class AdminHub {
 			);
 		}
 		echo '</nav>';
-		foreach ( self::sections() as $skey => $section ) {
-			// The rail lists only the sections of the group being viewed.
-			if ( self::section_group( (string) $skey ) !== $active_group ) {
-				continue;
-			}
-			$visible = self::visible_tabs( (string) $skey );
+		// The group's own sections first, then any section lending it a tab (License comes
+		// from Get Started, Add-ons and Webhooks from Platform), so borrowed tabs sit last.
+		$bn_rail_sections = self::sections();
+		uksort(
+			$bn_rail_sections,
+			static fn( $a, $b ): int => (int) ( self::section_group( (string) $b ) === $active_group ) <=> (int) ( self::section_group( (string) $a ) === $active_group )
+		);
+		foreach ( $bn_rail_sections as $skey => $section ) {
+			// The rail lists only the tabs of the group being viewed.
+			$visible = array_filter(
+				self::visible_tabs( (string) $skey ),
+				static fn( array $tab ): bool => self::tab_group( (string) $skey, $tab ) === $active_group
+			);
 			if ( empty( $visible ) ) {
 				continue;
 			}
@@ -2147,7 +2188,7 @@ class AdminHub {
 			$is_current_section = ( (string) $skey === $active_section );
 			printf(
 				'<details class="bn-hub-nav-group%1$s" data-bn-nav-group="%2$s"%3$s>',
-				$is_current_section ? ' is-current' : '',
+				( $is_current_section ? ' is-current' : '' ) . ( self::section_group( (string) $skey ) === $active_group ? '' : ' is-borrowed' ),
 				esc_attr( (string) $skey ),
 				' open'
 			);

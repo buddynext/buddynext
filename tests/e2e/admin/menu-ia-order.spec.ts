@@ -27,7 +27,7 @@ const GROUP_LANDINGS = [
     'buddynext-notifications', // Messaging
     'buddynext-monetization',
     'buddynext-integration-settings', // Connect
-    'buddynext-platform', // Settings
+    'buddynext-settings', // Settings
     'buddynext-upgrade',
 ];
 const MODERATION_TABS = ['pending', 'reports', 'suspensions', 'appeals', 'log'];

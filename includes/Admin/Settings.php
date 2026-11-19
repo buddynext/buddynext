@@ -140,7 +140,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'features'      => __( 'Features', 'buddynext' ),
 			'registration'  => __( 'Registration & Login', 'buddynext' ),
 			'social'        => __( 'Social', 'buddynext' ),
-			'spaces'        => __( 'Settings', 'buddynext' ),
+			'spaces'        => __( 'Space settings', 'buddynext' ),
 			'notifications' => __( 'Notifications', 'buddynext' ),
 			'email'         => __( 'Email', 'buddynext' ),
 			'moderation'    => __( 'Controls', 'buddynext' ),
