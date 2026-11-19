@@ -1818,7 +1818,7 @@ class ProfileFieldsManager {
 								placeholder="<?php esc_attr_e( 'For example: These details are only visible to staff and are used for club administration.', 'buddynext' ); ?>"><?php echo esc_textarea( (string) ( $group['intro'] ?? '' ) ); ?></textarea>
 							<p class="bn-pf-af-hint"><?php esc_html_e( 'Shown above this group\'s fields on the profile edit and signup forms. Not shown on the profile itself. Leave blank to show nothing.', 'buddynext' ); ?></p>
 						</div>
-						<button type="submit" class="button button-primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
+						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 					</form>
 				</div>
 

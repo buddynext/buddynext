@@ -1549,7 +1549,7 @@ class Members extends AdminPageBase {
 				</p>
 			</div>
 			<span class="bn-alert__action">
-				<a class="button button-primary" href="<?php echo esc_url( $repair_url ); ?>">
+				<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $repair_url ); ?>">
 					<?php esc_html_e( 'Repair handles', 'buddynext' ); ?>
 				</a>
 			</span>
