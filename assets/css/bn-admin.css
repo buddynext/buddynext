@@ -3143,9 +3143,18 @@ button.bn-btn-danger:hover {
 	letter-spacing: 0.04em;
 	color: var(--bn-ink-2, #475569);
 }
-.bn-roles-table { max-width: 720px; }
+/* Five tables, one per group of actions. With auto column widths each sized itself to
+   its own longest label, so the "Minimum role" dropdown sat at a different spot in every
+   group. The role column has one fixed width and the action label takes the rest, so the
+   dropdowns line up down the whole tab. */
 .bn-roles-table td { vertical-align: middle; }
-.bn-roles-table select { min-width: 200px; }
+.bn-roles-table th:last-child,
+.bn-roles-table td:last-child { width: 15rem; }
+.bn-settings-section .bn-ss-body .bn-roles-table select { width: 100%; min-width: 0; max-width: 100%; }
+@media (max-width: 640px) {
+	.bn-roles-table th:last-child,
+	.bn-roles-table td:last-child { width: 55%; }
+}
 
 /* ── Insights (Growth section + dashboard widget) ───────────────────────── */
 /* The Insights stat tiles render via the shared stat-strip template part
