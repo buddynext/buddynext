@@ -357,6 +357,26 @@
 }
 .bn-admin-hub__main h2:first-child,
 .bn-admin-hub__main--wide h2:first-child { margin-top: 0; }
+/* An h2 INSIDE a card is that card's title, not an eyebrow above it. Without this it
+   rendered as the small monospace chip (Usage tracking, Test a phrase, Membership
+   plans, Recommended for new communities) beside cards whose titles are 15px. Same
+   type as .bn-ss-title so every card title reads alike. */
+.bn-admin-hub__main :is(.bn-settings-section, .bn-recommended-card, .bn-card, .card, .bn-setup-card, .bn-fam-header) h2:not(.bn-modal__title),
+.bn-admin-hub__main--wide :is(.bn-settings-section, .bn-recommended-card, .bn-card, .card, .bn-setup-card, .bn-fam-header) h2:not(.bn-modal__title) {
+	display: block;
+	margin: 0 0 var(--bn-a-s1);
+	padding: 0;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	font-family: var(--bn-a-font-display);
+	font-size: var(--bn-a-text-base);
+	font-weight: var(--bn-a-fw-semibold);
+	letter-spacing: normal;
+	text-transform: none;
+	color: var(--bn-a-text-1);
+	line-height: var(--bn-leading-tight, 1.25);
+}
 /* H3 below remains a "subsection title inside the card". */
 .bn-admin-hub__main h3,
 .bn-admin-hub__main--wide h3 {
