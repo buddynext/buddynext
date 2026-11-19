@@ -344,6 +344,41 @@ namespace BuddyNext\Tests\Bridges {
 			$this->assertStringNotContainsString( 'Secret', $hidden, 'a hidden forum and its topic title are never named' );
 		}
 
+		private function reviewed_payload( int $recipient, int $object_id, string $object_type = 'post', string $type = 'flag_resolved' ): array {
+			return array(
+				'recipient_id'    => $recipient,
+				'type'            => $type,
+				'actor_id'        => $this->moderator,
+				'object_type'     => $object_type,
+				'object_id'       => $object_id,
+				'message'         => 'Your report was reviewed.',
+				'url'             => 'http://example.org/community/',
+				'notification_id' => 0,
+			);
+		}
+
+		public function test_one_notice_for_one_reviewed_forum_report(): void {
+			$this->flag( 'post', 330, $this->reporter );
+			$payload = $this->reviewed_payload( $this->reporter, 330 );
+
+			$kept = apply_filters( 'buddynext_integration_notification_payload', $payload, 'jetonomy' );
+			$this->assertSame( 0, (int) $kept['recipient_id'], 'Jetonomy\'s second notice is dropped when BuddyNext holds the report.' );
+			$this->assertFalse( apply_filters( 'jetonomy_send_instant_email', true, $this->reporter, 'flag_resolved', 'flag_resolved' ), 'and so is its email' );
+			$this->assertTrue( apply_filters( 'jetonomy_send_instant_email', true, $this->reporter, 'flag_resolved', 'flag_resolved' ), 'the drop covers one email, not every later one' );
+		}
+
+		public function test_jetonomys_notice_stays_when_buddynext_holds_no_report(): void {
+			$other = self::factory()->user->create();
+			$this->flag( 'post', 331, $this->reporter );
+
+			$payload = $this->reviewed_payload( $other, 331 );
+			$this->assertSame( $payload, apply_filters( 'buddynext_integration_notification_payload', $payload, 'jetonomy' ), 'a member BuddyNext holds no report from still hears from the forum' );
+			$this->assertTrue( apply_filters( 'jetonomy_send_instant_email', true, $other, 'flag_resolved', 'flag_resolved' ) );
+
+			$reply = $this->reviewed_payload( $this->reporter, 331, 'post', 'reply_to_post' );
+			$this->assertSame( $reply, apply_filters( 'buddynext_integration_notification_payload', $reply, 'jetonomy' ), 'only the report-reviewed type is touched' );
+		}
+
 		private function jt_status( string $table, int $id ): ?string {
 			return $this->jt_select( "SELECT status FROM {p}{$table} WHERE id = {$id}" );
 		}

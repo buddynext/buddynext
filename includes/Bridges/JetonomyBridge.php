@@ -200,7 +200,8 @@ class JetonomyBridge {
 		// forum type plus Jetonomy's own fields (Pro's digest), saved to Jetonomy.
 		add_action( 'buddynext_notification_prefs_after', array( $this, 'render_partner_prefs' ), 20 );
 		// BuddyNext's Email channel is the master switch: off there, no forum email either.
-		add_filter( 'jetonomy_send_instant_email', array( $this, 'filter_forum_email' ), 10, 2 );
+		add_filter( 'jetonomy_send_instant_email', array( $this, 'filter_forum_email' ), 10, 4 );
+		add_filter( 'buddynext_integration_notification_payload', array( $this, 'drop_duplicate_report_notice' ), 10, 2 );
 
 		// Inject the forum and "My discussions" links into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
@@ -5156,23 +5157,71 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Recipients whose Jetonomy report-reviewed notice was dropped in favour of BuddyNext's own,
+	 * so the email Jetonomy sends right after the notice is dropped too.
+	 *
+	 * @var array<int,bool>
+	 */
+	private static array $dropped_report_notice = array();
+
+	/**
 	 * Honour BuddyNext's Email channel on Jetonomy's instant forum email.
 	 *
 	 * The member's Email switch in BuddyNext's notification settings is the master
 	 * switch for every community email, the forum's included: off there means no
 	 * forum email. An absent setting means on, as everywhere in BuddyNext. The read is
-	 * user meta, cached by WordPress after the first recipient lookup.
+	 * user meta, cached by WordPress after the first recipient lookup. A report-reviewed
+	 * email whose notice was dropped as a duplicate is dropped with it.
 	 *
 	 * @param mixed $send    Whether Jetonomy will send the email.
 	 * @param mixed $user_id Recipient.
+	 * @param mixed $key     Email template key.
+	 * @param mixed $type    Notification type.
 	 * @return bool
 	 */
-	public function filter_forum_email( $send, $user_id = 0 ): bool {
+	public function filter_forum_email( $send, $user_id = 0, $key = '', $type = '' ): bool {
 		$user_id = (int) $user_id;
 		if ( ! $send || $user_id <= 0 ) {
 			return (bool) $send;
 		}
+		if ( 'flag_resolved' === $type && ! empty( self::$dropped_report_notice[ $user_id ] ) ) {
+			unset( self::$dropped_report_notice[ $user_id ] );
+			return false;
+		}
 		$channels = buddynext_service( 'notification_prefs' )->get_channel_prefs( $user_id );
 		return ! ( array_key_exists( 'email', $channels ) && empty( $channels['email'] ) );
+	}
+
+	/**
+	 * One notification for one resolved forum report.
+	 *
+	 * A member who reported a forum topic or reply also has the report in BuddyNext, and
+	 * BuddyNext tells them when it is reviewed. Jetonomy tells them too, in other words,
+	 * so the second bell row (and its email) is dropped. Jetonomy's own row is marked read
+	 * so its unread count does not keep an item nobody can open. A report BuddyNext does not
+	 * hold (for example one it rate-limited) keeps Jetonomy's notice, so nobody is left untold.
+	 *
+	 * @param mixed $payload Contract payload.
+	 * @param mixed $source  Source slug.
+	 * @return mixed
+	 */
+	public function drop_duplicate_report_notice( $payload, $source = '' ) {
+		if ( 'jetonomy' !== $source || ! is_array( $payload ) || 'flag_resolved' !== ( $payload['type'] ?? '' ) ) {
+			return $payload;
+		}
+		$bn_type   = self::BN_FORUM_TYPES[ (string) ( $payload['object_type'] ?? '' ) ] ?? '';
+		$recipient = (int) ( $payload['recipient_id'] ?? 0 );
+		$object_id = (int) ( $payload['object_id'] ?? 0 );
+		if ( '' === $bn_type || $recipient <= 0 || $object_id <= 0 || ! buddynext_service( 'moderation' )->user_has_reported( $recipient, $bn_type, $object_id ) ) {
+			return $payload;
+		}
+
+		self::$dropped_report_notice[ $recipient ] = true;
+		$row_id                                    = (int) ( $payload['notification_id'] ?? 0 );
+		if ( $row_id > 0 && class_exists( '\\Jetonomy\\Models\\Notification' ) ) {
+			\Jetonomy\Models\Notification::mark_read_for_user( $recipient, array( $row_id ) );
+		}
+		$payload['recipient_id'] = 0; // BuddyNext stores no row for a payload without a recipient.
+		return $payload;
 	}
 }
