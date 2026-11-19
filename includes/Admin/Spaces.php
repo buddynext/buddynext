@@ -630,15 +630,17 @@ class Spaces extends AdminPageBase {
 									<td data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) $created ); ?></td>
 									<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 										<div class="bn-row-actions">
+											<?php if ( empty( $space['is_deleting'] ) ) : // A space on its way out has no page to view or manage. ?>
 											<a href="<?php echo esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ); ?>"
 													class="bn-btn" data-variant="secondary" data-size="sm" target="_blank" rel="noopener">
 												<?php esc_html_e( 'View', 'buddynext' ); ?>
 											</a>
-											<?php // Manage links to the space's own settings screen — site admins pass its manage-settings capability, so this is the admin edit surface (rename, type, category, cover, who-can-post, transfer ownership). ?>
+												<?php // Manage links to the space's own settings screen — site admins pass its manage-settings capability, so this is the admin edit surface (rename, type, category, cover, who-can-post, transfer ownership). ?>
 											<a href="<?php echo esc_url( trailingslashit( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ) . 'settings/' ); ?>"
 													class="bn-btn" data-variant="secondary" data-size="sm">
 												<?php esc_html_e( 'Manage', 'buddynext' ); ?>
 											</a>
+											<?php endif; ?>
 											<?php
 											// Archive/Unarchive + Delete live in the shared kebab overflow
 											// (same .bn-more-menu component as the Members list) so the row
