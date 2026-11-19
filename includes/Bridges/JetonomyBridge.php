@@ -1544,7 +1544,8 @@ class JetonomyBridge {
 		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
 		$type  = (string) ( $space['type'] ?? '' );
 		if ( \BuddyNext\Spaces\SpaceService::TYPE_OPEN === $type ) {
-			$members->join( $space_id, $user_id );
+			// One join, made in the forum: the space's copy of it must not be rewarded again.
+			IntegrationActivity::as_mirror( fn() => $members->join( $space_id, $user_id ) );
 			return;
 		}
 
