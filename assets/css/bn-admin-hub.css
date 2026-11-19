@@ -524,6 +524,25 @@
 	padding: var(--bn-s3, 12px) var(--bn-s3, 12px) var(--bn-s3, 12px) 0;
 }
 
+/* Old WordPress `form-table` forms put the label in a left column, so a screen that still uses one
+   read differently from every other form here (label above its field). Stacked, they match. */
+.bn-admin-hub__main .form-table,
+.bn-admin-hub__main .form-table tbody,
+.bn-admin-hub__main .form-table tr,
+.bn-admin-hub__main .form-table th,
+.bn-admin-hub__main .form-table td {
+	display: block;
+	width: auto;
+}
+.bn-admin-hub__main .form-table tr + tr { margin-block-start: var(--bn-s2, 8px); }
+.bn-admin-hub__main .form-table th {
+	padding: 0 0 var(--bn-s1, 4px);
+	font-weight: 600;
+}
+.bn-admin-hub__main .form-table td { padding: 0 0 var(--bn-s2, 8px); }
+.bn-admin-hub__main .form-table td > .description,
+.bn-admin-hub__main .form-table td > p.description { margin: var(--bn-s1, 4px) 0 0; }
+
 /* Submit row visually separates from the form body. */
 .bn-admin-hub__main p.submit,
 .bn-admin-hub__main--wide p.submit {
@@ -585,6 +604,14 @@
    the boxes never butt up against each other. */
 .bn-admin-hub .bn-stat-grid {
 	margin-bottom: var(--bn-s4, 16px);
+	/* Tiles share the row they are on, so a row of three or a lone seventh tile still spans the
+	   full width instead of stopping short and leaving a ragged right edge. */
+	display: flex;
+	flex-wrap: wrap;
+}
+.bn-admin-hub .bn-stat-grid > .bn-stat {
+	flex: 1 1 11rem;
+	min-width: 0;
 }
 
 /* ── Mobile — tab strip becomes a horizontal scroller ────────────────── */
@@ -1473,4 +1500,11 @@
 	.bn-videos__chip { min-block-size: 44px; }
 	.bn-videos__info { padding: var(--bn-s4, 16px); }
 	.bn-videos__row { grid-template-columns: 96px minmax(0, 1fr); }
+}
+
+/* On a phone the version chip is the item that does not fit: without it the logo, Search and
+   Docs share one row instead of Docs dropping onto a line of its own. The version stays on the
+   Plugins screen and in the page source. */
+@media ( max-width: 480px ) {
+	.bn-admin-hub__brand-ver { display: none; }
 }

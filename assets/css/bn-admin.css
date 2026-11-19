@@ -4617,6 +4617,7 @@ code.bn-ep-code {
 
 .bn-activity-filter {
 	display: flex;
+	flex: 1 1 100%;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-s2);
@@ -4634,7 +4635,7 @@ code.bn-ep-code {
 .bn-activity-filter .bn-input[type="search"] {
 	flex: 1 1 220px;
 	min-width: 180px;
-	max-width: 340px;
+	max-width: 280px;
 }
 
 .bn-activity-filter .bn-input[type="date"] {

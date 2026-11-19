@@ -242,7 +242,7 @@ class ActivityAdmin implements ListenerInterface {
 					<p class="bn-empty__sub"><?php esc_html_e( 'Try a different search, type, status or date range.', 'buddynext' ); ?></p>
 				</div>
 			<?php else : ?>
-				<form id="bn-activity-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
+				<form id="bn-activity-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar bn-admin-hub__form-bare">
 					<input type="hidden" name="action" value="bn_activity_bulk">
 					<?php wp_nonce_field( 'bn_activity_bulk' ); ?>
 					<label for="bn-activity-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
