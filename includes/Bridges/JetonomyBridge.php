@@ -2250,6 +2250,21 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * The space type the forum is shaped by: a plan-gated open space is private for its forum, so
+	 * the forum is not public to people the space would ask to pay.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param array<string, mixed> $space Hydrated space.
+	 * @return string open | private | secret
+	 */
+	public static function forum_type_for( array $space ): string {
+		$type = (string) ( $space['type'] ?? '' );
+
+		return ( \BuddyNext\Spaces\SpaceService::TYPE_OPEN === $type && ! empty( $space['is_gated'] ) ) ? \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE : $type;
+	}
+
+	/**
 	 * The discussion visibility a BuddyNext space type requires.
 	 *
 	 * ONE definition, used both when the discussion is created and when the
@@ -2308,7 +2323,7 @@ class JetonomyBridge {
 			return;
 		}
 
-		$type = (string) ( $space['type'] ?? '' );
+		$type = self::forum_type_for( $space );
 		$want = self::discussion_visibility_for( $type );
 		$join = self::discussion_join_policy_for( $type );
 		$jt   = \Jetonomy\Models\Space::find( $forum_id );
@@ -2546,7 +2561,7 @@ class JetonomyBridge {
 				'title'      => (string) ( $space['name'] ?? '' ),
 				'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
 				'author_id'  => $owner_id,
-				'visibility' => self::discussion_visibility_for( (string) ( $space['type'] ?? '' ) ),
+				'visibility' => self::discussion_visibility_for( self::forum_type_for( $space ) ),
 				'status'     => 'active',
 			),
 			$owner_id

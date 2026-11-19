@@ -1334,6 +1334,16 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 			fn() => $this->assertTrue( $this->bridge->veto_forum_join( true, $outsider, 9 ), 'The bridge\'s own roster copies pass.' )
 		);
 	}
+
+	/**
+	 * A plan-gated open space shapes a private forum; nothing else changes the type.
+	 */
+	public function test_a_plan_gated_open_space_gets_a_private_forum(): void {
+		$this->assertSame( 'open', JetonomyBridge::forum_type_for( array( 'type' => 'open' ) ) );
+		$this->assertSame( 'private', JetonomyBridge::forum_type_for( array( 'type' => 'open', 'is_gated' => true ) ) );
+		$this->assertSame( 'secret', JetonomyBridge::forum_type_for( array( 'type' => 'secret', 'is_gated' => true ) ) );
+		$this->assertSame( 'private', JetonomyBridge::discussion_visibility_for( JetonomyBridge::forum_type_for( array( 'type' => 'open', 'is_gated' => true ) ) ) );
+	}
 }
 
 namespace Jetonomy\Models;
