@@ -21,6 +21,14 @@
 
 .bn-admin-hub {
 	max-width: none;
+
+	/* WordPress paints native checkboxes, radios, focus rings and plain links from one
+	   variable, so inside BuddyNext they showed WordPress blue beside brand-blue buttons
+	   and switches. Point it at the brand accent (which follows the owner's hue and any
+	   White-label setting) for every screen in the hub at once. */
+	--wp-admin-theme-color: var(--bn-accent);
+	--wp-admin-theme-color-darker-10: var(--bn-accent-600);
+	--wp-admin-theme-color-darker-20: var(--bn-accent-700);
 }
 
 .bn-admin-hub__header {
