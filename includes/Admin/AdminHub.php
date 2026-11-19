@@ -2228,8 +2228,53 @@ class AdminHub {
 			echo '</div>';
 			echo '</details>';
 		}
+		$this->render_resources( $active_section, $active_slug );
 		echo '</div>';
 		echo '</aside>';
+	}
+
+	/**
+	 * Help links under the rail, the same on every group so the rail never ends in empty space.
+	 *
+	 * @param string $active_section Active section key.
+	 * @param string $active_slug    Active tab slug.
+	 * @return void
+	 */
+	private function render_resources( string $active_section, string $active_slug ): void {
+		$links = array(
+			array(
+				'label' => __( 'Guide for this page', 'buddynext' ),
+				'icon'  => 'book-open',
+				'url'   => (string) apply_filters( 'buddynext_admin_docs_url', $this->docs_url_for( $active_section, $active_slug ), $active_section, $active_slug ),
+			),
+			array(
+				'label' => __( 'FAQ', 'buddynext' ),
+				'icon'  => 'message-circle',
+				'url'   => self::DOCS_BASE . 'faq/',
+			),
+			array(
+				'label' => __( 'API docs', 'buddynext' ),
+				'icon'  => 'code',
+				'url'   => self::DOCS_BASE . 'developer-guide/14-rest-contract/',
+			),
+			array(
+				'label' => __( 'Code snippets on GitHub', 'buddynext' ),
+				'icon'  => 'github',
+				'url'   => 'https://github.com/buddynext/buddynext-snippets',
+			),
+		);
+		echo '<nav class="bn-hub-resources" aria-label="' . esc_attr__( 'Help and resources', 'buddynext' ) . '">';
+		echo '<p class="bn-hub-resources__title">' . esc_html__( 'Help and resources', 'buddynext' ) . '</p>';
+		foreach ( $links as $link ) {
+			$icon = \BuddyNext\Core\IconService::has( (string) $link['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $link['icon'], 'bn-hub-nav-link__icon' ) : '';
+			printf(
+				'<a class="bn-hub-resources__link" href="%1$s" target="_blank" rel="noopener">%2$s<span>%3$s</span></a>',
+				esc_url( (string) $link['url'] ),
+				$icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
+				esc_html( (string) $link['label'] )
+			);
+		}
+		echo '</nav>';
 	}
 
 	/**

@@ -1331,3 +1331,36 @@
 
 /* The Demo Installer card's action stays on one line: "Get the installer" wrapped to two. */
 .bn-demo-installer .bn-btn { white-space: nowrap; flex: none; }
+
+/* Help and resources: closes the rail on every group, so a one-item rail (Home) is not a
+   box of empty space. Quiet links, 44px rows, a hairline above. */
+.bn-hub-resources {
+	margin-block-start: var(--bn-s4, 16px);
+	padding-block-start: var(--bn-s3, 12px);
+	border-block-start: 1px solid var(--bn-border, #e3e6ea);
+}
+.bn-hub-resources__title {
+	margin: 0 0 var(--bn-s1, 4px);
+	padding-inline: var(--bn-s4, 16px);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+	color: var(--bn-muted, #6b7480);
+}
+.bn-hub-resources__link {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2, 8px);
+	min-height: 40px;
+	padding: var(--bn-s2, 8px) var(--bn-s4, 16px);
+	border-radius: var(--bn-radius-md, 8px);
+	font-size: 13px;
+	color: var(--bn-ink, #1d2327);
+	text-decoration: none;
+}
+.bn-hub-resources__link:hover,
+.bn-hub-resources__link:focus-visible { background: var(--bn-surface-2, #f4f5f7); color: var(--bn-accent-700, #0f4a9e); }
+.bn-hub-resources__link .bn-hub-nav-link__icon { flex: none; width: 16px; height: 16px; color: var(--bn-muted, #6b7480); }
+@media ( max-width: 1279px ) { .bn-hub-resources__link { min-height: 44px; } }

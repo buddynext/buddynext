@@ -87,6 +87,19 @@ class HubGroupsTest extends \WP_UnitTestCase {
 		$this->assertSame( 'buddynext', AdminHub::section_slug( 'get-started' ), 'License keeps its page.' );
 	}
 
+	public function test_every_group_rail_ends_with_the_same_help_links(): void {
+		$hub = ( new \ReflectionClass( AdminHub::class ) )->newInstanceWithoutConstructor();
+		ob_start();
+		( new \ReflectionMethod( AdminHub::class, 'render_resources' ) )->invoke( $hub, 'moderation', 'reports' );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'faq/', $html );
+		$this->assertStringContainsString( 'developer-guide/14-rest-contract/', $html );
+		$this->assertStringContainsString( 'moderation/01-reporting-content/', $html, 'The guide follows the page.' );
+		$this->assertStringContainsString( 'github.com/buddynext/buddynext-snippets', $html );
+		$this->assertSame( 4, substr_count( $html, 'bn-hub-resources__link' ) );
+	}
+
 	public function test_a_filter_added_section_with_no_group_is_its_own_bar_entry(): void {
 		add_filter(
 			'bn_admin_hub_sections',
