@@ -67,7 +67,7 @@ final class CompanionRegistry {
 					'label'       => 'Jetonomy',
 					'integration' => 'jetonomy',
 					'why'         => __( 'Forum-style threaded discussions and Q&A boards.', 'buddynext' ),
-					'detect'      => static fn(): bool => class_exists( '\\Jetonomy\\Plugin' ) || function_exists( 'jetonomy' ),
+					'detect'      => static fn(): bool => class_exists( '\\Jetonomy\\Jetonomy' ),
 					'free'        => array(
 						'item_id'  => 1660320,
 						'key'      => 'wbcomfreec7e2a9b45d8f1c3e6a0b9d2f7c4e8a11',

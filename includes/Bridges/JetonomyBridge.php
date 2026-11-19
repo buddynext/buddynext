@@ -3645,6 +3645,8 @@ class JetonomyBridge {
 				// instead of reporting the integration as fine.
 				'feature_versions' => array(
 					__( 'Forum notifications in the BuddyNext bell', 'buddynext' ) => '2.0.1',
+					// Before 2.0.3 deleting a forum left every topic behind, so a deleted Space's forum is only hidden.
+					__( 'Removing a deleted Space\'s forum with its topics', 'buddynext' ) => '2.0.3',
 				),
 				'has_nav'          => true,
 				'nav_label'        => __( 'Discussions', 'buddynext' ),
