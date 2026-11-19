@@ -2875,9 +2875,13 @@ button.bn-btn-danger:hover {
 }
 .bn-feature-group:first-of-type { margin-top: 0; }
 
+/* Two columns where the card is wide enough for two readable rows, one on a phone:
+   35 rows in a single column made the tab 4,600px long for what is a label, a line and
+   a switch each. Auto-fill needs no breakpoint, and `[hidden]` rows still drop out of
+   the grid (the search script only toggles that attribute). */
 .bn-feature-grid {
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
 	gap: var(--bn-s2);
 }
 
