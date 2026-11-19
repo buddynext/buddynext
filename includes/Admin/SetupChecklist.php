@@ -328,11 +328,14 @@ final class SetupChecklist {
 		// a step that is done once messaging is on, with the one click if it is not.
 		if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
 			$bn_turn_on = \BuddyNext\Messages\MessagesData::turn_on_url();
+			$bn_msg_on  = ! \BuddyNext\Messages\MessagesData::switched_off();
 			$steps[]    = array(
 				'key'       => 'messages',
 				'label'     => __( 'Turn on messages', 'buddynext' ),
-				'desc'      => __( 'Messages are off in MediaVerse. Turn them on to let members message each other.', 'buddynext' ),
-				'done'      => ! \BuddyNext\Messages\MessagesData::switched_off(),
+				'desc'      => $bn_msg_on
+					? __( 'Members can message each other.', 'buddynext' )
+					: __( 'Messages are off in MediaVerse. Turn them on to let members message each other.', 'buddynext' ),
+				'done'      => $bn_msg_on,
 				'cta'       => '' !== $bn_turn_on ? $bn_turn_on : \BuddyNext\Messages\MessagesData::settings_url(),
 				'cta_label' => __( 'Turn on messages', 'buddynext' ),
 				'icon'      => 'message-circle',

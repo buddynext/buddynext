@@ -117,6 +117,17 @@ class HomeDemoInstallerCardTest extends \WP_UnitTestCase {
 		$this->assertSame( '', trim( $this->card() ) );
 	}
 
+	public function test_the_sample_community_on_the_site_replaces_the_installer_offer(): void {
+		if ( function_exists( 'wbcom_demo_status' ) || defined( 'WBCOM_DEMO_DIR' ) ) {
+			$this->markTestSkipped( 'The real installer is loaded in this run.' );
+		}
+		$this->assertStringContainsString( 'Install and set up a demo', $this->card(), 'Offered before any sample data exists.' );
+
+		update_option( 'bn_demo_manifest', array( 'users' => array( 1 ) ) );
+		$this->assertSame( '', trim( $this->card() ), 'BuddyNext\'s own sample community has its card: one demo call to action, not two.' );
+		delete_option( 'bn_demo_manifest' );
+	}
+
 	public function test_the_recommended_tile_follows_the_active_theme(): void {
 		$demos = array(
 			'community'           => array( 'id' => 'community' ),

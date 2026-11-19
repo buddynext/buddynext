@@ -189,6 +189,11 @@ class DemoAdmin {
 		if ( ! $in_play && ( 'finished' === $status || SetupChecklist::is_done() ) ) {
 			return;
 		}
+		// BuddyNext's own sample community is on the site and has its own card below: a second
+		// demo offer would be two calls to action for one decision. The installer returns once it is removed.
+		if ( ! $in_play && ( new DemoDataService() )->is_seeded() ) {
+			return;
+		}
 
 		$idle_title = __( 'Preview your whole site with the Wbcom Demo Installer', 'buddynext' );
 		$idle_sub   = __( 'Pick what your site is for and the installer builds a demo with your theme and the Wbcom products, then removes it in one click.', 'buddynext' );
