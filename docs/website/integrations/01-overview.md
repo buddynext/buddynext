@@ -64,6 +64,20 @@ After install, BuddyNext sends you to the right place to finish setup. For most 
 
 > **Tip:** One-click install needs the same permission WordPress requires for installing any plugin. If you do not see the install button, your account does not have the capability to install plugins on this site.
 
+### Free site tools: Wbcom Demo Installer and Wbcom Essential
+
+After the companions, the Add-ons screen lists two free site tools. The **Wbcom Demo Installer** sets up your theme and the Wbcom products with sample people and content, then removes it all in one click. **Wbcom Essential** adds blocks and widgets for designing your home page and community pages. Neither is an integration, so they do not appear on Integration Settings.
+
+Each row shows **Install free**, **Activate** or **Installed**. **Install free** downloads the latest release from the plugin's public GitHub repository (buddynext/wbcom-demo-installer or vapvarun/wbcom-essential), installs it and switches it on. A tool that is already installed is only switched on, never downloaded again. Your own content is never changed.
+
+The BuddyNext **Home** offers the same install for the Demo Installer while setup is open: **Install and set up a demo**, then **Set up a demo** once it is on. With the installer on and no demo built yet, Home shows two demos for your site (the BuddyNext demo for your theme, marked Recommended, and the BuddyNext community demo), each with **Set up this demo**, plus **See all demos**.
+
+If the install cannot finish, for example because your host cannot reach GitHub or does not allow installing plugins from the dashboard, the row or card says why and gives three steps to do it by hand:
+
+1. **Download** the latest release zip from GitHub.
+2. **Upload** it at **Plugins > Add New > Upload Plugin** and activate it.
+3. **Come back** and select **Check again**. The screen picks up the plugin without a full reload.
+
 ### Turn an integration on or off
 
 An integration is only active when its companion plugin is active. There is no separate master switch for an integration on the Features tab: its behaviour is controlled by the switches on **Integration Settings** (below).

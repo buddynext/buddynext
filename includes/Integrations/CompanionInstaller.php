@@ -10,8 +10,9 @@
  * the download once the license is activated for this domain.
  *
  * Security: install_plugins capability required; only catalog slugs are
- * installable; the download URL is resolved through EDD, never client input; the
- * download host is locked to wbcomdesigns.com and its subdomains. BuddyNext's job ends at activation —
+ * installable; the download URL is resolved through EDD (or the GitHub releases
+ * API for the free site tools), never client input; the download host is locked to
+ * wbcomdesigns.com, or https github.com, and their subdomains. BuddyNext's job ends at activation:
  * the companion's own bundled SDK then manages its updates.
  *
  * @package BuddyNext\Integrations
@@ -54,6 +55,10 @@ final class CompanionInstaller {
 			return true;
 		}
 
+		if ( 'github' === ( $entry['source'] ?? '' ) ) {
+			return self::install_from_github( $slug, $entry );
+		}
+
 		$config  = is_array( $entry['free'] ?? null ) ? $entry['free'] : array();
 		$item_id = (int) ( $config['item_id'] ?? 0 );
 		$key     = (string) ( $config['key'] ?? '' );
@@ -86,6 +91,126 @@ final class CompanionInstaller {
 		}
 
 		return self::activate( '' !== $basename ? $basename : (string) $installed );
+	}
+
+	/**
+	 * Install (or just activate) a free tool from its latest public GitHub release.
+	 *
+	 * The zip URL comes from the GitHub releases API for the repo fixed in the registry,
+	 * never from the request, and must be https on github.com or a subdomain. Every
+	 * failure carries a `manual` payload (release zip + upload screen) so the owner can
+	 * install by hand when the host cannot reach GitHub or blocks installs.
+	 *
+	 * @param string               $slug  Tool slug.
+	 * @param array<string, mixed> $entry Registry entry.
+	 * @return true|WP_Error
+	 */
+	private static function install_from_github( string $slug, array $entry ) {
+		$basename = (string) ( $entry['free']['basename'] ?? '' );
+		if ( '' !== $basename && file_exists( trailingslashit( WP_PLUGIN_DIR ) . $basename ) ) {
+			return self::activate( $basename );
+		}
+
+		if ( ! wp_is_file_mod_allowed( 'buddynext_companion_install' ) ) {
+			return self::github_error( $slug, 'buddynext_install_disabled', CompanionGithubUi::blocked_reason(), 403 );
+		}
+
+		$repo    = (string) ( $entry['github']['repo'] ?? '' );
+		$prefix  = (string) ( $entry['github']['prefix'] ?? '' );
+		$package = self::github_asset_url( $repo, $prefix );
+		if ( is_wp_error( $package ) ) {
+			return self::github_error( $slug, $package->get_error_code(), $package->get_error_message(), 502 );
+		}
+
+		$installed = self::install_package( $package, false );
+		if ( is_wp_error( $installed ) ) {
+			$message = 'download_failed' === $installed->get_error_code()
+				? __( 'Your host could not download the file from GitHub.', 'buddynext' )
+				: $installed->get_error_message();
+			return self::github_error( $slug, (string) $installed->get_error_code(), $message, 502, $package );
+		}
+
+		return self::activate( '' !== $basename ? $basename : (string) $installed );
+	}
+
+	/**
+	 * The download URL of the latest release asset named `<prefix>*.zip`.
+	 *
+	 * @param string $repo   owner/name.
+	 * @param string $prefix Asset name prefix.
+	 * @return string|WP_Error
+	 */
+	private static function github_asset_url( string $repo, string $prefix ) {
+		$response = wp_remote_get(
+			'https://api.github.com/repos/' . $repo . '/releases/latest',
+			array(
+				'timeout' => self::TIMEOUT,
+				'headers' => array( 'Accept' => 'application/vnd.github+json' ),
+			)
+		);
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error( 'buddynext_github_unreachable', __( 'Your host could not reach GitHub to download it.', 'buddynext' ) );
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( 200 !== $code || ! is_array( $body ) ) {
+			return new WP_Error(
+				'buddynext_github_unreachable',
+				sprintf(
+					/* translators: %d: HTTP status code. */
+					__( 'GitHub did not return the latest release (HTTP %d).', 'buddynext' ),
+					$code
+				)
+			);
+		}
+
+		foreach ( (array) ( $body['assets'] ?? array() ) as $asset ) {
+			$name = (string) ( $asset['name'] ?? '' );
+			if ( '' === $prefix || ! str_starts_with( $name, $prefix ) || ! str_ends_with( $name, '.zip' ) ) {
+				continue;
+			}
+			$url = (string) ( $asset['browser_download_url'] ?? '' );
+			if ( ! self::is_github_url( $url ) ) {
+				return new WP_Error( 'buddynext_bad_package_host', __( 'The download URL was not on GitHub, so it was not used.', 'buddynext' ) );
+			}
+			return $url;
+		}
+
+		return new WP_Error( 'buddynext_github_no_asset', __( 'The latest GitHub release has no plugin zip.', 'buddynext' ) );
+	}
+
+	/**
+	 * Whether a URL is https on github.com or one of its subdomains.
+	 *
+	 * @param string $url Candidate URL.
+	 * @return bool
+	 */
+	public static function is_github_url( string $url ): bool {
+		$parts = wp_parse_url( $url );
+		$host  = strtolower( (string) ( $parts['host'] ?? '' ) );
+		return 'https' === strtolower( (string) ( $parts['scheme'] ?? '' ) )
+			&& ( 'github.com' === $host || str_ends_with( $host, '.github.com' ) );
+	}
+
+	/**
+	 * A GitHub install failure the UI can turn into the manual fallback.
+	 *
+	 * @param string $slug    Tool slug.
+	 * @param string $code    Error code.
+	 * @param string $message Plain-language reason.
+	 * @param int    $status  HTTP status for REST.
+	 * @param string $zip_url Release asset URL, when known.
+	 * @return WP_Error
+	 */
+	private static function github_error( string $slug, string $code, string $message, int $status, string $zip_url = '' ): WP_Error {
+		return new WP_Error(
+			$code,
+			$message,
+			array(
+				'status' => $status,
+				'manual' => CompanionRegistry::manual( $slug, $zip_url ),
+			)
+		);
 	}
 
 	/**
@@ -169,9 +294,10 @@ final class CompanionInstaller {
 	 * Download + unpack a plugin zip via WP core's Plugin_Upgrader.
 	 *
 	 * @param string $package Signed package URL.
+	 * @param bool   $probe   Re-request a failed store download to surface the store's reason.
 	 * @return string|WP_Error Installed plugin basename/destination, or WP_Error.
 	 */
-	private static function install_package( string $package ) {
+	private static function install_package( string $package, bool $probe = true ) {
 		require_once ABSPATH . 'wp-admin/includes/file.php';
 		require_once ABSPATH . 'wp-admin/includes/misc.php';
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -190,7 +316,7 @@ final class CompanionInstaller {
 			// WP's generic "download_failed" hides WHY. Probe the package URL once so
 			// the message carries the store's real reason (e.g. a 401 "Invalid
 			// license supplied"), which is what makes this diagnosable.
-			if ( 'download_failed' === $result->get_error_code() ) {
+			if ( $probe && 'download_failed' === $result->get_error_code() ) {
 				$probe  = wp_remote_get( $package, array( 'timeout' => self::TIMEOUT ) );
 				$code   = is_wp_error( $probe ) ? 0 : (int) wp_remote_retrieve_response_code( $probe );
 				$reason = is_wp_error( $probe ) ? $probe->get_error_message() : trim( wp_strip_all_tags( (string) wp_remote_retrieve_body( $probe ) ) );

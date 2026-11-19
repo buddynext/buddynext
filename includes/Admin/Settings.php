@@ -3396,14 +3396,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * Each card resolves to a real, state-aware action: Active companions show
 	 * "Connected"; installed-but-inactive get a one-click Activate; not-installed
 	 * get a one-click "Install free" via the EDD store (CompanionInstaller,
-	 * install_plugins-gated). A "Learn more" link to the store page sits alongside
-	 * every action.
+	 * install_plugins-gated). The free GitHub site tools follow, installed from
+	 * their public release with a manual fallback. A "Learn more" link sits
+	 * alongside every action.
 	 *
 	 * @return void
 	 */
 	private function render_tab_integrations(): void {
-		$companions   = \BuddyNext\Integrations\CompanionRegistry::all();
+		// The free GitHub site tools (Demo Installer, Wbcom Essential) list after the companions.
+		$companions   = \BuddyNext\Integrations\CompanionRegistry::all() + \BuddyNext\Integrations\CompanionRegistry::tools();
 		$can_install  = current_user_can( 'install_plugins' );
+		$files_ok     = wp_is_file_mod_allowed( 'buddynext_companion_install' );
 		$can_activate = current_user_can( 'activate_plugins' );
 		$logo_base    = defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '';
 		$logo_base   .= 'assets/img/companions/';
@@ -3454,7 +3457,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				$bn_unlocks  = (string) ( $bn_c['unlocks'] ?? '' );
 				$bn_store    = (string) ( $bn_c['store_url'] ?? '' );
 				$bn_basename = (string) ( $bn_c['free']['basename'] ?? '' );
-				$bn_logo     = $logo_base . sanitize_file_name( (string) $bn_slug ) . '.svg';
+				$bn_logo     = $logo_base . sanitize_file_name( (string) ( $bn_c['logo'] ?? $bn_slug ) ) . '.svg';
+				$bn_github   = 'github' === ( $bn_c['source'] ?? '' );
+				// A GitHub tool installs or activates in place; with installs blocked it shows the manual steps.
+				// DISALLOW_FILE_MODS also removes install_plugins, so a locked host is judged on activate_plugins.
+				$bn_gh_block = $bn_github && 'not_installed' === $bn_status && ! $files_ok && $can_activate;
+				$bn_gh_click = $bn_github && 'active' !== $bn_status && ( $can_install || $bn_gh_block );
+				$bn_gh_attrs = '';
+				if ( $bn_gh_click ) {
+					\BuddyNext\Integrations\CompanionGithubUi::enqueue();
+					$bn_gh_attrs = \BuddyNext\Integrations\CompanionGithubUi::attrs( (string) $bn_slug, $bn_status, array( 'badge' => __( 'Installed', 'buddynext' ) ) );
+				}
 
 				// Four of these connect through a bridge that ships in BuddyNext Pro.
 				// Without Pro the plugin is installed but nothing is wired, so the
@@ -3467,7 +3480,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					$bn_badge_label = __( 'Installed', 'buddynext' );
 				} elseif ( 'active' === $bn_status ) {
 					$bn_badge_class = 'bn-companion-badge bn-companion-badge--success';
-					$bn_badge_label = __( 'Connected', 'buddynext' );
+					$bn_badge_label = $bn_github ? __( 'Installed', 'buddynext' ) : __( 'Connected', 'buddynext' );
 				} elseif ( 'inactive' === $bn_status ) {
 					$bn_badge_class = 'bn-companion-badge bn-companion-badge--warning';
 					$bn_badge_label = __( 'Installed, activate', 'buddynext' );
@@ -3476,7 +3489,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					$bn_badge_label = __( 'Not installed', 'buddynext' );
 				}
 				?>
-			<div class="bn-companion-card" id="bn-companion-<?php echo esc_attr( sanitize_html_class( (string) $bn_slug ) ); ?>" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+			<div class="bn-companion-card" id="bn-companion-<?php echo esc_attr( sanitize_html_class( (string) $bn_slug ) ); ?>" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>"<?php echo $bn_gh_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CompanionGithubUi::attrs() escapes every value. ?>>
 				<div class="bn-companion-card__head">
 					<img
 						class="bn-companion-card__logo"
@@ -3487,7 +3500,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						loading="lazy"
 					/>
 					<h3 class="bn-companion-card__title"><?php echo esc_html( $bn_label ); ?></h3>
-					<span class="<?php echo esc_attr( $bn_badge_class ); ?>"><?php echo esc_html( $bn_badge_label ); ?></span>
+					<span class="<?php echo esc_attr( $bn_badge_class ); ?>" data-bn-gh-badge><?php echo esc_html( $bn_badge_label ); ?></span>
 					<?php if ( $bn_needs_pro && ! $bn_waits_for_pro ) : ?>
 						<span class="bn-companion-badge bn-companion-badge--muted"><?php esc_html_e( 'Connects with BuddyNext Pro', 'buddynext' ); ?></span>
 					<?php endif; ?>
@@ -3514,10 +3527,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 				<div class="bn-companion-card__actions">
 					<?php // Active companions already carry the "Connected" status badge in the card head, so the actions row shows only "Learn more". ?>
-					<?php if ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
+					<?php if ( $bn_gh_click ) : ?>
+						<?php if ( ! $bn_gh_block ) : ?>
+							<button type="button" class="bn-addon-row__action" data-bn-gh-go>
+								<span class="bn-gh-spinner" aria-hidden="true"></span>
+								<span data-bn-gh-label><?php echo esc_html( 'inactive' === $bn_status ? __( 'Activate', 'buddynext' ) : __( 'Install free', 'buddynext' ) ); ?></span>
+							</button>
+						<?php endif; ?>
+					<?php elseif ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
 						<a href="<?php echo esc_url( \BuddyNext\Integrations\CompanionRegistry::activate_url( $bn_basename ) ); ?>"
 							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
-					<?php elseif ( 'not_installed' === $bn_status && $can_install ) : ?>
+					<?php elseif ( 'not_installed' === $bn_status && $can_install && ! $bn_github ) : ?>
 						<button type="button" class="bn-addon-row__action bn-companion-install" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 							<?php esc_html_e( 'Install free', 'buddynext' ); ?>
 						</button>
@@ -3534,6 +3554,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 					<span class="bn-companion-msg" role="status" aria-live="polite"></span>
 				</div>
+				<?php
+				if ( $bn_gh_click ) {
+					\BuddyNext\Integrations\CompanionGithubUi::render_status();
+					\BuddyNext\Integrations\CompanionGithubUi::render_fallback( (string) $bn_slug, $bn_gh_block ? \BuddyNext\Integrations\CompanionGithubUi::blocked_reason() : '' );
+				}
+				?>
 			</div>
 			<?php endforeach; ?>
 		</div>

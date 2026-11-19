@@ -92,6 +92,7 @@ add_filter( 'buddynext_companions', static function ( array $companions ): array
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `buddynext/v1/companions/install` | `install_plugins` capability + cookie `wp_rest` nonce | Install and activate a catalog companion by slug. |
+| GET | `buddynext/v1/companions/status` | `activate_plugins` capability + cookie `wp_rest` nonce | Current state of a catalog companion or site tool by slug: `active`, `inactive` or `not_installed`. Used by "Check again" after a manual upload. |
 
 Request body:
 
@@ -131,6 +132,8 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/companions/install" \
 Both store calls go through `buddynext_licence_request( array $params )`, the same function BuddyNext and BuddyNext Pro use for licence checks and update checks. It sends the request to `updates.wbcomdesigns.com` and falls back to `wbcomdesigns.com` when the first host cannot be reached. It returns the decoded reply object, or `false` when no host answered. A licence refusal is a normal reply, not `false`. The function adds `url` and `environment` itself, so pass only `edd_action`, `license` and `item_id`. Use it for any licence call of your own instead of calling the store directly.
 
 EDD Software Licensing authorizes the download only after the free license is activated for the site's domain, which is why activation happens first; if the store refuses, the installer surfaces the store's real reason (for example an HTTP 401 with the license message) so the failure is diagnosable rather than a generic "download failed."
+
+> **Note:** Two free site tools, the Wbcom Demo Installer and Wbcom Essential, come from `CompanionRegistry::tools()` instead of the filterable catalog and install from their public GitHub release (`source => 'github'`). The installer asks `https://api.github.com/repos/<repo>/releases/latest`, takes the asset whose name starts with the registry prefix and ends in `.zip`, and refuses any download URL that is not https on `github.com` or a subdomain. Every failure (installs disabled on the host, GitHub unreachable, no matching asset) returns a `WP_Error` whose data carries `manual: { zip_url, upload_url }` for the manual-install fallback. Signed `.sig.json` siblings are not verified.
 
 > **Warning:** The installer only ever talks to and downloads from `wbcomdesigns.com`. The resolved package URL host is checked and must be `wbcomdesigns.com` or a `*.wbcomdesigns.com` subdomain - it never follows a redirect off-domain. The download URL is resolved through EDD from the registry, never taken from client input.
 

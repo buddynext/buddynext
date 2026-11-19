@@ -183,6 +183,71 @@ final class CompanionRegistry {
 	}
 
 	/**
+	 * Free Wbcom site tools that install from their public GitHub release.
+	 *
+	 * Kept apart from all(): they are not integrations, so the wizard's add-on step
+	 * and Integration Settings never list them. The Add-ons tab and the Home demo card
+	 * offer them. Not filterable: the download source is fixed here, never data.
+	 *
+	 *   source  'github'.
+	 *   github  { repo, prefix }: the release asset is the .zip whose name starts with prefix.
+	 *   free    { basename } for installed/active detection.
+	 *   logo    Add-ons card logo file in assets/img/companions/, without .svg.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	public static function tools(): array {
+		return array(
+			'wbcom-demo-installer' => array(
+				'label'     => 'Wbcom Demo Installer',
+				'why'       => __( 'Sets up your theme and the Wbcom products with sample people and content, then removes it all in one click.', 'buddynext' ),
+				'source'    => 'github',
+				'github'    => array(
+					'repo'   => 'buddynext/wbcom-demo-installer',
+					'prefix' => 'wbcom-demo-installer-',
+				),
+				'detect'    => static fn(): bool => defined( 'WBCOM_DEMO_DIR' ) || function_exists( 'wbcom_demo_status' ),
+				'free'      => array( 'basename' => 'wbcom-demo-installer/wbcom-demo-installer.php' ),
+				'store_url' => 'https://github.com/buddynext/wbcom-demo-installer',
+				'logo'      => 'wbcom',
+				'setup_url' => 'themes.php?page=wbcom-demo',
+			),
+			'wbcom-essential'      => array(
+				'label'     => 'Wbcom Essential',
+				'why'       => __( 'Blocks and widgets for designing your home page and community pages.', 'buddynext' ),
+				'source'    => 'github',
+				'github'    => array(
+					'repo'   => 'vapvarun/wbcom-essential',
+					'prefix' => 'wbcom-essential-',
+				),
+				'detect'    => static fn(): bool => defined( 'WBCOM_ESSENTIAL_VERSION' ),
+				'free'      => array( 'basename' => 'wbcom-essential/loader.php' ),
+				'store_url' => 'https://github.com/vapvarun/wbcom-essential',
+				'logo'      => 'wbcom',
+			),
+		);
+	}
+
+	/**
+	 * Where an owner downloads a GitHub tool by hand: the asset when known, else the latest release page.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $slug    Tool slug.
+	 * @param string $zip_url Release asset URL, when the API returned one.
+	 * @return array{zip_url:string,upload_url:string}
+	 */
+	public static function manual( string $slug, string $zip_url = '' ): array {
+		$repo = (string) ( self::get( $slug )['github']['repo'] ?? '' );
+		return array(
+			'zip_url'    => '' !== $zip_url ? $zip_url : 'https://github.com/' . $repo . '/releases/latest',
+			'upload_url' => self_admin_url( 'plugin-install.php?tab=upload' ),
+		);
+	}
+
+	/**
 	 * The ACTIVE companion whose bridge registers this integration key, or null.
 	 *
 	 * Lets Integration Settings name each box by the product the owner installed.
@@ -202,13 +267,13 @@ final class CompanionRegistry {
 	}
 
 	/**
-	 * One companion by slug.
+	 * One companion or GitHub tool by slug.
 	 *
 	 * @param string $slug Companion slug.
 	 * @return array<string, mixed>|null
 	 */
 	public static function get( string $slug ): ?array {
-		$all = self::all();
+		$all = self::all() + self::tools();
 		return $all[ $slug ] ?? null;
 	}
 

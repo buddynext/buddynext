@@ -1520,3 +1520,147 @@
 	.bn-demo-promo .bn-demo-promo__form .bn-btn,
 	.bn-videos__more .bn-setup-card__head > .bn-btn { inline-size: 100%; justify-content: center; }
 }
+
+/* ── GitHub site tools: one-click install (Home demo card + Add-ons rows) ──
+   Shared by CompanionGithubUi markup on every hub screen: the busy button, the live
+   status line, a thin progress bar that reserves no space until shown, and the
+   manual fallback (reason, then Download / Upload / Come back). */
+.bn-demo-installer__action { flex: none; }
+.bn-demo-installer__trust {
+	margin: var(--bn-a-s2) 0 0;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+.bn-gh-spinner { display: none; }
+[data-bn-gh-go].is-busy .bn-gh-spinner {
+	display: inline-block;
+	inline-size: 1em;
+	block-size: 1em;
+	margin-inline-end: var(--bn-a-s2);
+	border: 2px solid currentColor;
+	border-inline-end-color: transparent;
+	border-radius: var(--bn-a-r-full);
+	vertical-align: -0.15em;
+	animation: bn-gh-spin 0.8s linear infinite;
+}
+[data-bn-gh-go]:disabled { cursor: progress; }
+[data-bn-gh-go][hidden] { display: none; }
+.bn-gh-status {
+	margin: var(--bn-a-s2) 0 0;
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+}
+.bn-gh-status:empty { display: none; }
+[data-state="active"] > .bn-gh-status,
+[data-state="active"] .bn-gh-status { color: var(--bn-a-green); font-weight: var(--bn-a-fw-semibold); }
+.bn-gh-progress {
+	position: relative;
+	overflow: hidden;
+	block-size: var(--bn-a-s1);
+	margin-block-start: var(--bn-a-s2);
+	border-radius: var(--bn-a-r-full);
+	background: var(--bn-a-bg-subtle);
+}
+.bn-gh-progress[hidden] { display: none; }
+.bn-gh-progress__bar {
+	position: absolute;
+	inset-block: 0;
+	inline-size: 40%;
+	border-radius: inherit;
+	background: var(--bn-a-brand);
+	animation: bn-gh-slide 1.2s ease-in-out infinite;
+}
+.bn-gh-fallback {
+	margin-block-start: var(--bn-a-s3);
+	padding: var(--bn-a-s3);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	background: var(--bn-a-bg-subtle);
+}
+.bn-gh-fallback[hidden] { display: none; }
+.bn-gh-fallback__reason {
+	margin: 0 0 var(--bn-a-s2);
+	padding: var(--bn-a-s2) var(--bn-a-s3);
+	border-radius: var(--bn-a-r-sm);
+	background: var(--bn-a-red-bg);
+	color: var(--bn-a-red);
+	font-weight: var(--bn-a-fw-semibold);
+}
+.bn-gh-fallback__reason:empty { display: none; }
+.bn-gh-fallback__lead { margin: 0 0 var(--bn-a-s2); color: var(--bn-a-text-2); }
+.bn-gh-fallback__steps {
+	margin: 0 0 var(--bn-a-s3);
+	padding-inline-start: var(--bn-a-s5);
+	display: grid;
+	gap: var(--bn-a-s2);
+}
+.bn-gh-fallback__steps li { margin: 0; }
+.bn-gh-fallback__steps strong { margin-inline-end: var(--bn-a-s2); }
+@keyframes bn-gh-spin { to { transform: rotate(360deg); } }
+@keyframes bn-gh-slide {
+	from { inset-inline-start: -40%; }
+	to { inset-inline-start: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-bn-gh-go].is-busy .bn-gh-spinner,
+	.bn-gh-progress__bar { animation-duration: 3s; }
+}
+
+/* Demo tiles from the installer, under the idle installer card. */
+.bn-demo-tiles {
+	list-style: none;
+	margin: var(--bn-a-s4) 0 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+	gap: var(--bn-a-s3);
+}
+.bn-demo-tile {
+	position: relative;
+	margin: 0;
+	padding: var(--bn-a-s3);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s2);
+}
+.bn-demo-tile__badge {
+	position: absolute;
+	inset-block-start: var(--bn-a-s3);
+	inset-inline-end: var(--bn-a-s3);
+}
+.bn-demo-tile__name { padding-inline-end: var(--bn-a-s16, 6rem); }
+.bn-demo-tile__name {
+	margin: 0;
+	font-size: var(--bn-a-text-base);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+}
+.bn-demo-tile__desc,
+.bn-demo-tile__ready { margin: 0; font-size: var(--bn-a-text-sm); color: var(--bn-a-text-2); }
+.bn-demo-tile__ready { color: var(--bn-a-text-3); }
+.bn-demo-tile__actions {
+	margin-block-start: auto;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-a-s3);
+}
+.bn-demo-tile__film { font-size: var(--bn-a-text-sm); }
+.bn-demo-tiles__more { margin: var(--bn-a-s3) 0 0; }
+
+/* Phones: the install action drops under the text, full width at a 44px tap target. */
+@media ( max-width: 600px ) {
+	.bn-demo-installer__action [data-bn-gh-go],
+	.bn-demo-installer__action > .bn-btn,
+	.bn-demo-tile__actions .bn-btn {
+		inline-size: 100%;
+		min-block-size: 44px;
+		justify-content: center;
+	}
+	.bn-gh-fallback [data-bn-gh-check],
+	.bn-gh-fallback [data-bn-gh-retry] { min-block-size: 44px; }
+	.bn-demo-tile__film,
+	.bn-demo-tiles__more a { display: inline-flex; align-items: center; min-block-size: 44px; }
+}
