@@ -601,7 +601,7 @@ class JetonomyBridge {
 		$anonymous = ! empty( $post->is_anonymous );
 		// A space whose Discussions are switched off keeps the forum's data but shows none of it:
 		// no card, no search row. Switching back on republishes both.
-		$off       = $this->discussion_switched_off( $space_id );
+		$off       = $this->discussions_off( $this->space_id_for_forum( $space_id ) );
 		$is_public = ! $off && $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status, $anonymous );
 
 		// Search index: drop, then re-index while published. A private topic keeps a
@@ -1189,17 +1189,13 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Whether the owner has explicitly switched a forum's space to Discussions off.
+	 * Whether the owner explicitly switched a space's Discussions off. A missing flag (a space
+	 * linked before it existed) is not off, so its forum is never closed for lack of a flag.
 	 *
-	 * Only an explicit off counts: a space linked before the flag existed has none, and
-	 * its forum must not be closed because a flag is missing.
-	 *
-	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $space_id BuddyNext space ID.
 	 * @return bool
 	 */
-	private function discussion_switched_off( int $forum_id ): bool {
-		$space_id = $this->space_id_for_forum( $forum_id );
-
+	private function discussions_off( int $space_id ): bool {
 		return $space_id > 0 && '0' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
 	}
 
@@ -1992,12 +1988,8 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Whether this bridge made the forum for the space, not an owner or an add-on.
-	 *
-	 * New forums carry their id as a marker, and only the CURRENT link counts, so a forum
-	 * linked later is never taken for the one provisioned earlier. A forum from before the
-	 * marker is accepted only when every sign says the bridge made it: its slug is the one
-	 * provisioning generates, and it was created no earlier than the space.
+	 * Whether the bridge made the forum for this space. A forum from before the marker counts only
+	 * when its slug is the one provisioning generates and it was created no earlier than the space.
 	 *
 	 * @param int $space_id BuddyNext space ID.
 	 * @param int $forum_id Linked Jetonomy forum.
@@ -2024,12 +2016,9 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Close a deleted space's forum to the public at once, then remove it if it is ours.
-	 *
-	 * Closed first because Jetonomy's own purge works in batches and leaves the forum listed
-	 * until the last one. Safe to run twice: a big space fires its deleting event again when its
-	 * background deletion ends. The purge is only called on a Jetonomy that removes topics with
-	 * the forum (2.0.3 and later); an older one would orphan them, so there the forum stays hidden.
+	 * Close a deleted space's forum at once, then remove it if it is ours. Safe to run twice (a big
+	 * space fires this again when its background deletion ends). Below Jetonomy 2.0.3 a delete would
+	 * orphan every topic, so there the forum only stays hidden.
 	 *
 	 * @since 1.3.1
 	 *
@@ -2127,11 +2116,8 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Purge the community index and a forum's own page from the page cache.
-	 *
-	 * Guests are served cached copies, so a forum that was closed or removed stayed listed, and its
-	 * link a 404, until the cache expired. Also clears the guest and admin copies of Jetonomy's own
-	 * sidebar list, which lists topics from hidden forums for five minutes.
+	 * Purge the community pages from the page cache, and Jetonomy's own sidebar list (kept five
+	 * minutes, not cleared when a forum is hidden), so guests stop seeing a closed forum.
 	 *
 	 * @param int $forum_id Jetonomy forum id.
 	 * @return void
@@ -2260,7 +2246,7 @@ class JetonomyBridge {
 
 		// The space decides the forum's state: open, read-only while archived, closed while
 		// it is being deleted or its Discussions are off. Without this a type change reopened a forum the delete had hidden.
-		if ( \BuddyNext\Spaces\SpaceService::is_deleting( $space_id ) || '0' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' ) ) {
+		if ( \BuddyNext\Spaces\SpaceService::is_deleting( $space_id ) || $this->discussions_off( $space_id ) ) {
 			$want   = 'hidden';
 			$status = 'locked';
 		} else {
