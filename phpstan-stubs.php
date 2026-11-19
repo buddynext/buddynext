@@ -18,8 +18,8 @@
 namespace WP_CLI\Utils {
 	if ( ! function_exists( 'WP_CLI\\Utils\\format_items' ) ) {
 		/**
-		 * @param string               $format Output format (table|csv|json|yaml|count|ids).
-		 * @param array<int,mixed>      $items  Rows to render.
+		 * @param string                   $format Output format (table|csv|json|yaml|count|ids).
+		 * @param array<int,mixed>         $items  Rows to render.
 		 * @param array<int,string>|string $fields Columns.
 		 * @return void
 		 */
@@ -151,6 +151,9 @@ namespace WPMediaVerse\Core {
 		class TemplateHelpers {
 			public static function can_post_story(): bool { // phpcs:ignore
 				return true;
+			}
+			public static function stories_available(): bool { // phpcs:ignore
+				return false;
 			}
 			public static function story_length_label(): string { // phpcs:ignore
 				return '24 hours';
