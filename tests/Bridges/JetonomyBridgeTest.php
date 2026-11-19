@@ -1238,6 +1238,43 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( $first, $lookup->invoke( $this->bridge, 4242 ) );
 		$this->assertSame( array( 4242 => array( $first, $second ) ), JetonomyBridge::duplicate_forum_links() );
 	}
+
+	/**
+	 * A deleted space's forum is purged only when the bridge made it for THAT space, left
+	 * alone when an add-on claimed it, and only hidden when anything else is in doubt.
+	 */
+	public function test_forum_fate_on_delete_never_destroys_a_forum_the_space_did_not_make(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$this->user_id,
+			array(
+				'name' => 'Fate',
+				'slug' => 'fate-space',
+				'type' => 'open',
+			)
+		);
+
+		$this->assertSame( 'none', $this->bridge->forum_fate_on_delete( $space_id ), 'No forum, nothing to do.' );
+
+		update_space_meta( $space_id, 'jetonomy_forum_id', 41 );
+		update_space_meta( $space_id, 'jetonomy_forum_provisioned', 41 );
+		$this->assertSame( 'purge', $this->bridge->forum_fate_on_delete( $space_id ), 'The forum the bridge made is removed.' );
+
+		// An older forum is linked later; the marker still names the first forum.
+		update_space_meta( $space_id, 'jetonomy_forum_id', 77 );
+		$this->assertSame( 'hide', $this->bridge->forum_fate_on_delete( $space_id ), 'A relinked older forum is never purged.' );
+
+		// A forum from before the marker existed, with nothing proving it is ours.
+		update_space_meta( $space_id, 'jetonomy_forum_provisioned', 0 );
+		$this->assertSame( 'hide', $this->bridge->forum_fate_on_delete( $space_id ), 'No proof, no purge.' );
+
+		// A course (or any add-on) claims the forum the bridge made.
+		update_space_meta( $space_id, 'jetonomy_forum_id', 41 );
+		update_space_meta( $space_id, 'jetonomy_forum_provisioned', 41 );
+		$claim = static fn() => true;
+		add_filter( 'buddynext_space_forum_claimed', $claim );
+		$this->assertSame( 'unlink', $this->bridge->forum_fate_on_delete( $space_id ), 'A claimed forum outlives the space.' );
+		remove_filter( 'buddynext_space_forum_claimed', $claim );
+	}
 }
 
 namespace Jetonomy\Models;

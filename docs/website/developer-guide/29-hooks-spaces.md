@@ -53,6 +53,7 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_unarchived` | action | A space is unarchived | `int $space_id, int $actor_id` |
 | `buddynext_space_ownership_transferred` | action | A space's ownership moves to a new owner | `int $space_id, int $new_owner_id, int $actor_id, int $previous_owner_id` |
 | `buddynext_space_deleted` | action | A space is deleted; for a big space this fires once, when the last background job finishes | `int $space_id, int $user_id` |
+| `buddynext_space_deleting` | action | A space is about to be torn down, while its links and settings still exist; may fire twice for a big space | `int $space_id, int $user_id` |
 | `buddynext_space_delete_queued` | action | A space with more posts than one chunk is hidden at once and queued for background deletion | `int $space_id, int $user_id` |
 | `buddynext_space_delete_chunk_size` | filter | Posts removed per background deletion job (default 100) | `int $size` |
 

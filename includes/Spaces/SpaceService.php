@@ -1643,6 +1643,21 @@ class SpaceService {
 	private function purge_space( int $space_id, int $user_id, array $space ): bool {
 		global $wpdb;
 
+		/**
+		 * Fires just before a space is torn down, while its links and settings still exist.
+		 *
+		 * The deleted and purge actions fire after the space's meta is gone, so an
+		 * integration that needs what the space was linked to (the Jetonomy forum, a
+		 * course) reads it here. A big space also fires this, and again at the end of
+		 * its background deletion, so a listener must be safe to run twice.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param int $space_id Space about to be removed.
+		 * @param int $user_id  Member who asked for the deletion.
+		 */
+		do_action( 'buddynext_space_deleting', $space_id, $user_id );
+
 		// Capture every user whose membership / ban cache must be flushed once the
 		// space and its rows are gone — the bulk deletes below fire no per-user
 		// hooks, so cached role / status / ban entries would otherwise survive the

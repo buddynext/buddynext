@@ -189,6 +189,12 @@ class JetonomyBridge {
 		// alone would let the leak back in the first time an owner locks a
 		// space down.
 		add_action( 'buddynext_space_updated', array( $this, 'sync_discussion_visibility' ), 10, 3 );
+
+		// The forum follows the space's lifecycle, not only its type: archived, being deleted.
+		add_action( 'buddynext_space_archived', array( $this, 'sync_discussion_visibility' ), 10, 1 );
+		add_action( 'buddynext_space_unarchived', array( $this, 'sync_discussion_visibility' ), 10, 1 );
+		add_action( 'buddynext_space_delete_queued', array( $this, 'retire_space_forum' ), 10, 1 );
+		add_action( 'buddynext_space_deleting', array( $this, 'retire_space_forum' ), 10, 1 );
 		add_action( 'buddynext_async_reindex_forum_discussions', array( $this, 'reindex_forum_discussions' ), 10, 2 );
 		// The space's "who can post" holds in its forum too.
 		add_action( 'buddynext_space_fields_saved', array( $this, 'sync_discussion_posting' ), 10, 2 );
@@ -1352,6 +1358,14 @@ class JetonomyBridge {
 	private const UNLINKED_META = 'jetonomy_unlinked_forums';
 
 	/**
+	 * Space meta holding the id of the forum this bridge created for the space. Only that
+	 * forum may be removed with the space; one an owner linked or an add-on adopted is not.
+	 *
+	 * @var string
+	 */
+	private const PROVISIONED_META = 'jetonomy_forum_provisioned';
+
+	/**
 	 * Forums this space has unlinked, oldest first.
 	 *
 	 * @param int $space_id BuddyNext space.
@@ -1921,6 +1935,126 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * What happens to a space's forum when the space is deleted.
+	 *
+	 * 'purge': the bridge made it for this space, so it goes with it. 'hide': an owner linked
+	 * it, so it is closed to the public and locked but its content is kept. 'unlink': an
+	 * add-on claimed it (a course discussion), so it is left exactly as it is. 'none': no forum.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return string purge | hide | unlink | none
+	 */
+	public function forum_fate_on_delete( int $space_id ): string {
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 ) {
+			return 'none';
+		}
+
+		/**
+		 * Whether an add-on has claimed a space's forum as its own (a course discussion).
+		 *
+		 * A claimed forum outlives the space: deleting the community only unlinks it.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param bool $claimed  Whether the forum belongs to something other than the space.
+		 * @param int  $space_id BuddyNext space ID.
+		 * @param int  $forum_id Linked Jetonomy forum.
+		 */
+		if ( apply_filters( 'buddynext_space_forum_claimed', false, $space_id, $forum_id ) ) {
+			return 'unlink';
+		}
+
+		return $this->forum_made_for_space( $space_id, $forum_id ) ? 'purge' : 'hide';
+	}
+
+	/**
+	 * Whether this bridge made the forum for the space, not an owner or an add-on.
+	 *
+	 * New forums carry their id as a marker, and only the CURRENT link counts, so a forum
+	 * linked later is never taken for the one provisioned earlier. A forum from before the
+	 * marker is accepted only when every sign says the bridge made it: its slug is the one
+	 * provisioning generates, and it was created no earlier than the space.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @param int $forum_id Linked Jetonomy forum.
+	 * @return bool
+	 */
+	private function forum_made_for_space( int $space_id, int $forum_id ): bool {
+		$marked = (int) buddynext_get_space_field( $space_id, self::PROVISIONED_META );
+		if ( $marked > 0 ) {
+			return $marked === $forum_id;
+		}
+
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		$forum = is_callable( array( '\Jetonomy\Models\Space', 'find' ) ) ? \Jetonomy\Models\Space::find( $forum_id ) : null;
+		if ( null === $space || null === $forum || empty( $space['slug'] ) ) {
+			return false;
+		}
+
+		$slug       = (string) $forum->slug;
+		$forum_born = (int) strtotime( (string) ( $forum->created_at ?? '' ) );
+		$space_born = (int) strtotime( (string) ( $space['created_at'] ?? '' ) );
+
+		return ( $slug === $space['slug'] || $slug === $space['slug'] . '-' . $space_id )
+			&& $forum_born > 0 && $space_born > 0 && $forum_born >= $space_born - MINUTE_IN_SECONDS;
+	}
+
+	/**
+	 * Close a deleted space's forum to the public at once, then remove it if it is ours.
+	 *
+	 * Closed first because Jetonomy's own purge works in batches and leaves the forum listed
+	 * until the last one. Safe to run twice: a big space fires its deleting event again when its
+	 * background deletion ends. The purge is only called on a Jetonomy that removes topics with
+	 * the forum (2.0.3 and later); an older one would orphan them, so there the forum stays hidden.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $space_id BuddyNext space ID.
+	 * @return void
+	 */
+	public function retire_space_forum( $space_id ): void {
+		$space_id = (int) $space_id;
+		$fate     = $this->forum_fate_on_delete( $space_id );
+		if ( in_array( $fate, array( 'none', 'unlink' ), true ) || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return;
+		}
+
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( null === \Jetonomy\Models\Space::find( $forum_id ) ) {
+			return;
+		}
+
+		\Jetonomy\Models\Space::update(
+			$forum_id,
+			array(
+				'visibility' => 'hidden',
+				'status'     => 'locked',
+			)
+		);
+
+		// The forum's topics were indexed under this space; Jetonomy's bulk purge fires no
+		// per-topic hook, so the rows would outlive both the forum and the space.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_search_index',
+			array(
+				'object_type' => 'discussion',
+				'space_id'    => $space_id,
+			),
+			array( '%s', '%d' )
+		);
+		$this->invalidate_space_caches( $forum_id );
+
+		if ( 'purge' === $fate && defined( 'JETONOMY_VERSION' ) && version_compare( JETONOMY_VERSION, '2.0.3', '>=' ) ) {
+			\Jetonomy\Models\Space::delete( $forum_id );
+		}
+	}
+
+	/**
 	 * Unlink a space's Discussion (owner opt-out). Clears the link only: the
 	 * Jetonomy discussion, its posts and its members stay as they are, and the
 	 * space keeps every member it has, including those copied in from the forum
@@ -2023,12 +2157,24 @@ class JetonomyBridge {
 			return;
 		}
 
+		// The space decides the forum's state: open, read-only while archived, closed while
+		// it is being deleted. Without this a type change reopened a forum the delete had hidden.
+		if ( \BuddyNext\Spaces\SpaceService::is_deleting( $space_id ) ) {
+			$want   = 'hidden';
+			$status = 'locked';
+		} else {
+			$status = ! empty( $space['is_archived'] ) ? 'archived' : 'active';
+		}
+
 		// Visibility and join policy move together: the forum is only as open as
 		// the space. Writing visibility alone left a reopened space's forum on
 		// "approval" and a newly linked public forum open to anyone.
 		$change = array();
 		if ( (string) ( $jt->visibility ?? '' ) !== $want ) {
 			$change['visibility'] = $want;
+		}
+		if ( (string) ( $jt->status ?? '' ) !== $status ) {
+			$change['status'] = $status;
 		}
 		if ( (string) ( $jt->join_policy ?? '' ) !== $join ) {
 			$change['join_policy'] = $join;
@@ -2251,6 +2397,7 @@ class JetonomyBridge {
 
 		if ( $forum_id > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+			update_space_meta( $space_id, self::PROVISIONED_META, $forum_id );
 			$this->apply_discussion_posting( $space_id, false );
 
 			// Provisioning a forum IS the intent to use it: the Discussions tab

@@ -298,7 +298,8 @@ if ( ! class_exists( 'Member_Blog_Compat' ) ) {
 	 * actually loaded — it is NOT loaded on a BuddyNext profile page, which is why
 	 * MemberBlogBridge falls back to the plugin's configured dashboard page.
 	 */
-	class Member_Blog_Compat { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- Partner plugin's own class name.
+	class Member_Blog_Compat {
+ // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- Partner plugin's own class name.
 
 		/**
 		 * Front-end dashboard URL for a member.
@@ -382,6 +383,14 @@ if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 			 * @return int
 			 */
 			public static function create( $data, $author_id = 0 ) { return 0; }
+
+			/**
+			 * Remove a discussion and, from Jetonomy 2.0.3, its topics in batches.
+			 *
+			 * @param int $id Discussion id.
+			 * @return bool|\\WP_Error
+			 */
+			public static function delete( $id ) { return false; }
 		}'
 	);
 	// phpcs:enable
