@@ -1825,7 +1825,8 @@ class AdminHub {
 		echo '<div class="bn-admin-hub__shell">';
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
-		$this->render_header( (string) $active['label'] );
+		// Home does not repeat its name as a visible title: the top bar and the rail already say it.
+		$this->render_header( (string) $active['label'], 'get-started' === $section_key && 'home' === $active_slug );
 		$this->render_subhead( $active );
 		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );
 		printf( '<main class="%s" id="bn-admin-hub-panel" role="region" tabindex="0">', esc_attr( $main_classes ) );
@@ -2280,12 +2281,13 @@ class AdminHub {
 	/**
 	 * Render the section page header (single H1, no sub-text).
 	 *
-	 * @param string $label Section label.
+	 * @param string $label           Section label.
+	 * @param bool   $visually_hidden Keep the H1 for screen readers but do not show it.
 	 * @return void
 	 */
-	private function render_header( string $label ): void {
-		echo '<header class="bn-admin-hub__header">';
-		echo '<h1 class="bn-admin-hub__title">' . esc_html__( $label, 'buddynext' ) . '</h1>'; // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
+	private function render_header( string $label, bool $visually_hidden = false ): void {
+		echo '<header class="bn-admin-hub__header' . ( $visually_hidden ? ' is-title-hidden' : '' ) . '">';
+		echo '<h1 class="bn-admin-hub__title' . ( $visually_hidden ? ' screen-reader-text' : '' ) . '">' . esc_html__( $label, 'buddynext' ) . '</h1>'; // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
 		echo '</header>';
 		// WordPress core hoists admin notices to just after the first <h1>, which
 		// here lands them inside the flex header and squishes them to a sliver.

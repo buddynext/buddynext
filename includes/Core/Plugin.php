@@ -335,6 +335,7 @@ class Plugin {
 					$container->get( 'admin_email_editor' )->register();
 					( new \BuddyNext\Admin\EmailLog() )->register();
 					( new \BuddyNext\Admin\GetStartedScreen() )->register();
+					( new \BuddyNext\Admin\SetupVideosScreen() )->register();
 					( new \BuddyNext\Admin\SetupChecklist() )->register();
 					$container->get( 'setup_wizard' )->init();
 					( new \BuddyNext\Demo\DemoAdmin() )->register();
