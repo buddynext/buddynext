@@ -1654,6 +1654,11 @@ class ModerationQueue {
 			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_comments WHERE id = %d", $object_id ) );
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// A kind an integration owns (media): the same author seam the front queue
+		// and the takedown notice use, so Strike and Suspend reach the right member.
+		if ( ! in_array( $object_type, array( 'user', 'space', 'message' ), true ) ) {
+			return (int) apply_filters( 'buddynext_removed_content_author', 0, $object_type, $object_id );
+		}
 		return 0;
 	}
 

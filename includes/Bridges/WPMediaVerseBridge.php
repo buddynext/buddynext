@@ -298,6 +298,11 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_safety_refuses', array( $this, 'bn_block_refuses_media' ), 10, 4 );
 		add_filter( 'mvs_blocked_either_way_ids', array( $this, 'bn_blocked_ids' ), 10, 2 );
 
+		// A media report lands in the one BuddyNext moderation queue, where the
+		// moderator's Remove, Warn, Strike and Suspend already work. MediaVerse
+		// keeps its own row (it owns the duplicate check and the auto-hide count).
+		add_action( 'mvs_report_submitted', array( $this, 'queue_media_report' ), 10, 5 );
+
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
 		// event whose only native listener (the MVS chat panel) is suppressed
 		// while BN owns /messages/. Enqueue a tiny listener that routes the click
@@ -2342,6 +2347,41 @@ class WPMediaVerseBridge {
 		} finally {
 			$this->mirroring_follow = false;
 		}
+	}
+
+	/**
+	 * Copy a media report into the BuddyNext moderation queue.
+	 *
+	 * MediaVerse reasons BuddyNext does not list are folded into the nearest one,
+	 * with the original named in the note so the moderator still sees it.
+	 *
+	 * @param int    $report_id   MediaVerse report id.
+	 * @param int    $reporter_id Reporter.
+	 * @param string $target_type Reported kind; only media is queued here.
+	 * @param int    $target_id   Media id.
+	 * @param string $reason      MediaVerse reason.
+	 * @return void
+	 */
+	public function queue_media_report( $report_id, $reporter_id, $target_type, $target_id, $reason ): void {
+		if ( 'media' !== $target_type || (int) $reporter_id <= 0 ) {
+			return;
+		}
+
+		$map    = array(
+			'nudity'    => 'inappropriate',
+			'violence'  => 'inappropriate',
+			'copyright' => 'other',
+		);
+		$reason = sanitize_key( (string) $reason );
+		$mapped = $map[ $reason ] ?? $reason;
+		$note   = isset( $map[ $reason ] )
+			/* translators: %s: the reason the member picked in the media report form. */
+			? sprintf( __( 'Reported on a photo or video as: %s', 'buddynext' ), $reason )
+			: '';
+
+		// A duplicate or rate-limited copy is not an error for the member: the
+		// MediaVerse report already went through.
+		buddynext_service( 'moderation' )->report( (int) $reporter_id, 'media', (int) $target_id, $mapped, 0, $note );
 	}
 
 	/**

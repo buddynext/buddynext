@@ -96,6 +96,30 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A media report becomes a row in the BuddyNext queue; a MediaVerse-only reason
+	 * folds into the nearest BuddyNext one and keeps its name in the note; other
+	 * kinds of report are left to MediaVerse.
+	 */
+	public function test_media_report_lands_in_the_buddynext_queue(): void {
+		global $wpdb;
+		$reporter = self::factory()->user->create();
+		$exists   = static fn( $found, $type, $id ) => 'media' === $type && 9002 === $id ? true : $found;
+		add_filter( 'buddynext_object_exists', $exists, 20, 3 );
+
+		$this->bridge->queue_media_report( 1, $reporter, 'user', 9002, 'spam' );
+		$this->assertSame( 0, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE reporter_id = %d", $reporter ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		$this->bridge->queue_media_report( 1, $reporter, 'media', 9002, 'violence' );
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT object_type, object_id, reason, notes FROM {$wpdb->prefix}bn_reports WHERE reporter_id = %d", $reporter ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		remove_filter( 'buddynext_object_exists', $exists, 20 );
+
+		$this->assertSame( 'media', $row['object_type'] );
+		$this->assertSame( '9002', $row['object_id'] );
+		$this->assertSame( 'inappropriate', $row['reason'] );
+		$this->assertStringContainsString( 'violence', $row['notes'] );
+	}
+
+	/**
 	 * A BuddyNext block closes the blocker's media to the blocked member only, and
 	 * hides either side from the other's lists.
 	 */
