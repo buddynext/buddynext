@@ -54,6 +54,27 @@ class WidgetServiceTest extends \WP_UnitTestCase {
 		$this->assertIsArray( $rows );
 	}
 
+	public function test_joined_spaces_shows_the_current_member_count_not_the_cached_one(): void {
+		global $wpdb;
+		$uid = self::factory()->user->create();
+		$wpdb->insert( $wpdb->prefix . 'bn_spaces', array( 'name' => 'Cached Count', 'slug' => 'cached-count', 'type' => 'open', 'owner_id' => $uid, 'member_count' => 253 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$sid = (int) $wpdb->insert_id;
+		$wpdb->insert( $wpdb->prefix . 'bn_space_members', array( 'space_id' => $sid, 'user_id' => $uid, 'role' => 'member', 'status' => 'active' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+
+		$first = $this->service->joined_spaces( $uid, 4 );
+		$this->assertSame( 253, (int) $first[0]->member_count );
+
+		// Other people join: the stored count moves, the viewer's cached rows do not.
+		$wpdb->update( $wpdb->prefix . 'bn_spaces', array( 'member_count' => 328 ), array( 'id' => $sid ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+
+		$second = $this->service->joined_spaces( $uid, 4 );
+		$this->assertSame( 328, (int) $second[0]->member_count, 'The rail must show the live count while the rows come from the cache.' );
+		$this->assertSame( $sid, (int) $second[0]->id );
+
+		$wpdb->delete( $wpdb->prefix . 'bn_space_members', array( 'space_id' => $sid ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$wpdb->delete( $wpdb->prefix . 'bn_spaces', array( 'id' => $sid ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+	}
+
 	public function test_invalidate_trending_bursts_default_limit_key(): void {
 		// Seed the cache then invalidate; second call must re-query (we
 		// can't easily assert a query count without a hook, but we can

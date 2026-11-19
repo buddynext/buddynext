@@ -401,7 +401,7 @@ class WidgetService {
 	public function joined_spaces( int $user_id, int $limit = 4 ): array {
 		$user_id = max( 0, $user_id );
 		$limit   = max( 1, min( $limit, 20 ) );
-		return (array) $this->cache->get(
+		$rows    = (array) $this->cache->get(
 			WidgetCache::key_spaces( $user_id, $limit ),
 			WidgetCache::GROUP_USER,
 			WidgetCache::TTL_USER,
@@ -474,6 +474,46 @@ class WidgetService {
 				return is_array( $rows ) ? $rows : array();
 			}
 		);
+
+		return $this->with_live_member_counts( $rows );
+	}
+
+	/**
+	 * Put the current member count on rows read from the per-user cache.
+	 *
+	 * The cached rows hold which spaces the viewer is in, their names and order. The member count is
+	 * the one field that other people change (every join and leave), and it cannot be cleared per viewer
+	 * when someone joins a space of 100k members, so a viewer kept reading the number from the day the
+	 * row was cached. One primary-key lookup on at most 20 ids reads it fresh.
+	 *
+	 * @param array<int,object> $rows Rows from the cache.
+	 * @return array<int,object>
+	 */
+	private function with_live_member_counts( array $rows ): array {
+		$ids = array_values( array_filter( array_map( static fn( $row ): int => is_object( $row ) ? (int) ( $row->id ?? 0 ) : 0, $rows ) ) );
+		if ( empty( $ids ) ) {
+			return $rows;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$live = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT id, member_count FROM ' . $wpdb->prefix . 'bn_spaces WHERE id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')',
+				$ids
+			),
+			OBJECT_K
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		foreach ( $rows as $i => $row ) {
+			if ( is_object( $row ) && isset( $live[ (int) ( $row->id ?? 0 ) ] ) ) {
+				$row               = clone $row;
+				$row->member_count = (int) $live[ (int) $row->id ]->member_count;
+				$rows[ $i ]        = $row;
+			}
+		}
+		return $rows;
 	}
 
 	/**
