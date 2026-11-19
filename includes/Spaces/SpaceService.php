@@ -875,6 +875,12 @@ class SpaceService {
 		if ( ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to archive this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
+		// A space being deleted in the background is archived by that process; it must
+		// not be brought back half emptied. Deleting it again finishes the job.
+		if ( ! $archived && self::is_deleting( $space_id ) ) {
+			return new WP_Error( 'space_deleting', __( 'This space is being deleted. Delete it again to finish.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
 		if ( ! empty( $space['is_archived'] ) === $archived ) {
 			return true; // Already in the requested state.
 		}

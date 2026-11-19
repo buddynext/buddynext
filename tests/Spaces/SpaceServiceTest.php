@@ -552,6 +552,12 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 5, $this->posts_in( $space_id ) );
 		$this->assertTrue( as_has_scheduled_action( SpaceService::DELETE_HOOK, array( $space_id, $this->owner_id, 0 ), 'buddynext' ) );
 
+		// Half-deleted, it can only be finished: never brought back.
+		$restored = $this->service->unarchive( $space_id, $this->owner_id );
+		$this->assertWPError( $restored );
+		$this->assertSame( 'space_deleting', $restored->get_error_code() );
+		$this->assertTrue( SpaceService::is_deleting( $space_id ) );
+
 		// First job removes one chunk and has already queued the next link.
 		$this->service->run_delete_chunk( $space_id, $this->owner_id, 0 );
 		$this->assertSame( 3, $this->posts_in( $space_id ) );

@@ -569,7 +569,9 @@ class Spaces extends AdminPageBase {
 											<?php if ( in_array( (int) $space['id'], $bn_featured_ids, true ) ) : ?>
 												<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Featured', 'buddynext' ); ?></span>
 											<?php endif; ?>
-											<?php if ( ! empty( $space['is_archived'] ) ) : ?>
+											<?php if ( ! empty( $space['is_deleting'] ) ) : ?>
+												<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Deleting', 'buddynext' ); ?></span>
+											<?php elseif ( ! empty( $space['is_archived'] ) ) : ?>
 												<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
 											<?php endif; ?>
 											<?php if ( '' !== (string) $space['parent_name'] ) : ?>
@@ -655,6 +657,8 @@ class Spaces extends AdminPageBase {
 													<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
 												</button>
 												<div class="bn-more-dropdown" role="menu">
+													<?php $bn_is_deleting = ! empty( $space['is_deleting'] ); ?>
+													<?php if ( ! $bn_is_deleting ) : // A half-deleted space can only be finished, never brought back. ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 														<?php wp_nonce_field( 'bn_archive_space' ); ?>
 														<input type="hidden" name="action" value="bn_archive_space">
@@ -664,8 +668,9 @@ class Spaces extends AdminPageBase {
 															<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
 														</button>
 													</form>
+													<?php endif; ?>
 													<?php // Featured lists show top-level spaces only; a sub-space offers Unfeature only if it was featured before 1.2.8. ?>
-													<?php if ( $bn_is_featured || empty( $space['parent_id'] ) ) : ?>
+													<?php if ( ! $bn_is_deleting && ( $bn_is_featured || empty( $space['parent_id'] ) ) ) : ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 														<?php wp_nonce_field( 'bn_feature_space' ); ?>
 														<input type="hidden" name="action" value="bn_feature_space">
@@ -677,12 +682,14 @@ class Spaces extends AdminPageBase {
 													</form>
 													<?php endif; ?>
 													<?php // Change owner opens a small dialog that asks who; the dialog's own form posts bn_transfer_space. ?>
+													<?php if ( ! $bn_is_deleting ) : ?>
 													<button type="button" class="bn-dropdown-item" role="menuitem"
 															data-bn-owner-trigger
 															data-space-id="<?php echo esc_attr( (string) $space['id'] ); ?>"
 															data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
 														<?php esc_html_e( 'Change owner', 'buddynext' ); ?>
 													</button>
+													<?php endif; ?>
 													<form method="post"
 															action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 															class="bn-delete-space-form">
@@ -694,7 +701,7 @@ class Spaces extends AdminPageBase {
 																role="menuitem"
 																data-bn-delete-space-trigger
 																data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
-															<?php esc_html_e( 'Delete', 'buddynext' ); ?>
+															<?php $bn_is_deleting ? esc_html_e( 'Finish deleting', 'buddynext' ) : esc_html_e( 'Delete', 'buddynext' ); ?>
 														</button>
 													</form>
 												</div>
@@ -1018,7 +1025,8 @@ class Spaces extends AdminPageBase {
 					</button>
 				</header>
 				<div class="bn-modal__body">
-					<p><?php esc_html_e( 'This will permanently delete the space and all of its member associations. This cannot be undone.', 'buddynext' ); ?></p>
+					<p><?php esc_html_e( 'This permanently deletes the space, all of its posts, and all member relationships. This cannot be undone.', 'buddynext' ); ?></p>
+					<p><?php esc_html_e( 'A big space disappears at once and is cleared away in the background, which can take a few minutes. Not sure? Close this and use Archive instead: it keeps everything and makes the space read-only.', 'buddynext' ); ?></p>
 				</div>
 				<div class="bn-modal__foot">
 					<button
@@ -1192,6 +1200,11 @@ class Spaces extends AdminPageBase {
 		// one query each — no per-row N+1 on the admin list.
 		$page_ids = array_map( static fn( array $s ): int => $s['id'], $spaces );
 		if ( $page_ids ) {
+			// One query for the whole page, so the per-row "being deleted" check reads cache.
+			update_meta_cache( 'bn_space', $page_ids );
+			foreach ( $spaces as $bn_idx => $bn_row ) {
+				$spaces[ $bn_idx ]['is_deleting'] = \BuddyNext\Spaces\SpaceService::is_deleting( (int) $bn_row['id'] );
+			}
 			$ids_in = implode( ',', array_map( 'absint', $page_ids ) );
 
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
