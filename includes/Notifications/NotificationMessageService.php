@@ -429,6 +429,10 @@ class NotificationMessageService {
 						return __( 'Your message was removed by a moderator.', 'buddynext' );
 					case 'post':
 						return __( 'Your post was removed by a moderator.', 'buddynext' );
+					case 'jetonomy_topic':
+						return __( 'Your discussion was removed by a moderator.', 'buddynext' );
+					case 'jetonomy_reply':
+						return __( 'Your reply in a discussion was removed by a moderator.', 'buddynext' );
 					default:
 						return __( 'Something you posted was removed by a moderator.', 'buddynext' );
 				}

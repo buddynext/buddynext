@@ -139,8 +139,13 @@ Routes Jetonomy forum events into BuddyNext search, the activity feed, the navig
 | `jetonomy_after_delete_post` | action (`$post_id`) | A discussion is purged | `on_post_hard_deleted` |
 | `jetonomy_reply_publish_transition` | action (`$reply_id`, `$delta`, `$created_at`) | A reply enters or leaves `publish` | `sync_reply_mirror` |
 | `jetonomy_reply_updated` | action (`$reply_id`, ...) | A reply is edited | `sync_reply_edit_to_feed` |
+| `jetonomy_after_create_flag` | action (`$flag`, `$context`) | A member flags a topic or reply | `queue_forum_flag` |
+| `jetonomy_flag_resolved` | action (`$flag_id`, `$status`, `$user_id`) | A forum moderator resolves a flag | `close_bn_report_for_flag` |
+| `jetonomy_content_moderated` | action (`$action`, `$type`, `$id`, `$user_id`) | A topic or reply is approved, marked spam or trashed by a moderator | `close_bn_report_for_moderated` |
 
 `sync_discussion()` reads the discussion as it is now, so every path gives the same answer. A published topic is indexed into `bn_search_index` as `object_type = 'discussion'` (visibility `public`, or `private` for a private topic). A published topic in a public forum gets a `discussion` feed card via `Feed\IntegrationActivity`: a withdrawn card is restored with its date, reactions and comments, an existing card is refreshed, and a topic with no card (for example one just approved) gets its first. Anything not published loses its search row and its card is withdrawn (hidden, not deleted), so a restore brings the same card back. A purge removes the card and its comments. The discussion URL is rebuilt from the `jt_posts` / `jt_spaces` slugs as `{base}/s/{space}/t/{post}/`.
+
+A member's flag on a topic or reply is copied into the BuddyNext moderation queue as a `jetonomy_topic` or `jetonomy_reply` report (an automatic flag, or a flag on a member, is not). Remove content trashes the item through Jetonomy's system moderation entry, so a BuddyNext moderator needs no forum capability; removing a reported discussion card or mirrored comment trashes its forum twin too. Closing a report on either side closes the other, and a card and its topic (or a comment and its reply) close together so the same content cannot be struck twice. The queue labels a forum item by kind and forum only, never by its title.
 
 A reply's comment on the card follows the reply the same way: a new or approved reply is copied onto the card (as Jetonomy's plain-text copy, dated when the reply was written), a trashed or unapproved reply's comment is removed, and a restore brings back the same comment. Edits sync both ways.
 

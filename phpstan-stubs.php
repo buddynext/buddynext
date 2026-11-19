@@ -58,6 +58,16 @@ namespace Jetonomy {
 		}
 	}
 
+	if ( ! function_exists( 'Jetonomy\\table' ) ) {
+		/**
+		 * Stub for Jetonomy's table-name helper (includes/functions.php).
+		 * NotificationService calls it only after function_exists().
+		 */
+		function table( string $name ): string { // phpcs:ignore
+			return $name;
+		}
+	}
+
 	if ( ! function_exists( 'Jetonomy\\route_url' ) ) {
 		/**
 		 * Stub for Jetonomy's route helper. BuddyNext calls it only after
@@ -70,6 +80,20 @@ namespace Jetonomy {
 }
 
 namespace Jetonomy\Models {
+	if ( ! class_exists( 'Jetonomy\\Models\\Notification' ) ) {
+		/**
+		 * Stub for Jetonomy's notification model (signatures copied from Jetonomy 2.0.7
+		 * includes/models/class-notification.php). NotificationService calls it only
+		 * behind class_exists().
+		 */
+		class Notification { // phpcs:ignore
+			public static function mark_all_read( int $user_id ): void {} // phpcs:ignore
+			public static function mark_read_for_user( int $user_id, array $ids ): int { // phpcs:ignore
+				return 0;
+			}
+		}
+	}
+
 	if ( ! class_exists( 'Jetonomy\\Models\\SpaceMember' ) ) {
 		/**
 		 * Stub for Jetonomy's forum roster model (signatures copied from Jetonomy 2.0.2
@@ -88,6 +112,40 @@ namespace Jetonomy\Models {
 			}
 			public static function is_member( int $space_id, int $user_id ): bool { // phpcs:ignore
 				return false;
+			}
+		}
+	}
+
+	if ( ! class_exists( 'Jetonomy\\Models\\Flag' ) ) {
+		/**
+		 * Stub for Jetonomy's flag model (signatures copied from Jetonomy 2.0.7
+		 * includes/models/class-flag.php). JetonomyBridge calls it only from Jetonomy's
+		 * own hooks or behind class_exists().
+		 */
+		class Flag { // phpcs:ignore
+			public static function find( int $id ): ?object { // phpcs:ignore
+				return null;
+			}
+			public static function reason_labels(): array { // phpcs:ignore
+				return array();
+			}
+			public static function resolve_siblings_for( string $object_type, int $object_id, int $resolved_by, string $status, int $exclude_flag_id ): int { // phpcs:ignore
+				return 0;
+			}
+		}
+	}
+}
+
+namespace Jetonomy\Moderation {
+	if ( ! class_exists( 'Jetonomy\\Moderation\\Moderation_Service' ) ) {
+		/**
+		 * Stub for Jetonomy's moderation service (signature copied from Jetonomy 2.0.7
+		 * includes/moderation/class-moderation-service.php). JetonomyBridge calls it only
+		 * behind class_exists().
+		 */
+		class Moderation_Service { // phpcs:ignore
+			public static function system_set_object_status( string $type, int $id, string $action, int $actor_id = 0 ): \WP_Error|bool { // phpcs:ignore
+				return true;
 			}
 		}
 	}

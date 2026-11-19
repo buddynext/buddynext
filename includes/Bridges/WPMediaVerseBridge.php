@@ -2503,18 +2503,11 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		$moderation             = buddynext_service( 'moderation' );
-		$actor                  = get_current_user_id();
 		$this->mirroring_report = true;
 		try {
-			// An already-actioned or missing BuddyNext row answers with an error; that
-			// is fine, the two sides already agree.
-			$open = $moderation->open_report_id_for( 'media', (int) $target_id );
-			if ( $open > 0 ) {
-				'dismissed' === $status
-					? $moderation->dismiss( $open, $actor )
-					: $moderation->resolve( $open, $actor );
-			}
+			// MediaVerse already decided, so its moderator need not be a BuddyNext
+			// one. Nothing open means the two sides already agree.
+			buddynext_service( 'moderation' )->close_mirrored_reports( 'media', (int) $target_id, 'dismissed' === $status ? 'dismissed' : 'resolved', get_current_user_id() );
 		} finally {
 			$this->mirroring_report = false;
 		}

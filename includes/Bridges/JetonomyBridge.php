@@ -53,6 +53,41 @@ class JetonomyBridge {
 
 
 	/**
+	 * True only while a Jetonomy flag is being copied into the BuddyNext queue, so
+	 * forum types are reportable for that one report() call and never through the
+	 * member report route.
+	 *
+	 * @var bool
+	 */
+	private static bool $copying_flag = false;
+
+	/**
+	 * Echo guard for closing a report on both sides. Raised around every write
+	 * that fires the other side's close hook, so the close never bounces back.
+	 * Separate from self::$syncing on purpose: the comment and card sync must
+	 * still run while a moderator's removal trashes the forum item.
+	 *
+	 * @var bool
+	 */
+	private static bool $mirroring_report = false;
+
+	/**
+	 * Per-request forum item facts (author, forum id, forum title and visibility),
+	 * keyed "type:id". The queue asks for the author and the label once per row.
+	 *
+	 * @var array<string, array{author_id:int, space_id:int, title:string, visibility:string}|null>
+	 */
+	private array $forum_items = array();
+
+	/**
+	 * Jetonomy flag type => BuddyNext report type.
+	 */
+	private const BN_FORUM_TYPES = array(
+		'post'  => 'jetonomy_topic',
+		'reply' => 'jetonomy_reply',
+	);
+
+	/**
 	 * Object-cache group for the bridge's per-view count/list reads.
 	 */
 	private const CACHE_GROUP = 'buddynext_jetonomy';
@@ -328,6 +363,22 @@ class JetonomyBridge {
 		// (REST included); an older Jetonomy never calls them.
 		add_filter( 'jetonomy_user_is_silenced', array( $this, 'filter_jetonomy_user_is_silenced' ), 10, 2 );
 		add_filter( 'jetonomy_blocked_user_ids', array( $this, 'filter_jetonomy_blocked_user_ids' ), 10, 2 );
+
+		// One moderation queue: a member's flag on a topic or reply is copied into
+		// the BuddyNext queue, where Remove, Strike and Suspend work for a BuddyNext
+		// moderator who holds no forum capability. Closing on either side closes
+		// the other, and a card or comment report closes its forum twin's too.
+		add_action( 'jetonomy_after_create_flag', array( $this, 'queue_forum_flag' ), 10, 1 );
+		add_filter( 'buddynext_reportable_object_types', array( $this, 'reportable_forum_types' ) );
+		add_filter( 'buddynext_removable_object_types', array( $this, 'removable_forum_types' ) );
+		// Priority 9: a removed discussion card or mirrored comment trashes its
+		// forum twin before core takes the card or comment down at 10.
+		add_filter( 'buddynext_content_removal_handled', array( $this, 'remove_reported_forum_item' ), 9, 4 );
+		add_filter( 'buddynext_removed_content_author', array( $this, 'reported_forum_author' ), 10, 3 );
+		add_filter( 'buddynext_object_label', array( $this, 'forum_object_label' ), 10, 3 );
+		add_action( 'buddynext_reports_actioned', array( $this, 'close_forum_flags' ), 10, 4 );
+		add_action( 'jetonomy_flag_resolved', array( $this, 'close_bn_report_for_flag' ), 10, 3 );
+		add_action( 'jetonomy_content_moderated', array( $this, 'close_bn_report_for_moderated' ), 10, 4 );
 	}
 
 	/**
@@ -3307,6 +3358,373 @@ class JetonomyBridge {
 			return 0;
 		}
 		return ( new PostService() )->get_id_by_link( 'discussion', $url );
+	}
+
+	/**
+	 * Copy a member's forum flag into the BuddyNext moderation queue.
+	 *
+	 * Jetonomy reasons BuddyNext does not list are folded into the nearest one,
+	 * with the original named in the note. A duplicate or rate-limited copy just
+	 * makes no row: the member's forum report already went through.
+	 *
+	 * @param object $flag Jetonomy flag row (reporter_id, object_type, object_id, reason, description).
+	 * @return void
+	 */
+	public function queue_forum_flag( $flag ): void {
+		$reporter = (int) ( $flag->reporter_id ?? 0 );
+		$jt_type  = (string) ( $flag->object_type ?? '' );
+		$bn_type  = self::BN_FORUM_TYPES[ $jt_type ] ?? '';
+		$item_id  = (int) ( $flag->object_id ?? 0 );
+		if ( $reporter <= 0 || '' === $bn_type || $item_id <= 0 ) {
+			return; // An automatic flag, or a flagged member (BuddyNext has its own member reports).
+		}
+
+		$map    = array(
+			'offensive' => 'inappropriate',
+			'off_topic' => 'other',
+		);
+		$reason = sanitize_key( (string) ( $flag->reason ?? 'other' ) );
+		$note   = trim( (string) ( $flag->description ?? '' ) );
+		if ( isset( $map[ $reason ] ) ) {
+			$labels = class_exists( '\\Jetonomy\\Models\\Flag' ) && is_callable( array( \Jetonomy\Models\Flag::class, 'reason_labels' ) ) ? \Jetonomy\Models\Flag::reason_labels() : array();
+			$note   = trim(
+				/* translators: %s: the reason the member picked in the forum report form. */
+				sprintf( __( 'Reported in the forum as: %s', 'buddynext' ), (string) ( $labels[ $reason ] ?? $reason ) ) . "\n\n" . $note
+			);
+		}
+
+		self::$copying_flag = true;
+		try {
+			buddynext_service( 'moderation' )->report( $reporter, $bn_type, $item_id, $map[ $reason ] ?? $reason, 0, $note );
+		} finally {
+			self::$copying_flag = false;
+		}
+	}
+
+	/**
+	 * Accept forum types as report targets while a flag is copied in, and only then.
+	 *
+	 * Open to the member report route, any member could file a report on any topic
+	 * id, and the "your report was reviewed" notice could name a topic they cannot see.
+	 *
+	 * @param string[] $types Reportable types.
+	 * @return string[]
+	 */
+	public function reportable_forum_types( $types ): array {
+		$types = (array) $types;
+		return self::$copying_flag ? array_merge( $types, array_values( self::BN_FORUM_TYPES ) ) : $types;
+	}
+
+	/**
+	 * Offer "Remove content" on forum reports, which remove_reported_forum_item() handles.
+	 *
+	 * @param string[] $types Removable types.
+	 * @return string[]
+	 */
+	public function removable_forum_types( $types ): array {
+		return array_merge( (array) $types, array_values( self::BN_FORUM_TYPES ) );
+	}
+
+	/**
+	 * Take reported forum content down: the topic or reply goes to the forum trash.
+	 *
+	 * A reported topic or reply is trashed through Jetonomy's system entry, which
+	 * grants no forum capability: BuddyNext already checked that the actor may act
+	 * on the report. A removed discussion card or mirrored comment trashes its forum
+	 * twin too, and core then takes the card or comment down itself.
+	 *
+	 * @param bool   $handled     Whether an earlier handler already removed it.
+	 * @param string $object_type Reported type.
+	 * @param int    $object_id   Reported id.
+	 * @param int    $actor_id    Moderator (0 = automated).
+	 * @return bool
+	 */
+	public function remove_reported_forum_item( $handled, $object_type, $object_id, $actor_id = 0 ): bool {
+		if ( $handled || ! class_exists( '\Jetonomy\Moderation\Moderation_Service' ) ) {
+			return (bool) $handled;
+		}
+
+		$jt_type = array_search( (string) $object_type, self::BN_FORUM_TYPES, true );
+		if ( false !== $jt_type ) {
+			return $this->trash_forum_item( (string) $jt_type, (int) $object_id, (int) $actor_id );
+		}
+
+		// A card or a comment: best effort. BuddyNext's own content is the
+		// moderator's to remove even when the forum refuses the twin.
+		$twin = $this->forum_twin( (string) $object_type, (int) $object_id );
+		if ( null !== $twin ) {
+			$this->trash_forum_item( $twin[0], $twin[1], (int) $actor_id );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Trash a topic or reply as a BuddyNext moderation action.
+	 *
+	 * The echo guard is raised because the trash fires jetonomy_content_moderated
+	 * synchronously, before the BuddyNext report is closed: answering it would close
+	 * the report first and the moderator would get "already actioned".
+	 *
+	 * @param string $jt_type 'post' (topic) or 'reply'.
+	 * @param int    $id      Item id.
+	 * @param int    $actor   Moderator (0 = automated).
+	 * @return bool True when the item is in the trash (or already gone); false when
+	 *              the forum refused, e.g. a banned or silenced moderator.
+	 */
+	private function trash_forum_item( string $jt_type, int $id, int $actor ): bool {
+		if ( ! class_exists( '\\Jetonomy\\Moderation\\Moderation_Service' ) ) {
+			return false;
+		}
+		self::$mirroring_report = true;
+		try {
+			$done = \Jetonomy\Moderation\Moderation_Service::system_set_object_status( $jt_type, $id, 'trash', $actor );
+		} finally {
+			self::$mirroring_report = false;
+		}
+
+		return ! is_wp_error( $done ) || in_array( $done->get_error_code(), array( 'jetonomy_already_handled', 'jetonomy_not_found' ), true );
+	}
+
+	/**
+	 * Name the author of a reported topic or reply, for Strike, Suspend and the
+	 * takedown notice.
+	 *
+	 * @param int    $author_id   Author resolved so far.
+	 * @param string $object_type Reported type.
+	 * @param int    $object_id   Reported id.
+	 * @return int
+	 */
+	public function reported_forum_author( $author_id, $object_type, $object_id ): int {
+		if ( (int) $author_id > 0 ) {
+			return (int) $author_id;
+		}
+		$item = $this->forum_item( (string) $object_type, (int) $object_id );
+
+		return null !== $item ? $item['author_id'] : 0;
+	}
+
+	/**
+	 * Label a reported topic or reply without its title.
+	 *
+	 * The label reaches the queue and the reporter's notice. A topic title can be
+	 * private, so the label is the kind of item, plus its forum only when the
+	 * viewer can see that forum.
+	 *
+	 * @param string $label       Label so far.
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object id.
+	 * @return string
+	 */
+	public function forum_object_label( $label, $object_type, $object_id ): string {
+		if ( ! in_array( $object_type, self::BN_FORUM_TYPES, true ) ) {
+			return (string) $label;
+		}
+
+		$item   = $this->forum_item( (string) $object_type, (int) $object_id );
+		$forum  = '';
+		$viewer = get_current_user_id();
+		if ( null !== $item && '' !== $item['title'] ) {
+			$visible = class_exists( '\Jetonomy\Permissions\Permission_Engine' )
+				? \Jetonomy\Permissions\Permission_Engine::can( $viewer, 'read', $item['space_id'] )
+				: 'public' === $item['visibility'];
+			$forum   = $visible ? $item['title'] : '';
+		}
+
+		if ( 'jetonomy_topic' === $object_type ) {
+			return '' !== $forum
+				/* translators: 1: discussion id, 2: forum name. */
+				? sprintf( __( 'Discussion #%1$d in %2$s', 'buddynext' ), (int) $object_id, $forum )
+				/* translators: %d: discussion id. */
+				: sprintf( __( 'Discussion #%d', 'buddynext' ), (int) $object_id );
+		}
+
+		return '' !== $forum
+			/* translators: 1: reply id, 2: forum name. */
+			? sprintf( __( 'Discussion reply #%1$d in %2$s', 'buddynext' ), (int) $object_id, $forum )
+			/* translators: %d: reply id. */
+			: sprintf( __( 'Discussion reply #%d', 'buddynext' ), (int) $object_id );
+	}
+
+	/**
+	 * Author and forum of a topic or reply, read once per request.
+	 *
+	 * @param string $object_type jetonomy_topic | jetonomy_reply.
+	 * @param int    $id          Item id.
+	 * @return array{author_id:int, space_id:int, title:string, visibility:string}|null
+	 */
+	private function forum_item( string $object_type, int $id ): ?array {
+		if ( $id <= 0 || ! in_array( $object_type, self::BN_FORUM_TYPES, true ) ) {
+			return null;
+		}
+		$key = $object_type . ':' . $id;
+		if ( array_key_exists( $key, $this->forum_items ) ) {
+			return $this->forum_items[ $key ];
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = 'jetonomy_topic' === $object_type
+			? $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT p.author_id, p.space_id, s.title, s.visibility FROM {$wpdb->prefix}jt_posts p LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE p.id = %d",
+					$id
+				),
+				ARRAY_A
+			)
+			: $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT r.author_id, p.space_id, s.title, s.visibility FROM {$wpdb->prefix}jt_replies r LEFT JOIN {$wpdb->prefix}jt_posts p ON p.id = r.post_id LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE r.id = %d",
+					$id
+				),
+				ARRAY_A
+			);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$this->forum_items[ $key ] = is_array( $row )
+			? array(
+				'author_id'  => (int) $row['author_id'],
+				'space_id'   => (int) $row['space_id'],
+				'title'      => (string) $row['title'],
+				'visibility' => (string) $row['visibility'],
+			)
+			: null;
+
+		return $this->forum_items[ $key ];
+	}
+
+	/**
+	 * The forum twin of a BuddyNext discussion card or mirrored comment.
+	 *
+	 * @param string $object_type 'post' or 'comment'.
+	 * @param int    $object_id   Card or comment id.
+	 * @return array{0:string, 1:int}|null [ 'post'|'reply', forum item id ], or null.
+	 */
+	private function forum_twin( string $object_type, int $object_id ): ?array {
+		if ( 'post' === $object_type ) {
+			$card  = ( new PostService() )->get( $object_id );
+			$topic = null !== $card && 'discussion' === (string) ( $card['type'] ?? '' ) ? $this->topic_id_for_card( $card ) : 0;
+			return $topic > 0 ? array( 'post', $topic ) : null;
+		}
+		if ( 'comment' === $object_type ) {
+			$reply = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $object_id );
+			return $reply > 0 ? array( 'reply', $reply ) : null;
+		}
+
+		return null;
+	}
+
+	/**
+	 * A moderator closed reports in BuddyNext: close the forum flags and the
+	 * BuddyNext report on the twin (card and topic, comment and reply), so the
+	 * same content can never be struck twice.
+	 *
+	 * @param string $object_type Reported type.
+	 * @param int    $object_id   Reported id.
+	 * @param string $status      resolved | dismissed.
+	 * @param int    $actor_id    Moderator recorded on the reports.
+	 * @return void
+	 */
+	public function close_forum_flags( $object_type, $object_id, $status, $actor_id = 0 ): void {
+		if ( self::$mirroring_report ) {
+			return;
+		}
+		$object_type = (string) $object_type;
+		$jt_type     = array_search( $object_type, self::BN_FORUM_TYPES, true );
+		$item        = false !== $jt_type ? array( (string) $jt_type, (int) $object_id ) : $this->forum_twin( $object_type, (int) $object_id );
+		if ( null !== $item ) {
+			$this->settle_forum_reports( $item[0], $item[1], (string) $status, (int) $actor_id, $object_type );
+		}
+	}
+
+	/**
+	 * A forum moderator resolved a flag in Jetonomy: close the BuddyNext copy.
+	 *
+	 * @param int    $flag_id Jetonomy flag id.
+	 * @param string $status  valid | dismissed.
+	 * @param int    $user_id Forum moderator.
+	 * @return void
+	 */
+	public function close_bn_report_for_flag( $flag_id, $status, $user_id = 0 ): void {
+		if ( self::$mirroring_report || ! class_exists( '\Jetonomy\Models\Flag' ) ) {
+			return;
+		}
+		$flag = \Jetonomy\Models\Flag::find( (int) $flag_id );
+		if ( null !== $flag && isset( self::BN_FORUM_TYPES[ (string) $flag->object_type ] ) ) {
+			$this->settle_forum_reports( (string) $flag->object_type, (int) $flag->object_id, 'dismissed' === $status ? 'dismissed' : 'resolved', (int) $user_id, '' );
+		}
+	}
+
+	/**
+	 * A topic or reply was moderated in Jetonomy, which closes its flags without
+	 * firing jetonomy_flag_resolved: close the BuddyNext copy too. A hold keeps
+	 * the flags open, so it keeps the report open.
+	 *
+	 * @param string $action  approve | spam | trash | hold.
+	 * @param string $type    'post' or 'reply'.
+	 * @param int    $id      Item id.
+	 * @param int    $user_id Forum moderator (0 = system).
+	 * @return void
+	 */
+	public function close_bn_report_for_moderated( $action, $type, $id, $user_id = 0 ): void {
+		$status = array(
+			'approve' => 'dismissed',
+			'spam'    => 'resolved',
+			'trash'   => 'resolved',
+		)[ (string) $action ] ?? '';
+		if ( self::$mirroring_report || '' === $status || ! isset( self::BN_FORUM_TYPES[ (string) $type ] ) ) {
+			return;
+		}
+		$this->settle_forum_reports( (string) $type, (int) $id, $status, (int) $user_id, '' );
+	}
+
+	/**
+	 * Close every report on one forum item and its BuddyNext twin, except the one
+	 * the action started from.
+	 *
+	 * @param string $jt_type 'post' (topic) or 'reply'.
+	 * @param int    $jt_id   Forum item id.
+	 * @param string $status  resolved | dismissed.
+	 * @param int    $actor   Who acted.
+	 * @param string $origin  BuddyNext type the close started from; '' when it
+	 *                        started in Jetonomy, whose flags are then already closed.
+	 * @return void
+	 */
+	private function settle_forum_reports( string $jt_type, int $jt_id, string $status, int $actor, string $origin ): void {
+		if ( $jt_id <= 0 ) {
+			return;
+		}
+		$moderation = buddynext_service( 'moderation' );
+		$bn_type    = 'post' === $jt_type ? 'post' : 'comment';
+		$bn_id      = 0;
+		if ( $bn_type !== $origin ) {
+			$comment = 'reply' === $jt_type ? ( new \BuddyNext\Comments\CommentService() )->find_by_sync_reply_id( $jt_id ) : null;
+			$bn_id   = 'post' === $jt_type ? $this->card_id_for_topic( $jt_id ) : (int) ( $comment['id'] ?? 0 );
+		}
+
+		self::$mirroring_report = true;
+		try {
+			if ( '' !== $origin && class_exists( '\Jetonomy\Models\Flag' ) ) {
+				\Jetonomy\Models\Flag::resolve_siblings_for( $jt_type, $jt_id, $actor, 'dismissed' === $status ? 'dismissed' : 'valid', 0 );
+			}
+			if ( self::BN_FORUM_TYPES[ $jt_type ] !== $origin ) {
+				$moderation->close_mirrored_reports( self::BN_FORUM_TYPES[ $jt_type ], $jt_id, $status, $actor );
+			}
+
+			// The card or comment is BuddyNext's own content, so its report closes only
+			// under the actor's BuddyNext authority; a forum-only moderator leaves it open.
+			$open = $bn_id > 0 ? $moderation->open_report_id_for( $bn_type, $bn_id ) : 0;
+			if ( $open > 0 ) {
+				$closed = 'dismissed' === $status ? $moderation->dismiss( $open, $actor ) : $moderation->resolve( $open, $actor );
+				// Resolving lifts an auto-hide; re-read the topic so a card whose
+				// topic is gone stays withdrawn.
+				if ( true === $closed && 'post' === $bn_type ) {
+					$this->sync_discussion( $jt_id );
+				}
+			}
+		} finally {
+			self::$mirroring_report = false;
+		}
 	}
 
 	/**

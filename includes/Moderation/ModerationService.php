@@ -62,6 +62,15 @@ class ModerationService {
 	);
 
 	/**
+	 * Object types whose reports mirror a report another plugin owns.
+	 *
+	 * Only these may be closed by close_mirrored_reports(), which skips the
+	 * moderator check because the other plugin already decided. BuddyNext's own
+	 * content (posts, comments, messages, members, spaces) is never on this list.
+	 */
+	private const MIRRORED_TYPES = array( 'media', 'jetonomy_topic', 'jetonomy_reply' );
+
+	/**
 	 * Memoised, filtered report-reason list (per request).
 	 *
 	 * @var string[]|null
@@ -335,6 +344,12 @@ class ModerationService {
 				$comment = $comments->get( $object_id );
 				return null !== $comment ? (int) $comment['user_id'] : 0;
 			}
+		}
+
+		// A type an integration owns (media, forum topics): the same author seam the
+		// queue and the takedown notice use. Documented in ModerationListener.
+		if ( in_array( $object_type, self::MIRRORED_TYPES, true ) ) {
+			return (int) apply_filters( 'buddynext_removed_content_author', 0, $object_type, $object_id );
 		}
 
 		return 0;
@@ -923,6 +938,39 @@ class ModerationService {
 				$object_id
 			)
 		);
+	}
+
+	/**
+	 * Close the open reports on an object another plugin moderates, because that
+	 * plugin already acted on its own copy.
+	 *
+	 * A MediaVerse or Jetonomy moderator is not always a BuddyNext moderator, and
+	 * cron or an automated rule acts as nobody, so the moderator check is skipped
+	 * here. That is safe only because the decision was taken elsewhere: the
+	 * method refuses every type but the mirrored ones (MIRRORED_TYPES), so it can
+	 * never close a report on BuddyNext's own content. No REST route reaches it.
+	 * The usual mod-log row and reporter notice are written.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $object_type A mirrored object type.
+	 * @param int    $object_id   Reported object id.
+	 * @param string $status      resolved | dismissed.
+	 * @param int    $actor_id    Who acted in the other plugin (0 = system).
+	 * @return bool|WP_Error True when reports were closed, false when none were open.
+	 */
+	public function close_mirrored_reports( string $object_type, int $object_id, string $status, int $actor_id = 0 ): bool|WP_Error {
+		$object_type = sanitize_key( $object_type );
+		if ( ! in_array( $object_type, self::MIRRORED_TYPES, true ) || ! in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
+			return new WP_Error( 'invalid_object_type', __( 'That is not something you can act on.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		$report_id = $this->open_report_id_for( $object_type, $object_id );
+		if ( $report_id <= 0 ) {
+			return false;
+		}
+
+		return $this->set_status( $report_id, $actor_id, $status, null, array(), true );
 	}
 
 	/**
@@ -3560,10 +3608,13 @@ class ModerationService {
 	 *                                slug). null SUPPRESSES the row — used only by an
 	 *                                internal cascade whose parent action is already
 	 *                                audited. space_id is always taken from the report.
+	 * @param bool       $mirrored    True only from close_mirrored_reports(): another
+	 *                                plugin already decided, so the authority check
+	 *                                is skipped.
 	 * @return true|WP_Error
 	 */
-	private function set_status( int $report_id, int $actor_id, string $status, ?int $resolved_by = null, ?array $audit = array() ): bool|WP_Error {
-		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
+	private function set_status( int $report_id, int $actor_id, string $status, ?int $resolved_by = null, ?array $audit = array(), bool $mirrored = false ): bool|WP_Error {
+		if ( ! $mirrored && ! $this->can_action_report( $actor_id, $report_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to action reports.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
