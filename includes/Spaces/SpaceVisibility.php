@@ -99,6 +99,12 @@ final class SpaceVisibility {
 			return false;
 		}
 
+		// A Space being deleted in the background is gone for everyone, the invite
+		// link and its owner included: its pages must never open half empty.
+		if ( SpaceService::is_deleting( (int) ( $space['id'] ?? 0 ) ) ) {
+			return false;
+		}
+
 		// A valid invite link opened this request unlocks the space's home page
 		// (header + About + Join) for any type, including hidden ones — the owner
 		// chose to share it. Content/roster gates are unchanged.

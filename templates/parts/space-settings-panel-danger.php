@@ -244,8 +244,10 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 buddynext_get_template(
 	'partials/space-delete-confirm-modal.php',
 	array(
-		'space_id'   => $bn_space_id,
-		'space_name' => $bn_space_name,
+		'space_id'     => $bn_space_id,
+		'space_name'   => $bn_space_name,
+		'space_posts'  => buddynext_service( 'spaces' )->post_count( $bn_space_id ),
+		'space_people' => (int) ( is_array( $bn_space ) ? ( $bn_space['member_count'] ?? 0 ) : ( $bn_space->member_count ?? 0 ) ),
 	)
 );
 ?>

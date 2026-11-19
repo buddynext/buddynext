@@ -30,6 +30,27 @@ class SpaceService {
 	private const CACHE_GROUP = 'buddynext_spaces';
 
 	/**
+	 * Action Scheduler hook of the background Space-deletion chain.
+	 *
+	 * @since 1.3.1
+	 */
+	public const DELETE_HOOK = 'buddynext_space_delete_chunk';
+
+	/**
+	 * Space meta that marks a Space hidden and being deleted in the background.
+	 *
+	 * @since 1.3.1
+	 */
+	public const DELETING_META = '_bn_deleting';
+
+	/**
+	 * Posts one deletion job removes by default.
+	 *
+	 * @since 1.3.1
+	 */
+	public const DELETE_CHUNK = 100;
+
+	/**
 	 * Cache TTL in seconds (10 minutes).
 	 */
 	private const CACHE_TTL = 600;
@@ -1426,6 +1447,195 @@ class SpaceService {
 				do_action( 'buddynext_space_updated', $child_id, $user_id, array( 'parent_id' => null ) );
 			}
 		}
+
+		// A big Space cannot be torn down in one request: its posts alone would loop
+		// past a host's time limit and leave it half deleted. Past one chunk of posts
+		// the Space is hidden at once and a chain of Action Scheduler jobs removes the
+		// rest, a chunk at a time. A Space that fits in one chunk is deleted right here
+		// exactly as before, so a small community never waits on a queue.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) );
+		if ( $post_total > self::delete_chunk() && function_exists( 'as_enqueue_async_action' ) ) {
+			$this->hide_for_deletion( $space_id, $space, $user_id );
+			$this->queue_delete_chunk( $space_id, $user_id );
+
+			return true;
+		}
+
+		return $this->purge_space( $space_id, $user_id, $space );
+	}
+
+	/**
+	 * How many posts a Space holds, for the delete confirmation. One indexed COUNT.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int
+	 */
+	public function post_count( int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) );
+	}
+
+	/**
+	 * Posts removed per Action Scheduler job when a big Space is deleted.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @return int At least 1.
+	 */
+	public static function delete_chunk(): int {
+		/**
+		 * Filters how many posts one Space-deletion job removes.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param int $size Posts per job. Default 100.
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_space_delete_chunk_size', self::DELETE_CHUNK ) );
+	}
+
+	/**
+	 * Whether a Space is on its way out: hidden at once, removed in the background.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	public static function is_deleting( int $space_id ): bool {
+		return $space_id > 0 && '' !== (string) get_metadata( 'bn_space', $space_id, self::DELETING_META, true );
+	}
+
+	/**
+	 * Take a Space out of every listing and page the moment its deletion is accepted.
+	 *
+	 * Archived stops new writes and drops it from the directory, search and
+	 * suggestions; the deleting marker makes SpaceVisibility refuse every view.
+	 *
+	 * @param int                  $space_id Space ID.
+	 * @param array<string, mixed> $space    Hydrated space.
+	 * @param int                  $user_id  Member who asked for the deletion.
+	 * @return void
+	 */
+	private function hide_for_deletion( int $space_id, array $space, int $user_id ): void {
+		global $wpdb;
+
+		update_metadata( 'bn_space', $space_id, self::DELETING_META, $user_id );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_spaces',
+			array(
+				'is_archived' => 1,
+				'archived_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => $space_id ),
+			array( '%d', '%s' ),
+			array( '%d' )
+		);
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		self::flush_space_lists();
+		if ( ! empty( $space['slug'] ) ) {
+			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
+		}
+		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
+
+		/**
+		 * Fires when a big Space is hidden and queued for background deletion.
+		 *
+		 * The deleted action still fires, once, when the last job finishes.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param int $space_id Space ID.
+		 * @param int $user_id  Member who asked for the deletion.
+		 */
+		do_action( 'buddynext_space_delete_queued', $space_id, $user_id );
+	}
+
+	/**
+	 * Queue the next deletion job for a Space, once.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  Member who asked for the deletion.
+	 * @param int $link     Position in the chain, 0 for the first job.
+	 * @return void
+	 */
+	private function queue_delete_chunk( int $space_id, int $user_id, int $link = 0 ): void {
+		// The link number makes each job's arguments its own: Action Scheduler counts
+		// a RUNNING job as already scheduled, so a guard on identical arguments would
+		// see the job that is queuing the next one and queue nothing.
+		$args = array( $space_id, $user_id, $link );
+		if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::DELETE_HOOK, $args, 'buddynext' ) ) {
+			as_enqueue_async_action( self::DELETE_HOOK, $args, 'buddynext' );
+		}
+	}
+
+	/**
+	 * Action Scheduler entry point: remove one chunk of a hidden Space, then finish it.
+	 *
+	 * The next job is queued BEFORE this chunk's work, so a job that dies halfway
+	 * (a killed PHP process, a lock timeout) never ends the chain: the next one
+	 * picks up whatever posts are left. Every chunk reads what is still there, so
+	 * a repeat or an overlap removes nothing twice. A Space that is gone, or was
+	 * never marked for deletion, is left alone.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param mixed $space_id Space ID.
+	 * @param mixed $user_id  Member who asked for the deletion.
+	 * @param mixed $link     Position in the chain.
+	 * @return void
+	 */
+	public function run_delete_chunk( $space_id = 0, $user_id = 0, $link = 0 ): void {
+		$space_id = (int) $space_id;
+		$user_id  = (int) $user_id;
+		$link     = (int) $link;
+		$space    = $space_id > 0 ? $this->get( $space_id ) : null;
+		if ( null === $space || ! self::is_deleting( $space_id ) ) {
+			return;
+		}
+
+		$this->queue_delete_chunk( $space_id, $user_id, $link + 1 );
+
+		global $wpdb;
+		$count  = fn(): int => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$before = $count();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_ids = array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE space_id = %d ORDER BY id ASC LIMIT %d", $space_id, self::delete_chunk() ) ) );
+
+		$post_service = buddynext_service( 'post_service' );
+		foreach ( $post_ids as $post_id ) {
+			$post_service->delete( $post_id, $user_id );
+		}
+
+		// Finish when no post is left, or when this chunk removed none (a post that
+		// refuses deletion): finish the Space anyway rather than queue for ever.
+		$left = $count();
+		if ( 0 === $left || $left >= $before ) {
+			$this->purge_space( $space_id, $user_id, $space );
+		}
+	}
+
+	/**
+	 * Remove a Space's posts, members, bans, reports, notifications, meta and images,
+	 * then the Space itself, and fire the deletion hooks.
+	 *
+	 * The teardown delete() always did, kept in one place so the one-request path and
+	 * the last background job run the same code.
+	 *
+	 * @param int                  $space_id Space ID.
+	 * @param int                  $user_id  Member who asked for the deletion.
+	 * @param array<string, mixed> $space    Hydrated space.
+	 * @return true
+	 */
+	private function purge_space( int $space_id, int $user_id, array $space ): bool {
+		global $wpdb;
 
 		// Capture every user whose membership / ban cache must be flushed once the
 		// space and its rows are gone — the bulk deletes below fire no per-user

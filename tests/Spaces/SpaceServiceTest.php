@@ -474,4 +474,117 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 		$this->assertIsArray( $result );
 		$this->assertSame( $rules, $result['rules'] );
 	}
+
+	/**
+	 * Insert plain posts straight into a space, past the posting rate limit.
+	 *
+	 * @param int $space_id Space.
+	 * @param int $count    How many.
+	 * @return void
+	 */
+	private function seed_posts( int $space_id, int $count ): void {
+		global $wpdb;
+		for ( $i = 0; $i < $count; $i++ ) {
+			$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prefix . 'bn_posts',
+				array(
+					'user_id'    => $this->owner_id,
+					'space_id'   => $space_id,
+					'type'       => 'text',
+					'content'    => 'post ' . $i,
+					'status'     => 'published',
+					'created_at' => current_time( 'mysql', true ),
+				)
+			);
+		}
+	}
+
+	private function posts_in( int $space_id ): int {
+		global $wpdb;
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	}
+
+	/**
+	 * A space that fits in one chunk is deleted right away, with no job queued.
+	 */
+	public function test_small_space_deletes_in_one_request(): void {
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Small',
+				'slug' => 'small-del',
+				'type' => 'open',
+			)
+		);
+		$this->seed_posts( $space_id, 3 );
+
+		$this->service->delete( $space_id, $this->owner_id );
+
+		$this->assertNull( $this->service->get( $space_id ) );
+		$this->assertSame( 0, $this->posts_in( $space_id ) );
+		$this->assertFalse( SpaceService::is_deleting( $space_id ) );
+	}
+
+	/**
+	 * A big space disappears at once, keeps its rows until the chain finishes, and
+	 * the chain removes it a chunk at a time - even if a job in the middle is lost.
+	 */
+	public function test_big_space_is_hidden_then_removed_in_chunks(): void {
+		$size = static fn() => 2;
+		add_filter( 'buddynext_space_delete_chunk_size', $size );
+
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Big',
+				'slug' => 'big-del',
+				'type' => 'open',
+			)
+		);
+		$this->seed_posts( $space_id, 5 );
+
+		$this->service->delete( $space_id, $this->owner_id );
+
+		// Hidden and queued, nothing removed yet.
+		$this->assertTrue( SpaceService::is_deleting( $space_id ) );
+		$this->assertTrue( $this->service->is_archived( $space_id ) );
+		$this->assertFalse( \BuddyNext\Spaces\SpaceVisibility::can_view_space( $this->service->get( $space_id ), $this->owner_id ) );
+		$this->assertSame( 5, $this->posts_in( $space_id ) );
+		$this->assertTrue( as_has_scheduled_action( SpaceService::DELETE_HOOK, array( $space_id, $this->owner_id, 0 ), 'buddynext' ) );
+
+		// First job removes one chunk and has already queued the next link.
+		$this->service->run_delete_chunk( $space_id, $this->owner_id, 0 );
+		$this->assertSame( 3, $this->posts_in( $space_id ) );
+		$this->assertTrue( as_has_scheduled_action( SpaceService::DELETE_HOOK, array( $space_id, $this->owner_id, 1 ), 'buddynext' ) );
+
+		// Link 1 is lost (killed process). Link 2, queued by link 1 before it died, still finishes the job.
+		$this->service->run_delete_chunk( $space_id, $this->owner_id, 1 );
+		$this->assertSame( 1, $this->posts_in( $space_id ) );
+		$this->service->run_delete_chunk( $space_id, $this->owner_id, 2 );
+
+		$this->assertNull( $this->service->get( $space_id ) );
+		$this->assertSame( 0, $this->posts_in( $space_id ) );
+
+		remove_filter( 'buddynext_space_delete_chunk_size', $size );
+	}
+
+	/**
+	 * A job for a space nobody asked to delete removes nothing.
+	 */
+	public function test_chunk_job_ignores_a_space_not_being_deleted(): void {
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Keep',
+				'slug' => 'keep-del',
+				'type' => 'open',
+			)
+		);
+		$this->seed_posts( $space_id, 3 );
+
+		$this->service->run_delete_chunk( $space_id, $this->owner_id, 0 );
+
+		$this->assertNotNull( $this->service->get( $space_id ) );
+		$this->assertSame( 3, $this->posts_in( $space_id ) );
+	}
 }
