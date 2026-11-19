@@ -334,19 +334,35 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 		 * [data-bn-partner-pref]) through the partner's REST endpoint, rolling the
 		 * input back when the save fails.
 		 *
+		 * A choice (radio) is named by the wrapper's data-field and sent under its
+		 * data-body-key. A switch (checkbox) carries its own dotted data-body-key,
+		 * e.g. "notification_preferences.mention.email", and sends its checked state
+		 * there. Only email choices are sent: a path naming the web channel is refused.
+		 *
 		 * @param {Event} event change event from one of the partner's inputs.
 		 */
 		async setPartnerPref( event ) {
 			var ctx = getContext();
 			var el  = event.target.closest( '[data-bn-partner-pref]' );
 			var inp = event.target;
-			if ( ! ctx || ! el || ! el.dataset.restUrl || inp.name !== el.dataset.field ) { return; }
+			if ( ! ctx || ! el || ! el.dataset.restUrl ) { return; }
 
-			// The last saved choice: the one we saved this visit, else the one the page loaded with.
-			var sel  = '[name="' + inp.name + '"]';
-			var prev = el.querySelector( sel + '[data-bn-saved]' ) || Array.prototype.find.call( el.querySelectorAll( sel ), function ( i ) { return i.defaultChecked; } );
-			var body = {};
-			body[ el.dataset.bodyKey ] = inp.value;
+			var isSwitch = 'checkbox' === inp.type;
+			var body     = {};
+			var prev     = null;
+			if ( isSwitch ) {
+				var path = ( inp.dataset.bodyKey || '' ).split( '.' );
+				if ( ! path[ 0 ] || path.indexOf( 'web' ) !== -1 ) { return; }
+				var node = body;
+				path.slice( 0, -1 ).forEach( function ( key ) { node = node[ key ] = {}; } );
+				node[ path[ path.length - 1 ] ] = inp.checked;
+			} else {
+				if ( inp.name !== el.dataset.field ) { return; }
+				// The last saved choice: the one we saved this visit, else the one the page loaded with.
+				var sel = '[name="' + inp.name + '"]';
+				prev    = el.querySelector( sel + '[data-bn-saved]' ) || Array.prototype.find.call( el.querySelectorAll( sel ), function ( i ) { return i.defaultChecked; } );
+				body[ el.dataset.bodyKey ] = inp.value;
+			}
 
 			try {
 				var res = await restFetch( '', {
@@ -359,11 +375,17 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 				if ( ! res.ok ) {
 					throw res;
 				}
-				el.querySelectorAll( '[name="' + inp.name + '"]' ).forEach( function ( i ) { delete i.dataset.bnSaved; } );
-				inp.dataset.bnSaved = '1';
+				if ( ! isSwitch ) {
+					el.querySelectorAll( '[name="' + inp.name + '"]' ).forEach( function ( i ) { delete i.dataset.bnSaved; } );
+					inp.dataset.bnSaved = '1';
+				}
 				toast( t( 'partnerPrefSaved', 'Email preference saved.' ), 'success' );
 			} catch ( e ) {
-				if ( prev ) { prev.checked = true; }
+				if ( isSwitch ) {
+					inp.checked = ! inp.checked;
+				} else if ( prev ) {
+					prev.checked = true;
+				}
 				toastRestError( e, t( 'partnerPrefFailed', 'Could not save your email preference.' ) );
 			}
 		},

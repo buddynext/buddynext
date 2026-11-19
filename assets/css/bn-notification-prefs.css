@@ -586,6 +586,11 @@
 	margin-block-start: var(--bn-s4);
 }
 
+/* The forum's own fields (its digest) sit under the email switches. */
+.bn-partner-prefs__fields {
+	margin-block-start: var(--bn-s4);
+}
+
 .bn-partner-prefs fieldset {
 	margin: 0;
 	padding: 0;

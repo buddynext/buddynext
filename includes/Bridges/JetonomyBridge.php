@@ -196,9 +196,11 @@ class JetonomyBridge {
 		// discussion was later deleted. See verify_discussion_card().
 		add_filter( 'buddynext_discussion_card_url', array( $this, 'verify_discussion_card' ), 10, 2 );
 
-		// Forum email choices (Jetonomy Pro's digest) live in BuddyNext's notification
-		// settings: Jetonomy renders and saves them, BuddyNext only gives them a place.
+		// Forum email choices live in BuddyNext's notification settings: one switch per
+		// forum type plus Jetonomy's own fields (Pro's digest), saved to Jetonomy.
 		add_action( 'buddynext_notification_prefs_after', array( $this, 'render_partner_prefs' ), 20 );
+		// BuddyNext's Email channel is the master switch: off there, no forum email either.
+		add_filter( 'jetonomy_send_instant_email', array( $this, 'filter_forum_email' ), 10, 2 );
 
 		// Inject the forum and "My discussions" links into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
@@ -293,6 +295,9 @@ class JetonomyBridge {
 		// BuddyNext owns the member profile: Jetonomy's own profile pages hand over
 		// to it, as its generated links already do (filter_jetonomy_profile_url).
 		add_action( 'template_redirect', array( $this, 'redirect_forum_profile' ), 5 );
+		// One inbox: once BuddyNext shows the forum notifications, Jetonomy's own list
+		// hands over to the BuddyNext notifications page.
+		add_action( 'template_redirect', array( $this, 'redirect_forum_notifications' ), 5 );
 
 		// A held member (e.g. "Paying members only" without a plan) is held off
 		// the forum too: Jetonomy has no hold of its own, so the bridge applies
@@ -2779,6 +2784,27 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Send a member from Jetonomy's notifications page to BuddyNext's.
+	 *
+	 * Only when BuddyNext's inbox shows the forum notifications (Jetonomy adopted the
+	 * notification contract), and only for a logged-in member. A 302: it depends on
+	 * the viewer and the site setup.
+	 * Template_redirect never runs for REST or admin-ajax, so those stay untouched.
+	 *
+	 * @return void
+	 */
+	public function redirect_forum_notifications(): void {
+		if ( 'notifications' !== (string) get_query_var( 'jetonomy_route', '' ) || ! is_user_logged_in()
+			|| ! \BuddyNext\Notifications\IntegrationNotificationListener::adopted( 'jetonomy' ) ) {
+			return;
+		}
+		// notifications_url() always answers (configured slug, else the default), so
+		// there is no empty case to fall back from.
+		wp_safe_redirect( \BuddyNext\Core\PageRouter::notifications_url(), 302 );
+		exit;
+	}
+
+	/**
 	 * Send a held member from a forum page to the hold's page.
 	 *
 	 * The forum counts as the 'discussions' hub, so a hold that keeps that hub
@@ -5096,35 +5122,57 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Show Jetonomy's own email choices in the member's notification settings.
+	 * Show the forum's email choices in the member's notification settings.
 	 *
-	 * Jetonomy owns the field, its markup and its storage (PATCH
-	 * /jetonomy/v1/users/me/digest-preferences); BuddyNext sends no forum email and
-	 * keeps no copy. The card renders only when Jetonomy has something to show, so
-	 * a site without Pro's digest sees nothing.
+	 * Jetonomy sends forum email and owns where the choices are stored; the card
+	 * (parts/settings-partner-prefs.php) always shows its email switches, and adds
+	 * Jetonomy's own fields (Pro's digest, saved via PATCH
+	 * /jetonomy/v1/users/me/digest-preferences) when Jetonomy renders any.
 	 *
 	 * @param int $user_id Member whose settings are open.
 	 */
 	public function render_partner_prefs( int $user_id ): void {
-		if ( $user_id <= 0 || ! has_action( 'jetonomy_profile_notification_fields' ) ) {
+		if ( $user_id <= 0 ) {
 			return;
 		}
 
-		ob_start();
-		do_action( 'jetonomy_profile_notification_fields', $user_id );
-		$fields = trim( (string) ob_get_clean() );
-		if ( '' === $fields ) {
-			return;
+		$fields = '';
+		if ( has_action( 'jetonomy_profile_notification_fields' ) ) {
+			ob_start();
+			do_action( 'jetonomy_profile_notification_fields', $user_id );
+			$fields = trim( (string) ob_get_clean() );
 		}
 
 		buddynext_get_template(
 			'parts/settings-partner-prefs.php',
 			array(
-				'bn_pp_fields' => $fields,
-				'bn_pp_rest'   => rest_url( 'jetonomy/v1/users/me/digest-preferences' ),
-				'bn_pp_field'  => 'digest_frequency',
-				'bn_pp_key'    => 'frequency',
+				'bn_pp_user_id' => $user_id,
+				'bn_pp_fields'  => $fields,
+				'bn_pp_rest'    => rest_url( 'jetonomy/v1/users/me/digest-preferences' ),
+				'bn_pp_field'   => 'digest_frequency',
+				'bn_pp_key'     => 'frequency',
 			)
 		);
+	}
+
+	/**
+	 * Honour BuddyNext's Email channel on Jetonomy's instant forum email.
+	 *
+	 * The member's Email switch in BuddyNext's notification settings is the master
+	 * switch for every community email, the forum's included: off there means no
+	 * forum email. An absent setting means on, as everywhere in BuddyNext. The read is
+	 * user meta, cached by WordPress after the first recipient lookup.
+	 *
+	 * @param mixed $send    Whether Jetonomy will send the email.
+	 * @param mixed $user_id Recipient.
+	 * @return bool
+	 */
+	public function filter_forum_email( $send, $user_id = 0 ): bool {
+		$user_id = (int) $user_id;
+		if ( ! $send || $user_id <= 0 ) {
+			return (bool) $send;
+		}
+		$channels = buddynext_service( 'notification_prefs' )->get_channel_prefs( $user_id );
+		return ! ( array_key_exists( 'email', $channels ) && empty( $channels['email'] ) );
 	}
 }

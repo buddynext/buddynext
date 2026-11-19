@@ -40,6 +40,10 @@ A discussion card in the feed and its matching topic in the forum stay in sync a
 
 When someone replies to a member's discussion, or marks a reply as the accepted answer, that member gets a notification in the BuddyNext bell. Mentioning another member by their @handle inside a discussion notifies them too. Jetonomy owns the wording, who may see each notification, and its emails; BuddyNext shows the notification in the bell and does not send a second email. Members can switch each type on or off in their notification settings under **Forums**. The @handle is the member's BuddyNext handle, and profile links inside a discussion open the member's BuddyNext profile.
 
+Reading a forum notification in BuddyNext, or choosing **Mark all as read**, also marks it read in Jetonomy's own notification list. A logged-in member who opens Jetonomy's notifications page is sent to the BuddyNext notifications page instead.
+
+The **Forum email** card in the member's notification settings holds the forum email choices: one switch per forum notification type, and **Pause forum email**, which stops every forum email including the reminder to confirm the account email. When the member turns off the **Email** channel in BuddyNext, the forums send them no email either.
+
 ## Setting it up (for owners)
 
 ### Install and enable the companion (1-click)

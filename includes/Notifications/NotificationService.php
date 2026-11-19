@@ -598,13 +598,15 @@ class NotificationService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$recipient_id = (int) $wpdb->get_var(
+		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE id = %d",
+				"SELECT recipient_id, type, object_type, object_id, is_read, data FROM {$wpdb->prefix}bn_notifications WHERE id = %d",
 				$notif_id
-			)
+			),
+			ARRAY_A
 		);
 
+		$recipient_id = (int) ( $row['recipient_id'] ?? 0 );
 		if ( 0 === $recipient_id || $recipient_id !== $user_id ) {
 			return new WP_Error(
 				'forbidden',
@@ -624,7 +626,66 @@ class NotificationService {
 
 		$this->forget_counts( $user_id );
 
+		if ( 0 === (int) $row['is_read'] ) {
+			self::mark_forum_rows_read( $user_id, $row );
+		}
+
 		return true;
+	}
+
+	/**
+	 * One read state: a forum row read in this inbox is read in Jetonomy's own
+	 * notifications list too.
+	 *
+	 * The Jetonomy rows behind the bell row are its contract `notification_id`, every
+	 * reply kept in a grouped row's items, and any row of the same type about the same
+	 * object (votes, join requests, merged into one bell row). One SELECT, then one
+	 * Notification::mark_read_for_user(), which fires no hook, so Jetonomy never echoes
+	 * the read back here (its own read hook, jetonomy_community_notification_read,
+	 * fires only from mark_read_for_object(), deliberately not called). A grouped row
+	 * keeps at most 50 items (GroupedItems::CAP): replies beyond that stay unread in
+	 * Jetonomy. Un-reading here does not un-read there; Jetonomy has no API for it.
+	 *
+	 * @param int                 $user_id The member who read it (the recipient).
+	 * @param array<string,mixed> $row     The bell row: type, object_type, object_id, data.
+	 * @return void
+	 */
+	private static function mark_forum_rows_read( int $user_id, array $row ): void {
+		$type = (string) $row['type'];
+		if ( ! str_starts_with( $type, 'jetonomy.' ) || ! class_exists( '\Jetonomy\Models\Notification' ) || ! function_exists( '\Jetonomy\table' ) ) {
+			return;
+		}
+
+		$data      = (array) json_decode( (string) $row['data'], true );
+		$ids       = array( (int) ( $data['notification_id'] ?? 0 ) );
+		$reply_ids = array();
+		foreach ( (array) ( $data['items'] ?? array() ) as $item ) {
+			if ( is_array( $item ) && 'reply' === (string) ( $item['t'] ?? '' ) && (int) ( $item['i'] ?? 0 ) > 0 ) {
+				$reply_ids[] = (int) $item['i'];
+			}
+		}
+
+		$where  = array();
+		$params = array( $user_id );
+		$object = (string) $row['object_type'];
+		if ( (int) $row['object_id'] > 0 && str_starts_with( $object, 'jetonomy_' ) ) {
+			$where[] = '( type = %s AND object_type = %s AND object_id = %d )';
+			array_push( $params, substr( $type, 9 ), substr( $object, 9 ), (int) $row['object_id'] );
+		}
+		if ( $reply_ids ) {
+			$where[] = "( object_type = 'reply' AND object_id IN (" . implode( ',', array_fill( 0, count( $reply_ids ), '%d' ) ) . ') )';
+			$params  = array_merge( $params, $reply_ids );
+		}
+
+		if ( $where ) {
+			global $wpdb;
+			// Jetonomy's table name and fixed fragments; every value is a placeholder.
+			$sql = 'SELECT id FROM ' . \Jetonomy\table( 'notifications' ) . ' WHERE user_id = %d AND is_read = 0 AND ( ' . implode( ' OR ', $where ) . ' )';
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			$ids = array_merge( $ids, array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( $sql, $params ) ) ) );
+		}
+
+		\Jetonomy\Models\Notification::mark_read_for_user( $user_id, $ids );
 	}
 
 	/**
@@ -815,6 +876,12 @@ class NotificationService {
 		update_user_meta( $user_id, self::LAST_SEEN_META, current_time( 'mysql', true ) );
 
 		$this->forget_counts( $user_id );
+
+		// One read state: the forum rows this inbox shows are read in Jetonomy's own
+		// list too. Its mark_all_read() fires no hook, so nothing echoes back here.
+		if ( IntegrationNotificationListener::adopted( 'jetonomy' ) && class_exists( '\Jetonomy\Models\Notification' ) ) {
+			\Jetonomy\Models\Notification::mark_all_read( $user_id );
+		}
 	}
 
 	/**
