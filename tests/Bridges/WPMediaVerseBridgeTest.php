@@ -144,6 +144,38 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Photos on a deleted space's drive are trashed with it; documents and other
+	 * spaces' media are left alone.
+	 */
+	public function test_deleting_a_space_trashes_its_drive_media(): void {
+		global $wpdb;
+		if ( ! \BuddyNext\Media\MediaClient::available() || ! is_object( \BuddyNext\Media\MediaClient::repo() ) || ! method_exists( \BuddyNext\Media\MediaClient::repo(), 'space_drive_media_ids' ) ) {
+			$this->markTestSkipped( 'Needs MediaVerse 2.6.5.' );
+		}
+		$table = $wpdb->prefix . 'mvs_media_index';
+		$row   = array(
+			'post_author' => 1,
+			'media_type'  => 'image',
+			'status'      => 'publish',
+			'drive_type'  => 'space',
+			'drive_id'    => 777001,
+		);
+		$wpdb->insert( $table, $row ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$mine = (int) $wpdb->insert_id;
+		$wpdb->insert( $table, array_merge( $row, array( 'drive_id' => 777002 ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$other = (int) $wpdb->insert_id;
+		$wpdb->insert( $table, array_merge( $row, array( 'media_type' => 'document' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$doc = (int) $wpdb->insert_id;
+
+		$this->bridge->trash_space_drive_media( 777001 );
+
+		$status = fn( $id ) => $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE media_id = %d", $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( 'trash', $status( $mine ) );
+		$this->assertSame( 'publish', $status( $other ), 'Another space drive is untouched.' );
+		$this->assertSame( 'publish', $status( $doc ), 'Documents are the document engine\'s to clear.' );
+	}
+
+	/**
 	 * A BuddyNext block closes the blocker's media to the blocked member only, and
 	 * hides either side from the other's lists.
 	 */

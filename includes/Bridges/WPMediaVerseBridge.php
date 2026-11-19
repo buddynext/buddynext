@@ -68,6 +68,16 @@ class WPMediaVerseBridge {
 	private bool $mirroring_report = false;
 
 	/**
+	 * Action Scheduler hook that continues trashing a big space drive.
+	 */
+	public const DRIVE_MEDIA_HOOK = 'buddynext_space_drive_media_trash';
+
+	/**
+	 * Media items trashed per run.
+	 */
+	public const DRIVE_MEDIA_PER_RUN = 200;
+
+	/**
 	 * Flag reason carried from the pre-send content gate to the post-send report.
 	 *
 	 * A DM is checked before it is written (mvs_message_content_check), so at flag
@@ -310,6 +320,11 @@ class WPMediaVerseBridge {
 		// keeps its own row (it owns the duplicate check and the auto-hide count).
 		add_action( 'mvs_report_submitted', array( $this, 'queue_media_report' ), 10, 5 );
 		add_action( 'buddynext_reports_actioned', array( $this, 'close_mvs_media_report' ), 10, 3 );
+
+		// Photos, videos and audio on a deleted space's drive go with it. The
+		// document half of the drive is MediaVerse Pro's own cleanup.
+		add_action( 'buddynext_purge_space_data', array( $this, 'trash_space_drive_media' ), 10, 1 );
+		add_action( self::DRIVE_MEDIA_HOOK, array( $this, 'trash_space_drive_media' ), 10, 2 );
 		add_action( 'mvs_report_resolved', array( $this, 'close_bn_media_report' ), 10, 5 );
 
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
@@ -2372,6 +2387,43 @@ class WPMediaVerseBridge {
 			}
 		} finally {
 			$this->mirroring_follow = false;
+		}
+	}
+
+	/**
+	 * Trash the photos, videos and audio on a deleted space's drive.
+	 *
+	 * One run trashes up to DRIVE_MEDIA_PER_RUN items and queues the next run when
+	 * the drive still holds more, so a big drive never needs one long request.
+	 * Trashing (not erasing) is the same ordinary delete a member performs; the
+	 * file leaves with MediaVerse's own trash purge.
+	 *
+	 * @param int $space_id Deleted space.
+	 * @param int $link     Position in the continuation chain (0 for the first run).
+	 * @return void
+	 */
+	public function trash_space_drive_media( $space_id, $link = 0 ): void {
+		$space_id = (int) $space_id;
+		$link     = (int) $link;
+		$repo     = MediaClient::available() ? MediaClient::repo() : null;
+		if ( $space_id <= 0 || ! is_object( $repo ) || ! method_exists( $repo, 'space_drive_media_ids' ) ) {
+			return;
+		}
+
+		$ids = $repo->space_drive_media_ids( $space_id, self::DRIVE_MEDIA_PER_RUN );
+		foreach ( $ids as $media_id ) {
+			$repo->trash( (int) $media_id );
+		}
+
+		// Queue another run only when this one moved something: a row that cannot be
+		// trashed must not keep re-queuing itself.
+		if ( count( $ids ) >= self::DRIVE_MEDIA_PER_RUN && function_exists( 'as_enqueue_async_action' ) ) {
+			// The link number keeps each run's arguments its own: a running job counts as
+			// already scheduled, so identical arguments would queue nothing.
+			$args = array( $space_id, $link + 1 );
+			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::DRIVE_MEDIA_HOOK, $args, 'buddynext' ) ) {
+				as_enqueue_async_action( self::DRIVE_MEDIA_HOOK, $args, 'buddynext' );
+			}
 		}
 	}
 
