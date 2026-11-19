@@ -193,21 +193,33 @@ final class SetupChecklist {
 	 * @return void
 	 */
 	public static function maybe_render( string $page ): void {
-		if ( self::LANDING_SLUG !== $page || ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-		if ( get_option( self::OPT_DISMISSED ) ) {
+		if ( self::LANDING_SLUG !== $page || ! current_user_can( 'manage_options' ) || self::is_done() ) {
 			return;
 		}
 
 		$steps = self::steps();
 		$done  = count( array_filter( $steps, static fn( array $s ): bool => $s['done'] ) );
-		$total = count( $steps );
-		if ( $done >= $total ) {
-			return; // Everything set up — hide the card without needing a dismiss.
-		}
+		self::render_card( $steps, $done, count( $steps ) );
+	}
 
-		self::render_card( $steps, $done, $total );
+	/**
+	 * Whether setup is over: the owner dismissed the checklist or every step is done.
+	 *
+	 * Setup offers (the checklist, the demo promos) stop here so an owner never walks the
+	 * same setup twice.
+	 *
+	 * @return bool
+	 */
+	public static function is_done(): bool {
+		if ( get_option( self::OPT_DISMISSED ) ) {
+			return true;
+		}
+		foreach ( self::steps() as $step ) {
+			if ( ! $step['done'] ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**

@@ -67,7 +67,11 @@ class GetStartedScreen {
 						// done, so on a configured site this pointed at nothing - the one
 						// sentence orienting a new owner referred to a card that was not
 						// on screen.
-						esc_html_e( 'This is your community control room. Finish setting up, load demo data to see how everything looks, then jump to any area below.', 'buddynext' );
+						echo esc_html(
+							SetupChecklist::is_done()
+								? __( 'This is your community control room. Jump to any area below.', 'buddynext' )
+								: __( 'This is your community control room. Finish setting up, load demo data to see how everything looks, then jump to any area below.', 'buddynext' )
+						);
 						?>
 					</p>
 				</div>

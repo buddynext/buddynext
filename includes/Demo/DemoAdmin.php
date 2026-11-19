@@ -15,6 +15,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Demo;
 
 use BuddyNext\Admin\AdminPageBase;
+use BuddyNext\Admin\SetupChecklist;
 
 /**
  * Registers the Demo Data admin-post actions and renders its Tools section.
@@ -112,6 +113,9 @@ class DemoAdmin {
 	public function render_promo(): void {
 		$service = new DemoDataService();
 		$seeded  = $service->is_seeded();
+		if ( ! $seeded && SetupChecklist::is_done() ) {
+			return; // Setup is over: offer no demo, but keep "Remove demo data" for one that is on the site.
+		}
 
 		$title  = $seeded
 			? __( 'Demo data is active', 'buddynext' )
@@ -168,6 +172,13 @@ class DemoAdmin {
 		$status = null !== $state ? (string) ( $state['status'] ?? 'idle' ) : ( defined( 'WBCOM_DEMO_DIR' ) ? 'idle' : 'missing' );
 		$demo   = null === $state ? '' : (string) ( $state['demo_label'] ?? '' );
 		$left   = null === $state ? 0 : (int) ( $state['samples_left'] ?? 0 );
+
+		// Setup that is already done is not offered again. A demo that is building or built stays
+		// visible, because the owner still has to finish, take it live or remove it.
+		$in_play = in_array( $status, array( 'building', 'finishing', 'built' ), true );
+		if ( ! $in_play && ( 'finished' === $status || SetupChecklist::is_done() ) ) {
+			return;
+		}
 
 		if ( 'missing' === $status ) {
 			$title = __( 'Preview your whole site with the Wbcom Demo Installer', 'buddynext' );
