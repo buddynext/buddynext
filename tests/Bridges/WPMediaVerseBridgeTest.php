@@ -76,6 +76,26 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A follow BuddyNext decides is never approved by the bridge: a refusal
+	 * already made upstream stays refused, and a private account's follow turns
+	 * into a request so MediaVerse records nothing.
+	 */
+	public function test_can_follow_defers_to_buddynext(): void {
+		$target   = self::factory()->user->create();
+		$follower = self::factory()->user->create();
+
+		$this->assertFalse( $this->bridge->can_follow( false, $follower, $target ) );
+
+		update_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META, 1 );
+		$this->assertFalse( $this->bridge->can_follow( true, $follower, $target ) );
+
+		// The first try left a pending request; a different member follows the
+		// same account once it is public again.
+		delete_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META );
+		$this->assertTrue( $this->bridge->can_follow( true, self::factory()->user->create(), $target ) );
+	}
+
+	/**
 	 * Prove the gate actually refuses, not merely that a filter is attached.
 	 *
 	 * Attachment alone is a weak assertion — it would still pass if check_block()
@@ -309,7 +329,11 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$html = (string) apply_filters(
 			'buddynext_render_post_body_media',
 			'',
-			array( 'bn_post_type' => 'media', 'post_content' => 'shared a video', 'link_preview' => array() )
+			array(
+				'bn_post_type' => 'media',
+				'post_content' => 'shared a video',
+				'link_preview' => array(),
+			)
 		);
 
 		$this->assertSame( '', $html );
@@ -341,7 +365,7 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		// Below the REAL server ceiling, whatever this runner's php.ini sets it to
 		// (a bare PHP CLI often defaults upload_max_filesize to 2M) — the point is
 		// the lower of the two numbers, not a specific absolute size.
-		$configured = (int) max( 1, intdiv( wp_max_upload_size(), 2 ) );
+		$configured                          = (int) max( 1, intdiv( wp_max_upload_size(), 2 ) );
 		StubSettingsHelper::$max_upload_size = $configured;
 
 		$this->assertSame( $configured, WPMediaVerseBridge::media_max_bytes() );

@@ -257,6 +257,9 @@ class WPMediaVerseBridge {
 		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
 		// show divergent follow state for the same pair. A re-entrancy guard plus
 		// an is_following() short-circuit prevents the mirror from looping.
+		// MediaVerse 2.6.5+ asks before it records a follow, so BuddyNext decides
+		// first and a private account never sees an active follow it must withdraw.
+		add_filter( 'mvs_can_follow', array( $this, 'can_follow' ), 10, 3 );
 		add_action( 'mvs_user_followed', array( $this, 'mirror_mvs_follow' ), 10, 2 );
 		add_action( 'mvs_user_unfollowed', array( $this, 'mirror_mvs_unfollow' ), 10, 2 );
 		add_action( 'buddynext_user_followed', array( $this, 'mirror_bn_follow' ), 10, 2 );
@@ -2332,6 +2335,44 @@ class WPMediaVerseBridge {
 		} finally {
 			$this->mirroring_follow = false;
 		}
+	}
+
+	/**
+	 * Let BuddyNext decide a follow before WPMediaVerse records it.
+	 *
+	 * A private account turns the follow into a request, and a block or limit
+	 * refuses it; only an approved follow is written on the MediaVerse side.
+	 * Older MediaVerse builds never call this, and mirror_mvs_follow() still
+	 * takes the follow back for them.
+	 *
+	 * @param bool $can          Whether the follow may be recorded.
+	 * @param int  $follower_id  User who is following.
+	 * @param int  $following_id User being followed.
+	 * @return bool
+	 */
+	public function can_follow( $can, int $follower_id, int $following_id ): bool {
+		if ( ! $can ) {
+			return false;
+		}
+		if ( $this->mirroring_follow ) {
+			return true;
+		}
+		$bn = $this->bn_follows();
+		if ( null === $bn || ! method_exists( $bn, 'follow' ) || ! method_exists( $bn, 'is_following' ) ) {
+			return true;
+		}
+		if ( ! $bn->is_following( $follower_id, $following_id ) ) {
+			// Guard up: BuddyNext's own follow event must not mirror back into
+			// MediaVerse, which records the follow itself once this returns true.
+			$this->mirroring_follow = true;
+			try {
+				\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->follow( $follower_id, $following_id ) );
+			} finally {
+				$this->mirroring_follow = false;
+			}
+		}
+
+		return (bool) $bn->is_following( $follower_id, $following_id );
 	}
 
 	/**
