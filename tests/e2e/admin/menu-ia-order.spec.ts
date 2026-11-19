@@ -17,45 +17,42 @@ import { test, expect } from '../_fixtures/auth.fixture';
  * output buffering, which only the raw response shows.
  */
 
-// Owner-journey order. Sections that need Pro or a feature may be absent; those
-// that are present must keep this relative order.
-const JOURNEY = [
-    'buddynext',
-    'buddynext-members',
-    'buddynext-spaces',
-    'buddynext-engagement',
-    'buddynext-notifications',
-    'buddynext-moderation',
-    'buddynext-automation',
+// Owner-journey order of the top-bar groups, by the page each one opens. Groups that
+// need Pro or a feature may be absent; those present must keep this relative order.
+const GROUP_LANDINGS = [
+    'buddynext', // Home
+    'buddynext-members', // People
+    'buddynext-spaces', // Community
+    'buddynext-moderation', // Moderation
+    'buddynext-notifications', // Messaging
     'buddynext-monetization',
-    'buddynext-campaigns',
-    'buddynext-realtime',
-    'buddynext-platform',
-    'buddynext-integration-settings',
-    'buddynext-settings',
+    'buddynext-integration-settings', // Connect
+    'buddynext-platform', // Settings
     'buddynext-upgrade',
 ];
 const MODERATION_TABS = ['pending', 'reports', 'suspensions', 'appeals', 'log'];
 
 test.describe('admin / menu order and retired page', () => {
-    test('J-819 sections follow the owner journey and Moderation keeps its tab order', async ({ authenticatedPage: page }) => {
+    test('J-819 groups follow the owner journey and Moderation keeps its tab order', async ({ authenticatedPage: page }) => {
         await page.goto('/wp-admin/admin.php?page=buddynext');
-        const hrefs = await page.$$eval('.bn-hub-nav-link', (as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''));
+        const groupHrefs = await page.$$eval('.bn-hub-groupbar__item', (as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''));
+        const landings = groupHrefs.map((href) => new URL(href, 'http://x/wp-admin/').searchParams.get('page') ?? '');
 
-        const pages: string[] = [];
-        const tabs: Record<string, string[]> = {};
-        for (const href of hrefs) {
+        expect(landings, 'no retired Moderation Tools section').not.toContain('buddynext-automod');
+        const known = landings.filter((p) => GROUP_LANDINGS.includes(p));
+        expect(known, 'groups in owner-journey order').toEqual(GROUP_LANDINGS.filter((p) => known.includes(p)));
+        expect(known.length, 'the core groups are present').toBeGreaterThanOrEqual(6);
+
+        // The rail lists only the current group: Moderation and Automation sit together.
+        await page.goto('/wp-admin/admin.php?page=buddynext-moderation');
+        const railPages: Record<string, string[]> = {};
+        for (const href of await page.$$eval('.bn-hub-nav-link', (as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''))) {
             const q = new URL(href, 'http://x/wp-admin/').searchParams;
-            const p = q.get('page') ?? '';
-            if (!pages.includes(p)) pages.push(p);
-            (tabs[p] ??= []).push(q.get('tab') ?? '');
+            (railPages[q.get('page') ?? ''] ??= []).push(q.get('tab') ?? '');
         }
-
-        expect(pages, 'no retired Moderation Tools section').not.toContain('buddynext-automod');
-        const known = pages.filter((p) => JOURNEY.includes(p));
-        expect(known, 'sections in owner-journey order').toEqual(JOURNEY.filter((p) => known.includes(p)));
-        expect(known.length, 'the core sections are present').toBeGreaterThanOrEqual(8);
-        expect(tabs['buddynext-moderation'], 'Moderation tabs in moderator order').toEqual(MODERATION_TABS);
+        expect(railPages['buddynext-moderation'], 'Moderation tabs in moderator order').toEqual(MODERATION_TABS);
+        expect(railPages['buddynext-automation']?.length ?? 0, 'Automation shows beside Moderation').toBeGreaterThan(0);
+        expect(Object.keys(railPages), 'no other group in the rail').not.toContain('buddynext-members');
     });
 
     test('J-819 a bookmark to the retired Moderation Tools page redirects to the tab new home', async ({ authenticatedPage: page }) => {

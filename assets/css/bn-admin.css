@@ -1680,7 +1680,7 @@ table.bn-table tr:hover td {
 /* Fit the card, not the data. A list with eight columns does not fit a 753px card on a
    laptop, and the pinned Actions column then covered Role and Status. Columns marked
    .bn-col-secondary (Community role, Joined, Last active) step aside when the card is
-   narrower than 960px and the member's name carries their dates in a muted line; wide
+   narrower than 1260px and the member's name carries their dates in a muted line; wide
    screens show every column. The query is on the CARD's width, not the window's, so it
    holds whatever the sidebar and admin menu take. Below 783px WordPress's own stacked
    layout (the row toggle) takes over, so it is left alone. */
@@ -1697,7 +1697,7 @@ table.bn-table tr:hover td {
 	display: block;
 }
 @media (min-width: 783px) {
-	@container bn-tbl (max-width: 960px) {
+	@container bn-tbl (max-width: 1260px) {
 		.bn-table .bn-col-secondary {
 			display: none;
 		}

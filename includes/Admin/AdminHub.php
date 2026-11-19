@@ -66,27 +66,32 @@ class AdminHub {
 			// sits at the bottom, where owners go occasionally; Upgrade is last (it is
 			// a link out).
 			'get-started'          => array(
+				'group' => 'home',
 				'slug'  => 'buddynext',
 				'label' => __( 'Get Started', 'buddynext' ),
 				'icon'  => 'sparkles',
 				'top'   => true,
 			),
 			'members'              => array(
+				'group' => 'people',
 				'slug'  => 'buddynext-members',
 				'label' => __( 'Members', 'buddynext' ),
 				'icon'  => 'users',
 			),
 			'spaces'               => array(
+				'group' => 'community',
 				'slug'  => 'buddynext-spaces',
 				'label' => __( 'Spaces', 'buddynext' ),
 				'icon'  => 'grid',
 			),
 			'engagement'           => array(
+				'group' => 'community',
 				'slug'  => 'buddynext-engagement',
 				'label' => __( 'Engagement', 'buddynext' ),
 				'icon'  => 'heart',
 			),
 			'notifications'        => array(
+				'group' => 'messaging',
 				'slug'  => 'buddynext-notifications',
 				'label' => __( 'Notifications', 'buddynext' ),
 				'icon'  => 'bell',
@@ -99,31 +104,37 @@ class AdminHub {
 			// place a new owner had to hunt. This replaces the merge made on card
 			// 10114177928. The reporting and auto-hide controls open Automation.
 			'moderation'           => array(
+				'group' => 'moderation',
 				'slug'  => 'buddynext-moderation',
 				'label' => __( 'Moderation', 'buddynext' ),
 				'icon'  => 'shield',
 			),
 			'automation'           => array(
+				'group' => 'moderation',
 				'slug'  => 'buddynext-automation',
 				'label' => __( 'Automation', 'buddynext' ),
 				'icon'  => 'cpu',
 			),
 			'monetization'         => array(
+				'group' => 'monetization',
 				'slug'  => 'buddynext-monetization',
 				'label' => __( 'Monetization', 'buddynext' ),
 				'icon'  => 'store',
 			),
 			'campaigns'            => array(
+				'group' => 'messaging',
 				'slug'  => 'buddynext-campaigns',
 				'label' => __( 'Campaigns', 'buddynext' ),
 				'icon'  => 'megaphone',
 			),
 			'realtime'             => array(
+				'group' => 'messaging',
 				'slug'  => 'buddynext-realtime',
 				'label' => __( 'Realtime & Push', 'buddynext' ),
 				'icon'  => 'zap',
 			),
 			'platform'             => array(
+				'group' => 'settings',
 				'slug'  => 'buddynext-platform',
 				'label' => __( 'Platform', 'buddynext' ),
 				'icon'  => 'layers',
@@ -134,11 +145,13 @@ class AdminHub {
 			// (Features, Add-ons, Tools, Webhooks, Plugin isolation). It sits next to
 			// Platform, in the configuration band at the bottom.
 			'integration-settings' => array(
+				'group' => 'connect',
 				'slug'  => 'buddynext-integration-settings',
 				'label' => __( 'Integration Settings', 'buddynext' ),
 				'icon'  => 'link',
 			),
 			'settings'             => array(
+				'group' => 'settings',
 				'slug'  => 'buddynext-settings',
 				'label' => __( 'Settings', 'buddynext' ),
 				'icon'  => 'settings',
@@ -1796,6 +1809,7 @@ class AdminHub {
 		// since the panel already conveys the section context.
 		echo '<div class="wrap bn-admin-hub bn-admin-hub--paneled' . ( $is_wide ? ' is-wide' : '' ) . '" data-section="' . esc_attr( $section_key ) . '">';
 		$this->render_brand_bar( (string) $section_key, $active_slug );
+		$this->render_group_bar( (string) $section_key );
 		echo '<div class="bn-admin-hub__shell">';
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
@@ -1973,6 +1987,112 @@ class AdminHub {
 	}
 
 	/**
+	 * The owner-facing groups, in the order the top bar shows them.
+	 *
+	 * Groups are display only: a section keeps its own `?page=` slug and its tabs,
+	 * and says which group it sits under with a `group` key. Nothing about a tab's
+	 * URL, registration or capability depends on its group. A section with no
+	 * `group` (a Pro or third-party section added through `bn_admin_hub_sections`)
+	 * becomes a top-bar entry of its own, so it is never lost.
+	 *
+	 * @return array<string, string> Group key => label.
+	 */
+	private static function groups(): array {
+		return array(
+			'home'         => __( 'Home', 'buddynext' ),
+			'people'       => __( 'People', 'buddynext' ),
+			'community'    => __( 'Community', 'buddynext' ),
+			'moderation'   => __( 'Moderation', 'buddynext' ),
+			'messaging'    => __( 'Messaging', 'buddynext' ),
+			'monetization' => __( 'Monetization', 'buddynext' ),
+			'connect'      => __( 'Connect', 'buddynext' ),
+			'settings'     => __( 'Settings', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * The group a section is shown under. A section that names none is its own group.
+	 *
+	 * @param string $section_key Section key.
+	 * @return string Group key.
+	 */
+	private static function section_group( string $section_key ): string {
+		$group = (string) ( self::sections()[ $section_key ]['group'] ?? '' );
+		return '' !== $group ? $group : $section_key;
+	}
+
+	/**
+	 * The tabs of a section that the current user may open.
+	 *
+	 * @param string $section_key Section key.
+	 * @return array<string, array<string, mixed>> Tab slug => tab.
+	 */
+	private static function visible_tabs( string $section_key ): array {
+		$visible = array();
+		foreach ( self::get_tabs( $section_key ) as $tslug => $tab ) {
+			if ( current_user_can( (string) ( $tab['cap'] ?? 'manage_options' ) ) ) {
+				$visible[ $tslug ] = $tab;
+			}
+		}
+		return $visible;
+	}
+
+	/**
+	 * Every group that has at least one tab the user can open, in bar order, each
+	 * with its label and the first tab it opens.
+	 *
+	 * @return array<string, array{label:string, url:string}> Group key => entry.
+	 */
+	private static function visible_groups(): array {
+		$labels = self::groups();
+		$found  = array();
+		foreach ( self::sections() as $skey => $section ) {
+			$tabs = self::visible_tabs( (string) $skey );
+			if ( empty( $tabs ) ) {
+				continue;
+			}
+			$gkey = self::section_group( (string) $skey );
+			if ( isset( $found[ $gkey ] ) ) {
+				continue;
+			}
+			$found[ $gkey ] = array(
+				'label' => isset( $labels[ $gkey ] ) ? $labels[ $gkey ] : (string) ( $section['label'] ?? $gkey ),
+				'url'   => self::tab_url( (string) $skey, (string) array_key_first( $tabs ) ),
+			);
+		}
+		// Known groups first, in their fixed order; any other group after them.
+		$ordered = array();
+		foreach ( array_keys( $labels ) as $gkey ) {
+			if ( isset( $found[ $gkey ] ) ) {
+				$ordered[ $gkey ] = $found[ $gkey ];
+			}
+		}
+		return $ordered + $found;
+	}
+
+	/**
+	 * The top bar of groups. The left rail then lists only the current group's tabs.
+	 *
+	 * @param string $active_section Active section key.
+	 * @return void
+	 */
+	private function render_group_bar( string $active_section ): void {
+		$active_group = self::section_group( $active_section );
+		echo '<nav class="bn-hub-groupbar" aria-label="' . esc_attr__( 'BuddyNext sections', 'buddynext' ) . '">';
+		foreach ( self::visible_groups() as $gkey => $group ) {
+			$is_active = ( (string) $gkey === $active_group );
+			printf(
+				'<a class="bn-hub-groupbar__item%1$s" href="%2$s"%3$s>%4$s</a>',
+				$is_active ? ' is-active' : '',
+				esc_url( $group['url'] ),
+				$is_active ? ' aria-current="page"' : '',
+				esc_html( $group['label'] )
+			);
+		}
+		echo '</nav>';
+	}
+
+	/**
 	 * Render the unified left navigation panel.
 	 *
 	 * One in-page rail listing every capability-visible section as a group, each
@@ -1990,7 +2110,8 @@ class AdminHub {
 		// Phones: the whole menu folds behind one button naming where you are, so
 		// the page's own content comes first instead of a screen of nav. Shown and
 		// wired by nav-accordion.js only, so without JS the full list stays visible.
-		$bn_here_section = (string) ( self::sections()[ $active_section ]['label'] ?? '' );
+		$active_group    = self::section_group( $active_section );
+		$bn_here_section = (string) ( self::visible_groups()[ $active_group ]['label'] ?? ( self::sections()[ $active_section ]['label'] ?? '' ) );
 		$bn_here_tab     = (string) ( self::get_tabs( $active_section )[ $active_slug ]['label'] ?? '' );
 		printf(
 			'<button type="button" class="bn-hub-nav-toggle" aria-expanded="false" aria-controls="bn-hub-nav-list" hidden><span class="bn-hub-nav-toggle__label">%1$s</span>%2$s</button>',
@@ -1998,13 +2119,24 @@ class AdminHub {
 			\BuddyNext\Core\IconService::render( 'chevron-down', 'bn-hub-nav-toggle__chevron' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
 		);
 		echo '<div class="bn-hub-nav-list" id="bn-hub-nav-list">';
+		// Phones have no room for the top bar, so the same groups sit at the head of
+		// the opened menu (hidden from 783px up, where the bar is shown instead).
+		echo '<nav class="bn-hub-nav-groups" aria-label="' . esc_attr__( 'BuddyNext sections', 'buddynext' ) . '">';
+		foreach ( self::visible_groups() as $gkey => $group ) {
+			printf(
+				'<a class="bn-hub-nav-groups__item%1$s" href="%2$s">%3$s</a>',
+				(string) $gkey === $active_group ? ' is-active' : '',
+				esc_url( $group['url'] ),
+				esc_html( $group['label'] )
+			);
+		}
+		echo '</nav>';
 		foreach ( self::sections() as $skey => $section ) {
-			$visible = array();
-			foreach ( self::get_tabs( (string) $skey ) as $tslug => $tab ) {
-				if ( current_user_can( (string) ( $tab['cap'] ?? 'manage_options' ) ) ) {
-					$visible[ $tslug ] = $tab;
-				}
+			// The rail lists only the sections of the group being viewed.
+			if ( self::section_group( (string) $skey ) !== $active_group ) {
+				continue;
 			}
+			$visible = self::visible_tabs( (string) $skey );
 			if ( empty( $visible ) ) {
 				continue;
 			}
@@ -2017,7 +2149,7 @@ class AdminHub {
 				'<details class="bn-hub-nav-group%1$s" data-bn-nav-group="%2$s"%3$s>',
 				$is_current_section ? ' is-current' : '',
 				esc_attr( (string) $skey ),
-				$is_current_section ? ' open' : ''
+				' open'
 			);
 			$section_icon = ! empty( $section['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $section['icon'], 'bn-hub-nav-group__icon' ) : '';
 			printf(

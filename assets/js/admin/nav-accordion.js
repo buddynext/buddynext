@@ -16,7 +16,7 @@
 		return;
 	}
 
-	// Phones: one button folds the whole menu (CSS shows it below 783px only).
+	// Tablets and phones (1279px and below): one button folds the rail (CSS shows it there only).
 	var toggle = panel.querySelector( '.bn-hub-nav-toggle' );
 	if ( toggle ) {
 		toggle.hidden = false;

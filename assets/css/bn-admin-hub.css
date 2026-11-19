@@ -775,15 +775,11 @@
 }
 .bn-admin-hub--paneled .bn-admin-hub__header { padding-top: 0; }
 
-/* iPad portrait + narrow: panel stacks above content */
-/* iPad landscape/portrait (admin target floor is 768 - owner: admin is
-   desktop + iPad only): keep the two-column layout with a narrower rail
-   instead of stacking the full nav above the content, which buried every
-   screen below the fold on tablets. */
-@media ( max-width: 1024px ) {
-	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 216px minmax( 0, 1fr ); } /* MONETIZATION fits beside the icons with a classic 15px scrollbar. */
-	.bn-hub-nav-link { padding-inline-start: var(--bn-s4, 16px); }
-}
+/* Rail and tablets: from 1280px the left rail sits beside the content (it lists only
+   the current group's tabs). Below that, which is every iPad up to the 11-inch Pro, the
+   rail folds into one "Group > Tab" button so the content card gets the full width:
+   beside the rail the card was about 500px wide at 1024px and 700px at 1194px, and up to
+   eleven tables scrolled sideways. Measured: with the fold none do, at any width. */
 
 /* Below the iPad floor (out of admin scope, kept usable): stack, with the
    nav sections all collapsed so content stays within one swipe.
@@ -794,7 +790,7 @@
    two-column, so the content well was squeezed from both sides at once. iPad
    portrait is 768, so it still stacks there — the change only removes the
    sliver, it does not move the tablet behaviour. */
-@media ( max-width: 782px ) {
+@media ( max-width: 1279px ) {
 	/*
 	 * minmax(0, 1fr), not a bare 1fr. `1fr` floors at the track's MIN-CONTENT
 	 * width, and the nav's longest labels ("Registration & Login", "Roles &
@@ -838,8 +834,71 @@
 }
 
 /* Wider screens keep the rail; the phone toggle never shows. */
-@media ( min-width: 783px ) {
+@media ( min-width: 1280px ) {
 	.bn-hub-nav-toggle { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Group bar: the eight groups across the top of every admin screen
+   -------------------------------------------------------------------------- */
+.bn-hub-groupbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s1, 4px);
+	margin-block-end: var(--bn-s4, 16px);
+	padding: var(--bn-s1, 4px);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg, 12px);
+}
+.bn-hub-groupbar__item {
+	box-sizing: border-box;
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-block-size: var(--bn-tap, 40px);
+	padding-inline: var(--bn-s3, 12px);
+	border-radius: var(--bn-r-md, 8px);
+	color: var(--bn-ink-2);
+	font-weight: var(--bn-fw-semibold, 600);
+	text-decoration: none;
+	white-space: nowrap;
+}
+.bn-hub-groupbar__item:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+.bn-hub-groupbar__item:focus-visible { outline: 2px solid var(--bn-accent); outline-offset: 2px; }
+.bn-hub-groupbar__item.is-active {
+	background: var(--bn-accent-solid, var(--bn-accent));
+	color: var(--bn-accent-fg, var(--bn-bg));
+}
+/* iPad portrait: eight labels need about 775px and about 700px exist, so the bar
+   wraps to two even rows of four. Everything stays visible; no script, no "More". */
+@media ( max-width: 900px ) {
+	.bn-hub-groupbar__item { flex-basis: calc( 25% - var(--bn-s1, 4px) ); }
+}
+/* Phones (600px and below; iPad portrait at 768px still gets the wrapped bar): the bar is
+   replaced by the same groups at the head of the opened menu. */
+@media ( max-width: 600px ) {
+	.bn-hub-groupbar { display: none; }
+}
+.bn-hub-nav-groups { display: none; }
+@media ( max-width: 600px ) {
+	.bn-hub-nav-groups {
+		display: flex;
+		flex-direction: column;
+		margin-block-end: var(--bn-s2, 8px);
+		border-block-end: 1px solid var(--bn-line);
+	}
+	.bn-hub-nav-groups__item {
+		display: flex;
+		align-items: center;
+		min-block-size: 44px;
+		padding-inline: var(--bn-s3, 12px);
+		color: var(--bn-ink-2);
+		font-weight: var(--bn-fw-semibold, 600);
+		text-decoration: none;
+	}
+	.bn-hub-nav-groups__item.is-active { color: var(--bn-accent); }
 }
 
 /* --------------------------------------------------------------------------
