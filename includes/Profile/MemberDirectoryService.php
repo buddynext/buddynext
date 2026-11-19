@@ -26,7 +26,7 @@ class MemberDirectoryService {
 	/**
 	 * Default members per page.
 	 */
-	private const DEFAULT_LIMIT = 20;
+	private const DEFAULT_LIMIT = 24;
 
 	/**
 	 * The part of a bio that the headline has not already said.
@@ -240,6 +240,28 @@ class MemberDirectoryService {
 	private const TYPE_COUNTS_TTL = 3600;
 
 	/**
+	 * Members shown per directory page.
+	 *
+	 * 24 divides evenly into the 1, 2, 3 and 4 column grids, so no page ends on a
+	 * part-filled row that reads as the end of the list. The server-rendered
+	 * page, the pager and the REST default all read this one value.
+	 *
+	 * @return int Between 1 and 50.
+	 */
+	public static function page_size(): int {
+		/**
+		 * Filters how many members one directory page shows.
+		 *
+		 * Pick a multiple of 12 to keep every grid width full.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param int $per_page Members per page, default 24.
+		 */
+		return max( 1, min( 50, (int) apply_filters( 'buddynext_member_directory_per_page', self::DEFAULT_LIMIT ) ) );
+	}
+
+	/**
 	 * Return a cursor-paginated list of members.
 	 *
 	 * Supported $filters keys:
@@ -267,10 +289,10 @@ class MemberDirectoryService {
 	 * @param array       $filters   Optional associative filter/sort options.
 	 * @return array{items: array[], next_cursor: string|null, total: int|null} total is null when $filters['with_total'] is false.
 	 */
-	public function list_members( int $viewer_id = 0, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, array $filters = array() ): array {
+	public function list_members( int $viewer_id = 0, ?string $cursor = null, int $per_page = 0, array $filters = array() ): array {
 		global $wpdb;
 
-		$per_page    = min( $per_page, 50 );
+		$per_page    = min( $per_page > 0 ? $per_page : self::page_size(), 50 );
 		$cursor_data = $this->decode_cursor( $cursor );
 
 		// Normalise filter values.
@@ -1165,7 +1187,7 @@ class MemberDirectoryService {
 		$query_orderby = 'display_name' === $orderby ? 'display_name' : 'ID';
 
 		$query_args = array(
-			'number'      => self::DEFAULT_LIMIT,
+			'number'      => self::page_size(),
 			'paged'       => $page,
 			'orderby'     => $query_orderby,
 			'order'       => 'display_name' === $query_orderby ? 'ASC' : 'DESC',
@@ -1220,7 +1242,7 @@ class MemberDirectoryService {
 
 		return array(
 			'page'           => $page,
-			'per_page'       => self::DEFAULT_LIMIT,
+			'per_page'       => self::page_size(),
 			'search'         => $search,
 			'orderby'        => $orderby,
 			'relation'       => $relation,

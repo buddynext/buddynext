@@ -15,7 +15,7 @@
  *     - location      string  LIKE match against the location field mirror
  *     - online        bool    Restrict to users active in the last 5 minutes
  *     - cursor        string  Opaque pagination cursor
- *     - per_page      int     1-50 (default 20)
+ *     - per_page      int     1-50 (default 24, filterable)
  *
  * Each item in the response includes pre-computed view fields used by the
  * client renderer: display_name, handle, avatar_url, bio_excerpt,
@@ -98,7 +98,7 @@ class MemberDirectoryController extends BaseRestController {
 					'per_page'    => array(
 						'type'              => 'integer',
 						'sanitize_callback' => 'absint',
-						'default'           => 20,
+						'default'           => MemberDirectoryService::page_size(),
 					),
 					'messageable' => array(
 						'type'        => 'boolean',

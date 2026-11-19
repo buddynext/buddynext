@@ -95,7 +95,6 @@ function buildQuery( ctx ) {
 	if ( ctx.relation )   { qp.set( 'relation',    ctx.relation ); }
 	if ( ctx.memberType ) { qp.set( 'member_type', ctx.memberType ); }
 	if ( ctx.onlineOnly ) { qp.set( 'online',      '1' ); }
-	qp.set( 'per_page', '20' );
 	return qp.toString();
 }
 

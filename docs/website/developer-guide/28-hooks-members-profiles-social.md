@@ -247,6 +247,7 @@ Narrower hooks that did not fit the sections above. Same table shape.
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
+| `buddynext_member_directory_per_page` | filter | How many members one directory page shows (default 24, clamped to 1-50). The server-rendered page, the pager and the REST default all read it; use a multiple of 12 to keep every grid width full. | `int $per_page` |
 | `buddynext_member_directory_query_args` | filter | The directory query args are resolved, before the SQL is built. Adjust `per_page`, `sort`, and `filters`. | `array $query_args, string $scope, int $viewer_id` (`$scope` is always `member_directory`) |
 | `buddynext_member_directory_order_by` | filter | The ORDER BY fragment is built (without the `ORDER BY` keyword). It is interpolated into SQL, so return only column references and `ASC`/`DESC`, and end with `u.ID` as a tie-breaker. | `string $order_by, int $viewer_id, array $query_args` |
 | `buddynext_member_directory_items` | filter | The hydrated member rows are about to be returned. Reorder or enrich them; removing rows does not adjust `total` or the cursor. | `array $items, string $scope, int $viewer_id, array $query_args` |
