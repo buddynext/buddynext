@@ -835,7 +835,11 @@ msgstr "(sem texto)"
 #: templates/parts/profile-edit-sidebar.php:109
 #: templates/parts/search-result-section-posts.php:145
 #: templates/parts/space-header.php:78 assets/js/shell/extras.js:273
+msgid "Post"
+msgstr "Post"
+
 #. translators: singular/plural label for the space post-count stat.
+msgctxt "Count label for the number of posts"
 msgid "Post"
 msgid_plural "Posts"
 msgstr[0] "Post"

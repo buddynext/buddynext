@@ -106,7 +106,7 @@ do_action( 'buddynext_part_profile_edit_sidebar_before', $args );
 			<div class="bn-ep-preview-stats">
 				<div class="bn-ep-preview-stat">
 					<div class="bn-ep-preview-stat-num"><?php echo esc_html( $bn_posts ); ?></div>
-					<div class="bn-ep-preview-stat-lbl"><?php echo esc_html( _n( 'Post', 'Posts', (int) $bn_posts, 'buddynext' ) ); ?></div>
+					<div class="bn-ep-preview-stat-lbl"><?php echo esc_html( _nx( 'Post', 'Posts', (int) $bn_posts, 'Count label for the number of posts', 'buddynext' ) ); ?></div>
 				</div>
 				<div class="bn-ep-preview-stat">
 					<div class="bn-ep-preview-stat-num"><?php echo esc_html( $bn_followers ); ?></div>

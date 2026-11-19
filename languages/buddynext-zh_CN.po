@@ -804,6 +804,10 @@ msgstr "（无文本）"
 #: templates/parts/space-header.php:78 assets/js/shell/extras.js:273
 #. translators: singular/plural label for the space post-count stat.
 msgid "Post"
+msgstr "动态"
+
+msgctxt "Count label for the number of posts"
+msgid "Post"
 msgid_plural "Posts"
 msgstr[0] "动态"
 

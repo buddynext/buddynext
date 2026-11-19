@@ -75,7 +75,7 @@ if ( $bn_sh_member_count > 0 ) {
 if ( $bn_sh_post_count > 0 ) {
 	$bn_sh_stats[] = array(
 		/* translators: singular/plural label for the space post-count stat. */
-		'label' => _n( 'Post', 'Posts', $bn_sh_post_count, 'buddynext' ),
+		'label' => _nx( 'Post', 'Posts', $bn_sh_post_count, 'Count label for the number of posts', 'buddynext' ),
 		'value' => number_format_i18n( $bn_sh_post_count ),
 		'icon'  => 'message-circle',
 	);
