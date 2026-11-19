@@ -1615,10 +1615,8 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * A member banned from a space cannot post in, or rejoin, its forum.
-	 *
-	 * Revoking the roster row alone left the ban open: the member could post at once and rejoin. The
-	 * ban is issued as the system (0) because BuddyNext already decided who may ban whom.
+	 * A member banned from a space cannot post in, or rejoin, its forum. Issued as the system (0):
+	 * BuddyNext already decided who may ban whom.
 	 *
 	 * @since 1.3.1
 	 *
@@ -1656,10 +1654,8 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Refuse a forum-side join the space itself would refuse (banned, archived, plan-gated).
-	 *
-	 * The space is the authority for who is in its forum, so a join through the forum cannot get round
-	 * it. The bridge's own roster copies and members already in the space pass.
+	 * Refuse a forum-side join the space itself would refuse (banned, archived, plan-gated). Members
+	 * already in the space and the bridge's own roster copies pass.
 	 *
 	 * @since 1.3.1
 	 *
