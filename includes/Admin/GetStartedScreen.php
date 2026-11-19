@@ -99,8 +99,10 @@ class GetStartedScreen {
 		// not as section chrome above it. The setup checklist self-hides once
 		// dismissed or complete; the demo card owns its own seeded/empty state and
 		// was previously buried three levels deep on Platform -> Tools.
+		$demo = new \BuddyNext\Demo\DemoAdmin();
+		$demo->render_installer_card();
 		SetupChecklist::maybe_render( AdminHub::section_slug( 'get-started' ) );
-		( new \BuddyNext\Demo\DemoAdmin() )->render_promo();
+		$demo->render_promo();
 		$this->render_theme_card();
 		?>
 

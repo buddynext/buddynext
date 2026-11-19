@@ -2074,12 +2074,15 @@ class AdminHub {
 		foreach ( self::sections() as $skey => $section ) {
 			foreach ( self::visible_tabs( (string) $skey ) as $tslug => $tab ) {
 				$gkey = self::tab_group( (string) $skey, $tab );
-				if ( isset( $found[ $gkey ] ) ) {
+				// A group opens on a tab of its own sections; a tab lent by another
+				// section (License from Get Started) is only the fallback.
+				if ( isset( $found[ $gkey ] ) && ( ! empty( $found[ $gkey ]['own'] ) || self::section_group( (string) $skey ) !== $gkey ) ) {
 					continue;
 				}
 				$found[ $gkey ] = array(
 					'label' => isset( $labels[ $gkey ] ) ? $labels[ $gkey ] : (string) ( $section['label'] ?? $gkey ),
 					'url'   => self::tab_url( (string) $skey, (string) $tslug ),
+					'own'   => self::section_group( (string) $skey ) === $gkey,
 				);
 			}
 		}

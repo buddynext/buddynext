@@ -1328,3 +1328,6 @@
 /* A section that only lends one tab to this group (License from Get Started) has no
    heading of its own: the tab sits with the group's other tabs. */
 .bn-hub-nav-group.is-borrowed > .bn-hub-nav-group__label { display: none; }
+
+/* The Demo Installer card's action stays on one line: "Get the installer" wrapped to two. */
+.bn-demo-installer .bn-btn { white-space: nowrap; flex: none; }

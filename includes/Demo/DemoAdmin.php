@@ -152,6 +152,69 @@ class DemoAdmin {
 	}
 
 	/**
+	 * The Wbcom Demo Installer card, ahead of BuddyNext's own sample community.
+	 *
+	 * The installer builds a whole demo (theme, every Wbcom product, a designed home page)
+	 * and works from its own wizard, so this card only reads its status and links in. It
+	 * never copies its content. BuddyNext's built-in seeder stays below for sites that run
+	 * another theme or no installer.
+	 *
+	 * @return void
+	 */
+	public function render_installer_card(): void {
+		$wizard = admin_url( 'themes.php?page=wbcom-demo' );
+		$state  = function_exists( 'wbcom_demo_status' ) ? wbcom_demo_status() : null;
+		// Installer 1.1.x is active but predates wbcom_demo_status(): no state to show, only the way in.
+		$status = null !== $state ? (string) ( $state['status'] ?? 'idle' ) : ( defined( 'WBCOM_DEMO_DIR' ) ? 'idle' : 'missing' );
+		$demo   = null === $state ? '' : (string) ( $state['demo_label'] ?? '' );
+		$left   = null === $state ? 0 : (int) ( $state['samples_left'] ?? 0 );
+
+		if ( 'missing' === $status ) {
+			$title = __( 'Preview your whole site with the Wbcom Demo Installer', 'buddynext' );
+			$sub   = __( 'A free plugin that sets up your theme, BuddyNext and the other Wbcom products with sample people and content and a designed home page, then removes it all in one click.', 'buddynext' );
+			$label = __( 'Get the installer', 'buddynext' );
+			$url   = 'https://github.com/buddynext/wbcom-demo-installer/releases/latest';
+			$ext   = true;
+		} elseif ( in_array( $status, array( 'building', 'finishing' ), true ) ) {
+			$title = __( 'Your demo is being set up', 'buddynext' );
+			$sub   = __( 'The installer is working. Open it to follow the progress.', 'buddynext' );
+			$label = __( 'Open the installer', 'buddynext' );
+			$url   = $wizard;
+			$ext   = false;
+		} elseif ( 'built' === $status ) {
+			$title = '' !== $demo
+				/* translators: %s: demo name */
+				? sprintf( __( 'Your %s demo is ready', 'buddynext' ), $demo )
+				: __( 'Your demo is ready', 'buddynext' );
+			$sub = sprintf(
+				/* translators: %d: number of sample items */
+				_n( '%d sample item is on the site. Open the installer to look around, take it live or remove everything.', '%d sample items are on the site. Open the installer to look around, take it live or remove everything.', max( 1, $left ), 'buddynext' ),
+				$left
+			);
+			$label = __( 'Manage the demo', 'buddynext' );
+			$url   = $wizard;
+			$ext   = false;
+		} else {
+			$title = __( 'Preview your whole site with the Wbcom Demo Installer', 'buddynext' );
+			$sub   = __( 'Pick what your site is for and the installer builds a demo with your theme and the Wbcom products, then removes it in one click.', 'buddynext' );
+			$label = __( 'Set up a demo', 'buddynext' );
+			$url   = $wizard;
+			$ext   = false;
+		}
+		?>
+		<div class="bn-setup-card bn-demo-promo bn-demo-installer">
+			<div class="bn-setup-card__head">
+				<div class="bn-setup-card__heading">
+					<h2 class="bn-setup-card__title"><?php echo esc_html( $title ); ?></h2>
+					<p class="bn-setup-card__sub"><?php echo esc_html( $sub ); ?></p>
+				</div>
+				<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $url ); ?>"<?php echo $ext ? ' target="_blank" rel="noopener"' : ''; ?>><?php echo esc_html( $label ); ?></a>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Handle the seed button.
 	 *
 	 * @return void
