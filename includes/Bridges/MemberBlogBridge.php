@@ -108,6 +108,9 @@ class MemberBlogBridge {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_title_prefill' ), 20 );
 		add_filter( 'buddynext_rail_items', array( $this, 'add_write_rail_item' ), 10, 2 );
 		add_filter( 'buddynext_document_title', array( $this, 'write_document_title' ), 10, 2 );
+		// Member Blog relabels the page "Edit post" at priority 99 while a post is being edited; inside the
+		// shell the page says what the heading says, so this runs after it.
+		add_filter( 'document_title_parts', array( $this, 'write_document_title_parts' ), 100 );
 		add_filter( 'buddynext_client_nav_deny', array( $this, 'deny_client_nav' ) );
 		add_filter( 'buddynext_client_nav_enabled', array( $this, 'no_client_nav_on_write_hub' ) );
 		// Member Blog is the article provider, registered from BuddyNext's side.
@@ -489,6 +492,23 @@ class MemberBlogBridge {
 			'order'  => 208,
 		);
 		return $items;
+	}
+
+	/**
+	 * Keep the browser tab matching the page inside the write hub, whatever Member
+	 * Blog relabelled it to ("Edit post" on an edit link or the success page).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string,string> $parts Document title parts.
+	 * @return array<string,string>
+	 */
+	public function write_document_title_parts( $parts ) {
+		if ( ! is_array( $parts ) || null === self::write_hub_page() ) {
+			return $parts;
+		}
+		$parts['title'] = $this->write_document_title( (string) ( $parts['title'] ?? '' ), self::WRITE_HUB );
+		return $parts;
 	}
 
 	/**

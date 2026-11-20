@@ -327,6 +327,19 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertSame( array( true, false ), wp_list_pluck( $tabs, 'current' ) );
 	}
 
+	public function test_the_tab_keeps_the_hub_title_when_member_blog_relabels_an_edit_page(): void {
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+
+		$parts = $this->bridge->write_document_title_parts( array( 'title' => 'Edit post' ) );
+		$this->assertSame( 'Write a post', $parts['title'] );
+
+		// Outside the hub nothing changes.
+		( new \ReflectionProperty( MemberBlogBridge::class, 'write_page' ) )->setValue( null, 0 );
+		$this->assertSame( array( 'title' => 'Edit post' ), $this->bridge->write_document_title_parts( array( 'title' => 'Edit post' ) ) );
+	}
+
 	public function test_a_non_writer_on_the_dashboard_sees_my_reading_not_write_a_post(): void {
 		// Someone Member Blog does not let write sees its reading view on the dashboard page.
 		wp_set_current_user( self::factory()->user->create() );
