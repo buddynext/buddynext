@@ -3457,7 +3457,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				$bn_unlocks  = (string) ( $bn_c['unlocks'] ?? '' );
 				$bn_store    = (string) ( $bn_c['store_url'] ?? '' );
 				$bn_basename = (string) ( $bn_c['free']['basename'] ?? '' );
-				$bn_logo     = $logo_base . sanitize_file_name( (string) ( $bn_c['logo'] ?? $bn_slug ) ) . '.svg';
 				$bn_github   = 'github' === ( $bn_c['source'] ?? '' );
 				// A GitHub tool installs or activates in place; with installs blocked it shows the manual steps.
 				// DISALLOW_FILE_MODS also removes install_plugins, so a locked host is judged on activate_plugins.
@@ -3491,14 +3490,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				?>
 			<div class="bn-companion-card" id="bn-companion-<?php echo esc_attr( sanitize_html_class( (string) $bn_slug ) ); ?>" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>"<?php echo $bn_gh_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CompanionGithubUi::attrs() escapes every value. ?>>
 				<div class="bn-companion-card__head">
-					<img
-						class="bn-companion-card__logo"
-						src="<?php echo esc_url( $bn_logo ); ?>"
-						alt="<?php echo esc_attr( $bn_label ); ?>"
-						width="40"
-						height="40"
-						loading="lazy"
-					/>
+					<?php echo ProductIcon::for_companion( (string) $bn_slug, $bn_c ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- ProductIcon escapes its markup. ?>
 					<h3 class="bn-companion-card__title"><?php echo esc_html( $bn_label ); ?></h3>
 					<span class="<?php echo esc_attr( $bn_badge_class ); ?>" data-bn-gh-badge><?php echo esc_html( $bn_badge_label ); ?></span>
 					<?php if ( $bn_needs_pro && ! $bn_waits_for_pro ) : ?>

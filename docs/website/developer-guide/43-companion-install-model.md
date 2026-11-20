@@ -49,6 +49,7 @@ A companion is one entry in the array returned by `CompanionRegistry::all()`, ke
 | `store_url` | string | Product page on `wbcomdesigns.com` for the "Get Pro" link. |
 | `unlocks` | string | What connecting this companion turns on inside BuddyNext. |
 | `setup_url` | string (optional) | Admin path to send the user to after install so the companion's own setup flow runs. Falls back to `plugins.php` when absent. |
+| `icon` | string (optional) | Square icon shown beside the name on the Add-ons tab and Integration Settings: an `https://` (or `http://`) URL, or a path relative to the plugins folder such as `my-companion/assets/icon.svg`. Any other value (`javascript:`, `data:`, `..`) is ignored. Without it, the companion's first letter is shown on a tile. |
 
 The `free.item_id` and `free.key` for each companion are the exact values baked into that plugin's own EDD SL SDK setup (its main file). The one-click free install therefore speaks the same delivery channel the companion already uses for its updates - BuddyNext does not invent a second channel.
 
@@ -73,6 +74,7 @@ add_filter( 'buddynext_companions', static function ( array $companions ): array
         'store_url' => 'https://wbcomdesigns.com/downloads/my-companion/',
         'unlocks'   => __( 'What connecting this turns on inside BuddyNext.', 'my-addon' ),
         'setup_url' => 'admin.php?page=my-companion-settings', // optional
+        'icon'      => 'my-companion/assets/icon.svg', // optional, plugins-folder relative or a URL
     );
     return $companions;
 } );

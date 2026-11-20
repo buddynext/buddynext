@@ -118,6 +118,8 @@ class BlogPostListener implements ListenerInterface {
 			'has_nav'    => false,
 			'has_feed'   => true,
 			'has_search' => false,
+			// Site blog tracking is core, so its row carries the BuddyNext mark.
+			'icon'       => BUDDYNEXT_URL . 'assets/img/companions/buddynext.svg',
 		);
 
 		return $items;

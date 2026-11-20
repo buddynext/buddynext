@@ -77,7 +77,9 @@ final class IntegrationRegistry {
 		 * Entry keys: `label`, `version` (the partner plugin's own version constant,
 		 * or omit when unknown), `min_version` (floor for the bridge's wired seams),
 		 * `tested_version` (the partner release the bridge was last verified against),
-		 * `has_nav`, `has_feed`, `has_search`, `rest_namespace`, `subtabs`.
+		 * `has_nav`, `has_feed`, `has_search`, `rest_namespace`, `subtabs`, `icon` (an
+		 * http(s) URL or a plugins-folder-relative path to a square image, shown beside
+		 * the name on Integration Settings; omit it for the letter tile).
 		 *
 		 * @param array<string,array<string,mixed>> $items Entries keyed by integration key.
 		 */
@@ -146,6 +148,8 @@ final class IntegrationRegistry {
 					? sanitize_text_field( (string) $entry['rest_namespace'] )
 					: null,
 				'subtabs'             => $subtabs,
+				// Raw declaration; ProductIcon validates it at render (http(s) or plugin path only).
+				'icon'                => isset( $entry['icon'] ) ? trim( (string) $entry['icon'] ) : '',
 				// Sub-tabs the partner cannot serve right now (a module of its own is
 				// off): sub key => {note, action_label, action_url}. The admin row shows
 				// them disabled with the reason and one action, and saving keeps the

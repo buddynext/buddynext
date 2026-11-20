@@ -115,9 +115,8 @@ class IntegrationControlsAdmin {
 				</div>
 			<?php else : ?>
 				<?php
-				$bn_extras  = array();
-				$bn_palette = array( '#7a4fd1', '#0e7c86', '#c2410c', '#1a64c8', '#be185d', '#a16207', '#15803d', '#b91c1c' );
-				$bn_rows    = array();
+				$bn_extras = array();
+				$bn_rows   = array();
 				foreach ( $integrations as $key => $entry ) {
 					$key          = (string) $key;
 					$bn_label     = (string) ( $entry['label'] ?? $key );
@@ -130,6 +129,7 @@ class IntegrationControlsAdmin {
 					$bn_unavail   = array_filter( (array) ( $entry['subtabs_unavailable'] ?? array() ) );
 					$bn_companion = \BuddyNext\Integrations\CompanionRegistry::for_integration( $key );
 					$bn_product   = (string) ( $bn_companion['label'] ?? $bn_label );
+					$bn_mark      = null !== $bn_companion ? ProductIcon::url( (string) ( $bn_companion['icon'] ?? '' ), (string) ( $bn_companion['logo'] ?? $bn_companion['slug'] ) ) : '';
 					$bn_rows[]    = array(
 						'key'       => $key,
 						'entry'     => $entry,
@@ -142,6 +142,8 @@ class IntegrationControlsAdmin {
 						'behind'    => $bn_behind,
 						'needs'     => $bn_needs,
 						'attention' => $bn_stale || ! empty( $bn_unavail ) || ! empty( $bn_needs ),
+						// The icon follows the name: the active companion's mark, else the integration's own.
+						'icon'      => ProductIcon::render( $bn_product, '' !== $bn_mark ? $bn_mark : (string) ( $entry['icon'] ?? '' ) ),
 					);
 				}
 				?>
@@ -193,8 +195,6 @@ class IntegrationControlsAdmin {
 							/* translators: %s: installed partner version. */
 							$bn_meta[] = sprintf( __( 'Version %s', 'buddynext' ), $bn_version );
 						}
-						$bn_initial = function_exists( 'mb_substr' ) ? mb_strtoupper( mb_substr( $bn_product, 0, 1 ) ) : strtoupper( substr( $bn_product, 0, 1 ) );
-						$bn_color   = $bn_palette[ abs( crc32( $key ) ) % count( $bn_palette ) ];
 						?>
 						<li
 							class="bn-int-card<?php echo $bn_row['attention'] ? ' is-open' : ''; ?>"
@@ -203,7 +203,7 @@ class IntegrationControlsAdmin {
 							data-attention="<?php echo $bn_row['attention'] ? '1' : '0'; ?>"
 						>
 							<div class="bn-int-row">
-								<span class="bn-int-tile" style="background: <?php echo esc_attr( $bn_color ); ?>" aria-hidden="true"><?php echo esc_html( $bn_initial ); ?></span>
+								<?php echo $bn_row['icon']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- ProductIcon escapes its markup. ?>
 								<div class="bn-int-id">
 									<span class="bn-int-card__title"><?php echo esc_html( $bn_product ); ?></span>
 									<?php if ( ! empty( $bn_meta ) ) : ?>
@@ -341,27 +341,25 @@ class IntegrationControlsAdmin {
 			foreach ( \BuddyNext\Integrations\CompanionRegistry::all() as $bn_slug => $bn_c ) {
 				$bn_step = \BuddyNext\Integrations\CompanionRegistry::next_step( (string) $bn_slug );
 				if ( null !== $bn_step ) {
-					$bn_available[] = array( $bn_c, $bn_step );
+					$bn_available[] = array( (string) $bn_slug, $bn_c, $bn_step );
 				}
 			}
 		}
 		if ( ! empty( $bn_available ) ) :
-			$bn_palette = array( '#7a4fd1', '#0e7c86', '#c2410c', '#1a64c8', '#be185d', '#a16207', '#15803d', '#b91c1c' );
 			?>
 			<h2 class="bn-int-group"><?php esc_html_e( 'Available to connect', 'buddynext' ); ?></h2>
 			<ul class="bn-int-list">
 				<?php
-				foreach ( $bn_available as list( $bn_c, $bn_step ) ) :
+				foreach ( $bn_available as list( $bn_slug, $bn_c, $bn_step ) ) :
 					$bn_al = (string) ( $bn_c['label'] ?? '' );
 					$bn_aw = (string) ( $bn_c['why'] ?? ( $bn_c['unlocks'] ?? '' ) );
 					if ( '' === $bn_al ) {
 						continue;
 					}
-					$bn_ai = function_exists( 'mb_substr' ) ? mb_strtoupper( mb_substr( $bn_al, 0, 1 ) ) : strtoupper( substr( $bn_al, 0, 1 ) );
 					?>
 					<li class="bn-int-card">
 						<div class="bn-int-row">
-							<span class="bn-int-tile is-muted" aria-hidden="true"><?php echo esc_html( $bn_ai ); ?></span>
+							<?php echo ProductIcon::for_companion( $bn_slug, $bn_c ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- ProductIcon escapes its markup. ?>
 							<div class="bn-int-id">
 								<span class="bn-int-card__title"><?php echo esc_html( $bn_al ); ?></span>
 								<?php if ( '' !== $bn_aw ) : ?>

@@ -34,6 +34,9 @@ final class CompanionRegistry {
 	 *   free      array    { item_id, key, basename } for one-click free install.
 	 *   store_url string   Product page for the "Get Pro" link (wbcomdesigns.com only).
 	 *   unlocks   string   What this turns on inside BuddyNext when connected.
+	 *   icon      string   Optional. Square icon beside the name: an http(s) URL or a path
+	 *                      relative to the plugins folder. Wbcom companions omit it and
+	 *                      use the mark bundled at assets/img/companions/{slug}.svg.
 	 *
 	 * @return array<string, array<string, mixed>>
 	 */
@@ -192,7 +195,7 @@ final class CompanionRegistry {
 	 *   source  'github'.
 	 *   github  { repo, prefix }: the release asset is the .zip whose name starts with prefix.
 	 *   free    { basename } for installed/active detection.
-	 *   logo    Add-ons card logo file in assets/img/companions/, without .svg.
+	 *   logo    Bundled mark in assets/img/companions/ when it is not {slug}.svg, without .svg.
 	 *
 	 * @since 1.3.0
 	 *
@@ -225,7 +228,6 @@ final class CompanionRegistry {
 				'detect'    => static fn(): bool => defined( 'WBCOM_ESSENTIAL_VERSION' ),
 				'free'      => array( 'basename' => 'wbcom-essential/loader.php' ),
 				'store_url' => 'https://github.com/vapvarun/wbcom-essential',
-				'logo'      => 'wbcom',
 			),
 		);
 	}
@@ -255,12 +257,12 @@ final class CompanionRegistry {
 	 * so an inactive companion lends neither its name nor its Active badge.
 	 *
 	 * @param string $integration_key Key on the buddynext_integrations registry.
-	 * @return array<string, mixed>|null
+	 * @return array<string, mixed>|null The entry, with its `slug` added.
 	 */
 	public static function for_integration( string $integration_key ): ?array {
 		foreach ( self::all() as $slug => $entry ) {
 			if ( ( $entry['integration'] ?? '' ) === $integration_key && self::is_active( (string) $slug ) ) {
-				return $entry;
+				return array( 'slug' => (string) $slug ) + $entry;
 			}
 		}
 		return null;

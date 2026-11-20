@@ -56,4 +56,37 @@ class IntegrationControlsAdminTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'name="subtab[qaint][one]"', $html );
 		$this->assertSame( 1, substr_count( $html, 'bn-int-card__title">QA Integration' ), 'One card per integration.' );
 	}
+
+	/**
+	 * A row backed by an active Wbcom companion shows its bundled mark; an
+	 * integration that declares no icon keeps the letter tile.
+	 */
+	public function test_row_shows_product_icon_or_letter(): void {
+		add_filter(
+			'buddynext_integrations',
+			static function ( array $items ): array {
+				$items['qafam'] = array( 'label' => 'QA Family', 'has_feed' => true );
+				return $items;
+			}
+		);
+		add_filter(
+			'buddynext_companions',
+			static fn( array $all ): array => array(
+				'jetonomy' => array(
+					'label'       => 'Jetonomy',
+					'integration' => 'qafam',
+					'detect'      => static fn(): bool => true,
+				),
+			) + $all
+		);
+		\BuddyNext\Integrations\IntegrationRegistry::instance()->reset();
+
+		ob_start();
+		( new IntegrationControlsAdmin() )->render_page();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'assets/img/companions/jetonomy.svg', $html, 'First-party product shows its mark.' );
+		$this->assertStringContainsString( '<span class="bn-int-tile" aria-hidden="true">Q</span>', $html, 'Unknown integration keeps the letter tile.' );
+		$this->assertStringNotContainsString( 'style="background:', $html, 'No hashed colour tiles.' );
+	}
 }

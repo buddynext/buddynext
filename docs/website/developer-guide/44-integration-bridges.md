@@ -118,6 +118,30 @@ Current declared values (update the row when you re-verify a bridge against a ne
 | `listora` | `WB_LISTORA_VERSION` | (none) | 1.9.0 |
 | `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.3.0 |
 
+## Product icons
+
+Integration Settings and the Add-ons tab show a square icon beside every product name, decorative (the name sits next to it), drawn by `BuddyNext\Admin\ProductIcon`. It resolves in this order:
+
+1. The active companion's `icon` (see the companion install model), else its mark bundled in BuddyNext at `assets/img/companions/{companion-slug}.svg`. The Wbcom family ships there, so those plugins declare nothing.
+2. The integration's own `icon` key on its `buddynext_integrations` entry, for an integration with no companion.
+3. The first letter of the name on a tile.
+
+An `icon` is an `https://` or `http://` URL, or a path relative to the plugins folder; anything else is ignored. A third-party add-on gets its icon by declaring it next to its label and version:
+
+```php
+add_filter( 'buddynext_integrations', static function ( array $items ): array {
+    $items['my_addon'] = array(
+        'label'    => 'My Add-on',
+        'version'  => MY_ADDON_VERSION,
+        'icon'     => 'my-addon/assets/icon.svg', // or plugins_url( 'assets/icon.svg', MY_ADDON_FILE )
+        'has_feed' => true,
+    );
+    return $items;
+} );
+```
+
+Use a square SVG or PNG with no scripts or external references; it is drawn at 40 by 40 pixels.
+
 ## Identity takeover (BuddyNext is master)
 
 Where a partner renders a member's name, @handle, avatar or profile link on a shared surface, BuddyNext owns that identity: one profile link, one name, one mention system across the whole site. A partner exposes filter seams for a host to claim; the bridge fills them so the partner defers to BuddyNext.

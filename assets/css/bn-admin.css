@@ -1293,11 +1293,26 @@ select.bn-text-input {
 	inline-size: 40px;
 	block-size: 40px;
 	border-radius: var(--bn-a-r-lg);
+	background: var(--bn-a-brand);
 	color: #fff;
 	font-weight: var(--bn-a-fw-bold);
 	font-size: var(--bn-a-text-base);
 }
-.bn-int-tile.is-muted { background: var(--bn-a-text-3); }
+/* A product's own mark. The fixed box and the img width/height keep the row
+   from shifting while it loads; the hairline border lets a white or a dark
+   mark read on either admin surface. */
+.bn-int-tile.has-icon {
+	box-sizing: border-box;
+	overflow: hidden;
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+}
+.bn-int-tile.has-icon img {
+	display: block;
+	inline-size: 100%;
+	block-size: 100%;
+	object-fit: contain;
+}
 .bn-int-id { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .bn-int-card__title { font-family: var(--bn-a-font-display); font-size: var(--bn-a-text-base); font-weight: var(--bn-a-fw-semibold); color: var(--bn-a-text-1); line-height: 1.3; }
 .bn-int-card__meta { font-size: var(--bn-a-text-sm); color: var(--bn-a-text-2); line-height: 1.4; }
@@ -2193,14 +2208,6 @@ table.bn-table tr:hover td {
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 10px;
-}
-
-.bn-companion-card__logo {
-	flex: 0 0 auto;
-	width: 40px;
-	height: 40px;
-	object-fit: contain;
-	border-radius: var(--bn-a-r-sm);
 }
 
 .bn-companion-card__title {
