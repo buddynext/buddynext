@@ -107,6 +107,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Let a member keep a private profile? | YES | per-field and profile-level visibility; a private profile does not leak post counts |
 | Show a member's forum, job, listing or course activity on their profile? | YES | bridge panels - only for the partner plugins actually installed |
 | List published articles on a profile? | YES | 1.1.1. `Bridges\MemberBlogBridge`; requires WB Member Blog |
+| Write a long-form article from the feed? | YES | 1.3.0. Post / Article tabs in the What's New composer for members who can write; the editor is the article provider (WB Member Blog, else the WordPress editor). Space and profile composers have no Article tab unless the `buddynext_composer_article_tab` filter allows it |
 | Onboard a new member with a wizard? | YES | `onboarding` group, 4 `/me/onboarding` routes, admin page `buddynext-setup` |
 
 ## Accounts and access

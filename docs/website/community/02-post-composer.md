@@ -27,6 +27,16 @@ A member types into the composer and clicks **Post**. The post is created and ap
 - **Schedule** - pick a future date and time. The post is held and published automatically when that time arrives; it stays out of the feed until then. The control is labelled with your site's timezone (for example "Publish at (Europe/Berlin)"), so the time you type is the time the post card will show.
 
 
+### Writing an article
+
+Members who can write articles see two tabs at the top of the What's New composer: **Post** (the composer described above) and **Article**. Switching tabs never loses what you typed in the post box.
+
+The Article tab explains what an article is, takes an optional title and opens the article editor with **Start writing**, with the title already filled in. When you have an unfinished draft, the tab offers it first with **Continue writing**. **My drafts** and **My articles** links show how many of each you have: My drafts counts drafts, My articles counts published and private articles. Articles held for review or scheduled are in neither count.
+
+The editor is WB Member Blog when it is active (see [WB Member Blog](../integrations/09-member-blog.md)), otherwise the WordPress editor for members who can use it. Members who cannot write, and logged-out visitors, see the composer with no tabs. Space composers and the composer on a profile have no Article tab. A published article reaches the feed as one article card.
+
+Owners turn the tab off with the **Navigation** switch on the **Blog posts** card in **BuddyNext > Integration Settings**; the same switch controls the profile Articles tab. Developers can offer the tab in space or profile composers with the `buddynext_composer_article_tab` filter (see the developer guide's Integration Bridges page).
+
 ### Choosing who sees a post
 
 Before posting, a member picks an audience from the privacy menu in the composer: Public, Followers, Connections, or Only me. Site admins and space managers get a fifth option, Members only, which keeps the post publicly listed but shows logged-out visitors only a short teaser and a prompt to join. When posting inside a space, the audience is the space's members. The full meaning of each level and how it is enforced is covered in Post Privacy and Visibility.

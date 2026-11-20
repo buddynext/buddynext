@@ -105,6 +105,7 @@ class MemberBlogBridge {
 		add_action( 'template_redirect', array( $this, 'route_write_pages' ), 5 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'lend_page_to_enqueue' ), 0 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'restore_after_enqueue' ), 9999 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_title_prefill' ), 20 );
 		add_filter( 'buddynext_rail_items', array( $this, 'add_write_rail_item' ), 10, 2 );
 		add_filter( 'buddynext_document_title', array( $this, 'write_document_title' ), 10, 2 );
 		add_filter( 'buddynext_client_nav_deny', array( $this, 'deny_client_nav' ) );
@@ -386,6 +387,47 @@ class MemberBlogBridge {
 			}
 		}
 		return $tabs;
+	}
+
+	/**
+	 * The title to put in Member Blog's empty title field, from the composer's
+	 * Article tab (`?bn_title=`), or '' when there is none to carry.
+	 *
+	 * Only on the new-post page (no `post_id`), for a member the hub gives tabs
+	 * (a writer), and while no notice replaces the form. Plain text: tags are
+	 * stripped and the length capped; the template escapes it again on output.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string
+	 */
+	public static function write_hub_prefill_title(): string {
+		$page = self::write_hub_page();
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only prefill of a form field the member submits themselves.
+		if ( null === $page
+			|| self::write_pages()['post'] !== (int) $page->ID
+			|| ! isset( $_GET['bn_title'] )
+			|| isset( $_GET['post_id'] )
+			|| array() === self::write_hub_tabs()
+			|| null !== self::write_hub_notice()
+		) {
+			return '';
+		}
+		$title = sanitize_text_field( wp_unslash( (string) $_GET['bn_title'] ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		return mb_substr( $title, 0, 200 );
+	}
+
+	/**
+	 * Load the write hub's title-prefill module, only when there is a title to
+	 * carry (write_hub_prefill_title()).
+	 *
+	 * @return void
+	 */
+	public function enqueue_title_prefill(): void {
+		if ( self::WRITE_HUB === (string) get_query_var( 'bn_hub', '' ) && '' !== self::write_hub_prefill_title() ) {
+			wp_enqueue_script_module( '@buddynext/blog-write-prefill' );
+		}
 	}
 
 	/**
@@ -840,7 +882,7 @@ class MemberBlogBridge {
 		$co_writers = array();
 		foreach ( $query->posts as $post ) {
 			if ( $is_owner ) {
-				$edit_urls[ (int) $post->ID ] = $this->edit_url( (int) $post->ID, $user_id );
+				$edit_urls[ (int) $post->ID ] = self::edit_url( (int) $post->ID, $user_id );
 			}
 			$co_writers[ (int) $post->ID ] = wp_list_pluck( $this->co_writers( $post, $user_id ), 'name' );
 		}
@@ -917,7 +959,7 @@ class MemberBlogBridge {
 				'status'       => 'publish',
 				'status_label' => __( 'Published', 'buddynext' ),
 				// Where the owner edits THIS post; '' for everyone else.
-				'edit_url'     => $is_owner ? $this->edit_url( (int) $post->ID, $user_id ) : '',
+				'edit_url'     => $is_owner ? self::edit_url( (int) $post->ID, $user_id ) : '',
 			);
 		}
 		wp_reset_postdata();
@@ -978,12 +1020,16 @@ class MemberBlogBridge {
 	 * "post" page with the post id (the address that class builds on a standalone
 	 * site), else the WordPress editor for a member who can use it. Empty when
 	 * there is nowhere to send them; the panel then falls back to the dashboard.
+	 * Also the composer Article tab's "Continue writing" address
+	 * (Feed\ArticleProvider::composer_summary()).
+	 *
+	 * @since 1.3.0 Public.
 	 *
 	 * @param int $post_id The post.
 	 * @param int $user_id Its author.
 	 * @return string
 	 */
-	private function edit_url( int $post_id, int $user_id ): string {
+	public static function edit_url( int $post_id, int $user_id ): string {
 		if ( class_exists( '\Member_Blog_Compat' ) ) {
 			$url = (string) \Member_Blog_Compat::get_edit_post_url( $post_id );
 			if ( '' !== $url ) {

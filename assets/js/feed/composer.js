@@ -610,7 +610,7 @@ function restoreDraftsOnLoad() {
 
 onNavReady( restoreDraftsOnLoad );
 
-store( 'buddynext/post-composer', {
+const { state } = store( 'buddynext/post-composer', {
 	state: {
 		get open() {
 			try { return !! getContext().composerOpen; } catch ( _e ) { return false; }
@@ -754,8 +754,57 @@ store( 'buddynext/post-composer', {
 		get voiceSubmitLabel() {
 			try { return getContext().submitting ? t( 'scheduling', 'Scheduling…' ) : t( 'scheduleRoom', 'Schedule room' ); } catch ( _e ) { return t( 'scheduleRoom', 'Schedule room' ); }
 		},
+		// Post / Article tabs (partials/composer.php). `mode` lives on the
+		// .bn-composer-switch context only; nothing is remembered between visits.
+		get isPostMode() {
+			try { return 'article' !== getContext().mode; } catch ( _e ) { return true; }
+		},
+		get isArticleMode() {
+			try { return 'article' === getContext().mode; } catch ( _e ) { return false; }
+		},
+		get postTabIndex() {
+			return state.isPostMode ? 0 : -1;
+		},
+		get articleTabIndex() {
+			return state.isArticleMode ? 0 : -1;
+		},
 	},
 	actions: {
+		/**
+		 * Select the clicked Post / Article tab. Both are type="button", so this
+		 * never submits anything, and the Post panel is only hidden, so its text,
+		 * media and draft survive the switch.
+		 *
+		 * @param {MouseEvent} event Click on a [data-mode] tab.
+		 */
+		selectMode( event ) {
+			getContext().mode = 'article' === event.currentTarget.dataset.mode ? 'article' : 'post';
+		},
+		/**
+		 * Tab-list keyboard: Left / Right move to the other tab (two tabs, so the
+		 * direction is the same in RTL), Home selects Post, End selects Article.
+		 * Selection follows focus, and focus moves to the newly selected tab.
+		 *
+		 * @param {KeyboardEvent} event Keydown on the tablist.
+		 */
+		switchKeydown( event ) {
+			if ( ! [ 'ArrowLeft', 'ArrowRight', 'Home', 'End' ].includes( event.key ) ) {
+				return;
+			}
+			event.preventDefault();
+			const ctx = getContext();
+			let mode = 'article' === ctx.mode ? 'post' : 'article';
+			if ( 'Home' === event.key ) {
+				mode = 'post';
+			} else if ( 'End' === event.key ) {
+				mode = 'article';
+			}
+			ctx.mode = mode;
+			const tab = getElement()?.ref?.querySelector( '[data-mode="' + mode + '"]' );
+			if ( tab ) {
+				tab.focus();
+			}
+		},
 		open() {
 			getContext().composerOpen = true;
 		},

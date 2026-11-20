@@ -2822,6 +2822,151 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	align-items: flex-start;
 }
 
+/* Post / Article tabs (partials/composer.php + composer-article.php). The
+	switch is the card; the post composer inside it drops its own frame so the
+	two panels share one surface. */
+.bn-composer-switch {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s3) var(--bn-s5) var(--bn-s3);
+}
+.bn-composer-switch .bn-composer {
+	background: none;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+}
+.bn-composer-switch__tabs {
+	display: inline-flex;
+	gap: var(--bn-s1);
+	padding: var(--bn-s1);
+	margin-block-end: var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+}
+.bn-composer-switch__tab {
+	min-block-size: 44px;
+	min-inline-size: 44px;
+	padding-block: var(--bn-s2);
+	padding-inline: var(--bn-s4);
+	border: 0;
+	border-radius: var(--bn-r-sm);
+	background: transparent;
+	color: var(--bn-ink-2);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	cursor: pointer;
+}
+.bn-composer-switch__tab:hover {
+	color: var(--bn-ink);
+	background: transparent;
+}
+.bn-composer-switch__tab[aria-selected="true"] {
+	background: var(--bn-surface);
+	color: var(--bn-accent);
+	box-shadow: 0 0 0 1px var(--bn-line);
+}
+.bn-composer-switch__tab:focus-visible {
+	outline: 2px solid transparent;
+	box-shadow: var(--bn-ring);
+}
+.bn-composer-article__lede {
+	margin: 0 0 var(--bn-s3);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+}
+.bn-composer-article__resume {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3);
+	margin-block-end: var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+}
+.bn-composer-article__resume-text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-inline-size: 0;
+}
+.bn-composer-article__resume-title {
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	overflow-wrap: anywhere;
+}
+.bn-composer-article__resume-meta {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+.bn-composer-article__resume-action,
+.bn-composer-article__start {
+	min-block-size: 44px;
+}
+.bn-composer-article__label {
+	display: block;
+	margin-block-end: var(--bn-s1);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+.bn-composer-article__title.bn-input {
+	block-size: 44px;
+}
+.bn-composer-article__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2) var(--bn-s4);
+	margin-block-start: var(--bn-s3);
+}
+.bn-composer-article__links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s4);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.bn-composer-article__link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-block-size: 44px;
+	color: var(--bn-accent);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+}
+.bn-composer-article__link:hover,
+.bn-composer-article__link:visited {
+	color: var(--bn-accent);
+}
+.bn-composer-article__link:hover {
+	text-decoration: underline;
+}
+.bn-composer-article__link:focus-visible {
+	outline: 2px solid transparent;
+	border-radius: var(--bn-r-sm);
+	box-shadow: var(--bn-ring);
+}
+.bn-composer-article__count {
+	padding-inline: var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent-50);
+	color: var(--bn-accent);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	line-height: var(--bn-leading-normal);
+}
+
 .bn-composer__avatar {
 	width: 36px;
 	height: 36px;
@@ -3614,6 +3759,15 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 
 @media (max-width: 640px) {
 	.bn-composer__link-thumb { width: 72px; }
+
+	/* Post / Article: the tabs share the row, the article footer stacks and
+		Start writing / Continue writing go full width. */
+	.bn-composer-switch { padding: var(--bn-s3); }
+	.bn-composer-switch__tabs { display: flex; }
+	.bn-composer-switch__tab { flex: 1 1 0; }
+	.bn-composer-article__bar { flex-direction: column; align-items: stretch; }
+	.bn-composer-article__start,
+	.bn-composer-article__resume-action { inline-size: 100%; justify-content: center; }
 }
 
 /* Emoji insert picker — popover of bundled glyph buttons, appended to

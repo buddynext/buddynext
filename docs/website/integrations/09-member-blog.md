@@ -18,6 +18,7 @@ BuddyNext's side of this integration is deliberately small, and deliberately gen
 - **The tab shows only where it helps.** The Articles tab appears for members Member Blog lets write, and on any profile that has published articles. A member who cannot write sees no empty tab and no **Write** button; **Manage articles** stays.
 - **An owner route back to writing.** When you are looking at your own Articles tab, you also get **Write a new article** and **Manage articles**, plus an Edit link on each row. All of them go to Member Blog's dashboard.
 - **Drafts and pending posts, for you only.** Your own tab shows work in progress with a status badge so an unfinished draft never reads as published. Nobody else sees them, apart from people who can edit other members' posts (such as editors and administrators).
+- **An Article tab in the What's New composer.** Members Member Blog lets write get Post / Article tabs in the main composer; the Article tab opens Member Blog's editor with the typed title filled in, offers **Continue writing** for their latest draft, and links to **My drafts** and **My articles** with counts. See [Post Composer](../community/02-post-composer.md#writing-an-article).
 - **The Articles list follows profile visibility.** A member's articles are shown only to people who may see that member's profile: the profile's visibility setting (everyone, followers or connections) and blocks apply, on the profile tab and through the REST API alike. Someone who may not see the profile gets an empty list, not an error.
 
 Everything else stays where it belongs. BuddyNext does not render an editor, does not own a posting form, and does not duplicate Member Blog's dashboard. All writing, editing and submission happens in Member Blog.
@@ -38,7 +39,7 @@ The **Blog posts** card on **BuddyNext > Integration Settings** has two switches
 
 | Setting | What it does | Default |
 |---|---|---|
-| Navigation | Shows the Articles tab on member profiles. Turning it off also decides whether author links open the member's profile (they only do while the profile can list the author's posts); see [Member Profiles](../members/01-member-profiles.md). | On |
+| Navigation | Shows the Articles tab on member profiles and the Article tab in the What's New composer. Turning it off also decides whether author links open the member's profile (they only do while the profile can list the author's posts); see [Member Profiles](../members/01-member-profiles.md). | On |
 | Feed | Whether a published post posts an article card in the feed. This works with or without Member Blog. | On |
 
 There is no search switch for this integration.

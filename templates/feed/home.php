@@ -169,6 +169,8 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 		array(
 			'space_id'        => null,
 			'current_user_id' => $current_user_id,
+			// The main What's New composer: Post / Article tabs for a member who can write.
+			'article_tab'     => true,
 		)
 	);
 	?>

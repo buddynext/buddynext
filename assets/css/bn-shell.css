@@ -1191,6 +1191,30 @@ body.admin-bar .bn-app__rail {
 .bn-blog-write__head {
 	margin-block-end: var(--bn-s4);
 }
+/* "Back to What's New": a visible way out of the editor (writers only). */
+.bn-blog-write__back {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-block-size: 44px;
+	margin-block-end: var(--bn-s2);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+}
+.bn-blog-write__back:hover,
+.bn-blog-write__back:focus-visible {
+	color: var(--bn-accent);
+}
+.bn-blog-write__back:visited {
+	color: var(--bn-ink-2);
+}
+.bn-blog-write__back:focus-visible {
+	outline: 2px solid transparent;
+	border-radius: var(--bn-r-sm);
+	box-shadow: var(--bn-ring);
+}
 .bn-blog-write__title {
 	margin: 0;
 	font-family: var(--bn-font-display);

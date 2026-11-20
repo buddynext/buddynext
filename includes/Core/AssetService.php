@@ -670,6 +670,17 @@ class AssetService {
 		// `@buddynext/navigate` owns the bare-`buddynext` store's navigate
 		// action. The Interactivity router loads as a dynamic dependency, so it
 		// is fetched once on the first client-side navigation and reused.
+		// Write hub (Member Blog's post page in the shell): fills Member Blog's
+		// empty title field with the title typed in the composer's Article tab.
+		// Enqueued by MemberBlogBridge::enqueue_title_prefill() only when there
+		// is a title to carry.
+		wp_register_script_module(
+			'@buddynext/blog-write-prefill',
+			$this->assets_url . 'js/blog/write-prefill.js',
+			array(),
+			$this->module_version( 'js/blog/write-prefill.js' )
+		);
+
 		wp_register_script_module(
 			'@buddynext/navigate',
 			$this->assets_url . 'js/shell/navigate.js',

@@ -290,7 +290,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		update_option( 'buddynext_integration_blog_nav', '0' );
 
 		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
-		$this->assertSame( 'wordpress', ArticleProvider::for_user( $editor )['key'] );
+		$this->assertSame( 'WordPress', ArticleProvider::for_user( $editor )['key'] );
 		$this->assertNull( ArticleProvider::for_user( self::factory()->user->create() ), 'Subscriber with no provider.' );
 
 		wp_set_current_user( $editor );
@@ -483,5 +483,101 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->bridge->route_write_pages();
 		$this->assertSame( 'My articles', $this->bridge->write_document_title( 'My Blog Dashboard', MemberBlogBridge::WRITE_HUB ) );
 		$this->assertSame( 'Feed', $this->bridge->write_document_title( 'Feed', 'feed' ) );
+	}
+
+	private function visit_with( int $page_id, array $args ): void {
+		$_GET = $args;
+		$this->go_to( add_query_arg( rawurlencode_deep( $args ), get_permalink( $page_id ) ) );
+		$_GET = $args;
+		set_query_var( 'bn_hub', '' );
+		$this->bridge->route_write_pages();
+	}
+
+	public function test_the_composer_title_prefills_the_new_post_form_as_plain_text(): void {
+		wp_set_current_user( $this->writer() );
+		$this->visit_with( $this->post_page, array( 'bn_title' => 'Office <b>hours</b> "&" more' ) );
+
+		$this->assertSame( 'Office hours "&" more', MemberBlogBridge::write_hub_prefill_title(), 'Tags stripped.' );
+		$html = $this->render_hub();
+		$this->assertStringContainsString( 'data-bn-prefill-title="Office hours &quot;&amp;&quot; more"', $html );
+
+		$this->bridge->enqueue_title_prefill();
+		$this->assertContains( '@buddynext/blog-write-prefill', wp_script_modules()->get_queue() );
+		$_GET = array();
+	}
+
+	public function test_no_prefill_on_an_edit_link_for_a_non_writer_or_a_held_member(): void {
+		wp_set_current_user( $this->writer() );
+		$this->visit_with( $this->post_page, array( 'bn_title' => 'Hi' ) );
+		$this->visit_with(
+			$this->post_page,
+			array(
+				'bn_title' => 'Hi',
+				'post_id'  => '1',
+			)
+		);
+		$this->assertSame( '', MemberBlogBridge::write_hub_prefill_title(), 'Editing an existing post keeps its title.' );
+
+		$this->visit_with( $this->dashboard_page, array( 'bn_title' => 'Hi' ) );
+		$this->assertSame( '', MemberBlogBridge::write_hub_prefill_title(), 'Only the new post page.' );
+
+		wp_set_current_user( self::factory()->user->create() );
+		$this->visit_with( $this->post_page, array( 'bn_title' => 'Hi' ) );
+		$this->assertSame( '', MemberBlogBridge::write_hub_prefill_title(), 'Non-writer.' );
+		$this->assertStringNotContainsString( 'data-bn-prefill-title', $this->render_hub() );
+
+		wp_set_current_user( $this->held_writer( 'pending' ) );
+		$this->visit_with( $this->post_page, array( 'bn_title' => 'Hi' ) );
+		$this->assertSame( '', MemberBlogBridge::write_hub_prefill_title(), 'Held member.' );
+		$_GET = array();
+	}
+
+	public function test_writers_get_a_way_back_to_the_feed_on_both_tabs(): void {
+		wp_set_current_user( $this->writer() );
+		foreach ( array( $this->post_page, $this->dashboard_page ) as $page_id ) {
+			$this->visit( $page_id );
+			$this->bridge->route_write_pages();
+			$html = $this->render_hub();
+			$this->assertStringContainsString( 'class="bn-blog-write__back" href="' . esc_url( \BuddyNext\Core\PageRouter::activity_url() ) . '"', $html );
+			$this->assertStringContainsString( 'Back to What&#039;s New', $html );
+		}
+
+		wp_set_current_user( self::factory()->user->create() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$this->assertStringNotContainsString( 'bn-blog-write__back', $this->render_hub(), 'Non-writers keep the old hub.' );
+	}
+
+	public function test_the_composer_sends_member_blog_the_title_as_bn_title(): void {
+		$uid = $this->writer();
+		$this->assertSame( '', ArticleProvider::for_user( $uid )['title_arg'] );
+
+		wp_set_current_user( $uid );
+		ob_start();
+		buddynext_get_template(
+			'partials/composer.php',
+			array(
+				'space_id'        => null,
+				'current_user_id' => $uid,
+				'article_tab'     => true,
+			)
+		);
+		$html = (string) ob_get_clean();
+		$this->assertStringContainsString( 'action="' . esc_url( get_permalink( $this->post_page ) ) . '"', $html );
+		$this->assertMatchesRegularExpression( '/class="bn-input bn-composer-article__title"[^>]*name="bn_title"/s', $html );
+	}
+
+	public function test_continue_writing_opens_the_draft_in_the_write_hub(): void {
+		$uid   = $this->writer();
+		$draft = self::factory()->post->create(
+			array(
+				'post_author' => $uid,
+				'post_status' => 'draft',
+			)
+		);
+		$this->assertSame(
+			add_query_arg( 'post_id', $draft, get_permalink( $this->post_page ) ),
+			ArticleProvider::composer_summary( $uid )['draft']['edit_url']
+		);
 	}
 }

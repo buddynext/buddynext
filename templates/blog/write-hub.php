@@ -24,11 +24,19 @@ $bn_write_page = MemberBlogBridge::write_hub_page();
 if ( ! $bn_write_page instanceof WP_Post ) {
 	return;
 }
-$bn_write_tabs   = MemberBlogBridge::write_hub_tabs();
-$bn_write_notice = MemberBlogBridge::write_hub_notice();
+$bn_write_tabs    = MemberBlogBridge::write_hub_tabs();
+$bn_write_notice  = MemberBlogBridge::write_hub_notice();
+$bn_write_prefill = MemberBlogBridge::write_hub_prefill_title();
 ?>
-<div class="bn-blog-write">
+<?php // data-bn-prefill-title: the title typed in the composer's Article tab; assets/js/blog/write-prefill.js puts it in Member Blog's empty title field. ?>
+<div class="bn-blog-write"<?php echo '' !== $bn_write_prefill ? ' data-bn-prefill-title="' . esc_attr( $bn_write_prefill ) . '"' : ''; ?>>
 	<header class="bn-blog-write__head">
+		<?php if ( array() !== $bn_write_tabs ) : ?>
+			<a class="bn-blog-write__back" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::activity_url() ); ?>">
+				<?php buddynext_icon( 'arrow-left' ); ?>
+				<span><?php esc_html_e( "Back to What's New", 'buddynext' ); ?></span>
+			</a>
+		<?php endif; ?>
 		<h1 class="bn-blog-write__title"><?php echo esc_html( MemberBlogBridge::write_hub_heading() ); ?></h1>
 		<?php if ( array() !== $bn_write_tabs ) : ?>
 			<p class="bn-blog-write__sub"><?php esc_html_e( 'Share an article with the community. It appears on your profile and in the feed.', 'buddynext' ); ?></p>
