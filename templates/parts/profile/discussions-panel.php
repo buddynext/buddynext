@@ -37,7 +37,7 @@ if ( '' !== $bn_pd_forum ) :
 	<header class="bn-space-discussions__head">
 		<a href="<?php echo esc_url( $bn_pd_forum ); ?>" class="bn-btn" data-variant="ghost" data-size="sm">
 			<?php buddynext_icon( 'external-link' ); ?>
-			<?php esc_html_e( 'Open the forum', 'buddynext' ); ?>
+			<?php esc_html_e( 'Open Discussions', 'buddynext' ); ?>
 		</a>
 	</header>
 	<?php

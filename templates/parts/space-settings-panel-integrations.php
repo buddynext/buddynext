@@ -177,11 +177,11 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		?>
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
-			<div class="bn-toggle-row__label"><?php esc_html_e( 'Discussion', 'buddynext' ); ?></div>
+			<div class="bn-toggle-row__label"><?php esc_html_e( 'Discussions', 'buddynext' ); ?></div>
 			<div class="bn-toggle-row__desc">
 				<?php
 				if ( $bn_disc_has ) {
-					esc_html_e( 'This space has its own discussion area for threaded conversations.', 'buddynext' );
+					esc_html_e( 'This space has its own discussion area for topics and replies.', 'buddynext' );
 				} else {
 					esc_html_e( 'Give this space its own discussion area. Turn the switch on and a discussion is created for it automatically.', 'buddynext' );
 				}
@@ -197,13 +197,13 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 					<p class="bn-space-settings__hint bn-space-settings__discussion-linked">
 						<?php
 						printf(
-							/* translators: %s: the linked discussion's name. */
-							esc_html__( 'Linked discussion: %s', 'buddynext' ),
-							'<strong>' . esc_html( '' !== $bn_disc_name ? $bn_disc_name : __( 'Discussion', 'buddynext' ) ) . '</strong>'
+							/* translators: %s: the linked Discussions area's name. */
+							esc_html__( 'Linked Discussions: %s', 'buddynext' ),
+							'<strong>' . esc_html( '' !== $bn_disc_name ? $bn_disc_name : __( 'Discussions', 'buddynext' ) ) . '</strong>'
 						);
 						?>
 						<?php if ( '' !== $bn_disc_url ) : ?>
-							&middot; <a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View discussion', 'buddynext' ); ?></a>
+							&middot; <a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View Discussions', 'buddynext' ); ?></a>
 						<?php endif; ?>
 						<?php
 						// Unlink is the owner's, like the toggle beside it: the route refuses
@@ -216,7 +216,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 					</p>
 				<?php endif; ?>
 		</div>
-		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable discussion', 'buddynext' ); ?>">
+		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Discussions', 'buddynext' ); ?>">
 			<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'jetonomy' ) ); ?>>
 			<span class="bn-toggle" aria-hidden="true"></span>
 		</label>

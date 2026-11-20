@@ -94,7 +94,7 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$composed = ( new NotificationMessageService() )->compose( $rows[0] );
 		$this->assertSame( 'Aisha replied to "Welcome thread".', $composed['message'] );
 		$this->assertSame( 'https://example.org/t/welcome/#reply-88', $composed['url'] );
-		$this->assertSame( 'Forums', $composed['label'] );
+		$this->assertSame( 'Discussions', $composed['label'] );
 	}
 
 	/**
@@ -110,14 +110,24 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		};
 		add_action( 'buddynext_notification_created', $grab, 1, 3 );
 
-		$this->fire( array( 'object_id' => 1201, 'group_key' => '' ) );
+		$this->fire(
+			array(
+				'object_id' => 1201,
+				'group_key' => '',
+			)
+		);
 		$this->assertArrayNotHasKey( 'subject', end( $sent ), 'Bell-only by default.' );
 		$catalogue = apply_filters( 'buddynext_notification_prefs_catalogue', array() );
 		$this->assertFalse( $catalogue['jetonomy.reply_to_post']['can_email'] );
 
 		$opt_in = static fn( $emails, $source, $slug ) => 'jetonomy' === $source && 'reply_to_post' === $slug ? true : $emails;
 		add_filter( 'buddynext_notification_type_email', $opt_in, 10, 3 );
-		$this->fire( array( 'object_id' => 1202, 'group_key' => '' ) );
+		$this->fire(
+			array(
+				'object_id' => 1202,
+				'group_key' => '',
+			)
+		);
 		remove_filter( 'buddynext_notification_type_email', $opt_in, 10 );
 		remove_action( 'buddynext_notification_created', $grab, 1 );
 
@@ -194,15 +204,15 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$other = self::factory()->user->create();
 		$this->fire();
 		$this->fire( array( 'recipient_id' => $other ) );
-		$unread = static function ( int $user ) use ( $wpdb ): int {
+		$unread  = static function ( int $user ) use ( $wpdb ): int {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'jetonomy.reply_to_post' AND is_read = 0", $user ) );
 		};
 		$service = buddynext_service( 'notifications' );
 		$this->assertSame( 1, $unread( $this->recipient ) );
 		$this->assertSame( 1, $unread( $other ) );
-		$badge = $service->unread_count( $this->recipient );
-		$bell  = $service->unseen_count( $this->recipient );
+		$badge      = $service->unread_count( $this->recipient );
+		$bell       = $service->unseen_count( $this->recipient );
 		$other_bell = $service->unseen_count( $other );
 
 		do_action( 'jetonomy_community_notification_read', 'post', 1153, $this->recipient );
@@ -227,7 +237,7 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$all       = $catalogue->all();
 		$this->assertSame( 'jetonomy', $all['jetonomy.reply_to_post']['group'] );
 		$this->assertFalse( $all['jetonomy.reply_to_post']['can_email'] );
-		$this->assertSame( 'Forums', $catalogue->group_label( 'jetonomy' ) );
+		$this->assertSame( 'Discussions', $catalogue->group_label( 'jetonomy' ) );
 
 		$this->fire();
 		$this->assertCount( 1, $this->rows() );
@@ -246,10 +256,20 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 			++$sent;
 		};
 		add_action( 'buddynext_notification_created', $spy );
-		$this->fire( array( 'renotify' => false, 'message' => 'Best week: 12 points.' ) );
+		$this->fire(
+			array(
+				'renotify' => false,
+				'message'  => 'Best week: 12 points.',
+			)
+		);
 		$service = buddynext_service( 'notifications' );
 		$service->mark_all_read( $this->recipient );
-		$this->fire( array( 'renotify' => false, 'message' => 'Best week: 30 points.' ) );
+		$this->fire(
+			array(
+				'renotify' => false,
+				'message'  => 'Best week: 30 points.',
+			)
+		);
 		remove_action( 'buddynext_notification_created', $spy );
 
 		$rows = $this->rows();
@@ -277,8 +297,18 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 			return $payload;
 		};
 		add_filter( 'buddynext_integration_notification_payload', $regroup, 10, 2 );
-		$this->fire( array( 'group_key' => 'object_1', 'message' => 'First issue.' ) );
-		$this->fire( array( 'group_key' => 'object_2', 'message' => 'Second issue.' ) );
+		$this->fire(
+			array(
+				'group_key' => 'object_1',
+				'message'   => 'First issue.',
+			)
+		);
+		$this->fire(
+			array(
+				'group_key' => 'object_2',
+				'message'   => 'Second issue.',
+			)
+		);
 		remove_filter( 'buddynext_integration_notification_payload', $regroup, 10 );
 
 		$rows = $this->rows();

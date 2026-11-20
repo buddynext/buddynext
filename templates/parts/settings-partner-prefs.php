@@ -63,10 +63,10 @@ $bn_pp_paused = (bool) get_user_meta( $bn_pp_user_id, 'jetonomy_email_opt_out', 
 	data-wp-on--change="actions.setPartnerPref">
 	<header class="bn-prefs-card__head">
 		<h2 class="bn-prefs-card__title" id="bn-partner-prefs-title">
-			<?php esc_html_e( 'Forum email', 'buddynext' ); ?>
+			<?php esc_html_e( 'Discussions email', 'buddynext' ); ?>
 		</h2>
 		<p class="bn-prefs-card__sub">
-			<?php esc_html_e( 'These emails come from the forums. Your choice saves as soon as you pick it.', 'buddynext' ); ?>
+			<?php esc_html_e( 'These emails come from Discussions. Your choice saves as soon as you pick it.', 'buddynext' ); ?>
 		</p>
 	</header>
 
@@ -74,8 +74,8 @@ $bn_pp_paused = (bool) get_user_meta( $bn_pp_user_id, 'jetonomy_email_opt_out', 
 		<div class="bn-prefs-group__body" role="list">
 			<div class="bn-prefs-row" role="listitem">
 				<div class="bn-prefs-row__copy">
-					<label class="bn-prefs-row__label" for="bn-forum-email-pause"><?php esc_html_e( 'Pause forum email', 'buddynext' ); ?></label>
-					<p class="bn-prefs-row__desc" id="bn-forum-email-pause-hint"><?php esc_html_e( 'Stops every email from the forums, including the reminder to confirm your account email. Your choices below are kept for when you turn this off.', 'buddynext' ); ?></p>
+					<label class="bn-prefs-row__label" for="bn-forum-email-pause"><?php esc_html_e( 'Pause Discussions email', 'buddynext' ); ?></label>
+					<p class="bn-prefs-row__desc" id="bn-forum-email-pause-hint"><?php esc_html_e( 'Stops every email from Discussions, including the reminder to confirm your account email. Your choices below are kept for when you turn this off.', 'buddynext' ); ?></p>
 				</div>
 				<div class="bn-prefs-row__controls">
 					<label class="bn-prefs-toggle">

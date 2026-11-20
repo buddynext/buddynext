@@ -3290,7 +3290,7 @@ class JetonomyBridge {
 			&& ! \Jetonomy\Permissions\Permission_Engine::can( (int) $user_id, 'edit_others_posts', $space_id ) ) {
 			return new \WP_Error(
 				'bn_discussion_edit_refused',
-				__( 'This comment is also a reply in the forum, and you can no longer post there.', 'buddynext' ),
+				__( 'This comment is also a reply in Discussions, and you can no longer post there.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -3607,8 +3607,8 @@ class JetonomyBridge {
 		if ( isset( $map[ $reason ] ) ) {
 			$labels = class_exists( '\\Jetonomy\\Models\\Flag' ) && is_callable( array( \Jetonomy\Models\Flag::class, 'reason_labels' ) ) ? \Jetonomy\Models\Flag::reason_labels() : array();
 			$note   = trim(
-				/* translators: %s: the reason the member picked in the forum report form. */
-				sprintf( __( 'Reported in the forum as: %s', 'buddynext' ), (string) ( $labels[ $reason ] ?? $reason ) ) . "\n\n" . $note
+				/* translators: %s: the reason the member picked in the Discussions report form. */
+				sprintf( __( 'Reported in Discussions as: %s', 'buddynext' ), (string) ( $labels[ $reason ] ?? $reason ) ) . "\n\n" . $note
 			);
 		}
 

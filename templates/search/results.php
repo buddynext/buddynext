@@ -66,8 +66,9 @@ $bn_extra_types      = array_values( array_diff( $bn_search_service->available_t
 $bn_type_labels = (array) apply_filters(
 	'buddynext_search_type_labels',
 	array(
-		'job'     => __( 'Jobs', 'buddynext' ),
-		'listing' => __( 'Listings', 'buddynext' ),
+		'discussion' => __( 'Discussions', 'buddynext' ),
+		'job'        => __( 'Jobs', 'buddynext' ),
+		'listing'    => __( 'Listings', 'buddynext' ),
 	)
 );
 $bn_label_for   = static function ( string $slug ) use ( $bn_type_labels ): string {

@@ -444,7 +444,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 										<?php endif; ?>
 									<?php elseif ( str_starts_with( $type_slug, 'jetonomy.' ) ) : ?>
 										<?php // The forums send their own email; its switches are in the Forum email card below. ?>
-										<a class="bn-prefs-row__no-email" href="#forum-email"><?php esc_html_e( 'Email: see Forum email', 'buddynext' ); ?></a>
+										<a class="bn-prefs-row__no-email" href="#forum-email"><?php esc_html_e( 'Email: see Discussions email', 'buddynext' ); ?></a>
 									<?php else : ?>
 										<?php // A type flagged always_emailed is sent as an account email whatever is chosen here, so saying "In-app only" would be untrue. ?>
 										<span class="bn-prefs-row__no-email"><?php echo esc_html( ! empty( $entry['always_emailed'] ) ? __( 'Always emailed', 'buddynext' ) : __( 'In-app only', 'buddynext' ) ); ?></span>

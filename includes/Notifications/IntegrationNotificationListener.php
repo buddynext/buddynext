@@ -40,7 +40,7 @@ class IntegrationNotificationListener implements ListenerInterface {
 			'hook'        => 'jetonomy_notification_created',
 			'integration' => 'jetonomy',
 			'prefix'      => 'jetonomy',
-			'label'       => 'Forums',
+			'label'       => 'Discussions',
 			'icon'        => 'messages-square',
 		),
 		'career_board'    => array(
@@ -613,7 +613,7 @@ class IntegrationNotificationListener implements ListenerInterface {
 	private static function translated_label( string $slug, string $fallback ): string {
 		switch ( $slug ) {
 			case 'jetonomy':
-				return __( 'Forums', 'buddynext' );
+				return __( 'Discussions', 'buddynext' );
 			case 'career_board':
 				return __( 'Jobs', 'buddynext' );
 			case 'learnomy':

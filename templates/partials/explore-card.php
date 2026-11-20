@@ -350,9 +350,9 @@ if ( 'post-forum' === $bn_kind ) :
 			<div class="ec-kicker">
 				<?php
 				echo '' !== $bn_kicker
-					/* translators: %s: discussion category/context label */
-					? esc_html( sprintf( __( 'Discussion · %s', 'buddynext' ), $bn_kicker ) )
-					: esc_html__( 'Discussion', 'buddynext' );
+					/* translators: %s: topic category/context label */
+					? esc_html( sprintf( __( 'Topic · %s', 'buddynext' ), $bn_kicker ) )
+					: esc_html__( 'Topic', 'buddynext' );
 				?>
 			</div>
 			<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_headline, 16, '…' ) ); ?></div>
@@ -377,7 +377,7 @@ if ( 'post-forum' === $bn_kind ) :
 		</a>
 		<div class="ec-foot ec-foot--forum">
 			<a class="ec-open-thread" href="<?php echo esc_url( $bn_purl ); ?>">
-				<?php esc_html_e( 'Open thread', 'buddynext' ); ?>
+				<?php esc_html_e( 'Open topic', 'buddynext' ); ?>
 				<span aria-hidden="true">&rarr;</span>
 			</a>
 		</div>

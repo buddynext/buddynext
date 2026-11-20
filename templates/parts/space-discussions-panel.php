@@ -112,10 +112,10 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 				'icon'      => 'messages-square',
 				'title'     => __( 'Discussions are not set up yet', 'buddynext' ),
 				'body'      => $bn_can_provision
-					? __( 'Start the first discussion to open a forum for this space.', 'buddynext' )
-					: __( 'A forum opens here once a space organizer starts the first discussion.', 'buddynext' ),
+					? __( 'Start the first topic to open Discussions for this space.', 'buddynext' )
+					: __( 'Discussions open here once a space organizer starts the first topic.', 'buddynext' ),
 				'cta_url'   => $bn_can_provision ? $bn_provision : '',
-				'cta_label' => $bn_can_provision ? __( 'Start the first discussion', 'buddynext' ) : '',
+				'cta_label' => $bn_can_provision ? __( 'Start the first topic', 'buddynext' ) : '',
 				'cta_icon'  => 'plus',
 			)
 		);
