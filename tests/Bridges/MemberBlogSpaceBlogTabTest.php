@@ -513,4 +513,25 @@ class MemberBlogSpaceBlogTabTest extends \WP_UnitTestCase {
 		( new BlogPostListener() )->resync_space_cards( 0, $a );
 		$this->assertSame( $a, $this->card_space( $in_a ), 'On again restores it.' );
 	}
+
+	public function test_the_blog_tab_visibility_filter_has_the_last_word(): void {
+		$space = $this->space();
+		$this->assertNotContains( 'blog', $this->tabs( $space, $this->reader ), 'Empty Space, a reader who may not write: hidden by default.' );
+
+		$show = static fn( $default, $space_id, $viewer ) => true;
+		add_filter( 'buddynext_space_blog_tab_visible', $show, 10, 3 );
+		$this->assertContains( 'blog', $this->tabs( $space, $this->reader ), 'The filter can always show it.' );
+		remove_filter( 'buddynext_space_blog_tab_visible', $show, 10 );
+
+		$this->article( $space );
+		$hide = static fn( $default, $space_id, $viewer ) => false;
+		add_filter( 'buddynext_space_blog_tab_visible', $hide, 10, 3 );
+		$this->assertNotContains( 'blog', $this->tabs( $space, $this->writer ), 'And hide it even with an article.' );
+		remove_filter( 'buddynext_space_blog_tab_visible', $hide, 10 );
+
+		$private = $this->space( 'private' );
+		add_filter( 'buddynext_space_blog_tab_visible', '__return_true' );
+		$this->assertNotContains( 'blog', $this->tabs( $private, $this->writer ), 'Never on a private Space, whatever the filter says.' );
+		remove_filter( 'buddynext_space_blog_tab_visible', '__return_true' );
+	}
 }

@@ -1020,8 +1020,27 @@ class MemberBlogBridge {
 				'condition'       => fn( NavContext $c ): bool => self::articles_tab_available()
 					&& self::space_tab_enabled( $c->subject_id )
 					&& self::space_is_open( $c->subject_id )
-					&& ( null !== self::space_writer( $c->subject_id, $c->viewer_id )
-						|| array() !== $this->space_articles( $c->subject_id, $c->viewer_id, null, 1 )['items'] ),
+					/**
+					 * Filter whether a Space's Blog tab shows for a viewer.
+					 *
+					 * By default the tab shows when the Space has an article the viewer can see, or the
+					 * viewer may write one for it. Return true to always show it on an open Space where
+					 * articles are on, false to hide it. It never shows on a private or secret Space, and
+					 * the switches in Integration Settings and Space settings still apply.
+					 *
+					 * @since 1.3.0
+					 *
+					 * @param bool $show      Default: the Space has articles, or the viewer may write one.
+					 * @param int  $space_id  Space id.
+					 * @param int  $viewer_id Viewer (0 = logged out).
+					 */
+					&& (bool) apply_filters(
+						'buddynext_space_blog_tab_visible',
+						null !== self::space_writer( $c->subject_id, $c->viewer_id )
+							|| array() !== $this->space_articles( $c->subject_id, $c->viewer_id, null, 1 )['items'],
+						$c->subject_id,
+						$c->viewer_id
+					),
 				'url'             => static fn( NavContext $c ): string => self::space_blog_url( $c->subject_id ),
 				'render'          => function ( NavContext $c ): void {
 					$this->render_space_blog_panel( $c->subject_id, $c->viewer_id );
