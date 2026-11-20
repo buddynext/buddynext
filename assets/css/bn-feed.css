@@ -1194,6 +1194,117 @@
 	flex-wrap: nowrap;
 }
 
+/* Bridge card with a facts line (the renderer's own markup): the type icon, or the cover
+   picture, sits beside the title and facts; the description runs full width underneath.
+   The picture stretches to the height of the title and facts, so it leaves no empty strip
+   whatever its shape. Legacy markup that does not carry --grid keeps the flex rules above. */
+.bn-post-card__bridge-card--grid {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-areas: "icon head" ". text";
+	column-gap: var(--bn-s3);
+	row-gap: var(--bn-s2);
+	align-items: start;
+}
+
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-icon { grid-area: icon; }
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content { grid-area: head; min-inline-size: 0; }
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-text { grid-area: text; margin: 0; }
+
+.bn-post-card__bridge-card--grid.has-cover {
+	grid-template-columns: 96px minmax(0, 1fr);
+	grid-template-areas: "cover head" "text text";
+}
+
+.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
+	grid-area: cover;
+	position: relative;
+	inline-size: auto;
+	min-block-size: 64px;
+	align-self: stretch;
+}
+
+.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover img {
+	position: absolute;
+	inset: 0;
+}
+
+/* A badge's emblem keeps its round plate beside the title and text. */
+.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover {
+	grid-template-columns: 72px minmax(0, 1fr);
+	grid-template-areas: "cover head" "cover text";
+}
+
+.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
+	align-self: start;
+}
+
+.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover img {
+	position: static;
+}
+
+.bn-post-card__bridge-facts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px var(--bn-s4);
+	max-block-size: 40px;
+	margin: var(--bn-s2) 0 0;
+	padding: 0;
+	overflow: hidden;
+	list-style: none;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-xs);
+	line-height: 18px;
+}
+
+.bn-post-card__bridge-facts li {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	min-inline-size: 0;
+	max-inline-size: 100%;
+}
+
+.bn-post-card__bridge-facts li > span:last-child {
+	min-inline-size: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-post-card__bridge-fact-icon {
+	display: inline-flex;
+	flex: none;
+	color: var(--bn-ink-3);
+}
+
+.bn-post-card__bridge-fact-icon svg {
+	inline-size: 14px;
+	block-size: 14px;
+}
+
+@media (max-width: 640px) {
+	/* On a phone the picture goes on top, full width, as it always has. */
+	.bn-post-card__bridge-card--grid.has-cover {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas: "cover" "head" "text";
+	}
+
+	.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
+		aspect-ratio: 16 / 9;
+		min-block-size: 0;
+	}
+
+	.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover {
+		grid-template-columns: 72px minmax(0, 1fr);
+		grid-template-areas: "cover head" "cover text";
+	}
+
+	.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
+		aspect-ratio: 1;
+	}
+}
+
 /* Event activity card — date pill + title + date/time + location. Mirrors the
    v2 "This week" event rows, sized up for the in-feed body. */
 .bn-post-card__event {

@@ -923,6 +923,22 @@ class WPMediaVerseBridge {
 			}
 		}
 
+		// A video or audio clip says how long it is. Read here, for this viewer, like the title and
+		// cover: the card stores a reference, not a snapshot.
+		if ( method_exists( $repo, 'get' ) ) {
+			$seconds = (int) $repo->get( $media_id, 'duration' );
+			if ( $seconds > 0 ) {
+				$link['facts'] = array(
+					array(
+						'icon' => 'clock',
+						'text' => $seconds >= 3600
+							? sprintf( '%d:%02d:%02d', intdiv( $seconds, 3600 ), intdiv( $seconds % 3600, 60 ), $seconds % 60 )
+							: sprintf( '%d:%02d', intdiv( $seconds, 60 ), $seconds % 60 ),
+					),
+				);
+			}
+		}
+
 		$args['link_preview'] = $link;
 
 		return $args;

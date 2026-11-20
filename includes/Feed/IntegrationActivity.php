@@ -745,10 +745,27 @@ class IntegrationActivity {
 		// missing the first time.
 		$image = (string) ( $link['thumb'] ?? $link['image'] ?? '' );
 
-		$classes = 'bn-post-card__bridge-card bn-post-card__bridge-card--' . sanitize_html_class( $type );
+		$classes = 'bn-post-card__bridge-card bn-post-card__bridge-card--grid bn-post-card__bridge-card--' . sanitize_html_class( $type );
 		if ( '' !== $image ) {
 			$classes .= ' has-cover';
 		}
+
+		// What a member needs to judge the card without opening it, written by the partner
+		// plugin when it published (see facts()). A site can change the list.
+		$link_meta = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
+		/**
+		 * Filter the facts line of a bridge card (company, place, type, rating, length ...).
+		 *
+		 * Each fact is `array( 'icon' => icon slug, 'text' => string )`. The list is cut to four
+		 * and empty facts are dropped after this filter, so a site may add, remove or reword.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array<int,array{icon:string,text:string}> $facts     The partner's facts.
+		 * @param string                                    $type      Card post type ('job', 'listing', ...).
+		 * @param array<string,mixed>                       $link_meta The card's stored link meta.
+		 */
+		$facts = self::facts( (array) apply_filters( 'buddynext_card_facts', (array) ( $link['facts'] ?? $link_meta['facts'] ?? array() ), $type, $link_meta ) );
 
 		$html = '<div class="' . esc_attr( $classes ) . '">';
 
@@ -766,11 +783,53 @@ class IntegrationActivity {
 			$html .= '<span class="bn-post-card__bridge-source">' . esc_html( $label ) . '</span>';
 		}
 		$html .= '<a class="bn-post-card__bridge-title" href="' . esc_url( $url ) . '">' . esc_html( $title ) . '</a>';
+		if ( array() !== $facts ) {
+			$html .= '<ul class="bn-post-card__bridge-facts">';
+			foreach ( $facts as $fact ) {
+				$html .= '<li>' . ( '' !== $fact['icon'] ? '<span class="bn-post-card__bridge-fact-icon" aria-hidden="true">' . buddynext_get_icon( $fact['icon'] ) . '</span>' : '' ) . '<span>' . esc_html( $fact['text'] ) . '</span></li>';
+			}
+			$html .= '</ul>';
+		}
+		$html .= '</div>';
 		if ( '' !== $desc ) {
 			$html .= '<p class="bn-post-card__bridge-text">' . esc_html( $desc ) . '</p>';
 		}
-		$html .= '</div></div>';
+		$html .= '</div>';
 
 		return $html;
+	}
+
+	/**
+	 * The facts line of a bridge card, cleaned.
+	 *
+	 * A bridge passes `'facts' => array( array( 'icon' => 'map-pin', 'text' => 'Remote' ), ... )`
+	 * in the card's meta when it publishes. An empty fact is left out, a text is kept to one short
+	 * line, an unknown icon slug is dropped (the text stays), and no more than four are kept:
+	 * the partner's own page always has the rest.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,mixed> $facts Raw facts.
+	 * @return array<int,array{icon:string,text:string}>
+	 */
+	public static function facts( array $facts ): array {
+		$out = array();
+		foreach ( $facts as $fact ) {
+			if ( ! is_array( $fact ) ) {
+				continue;
+			}
+			$text = trim( wp_strip_all_tags( (string) ( $fact['text'] ?? '' ) ) );
+			if ( '' === $text ) {
+				continue;
+			}
+			$out[] = array(
+				'icon' => sanitize_key( (string) ( $fact['icon'] ?? '' ) ),
+				'text' => mb_substr( $text, 0, 80 ),
+			);
+			if ( count( $out ) >= 4 ) {
+				break;
+			}
+		}
+		return $out;
 	}
 }

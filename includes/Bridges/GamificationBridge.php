@@ -665,7 +665,10 @@ class GamificationBridge {
 			// A badge is earned, not shared: it never notifies a whole Space.
 			array_merge(
 				'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array(),
-				array( 'notify_space' => false )
+				array(
+					'notify_space' => false,
+					'facts'        => $this->badge_facts( $user_id ),
+				)
 			)
 		);
 	}
@@ -713,6 +716,39 @@ class GamificationBridge {
 			return;
 		}
 		IntegrationActivity::withdraw( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+	}
+
+	/**
+	 * The member's points and level when they shared the badge, as the card's facts.
+	 *
+	 * A snapshot: the totals are the member's at the moment they pressed Share.
+	 *
+	 * @param int $user_id Member.
+	 * @return array<int,array{icon:string,text:string}>
+	 */
+	private function badge_facts( int $user_id ): array {
+		$facts = array();
+		if ( function_exists( 'wb_gam_get_user_points' ) ) {
+			$points = (int) wb_gam_get_user_points( $user_id );
+			if ( $points > 0 ) {
+				/* translators: %s: the member's point total when they shared the badge. */
+				$label   = _n( '%s point', '%s points', $points, 'buddynext' );
+				$facts[] = array(
+					'icon' => 'zap',
+					'text' => sprintf( $label, number_format_i18n( $points ) ),
+				);
+			}
+		}
+		if ( function_exists( 'wb_gam_get_user_level' ) ) {
+			$level = wb_gam_get_user_level( $user_id );
+			if ( is_array( $level ) && '' !== trim( (string) ( $level['name'] ?? '' ) ) ) {
+				$facts[] = array(
+					'icon' => 'award',
+					'text' => (string) $level['name'],
+				);
+			}
+		}
+		return $facts;
 	}
 
 	/**
