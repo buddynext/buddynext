@@ -120,4 +120,39 @@ test.describe('spaces / Blog tab (J-910)', () => {
             await deleteSpaceApi(page, space.id);
         }
     });
+    test('the Space owner can switch the Articles tab off for one Space only', async ({ authenticatedPage: page }) => {
+        test.skip(!(await memberBlogActive()), 'Member Blog is not active on this site');
+        const off = await createSpaceApi(page, { name: `Owner off ${Date.now().toString().slice(-6)}` });
+        const on = await createSpaceApi(page, { name: `Owner on ${Date.now().toString().slice(-6)}` });
+        const uid = await userId(ADMIN_LOGIN);
+        const title = `Per Space ${Date.now().toString().slice(-6)}`;
+        const post = (spaceId: number) => wp(['post', 'create', `--post_title=${title} ${spaceId}`, '--post_content=Body.', '--post_status=publish', `--post_author=${uid}`, `--meta_input={"_bn_space_id":${spaceId}}`, '--porcelain']);
+        const ids = [Number(await post(off.id)), Number(await post(on.id))];
+        const tab = (slug: string) => page.locator(`a[href$="/spaces/${slug}/blog/"]`);
+        // The switch is a Space field; its save queues this batch, run here directly.
+        const settle = (spaceId: number) => wp(['eval', `(new \\BuddyNext\\Feed\\BlogPostListener())->resync_space_cards( 0, ${spaceId} );`]);
+
+        try {
+            await wp(['eval', `update_space_meta( ${off.id}, 'articles_tab', '0' );`]);
+            await settle(off.id);
+            await page.goto(`/spaces/${off.slug}/`);
+            await expect(tab(off.slug)).toHaveCount(0);
+            await expect(page.getByRole('link', { name: 'Write for this Space' })).toHaveCount(0);
+            await page.goto(`/spaces/${on.slug}/`);
+            await expect(tab(on.slug).first()).toBeAttached();
+            await page.goto(`/spaces/${off.slug}/blog/`);
+            await expect(page.locator('.bn-article-card', { hasText: `${title} ${off.id}` })).toHaveCount(0);
+
+            await wp(['eval', `update_space_meta( ${off.id}, 'articles_tab', '1' );`]);
+            await settle(off.id);
+            await page.goto(`/spaces/${off.slug}/`);
+            await expect(tab(off.slug).first()).toBeAttached();
+        } finally {
+            for (const id of ids) {
+                await wp(['post', 'delete', String(id), '--force']).catch(() => undefined);
+            }
+            await deleteSpaceApi(page, off.id);
+            await deleteSpaceApi(page, on.id);
+        }
+    });
 });

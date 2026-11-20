@@ -153,6 +153,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		// nothing at all. A form that reports success on failure is worse than one that
 		// errors: the owner walks away believing a privacy control is set.
 		$bn_wrote_something = false;
+		$bn_articles_moving = false;
 
 		if ( 'integrations' === $bn_subtab ) {
 			if ( ! $bn_is_space_owner ) {
@@ -195,6 +196,19 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// row renders, so saving with the plugin off keeps the owner's choice.
 				if ( \BuddyNext\Bridges\GamificationBridge::space_leaderboards_available() ) {
 					$bn_integration_values['gamification_leaderboard_tab'] = isset( $_POST['gamification_leaderboard_tab'] ) ? '1' : '0';
+				}
+
+				// Articles tab (WB Member Blog). Only while the row is live: the field is
+				// registered, the site-wide switch is on and the Space is open, so a disabled
+				// row never zeroes the owner's choice.
+				if ( null !== $bn_field_registry->get_field( \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD )
+					&& buddynext_integration_enabled( \BuddyNext\Bridges\MemberBlogBridge::INTEGRATION, 'nav', 'spaces' )
+					&& \BuddyNext\Bridges\MemberBlogBridge::space_is_open( $space_id ) ) {
+					$bn_articles_new = isset( $_POST['articles_tab'] ) ? '1' : '0';
+					if ( ( false !== buddynext_get_space_field( $space_id, \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD ) ) !== ( '1' === $bn_articles_new ) ) {
+						$bn_articles_moving = true;
+					}
+					$bn_integration_values[ \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD ] = $bn_articles_new;
 				}
 
 				// Events (Eventonomy). Only write when the field is registered — i.e.
@@ -472,6 +486,7 @@ $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media
 $mvs_documents_tab     = (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' );
 $bn_leaderboard_tab    = (bool) buddynext_get_space_field( $space_id, 'gamification_leaderboard_tab' );
 $album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
+$articles_tab          = false !== buddynext_get_space_field( $space_id, \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD );
 $events_tab            = (bool) buddynext_get_space_field( $space_id, 'events_tab' );
 $event_creators        = (string) buddynext_get_space_field( $space_id, 'event_creators' );
 $listora_listings_tab  = (bool) buddynext_get_space_field( $space_id, 'listora_listings_tab' );
@@ -812,7 +827,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 		<?php if ( 'success' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
-				<?php esc_html_e( 'Changes saved successfully.', 'buddynext' ); ?>
+				<?php echo esc_html( ! empty( $bn_articles_moving ) ? __( 'Saved. Moving articles in the background.', 'buddynext' ) : __( 'Changes saved successfully.', 'buddynext' ) ); ?>
 			</div>
 		<?php elseif ( 'error' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="danger" role="alert">
@@ -884,6 +899,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					'mvs_documents_tab'     => $mvs_documents_tab,
 					'leaderboard_tab'       => $bn_leaderboard_tab,
 					'album_creators'        => $album_creators,
+					'articles_tab'          => $articles_tab,
 					'events_tab'            => $events_tab,
 					'event_creators'        => $event_creators,
 					'listora_listings_tab'  => $listora_listings_tab,

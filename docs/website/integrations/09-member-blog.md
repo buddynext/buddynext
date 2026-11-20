@@ -63,7 +63,15 @@ Go to **Integration Settings**, open the **WB Member Blog** row and switch **Art
 - Turning it back on restores the Space for every article. The cards are moved in the background in small batches, so a large site is not slowed down.
 - The switch shows disabled, with the reason, while WB Member Blog is not active or Navigation is off for the row. **Settings > Navigation** shows the Space **Blog** tab as off in Integration Settings.
 
-This is a site-wide setting. There is no per-Space version of it yet.
+This switch is site-wide. Each open Space owner can also switch articles off for their own Space.
+
+### Per Space
+
+Open **Manage space > Integrations** and use the **Articles tab** switch (it appears while WB Member Blog is active). It is on by default for every Space.
+
+- Off means the same as the site-wide switch, for that Space only: no **Blog** tab, no **Write for this Space** button, and the write form ignores that Space. Other Spaces are not affected.
+- Nothing is deleted. Articles already written for the Space show in the site feed, and turning the switch back on restores them. They move in the background and no notifications are sent.
+- Only the Space owner can change it. The switch is disabled with the reason when the site admin has articles in Spaces off, and for private and secret Spaces, which do not have a Blog tab. The choice you saved is kept if the Space's type changes, or if the plugin is switched off for a while.
 
 ## Pro
 

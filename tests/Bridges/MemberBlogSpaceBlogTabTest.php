@@ -435,4 +435,82 @@ class MemberBlogSpaceBlogTabTest extends \WP_UnitTestCase {
 		$this->assertSame( $open, $this->card_space( $in_open ), 'Turning it back on restores the Space.' );
 		$this->assertSame( $private, $this->card_space( $in_priv ) );
 	}
+
+	private function articles_tab( int $space_id, string $value, ?int $actor = null ): array {
+		$registry = \BuddyNext\Spaces\SpaceFieldRegistry::instance();
+		$this->bridge->register_space_fields( $registry );
+		return $registry->save_for_space( $space_id, array( MemberBlogBridge::SPACE_FIELD => $value ), $actor ?? $this->owner );
+	}
+
+	public function test_the_per_space_articles_tab_switch_affects_only_that_space(): void {
+		$a = $this->space();
+		$b = $this->space();
+		$this->article( $a );
+		$this->article( $b );
+		$this->assertTrue( BlogPostListener::space_enabled( $a ), 'On by default.' );
+
+		$result = $this->articles_tab( $a, '0' );
+		$this->assertSame( array(), $result['errors'] );
+		$this->assertFalse( BlogPostListener::space_enabled( $a ) );
+		$this->assertTrue( BlogPostListener::space_enabled( $b ), 'The other Space is untouched.' );
+
+		$this->assertNotContains( 'blog', $this->tabs( $a, $this->writer ), 'No tab in the Space that is off.' );
+		$this->assertNotContains( 'blog', $this->tabs( $a, 0 ) );
+		$this->assertContains( 'blog', $this->tabs( $b, $this->writer ), 'The other Space keeps its tab.' );
+		$this->assertSame( '', MemberBlogBridge::space_write_url( $a, $this->writer ), 'No Write for this Space for that Space.' );
+		$this->assertNotSame( '', MemberBlogBridge::space_write_url( $b, $this->writer ) );
+		$this->assertFalse( BlogPostListener::space_accepts_article( $a, $this->writer ), 'A new association is refused.' );
+		$this->assertTrue( BlogPostListener::space_accepts_article( $b, $this->writer ) );
+		$this->assertStringNotContainsString( 'Writing for', $this->hub_for( $a ) );
+		$this->assertStringContainsString( 'Writing for', $this->hub_for( $b ) );
+
+		$this->articles_tab( $a, '1' );
+		$this->assertTrue( BlogPostListener::space_enabled( $a ), 'Turning it back on restores it.' );
+	}
+
+	public function test_the_field_is_read_and_written_through_the_space_fields_like_the_other_tab_switches(): void {
+		$space    = $this->space();
+		$registry = \BuddyNext\Spaces\SpaceFieldRegistry::instance();
+		$this->bridge->register_space_fields( $registry );
+		$field = $registry->get_field( MemberBlogBridge::SPACE_FIELD );
+		$this->assertSame( 'boolean', $field['type'] );
+		$this->assertSame( '1', (string) $field['default'], 'Default on.' );
+		$this->assertSame( 'integrations', $field['section'] );
+
+		$by_member = $registry->save_for_space( $space, array( MemberBlogBridge::SPACE_FIELD => '0' ), $this->reader );
+		$this->assertNotEmpty( $by_member['errors'], 'A member who is not the owner cannot change it.' );
+		$this->assertTrue( BlogPostListener::space_enabled( $space ) );
+	}
+
+	public function test_only_a_real_change_queues_the_per_space_resync_and_it_moves_only_that_open_space(): void {
+		$a       = $this->space();
+		$b       = $this->space();
+		$private = $this->space( 'private' );
+		$in_a    = $this->article( $a );
+		$in_b    = $this->article( $b );
+		$in_priv = $this->article( $private );
+
+		$seen = array();
+		add_action(
+			'buddynext_space_fields_saved',
+			static function ( $space_id, $saved, $changed ) use ( &$seen ) {
+				$seen[] = (array) $changed;
+			},
+			10,
+			3
+		);
+		$this->articles_tab( $a, '0' );
+		$this->assertContains( MemberBlogBridge::SPACE_FIELD, $seen[0], 'A real change is reported.' );
+		$this->articles_tab( $a, '0' );
+		$this->assertNotContains( MemberBlogBridge::SPACE_FIELD, $seen[1], 'Saving the same value is not a change.' );
+
+		( new BlogPostListener() )->resync_space_cards( 0, $a );
+		$this->assertSame( 0, $this->card_space( $in_a ), 'The Space that is off: card is site-wide.' );
+		$this->assertSame( $b, $this->card_space( $in_b ), 'Another open Space is not touched.' );
+		$this->assertSame( $private, $this->card_space( $in_priv ), 'A private Space card never moves.' );
+
+		$this->articles_tab( $a, '1' );
+		( new BlogPostListener() )->resync_space_cards( 0, $a );
+		$this->assertSame( $a, $this->card_space( $in_a ), 'On again restores it.' );
+	}
 }

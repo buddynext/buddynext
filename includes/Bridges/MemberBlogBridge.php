@@ -58,6 +58,13 @@ class MemberBlogBridge {
 	public const INTEGRATION = 'blog';
 
 	/**
+	 * The per-Space field behind the Space owner's "Articles tab" switch.
+	 *
+	 * @since 1.3.0
+	 */
+	public const SPACE_FIELD = 'articles_tab';
+
+	/**
 	 * Hub key (and bn_hub value) of the write hub that frames Member Blog's
 	 * Add new post and My Blog Dashboard pages in the shell. Letters only: the
 	 * bn_hub rewrite tag matches [a-z]+.
@@ -128,6 +135,7 @@ class MemberBlogBridge {
 		add_filter( 'bpmb_can_edit_post', array( $this, 'refuse_held_editor' ), 100, 3 );
 		// Writing for a space: the choice rides Member Blog's form as a hidden field
 		// and is stored on the post through its save filter, before the post is written.
+		add_action( 'buddynext_register_space_fields', array( $this, 'register_space_fields' ) );
 		add_action( 'bp_post_before_submit_button', array( $this, 'render_space_field' ) );
 		add_action( 'bp_post_before_submit_button', array( $this, 'render_crop_preview' ) );
 		add_filter( 'bp_member_blog_post_data', array( $this, 'save_space_choice' ), 10, 2 );
@@ -836,6 +844,52 @@ class MemberBlogBridge {
 	}
 
 	/**
+	 * Whether this Space shows the Blog tab: Articles available, the owner's site-wide
+	 * "Articles in Spaces" switch on, and this Space's own "Articles tab" switch on.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	public static function space_tab_enabled( int $space_id ): bool {
+		return self::articles_tab_available()
+			&& buddynext_integration_enabled( self::INTEGRATION, 'nav', 'spaces' )
+			&& BlogPostListener::space_enabled( $space_id );
+	}
+
+	/**
+	 * Register the per-Space "Articles tab" field, only while Member Blog is active.
+	 *
+	 * Mirrors the Media, Files, Leaderboard, Events and Businesses tab switches: a
+	 * boolean in the Integrations section, on by default, written by the Space owner.
+	 * It reaches REST through the Space object's fields like the others.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param \BuddyNext\Spaces\SpaceFieldRegistry $registry Space-field registry.
+	 * @return void
+	 */
+	public function register_space_fields( \BuddyNext\Spaces\SpaceFieldRegistry $registry ): void {
+		if ( ! self::available() ) {
+			return;
+		}
+		$registry->register(
+			self::SPACE_FIELD,
+			array(
+				'label'       => __( 'Show the Articles tab in this space', 'buddynext' ),
+				'type'        => 'boolean',
+				'default'     => '1',
+				'section'     => 'integrations',
+				'sort_order'  => 50,
+				'visibility'  => 'members',
+				'writable_by' => 'owner',
+				'core'        => true,
+			)
+		);
+	}
+
+	/**
 	 * Declare the `nav` aspect on the existing blog integration entry.
 	 *
 	 * MERGES rather than replaces: BlogPostListener registers this same key for the
@@ -964,7 +1018,7 @@ class MemberBlogBridge {
 				// as Navigation: Settings > Navigation reads this key to say why it is off.
 				'integration_sub' => 'spaces',
 				'condition'       => fn( NavContext $c ): bool => self::articles_tab_available()
-					&& buddynext_integration_enabled( self::INTEGRATION, 'nav', 'spaces' )
+					&& self::space_tab_enabled( $c->subject_id )
 					&& self::space_is_open( $c->subject_id )
 					&& ( null !== self::space_writer( $c->subject_id, $c->viewer_id )
 						|| array() !== $this->space_articles( $c->subject_id, $c->viewer_id, null, 1 )['items'] ),
@@ -987,7 +1041,7 @@ class MemberBlogBridge {
 	 * @param int $space_id Space.
 	 * @return bool
 	 */
-	private static function space_is_open( int $space_id ): bool {
+	public static function space_is_open( int $space_id ): bool {
 		$space = $space_id > 0 ? buddynext_service( 'spaces' )->get( $space_id ) : null;
 		return is_array( $space ) && \BuddyNext\Spaces\SpaceService::TYPE_OPEN === (string) ( $space['type'] ?? '' );
 	}
@@ -1068,7 +1122,7 @@ class MemberBlogBridge {
 	 * @return void
 	 */
 	public function render_space_blog_panel( int $space_id, int $viewer_id ): void {
-		if ( ! self::articles_tab_available() || ! buddynext_integration_enabled( self::INTEGRATION, 'nav', 'spaces' ) || ! self::space_is_open( $space_id ) ) {
+		if ( ! self::space_tab_enabled( $space_id ) || ! self::space_is_open( $space_id ) ) {
 			return;
 		}
 

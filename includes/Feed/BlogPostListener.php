@@ -148,7 +148,8 @@ class BlogPostListener implements ListenerInterface {
 
 		// The "Articles in Spaces" switch: its flip re-places the cards in batches.
 		add_action( 'buddynext_integration_subtab_changed', array( $this, 'on_subtab_changed' ), 10, 3 );
-		add_action( self::RESYNC_HOOK, array( $this, 'resync_space_cards' ), 10, 1 );
+		add_action( self::RESYNC_HOOK, array( $this, 'resync_space_cards' ), 10, 2 );
+		add_action( 'buddynext_space_fields_saved', array( $this, 'on_space_fields_saved' ), 10, 3 );
 
 		// The composer and app article counts drop their cache when a post changes.
 		ArticleProvider::register();
@@ -371,6 +372,22 @@ class BlogPostListener implements ListenerInterface {
 	}
 
 	/**
+	 * Whether articles may be written for, and listed in, one particular Space.
+	 *
+	 * The site-wide switch AND the Space owner's "Articles tab" switch (on by default,
+	 * stored with the Space's other tab switches).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	public static function space_enabled( int $space_id ): bool {
+		// A boolean field reads back as a real bool: only an explicit off is false.
+		return self::spaces_enabled() && false !== buddynext_get_space_field( $space_id, MemberBlogBridge::SPACE_FIELD );
+	}
+
+	/**
 	 * Re-place the article cards when "Articles in Spaces" is switched.
 	 *
 	 * @since 1.3.0
@@ -388,15 +405,32 @@ class BlogPostListener implements ListenerInterface {
 	}
 
 	/**
+	 * Re-place one Space's article cards when its owner switches its Articles tab.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int                 $space_id Space id.
+	 * @param array<string,mixed> $saved    Saved fields (unused).
+	 * @param string[]            $changed  Keys whose value changed.
+	 * @return void
+	 */
+	public function on_space_fields_saved( $space_id, $saved = array(), $changed = array() ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- hook signature.
+		if ( in_array( MemberBlogBridge::SPACE_FIELD, (array) $changed, true ) ) {
+			self::queue_resync( 0, (int) $space_id );
+		}
+	}
+
+	/**
 	 * Queue one resync batch.
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param int $cursor Last postmeta id handled.
+	 * @param int $cursor   Last postmeta id handled.
+	 * @param int $space_id Limit the batch to one Space (0 = every Space).
 	 * @return void
 	 */
-	private static function queue_resync( int $cursor ): void {
-		$args = array( $cursor );
+	private static function queue_resync( int $cursor, int $space_id = 0 ): void {
+		$args = array( $cursor, $space_id );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action( self::RESYNC_HOOK, $args, 'buddynext' );
 			return;
@@ -417,10 +451,11 @@ class BlogPostListener implements ListenerInterface {
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param int $cursor Last postmeta id handled.
+	 * @param int $cursor   Last postmeta id handled.
+	 * @param int $space_id Limit the batch to one Space (0 = every Space).
 	 * @return void
 	 */
-	public function resync_space_cards( $cursor = 0 ): void {
+	public function resync_space_cards( $cursor = 0, $space_id = 0 ): void {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -428,10 +463,12 @@ class BlogPostListener implements ListenerInterface {
 			$wpdb->prepare(
 				"SELECT pm.meta_id, pm.post_id FROM {$wpdb->postmeta} pm
 				 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-				 WHERE pm.meta_key = %s AND pm.meta_id > %d AND p.post_type = 'post'
+				 WHERE pm.meta_key = %s AND pm.meta_id > %d AND p.post_type = 'post' AND ( %d = 0 OR pm.meta_value = %s )
 				 ORDER BY pm.meta_id ASC LIMIT %d",
 				self::SPACE_META,
 				(int) $cursor,
+				(int) $space_id,
+				(string) (int) $space_id,
 				self::RESYNC_BATCH
 			),
 			ARRAY_A
@@ -448,7 +485,7 @@ class BlogPostListener implements ListenerInterface {
 		}
 
 		if ( self::RESYNC_BATCH === count( $rows ) ) {
-			self::queue_resync( $last );
+			self::queue_resync( $last, (int) $space_id );
 			return;
 		}
 
@@ -472,7 +509,7 @@ class BlogPostListener implements ListenerInterface {
 	 * @return bool
 	 */
 	public static function space_accepts_article( int $space_id, int $author ): bool {
-		if ( $space_id <= 0 || $author <= 0 || ! self::spaces_enabled() ) {
+		if ( $space_id <= 0 || $author <= 0 || ! self::space_enabled( $space_id ) ) {
 			return false;
 		}
 		$space = buddynext_service( 'spaces' )->get( $space_id );

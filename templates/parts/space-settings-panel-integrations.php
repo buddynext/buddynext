@@ -22,6 +22,8 @@
  * @var string $album_creators        Optional. 'members' (default) or 'admins' - who may
  *                                    create albums in this space. Uploading INTO an
  *                                    existing album stays open to members either way.
+ * @var bool   $articles_tab          Optional. Current value of the Articles-tab toggle (WB Member Blog). Renders only
+ *                                    when MemberBlogBridge has registered the field.
  * @var bool   $events_tab            Optional. Current value of the Events-tab toggle.
  * @var string $event_creators        Optional. 'members' (default) or 'admins' - who may
  *                                    add events to this space. Rows render only when the
@@ -64,6 +66,7 @@ $args = array(
 	'mvs_documents_tab'     => isset( $mvs_documents_tab ) ? (bool) $mvs_documents_tab : false,
 	'leaderboard_tab'       => isset( $leaderboard_tab ) ? (bool) $leaderboard_tab : false,
 	'album_creators'        => isset( $album_creators ) ? (string) $album_creators : 'members',
+	'articles_tab'          => isset( $articles_tab ) ? (bool) $articles_tab : true,
 	'events_tab'            => isset( $events_tab ) ? (bool) $events_tab : false,
 	'event_creators'        => isset( $event_creators ) ? (string) $event_creators : 'members',
 	'listora_listings_tab'  => isset( $listora_listings_tab ) ? (bool) $listora_listings_tab : false,
@@ -308,6 +311,38 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Leaderboard tab', 'buddynext' ); ?>">
 				<input type="checkbox" class="bn-space-settings__toggle-input" name="gamification_leaderboard_tab" value="1" <?php checked( (bool) $args['leaderboard_tab'] ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+	<?php endif; ?>
+
+	<?php
+	/*
+	 * Articles tab (WB Member Blog). The row exists only while the bridge has registered
+	 * the field. It is disabled, with the reason, when the site admin switched articles in
+	 * Spaces off or the Space is private or secret (articles are only written for an open
+	 * Space). The save skips a disabled row, so the Space keeps its own choice.
+	 */
+	?>
+	<?php if ( null !== \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD ) ) : ?>
+		<?php
+		$bn_articles_site_off = ! buddynext_integration_enabled( \BuddyNext\Bridges\MemberBlogBridge::INTEGRATION, 'nav', 'spaces' );
+		$bn_articles_closed   = ! \BuddyNext\Bridges\MemberBlogBridge::space_is_open( (int) $bn_space->id );
+		?>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Articles tab', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Blog tab so members can write and read articles for this space.', 'buddynext' ); ?></div>
+				<?php if ( $bn_articles_site_off ) : ?>
+					<p class="bn-space-settings__hint"><?php esc_html_e( 'Turned off for the whole site by the site admin.', 'buddynext' ); ?></p>
+				<?php elseif ( $bn_articles_closed ) : ?>
+					<p class="bn-space-settings__hint"><?php esc_html_e( 'Private spaces do not have a Blog tab.', 'buddynext' ); ?></p>
+				<?php else : ?>
+					<p class="bn-space-settings__hint"><?php esc_html_e( 'Nothing is deleted. Articles already written for this space show in the site feed instead, and turning this back on restores them.', 'buddynext' ); ?></p>
+				<?php endif; ?>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Articles tab', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="articles_tab" value="1" <?php checked( (bool) $args['articles_tab'] && ! $bn_articles_site_off && ! $bn_articles_closed ); ?> <?php disabled( ! $args['is_space_owner'] || $bn_articles_site_off || $bn_articles_closed ); ?> role="switch">
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>
