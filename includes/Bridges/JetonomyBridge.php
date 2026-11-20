@@ -183,6 +183,9 @@ class JetonomyBridge {
 		// fired by Post::create/update/delete for create, approve, restore, trash,
 		// scheduled publish and purge - card 10344390418).
 		add_action( 'jetonomy_post_updated', array( $this, 'sync_discussion' ), 10, 2 );
+		// Jetonomy fires no event when a topic moves to another forum, so the move is read off
+		// its own REST route once it has succeeded.
+		add_filter( 'rest_request_after_callbacks', array( $this, 'on_move_response' ), 10, 3 );
 		add_action( 'jetonomy_post_publish_transition', array( $this, 'sync_discussion' ), 10, 1 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
@@ -2567,6 +2570,75 @@ class JetonomyBridge {
 			default:
 				return 'hidden';
 		}
+	}
+
+	/**
+	 * Re-place a topic's card and search row when it moves to another forum.
+	 *
+	 * Jetonomy's move changes the topic's forum and fires nothing, so the card kept its old
+	 * Space and address and the search row kept the old Space: a topic moved into a private
+	 * forum stayed findable by its title. Reads the successful response of the move route.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed            $response Response so far.
+	 * @param array            $handler  Matched route handler (unused).
+	 * @param \WP_REST_Request $request  The request.
+	 * @return mixed The response, untouched.
+	 */
+	public function on_move_response( $response, $handler, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- filter signature.
+		if ( ! $request instanceof \WP_REST_Request || 'POST' !== $request->get_method() || $response instanceof \WP_Error ) {
+			return $response;
+		}
+		if ( ! preg_match( '#^/jetonomy/v1/posts/(\d+)/move$#', $request->get_route(), $match ) ) {
+			return $response;
+		}
+		if ( $response instanceof \WP_REST_Response && $response->get_status() >= 300 ) {
+			return $response;
+		}
+		$this->on_topic_moved( (int) $match[1] );
+		return $response;
+	}
+
+	/**
+	 * Point a moved topic's existing card at its new forum and re-index it.
+	 *
+	 * The card keeps its id, date and comments: it is rewritten in place to the new address
+	 * and moved to the new forum's Space, then the normal sync refreshes the search row and
+	 * withdraws the card if the new forum is not public.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $post_id Jetonomy topic id.
+	 * @return void
+	 */
+	public function on_topic_moved( int $post_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT space_id, title, content_plain FROM {$wpdb->prefix}jt_posts WHERE id = %d", $post_id ) );
+		if ( null === $row ) {
+			return;
+		}
+		$space_id = (int) $row->space_id;
+		$url      = $this->discussion_url( $post_id, $space_id );
+		if ( '' !== $url ) {
+			IntegrationActivity::rewrite_by_meta(
+				'discussion',
+				'post_id',
+				$post_id,
+				__( 'started a discussion', 'buddynext' ),
+				$url,
+				(string) $row->title,
+				wp_trim_words( wp_strip_all_tags( (string) $row->content_plain ), 30, '…' ),
+				array(
+					'post_id'      => $post_id,
+					'notify_space' => false,
+				)
+			);
+			IntegrationActivity::set_space_by_meta( 'discussion', 'post_id', $post_id, $this->space_id_for_forum( $space_id ) );
+		}
+		$this->sync_discussion( $post_id, $space_id );
 	}
 
 	/**

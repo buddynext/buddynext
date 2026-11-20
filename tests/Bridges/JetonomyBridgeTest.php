@@ -1486,6 +1486,52 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A topic moved to another forum takes its card and search row with it.
+	 *
+	 * Jetonomy fires no event on a move, so the bridge reads the successful move route.
+	 * Into a private forum the card is withdrawn and the search row turns private; back
+	 * into a public one both come back.
+	 *
+	 * @return void
+	 */
+	public function test_a_moved_topic_takes_its_card_and_search_row_to_the_new_forum(): void {
+		global $wpdb;
+		$open    = $this->space_with_forum( 'open' );
+		$private = $this->space_with_forum( 'private' );
+		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'private' ), array( 'id' => (int) $private['forum'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$pid     = 4100 + wp_rand( 1, 800 );
+		$this->seed_jt_post( $pid, (int) $open['owner'], 'Moving topic', 'zzmoveword body', 'moving-topic' );
+		$this->publish_jt_post( $pid, (int) $open['forum'] );
+
+		$card   = fn(): array => (array) $wpdb->get_row( "SELECT COALESCE(space_id,0) AS space_id, status, link_url FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_meta LIKE '%\"post_id\": {$pid}%' ORDER BY id DESC LIMIT 1", ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$search = fn(): array => (array) $wpdb->get_row( "SELECT space_id, visibility FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = {$pid}", ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$move   = function ( int $forum ) use ( $wpdb, $pid ): void {
+			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $forum ), array( 'id' => $pid ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$request = new \WP_REST_Request( 'POST', '/jetonomy/v1/posts/' . $pid . '/move' );
+			$this->bridge->on_move_response( new \WP_REST_Response( array( 'moved' => true ), 200 ), array(), $request );
+		};
+
+		$this->assertSame( (string) $open['space'], (string) $card()['space_id'], 'The card starts in the open forum\'s Space.' );
+
+		$move( (int) $private['forum'] );
+		$this->assertSame( (string) $private['space'], (string) $card()['space_id'], 'The card follows the topic to the new forum\'s Space.' );
+		$this->assertNotSame( 'published', $card()['status'], 'A private forum has no public card.' );
+		$this->assertStringContainsString( (string) $private['slug'], (string) $card()['link_url'], 'The card links to the new address.' );
+		$this->assertSame( 'private', $search()['visibility'], 'The title is no longer findable by everyone.' );
+		$this->assertSame( (string) $private['space'], (string) $search()['space_id'] );
+
+		$move( (int) $open['forum'] );
+		$this->assertSame( 'published', $card()['status'], 'Back in a public forum the card returns.' );
+		$this->assertSame( 'public', $search()['visibility'] );
+
+		$request = new \WP_REST_Request( 'POST', '/jetonomy/v1/posts/' . $pid . '/move' );
+		$before  = $card();
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => (int) $private['forum'] ), array( 'id' => $pid ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->bridge->on_move_response( new \WP_Error( 'jetonomy_denied', 'No' ), array(), $request );
+		$this->assertSame( $before['space_id'], $card()['space_id'], 'A refused move changes nothing.' );
+	}
+
+	/**
 	 * Render the space Discussions panel for a viewer.
 	 *
 	 * @param int $space_id Space.
