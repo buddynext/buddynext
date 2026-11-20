@@ -189,6 +189,8 @@ class JetonomyBridge {
 		// Banned words and the Pro rules apply to forum topics, titles and replies like any other post.
 		add_filter( 'jetonomy_before_create_post', array( $this, 'check_new_topic' ), 10, 1 );
 		add_filter( 'jetonomy_before_create_reply', array( $this, 'check_new_reply' ), 10, 1 );
+		// Jetonomy runs no check when a topic or reply is edited, so the edit routes are checked here.
+		add_filter( 'rest_request_before_callbacks', array( $this, 'check_forum_edit' ), 10, 3 );
 		add_action( 'jetonomy_post_publish_transition', array( $this, 'sync_discussion' ), 10, 1 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
@@ -2588,6 +2590,31 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Run the same check when a topic or reply is edited, so a clean post cannot be edited into a banned one.
+	 *
+	 * Jetonomy has no before-update filter, so the edit routes (PATCH on a topic or a reply) are
+	 * read here before their callback runs. Only create-time rules are skipped (the 'edit' context).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed            $response Response so far.
+	 * @param array            $handler  Matched route handler (unused).
+	 * @param \WP_REST_Request $request  The request.
+	 * @return mixed The response, or a WP_Error that refuses the edit.
+	 */
+	public function check_forum_edit( $response, $handler, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- filter signature.
+		if ( ! $request instanceof \WP_REST_Request || 'PATCH' !== $request->get_method() || ! preg_match( '#^/jetonomy/v1/(?:posts|replies)/\d+$#', $request->get_route() ) ) {
+			return $response;
+		}
+		$text = trim( (string) $request->get_param( 'title' ) . "\n" . (string) $request->get_param( 'content' ) );
+		if ( '' === $text || is_wp_error( $response ) ) {
+			return $response;
+		}
+		$checked = $this->scan_forum_text( array( 'author_id' => get_current_user_id() ), $text, 'edit' );
+		return is_wp_error( $checked ) ? $checked : $response;
+	}
+
+	/**
 	 * Run the shared banned-content check on a new forum reply.
 	 *
 	 * @param mixed $data Reply data Jetonomy is about to write.
@@ -2605,13 +2632,14 @@ class JetonomyBridge {
 	 *
 	 * @param array<string,mixed> $data Row Jetonomy is about to write.
 	 * @param string              $text What the member wrote.
+	 * @param string              $context 'create' or 'edit': the edit context skips the create-time rules.
 	 * @return array<string,mixed>|\WP_Error
 	 */
-	private function scan_forum_text( array $data, string $text ) {
+	private function scan_forum_text( array $data, string $text, string $context = 'create' ) {
 		if ( '' === trim( $text ) || ! function_exists( 'buddynext_service' ) ) {
 			return $data;
 		}
-		$verdict = buddynext_service( 'safeguard' )->check_content( wp_strip_all_tags( $text ), '', (int) ( $data['author_id'] ?? 0 ), 0, 'create', 'post' );
+		$verdict = buddynext_service( 'safeguard' )->check_content( wp_strip_all_tags( $text ), '', (int) ( $data['author_id'] ?? 0 ), 0, $context, 'post' );
 		if ( ! is_wp_error( $verdict ) || \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $verdict ) ) {
 			return $data;
 		}

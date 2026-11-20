@@ -42,4 +42,23 @@ class JetonomyBannedWordsTest extends WP_UnitTestCase {
 		$this->assertSame( $clean, $bridge->check_new_topic( $clean ) );
 		$this->assertSame( array( 'content' => 'fine' ), $bridge->check_new_reply( array( 'content' => 'fine' ) ) );
 	}
+
+	public function test_editing_a_topic_or_reply_into_a_banned_one_is_refused_and_other_routes_are_left_alone(): void {
+		$bridge = new JetonomyBridge();
+		wp_set_current_user( self::factory()->user->create() );
+		foreach ( array( '/jetonomy/v1/posts/5', '/jetonomy/v1/replies/9' ) as $route ) {
+			$edit = new \WP_REST_Request( 'PATCH', $route );
+			$edit->set_param( 'content', 'now zzbadword' );
+			$this->assertWPError( $bridge->check_forum_edit( null, array(), $edit ), $route );
+
+			$edit->set_param( 'content', 'a fine edit' );
+			$this->assertNull( $bridge->check_forum_edit( null, array(), $edit ), 'A clean edit passes.' );
+		}
+		$other = new \WP_REST_Request( 'PATCH', '/jetonomy/v1/posts/5/close' );
+		$other->set_param( 'content', 'zzbadword' );
+		$this->assertNull( $bridge->check_forum_edit( null, array(), $other ), 'Only the edit routes are checked.' );
+		$read = new \WP_REST_Request( 'GET', '/jetonomy/v1/posts/5' );
+		$read->set_param( 'content', 'zzbadword' );
+		$this->assertNull( $bridge->check_forum_edit( null, array(), $read ) );
+	}
 }

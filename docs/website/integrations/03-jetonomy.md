@@ -81,7 +81,7 @@ A member suspended in BuddyNext keeps reading the forum but cannot post, reply o
 
 ### Banned words in the forum
 
-The banned words and blocked links you set for the community also apply to forum topics (title and body) and replies. A topic or reply that contains one is refused with one general message, and the member is not told which word or rule matched; that detail stays in the moderation log. Flag-only rules let the text through, as they do for comments.
+The banned words and blocked links you set for the community also apply to forum topics (title and body) and replies. A topic or reply that contains one is refused with one general message, and the member is not told which word or rule matched; that detail stays in the moderation log. Flag-only rules let the text through, as they do for comments. Editing a topic or reply is checked the same way, so a clean post cannot be edited into a banned one.
 
 ### Forum reports in the moderation queue
 
