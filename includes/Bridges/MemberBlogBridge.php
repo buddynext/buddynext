@@ -895,6 +895,171 @@ class MemberBlogBridge {
 				},
 			)
 		);
+
+		// The Space Blog tab: the articles written for an open space. Shown to a member
+		// who may write for the space (the empty state carries the button), and to
+		// everyone else once the space has an article. Never on a private or secret
+		// space: its article cards stay members-only in its feed.
+		$registry->register(
+			array(
+				'id'          => 'blog',
+				'surface'     => 'space',
+				'integration' => self::INTEGRATION,
+				'layer'       => 'primary',
+				'label'       => __( 'Blog', 'buddynext' ),
+				// Right after Discussions wherever the site puts it; the priority places
+				// it when Discussions is absent. An owner's own order replaces both.
+				'priority'    => 36,
+				'after'       => 'discussions',
+				'condition'   => fn( NavContext $c ): bool => self::articles_tab_available()
+					&& self::space_is_open( $c->subject_id )
+					&& ( null !== self::space_writer( $c->subject_id, $c->viewer_id )
+						|| array() !== $this->space_articles( $c->subject_id, $c->viewer_id, null, 1 )['items'] ),
+				'url'         => static fn( NavContext $c ): string => self::space_blog_url( $c->subject_id ),
+				'render'      => function ( NavContext $c ): void {
+					$this->render_space_blog_panel( $c->subject_id, $c->viewer_id );
+				},
+			)
+		);
+	}
+
+	/**
+	 * Articles per page on the Space Blog tab.
+	 */
+	private const SPACE_BLOG_PAGE = 20;
+
+	/**
+	 * Whether a space is open (public): the only kind with a Blog tab.
+	 *
+	 * @param int $space_id Space.
+	 * @return bool
+	 */
+	private static function space_is_open( int $space_id ): bool {
+		$space = $space_id > 0 ? buddynext_service( 'spaces' )->get( $space_id ) : null;
+		return is_array( $space ) && \BuddyNext\Spaces\SpaceService::TYPE_OPEN === (string) ( $space['type'] ?? '' );
+	}
+
+	/**
+	 * The Space Blog tab's address: /spaces/{slug}/blog/.
+	 *
+	 * @param int $space_id Space.
+	 * @return string
+	 */
+	private static function space_blog_url( int $space_id ): string {
+		return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $space_id ) ) . 'blog/';
+	}
+
+	/**
+	 * The provider of a member who may write an article for this space, or null.
+	 *
+	 * Member Blog lets them write (no hold) and the space takes an article from them
+	 * (BlogPostListener::space_accepts_article(): open, active member meeting "Who
+	 * can post", not archived): the same rule the hidden form field applies.
+	 *
+	 * @param int $space_id  Space.
+	 * @param int $viewer_id Member.
+	 * @return array<string,mixed>|null
+	 */
+	private static function space_writer( int $space_id, int $viewer_id ): ?array {
+		if ( $viewer_id <= 0 ) {
+			return null;
+		}
+		$provider = self::member_blog_writer( $viewer_id );
+		return null !== $provider && '' !== (string) $provider['new_url'] && BlogPostListener::space_accepts_article( $space_id, $viewer_id ) ? $provider : null;
+	}
+
+	/**
+	 * Where a member writes an article for this space ('' when they may not): the
+	 * provider's new-post page with `?bn_space=`.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id  Space.
+	 * @param int $viewer_id Member.
+	 * @return string
+	 */
+	public static function space_write_url( int $space_id, int $viewer_id ): string {
+		$provider = self::space_writer( $space_id, $viewer_id );
+		return null !== $provider ? add_query_arg( 'bn_space', $space_id, (string) $provider['new_url'] ) : '';
+	}
+
+	/**
+	 * A page of the space's article cards for this viewer, newest first.
+	 *
+	 * The space feed narrowed to type 'article' (one keyset query on the
+	 * space_type_feed index, no COUNT): the same published-only, audience and
+	 * block/mute rules as the space feed, and the same hydrated cards. A withdrawn
+	 * article (private, password, draft, pending, trashed) has a card that is no
+	 * longer published, so it is never listed.
+	 *
+	 * @param int         $space_id  Space.
+	 * @param int         $viewer_id Viewer (0 = logged out).
+	 * @param string|null $cursor    Keyset cursor.
+	 * @param int         $per_page  Page size.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
+	 */
+	public function space_articles( int $space_id, int $viewer_id, ?string $cursor, int $per_page ): array {
+		$page = (array) buddynext_service( 'feed' )->space_feed( $space_id, $viewer_id, $cursor, $per_page, BlogPostListener::TYPE );
+		return array(
+			'items'       => array_values( (array) ( $page['items'] ?? array() ) ),
+			'next_cursor' => isset( $page['next_cursor'] ) ? (string) $page['next_cursor'] : null,
+		);
+	}
+
+	/**
+	 * Render the Space Blog panel: the space's article cards (the feed's own post
+	 * card), Load more, and the Write for this Space button.
+	 *
+	 * @param int $space_id  Space.
+	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @return void
+	 */
+	public function render_space_blog_panel( int $space_id, int $viewer_id ): void {
+		if ( ! self::articles_tab_available() || ! self::space_is_open( $space_id ) ) {
+			return;
+		}
+
+		$window = \BuddyNext\Feed\FeedWindow::read( self::SPACE_BLOG_PAGE );
+		$page   = $this->space_articles( $space_id, $viewer_id, '' !== (string) $window['cursor'] ? (string) $window['cursor'] : null, (int) $window['shown'] );
+
+		buddynext_get_template(
+			'parts/space-blog-panel.php',
+			array(
+				'space_id'  => $space_id,
+				'viewer_id' => $viewer_id,
+				'posts'     => $page['items'],
+				'pager'     => \BuddyNext\Feed\FeedWindow::links( self::space_blog_url( $space_id ), $window, $page['next_cursor'] ),
+				'write_url' => self::space_write_url( $space_id, $viewer_id ),
+			)
+		);
+	}
+
+	/**
+	 * The space a writer opened the write hub for, for the "Writing for" line:
+	 * {name, url} of a valid `?bn_space=` on the new-post page, else null.
+	 *
+	 * Valid means what the hidden field accepts (requested_space()), so a forged,
+	 * private or not-allowed id shows nothing.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array{name:string,url:string}|null
+	 */
+	public static function write_hub_space(): ?array {
+		$page = self::write_hub_page();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: an edit link opens an existing post.
+		if ( null === $page || self::write_pages()['post'] !== (int) $page->ID || isset( $_GET['post_id'] ) || array() === self::write_hub_tabs() || null !== self::write_hub_notice() ) {
+			return null;
+		}
+		$space_id = self::requested_space( get_current_user_id() );
+		$space    = $space_id > 0 ? buddynext_service( 'spaces' )->get( $space_id ) : null;
+		if ( ! is_array( $space ) ) {
+			return null;
+		}
+		return array(
+			'name' => (string) ( $space['name'] ?? '' ),
+			'url'  => self::space_blog_url( $space_id ),
+		);
 	}
 
 	/**

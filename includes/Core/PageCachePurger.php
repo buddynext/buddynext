@@ -63,6 +63,9 @@ class PageCachePurger implements ListenerInterface {
 			add_action( $hook, array( $this, 'on_post_change' ), 10, 1 );
 		}
 		add_action( 'buddynext_space_posts_changed', array( $this, 'on_space_change' ), 10, 1 );
+		// A space made private or secret hides its Blog tab and its cards from guests:
+		// their cached copies of its pages must go too.
+		add_action( 'buddynext_space_updated', array( $this, 'on_space_updated' ), 10, 3 );
 		// A comment added, edited, deleted, hidden or restored changes the thread and
 		// the count on every page that shows the post: guests saw the old thread.
 		add_action( 'buddynext_comment_thread_changed', array( $this, 'on_comment_thread_change' ), 10, 2 );
@@ -339,6 +342,23 @@ class PageCachePurger implements ListenerInterface {
 		// space_url() falls back to the directory for an unknown space; that has no blog/ page.
 		if ( $space_id > 0 && PageRouter::spaces_url() !== $url ) {
 			self::purge( $url . 'blog/' );
+		}
+	}
+
+	/**
+	 * A space's settings were saved: purge its pages when its type changed.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int   $space_id Space ID.
+	 * @param int   $user_id  Who saved it.
+	 * @param mixed $fields   The fields that were updated.
+	 * @return void
+	 */
+	public function on_space_updated( $space_id, $user_id, $fields ): void {
+		unset( $user_id );
+		if ( is_array( $fields ) && array_key_exists( 'type', $fields ) ) {
+			$this->on_space_change( (int) $space_id );
 		}
 	}
 

@@ -19614,6 +19614,18 @@
                             "type": "integer",
                             "default": 20
                         }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": false,
+                        "description": "Only posts of this type: 'article' lists the space's article cards (the Space Blog tab). Omit for every post.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "article"
+                            ]
+                        }
                     }
                 ],
                 "responses": {
@@ -24618,7 +24630,7 @@
                                     "object",
                                     "null"
                                 ],
-                                "description": "Where the viewer writes an article (Feed\\ArticleProvider::for_user()); null when they have nowhere to write.",
+                                "description": "Where the viewer writes an article (Feed\\ArticleProvider::for_user()) with the composer counts; null when they cannot write (guest, suspended, pending approval, or a role the provider refuses).",
                                 "properties": {
                                     "key": {
                                         "type": "string"
@@ -24641,11 +24653,30 @@
                                     "my_articles_url": {
                                         "type": "string"
                                     },
+                                    "pending_url": {
+                                        "type": "string",
+                                        "description": "The member's posts waiting for review or scheduled."
+                                    },
                                     "title_arg": {
                                         "type": "string"
                                     },
                                     "supports_space": {
                                         "type": "boolean"
+                                    },
+                                    "counts": {
+                                        "type": "object",
+                                        "description": "The composer counts (Feed\\ArticleProvider::composer_summary()): drafts = draft, articles = publish + private, pending = pending + future.",
+                                        "properties": {
+                                            "drafts": {
+                                                "type": "integer"
+                                            },
+                                            "articles": {
+                                                "type": "integer"
+                                            },
+                                            "pending": {
+                                                "type": "integer"
+                                            }
+                                        }
                                     }
                                 }
                             }

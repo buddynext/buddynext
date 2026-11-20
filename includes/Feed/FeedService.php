@@ -2007,9 +2007,12 @@ class FeedService {
 	 * @param int         $viewer_id Viewing user ID (reserved for future access checks).
 	 * @param string|null $cursor    Pagination cursor.
 	 * @param int         $per_page  Posts per page.
+	 * @param string      $type      Only posts of this type ('' = every type). The
+	 *                               Space Blog tab passes 'article'; the query then
+	 *                               runs on the space_type_feed index.
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $type = '' ): array {
 		/**
 		 * Filter whether this viewer may read the space's posts at all.
 		 *
@@ -2050,7 +2053,9 @@ class FeedService {
 		// future Pro filter makes it depend on the viewer's ENTITLEMENTS, it must bump a
 		// version on entitlement change (or accept the <=TTL lag), because the key cannot
 		// see inside an arbitrary filter.
-		if ( null !== $this->cache && null === $cursor && $space_id > 0 ) {
+		// A typed page (the Blog tab) is not cached: one indexed read, and the cache
+		// key has no room for the type.
+		if ( null !== $this->cache && null === $cursor && $space_id > 0 && '' === $type ) {
 			$key   = $this->cache->space_page_1_key( $space_id, $viewer_id, $per_page );
 			$cache = $this->cache;
 			return (array) $cache->get(
@@ -2061,7 +2066,7 @@ class FeedService {
 			);
 		}
 
-		return $this->space_feed_uncached( $space_id, $viewer_id, $cursor, $per_page );
+		return $this->space_feed_uncached( $space_id, $viewer_id, $cursor, $per_page, $type );
 	}
 
 	/**
@@ -2071,9 +2076,10 @@ class FeedService {
 	 * @param int         $viewer_id Viewer.
 	 * @param string|null $cursor    Pagination cursor.
 	 * @param int         $per_page  Page size.
+	 * @param string      $type      Only posts of this type ('' = every type).
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	private function space_feed_uncached( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+	private function space_feed_uncached( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $type = '' ): array {
 		global $wpdb;
 
 		$per_page       = min( $per_page, self::MAX_PER_PAGE );
@@ -2120,6 +2126,9 @@ class FeedService {
 		// sentinel honest — a page full of narrowed posts cannot truncate pagination.
 		[ $audience_where, $audience_params ] = $this->post_audience_clause( $viewer_id );
 
+		$type_where  = '' !== $type ? 'AND type = %s' : '';
+		$type_params = '' !== $type ? array( $type ) : array();
+
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
 		// posts this viewer reported); its params are bound below.
@@ -2127,6 +2136,7 @@ class FeedService {
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE space_id = %d
+			   {$type_where}
 			   AND status = 'published'
 			   AND {$audience_where}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
@@ -2135,7 +2145,7 @@ class FeedService {
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $space_id ), $audience_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $space_id ), $type_params, $audience_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 

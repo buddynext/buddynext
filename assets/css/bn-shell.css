@@ -1227,6 +1227,39 @@ body.admin-bar .bn-app__rail {
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-3);
 }
+/* "Writing for <space>": where the article will appear, linking to the space's Blog tab. */
+.bn-blog-write__space {
+	margin: var(--bn-s3) 0 0;
+}
+.bn-blog-write__space a {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-block-size: 44px;
+	padding-inline: var(--bn-s3);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent-50);
+	color: var(--bn-accent-700);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+	overflow-wrap: anywhere;
+}
+.bn-blog-write__space a:visited {
+	color: var(--bn-accent-700);
+}
+.bn-blog-write__space a:hover {
+	background: var(--bn-accent-100);
+}
+.bn-blog-write__space a:focus-visible {
+	outline: 2px solid transparent;
+	box-shadow: var(--bn-ring);
+}
+.bn-blog-write__space svg {
+	flex: none;
+	inline-size: 16px;
+	block-size: 16px;
+}
 .bn-blog-write__tabs {
 	margin-block-end: var(--bn-s5);
 }

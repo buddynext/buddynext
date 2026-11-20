@@ -4227,3 +4227,37 @@ a.bn-sh-statpill:focus-visible {
 	white-space: nowrap;
 }
 .bn-reported-label svg { inline-size: 16px; block-size: 16px; }
+
+/* Space Blog tab: header (title + Write for this Space), then the feed's own cards. */
+.bn-space-blog__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+}
+.bn-space-blog__title {
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+}
+.bn-space-blog__write {
+	min-block-size: 44px;
+}
+.bn-space-blog__write svg {
+	inline-size: 16px;
+	block-size: 16px;
+}
+
+@media (max-width: 640px) {
+	.bn-space-blog__title {
+		font-size: var(--bn-text-lg);
+	}
+	.bn-space-blog__write {
+		inline-size: 100%;
+		justify-content: center;
+	}
+}

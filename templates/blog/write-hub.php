@@ -27,6 +27,7 @@ if ( ! $bn_write_page instanceof WP_Post ) {
 $bn_write_tabs    = MemberBlogBridge::write_hub_tabs();
 $bn_write_notice  = MemberBlogBridge::write_hub_notice();
 $bn_write_prefill = MemberBlogBridge::write_hub_prefill_title();
+$bn_write_space   = MemberBlogBridge::write_hub_space();
 ?>
 <?php // data-bn-prefill-title: the title typed in the composer's Article tab; assets/js/blog/write-prefill.js puts it in Member Blog's empty title field. ?>
 <div class="bn-blog-write"<?php echo '' !== $bn_write_prefill ? ' data-bn-prefill-title="' . esc_attr( $bn_write_prefill ) . '"' : ''; ?>>
@@ -40,6 +41,20 @@ $bn_write_prefill = MemberBlogBridge::write_hub_prefill_title();
 		<h1 class="bn-blog-write__title"><?php echo esc_html( MemberBlogBridge::write_hub_heading() ); ?></h1>
 		<?php if ( array() !== $bn_write_tabs ) : ?>
 			<p class="bn-blog-write__sub"><?php esc_html_e( 'Share an article with the community. It appears on your profile and in the feed.', 'buddynext' ); ?></p>
+		<?php endif; ?>
+		<?php if ( null !== $bn_write_space ) : ?>
+			<?php // Where the article will appear: a valid ?bn_space= only (MemberBlogBridge::write_hub_space()). ?>
+			<p class="bn-blog-write__space">
+				<a href="<?php echo esc_url( $bn_write_space['url'] ); ?>">
+					<?php buddynext_icon( 'file-text' ); ?>
+					<span>
+						<?php
+						/* translators: %s: space name. */
+						echo esc_html( sprintf( __( 'Writing for %s', 'buddynext' ), $bn_write_space['name'] ) );
+						?>
+					</span>
+				</a>
+			</p>
 		<?php endif; ?>
 	</header>
 

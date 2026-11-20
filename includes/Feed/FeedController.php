@@ -241,7 +241,19 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_feed' ),
 				'permission_callback' => '__return_true',
-				'args'                => $this->feed_pagination_args(),
+				'args'                => array_merge(
+					$this->feed_pagination_args(),
+					array(
+						'type' => array(
+							'type'              => 'string',
+							'required'          => false,
+							'enum'              => array( BlogPostListener::TYPE ),
+							'description'       => "Only posts of this type: 'article' lists the space's article cards (the Space Blog tab). Omit for every post.",
+							'validate_callback' => 'rest_validate_request_arg',
+							'sanitize_callback' => 'sanitize_key',
+						),
+					)
+				),
 			)
 		);
 
@@ -1138,7 +1150,7 @@ class FeedController extends BaseRestController {
 			}
 		}
 
-		$result = $this->feed_service()->space_feed( $space_id, $viewer_id, $cursor, $per_page );
+		$result = $this->feed_service()->space_feed( $space_id, $viewer_id, $cursor, $per_page, (string) $request->get_param( 'type' ) );
 
 		return $this->enriched_response( $result, $viewer_id );
 	}
