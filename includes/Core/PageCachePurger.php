@@ -42,6 +42,13 @@ class PageCachePurger implements ListenerInterface {
 	private static bool $purged_all = false;
 
 	/**
+	 * Authors whose Articles pages were already purged in this request.
+	 *
+	 * @var array<int,true>
+	 */
+	private static array $purged_authors = array();
+
+	/**
 	 * Register the hooks.
 	 *
 	 * @return void
@@ -59,6 +66,12 @@ class PageCachePurger implements ListenerInterface {
 		// A comment added, edited, deleted, hidden or restored changes the thread and
 		// the count on every page that shows the post: guests saw the old thread.
 		add_action( 'buddynext_comment_thread_changed', array( $this, 'on_comment_thread_change' ), 10, 2 );
+
+		// A member's Articles tab lists WordPress posts, which raise no BuddyNext feed
+		// event of their own (a private, password or author change withdraws or moves
+		// nothing in the feed): guests kept the old list until the cache expired.
+		add_action( 'wp_after_insert_post', array( $this, 'on_article_saved' ), 10, 4 );
+		add_action( 'deleted_post', array( $this, 'on_article_deleted' ), 10, 2 );
 
 		// An owner setting changes what every guest page looks like (appearance, width,
 		// names, navigation), and only the setting that moved a hub was ever caught:
@@ -210,6 +223,94 @@ class PageCachePurger implements ListenerInterface {
 		// The site's front page may be the activity hub (a static front page).
 		self::purge( home_url( '/' ) );
 		self::purge( PageRouter::post_url( $post_id ) );
+	}
+
+	/**
+	 * A WordPress post was saved (created, edited, published, unpublished, made
+	 * private, trashed, restored, given a password, given to another author).
+	 *
+	 * Only a post that is or was published can be on a guest's Articles tab, so a
+	 * draft save costs nothing. Both authors are purged on a reassignment.
+	 *
+	 * @param int           $post_id     Post ID.
+	 * @param \WP_Post|null $post        The post after the write.
+	 * @param bool          $update      Whether this is an update.
+	 * @param \WP_Post|null $post_before The post before the write, null on create.
+	 * @return void
+	 */
+	public function on_article_saved( $post_id, $post, $update, $post_before ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- wp_after_insert_post passes the id and $update first.
+		if ( ! $post instanceof \WP_Post ) {
+			return;
+		}
+		$before = $post_before instanceof \WP_Post && 'publish' === $post_before->post_status ? $post_before : null;
+		if ( null === $before && 'publish' !== $post->post_status ) {
+			return;
+		}
+		$this->purge_article_writers( $post );
+		if ( null !== $before && (int) $before->post_author !== (int) $post->post_author ) {
+			$this->purge_article_writers( $before );
+		}
+	}
+
+	/**
+	 * A WordPress post was permanently deleted. A published one left its
+	 * authors' Articles tabs (trashing one passes through on_article_saved()).
+	 *
+	 * @param int           $post_id Post ID.
+	 * @param \WP_Post|null $post    The deleted post.
+	 * @return void
+	 */
+	public function on_article_deleted( $post_id, $post = null ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- deleted_post passes the id first.
+		if ( $post instanceof \WP_Post && 'publish' === $post->post_status ) {
+			$this->purge_article_writers( $post );
+		}
+	}
+
+	/**
+	 * Purge the profile pages of everyone whose Articles tab lists this post:
+	 * the profile, the Articles tab and its /page/N/ pages.
+	 *
+	 * Once per author per request, so a bulk edit of 500 posts by one author
+	 * purges that author's pages once, not once per post.
+	 *
+	 * @param \WP_Post $post Post.
+	 * @return void
+	 */
+	private function purge_article_writers( \WP_Post $post ): void {
+		if ( ! \BuddyNext\Bridges\MemberBlogBridge::articles_tab_available() ) {
+			return;
+		}
+		/** This filter is documented in includes/Feed/BlogPostListener.php */
+		$types = array_map( 'strval', (array) apply_filters( 'buddynext_site_tracking_post_types', array( 'post' ) ) );
+		if ( ! in_array( $post->post_type, $types, true ) ) {
+			return;
+		}
+
+		// Member Blog's own answer to "who wrote this": the author, then any co-authors
+		// (Pro), each of whom lists the post on their own tab.
+		$writers = array_map( 'intval', (array) apply_filters( 'bpmb_post_writers', array( (int) $post->post_author ), (int) $post->ID ) );
+		$bridge  = new \BuddyNext\Bridges\MemberBlogBridge();
+		foreach ( array_unique( $writers ) as $user_id ) {
+			if ( $user_id <= 0 || isset( self::$purged_authors[ $user_id ] ) ) {
+				continue;
+			}
+			self::$purged_authors[ $user_id ] = true;
+
+			$profile = PageRouter::profile_url( $user_id );
+			if ( '' === $profile ) {
+				continue;
+			}
+			$tab = trailingslashit( $profile ) . 'articles/';
+			self::purge( $profile );
+			self::purge( $tab );
+			// One page more than the tab has now: a removed post shrank it by one.
+			// ponytail: capped at 20 pages; deeper pages wait for the cache to expire
+			// (WP Super Cache and WP Rocket drop /page/N/ with the tab URL anyway).
+			$pages = min( 20, (int) ceil( $bridge->article_total( $user_id ) / \BuddyNext\Bridges\MemberBlogBridge::articles_per_page() ) + 1 );
+			for ( $page = 2; $page <= $pages; $page++ ) {
+				self::purge( $tab . 'page/' . $page . '/' );
+			}
+		}
 	}
 
 	/**
