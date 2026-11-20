@@ -61,6 +61,8 @@ Beyond course completions and certificates, a course, a Learnomy Space, or a coh
 
 > **Note:** A cohort simply reaching its scheduled end date is not a departure and never removes anyone - only an explicit removal from the cohort does.
 
+**Who sees the link.** An open community shows a "Community for [course]" line with an Open course button to everyone. A private or secret community keeps its public About page, but the line is shown only to its members and site admins, so a stranger does not learn which course it belongs to. A site can change this with the `buddynext_pro_learnomy_space_source_visible` filter.
+
 **A paid Learnomy Space follows its billing.** When a Learnomy Space's subscription expires, Learnomy pauses the Space, and BuddyNext removes its members from the community it created for that Space, in the background. When the subscription is renewed, the members are added back without a new notification. A cancelled subscription keeps access until its paid period ends, and a failed payment changes nothing until the subscription actually expires. A community you linked yourself keeps its members.
 
 **A community BuddyNext creates for you enforces the roster; one you pick does not.** Let BuddyNext create the linked Space for you, and it becomes that course's (or Learnomy Space's) exclusive roster - membership is fully driven by Learnomy enrollment, removal included. Link an existing Space you already run instead, and BuddyNext only ever adds members to it; it never removes someone from a Space you are managing yourself.
