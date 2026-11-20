@@ -327,13 +327,19 @@ class PageCachePurger implements ListenerInterface {
 	}
 
 	/**
-	 * A space's post set changed.
+	 * A space's post set changed: its home and its blog/ page, which lists the
+	 * space's article cards.
 	 *
 	 * @param int $space_id Space ID.
 	 * @return void
 	 */
 	public function on_space_change( int $space_id ): void {
-		self::purge( PageRouter::space_url( $space_id ) );
+		$url = PageRouter::space_url( $space_id );
+		self::purge( $url );
+		// space_url() falls back to the directory for an unknown space; that has no blog/ page.
+		if ( $space_id > 0 && PageRouter::spaces_url() !== $url ) {
+			self::purge( $url . 'blog/' );
+		}
 	}
 
 	/**

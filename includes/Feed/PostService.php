@@ -3588,6 +3588,53 @@ class PostService {
 	}
 
 	/**
+	 * Move every card of one type out of a space and onto the site-wide feed.
+	 *
+	 * For a space that is about to be deleted while some of its cards point at
+	 * content that outlives it (a published article): the cards keep their ids,
+	 * dates, reactions and comments, and become public site-wide cards, so the
+	 * space teardown that follows no longer finds them. One indexed UPDATE
+	 * (space_type_feed); each moved card's cache is dropped.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $space_id Space being emptied.
+	 * @param string $type     Card type to move (e.g. 'article').
+	 * @return int Cards moved.
+	 */
+	public function move_space_type_to_site( int $space_id, string $type ): int {
+		global $wpdb;
+
+		if ( $space_id <= 0 || '' === $type ) {
+			return 0;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = array_map(
+			'intval',
+			(array) $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND type = %s", $space_id, $type ) )
+		);
+		if ( array() === $ids ) {
+			return 0;
+		}
+
+		$moved = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET space_id = NULL, privacy = 'public', updated_at = UTC_TIMESTAMP() WHERE space_id = %d AND type = %s",
+				$space_id,
+				$type
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( $ids as $id ) {
+			wp_cache_delete( 'post_' . $id, self::CACHE_GROUP );
+		}
+
+		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
 	 * Move the given cards from one status to another and tell every reader.
 	 *
 	 * Shared by the two transitions above. The update is guarded on $from again, so

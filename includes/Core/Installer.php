@@ -495,8 +495,12 @@ class Installer {
 	 *      by-type layout) and bn_profile_groups.intro (optional text shown above
 	 *      a group's fields on the edit and sign-up forms). dbDelta ADDs both;
 	 *      existing sites render exactly as before. GitHub #217.
+	 *  76: KEY space_type_feed (space_id, type, status, created_at) on bn_posts, so
+	 *      one type of a space's cards (its articles) pages and moves without a
+	 *      filesort or a scan of the space's whole feed. Existing installs via the
+	 *      idempotent ADD KEY in maybe_alter_tables(); read-only, no data touched.
 	 */
-	private const SCHEMA_VERSION = 75;
+	private const SCHEMA_VERSION = 76;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -3144,6 +3148,10 @@ class Installer {
 				'admin_recent' => 'ADD KEY admin_recent (created_at)',
 				'admin_active' => 'ADD KEY admin_active (last_active_at)',
 			),
+			// v76: one type of a space's cards (its articles), newest first.
+			'bn_posts'          => array(
+				'space_type_feed' => 'ADD KEY space_type_feed (space_id, type, status, created_at)',
+			),
 			'bn_space_members'  => array(
 				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
 			),
@@ -4772,6 +4780,7 @@ class Installer {
 				PRIMARY KEY         (id),
 				KEY                 user_feed (user_id, status, created_at),
 				KEY                 space_feed (space_id, status, created_at),
+				KEY                 space_type_feed (space_id, type, status, created_at),
 				KEY                 announcement_feed (is_announcement, status, created_at),
 				KEY                 explore (privacy, created_at),
 				KEY                 active_feed (privacy, status, last_activity_at),

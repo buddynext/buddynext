@@ -54,7 +54,7 @@ class IndexSweepTest extends WP_UnitTestCase {
 	 */
 	private function expected_keys(): array {
 		return array(
-			'bn_posts'         => array( 'link_lookup' ),
+			'bn_posts'         => array( 'link_lookup', 'space_type_feed' ),
 			'bn_space_members' => array( 'pending_all' ),
 			'bn_comments'      => array( 'reply_lookup', 'user_recent' ),
 			'bn_follows'       => array( 'following_recent' ),
@@ -143,6 +143,23 @@ class IndexSweepTest extends WP_UnitTestCase {
 			$this->index_names( 'bn_posts' ),
 			'dbDelta did NOT add the missing index to an existing table. The whole index sweep depends on this: without a migration, dbDelta is the only thing that upgrades a site that already has these tables. If this fails, every site out there keeps full-scanning bn_posts and only brand-new installs get the fix.'
 		);
+	}
+
+	/**
+	 * An upgrading site gets space_type_feed back on its existing bn_posts.
+	 *
+	 * @return void
+	 */
+	public function test_upgrade_adds_space_type_feed_to_an_existing_table(): void {
+		global $wpdb;
+
+		$this->converge_schema_for_real();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_posts DROP INDEX space_type_feed" );
+		$this->assertNotContains( 'space_type_feed', $this->index_names( 'bn_posts' ) );
+
+		$this->converge_schema_for_real();
+		$this->assertContains( 'space_type_feed', $this->index_names( 'bn_posts' ) );
 	}
 
 	/**

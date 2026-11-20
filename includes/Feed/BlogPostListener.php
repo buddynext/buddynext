@@ -45,6 +45,17 @@ class BlogPostListener implements ListenerInterface {
 	public const META_POST_ID = 'source_post_id';
 
 	/**
+	 * Post meta on the WordPress post: the BuddyNext space its author wrote it for.
+	 *
+	 * Written by MemberBlogBridge from Member Blog's form. The same key is used on
+	 * MediaVerse albums (Media\Galleries::SPACE_META), so it is only ever read from
+	 * a post of type 'post', never queried by key alone.
+	 *
+	 * @since 1.3.0
+	 */
+	public const SPACE_META = '_bn_space_id';
+
+	/**
 	 * The feed card for a post, if one exists.
 	 *
 	 * The authoritative "is this article already in the feed?" answer, keyed on
@@ -95,6 +106,11 @@ class BlogPostListener implements ListenerInterface {
 		add_action( 'wp_after_insert_post', array( $this, 'on_after_insert' ), 10, 4 );
 		add_action( 'before_delete_post', array( $this, 'on_delete' ) );
 		add_action( 'buddynext_user_verified', array( $this, 'on_user_verified' ) );
+		// A deleted space's article cards go back to the site-wide feed before its
+		// posts are removed: the big-space path deletes posts in background chunks
+		// right after the queued hook, the one-request path right after deleting.
+		add_action( 'buddynext_space_delete_queued', array( $this, 'on_space_deleting' ) );
+		add_action( 'buddynext_space_deleting', array( $this, 'on_space_deleting' ) );
 		add_filter( 'buddynext_render_post_body_' . self::TYPE, array( $this, 'render_card' ), 10, 2 );
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
 	}
@@ -182,11 +198,74 @@ class BlogPostListener implements ListenerInterface {
 			return;
 		}
 
+		// The space first, then the status: a card restored here is never live in a
+		// space the post no longer belongs to. Moves the one existing card in place;
+		// a no-op when there is none yet or it is already where it belongs.
+		IntegrationActivity::set_space_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID, self::space_for( $post ) );
+
 		if ( IntegrationActivity::restore_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID ) > 0 ) {
 			return;
 		}
 
 		$this->publish_card( $post );
+	}
+
+	/**
+	 * Whether an article by this author may be published into this space.
+	 *
+	 * Public (open) spaces only: an article is public at its own URL, so it may
+	 * only be listed where everyone can read. The space must exist, not be archived
+	 * or on its way out, and the author must be allowed to post there (active
+	 * member meeting "Who can post"; SpacePostGuard::can_contribute()).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space id.
+	 * @param int $author   Article author.
+	 * @return bool
+	 */
+	public static function space_accepts_article( int $space_id, int $author ): bool {
+		if ( $space_id <= 0 || $author <= 0 ) {
+			return false;
+		}
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		if ( null === $space || \BuddyNext\Spaces\SpaceService::TYPE_OPEN !== (string) ( $space['type'] ?? '' ) ) {
+			return false;
+		}
+		return \BuddyNext\Spaces\SpacePostGuard::can_contribute( $space_id, $author );
+	}
+
+	/**
+	 * The space a post's card belongs in: the stored choice while it still holds,
+	 * else 0 (site-wide).
+	 *
+	 * Re-checked on every save, so an author who left the space, or a space that
+	 * stopped being public, sends the card back to the site-wide feed.
+	 *
+	 * @param \WP_Post $post Source post.
+	 * @return int
+	 */
+	private static function space_for( \WP_Post $post ): int {
+		if ( 'post' !== $post->post_type ) {
+			return 0;
+		}
+		$space_id = (int) get_post_meta( (int) $post->ID, self::SPACE_META, true );
+		return self::space_accepts_article( $space_id, (int) $post->post_author ) ? $space_id : 0;
+	}
+
+	/**
+	 * Move a space's article cards to the site-wide feed before the space goes.
+	 *
+	 * The article stays public at its own URL, so its card outlives the space
+	 * rather than being deleted with it. Safe to run twice.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space being deleted.
+	 * @return void
+	 */
+	public function on_space_deleting( $space_id ): void {
+		( new PostService() )->move_space_type_to_site( (int) $space_id, self::TYPE );
 	}
 
 	/**
@@ -299,7 +378,7 @@ class BlogPostListener implements ListenerInterface {
 			self::title_for( $post ),
 			self::TYPE,
 			self::excerpt_for( $post ),
-			0,
+			self::space_for( $post ),
 			array(
 				'image'            => self::image_for( $post ),
 				self::META_POST_ID => (int) $post->ID,

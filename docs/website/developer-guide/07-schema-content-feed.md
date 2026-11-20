@@ -53,6 +53,7 @@ Key indexes:
 - `PRIMARY KEY (id)`
 - `KEY user_feed (user_id, status, created_at)` - a member's own posts.
 - `KEY space_feed (space_id, status, created_at)` - a space feed.
+- `KEY space_type_feed (space_id, type, status, created_at)` - one type of a space's posts (its articles).
 - `KEY announcement_feed (is_announcement, status, created_at)` - the announcement stream.
 - `KEY explore (privacy, created_at)` - the discovery/explore stream.
 - `KEY active_feed (privacy, status, last_activity_at)` - "recently active" ordering.

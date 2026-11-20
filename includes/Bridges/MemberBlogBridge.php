@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Bridges;
 
 use BuddyNext\Feed\ArticleProvider;
+use BuddyNext\Feed\BlogPostListener;
 use BuddyNext\Nav\NavContext;
 use BuddyNext\Nav\NavRegistry;
 
@@ -124,6 +125,97 @@ class MemberBlogBridge {
 		// answer through these filters. Late priority so nothing re-grants a hold.
 		add_filter( 'bpmb_can_create_post', array( $this, 'refuse_held_writer' ), 100, 2 );
 		add_filter( 'bpmb_can_edit_post', array( $this, 'refuse_held_editor' ), 100, 3 );
+		// Writing for a space: the choice rides Member Blog's form as a hidden field
+		// and is stored on the post through its save filter, before the post is written.
+		add_action( 'bp_post_before_submit_button', array( $this, 'render_space_field' ) );
+		add_filter( 'bp_member_blog_post_data', array( $this, 'save_space_choice' ), 10, 2 );
+	}
+
+	/**
+	 * The space a new article is being written for, from the page's `?bn_space=`,
+	 * or 0 when there is none or it is not one this member may write for.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $user_id Member writing.
+	 * @return int
+	 */
+	private static function requested_space( int $user_id ): int {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only; validated against the space rules before use.
+		$raw      = isset( $_GET['bn_space'] ) && is_scalar( $_GET['bn_space'] ) ? absint( wp_unslash( $_GET['bn_space'] ) ) : 0;
+		$space_id = (int) $raw;
+		return BlogPostListener::space_accepts_article( $space_id, $user_id ) ? $space_id : 0;
+	}
+
+	/**
+	 * Print the hidden `bn_space` field in Member Blog's form
+	 * (`bp_post_before_submit_button`).
+	 *
+	 * A post already written for a space carries its stored choice, so a save
+	 * re-checks it; a new post takes a valid `?bn_space=` from the page. Nothing
+	 * is printed otherwise, so a save leaves the post's space alone. Only for a
+	 * member who may write.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $post_id The post being edited, an auto-draft, or 0.
+	 * @return void
+	 */
+	public function render_space_field( $post_id ): void {
+		$user_id = get_current_user_id();
+		if ( ! self::can_write( $user_id ) ) {
+			return;
+		}
+
+		$post     = (int) $post_id > 0 ? get_post( (int) $post_id ) : null;
+		$is_new   = ! $post instanceof \WP_Post || 'auto-draft' === $post->post_status;
+		$space_id = $post instanceof \WP_Post && 'post' === $post->post_type ? (int) get_post_meta( (int) $post->ID, BlogPostListener::SPACE_META, true ) : 0;
+		if ( $space_id <= 0 && $is_new ) {
+			$space_id = self::requested_space( $user_id );
+		}
+		if ( $space_id <= 0 ) {
+			return;
+		}
+
+		printf( '<input type="hidden" name="bn_space" value="%d" />', (int) $space_id );
+	}
+
+	/**
+	 * Store the space choice on the post as it is saved (`bp_member_blog_post_data`).
+	 *
+	 * Rides `meta_input`, which wp_insert_post() / wp_update_post() write before
+	 * `wp_after_insert_post`, where the feed card reads it. A valid choice (a
+	 * public space the author may post in) is stored; any other value, an empty
+	 * one included, clears it to 0. No field in the request leaves the stored
+	 * choice alone. Never trusts the request: the id is re-checked here and again
+	 * whenever the card is synced.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $post_data Post data about to be saved.
+	 * @param mixed $post_id   Post being updated, 0 on create.
+	 * @return mixed
+	 */
+	public function save_space_choice( $post_data, $post_id ) {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Member Blog verified its form nonce before this filter runs.
+		if ( ! is_array( $post_data ) || ! isset( $_POST['bn_space'] ) ) {
+			return $post_data;
+		}
+		$space_id = is_scalar( $_POST['bn_space'] ) ? (int) absint( wp_unslash( $_POST['bn_space'] ) ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$post_id = (int) $post_id;
+		$author  = $post_id > 0 ? (int) get_post_field( 'post_author', $post_id ) : (int) ( $post_data['post_author'] ?? get_current_user_id() );
+		$valid   = BlogPostListener::space_accepts_article( $space_id, $author );
+		if ( ! $valid && $post_id <= 0 ) {
+			return $post_data; // A new post has nothing to clear.
+		}
+
+		$post_data['meta_input'] = isset( $post_data['meta_input'] ) && is_array( $post_data['meta_input'] ) ? $post_data['meta_input'] : array();
+
+		$post_data['meta_input'][ BlogPostListener::SPACE_META ] = $valid ? $space_id : 0;
+
+		return $post_data;
 	}
 
 	/**
@@ -384,6 +476,11 @@ class MemberBlogBridge {
 			) as $key => $label
 		) {
 			$url = (string) $provider[ $key ];
+			// Switching back to New post keeps the space the article is being written for.
+			$space_id = 'new_url' === $key && '' !== $url ? self::requested_space( get_current_user_id() ) : 0;
+			if ( $space_id > 0 ) {
+				$url = add_query_arg( 'bn_space', $space_id, $url );
+			}
 			if ( '' !== $url ) {
 				$tabs[] = array(
 					'label'   => $label,

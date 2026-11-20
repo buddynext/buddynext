@@ -130,6 +130,32 @@ class PageCachePurgerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A space's article cards are listed on its blog/ page, so that page is purged
+	 * with the space home; an unknown space purges no made-up blog URL.
+	 *
+	 * @return void
+	 */
+	public function test_a_space_post_change_purges_the_space_blog_page(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			self::factory()->user->create(),
+			array(
+				'name' => 'Purge blog',
+				'slug' => 'purge-blog-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
+		$this->assertGreaterThan( 0, $space_id );
+
+		do_action( 'buddynext_space_posts_changed', $space_id );
+		$this->assertContains( PageRouter::space_url( $space_id ), $this->purged );
+		$this->assertContains( PageRouter::space_url( $space_id ) . 'blog/', $this->purged );
+
+		$this->purged = array();
+		do_action( 'buddynext_space_posts_changed', 999999 );
+		$this->assertNotContains( PageRouter::spaces_url() . 'blog/', $this->purged );
+	}
+
+	/**
 	 * Renaming a hub flushes the whole page cache (every page links to the hub)
 	 * and hands the old and new hub URLs to the per-URL purge. On a page-cached
 	 * site the old /members/ was still served as a cached 200 after a rename.
