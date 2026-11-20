@@ -211,9 +211,10 @@ class BlogPostListener implements ListenerInterface {
 	}
 
 	/**
-	 * Whether an article by this author may be published into this space.
+	 * Whether an article by this author may be newly associated with this space.
 	 *
-	 * Public (open) spaces only: an article is public at its own URL, so it may
+	 * The check for a new or changed association (space_for() decides for one
+	 * already stored). Public (open) spaces only: an article is public at its own URL, so it may
 	 * only be listed where everyone can read. The space must exist, not be archived
 	 * or on its way out, and the author must be allowed to post there (active
 	 * member meeting "Who can post"; SpacePostGuard::can_contribute()).
@@ -236,11 +237,15 @@ class BlogPostListener implements ListenerInterface {
 	}
 
 	/**
-	 * The space a post's card belongs in: the stored choice while it still holds,
+	 * The space a post's card belongs in: the stored association while it holds,
 	 * else 0 (site-wide).
 	 *
-	 * Re-checked on every save, so an author who left the space, or a space that
-	 * stopped being public, sends the card back to the site-wide feed.
+	 * The association was validated when it was made (MemberBlogBridge). On every
+	 * later save it is only re-checked for an open space: an author who can no
+	 * longer post there moves the card site-wide. A space that has since become
+	 * private or secret keeps the card, members-only (privacy space_members), even
+	 * if the author has left it, so the members who saw it keep seeing it and it
+	 * never turns public. A deleted space sends the card site-wide.
 	 *
 	 * @param \WP_Post $post Source post.
 	 * @return int
@@ -250,6 +255,16 @@ class BlogPostListener implements ListenerInterface {
 			return 0;
 		}
 		$space_id = (int) get_post_meta( (int) $post->ID, self::SPACE_META, true );
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		if ( null === $space ) {
+			return 0;
+		}
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_OPEN !== (string) ( $space['type'] ?? '' ) ) {
+			return $space_id;
+		}
 		return self::space_accepts_article( $space_id, (int) $post->post_author ) ? $space_id : 0;
 	}
 
@@ -257,7 +272,9 @@ class BlogPostListener implements ListenerInterface {
 	 * Move a space's article cards to the site-wide feed before the space goes.
 	 *
 	 * The article stays public at its own URL, so its card outlives the space
-	 * rather than being deleted with it. Safe to run twice.
+	 * rather than being deleted with it. The articles' stale association is
+	 * removed too, so a later save cannot point the card at the space again.
+	 * Safe to run twice.
 	 *
 	 * @since 1.3.0
 	 *
@@ -266,6 +283,58 @@ class BlogPostListener implements ListenerInterface {
 	 */
 	public function on_space_deleting( $space_id ): void {
 		( new PostService() )->move_space_type_to_site( (int) $space_id, self::TYPE );
+		self::forget_space( (int) $space_id );
+	}
+
+	/**
+	 * Remove a space's id from the articles written for it, in one query.
+	 *
+	 * Scoped to posts of type 'post': MediaVerse albums store the same meta key
+	 * (Media\Galleries::SPACE_META) and are handled by their own listener.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space being deleted.
+	 * @return void
+	 */
+	private static function forget_space( int $space_id ): void {
+		global $wpdb;
+
+		if ( $space_id <= 0 ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT pm.post_id FROM {$wpdb->postmeta} pm
+					 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+					 WHERE p.post_type = 'post' AND pm.meta_key = %s AND pm.meta_value = %s",
+					self::SPACE_META,
+					(string) $space_id
+				)
+			)
+		);
+		if ( array() === $post_ids ) {
+			return;
+		}
+
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE pm FROM {$wpdb->postmeta} pm
+				 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+				 WHERE p.post_type = 'post' AND pm.meta_key = %s AND pm.meta_value = %s",
+				self::SPACE_META,
+				(string) $space_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( $post_ids as $post_id ) {
+			wp_cache_delete( $post_id, 'post_meta' );
+		}
 	}
 
 	/**

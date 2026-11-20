@@ -106,11 +106,45 @@ class BlogPostSpaceTest extends \WP_UnitTestCase {
 		$this->assertSame( array( $first, 'space_members' ), $this->card_space( $post_id ) );
 	}
 
-	public function test_private_and_secret_spaces_are_refused(): void {
+	private function make( int $space, string $type ): void {
+		$this->assertTrue( ( new SpaceService() )->update( $space, $this->owner, array( 'type' => $type ) ) );
+		wp_cache_flush();
+	}
+
+	public function test_a_space_later_made_private_or_secret_keeps_the_card_members_only(): void {
 		foreach ( array( 'private', 'secret' ) as $type ) {
-			$post_id = $this->article( $this->space( $type ) );
-			$this->assertSame( array( 0, 'public' ), $this->card_space( $post_id ), "a {$type} space gets no article" );
+			$space   = $this->space();
+			$post_id = $this->article( $space );
+			$card    = BlogPostListener::card_id_for_post( $post_id );
+
+			$this->make( $space, $type );
+			wp_update_post( array( 'ID' => $post_id, 'post_title' => 'Saved after ' . $type ) );
+
+			$this->assertSame( array( $space, 'space_members' ), $this->card_space( $post_id ), "{$type}: the card stays in the space, never public" );
+			$this->assertSame( (string) $space, get_post_meta( $post_id, BlogPostListener::SPACE_META, true ), "{$type}: the association is kept" );
+			$this->assertSame( $card, BlogPostListener::card_id_for_post( $post_id ) );
 		}
+	}
+
+	public function test_an_author_who_left_a_private_space_keeps_the_card_through_edit_unpublish_and_republish(): void {
+		$space   = $this->space();
+		$post_id = $this->article( $space );
+		$card    = BlogPostListener::card_id_for_post( $post_id );
+
+		$this->make( $space, 'private' );
+		( new SpaceMemberService() )->leave( $space, $this->writer );
+		wp_cache_flush();
+
+		wp_update_post( array( 'ID' => $post_id, 'post_title' => 'Edited after leaving' ) );
+		$this->assertSame( array( $space, 'space_members' ), $this->card_space( $post_id ) );
+
+		wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ) );
+		wp_update_post( array( 'ID' => $post_id, 'post_status' => 'publish' ) );
+
+		$this->assertSame( array( $space, 'space_members' ), $this->card_space( $post_id ) );
+		$this->assertSame( $card, BlogPostListener::card_id_for_post( $post_id ) );
+		$this->assertSame( 1, $this->card_count( $post_id ) );
+		$this->assertSame( 'published', (string) ( ( new PostService() )->get( $card )['status'] ?? '' ) );
 	}
 
 	public function test_a_non_member_or_unknown_space_is_refused(): void {
@@ -200,5 +234,31 @@ class BlogPostSpaceTest extends \WP_UnitTestCase {
 		foreach ( $ids as $post_id ) {
 			$this->assertSame( array( 0, 'public' ), $this->card_space( $post_id ) );
 		}
+	}
+
+	public function test_deleting_a_space_removes_the_stale_association_from_articles_only(): void {
+		$space   = $this->space();
+		$other   = $this->space();
+		$post_id = $this->article( $space );
+		$kept    = $this->article( $other );
+		$album   = (int) wp_insert_post(
+			array(
+				'post_title'  => 'Album',
+				'post_type'   => 'mvs_album',
+				'post_status' => 'publish',
+				'post_author' => $this->writer,
+				'meta_input'  => array( BlogPostListener::SPACE_META => $space ),
+			)
+		);
+
+		$this->assertTrue( ( new SpaceService() )->delete( $space, $this->owner ) );
+		do_action( 'buddynext_space_deleting', $space, $this->owner );
+
+		$this->assertSame( '', get_post_meta( $post_id, BlogPostListener::SPACE_META, true ), 'the article forgets the deleted space' );
+		$this->assertSame( (string) $space, get_post_meta( $album, BlogPostListener::SPACE_META, true ), 'an album with the same key is untouched' );
+		$this->assertSame( (string) $other, get_post_meta( $kept, BlogPostListener::SPACE_META, true ), 'another space\'s article is untouched' );
+
+		wp_update_post( array( 'ID' => $post_id, 'post_title' => 'Saved after delete' ) );
+		$this->assertSame( array( 0, 'public' ), $this->card_space( $post_id ) );
 	}
 }

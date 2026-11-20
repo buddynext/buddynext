@@ -160,13 +160,91 @@ class MemberBlogSpaceFieldTest extends \WP_UnitTestCase {
 		$this->assertArrayNotHasKey( 'meta_input', $this->save( (string) $space ) );
 	}
 
-	public function test_an_invalid_or_cleared_choice_on_an_edit_zeroes_the_stored_one(): void {
-		$space   = $this->space();
+	private function make_private( int $space ): void {
+		$this->assertTrue( ( new SpaceService() )->update( $space, $this->owner, array( 'type' => 'private' ) ) );
+		wp_cache_flush();
+	}
+
+	private function stored_post( int $space ): int {
 		$post_id = self::factory()->post->create( array( 'post_author' => $this->writer ) );
 		update_post_meta( $post_id, BlogPostListener::SPACE_META, $space );
+		return $post_id;
+	}
 
-		$this->assertSame( 0, $this->save( '', $post_id )['meta_input'][ BlogPostListener::SPACE_META ] ?? null, 'a cleared choice' );
-		$this->assertSame( 0, $this->save( (string) $this->space( 'private' ), $post_id )['meta_input'][ BlogPostListener::SPACE_META ] ?? null, 'a refused choice' );
+	public function test_clearing_on_an_edit_deletes_the_meta_row(): void {
+		$post_id = $this->stored_post( $this->space() );
+
+		$this->assertArrayNotHasKey( 'meta_input', $this->save( '', $post_id ) );
+		$this->assertSame( '', get_post_meta( $post_id, BlogPostListener::SPACE_META, true ) );
+		global $wpdb;
+		$rows = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $post_id, BlogPostListener::SPACE_META ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( 0, $rows, 'no row is left behind, not even a 0' );
+	}
+
+	public function test_the_unchanged_stored_private_space_is_accepted_on_an_edit(): void {
+		$space   = $this->space();
+		$post_id = $this->stored_post( $space );
+		$this->make_private( $space );
+
+		$this->assertStringContainsString( 'value="' . $space . '"', $this->field_for( $this->writer, $post_id ), 'the edit form carries the stored id' );
+		$this->assertArrayNotHasKey( 'meta_input', $this->save( (string) $space, $post_id ) );
+		$this->assertSame( (string) $space, get_post_meta( $post_id, BlogPostListener::SPACE_META, true ), 'kept, not refused' );
+	}
+
+	public function test_a_new_association_with_a_private_space_is_refused_even_for_a_member(): void {
+		$private = $this->space();
+		$this->make_private( $private );
+		$this->assertTrue( ( new SpaceMemberService() )->is_member( $private, $this->writer ), 'the writer is a member of the private space' );
+
+		$this->assertArrayNotHasKey( 'meta_input', $this->save( (string) $private ), 'refused on create' );
+
+		$plain = self::factory()->post->create( array( 'post_author' => $this->writer ) );
+		$this->assertArrayNotHasKey( 'meta_input', $this->save( (string) $private, $plain ), 'refused on an edit of an article never stored there' );
+		$this->assertSame( '', get_post_meta( $plain, BlogPostListener::SPACE_META, true ) );
+	}
+
+	public function test_the_unchanged_rule_reads_only_this_posts_own_meta(): void {
+		$private = $this->space();
+		$this->stored_post( $private );
+		$this->make_private( $private );
+
+		$other = self::factory()->post->create( array( 'post_author' => $this->writer ) );
+		$this->assertArrayNotHasKey( 'meta_input', $this->save( (string) $private, $other ) );
+		$this->assertSame( '', get_post_meta( $other, BlogPostListener::SPACE_META, true ), 'another post\'s association grants nothing' );
+	}
+
+	public function test_a_changed_id_on_an_edit_goes_through_the_full_validation(): void {
+		$first   = $this->space();
+		$post_id = $this->stored_post( $first );
+
+		$open = $this->space();
+		$this->assertSame( $open, $this->save( (string) $open, $post_id )['meta_input'][ BlogPostListener::SPACE_META ] ?? null, 'an open space the author may post in' );
+
+		foreach ( array( 'private', 'secret' ) as $type ) {
+			$this->assertArrayNotHasKey( 'meta_input', $this->save( (string) $this->space( $type ), $post_id ), "{$type} refused" );
+			$this->assertSame( (string) $first, get_post_meta( $post_id, BlogPostListener::SPACE_META, true ), "{$type}: the stored space stays" );
+		}
+	}
+
+	public function test_a_forged_private_space_on_an_edit_leaves_the_card_site_wide(): void {
+		$private = $this->space();
+		$this->make_private( $private );
+		$post_id = self::factory()->post->create(
+			array(
+				'post_author'  => $this->writer,
+				'post_status'  => 'publish',
+				'post_content' => 'Body.',
+			)
+		);
+
+		$data = $this->save( (string) $private, $post_id );
+		wp_update_post( $data );
+
+		$this->assertSame( '', get_post_meta( $post_id, BlogPostListener::SPACE_META, true ) );
+		global $wpdb;
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT space_id, privacy FROM {$wpdb->prefix}bn_posts WHERE id = %d", BlogPostListener::card_id_for_post( $post_id ) ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertNull( $row['space_id'] ?? null );
+		$this->assertSame( 'public', (string) ( $row['privacy'] ?? '' ) );
 	}
 
 	public function test_no_field_leaves_the_stored_choice_alone(): void {

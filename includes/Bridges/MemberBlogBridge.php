@@ -151,8 +151,8 @@ class MemberBlogBridge {
 	 * Print the hidden `bn_space` field in Member Blog's form
 	 * (`bp_post_before_submit_button`).
 	 *
-	 * A post already written for a space carries its stored choice, so a save
-	 * re-checks it; a new post takes a valid `?bn_space=` from the page. Nothing
+	 * A post already written for a space carries its stored choice, which a save
+	 * accepts as unchanged; a new post takes a valid `?bn_space=` from the page. Nothing
 	 * is printed otherwise, so a save leaves the post's space alone. Only for a
 	 * member who may write.
 	 *
@@ -184,11 +184,14 @@ class MemberBlogBridge {
 	 * Store the space choice on the post as it is saved (`bp_member_blog_post_data`).
 	 *
 	 * Rides `meta_input`, which wp_insert_post() / wp_update_post() write before
-	 * `wp_after_insert_post`, where the feed card reads it. A valid choice (a
-	 * public space the author may post in) is stored; any other value, an empty
-	 * one included, clears it to 0. No field in the request leaves the stored
-	 * choice alone. Never trusts the request: the id is re-checked here and again
-	 * whenever the card is synced.
+	 * `wp_after_insert_post`, where the feed card reads it. Never trusts the request:
+	 *
+	 * - no field: the stored choice is left alone;
+	 * - the id already stored on THIS post: unchanged, accepted whatever the space
+	 *   has become since (the card sync decides where its card lives);
+	 * - a new or different id: stored only when it is a public space the author
+	 *   may post in, otherwise refused and the stored choice is left alone;
+	 * - an empty value on an edit: the stored choice is deleted.
 	 *
 	 * @since 1.3.0
 	 *
@@ -201,19 +204,30 @@ class MemberBlogBridge {
 		if ( ! is_array( $post_data ) || ! isset( $_POST['bn_space'] ) ) {
 			return $post_data;
 		}
-		$space_id = is_scalar( $_POST['bn_space'] ) ? (int) absint( wp_unslash( $_POST['bn_space'] ) ) : 0;
+		$space_id = is_scalar( $_POST['bn_space'] ) ? (int) absint( wp_unslash( $_POST['bn_space'] ) ) : -1;
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		$post_id = (int) $post_id;
-		$author  = $post_id > 0 ? (int) get_post_field( 'post_author', $post_id ) : (int) ( $post_data['post_author'] ?? get_current_user_id() );
-		$valid   = BlogPostListener::space_accepts_article( $space_id, $author );
-		if ( ! $valid && $post_id <= 0 ) {
-			return $post_data; // A new post has nothing to clear.
+		$stored  = $post_id > 0 ? (int) get_post_meta( $post_id, BlogPostListener::SPACE_META, true ) : 0;
+
+		if ( 0 === $space_id ) {
+			if ( $stored > 0 ) {
+				delete_post_meta( $post_id, BlogPostListener::SPACE_META );
+			}
+			return $post_data;
+		}
+		if ( $space_id > 0 && $space_id === $stored ) {
+			return $post_data;
+		}
+
+		$author = $post_id > 0 ? (int) get_post_field( 'post_author', $post_id ) : (int) ( $post_data['post_author'] ?? get_current_user_id() );
+		if ( ! BlogPostListener::space_accepts_article( $space_id, $author ) ) {
+			return $post_data;
 		}
 
 		$post_data['meta_input'] = isset( $post_data['meta_input'] ) && is_array( $post_data['meta_input'] ) ? $post_data['meta_input'] : array();
 
-		$post_data['meta_input'][ BlogPostListener::SPACE_META ] = $valid ? $space_id : 0;
+		$post_data['meta_input'][ BlogPostListener::SPACE_META ] = $space_id;
 
 		return $post_data;
 	}
