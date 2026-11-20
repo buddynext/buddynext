@@ -79,7 +79,9 @@
 	position: relative;
 }
 
-.bn-settings :is(button, a.bn-btn, .bn-prefs-chip)::after {
+/* Switches (.bn-toggle) carry their own 44px layer in bn-base.css; this 40px one is left off them,
+   or the two would stack and the layer would sit off-centre. */
+.bn-settings :is(button, a.bn-btn, .bn-prefs-chip):not(.bn-toggle)::after {
 	content: "";
 	position: absolute;
 	inset-block-start: 50%;
