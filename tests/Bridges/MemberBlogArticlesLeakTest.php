@@ -79,7 +79,8 @@ class MemberBlogArticlesLeakTest extends \WP_UnitTestCase {
 			$this->posts[ $label ] = array(
 				'Title' . ucfirst( $label ) . 'Zq',
 				'Excerpt' . ucfirst( $label ) . 'Zq',
-				(string) get_the_post_thumbnail_url( $post_id, 'medium' ),
+				// The square list tile: on the panel row and in the REST item's thumb_image.
+				(string) ( \BuddyNext\Feed\ArticleImage::for_post( $post_id, 'thumb' )['url'] ?? '' ),
 			);
 		}
 	}

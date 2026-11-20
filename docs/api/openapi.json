@@ -2890,6 +2890,55 @@
                 }
             }
         },
+        "/companions/status": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "operationId": "get_companions_status",
+                "summary": "GET /buddynext/v1/companions/status",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "query",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompanionStatus"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/feed/announcements": {
             "get": {
                 "tags": [
@@ -7461,7 +7510,7 @@
                         "description": "",
                         "schema": {
                             "type": "integer",
-                            "default": 20
+                            "default": 24
                         }
                     },
                     {
@@ -18064,7 +18113,57 @@
                         "type": [
                             "object",
                             "null"
-                        ]
+                        ],
+                        "properties": {
+                            "cover_image": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "properties": {
+                                    "url": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "width": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "height": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "thumb_image": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "properties": {
+                                    "url": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "width": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "height": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
                     },
                     "poll_options": {
                         "type": "array",
@@ -18650,7 +18749,57 @@
                                             "type": [
                                                 "object",
                                                 "null"
-                                            ]
+                                            ],
+                                            "properties": {
+                                                "cover_image": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string",
+                                                            "format": "uri"
+                                                        },
+                                                        "width": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "height": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    }
+                                                },
+                                                "thumb_image": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string",
+                                                            "format": "uri"
+                                                        },
+                                                        "width": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "height": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         },
                                         "poll_options": {
                                             "type": "array",
@@ -23697,6 +23846,23 @@
                     }
                 }
             },
+            "CompanionStatus": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "inactive",
+                            "not_installed",
+                            "unknown"
+                        ]
+                    }
+                }
+            },
             "SocialAccount": {
                 "type": "object",
                 "properties": {
@@ -23995,6 +24161,54 @@
                                         "null"
                                     ],
                                     "format": "uri"
+                                },
+                                "cover_image": {
+                                    "type": [
+                                        "object",
+                                        "null"
+                                    ],
+                                    "properties": {
+                                        "url": {
+                                            "type": "string",
+                                            "format": "uri"
+                                        },
+                                        "width": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "height": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "thumb_image": {
+                                    "type": [
+                                        "object",
+                                        "null"
+                                    ],
+                                    "properties": {
+                                        "url": {
+                                            "type": "string",
+                                            "format": "uri"
+                                        },
+                                        "width": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "height": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        }
+                                    }
                                 },
                                 "status": {
                                     "type": "string"

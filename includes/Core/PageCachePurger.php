@@ -345,12 +345,13 @@ class PageCachePurger implements ListenerInterface {
 	/**
 	 * Flush every page cache that is active, once per request.
 	 *
-	 * For a change that alters every page (a hub address in the nav), not for
-	 * content changes, which purge their own URLs.
+	 * For a change that alters every page (a hub address in the nav, the article
+	 * crop pass of 1.3.0), not for content changes, which purge their own URLs.
+	 * Public for that one-time pass (BlogPostListener::regen_crops_batch()).
 	 *
 	 * @return void
 	 */
-	private static function purge_all(): void {
+	public static function purge_all(): void {
 		if ( self::$purged_all ) {
 			return;
 		}
@@ -371,7 +372,7 @@ class PageCachePurger implements ListenerInterface {
 		 * Fires after BuddyNext flushed the whole page cache of the known caches.
 		 *
 		 * Runs when a hub address changes, because every cached page links to the
-		 * hubs. A page cache BuddyNext does not know (Cloudflare APO, Varnish, a
+		 * hubs, and once after the 1.3.0 article crop pass cut new card images. A page cache BuddyNext does not know (Cloudflare APO, Varnish, a
 		 * proxy) flushes everything here.
 		 *
 		 * @since 1.3.0

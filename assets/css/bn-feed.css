@@ -920,96 +920,160 @@
 }
 
 /* Bridge cards: media, discussion, job. */
-/* ── Article card (site tracking) ───────────────────────────────────────────
-   A member publishing a post is first-class community content on a platform
-   people came to for blogging, so it gets a real card - cover, headline,
-   excerpt - rather than the compact bridge row used for partner links. The
-   whole card is one anchor, so the entire surface is the tap target. */
-.bn-post-card__article {
-	display: block;
+/* ── Article card ──────────────────────────────────────────────────────────
+   One component (templates/parts/article-card.php) for every surface that lists
+   articles: the feed and the Space Blog tab use the 16:9 `cover` variant, the
+   profile Articles tab the square `row` variant. Lives here because the feed,
+   profile and spaces hubs all load bn-feed.css.
+   Images are hard-cropped sizes (ArticleImage) shown with object-fit: cover in a
+   fixed-ratio box, so a tall or wide upload never changes the card's shape. A
+   card without an image has no media node: it is shorter and its text starts
+   at the same edge. Titles and intros stop at two lines; long words break. */
+.bn-article-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	min-width: 0;
+}
+
+.bn-post-card .bn-article-card {
 	margin-block-start: var(--bn-s3);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md);
+}
+
+.bn-article-card__media {
+	display: block;
 	overflow: hidden;
-	background: var(--bn-surface);
-	text-decoration: none;
-	color: inherit;
-	transition: border-color var(--bn-dur, 0.14s) var(--bn-ease, ease);
-}
-
-.bn-post-card__article:hover,
-.bn-post-card__article:focus-visible {
-	border-color: var(--bn-accent);
-}
-
-.bn-post-card__article-cover {
-	display: block;
-	aspect-ratio: 16 / 9;
-	/* Capped, like the oembed box above. At a desktop column width a pure 16/9
-	   cover is ~415px - 46% of the viewport - so the headline and excerpt, the
-	   things that make the article worth opening, get pushed under the fold by
-	   its own picture. object-fit crops rather than squashes. */
-	max-height: 20rem;
+	border-radius: var(--bn-r-md);
 	background: var(--bn-sunken);
+	line-height: 0;
 }
 
-.bn-post-card__article-cover img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
+.bn-article-card[data-variant="cover"] .bn-article-card__media {
+	aspect-ratio: 16 / 9;
+}
+
+.bn-article-card__media img {
 	display: block;
+	inline-size: 100%;
+	block-size: 100%;
+	max-inline-size: none;
+	object-fit: cover;
 }
 
-.bn-post-card__article-body {
+.bn-article-card__body {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s1);
-	padding: var(--bn-s3) var(--bn-s4) var(--bn-s4);
+	min-width: 0;
 }
 
-.bn-post-card__article-kicker {
+.bn-article-card__kicker {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s1);
-	color: var(--bn-ink-3);
+	color: var(--bn-accent-text);
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
 	text-transform: uppercase;
-	letter-spacing: var(--bn-ls-wide, 0.04em);
+	letter-spacing: var(--bn-ls-wide);
 }
 
-.bn-post-card__article-kicker svg {
-	width: 14px;
-	height: 14px;
+.bn-article-card__kicker svg {
+	inline-size: 1em;
+	block-size: 1em;
 }
 
-.bn-post-card__article-title {
+.bn-article-card__title {
+	margin: 0;
 	font-family: var(--bn-font-display);
 	font-size: var(--bn-text-md);
 	font-weight: var(--bn-fw-bold);
 	line-height: var(--bn-leading-snug);
 	color: var(--bn-ink);
-	/* Two lines maximum: a long headline must not push the excerpt and the
-	   post's own actions off the fold. */
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
 }
 
-.bn-post-card__article-excerpt {
+.bn-article-card__title,
+.bn-article-card__excerpt {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+}
+
+.bn-article-card__title a,
+.bn-article-card__title a:visited {
+	color: inherit;
+	text-decoration: none;
+}
+
+.bn-article-card__title a:hover,
+.bn-article-card__title a:focus-visible {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.bn-article-card__meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-article-card__excerpt {
+	margin: 0;
 	color: var(--bn-ink-2);
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-body);
-	display: -webkit-box;
-	-webkit-line-clamp: 3;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
 }
 
-.bn-post-card__article-meta {
-	color: var(--bn-ink-3);
-	font-size: var(--bn-text-xs);
+.bn-article-card__read,
+.bn-article-card__read:visited {
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	min-block-size: var(--bn-tap);
+	color: var(--bn-accent-text);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+}
+
+.bn-article-card__read:hover,
+.bn-article-card__read:focus-visible {
+	color: var(--bn-accent-text);
+	text-decoration: underline;
+}
+
+.bn-article-card__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s2);
+}
+
+/* Row: a square tile beside the text; the whole row is the text when there is
+   no image, so every row's text still starts at the card's own edge. */
+.bn-article-card[data-variant="row"] {
+	display: grid;
+	grid-template-columns: calc(var(--bn-s16) + var(--bn-s8)) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--bn-s4);
+	padding: var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+}
+
+.bn-article-card[data-variant="row"][data-image="none"] {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.bn-article-card[data-variant="row"] .bn-article-card__media {
+	aspect-ratio: 1;
 }
 
 @media (max-width: 640px) {
@@ -1022,7 +1086,9 @@
 		line-clamp: 6;
 	}
 
-	.bn-post-card__article-body {
+	.bn-article-card[data-variant="row"] {
+		grid-template-columns: calc(var(--bn-s16) + var(--bn-s2)) minmax(0, 1fr);
+		gap: var(--bn-s3);
 		padding: var(--bn-s3);
 	}
 }

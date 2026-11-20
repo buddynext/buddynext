@@ -500,7 +500,7 @@ class Installer {
 	 *      filesort or a scan of the space's whole feed. Existing installs via the
 	 *      idempotent ADD KEY in maybe_alter_tables(); read-only, no data touched.
 	 */
-	private const SCHEMA_VERSION = 76;
+	private const SCHEMA_VERSION = 77;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -1542,6 +1542,10 @@ class Installer {
 		// v74: remove the old purge marker, which nothing reads any more.
 		self::maybe_migrate_purge_markers( $bn_stored_schema );
 
+		// v77: cut the article cover and thumbnail crops for articles published
+		// before they existed, in Action Scheduler batches.
+		self::maybe_migrate_article_crops( $bn_stored_schema );
+
 		// run() is authoritative on the schema version: it stamps it when the schema
 		// is healthy and deliberately WITHHOLDS it when install_schema() recorded a
 		// failure (a missing table/column, or an index widen that did not take).
@@ -1631,6 +1635,30 @@ class Installer {
 			return;
 		}
 		delete_metadata( 'user', 0, 'buddynext_verify_pending', '', true );
+	}
+
+	/**
+	 * Start the one-time article crop pass (v77).
+	 *
+	 * Articles published before 1.3.0 have featured images without the
+	 * bn-article-cover / bn-article-thumb crops, so their cards fall back to a
+	 * larger existing file. Queues the first batch of
+	 * BlogPostListener::regen_crops_batch(), which chains itself; guarded so a
+	 * repeated upgrade pass never stacks a second chain.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $stored_schema Schema version before this upgrade.
+	 * @return void
+	 */
+	private static function maybe_migrate_article_crops( int $stored_schema ): void {
+		if ( $stored_schema >= 77 ) {
+			return;
+		}
+		if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( \BuddyNext\Feed\ArticleImage::REGEN_HOOK ) ) {
+			return;
+		}
+		\BuddyNext\Feed\BlogPostListener::queue_crop_batch( 0 );
 	}
 
 	/**

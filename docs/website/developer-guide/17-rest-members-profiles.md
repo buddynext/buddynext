@@ -166,7 +166,7 @@ Registered by `MemberBlogBridge` / `MemberBlogRestController`, present only when
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`, `per_page` up to 50, default 10). Honours the member's profile visibility and blocks, the same gate as every other profile panel route: a viewer who may not see the profile gets the empty list, not an error. Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. Co-written posts (Member Blog Pro co-authors) list for every writer; each item names its other writers in `co_writers` (`id`, `name`). |
+| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`, `per_page` up to 50, default 10). Honours the member's profile visibility and blocks, the same gate as every other profile panel route: a viewer who may not see the profile gets the empty list, not an error. Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. Co-written posts (Member Blog Pro co-authors) list for every writer; each item names its other writers in `co_writers` (`id`, `name`). Images (1.3.0): `cover_image` (16:9 crop) and `thumb_image` (square crop) are `{url, width, height}` or `null` when there is no usable image (none, or under 600px wide for a cover, under 192px for a thumbnail); `width`/`height` are `null` for an external image of unknown size. `cover` stays a string with the cover URL, or `null`. |
 
 ### Moderation actions targeting a user
 

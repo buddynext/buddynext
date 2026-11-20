@@ -129,6 +129,7 @@ if ( function_exists( 'as_enqueue_async_action' ) ) {
 | `buddynext_retry_notification_email` | A failed notification email is retried | `int $user_id, string $notification_type, array $data` |
 | `buddynext_resync_hashtags` | A batched hashtag re-sync runs | `int $offset` |
 | `buddynext_recount_hashtags` | A batched hashtag usage recount runs | `int $after_id` |
+| `buddynext_regen_article_crops` | One-time pass after the 1.3.0 upgrade: cuts the article cover and thumbnail crops for published articles' featured images, 20 posts a batch, then purges the page cache once if anything changed | `int $after_post_id, int $changed` |
 | `buddynext_mvs_media_activity` | A MediaVerse upload is turned into a feed post, two minutes after the upload | `$media_id, $user_id, $media_type` |
 
 Rules for any new fan-out you add:

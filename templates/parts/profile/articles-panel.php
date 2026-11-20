@@ -92,67 +92,27 @@ endif;
 			continue;
 		}
 
-		$bn_ar_id    = (int) $bn_ar_post->ID;
-		$bn_ar_link  = (string) get_permalink( $bn_ar_id );
-		$bn_ar_title = get_the_title( $bn_ar_id );
-		$bn_ar_title = '' !== trim( (string) $bn_ar_title ) ? $bn_ar_title : __( '(untitled)', 'buddynext' );
-		$bn_ar_thumb = (string) get_the_post_thumbnail_url( $bn_ar_id, 'medium' );
+		$bn_ar_id   = (int) $bn_ar_post->ID;
+		$bn_ar_edit = (string) ( $bn_ar_edit_urls[ $bn_ar_id ] ?? '' );
+		$bn_ar_edit = '' !== $bn_ar_edit ? $bn_ar_edit : $bn_ar_dashboard;
 		?>
 		<li class="bn-articles__item">
-			<article class="bn-card bn-article-card">
-				<?php if ( '' !== $bn_ar_thumb ) : ?>
-					<a class="bn-article-card__media" href="<?php echo esc_url( $bn_ar_link ); ?>" tabindex="-1" aria-hidden="true">
-						<img src="<?php echo esc_url( $bn_ar_thumb ); ?>" alt="" loading="lazy" decoding="async" />
-					</a>
-				<?php endif; ?>
-
-				<div class="bn-article-card__body">
-					<h3 class="bn-article-card__title">
-						<a href="<?php echo esc_url( $bn_ar_link ); ?>"><?php echo esc_html( $bn_ar_title ); ?></a>
-					</h3>
-
-					<div class="bn-article-card__meta">
-						<time datetime="<?php echo esc_attr( (string) get_the_date( 'c', $bn_ar_id ) ); ?>">
-							<?php echo esc_html( (string) get_the_date( '', $bn_ar_id ) ); ?>
-						</time>
-						<?php $bn_ar_names = (array) ( $bn_ar_writers[ $bn_ar_id ] ?? array() ); ?>
-						<?php if ( $bn_ar_names ) : ?>
-							<?php // Every other writer, named as text: the lead author's tab credits co-authors, a co-author's tab credits the lead. ?>
-							<span class="bn-badge bn-badge--muted">
-								<?php
-								$bn_ar_label = implode( ', ', array_slice( $bn_ar_names, 0, 3 ) );
-								if ( count( $bn_ar_names ) > 3 ) {
-									/* translators: %d: number of further items not shown. */
-									$bn_ar_label .= ' ' . sprintf( __( '+%d', 'buddynext' ), count( $bn_ar_names ) - 3 );
-								}
-								printf(
-									/* translators: %s: names of the post's other writers, e.g. "Aisha, Raj". */
-									esc_html__( 'Co-written with %s', 'buddynext' ),
-									esc_html( $bn_ar_label )
-								);
-								?>
-							</span>
-						<?php endif; ?>
-					</div>
-
-					<?php
-					$bn_ar_excerpt = trim( wp_strip_all_tags( (string) get_the_excerpt( $bn_ar_id ) ) );
-					if ( '' !== $bn_ar_excerpt ) :
-						?>
-						<p class="bn-article-card__excerpt"><?php echo esc_html( wp_trim_words( $bn_ar_excerpt, 28 ) ); ?></p>
-					<?php endif; ?>
-
-					<?php $bn_ar_edit = (string) ( $bn_ar_edit_urls[ $bn_ar_id ] ?? '' ); ?>
-					<?php $bn_ar_edit = '' !== $bn_ar_edit ? $bn_ar_edit : $bn_ar_dashboard; ?>
-					<?php if ( $bn_ar_owner && '' !== $bn_ar_edit ) : ?>
-						<div class="bn-article-card__actions">
-							<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_ar_edit ); ?>">
-								<?php esc_html_e( 'Edit', 'buddynext' ); ?>
-							</a>
-						</div>
-					<?php endif; ?>
-				</div>
-			</article>
+			<?php
+			buddynext_get_template(
+				'parts/article-card.php',
+				array(
+					'variant'    => 'row',
+					'url'        => (string) get_permalink( $bn_ar_id ),
+					'title'      => (string) get_the_title( $bn_ar_id ),
+					'excerpt'    => wp_trim_words( trim( wp_strip_all_tags( (string) get_the_excerpt( $bn_ar_id ) ) ), 28 ),
+					'image'      => \BuddyNext\Feed\ArticleImage::for_post( $bn_ar_post, 'thumb' ),
+					'date_iso'   => (string) get_the_date( 'c', $bn_ar_id ),
+					'date_label' => (string) get_the_date( '', $bn_ar_id ),
+					'writers'    => (array) ( $bn_ar_writers[ $bn_ar_id ] ?? array() ),
+					'edit_url'   => $bn_ar_owner ? $bn_ar_edit : '',
+				)
+			);
+			?>
 		</li>
 	<?php endforeach; ?>
 </ul>

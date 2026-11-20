@@ -30,7 +30,7 @@ The core activity record. One row per post (text, media, link, poll, or share). 
 | `content` | LONGTEXT, nullable | Post body. |
 | `media_ids` | JSON, nullable | Attached media IDs. |
 | `link_url` | VARCHAR(2083), nullable | Link-preview URL. |
-| `link_meta` | JSON, nullable | Cached link-preview metadata (title, image, description). |
+| `link_meta` | JSON, nullable | Cached link-preview metadata (title, image, description). On an article card (`type` `article`) the API reads it live from the WordPress post and adds `cover_image` and `thumb_image` (`{url, width, height}` or `null`); `image` and `thumbnail` keep the cover URL as a string. |
 | `privacy` | ENUM(`public`,`followers`,`connections`,`space_members`,`private`), default `public` | Audience scope. |
 | `status` | ENUM(`published`,`draft`,`pending`,`scheduled`,`deleted`,`under_review`), default `published` | Lifecycle state; `deleted` is a soft delete, `under_review` is a post auto-hidden by the report threshold. |
 | `reaction_count` | INT UNSIGNED, default 0 | Denormalized reaction total. Maintained on write. |

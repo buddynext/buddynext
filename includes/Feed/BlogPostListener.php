@@ -56,6 +56,13 @@ class BlogPostListener implements ListenerInterface {
 	public const SPACE_META = '_bn_space_id';
 
 	/**
+	 * Posts per batch of the one-time article crop pass.
+	 *
+	 * @since 1.3.0
+	 */
+	private const CROP_BATCH = 20;
+
+	/**
 	 * The feed card for a post, if one exists.
 	 *
 	 * The authoritative "is this article already in the feed?" answer, keyed on
@@ -113,6 +120,15 @@ class BlogPostListener implements ListenerInterface {
 		add_action( 'buddynext_space_deleting', array( $this, 'on_space_deleting' ) );
 		add_filter( 'buddynext_render_post_body_' . self::TYPE, array( $this, 'render_card' ), 10, 2 );
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+
+		// Article cover and thumbnail crops: cut for a published article's featured
+		// image only, never for every upload. The meta hooks catch a featured image
+		// set after the post was saved (Member Blog writes _thumbnail_id once
+		// wp_insert_post() has returned, so wp_after_insert_post sees none).
+		ArticleImage::register();
+		add_action( 'added_post_meta', array( $this, 'on_thumbnail_set' ), 10, 4 );
+		add_action( 'updated_post_meta', array( $this, 'on_thumbnail_set' ), 10, 4 );
+		add_action( ArticleImage::REGEN_HOOK, array( $this, 'regen_crops_batch' ), 10, 2 );
 	}
 
 	/**
@@ -194,6 +210,9 @@ class BlogPostListener implements ListenerInterface {
 			return;
 		}
 
+		// Before the feed toggle: the profile Articles tab reads the crops too.
+		ArticleImage::ensure_crops( (int) get_post_thumbnail_id( $post ) );
+
 		if ( ! buddynext_integration_enabled( 'blog', 'feed' ) ) {
 			return;
 		}
@@ -208,6 +227,108 @@ class BlogPostListener implements ListenerInterface {
 		}
 
 		$this->publish_card( $post );
+	}
+
+	/**
+	 * Cut the article crops when a published article's featured image is set or replaced.
+	 *
+	 * The card reads the image live, so a replaced image's old crop is simply no
+	 * longer used; its files are left alone because another post may share them.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $meta_id    Meta row id.
+	 * @param int    $object_id  Post id.
+	 * @param string $meta_key   Meta key.
+	 * @param mixed  $meta_value New value (the attachment id for _thumbnail_id).
+	 * @return void
+	 */
+	public function on_thumbnail_set( $meta_id, $object_id, $meta_key, $meta_value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- the meta hooks pass the row id first.
+		if ( '_thumbnail_id' !== $meta_key ) {
+			return;
+		}
+		$post = get_post( (int) $object_id );
+		if ( ! $post instanceof \WP_Post || ! in_array( $post->post_type, $this->tracked_types(), true ) || ! self::is_shareable( $post ) ) {
+			return;
+		}
+		ArticleImage::ensure_crops( (int) $meta_value );
+	}
+
+	/**
+	 * One batch of the one-time crop pass over articles published before 1.3.0.
+	 *
+	 * Walks published, unprotected tracked-type posts that have a featured image,
+	 * 20 at a time in post id order (keyset on the primary key, the cursor in the
+	 * action args), and cuts the crops each featured image lacks. Images that
+	 * already have both are skipped without being loaded, so a re-run or a resumed
+	 * chain does no work. Queues the next batch with the last id seen; an empty
+	 * batch ends the chain with one full page-cache purge, only if any crop was cut.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $cursor  Last post id handled.
+	 * @param int $changed 1 once any batch of this chain cut a crop.
+	 * @return void
+	 */
+	public function regen_crops_batch( $cursor = 0, $changed = 0 ): void {
+		global $wpdb;
+
+		$cursor  = max( 0, (int) $cursor );
+		$changed = (int) $changed;
+		$types   = $this->tracked_types();
+		if ( array() === $types ) {
+			return;
+		}
+
+		$in = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in is a counted list of %s placeholders; every value is bound.
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.ID, pm.meta_value AS thumb FROM {$wpdb->posts} p
+				 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_thumbnail_id'
+				 WHERE p.ID > %d AND p.post_status = 'publish' AND p.post_password = '' AND p.post_type IN ( {$in} )
+				 ORDER BY p.ID ASC
+				 LIMIT %d",
+				array_merge( array( $cursor ), $types, array( self::CROP_BATCH ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		if ( array() === $rows ) {
+			if ( $changed > 0 ) {
+				\BuddyNext\Core\PageCachePurger::purge_all();
+			}
+			return;
+		}
+
+		foreach ( $rows as $row ) {
+			if ( ArticleImage::ensure_crops( (int) $row['thumb'] ) ) {
+				$changed = 1;
+			}
+		}
+
+		self::queue_crop_batch( (int) end( $rows )['ID'], $changed );
+	}
+
+	/**
+	 * Queue a crop batch through Action Scheduler, or WP-Cron where it is absent.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $cursor  Last post id handled.
+	 * @param int $changed 1 once any crop was cut.
+	 * @return void
+	 */
+	public static function queue_crop_batch( int $cursor, int $changed = 0 ): void {
+		$args = array( $cursor, $changed );
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( ArticleImage::REGEN_HOOK, $args, 'buddynext' );
+			return;
+		}
+		if ( ! wp_next_scheduled( ArticleImage::REGEN_HOOK, $args ) ) {
+			wp_schedule_single_event( time(), ArticleImage::REGEN_HOOK, $args );
+		}
 	}
 
 	/**
@@ -449,7 +570,7 @@ class BlogPostListener implements ListenerInterface {
 			self::excerpt_for( $post ),
 			self::space_for( $post ),
 			array(
-				'image'            => self::image_for( $post ),
+				'image'            => (string) ( ArticleImage::for_post( $post, 'cover' )['url'] ?? '' ),
 				self::META_POST_ID => (int) $post->ID,
 			)
 		);
@@ -481,11 +602,14 @@ class BlogPostListener implements ListenerInterface {
 		// that still reaches it (a reshare, a cached copy) gets no title, excerpt or
 		// cover from the stored snapshot either.
 		if ( ! self::is_shareable( $post ) ) {
-			unset( $meta['title'], $meta['description'], $meta['image'], $meta['thumbnail'] );
+			unset( $meta['title'], $meta['description'], $meta['image'], $meta['thumbnail'], $meta['cover_image'], $meta['thumb_image'] );
 			return $meta;
 		}
 
-		$image = self::image_for( $post );
+		// cover_image / thumb_image ({url,width,height} or null) are what a card
+		// renders; image and thumbnail stay plain strings carrying the cover URL
+		// for every reader that predates them (Explore, reshares, OG, the app).
+		$cover = ArticleImage::for_post( $post, 'cover' );
 
 		return array_merge(
 			$meta,
@@ -493,8 +617,10 @@ class BlogPostListener implements ListenerInterface {
 				'url'         => IntegrationActivity::published_permalink( $post ),
 				'title'       => self::title_for( $post ),
 				'description' => self::excerpt_for( $post ),
-				'image'       => $image,
-				'thumbnail'   => $image,
+				'image'       => (string) ( $cover['url'] ?? '' ),
+				'thumbnail'   => (string) ( $cover['url'] ?? '' ),
+				'cover_image' => $cover,
+				'thumb_image' => ArticleImage::for_post( $post, 'thumb' ),
 			)
 		);
 	}
@@ -615,25 +741,11 @@ class BlogPostListener implements ListenerInterface {
 	}
 
 	/**
-	 * The featured image, at a size wide enough to head a feed card.
+	 * Render the article card in the feed: the shared article card, cover variant.
 	 *
-	 * @param \WP_Post $post Source post.
-	 * @return string Image URL, or '' when the post has no featured image.
-	 */
-	private static function image_for( \WP_Post $post ): string {
-		$url = get_the_post_thumbnail_url( $post, 'medium_large' );
-
-		return is_string( $url ) ? $url : '';
-	}
-
-	/**
-	 * Render the article card.
-	 *
-	 * A dedicated card rather than the shared bridge row: WordPress is a
-	 * blogging platform, a member publishing an article is a first-class piece
-	 * of community content, and it deserves to look like one - a wide cover
-	 * image, the headline, and a readable excerpt. The whole card is one link,
-	 * so the entire surface is the target rather than a small title anchor.
+	 * The image comes from the card's live link_meta (cover_image). A card whose
+	 * source post is gone carries only the stored URL, rendered in the same 16:9
+	 * box without known dimensions.
 	 *
 	 * @param string               $html Existing HTML (empty unless another filter ran).
 	 * @param array<string, mixed> $args Renderer args from templates/parts/post-body.php.
@@ -644,45 +756,34 @@ class BlogPostListener implements ListenerInterface {
 			return (string) $html;
 		}
 
-		$link  = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
-		$url   = isset( $link['url'] ) ? (string) $link['url'] : '';
-		$title = isset( $link['title'] ) ? (string) $link['title'] : '';
-		$desc  = isset( $link['desc'] ) ? (string) $link['desc'] : '';
-		$thumb = isset( $link['thumb'] ) ? (string) $link['thumb'] : '';
+		$link = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
+		$meta = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
+		$url  = isset( $link['url'] ) ? (string) $link['url'] : '';
 
 		if ( '' === $url ) {
-			// Nothing to point at — let the default branch render the plain body.
+			// Nothing to point at - let the default branch render the plain body.
 			return '';
 		}
 
-		$out = '<a class="bn-post-card__article" href="' . esc_url( $url ) . '">';
-
-		if ( '' !== $thumb ) {
-			$out .= '<span class="bn-post-card__article-cover">';
-			$out .= '<img src="' . esc_url( $thumb ) . '" alt="" loading="lazy" decoding="async">';
-			$out .= '</span>';
+		if ( array_key_exists( 'cover_image', $meta ) ) {
+			$image = is_array( $meta['cover_image'] ) ? $meta['cover_image'] : null;
+		} else {
+			$thumb = isset( $link['thumb'] ) ? (string) $link['thumb'] : '';
+			$image = '' !== $thumb ? array( 'url' => $thumb ) : null;
 		}
 
-		$out .= '<span class="bn-post-card__article-body">';
-		$out .= '<span class="bn-post-card__article-kicker">';
-		$out .= buddynext_get_icon( 'file-text' );
-		$out .= esc_html__( 'Article', 'buddynext' );
-		$out .= '</span>';
+		ob_start();
+		buddynext_get_template(
+			'parts/article-card.php',
+			array(
+				'variant' => 'cover',
+				'url'     => $url,
+				'title'   => isset( $link['title'] ) ? (string) $link['title'] : '',
+				'excerpt' => isset( $link['desc'] ) ? (string) $link['desc'] : '',
+				'image'   => $image,
+			)
+		);
 
-		if ( '' !== $title ) {
-			$out .= '<span class="bn-post-card__article-title">' . esc_html( $title ) . '</span>';
-		}
-		if ( '' !== $desc ) {
-			$out .= '<span class="bn-post-card__article-excerpt">' . esc_html( $desc ) . '</span>';
-		}
-
-		$domain = (string) wp_parse_url( $url, PHP_URL_HOST );
-		if ( '' !== $domain ) {
-			$out .= '<span class="bn-post-card__article-meta">' . esc_html( $domain ) . '</span>';
-		}
-
-		$out .= '</span></a>';
-
-		return $out;
+		return (string) ob_get_clean();
 	}
 }

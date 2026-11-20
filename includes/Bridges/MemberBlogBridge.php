@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Feed\ArticleImage;
 use BuddyNext\Feed\ArticleProvider;
 use BuddyNext\Feed\BlogPostListener;
 use BuddyNext\Nav\NavContext;
@@ -1034,6 +1035,8 @@ class MemberBlogBridge {
 
 		$query    = new \WP_Query( $this->articles_query_args( $user_id, $per_page, $paged ) );
 		$is_owner = $viewer_id > 0 && $viewer_id === $user_id;
+		// The page's featured images and their metadata in one query, not one per row.
+		update_post_thumbnail_cache( $query );
 		$provider = ArticleProvider::for_user( $user_id );
 
 		// Each row's Edit goes to THAT post. It used to open the dashboard for
@@ -1101,10 +1104,11 @@ class MemberBlogBridge {
 		$per_page = max( 1, min( 50, $per_page ) );
 
 		$query = new \WP_Query( $this->articles_query_args( $user_id, $per_page, $page ) );
+		update_post_thumbnail_cache( $query );
 
 		$items = array();
 		foreach ( $query->posts as $post ) {
-			$cover   = get_the_post_thumbnail_url( $post, 'medium' );
+			$cover   = ArticleImage::for_post( $post, 'cover' );
 			$items[] = array(
 				'id'           => (int) $post->ID,
 				'co_written'   => (int) $post->post_author !== $user_id,
@@ -1114,7 +1118,11 @@ class MemberBlogBridge {
 				'date'         => (string) get_the_date( 'c', $post ),
 				'date_display' => (string) get_the_date( '', $post ),
 				'excerpt'      => wp_trim_words( wp_strip_all_tags( (string) get_the_excerpt( $post ) ), 28 ),
-				'cover'        => $cover ? (string) $cover : null,
+				// The 16:9 cover URL (null when there is no usable one), kept for
+				// readers that predate cover_image / thumb_image.
+				'cover'        => null !== $cover ? $cover['url'] : null,
+				'cover_image'  => $cover,
+				'thumb_image'  => ArticleImage::for_post( $post, 'thumb' ),
 				// Kept in the REST shape; the list is published-only, so always "publish".
 				'status'       => 'publish',
 				'status_label' => __( 'Published', 'buddynext' ),

@@ -43,6 +43,7 @@ class MigrationVersionGuardTest extends \WP_UnitTestCase {
 	 * @var string[]
 	 */
 	private const EXPECTED_MIGRATIONS = array(
+		'maybe_migrate_article_crops',
 		'maybe_migrate_checkbox_fields',
 		'maybe_migrate_email_subjects',
 		'maybe_migrate_file_fields',
@@ -63,7 +64,7 @@ class MigrationVersionGuardTest extends \WP_UnitTestCase {
 	 *
 	 * @var int
 	 */
-	private const MIGRATIONS_LOCKED_AT_VERSION = 76;
+	private const MIGRATIONS_LOCKED_AT_VERSION = 77;
 
 	/**
 	 * Read every `static function maybe_migrate_*` name (any visibility) defined in
@@ -89,11 +90,11 @@ class MigrationVersionGuardTest extends \WP_UnitTestCase {
 			self::EXPECTED_MIGRATIONS,
 			$this->source_migrations(),
 			"The set of Installer::maybe_migrate_* methods changed.\n"
-			. "A migration only runs on an already-current site when maybe_upgrade() "
-			. "does NOT early-return, which requires Installer::SCHEMA_VERSION to be "
+			. 'A migration only runs on an already-current site when maybe_upgrade() '
+			. 'does NOT early-return, which requires Installer::SCHEMA_VERSION to be '
 			. "bumped past the value deployed sites last stored.\n"
-			. "=> Bump Installer::SCHEMA_VERSION, then update EXPECTED_MIGRATIONS *and* "
-			. "MIGRATIONS_LOCKED_AT_VERSION in this test to the new version, together."
+			. '=> Bump Installer::SCHEMA_VERSION, then update EXPECTED_MIGRATIONS *and* '
+			. 'MIGRATIONS_LOCKED_AT_VERSION in this test to the new version, together.'
 		);
 	}
 

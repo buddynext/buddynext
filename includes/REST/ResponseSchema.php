@@ -199,6 +199,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/companions/status',
+				'resource' => 'companion_status',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/account/2fa',
 				'resource' => 'twofa_status',
 				'shape'    => 'item',
@@ -988,12 +994,37 @@ final class ResponseSchema {
 								'type'   => array( 'string', 'null' ),
 								'format' => 'uri',
 							),
+							'cover_image'  => self::article_image(),
+							'thumb_image'  => self::article_image(),
 							'status'       => array( 'type' => 'string' ),
 							'status_label' => array( 'type' => 'string' ),
 							'edit_url'     => array( 'type' => 'string' ),
 						),
 					),
 				),
+			),
+		);
+	}
+
+	/**
+	 * An article image: a hard-cropped size (ArticleImage) or null for a text-only card.
+	 *
+	 * Width and height are null for an external image whose size is unknown.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function article_image(): array {
+		return array(
+			'type'       => array( 'object', 'null' ),
+			'properties' => array(
+				'url'    => array(
+					'type'   => 'string',
+					'format' => 'uri',
+				),
+				'width'  => array( 'type' => array( 'integer', 'null' ) ),
+				'height' => array( 'type' => array( 'integer', 'null' ) ),
 			),
 		);
 	}
@@ -1223,7 +1254,15 @@ final class ResponseSchema {
 					'type'   => array( 'string', 'null' ),
 					'format' => 'uri',
 				),
-				'link_meta'            => array( 'type' => array( 'object', 'null' ) ),
+				// Shape varies by post type; the article image fields are typed because
+				// an article card (type 'article') always carries them.
+				'link_meta'            => array(
+					'type'       => array( 'object', 'null' ),
+					'properties' => array(
+						'cover_image' => self::article_image() + array( 'x-bn-conditional' => true ),
+						'thumb_image' => self::article_image() + array( 'x-bn-conditional' => true ),
+					),
+				),
 				'poll_options'         => self::poll_options(),
 				'privacy'              => array( 'type' => 'string' ),
 				'reaction_count'       => array( 'type' => 'integer' ),
@@ -1773,6 +1812,26 @@ final class ResponseSchema {
 				'updated_at_gmt' => array(
 					'type'   => 'string',
 					'format' => 'date-time',
+				),
+			),
+		);
+	}
+
+	/**
+	 * Whether an add-on plugin is installed and active (GET /companions/status).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function companion_status(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'companion-status',
+			'type'       => 'object',
+			'properties' => array(
+				'slug'   => array( 'type' => 'string' ),
+				'status' => array(
+					'type' => 'string',
+					'enum' => array( 'active', 'inactive', 'not_installed', 'unknown' ),
 				),
 			),
 		);
