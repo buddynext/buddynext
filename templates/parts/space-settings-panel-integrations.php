@@ -169,7 +169,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	if ( ! $args['is_space_owner'] ) :
 		?>
 		<p class="bn-space-settings__hint bn-space-settings__hint--locked">
-			<?php esc_html_e( 'Only the space owner can change these. They decide whether this space has a discussion, a media tab, and whether its activity reaches the main feed.', 'buddynext' ); ?>
+			<?php esc_html_e( 'Only the space owner can change these. They decide whether this space has a discussion, a media tab, an articles tab, and whether its activity reaches the main feed.', 'buddynext' ); ?>
 		</p>
 	<?php endif; ?>
 
@@ -337,7 +337,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 					<p class="bn-space-settings__hint"><?php esc_html_e( 'Turned off for the whole site by the site admin.', 'buddynext' ); ?></p>
 				<?php elseif ( $bn_articles_closed ) : ?>
 					<p class="bn-space-settings__hint"><?php esc_html_e( 'Private spaces do not have a Blog tab.', 'buddynext' ); ?></p>
-				<?php else : ?>
+				<?php elseif ( ! (bool) $args['articles_tab'] ) : ?>
 					<p class="bn-space-settings__hint"><?php esc_html_e( 'Nothing is deleted. Articles already written for this space show in the site feed instead, and turning this back on restores them.', 'buddynext' ); ?></p>
 				<?php endif; ?>
 			</div>
