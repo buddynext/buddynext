@@ -71,6 +71,10 @@ Once Jetonomy is active, it gets a card on the **Integration Settings** screen, 
 
 All three switches are on by default - when Jetonomy is active, new public discussions flow into the feed and into search automatically. The feed and search switches are independent: you can keep discussions searchable while keeping them out of the feed, or the reverse. A space owner can also keep a space's activity out of the main feed with **Share activity to the main feed** under **Manage space > Integrations**.
 
+### Points for forum activity
+
+If WB Gamification is active, a topic, a reply and a topic removed by a moderator also write points to the member's ledger (by default 2, 1 and a deduction). These values are Jetonomy's own reputation settings: change them in Jetonomy's settings, not on the Gamification Actions screen, which does not list them.
+
 ### Suspensions and blocks
 
 A member suspended in BuddyNext keeps reading the forum but cannot post, reply or vote until the suspension ends. People a member has blocked in BuddyNext are hidden from that member's forum lists and notifications. This needs a recent Jetonomy (2.0.7 or later); an older Jetonomy ignores it. Muting and restricting do not carry over.
