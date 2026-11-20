@@ -1347,3 +1347,12 @@ body.admin-bar .bn-app__rail {
 		inline-size: 100%;
 	}
 }
+
+.bn-crop-preview__crops[hidden] {
+	display: none;
+}
+
+/* One size rule: Member Blog's own 1200 x 630 line sits next to the crop hint above. */
+.bn-blog-write #featured-image-help {
+	display: none;
+}

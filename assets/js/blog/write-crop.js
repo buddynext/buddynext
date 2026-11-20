@@ -30,7 +30,10 @@ if ( box && source ) {
 		}
 		crops.forEach( ( img ) => img.setAttribute( 'src', src ) );
 		const size = () => {
-			hint.textContent = source.naturalWidth > 0 && source.naturalWidth < min ? box.dataset.bnCropSmall : usual;
+			const small = source.naturalWidth > 0 && source.naturalWidth < min;
+			hint.textContent = small ? box.dataset.bnCropSmall : usual;
+			// A photo under the cover minimum is not used as a cover: show text only, no stretched crops.
+			box.querySelector( '.bn-crop-preview__crops' ).hidden = small;
 		};
 		if ( source.complete ) {
 			size();
