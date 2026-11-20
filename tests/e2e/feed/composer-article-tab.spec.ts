@@ -1,6 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
-import { dbCount, tablePrefix, userId } from '../_fixtures/wp';
+import { dbCount, tablePrefix, userId, wp } from '../_fixtures/wp';
 
 /**
  * J-909-composer-article-tab.
@@ -96,5 +96,25 @@ test.describe('feed / composer Post and Article tabs', () => {
         const name = (await field.getAttribute('name')) ?? 'bn_title';
         await field.fill(title);
         await Promise.all([page.waitForURL((url) => url.searchParams.get(name) === title), panel.getByRole('button', { name: 'Start writing' }).click()]);
+    });
+    test('Pending shows only while a post waits for review, and counts it', async ({ authenticatedPage: page }) => {
+        const uid = await userId(ADMIN_LOGIN);
+        const p = await tablePrefix();
+        const waiting = await dbCount(`SELECT COUNT(*) FROM ${p}posts WHERE post_author=${uid} AND post_type='post' AND post_status='pending'`);
+        const pill = (): ReturnType<typeof page.locator> => page.locator('.bn-composer-switch__link', { hasText: 'Pending' });
+
+        await page.goto(urls.feed);
+        await expect(pill()).toHaveCount(waiting > 0 ? 1 : 0);
+
+        const id = Number(await wp(['post', 'create', `--post_title=Pending journey ${Date.now().toString().slice(-6)}`, '--post_status=pending', `--post_author=${uid}`, '--porcelain']));
+        try {
+            await page.goto(urls.feed);
+            await expect(pill().locator('.bn-composer-switch__count')).toHaveText(String(waiting + 1));
+            await expect(pill()).toHaveAttribute('href', /tab=pending/);
+        } finally {
+            await wp(['post', 'delete', String(id), '--force']).catch(() => undefined);
+        }
+        await page.goto(urls.feed);
+        await expect(pill()).toHaveCount(waiting > 0 ? 1 : 0);
     });
 });
