@@ -104,7 +104,7 @@ endif;
 					'variant'    => 'row',
 					'url'        => (string) get_permalink( $bn_ar_id ),
 					'title'      => (string) get_the_title( $bn_ar_id ),
-					'excerpt'    => wp_trim_words( trim( wp_strip_all_tags( (string) get_the_excerpt( $bn_ar_id ) ) ), 28 ),
+					'excerpt'    => \BuddyNext\Feed\BlogPostListener::excerpt_for( $bn_ar_post, 28 ),
 					'image'      => \BuddyNext\Feed\ArticleImage::for_post( $bn_ar_post, 'thumb' ),
 					'date_iso'   => (string) get_the_date( 'c', $bn_ar_id ),
 					'date_label' => (string) get_the_date( '', $bn_ar_id ),

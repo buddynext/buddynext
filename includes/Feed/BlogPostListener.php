@@ -730,17 +730,18 @@ class BlogPostListener implements ListenerInterface {
 	 * The post is LOCAL: everything the card needs is already in memory, so the
 	 * meta is always supplied and that fetch never runs.
 	 *
-	 * @param \WP_Post $post Source post.
+	 * @param \WP_Post $post  Source post.
+	 * @param int      $words Word limit.
 	 * @return string
 	 */
-	private static function excerpt_for( \WP_Post $post ): string {
+	public static function excerpt_for( \WP_Post $post, int $words = 32 ): string {
 		$excerpt = wp_strip_all_tags( (string) $post->post_excerpt );
 
 		if ( '' === trim( $excerpt ) ) {
 			$excerpt = wp_strip_all_tags( strip_shortcodes( (string) $post->post_content ) );
 		}
 
-		return wp_trim_words( $excerpt, 32, '…' );
+		return wp_trim_words( $excerpt, $words, '…' );
 	}
 
 	/**

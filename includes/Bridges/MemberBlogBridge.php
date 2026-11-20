@@ -1283,7 +1283,7 @@ class MemberBlogBridge {
 				'url'          => (string) get_permalink( $post ),
 				'date'         => (string) get_the_date( 'c', $post ),
 				'date_display' => (string) get_the_date( '', $post ),
-				'excerpt'      => wp_trim_words( wp_strip_all_tags( (string) get_the_excerpt( $post ) ), 28 ),
+				'excerpt'      => \BuddyNext\Feed\BlogPostListener::excerpt_for( $post, 28 ),
 				// The 16:9 cover URL (null when there is no usable one), kept for
 				// readers that predate cover_image / thumb_image.
 				'cover'        => null !== $cover ? $cover['url'] : null,
