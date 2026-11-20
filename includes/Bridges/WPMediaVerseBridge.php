@@ -837,21 +837,26 @@ class WPMediaVerseBridge {
 
 		$args = $this->hydrate_media_preview( $args );
 
-		// "Video", "Audio" or "Photo" rather than a bare "Media", read for this card's own item.
+		// "Video", "Audio" or "Photo" with its own icon, rather than a bare "Media", read for this
+		// card's own item (the repository field is media_type).
 		$label = '';
+		$icon  = '';
 		$repo  = MediaClient::repo();
 		$id    = (int) ( $args['link_preview']['media_id'] ?? 0 );
 		if ( $id > 0 && is_object( $repo ) && method_exists( $repo, 'get' ) ) {
 			$kinds = array(
-				'video' => __( 'Video', 'buddynext' ),
-				'audio' => __( 'Audio', 'buddynext' ),
-				'image' => __( 'Photo', 'buddynext' ),
-				'photo' => __( 'Photo', 'buddynext' ),
+				'video' => array( __( 'Video', 'buddynext' ), 'play' ),
+				'audio' => array( __( 'Audio', 'buddynext' ), 'music' ),
+				'image' => array( __( 'Photo', 'buddynext' ), 'image' ),
+				'photo' => array( __( 'Photo', 'buddynext' ), 'image' ),
 			);
-			$label = $kinds[ strtolower( (string) $repo->get( $id, 'type' ) ) ] ?? '';
+			$kind  = $kinds[ strtolower( (string) $repo->get( $id, 'media_type' ) ) ] ?? null;
+			if ( null !== $kind ) {
+				list( $label, $icon ) = $kind;
+			}
 		}
 
-		return IntegrationActivity::render_bridge_card( $args, '', $label );
+		return IntegrationActivity::render_bridge_card( $args, $icon, $label );
 	}
 
 	/**
