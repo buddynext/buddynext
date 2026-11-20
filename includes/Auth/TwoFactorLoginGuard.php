@@ -115,8 +115,25 @@ class TwoFactorLoginGuard implements ListenerInterface {
 
 		$token = TwoFactorService::issue_login_challenge( (int) $user->ID, $remember );
 
-		$this->render_form( $token, $redirect_to );
+		$this->render_form( $token, $redirect_to, '', self::blocked_notice() );
 		exit;
+	}
+
+	/**
+	 * Why the code is being asked for again: the community sign-in was blocked at the code step and
+	 * handed over to this screen (the login store adds bn_signin_notice to that post). '' otherwise.
+	 *
+	 * @return string
+	 */
+	public static function blocked_notice(): string {
+		// A display hint only: the password was already verified by wp_signon before this runs.
+		// phpcs:disable WordPress.Security.NonceVerification.Missing
+		$tag = isset( $_POST['bn_signin_notice'] ) ? sanitize_key( wp_unslash( (string) $_POST['bn_signin_notice'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		if ( 'blocked' !== $tag ) {
+			return '';
+		}
+		return __( 'Your site\'s security settings blocked the community sign-in. Enter your code once more to finish signing in.', 'buddynext' );
 	}
 
 	/**

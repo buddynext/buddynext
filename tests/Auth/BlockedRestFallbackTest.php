@@ -238,6 +238,22 @@ class BlockedRestFallbackTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The wp-login.php two-factor screen tells the member why the code is asked for again, only when
+	 * the login store tagged the hand-over.
+	 */
+	public function test_two_factor_screen_explains_the_second_code_prompt(): void {
+		unset( $_POST['bn_signin_notice'] );
+		$this->assertSame( '', \BuddyNext\Auth\TwoFactorLoginGuard::blocked_notice() );
+
+		$_POST['bn_signin_notice'] = 'something-else';
+		$this->assertSame( '', \BuddyNext\Auth\TwoFactorLoginGuard::blocked_notice() );
+
+		$_POST['bn_signin_notice'] = 'blocked';
+		$this->assertStringContainsString( 'security settings blocked', \BuddyNext\Auth\TwoFactorLoginGuard::blocked_notice() );
+		unset( $_POST['bn_signin_notice'] );
+	}
+
+	/**
 	 * A route that answers asks for the missing fields: healthy.
 	 *
 	 * @return void

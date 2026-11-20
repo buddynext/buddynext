@@ -55,13 +55,23 @@ function toast( message, tone ) {
  *
  * @param {Object}               c    Context.
  * @param {HTMLFormElement|null} form The sign-in form, its fields still filled in.
+ * @param {boolean}              afterCode True when the block hit the two-factor code step.
  * @return {boolean} True when the form was handed over.
  */
-function signInTheWordPressWay( c, form ) {
+function signInTheWordPressWay( c, form, afterCode ) {
 	if ( ! form ) {
 		return false;
 	}
 	c.error = c.blockedMessage || '';
+	if ( afterCode ) {
+		// The typed code cannot travel (wp-login.php issues a fresh challenge), so tell that
+		// screen why it is asking again.
+		const tag = document.createElement( 'input' );
+		tag.type  = 'hidden';
+		tag.name  = 'bn_signin_notice';
+		tag.value = 'blocked';
+		form.appendChild( tag );
+	}
 	return submitFormNatively( form );
 }
 
@@ -181,7 +191,7 @@ const loginStore = store( 'buddynext/auth-login', {
 					// Blocked here: the password form still holds what was typed, and
 					// wp-login.php runs the same two-step check (TwoFactorLoginGuard).
 					const passwordForm = document.getElementById( 'bn-login-user' );
-					if ( refusedBeforeBuddyNext( r ) && passwordForm && signInTheWordPressWay( c, passwordForm.form ) ) {
+					if ( refusedBeforeBuddyNext( r ) && passwordForm && signInTheWordPressWay( c, passwordForm.form, true ) ) {
 						c.twofaError = c.error;
 						return;
 					}
