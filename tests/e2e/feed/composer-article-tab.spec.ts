@@ -88,8 +88,8 @@ test.describe('feed / composer Post and Article tabs', () => {
         await page.getByRole('tablist', { name: 'What to share' }).getByRole('tab', { name: 'Article' }).click();
 
         const panel = page.locator('.bn-composer-article');
-        await expect(panel.locator('.bn-composer-article__link', { hasText: 'My drafts' }).locator('.bn-composer-article__count')).toHaveText(String(drafts));
-        await expect(panel.locator('.bn-composer-article__link', { hasText: 'My articles' }).locator('.bn-composer-article__count')).toHaveText(String(articles));
+        await expect(page.locator('.bn-composer-switch__link', { hasText: 'My drafts' }).locator('.bn-composer-switch__count')).toHaveText(String(drafts));
+        await expect(page.locator('.bn-composer-switch__link', { hasText: 'My articles' }).locator('.bn-composer-switch__count')).toHaveText(String(articles));
 
         const title = `Weekly office hours ${Date.now().toString().slice(-6)}`;
         const field = panel.locator('.bn-composer-article__title');

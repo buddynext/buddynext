@@ -143,98 +143,40 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 			array(
 				'drafts'   => 0,
 				'articles' => 0,
-				'draft'    => null,
 			),
 			ArticleProvider::composer_summary( self::factory()->user->create( array( 'role' => 'subscriber' ) ) ),
 			'Nothing for a member who cannot write.'
 		);
 	}
 
-	public function test_the_latest_draft_is_offered_to_continue(): void {
-		$uid    = $this->writer();
-		$older  = self::factory()->post->create(
+	public function test_the_article_panel_is_one_row_and_never_offers_a_draft_card(): void {
+		// The Article panel must not make the feed jump when the tabs switch: explainer + ONE row, and
+		// My drafts / My articles live in the tab row, not in the panel.
+		$uid = self::factory()->post->create(
 			array(
-				'post_author' => $uid,
+				'post_author' => $this->writer(),
 				'post_status' => 'draft',
-				'post_title'  => 'Older',
+				'post_title'  => 'An unfinished piece',
 			)
 		);
-		$latest = self::factory()->post->create(
-			array(
-				'post_author' => $uid,
-				'post_status' => 'draft',
-				'post_title'  => 'Notes <script>alert(1)</script> & more',
-			)
-		);
-		global $wpdb;
-		$two_hours = gmdate( 'Y-m-d H:i:s', time() - 7200 );
-		$wpdb->update(
-			$wpdb->posts,
-			array(
-				'post_modified'     => '2026-01-01 10:00:00',
-				'post_modified_gmt' => '2026-01-01 10:00:00',
-			),
-			array( 'ID' => $older )
-		); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$wpdb->update(
-			$wpdb->posts,
-			array(
-				'post_modified'     => $two_hours,
-				'post_modified_gmt' => $two_hours,
-				'post_title'        => 'Notes <script>alert(1)</script> & more',
-			),
-			array( 'ID' => $latest )
-		); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		clean_post_cache( $older );
-		clean_post_cache( $latest );
+		$this->assertGreaterThan( 0, $uid );
+		$author = (int) get_post_field( 'post_author', $uid );
+		$html   = $this->feed( $author );
 
-		wp_set_current_user( $uid );
-		$draft = ArticleProvider::composer_summary( $uid )['draft'];
-		$this->assertSame( $latest, $draft['id'] );
-		$this->assertSame( get_edit_post_link( $latest, 'raw' ), $draft['edit_url'], 'The fallback continues in the WordPress editor.' );
-
-		$html = $this->feed( $uid );
-		$this->assertStringContainsString( 'Continue writing', $html );
-		$this->assertStringContainsString( 'Draft, edited 2h ago', $html );
-		$this->assertStringContainsString( 'Or start a new article: title (optional)', $html );
-		$this->assertStringNotContainsString( '<script>alert(1)</script>', $html, 'The draft title is escaped.' );
-		$this->assertStringContainsString( 'Notes &lt;script&gt;alert(1)&lt;/script&gt; &amp; more', $html );
-	}
-
-	public function test_a_draft_with_no_gmt_time_still_shows_when_it_was_edited(): void {
-		// Some save paths leave post_modified_gmt as 0000-00-00: the card must not read "edited 29 November -0001".
-		$uid   = $this->writer();
-		$draft = self::factory()->post->create(
-			array(
-				'post_author' => $uid,
-				'post_status' => 'draft',
-				'post_title'  => 'No gmt time',
-			)
-		);
-		global $wpdb;
-		$local = current_time( 'mysql' );
-		$wpdb->update(
-			$wpdb->posts,
-			array(
-				'post_modified'     => gmdate( 'Y-m-d H:i:s', current_time( 'timestamp' ) - 7200 ),
-				'post_modified_gmt' => '0000-00-00 00:00:00',
-			),
-			array( 'ID' => $draft )
-		); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		clean_post_cache( $draft );
-
-		wp_set_current_user( $uid );
-		$html = $this->feed( $uid );
-		$this->assertStringContainsString( 'Draft, edited 2h ago', $html );
-		$this->assertStringNotContainsString( '-0001', $html );
-		unset( $local );
-	}
-
-	public function test_no_draft_card_without_a_draft(): void {
-		$html = $this->feed( $this->writer() );
 		$this->assertStringNotContainsString( 'Continue writing', $html );
-		$this->assertStringContainsString( 'Title (optional)', $html );
-		$this->assertStringContainsString( 'placeholder="Give it a title"', $html );
+		$this->assertStringNotContainsString( 'An unfinished piece', $html );
+		$this->assertStringContainsString( 'placeholder="Title (optional)"', $html );
+		$this->assertMatchesRegularExpression( '/bn-composer-article__row.*bn-composer-article__title.*bn-composer-article__start/s', $html );
+
+		// The counts sit beside the tabs, in the head row, before the panels.
+		$head_pos  = strpos( $html, 'bn-composer-switch__head' );
+		$links_pos = strpos( $html, 'bn-composer-switch__links' );
+		$panel_pos = strpos( $html, 'bn-composer-article"' );
+		$this->assertNotFalse( $head_pos );
+		$this->assertGreaterThan( $head_pos, $links_pos );
+		$this->assertLessThan( $panel_pos, $links_pos, 'My drafts / My articles are in the tab row, not in the Article panel.' );
+		$this->assertStringContainsString( 'My drafts', $html );
+		$this->assertStringContainsString( 'My articles', $html );
 	}
 
 	public function test_the_fallback_form_posts_the_title_to_the_wordpress_editor(): void {

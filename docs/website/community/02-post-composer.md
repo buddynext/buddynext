@@ -31,7 +31,7 @@ A member types into the composer and clicks **Post**. The post is created and ap
 
 Members who can write articles see two tabs at the top of the What's New composer: **Post** (the composer described above) and **Article**. Switching tabs never loses what you typed in the post box.
 
-The Article tab explains what an article is, takes an optional title and opens the article editor with **Start writing**, with the title already filled in. When you have an unfinished draft, the tab offers it first with **Continue writing**. **My drafts** and **My articles** links show how many of each you have: My drafts counts drafts, My articles counts published and private articles. Articles held for review or scheduled are in neither count.
+The Article tab explains what an article is, takes an optional title and opens the article editor with **Start writing**, with the title already filled in. The panel is one row, the same height as the Post box, so the feed below does not move when you switch tabs. **My drafts** and **My articles** sit beside the tabs and show how many of each you have; an unfinished draft is one click away under **My drafts**: My drafts counts drafts, My articles counts published and private articles. Articles held for review or scheduled are in neither count.
 
 The editor is WB Member Blog when it is active (see [WB Member Blog](../integrations/09-member-blog.md)), otherwise the WordPress editor for members who can use it. Members who cannot write, and logged-out visitors, see the composer with no tabs. Space composers and the composer on a profile have no Article tab. A published article reaches the feed as one article card.
 

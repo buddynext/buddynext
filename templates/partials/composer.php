@@ -186,12 +186,17 @@ $composer_article          = null !== $composer_article_provider
 		)
 	);
 $composer_switch_id        = $composer_article ? wp_unique_id( 'bn-composer-switch-' ) : '';
+$composer_article_summary  = $composer_article ? \BuddyNext\Feed\ArticleProvider::composer_summary( $composer_user_id ) : array(
+	'drafts'   => 0,
+	'articles' => 0,
+);
 ?>
 <?php if ( $composer_article ) : ?>
 <div class="bn-composer-switch"
 	data-wp-interactive="buddynext/post-composer"
 	data-wp-context='{"mode":"post"}'>
 	<?php // Roving tabindex: only the selected tab is in the Tab order; the arrows, Home and End move between them (actions.switchKeydown). ?>
+	<div class="bn-composer-switch__head">
 	<div class="bn-composer-switch__tabs" role="tablist" aria-label="<?php esc_attr_e( 'What to share', 'buddynext' ); ?>" data-wp-on--keydown="actions.switchKeydown">
 		<button type="button" role="tab" class="bn-composer-switch__tab"
 			id="<?php echo esc_attr( $composer_switch_id ); ?>-post-tab"
@@ -211,6 +216,20 @@ $composer_switch_id        = $composer_article ? wp_unique_id( 'bn-composer-swit
 			data-wp-bind--aria-selected="state.isArticleMode"
 			data-wp-bind--tabindex="state.articleTabIndex"
 			data-wp-on--click="actions.selectMode"><?php esc_html_e( 'Article', 'buddynext' ); ?></button>
+	</div>
+	<?php // My drafts and My articles sit beside the tabs (only with the Article tab), so the panel below stays one row tall. ?>
+	<ul class="bn-composer-switch__links" hidden data-wp-bind--hidden="state.isPostMode">
+		<?php foreach ( array( array( 'drafts_url', __( 'My drafts', 'buddynext' ), 'drafts' ), array( 'my_articles_url', __( 'My articles', 'buddynext' ), 'articles' ) ) as $composer_link ) : ?>
+			<?php if ( '' !== (string) ( $composer_article_provider[ $composer_link[0] ] ?? '' ) ) : ?>
+				<li>
+					<a class="bn-composer-switch__link" data-bn-full-load href="<?php echo esc_url( (string) $composer_article_provider[ $composer_link[0] ] ); ?>">
+						<?php echo esc_html( $composer_link[1] ); ?>
+						<span class="bn-composer-switch__count"><?php echo esc_html( number_format_i18n( (int) $composer_article_summary[ $composer_link[2] ] ) ); ?></span>
+					</a>
+				</li>
+			<?php endif; ?>
+		<?php endforeach; ?>
+	</ul>
 	</div>
 	<?php // Hidden, never removed: switching tabs keeps whatever is typed in the post box. ?>
 	<div class="bn-composer-switch__panel" role="tabpanel"
@@ -773,7 +792,6 @@ $composer_switch_id        = $composer_article ? wp_unique_id( 'bn-composer-swit
 			'partials/composer-article.php',
 			array(
 				'provider'  => $composer_article_provider,
-				'summary'   => \BuddyNext\Feed\ArticleProvider::composer_summary( $composer_user_id ),
 				'id_prefix' => $composer_switch_id,
 			)
 		);

@@ -36,7 +36,7 @@ final class ArticleProvider {
 	/**
 	 * Composer summaries for this request, keyed by user id.
 	 *
-	 * @var array<int,array{drafts:int,articles:int,draft:array{id:int,title:string,modified_gmt:string,edit_url:string}|null}>
+	 * @var array<int,array{drafts:int,articles:int}>
 	 */
 	private static array $summaries = array();
 
@@ -134,7 +134,7 @@ final class ArticleProvider {
 
 	/**
 	 * What the composer's Article tab shows a writer: how many drafts and
-	 * articles they have, and their most recently edited draft to continue.
+	 * articles they have (the counts beside the composer tabs).
 	 *
 	 * `drafts` counts status 'draft' and `articles` counts 'publish' + 'private':
 	 * the same statuses the provider's My drafts and My articles views list (a
@@ -142,20 +142,18 @@ final class ArticleProvider {
 	 * ('pending') and scheduled posts ('future') are in neither number. Counts are
 	 * of `post` posts the member authored.
 	 *
-	 * Two indexed queries at most (one grouped COUNT on post_author, plus the
-	 * latest draft only when there is one), resolved once per request. Zeros and
-	 * no draft for a member who cannot write.
+	 * One grouped COUNT on post_author, resolved once per request. Zeros for a
+	 * member who cannot write.
 	 *
 	 * @since 1.3.0
 	 *
 	 * @param int $user_id Member.
-	 * @return array{drafts:int,articles:int,draft:array{id:int,title:string,modified_gmt:string,edit_url:string}|null}
+	 * @return array{drafts:int,articles:int}
 	 */
 	public static function composer_summary( int $user_id ): array {
 		$summary  = array(
 			'drafts'   => 0,
 			'articles' => 0,
-			'draft'    => null,
 		);
 		$provider = self::for_user( $user_id );
 		if ( null === $provider || ! $provider['can_write'] ) {
@@ -179,58 +177,8 @@ final class ArticleProvider {
 		$summary['drafts']   = (int) ( $counts['draft'] ?? 0 );
 		$summary['articles'] = (int) ( $counts['publish'] ?? 0 ) + (int) ( $counts['private'] ?? 0 );
 
-		if ( $summary['drafts'] > 0 ) {
-			$latest = get_posts(
-				array(
-					'author'                 => $user_id,
-					'post_type'              => 'post',
-					'post_status'            => 'draft',
-					'orderby'                => 'modified',
-					'order'                  => 'DESC',
-					'posts_per_page'         => 1,
-					'no_found_rows'          => true,
-					'update_post_meta_cache' => false,
-					'update_post_term_cache' => false,
-				)
-			);
-			if ( array() !== $latest && $latest[0] instanceof \WP_Post ) {
-				$draft            = $latest[0];
-				$summary['draft'] = array(
-					'id'           => (int) $draft->ID,
-					'title'        => (string) $draft->post_title,
-					// A draft saved by some paths carries 0000-00-00 as its GMT time: fall back to the local time.
-					'modified_gmt' => '0000-00-00 00:00:00' === (string) $draft->post_modified_gmt || '' === (string) $draft->post_modified_gmt
-						? get_gmt_from_date( (string) $draft->post_modified )
-						: (string) $draft->post_modified_gmt,
-					'edit_url'     => self::draft_edit_url( $provider, (int) $draft->ID, $user_id ),
-				);
-			}
-		}
-
 		self::$summaries[ $user_id ] = $summary;
 		return $summary;
-	}
-
-	/**
-	 * Where a member continues one of their drafts in their provider's editor.
-	 *
-	 * Member Blog's editor for its provider, the WordPress editor for the
-	 * fallback, and the provider's drafts list for any other provider (the
-	 * contract carries no per-post edit address).
-	 *
-	 * @param array{key:string,drafts_url:string} $provider Normalised provider.
-	 * @param int                                 $post_id  Draft.
-	 * @param int                                 $user_id  Its author.
-	 * @return string
-	 */
-	private static function draft_edit_url( array $provider, int $post_id, int $user_id ): string {
-		if ( 'member-blog' === $provider['key'] ) {
-			return \BuddyNext\Bridges\MemberBlogBridge::edit_url( $post_id, $user_id );
-		}
-		if ( 'wordpress' === $provider['key'] ) { // phpcs:ignore WordPress.WP.CapitalPDangit.MisspelledInText -- the provider slug, not the brand name.
-			return (string) get_edit_post_link( $post_id, 'raw' );
-		}
-		return $provider['drafts_url'];
 	}
 
 	/**

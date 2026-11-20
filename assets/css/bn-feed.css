@@ -2837,11 +2837,42 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	border-radius: 0;
 	padding: 0;
 }
+/* Both panels share one grid cell, so the card is always as tall as the taller panel and the
+	feed below never jumps when the tabs switch. The panel not shown is hidden from sight, the Tab
+	order and assistive tech (visibility), not removed from the layout. */
+.bn-composer-switch {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+}
+.bn-composer-switch__head {
+	grid-row: 1;
+}
+.bn-composer-switch__panel {
+	grid-row: 2;
+	grid-column: 1;
+}
+/* The base stylesheet forces [hidden] to display:none !important; this one selector must keep its box. */
+.bn-composer-switch__panel[hidden] {
+	display: block !important;
+	visibility: hidden;
+	pointer-events: none;
+}
+.bn-composer-switch__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s1) var(--bn-s4);
+	margin-block-end: var(--bn-s3);
+}
+.bn-composer-switch__head[hidden],
+.bn-composer-switch__links[hidden] {
+	display: none;
+}
 .bn-composer-switch__tabs {
 	display: inline-flex;
 	gap: var(--bn-s1);
 	padding: var(--bn-s1);
-	margin-block-end: var(--bn-s3);
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
@@ -2879,55 +2910,21 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-body);
 }
-.bn-composer-article__resume {
+.bn-composer-article__row {
 	display: flex;
-	flex-wrap: wrap;
 	align-items: center;
-	justify-content: space-between;
-	gap: var(--bn-s3);
-	padding: var(--bn-s3);
-	margin-block-end: var(--bn-s3);
-	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md);
-}
-.bn-composer-article__resume-text {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s1);
-	min-inline-size: 0;
-}
-.bn-composer-article__resume-title {
-	color: var(--bn-ink);
-	font-size: var(--bn-text-sm);
-	overflow-wrap: anywhere;
-}
-.bn-composer-article__resume-meta {
-	color: var(--bn-ink-3);
-	font-size: var(--bn-text-xs);
-}
-.bn-composer-article__resume-action,
-.bn-composer-article__start {
-	min-block-size: 44px;
-}
-.bn-composer-article__label {
-	display: block;
-	margin-block-end: var(--bn-s1);
-	color: var(--bn-ink-3);
-	font-size: var(--bn-text-xs);
+	gap: var(--bn-s2);
 }
 .bn-composer-article__title.bn-input {
+	flex: 1 1 auto;
+	min-inline-size: 0;
 	block-size: 44px;
 }
-.bn-composer-article__bar {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--bn-s2) var(--bn-s4);
-	margin-block-start: var(--bn-s3);
+.bn-composer-article__start {
+	flex: none;
+	min-block-size: 44px;
 }
-.bn-composer-article__links {
+.bn-composer-switch__links {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--bn-s4);
@@ -2935,7 +2932,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	padding: 0;
 	list-style: none;
 }
-.bn-composer-article__link {
+.bn-composer-switch__link {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s2);
@@ -2945,19 +2942,19 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: none;
 }
-.bn-composer-article__link:hover,
-.bn-composer-article__link:visited {
+.bn-composer-switch__link:hover,
+.bn-composer-switch__link:visited {
 	color: var(--bn-accent);
 }
-.bn-composer-article__link:hover {
+.bn-composer-switch__link:hover {
 	text-decoration: underline;
 }
-.bn-composer-article__link:focus-visible {
+.bn-composer-switch__link:focus-visible {
 	outline: 2px solid transparent;
 	border-radius: var(--bn-r-sm);
 	box-shadow: var(--bn-ring);
 }
-.bn-composer-article__count {
+.bn-composer-switch__count {
 	padding-inline: var(--bn-s2);
 	border-radius: var(--bn-r-full);
 	background: var(--bn-accent-50);
@@ -3763,11 +3760,12 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	/* Post / Article: the tabs share the row, the article footer stacks and
 		Start writing / Continue writing go full width. */
 	.bn-composer-switch { padding: var(--bn-s3); }
-	.bn-composer-switch__tabs { display: flex; }
+	/* The two links wrap under the tabs on a phone: show them in both modes so the card keeps one height
+		and there is no blank band, whichever tab is selected. */
+	.bn-composer-switch__links[hidden] { display: flex !important; }
+	.bn-composer-switch__head { gap: 0; }
+	.bn-composer-switch__tabs { display: flex; inline-size: 100%; }
 	.bn-composer-switch__tab { flex: 1 1 0; }
-	.bn-composer-article__bar { flex-direction: column; align-items: stretch; }
-	.bn-composer-article__start,
-	.bn-composer-article__resume-action { inline-size: 100%; justify-content: center; }
 }
 
 /* Emoji insert picker — popover of bundled glyph buttons, appended to
