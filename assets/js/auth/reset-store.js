@@ -7,9 +7,13 @@
  * Security lives in WordPress core (retrieve_password / check_password_reset_key
  * / reset_password); this store only drives the branded screen. Mirrors the
  * signup store: same rest() helper, inline field errors, generic messaging.
+ *
+ * When the site's security settings block REST for logged-out visitors, both
+ * modes hand over to WordPress's own screens (wp-login.php lostpassword / rp),
+ * so a member can still reset their password.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restError, restFetch } from '@buddynext/rest-client';
+import { refusedBeforeBuddyNext, restError, restFetch, submitFormNatively } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -80,6 +84,7 @@ const resetStore = store( 'buddynext/auth-reset', {
 			if ( event && typeof event.preventDefault === 'function' ) {
 				event.preventDefault();
 			}
+			const form = event && event.target && 'FORM' === event.target.tagName ? event.target : null;
 			const c = ctx();
 			if ( c.submitting ) { return; }
 			if ( ! ( c.login || '' ).trim() ) {
@@ -94,6 +99,13 @@ const resetStore = store( 'buddynext/auth-reset', {
 					body:   { user_login: c.login || '' },
 				} );
 				const data = r.data;
+				// Blocked before BuddyNext: post the same field to wp-login.php's
+				// lost-password form (the form's action).
+				if ( refusedBeforeBuddyNext( r ) && form ) {
+					c.error = c.blockedMessage || '';
+					submitFormNatively( form );
+					return;
+				}
 				c.submitting = false;
 				// A refusal (the rate limit) is not "the link is on its way": nothing was
 				// sent, so keep the form up. Every accepted request still gets the same
@@ -135,6 +147,13 @@ const resetStore = store( 'buddynext/auth-reset', {
 				} );
 				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
+					// Blocked before BuddyNext: WordPress's own reset screen takes the
+					// same emailed key, and the member chooses the password there.
+					if ( refusedBeforeBuddyNext( r ) && c.coreResetUrl ) {
+						c.error = c.blockedMessage || '';
+						window.location.href = c.coreResetUrl;
+						return;
+					}
 					if ( data && data.data && data.data.fields ) {
 						c.fieldErrors = data.data.fields;
 					}

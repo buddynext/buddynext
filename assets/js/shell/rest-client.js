@@ -341,6 +341,44 @@ export function restError( res, fallback ) {
 }
 
 /**
+ * Whether a request was refused by something in front of BuddyNext.
+ *
+ * Security plugins (All In One Security, Wordfence, Solid Security, Disable REST
+ * API) and host firewalls can block REST for logged-out visitors. Their 401/403
+ * never reached a BuddyNext route, so it lacks the `data.buddynext` flag every
+ * BuddyNext auth refusal carries (AuthController::mark_own_refusal). The auth
+ * screens use this to fall back to the standard WordPress form instead of
+ * showing the blocker's text as if the member typed something wrong.
+ *
+ * @param {Object} res A restFetch() result.
+ * @return {boolean} True when the refusal did not come from BuddyNext.
+ */
+export function refusedBeforeBuddyNext( res ) {
+	return !! res
+		&& ( 401 === res.status || 403 === res.status )
+		&& ! ( res.data && res.data.data && res.data.data.buddynext );
+}
+
+/**
+ * Submit a form natively to its own action (the standard WordPress form),
+ * for use after refusedBeforeBuddyNext(). Fields bound to a "submitting" state
+ * are disabled while the REST request ran, and a disabled field is not posted.
+ *
+ * @param {HTMLFormElement|null} form Form to submit.
+ * @return {boolean} True when the form was submitted.
+ */
+export function submitFormNatively( form ) {
+	if ( ! form || 'function' !== typeof form.submit ) {
+		return false;
+	}
+	form.querySelectorAll( ':disabled' ).forEach( ( el ) => {
+		el.disabled = false;
+	} );
+	form.submit();
+	return true;
+}
+
+/**
  * Toast a failed request for a caller that opted out of restFetch's own toast.
  * Stays quiet for a suspended member, who has already been shown the appeal toast.
  *

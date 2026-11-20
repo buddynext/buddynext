@@ -10,7 +10,11 @@
  *
  * Form submit posts to POST /buddynext/v1/auth/login via the
  * buddynext/auth-login Interactivity store. Errors surface inline
- * without a page reload.
+ * without a page reload. The form itself is a standard POST to
+ * wp-login.php (log / pwd / rememberme / redirect_to), which is what the
+ * store hands it to when a security plugin blocks REST for logged-out
+ * visitors, and what a browser does if the store never loads.
+ * Credentials never go into a URL.
  *
  * Already-logged-in users are redirected upstream in
  * PageRouter::dispatch_hub_template().
@@ -94,20 +98,21 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url( null ); // Carries the vis
 		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo wp_interactivity_data_wp_context(
 			array(
-				'user'       => '',
-				'password'   => '',
-				'remember'   => false,
-				'submitting' => false,
-				'error'      => $login_error,
-				'restNonce'  => $rest_nonce,
-				'restUrl'    => $rest_root,
-				'redirectTo' => esc_url_raw( $redirect_to ),
-				'twofaStep'  => false,
-				'twofaToken' => '',
-				'twofaCode'  => '',
-				'twofaError' => '',
-				'emailHint'  => '',
-				'emailSent'  => false,
+				'user'           => '',
+				'password'       => '',
+				'remember'       => false,
+				'submitting'     => false,
+				'error'          => $login_error,
+				'restNonce'      => $rest_nonce,
+				'restUrl'        => $rest_root,
+				'redirectTo'     => esc_url_raw( $redirect_to ),
+				'twofaStep'      => false,
+				'twofaToken'     => '',
+				'twofaCode'      => '',
+				'twofaError'     => '',
+				'emailHint'      => '',
+				'emailSent'      => false,
+				'blockedMessage' => __( 'Your site\'s security settings blocked the community sign-in. Taking you to the standard sign-in.', 'buddynext' ),
 			)
 		);
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -125,8 +130,13 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url( null ); // Carries the vis
 					data-wp-text="state.error"></div>
 
 				<form class="bn-auth-form"
+					method="post"
+					action="<?php echo esc_url( site_url( 'wp-login.php', 'login_post' ) ); ?>"
 					novalidate
 					data-wp-on--submit="actions.submitLogin">
+					<?php if ( '' !== $redirect_to ) : ?>
+						<input type="hidden" name="redirect_to" value="<?php echo esc_url( $redirect_to ); ?>" />
+					<?php endif; ?>
 
 					<div class="bn-auth-field">
 						<label class="bn-auth-label" for="bn-login-user">
@@ -135,7 +145,7 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url( null ); // Carries the vis
 						<input class="bn-input"
 							type="text"
 							id="bn-login-user"
-							name="user"
+							name="log"
 							autocomplete="username"
 							required
 							data-wp-bind--disabled="state.submitting"
@@ -150,7 +160,7 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url( null ); // Carries the vis
 							<input class="bn-input bn-auth-pw__input"
 								type="password"
 								id="bn-login-password"
-								name="password"
+								name="pwd"
 								autocomplete="current-password"
 								required
 								data-wp-bind--disabled="state.submitting"
@@ -170,7 +180,8 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url( null ); // Carries the vis
 					<div class="bn-auth-field bn-auth-field--check">
 						<label class="bn-auth-check">
 							<input type="checkbox"
-								name="remember"
+								name="rememberme"
+								value="forever"
 								data-wp-bind--checked="context.remember"
 								data-wp-bind--disabled="state.submitting"
 								data-wp-on--change="actions.toggleRemember" />
@@ -241,6 +252,7 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url( null ); // Carries the vis
 					data-wp-text="state.twofaError"></div>
 
 				<form class="bn-auth-form"
+					method="post"
 					novalidate
 					data-wp-on--submit="actions.submitTwoFactor">
 

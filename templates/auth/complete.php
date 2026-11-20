@@ -91,15 +91,16 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 			// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 			echo wp_interactivity_data_wp_context(
 				array(
-					'mode'         => 'complete',
-					'pendingToken' => $bn_pending_token,
-					'email'        => (string) $bn_pending['email'],
-					'termsAgreed'  => false,
-					'submitting'   => false,
-					'error'        => '',
-					'fieldErrors'  => array(),
-					'restNonce'    => $rest_nonce,
-					'restUrl'      => $rest_root,
+					'mode'           => 'complete',
+					'pendingToken'   => $bn_pending_token,
+					'email'          => (string) $bn_pending['email'],
+					'termsAgreed'    => false,
+					'submitting'     => false,
+					'error'          => '',
+					'fieldErrors'    => array(),
+					'restNonce'      => $rest_nonce,
+					'restUrl'        => $rest_root,
+					'blockedMessage' => __( 'Your site\'s security settings blocked the community sign-up. Please contact the site owner.', 'buddynext' ),
 				)
 			);
 			// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -126,6 +127,7 @@ $signup_url = \BuddyNext\Core\PageRouter::signup_url();
 						data-wp-text="state.error"></div>
 
 					<form class="bn-auth-form"
+						method="post"
 						novalidate
 						data-wp-on--submit="actions.submitComplete">
 

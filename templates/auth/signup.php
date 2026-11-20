@@ -24,6 +24,16 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 // this on every auth screen).
 $login_url = \BuddyNext\Core\PageRouter::login_url();
 
+// WordPress's own sign-up form, offered only when a security plugin blocks the
+// community sign-up AND the owner keeps core registration open (otherwise
+// wp-login.php?action=register sends the visitor straight back here).
+$bn_core_signup_url = ( \BuddyNext\Auth\CoreRegistration::is_allowed() && get_option( 'users_can_register' ) )
+	? site_url( 'wp-login.php?action=register', 'login' )
+	: '';
+$bn_blocked_message = '' !== $bn_core_signup_url
+	? __( 'Your site\'s security settings blocked the community sign-up. You can use the standard sign-up form instead.', 'buddynext' )
+	: __( 'Your site\'s security settings blocked the community sign-up. Please contact the site owner.', 'buddynext' );
+
 /*
  * Terms links to an admin-chosen page (Settings → Registration → Legal Pages) —
  * never a guessed slug. Privacy reuses WordPress core's Privacy Policy page
@@ -251,6 +261,8 @@ if ( 'invite' === $bn_reg_mode ) {
 				'challengeEnabled' => (bool) $bn_challenge_on,
 				'challengeToken'   => (string) $bn_challenge['token'],
 				'challengeAnswer'  => '',
+				'blocked'          => false,
+				'blockedMessage'   => $bn_blocked_message,
 			)
 		);
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -290,6 +302,14 @@ if ( 'invite' === $bn_reg_mode ) {
 				<div class="bn-auth-field__msg" role="alert" aria-live="polite"
 					data-wp-bind--hidden="!state.error"
 					data-wp-text="state.error"></div>
+
+				<?php if ( '' !== $bn_core_signup_url ) : ?>
+					<p class="bn-auth-alt" hidden data-wp-bind--hidden="!context.blocked">
+						<a class="bn-auth-link" href="<?php echo esc_url( $bn_core_signup_url ); ?>">
+							<?php esc_html_e( 'Use the standard sign-up form', 'buddynext' ); ?>
+						</a>
+					</p>
+				<?php endif; ?>
 
 				<?php
 				/*
@@ -354,6 +374,7 @@ if ( 'invite' === $bn_reg_mode ) {
 				<?php endif; ?>
 
 				<form class="bn-auth-form"
+					method="post"
 					novalidate
 					data-wp-bind--hidden="state.pending"
 					data-wp-on--submit="actions.submitSignup">

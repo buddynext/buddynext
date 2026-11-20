@@ -453,6 +453,11 @@ class Plugin {
 		// both session-minting chains — see LoginGuard.
 		( new \BuddyNext\Auth\LoginGuard() )->register();
 
+		// Site Health: can a logged-out visitor reach the sign-in route, or does a
+		// security plugin or host rule block it (the login screens then fall back
+		// to the standard WordPress form).
+		\BuddyNext\Auth\AuthRestHealth::register();
+
 		// Site Health: warn when every visitor shows one proxy address (the
 		// sign-up and sign-in limits would then be shared site-wide).
 		\BuddyNext\Moderation\SafeguardService::register_site_health();

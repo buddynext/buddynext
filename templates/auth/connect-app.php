@@ -72,17 +72,18 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 			// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 			echo wp_interactivity_data_wp_context(
 				array(
-					'restUrl'     => $bn_rest_root,
-					'restNonce'   => $bn_rest_nonce,
-					'bridgeToken' => $bn_bridge_token,
-					'appName'     => $bn_app_name,
-					'appId'       => $bn_app_id,
-					'scheme'      => $bn_scheme,
-					'state'       => $bn_state,
-					'busy'        => false,
-					'connected'   => false,
-					'deepLink'    => '',
-					'error'       => '',
+					'restUrl'        => $bn_rest_root,
+					'restNonce'      => $bn_rest_nonce,
+					'bridgeToken'    => $bn_bridge_token,
+					'appName'        => $bn_app_name,
+					'appId'          => $bn_app_id,
+					'scheme'         => $bn_scheme,
+					'state'          => $bn_state,
+					'busy'           => false,
+					'connected'      => false,
+					'deepLink'       => '',
+					'error'          => '',
+					'blockedMessage' => __( 'Your site\'s security settings blocked the app connection. Please ask the site owner to allow the BuddyNext sign-in routes.', 'buddynext' ),
 				)
 			);
 			// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped

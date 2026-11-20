@@ -35,6 +35,8 @@ class AuthController {
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
+		add_filter( 'rest_request_after_callbacks', array( self::class, 'mark_own_refusal' ), 10, 3 );
+
 		register_rest_route(
 			'buddynext/v1',
 			'/auth/login',
@@ -441,6 +443,35 @@ class AuthController {
 				),
 			)
 		);
+	}
+
+	/**
+	 * Mark a 401/403 from a BuddyNext auth route as BuddyNext's own answer.
+	 *
+	 * Security plugins and host firewalls that block REST for logged-out visitors
+	 * answer before any route runs, often with a 401/403 that reads like a wrong
+	 * password. Core skips this filter for those refusals (rest_authentication_errors,
+	 * wp_die, a proxy's HTML page), so only a refusal from a route that actually ran
+	 * carries `data.buddynext`. The auth screens read a 401/403 without it as "blocked
+	 * by the site's security settings" and fall back to the WordPress form.
+	 *
+	 * @param mixed           $response Callback result.
+	 * @param mixed           $handler  Route handler (unused).
+	 * @param WP_REST_Request $request  Request.
+	 * @return mixed
+	 */
+	public static function mark_own_refusal( $response, $handler, $request ) {
+		unset( $handler );
+		if ( ! $response instanceof WP_Error || ! $request instanceof WP_REST_Request || ! str_starts_with( strtolower( $request->get_route() ), '/buddynext/v1/auth/' ) ) {
+			return $response;
+		}
+
+		$data = $response->get_error_data();
+		if ( is_array( $data ) && in_array( (int) ( $data['status'] ?? 0 ), array( 401, 403 ), true ) ) {
+			$response->add_data( array_merge( $data, array( 'buddynext' => true ) ) );
+		}
+
+		return $response;
 	}
 
 	/**

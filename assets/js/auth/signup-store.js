@@ -7,7 +7,7 @@
  * included) instead of a generic banner.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { refusedBeforeBuddyNext, restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -458,6 +458,15 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// and logged in. Only an explicit success:false on an OK response —
 				// or a non-OK status — is a failure.
 				if ( ! r.ok || ( data && ! data.success ) ) {
+					// Blocked by the site's security settings, not refused by BuddyNext:
+					// say so (the template offers WordPress's own sign-up when the owner
+					// allows it) instead of showing the blocker's text.
+					if ( refusedBeforeBuddyNext( r ) ) {
+						c.blocked = true;
+						c.error = c.blockedMessage || t( 'createFailed', 'Could not create your account.' );
+						c.submitting = false;
+						return;
+					}
 					const fields = data && data.data && data.data.fields ? data.data.fields : null;
 					if ( fields ) {
 						c.fieldErrors = fields;
@@ -530,6 +539,15 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// Same contract as submit(): an OK response with an unparseable body
 				// (proxy stripped the JSON content-type) is a success, not a failure.
 				if ( ! r.ok || ( data && ! data.success ) ) {
+					// Blocked by the site's security settings, not refused by BuddyNext:
+					// say so (the template offers WordPress's own sign-up when the owner
+					// allows it) instead of showing the blocker's text.
+					if ( refusedBeforeBuddyNext( r ) ) {
+						c.blocked = true;
+						c.error = c.blockedMessage || t( 'createFailed', 'Could not create your account.' );
+						c.submitting = false;
+						return;
+					}
 					const fields = data && data.data && data.data.fields ? data.data.fields : null;
 					if ( fields ) {
 						c.fieldErrors = fields;

@@ -8,7 +8,7 @@
  * browsers suppress scripted custom-scheme navigation.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { refusedBeforeBuddyNext, restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -72,6 +72,9 @@ const connectStore = store( 'buddynext/auth-connect-app', {
 					// "Open the app" link stays as the fallback for browsers
 					// that ignore scripted custom-scheme navigation.
 					window.location.href = data.deep_link;
+				} else if ( refusedBeforeBuddyNext( r ) && c.blockedMessage ) {
+					// The site's security settings refused the request before BuddyNext saw it.
+					c.error = c.blockedMessage;
 				} else if ( r.status === 410 ) {
 					c.error = ( data && data.message ) || t( 'expired', 'This connection screen has expired. Go back to the app and try connecting again.' );
 				} else if ( r.status === 429 ) {
