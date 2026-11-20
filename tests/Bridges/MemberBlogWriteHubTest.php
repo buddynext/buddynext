@@ -340,6 +340,24 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'title' => 'Edit post' ), $this->bridge->write_document_title_parts( array( 'title' => 'Edit post' ) ) );
 	}
 
+	public function test_member_blog_assets_pass_asset_isolation_on_the_write_hub_only(): void {
+		// A site with isolation on: every non-allowlisted style/script is dequeued on a BuddyNext route.
+		if ( ! defined( 'BUDDYPRESS_MEMBER_BLOG_PLUGIN_URL' ) ) {
+			define( 'BUDDYPRESS_MEMBER_BLOG_PLUGIN_URL', 'https://example.org/wp-content/plugins/buddypress-member-blog/' );
+		}
+		$base = array( 'https://example.org/wp-includes/' );
+
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$allowed = $this->bridge->allow_member_blog_assets( $base );
+		$this->assertContains( BUDDYPRESS_MEMBER_BLOG_PLUGIN_URL, $allowed, 'On the hub the form\'s own assets are let through.' );
+		$this->assertContains( 'https://example.org/wp-includes/', $allowed );
+
+		( new \ReflectionProperty( MemberBlogBridge::class, 'write_page' ) )->setValue( null, 0 );
+		$this->assertSame( $base, $this->bridge->allow_member_blog_assets( $base ), 'Anywhere else the allowlist is untouched.' );
+	}
+
 	public function test_a_non_writer_on_the_dashboard_sees_my_reading_not_write_a_post(): void {
 		// Someone Member Blog does not let write sees its reading view on the dashboard page.
 		wp_set_current_user( self::factory()->user->create() );

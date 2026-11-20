@@ -111,6 +111,9 @@ class MemberBlogBridge {
 		// Member Blog relabels the page "Edit post" at priority 99 while a post is being edited; inside the
 		// shell the page says what the heading says, so this runs after it.
 		add_filter( 'document_title_parts', array( $this, 'write_document_title_parts' ), 100 );
+		// BuddyNext's asset isolation (owner switch) strips every non-allowlisted style and script on a BuddyNext
+		// route: the write hub is one, so the form's own scripts and styles must be let through there.
+		add_filter( 'buddynext_allowed_assets', array( $this, 'allow_member_blog_assets' ) );
 		add_filter( 'buddynext_client_nav_deny', array( $this, 'deny_client_nav' ) );
 		add_filter( 'buddynext_client_nav_enabled', array( $this, 'no_client_nav_on_write_hub' ) );
 		// Member Blog is the article provider, registered from BuddyNext's side.
@@ -492,6 +495,32 @@ class MemberBlogBridge {
 			'order'  => 208,
 		);
 		return $items;
+	}
+
+	/**
+	 * Let Member Blog's own styles and scripts through BuddyNext's asset isolation on the write hub.
+	 *
+	 * Without this, a site with isolation switched on loses all of the form's styling and editor
+	 * ("Loading editor..." never finishes), because the hub is a BuddyNext route and Member Blog's
+	 * folders are not on the allowlist. Only while the hub is on the page, only Member Blog's own
+	 * (Free and Pro) folders.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $prefixes Allowed asset URL prefixes.
+	 * @return mixed
+	 */
+	public function allow_member_blog_assets( $prefixes ) {
+		if ( ! is_array( $prefixes ) || null === self::write_hub_page() ) {
+			return $prefixes;
+		}
+		if ( defined( 'BUDDYPRESS_MEMBER_BLOG_PLUGIN_URL' ) ) {
+			$prefixes[] = BUDDYPRESS_MEMBER_BLOG_PLUGIN_URL;
+		}
+		if ( defined( 'BuddyPress_Member_Blog_Pro_PLUGIN_FILE' ) ) {
+			$prefixes[] = plugin_dir_url( BuddyPress_Member_Blog_Pro_PLUGIN_FILE );
+		}
+		return $prefixes;
 	}
 
 	/**
