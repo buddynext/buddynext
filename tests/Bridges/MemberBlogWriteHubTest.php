@@ -598,17 +598,12 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertMatchesRegularExpression( '/class="bn-input bn-composer-article__title"[^>]*name="bn_title"/s', $html );
 	}
 
-	public function test_continue_writing_opens_the_draft_in_the_write_hub(): void {
-		$uid   = $this->writer();
-		$draft = self::factory()->post->create(
-			array(
-				'post_author' => $uid,
-				'post_status' => 'draft',
-			)
-		);
-		$this->assertSame(
-			add_query_arg( 'post_id', $draft, get_permalink( $this->post_page ) ),
-			ArticleProvider::composer_summary( $uid )['draft']['edit_url']
-		);
+	public function test_my_drafts_opens_the_dashboard_drafts_view_in_the_write_hub(): void {
+		// There is no draft card in the composer any more: an unfinished draft is one click away under My drafts.
+		$uid      = $this->writer();
+		$provider = ArticleProvider::for_user( $uid );
+
+		$this->assertSame( add_query_arg( 'tab', 'drafts', get_permalink( $this->dashboard_page ) ), $provider['drafts_url'] );
+		$this->assertArrayNotHasKey( 'draft', ArticleProvider::composer_summary( $uid ), 'The composer summary is counts only.' );
 	}
 }
