@@ -111,6 +111,70 @@ class MemberBlogBridge {
 		add_filter( 'buddynext_client_nav_enabled', array( $this, 'no_client_nav_on_write_hub' ) );
 		// Member Blog is the article provider, registered from BuddyNext's side.
 		add_filter( 'buddynext_article_provider', array( $this, 'register_article_provider' ), 10, 2 );
+		// A suspended or pending-approval member may not write, on Member Blog's own
+		// handlers too: its form submit, autosave, dashboard actions, /wp/v2/posts gate
+		// and Pro's scheduled publish all ask can_create() or can_edit(), and both
+		// answer through these filters. Late priority so nothing re-grants a hold.
+		add_filter( 'bpmb_can_create_post', array( $this, 'refuse_held_writer' ), 100, 2 );
+		add_filter( 'bpmb_can_edit_post', array( $this, 'refuse_held_editor' ), 100, 3 );
+	}
+
+	/**
+	 * Why this member may not write right now: 'suspended', 'pending' (sign-up
+	 * awaiting approval) or '' when nothing holds them.
+	 *
+	 * The one BuddyNext gate for every writing doorway (can_write(), so the
+	 * provider, rail entry, hub tabs, Articles tab links and composer Article tab)
+	 * and for Member Blog's own handlers through refuse_held_writer() and
+	 * refuse_held_editor(). Reads the same two holds the rest of BuddyNext reads
+	 * (ModerationService::is_suspended(), ApprovalGuard::is_pending()); site admins
+	 * are exempt, as in PermissionService::can().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $user_id Member.
+	 * @return string
+	 */
+	public static function write_hold( int $user_id ): string {
+		// Site admins (a WordPress administrator or the community 'admin' role) are never held: the
+		// same ability layer every other BuddyNext check uses, so no raw capability check here.
+		if ( $user_id <= 0 || buddynext_can( $user_id, 'buddynext-community/assign-roles' ) ) {
+			return '';
+		}
+		$moderation = buddynext_service( 'moderation' );
+		if ( is_object( $moderation ) && method_exists( $moderation, 'is_suspended' ) && $moderation->is_suspended( $user_id ) ) {
+			return 'suspended';
+		}
+		return ( new \BuddyNext\Auth\ApprovalGuard() )->is_pending( $user_id ) ? 'pending' : '';
+	}
+
+	/**
+	 * Member Blog's create gate (`bpmb_can_create_post`): refused while a hold applies.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param bool $can     Member Blog's answer so far.
+	 * @param int  $user_id Member.
+	 * @return bool
+	 */
+	public function refuse_held_writer( $can, $user_id ): bool {
+		return (bool) $can && '' === self::write_hold( (int) $user_id );
+	}
+
+	/**
+	 * Member Blog's edit gate (`bpmb_can_edit_post`): refused while a hold applies,
+	 * so a held member cannot save, publish or schedule an existing draft either.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param bool $can     Member Blog's answer so far.
+	 * @param int  $post_id Post.
+	 * @param int  $user_id Member.
+	 * @return bool
+	 */
+	public function refuse_held_editor( $can, $post_id, $user_id ): bool {
+		unset( $post_id );
+		return (bool) $can && '' === self::write_hold( (int) $user_id );
 	}
 
 	/**
@@ -377,7 +441,78 @@ class MemberBlogBridge {
 	 */
 	public function write_document_title( string $title, string $hub ): string {
 		$page = self::WRITE_HUB === $hub ? self::write_hub_page() : null;
-		return null !== $page && '' !== get_the_title( $page ) ? get_the_title( $page ) : $title;
+		if ( null === $page ) {
+			return $title;
+		}
+		// What the page says, not Member Blog's page names: the post page's heading,
+		// and the dashboard's tab.
+		return self::write_pages()['dashboard'] === $page->ID ? __( 'My articles', 'buddynext' ) : __( 'Write a post', 'buddynext' );
+	}
+
+	/**
+	 * The notice the write hub shows instead of Member Blog's page, or null to
+	 * render the page.
+	 *
+	 * A held member (write_hold()) is told why, and the form never renders. On the
+	 * post page, an edit link to a post that is missing or not the member's to
+	 * edit says so in the frame; Member Blog's form would otherwise redirect to
+	 * the member's profile with a message that page never shows.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array{icon:string,title:string,body:string,cta_url:string,cta_label:string}|null
+	 */
+	public static function write_hub_notice(): ?array {
+		$page = self::write_hub_page();
+		if ( null === $page ) {
+			return null;
+		}
+		$user_id = get_current_user_id();
+
+		switch ( self::write_hold( $user_id ) ) {
+			case 'suspended':
+				return array(
+					'icon'      => 'lock',
+					'title'     => __( 'Your account is suspended, so you cannot post right now.', 'buddynext' ),
+					'body'      => '',
+					'cta_url'   => \BuddyNext\Core\PageRouter::account_status_url(),
+					'cta_label' => __( 'Review your account status', 'buddynext' ),
+				);
+			case 'pending':
+				return array(
+					'icon'      => 'clock',
+					'title'     => __( 'Your account is awaiting administrator approval.', 'buddynext' ),
+					'body'      => '',
+					'cta_url'   => '',
+					'cta_label' => '',
+				);
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only lookup of the post being opened.
+		$post_id = isset( $_GET['post_id'] ) ? absint( wp_unslash( $_GET['post_id'] ) ) : 0;
+		if ( $post_id <= 0 || self::write_pages()['post'] !== $page->ID ) {
+			return null;
+		}
+		$post = get_post( $post_id );
+		// Member Blog's own edit rule when loaded (author, co-authors, moderators),
+		// else the author check its fallback uses.
+		$editable = $post instanceof \WP_Post && ( function_exists( 'bpmb_access' )
+			? (bool) bpmb_access()->can_edit( $post_id, $user_id )
+			: (int) $post->post_author === $user_id );
+		if ( $editable ) {
+			return null;
+		}
+
+		// A post that is not theirs reads the same as a missing one: the notice
+		// does not confirm that someone else's draft exists.
+		$provider = self::member_blog_writer( $user_id );
+		return array(
+			'icon'      => 'file-text',
+			'title'     => __( 'That post could not be found.', 'buddynext' ),
+			'body'      => '',
+			'cta_url'   => null !== $provider ? (string) $provider['my_articles_url'] : '',
+			'cta_label' => __( 'My articles', 'buddynext' ),
+		);
 	}
 
 	/**
@@ -542,7 +677,8 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * Whether Member Blog lets this member write (its role / member-type rules).
+	 * Whether Member Blog lets this member write (its role / member-type rules)
+	 * and no BuddyNext hold applies (see write_hold()).
 	 *
 	 * @since 1.2.8
 	 *
@@ -550,7 +686,11 @@ class MemberBlogBridge {
 	 * @return bool
 	 */
 	private static function can_write( int $user_id ): bool {
-		return function_exists( 'bp_member_blog_user_can_create' ) && (bool) bp_member_blog_user_can_create( $user_id );
+		// The hold is asked here as well as through Member Blog's filter: its
+		// fallback path (access control not loaded yet) skips the filter.
+		return '' === self::write_hold( $user_id )
+			&& function_exists( 'bp_member_blog_user_can_create' )
+			&& (bool) bp_member_blog_user_can_create( $user_id );
 	}
 
 	/**

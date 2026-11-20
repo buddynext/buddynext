@@ -39,7 +39,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- test-only stubs of a partner API, defined in the child process.
 			eval(
 				'function bp_member_blog_get_settings( $key = "", $default = 0 ) { return $GLOBALS["bn_test_mb_settings"][ $key ] ?? $default; }
-				function bp_member_blog_user_can_create( $user_id ) { return in_array( (int) $user_id, $GLOBALS["bn_test_mb_writers"] ?? array(), true ); }'
+				function bp_member_blog_user_can_create( $user_id ) { return (bool) apply_filters( "bpmb_can_create_post", in_array( (int) $user_id, $GLOBALS["bn_test_mb_writers"] ?? array(), true ), (int) $user_id ); }'
 			);
 		}
 
@@ -73,6 +73,27 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$uid                             = self::factory()->user->create();
 		$GLOBALS['bn_test_mb_writers'][] = $uid;
 		return $uid;
+	}
+
+	/**
+	 * A writer Member Blog allows, held by BuddyNext: 'suspended' or 'pending'.
+	 *
+	 * @param string $hold Hold.
+	 */
+	private function held_writer( string $hold ): int {
+		$uid = $this->writer();
+		if ( 'suspended' === $hold ) {
+			$this->assertIsInt( buddynext_service( 'moderation' )->suspend_user( $uid, 1, 'phpunit' ) );
+		} else {
+			update_user_meta( $uid, 'bn_pending_approval', '1' );
+		}
+		return $uid;
+	}
+
+	private function render_hub(): string {
+		ob_start();
+		buddynext_get_template( 'blog/write-hub.php' );
+		return (string) ob_get_clean();
 	}
 
 	private function visit( int $page_id ): void {
@@ -269,7 +290,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		update_option( 'buddynext_integration_blog_nav', '0' );
 
 		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
-		$this->assertSame( 'wordpress', ArticleProvider::for_user( $editor )['key'] );
+		$this->assertSame( 'WordPress', ArticleProvider::for_user( $editor )['key'] );
 		$this->assertNull( ArticleProvider::for_user( self::factory()->user->create() ), 'Subscriber with no provider.' );
 
 		wp_set_current_user( $editor );
@@ -337,5 +358,113 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertFalse( $this->bridge->no_client_nav_on_write_hub( true ) );
 		set_query_var( 'bn_hub', 'feed' );
 		$this->assertTrue( $this->bridge->no_client_nav_on_write_hub( true ) );
+	}
+
+	public function test_member_blog_filters_refuse_held_members_only(): void {
+		$writer = $this->writer();
+		$this->assertTrue( apply_filters( 'bpmb_can_create_post', true, $writer ) );
+		$this->assertTrue( apply_filters( 'bpmb_can_edit_post', true, 1, $writer ) );
+
+		foreach ( array( 'suspended', 'pending' ) as $hold ) {
+			$held = $this->held_writer( $hold );
+			$this->assertSame( $hold, MemberBlogBridge::write_hold( $held ) );
+			$this->assertFalse( apply_filters( 'bpmb_can_create_post', true, $held ), "Create, $hold." );
+			$this->assertFalse( apply_filters( 'bpmb_can_edit_post', true, 1, $held ), "Edit, $hold." );
+		}
+
+		// Never widens: a member Member Blog refused stays refused.
+		$this->assertFalse( apply_filters( 'bpmb_can_create_post', false, $writer ) );
+
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		update_user_meta( $admin, 'bn_pending_approval', '1' );
+		$this->assertSame( '', MemberBlogBridge::write_hold( $admin ), 'Site admins are exempt, as in PermissionService.' );
+	}
+
+	public function test_held_members_get_no_writing_doorway(): void {
+		foreach ( array( 'suspended', 'pending' ) as $hold ) {
+			$held     = $this->held_writer( $hold );
+			$provider = ArticleProvider::for_user( $held );
+			$this->assertSame( 'member-blog', $provider['key'] );
+			$this->assertFalse( $provider['can_write'], "Provider, $hold." );
+			$this->assertFalse( ArticleProvider::show_composer_tab( $held, array( 'surface' => 'feed' ) ), "Composer tab, $hold." );
+
+			wp_set_current_user( $held );
+			$this->assertSame( array(), $this->bridge->add_write_rail_item( array(), '' ), "Rail, $hold." );
+			$this->visit( $this->post_page );
+			$this->bridge->route_write_pages();
+			$this->assertSame( array(), MemberBlogBridge::write_hub_tabs(), "Tabs, $hold." );
+		}
+	}
+
+	public function test_a_held_member_sees_the_notice_not_the_form(): void {
+		$cases = array(
+			'suspended' => 'Your account is suspended, so you cannot post right now.',
+			'pending'   => 'Your account is awaiting administrator approval.',
+		);
+		foreach ( $cases as $hold => $text ) {
+			wp_set_current_user( $this->held_writer( $hold ) );
+			foreach ( array( $this->post_page, $this->dashboard_page ) as $page_id ) {
+				$this->visit( $page_id );
+				$this->bridge->route_write_pages();
+				$html = $this->render_hub();
+				$this->assertStringContainsString( 'Write a post</h1>', $html );
+				$this->assertStringContainsString( $text, $html, "$hold on page $page_id." );
+				$this->assertStringNotContainsString( 'bn-blog-write__tabs', $html );
+				$this->assertStringNotContainsString( '[bp-member-blog]', $html, 'The form is not rendered.' );
+				$this->assertStringNotContainsString( '[member-blog-dashboard]', $html );
+			}
+		}
+	}
+
+	public function test_a_writer_sees_the_page(): void {
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$this->assertNull( MemberBlogBridge::write_hub_notice() );
+		$this->assertStringContainsString( 'bn-blog-write__tabs', $this->render_hub() );
+	}
+
+	public function test_an_edit_link_to_a_missing_or_foreign_post_says_not_found(): void {
+		$writer = $this->writer();
+		wp_set_current_user( $writer );
+		$own     = self::factory()->post->create( array( 'post_author' => $writer ) );
+		$foreign = self::factory()->post->create( array( 'post_author' => self::factory()->user->create() ) );
+
+		foreach ( array(
+			$own     => false,
+			$foreign => true,
+			999999   => true,
+		) as $post_id => $not_found ) {
+			$_GET['post_id'] = (string) $post_id;
+			$this->go_to( add_query_arg( 'post_id', $post_id, get_permalink( $this->post_page ) ) );
+			set_query_var( 'bn_hub', '' );
+			$this->bridge->route_write_pages();
+			$notice = MemberBlogBridge::write_hub_notice();
+			if ( $not_found ) {
+				$this->assertSame( 'That post could not be found.', $notice['title'] ?? '', "Post $post_id." );
+				$this->assertSame( get_permalink( $this->dashboard_page ), $notice['cta_url'] );
+			} else {
+				$this->assertNull( $notice, 'The author edits their own post.' );
+			}
+		}
+
+		// The dashboard ignores post_id.
+		$this->go_to( add_query_arg( 'post_id', 999999, get_permalink( $this->dashboard_page ) ) );
+		set_query_var( 'bn_hub', '' );
+		$this->bridge->route_write_pages();
+		$this->assertNull( MemberBlogBridge::write_hub_notice() );
+		unset( $_GET['post_id'] );
+	}
+
+	public function test_the_browser_tab_matches_the_page(): void {
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( 'Write a post', $this->bridge->write_document_title( 'Add new post', MemberBlogBridge::WRITE_HUB ) );
+
+		$this->visit( $this->dashboard_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( 'My articles', $this->bridge->write_document_title( 'My Blog Dashboard', MemberBlogBridge::WRITE_HUB ) );
+		$this->assertSame( 'Feed', $this->bridge->write_document_title( 'Feed', 'feed' ) );
 	}
 }
