@@ -1,0 +1,293 @@
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing -- concise, self-describing test methods.
+/**
+ * Member Blog's Add new post and My Blog Dashboard pages render in the shell.
+ *
+ * Runs in separate processes: the bridge is live only while Member Blog's
+ * version constant and functions exist, and neither can be removed again for
+ * the rest of the suite.
+ *
+ * @package BuddyNext\Tests\Bridges
+ */
+
+declare( strict_types=1 );
+
+namespace BuddyNext\Tests\Bridges;
+
+use BuddyNext\Bridges\MemberBlogBridge;
+use BuddyNext\Core\HubRegistry;
+
+/**
+ * @covers \BuddyNext\Bridges\MemberBlogBridge
+ * @runTestsInSeparateProcesses
+ * @preserveGlobalState disabled
+ */
+class MemberBlogWriteHubTest extends \WP_UnitTestCase {
+
+	private MemberBlogBridge $bridge;
+	private int $post_page;
+	private int $dashboard_page;
+
+	public function set_up(): void {
+		parent::set_up();
+
+		if ( ! defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ) ) {
+			define( 'BUDDYPRESS_MEMBER_BLOG_VERSION', 'test' );
+		}
+		// Member Blog's two public functions the hub reads, stubbed (this process only).
+		if ( ! function_exists( 'bp_member_blog_get_settings' ) ) {
+			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- test-only stubs of a partner API, defined in the child process.
+			eval(
+				'function bp_member_blog_get_settings( $key = "", $default = 0 ) { return $GLOBALS["bn_test_mb_settings"][ $key ] ?? $default; }
+				function bp_member_blog_user_can_create( $user_id ) { return in_array( (int) $user_id, $GLOBALS["bn_test_mb_writers"] ?? array(), true ); }'
+			);
+		}
+
+		$this->set_permalink_structure( '/%postname%/' );
+
+		$this->post_page      = self::factory()->post->create(
+			array(
+				'post_type'    => 'page',
+				'post_title'   => 'Add new post',
+				'post_content' => '[bp-member-blog]',
+			)
+		);
+		$this->dashboard_page = self::factory()->post->create(
+			array(
+				'post_type'    => 'page',
+				'post_title'   => 'My Blog Dashboard',
+				'post_content' => '[member-blog-dashboard]',
+			)
+		);
+
+		$GLOBALS['bn_test_mb_settings'] = array(
+			'bp_post_page'      => $this->post_page,
+			'bp_dashboard_page' => $this->dashboard_page,
+		);
+		$GLOBALS['bn_test_mb_writers']  = array();
+
+		$this->bridge = new MemberBlogBridge();
+	}
+
+	private function writer(): int {
+		$uid                             = self::factory()->user->create();
+		$GLOBALS['bn_test_mb_writers'][] = $uid;
+		return $uid;
+	}
+
+	private function visit( int $page_id ): void {
+		$this->go_to( get_permalink( $page_id ) );
+		set_query_var( 'bn_hub', '' );
+	}
+
+	public function test_the_hub_is_registered_and_resolves_only_once_routed(): void {
+		$reg = new HubRegistry();
+		$this->bridge->register_write_hub( $reg );
+
+		$hub = $reg->get( MemberBlogBridge::WRITE_HUB );
+		$this->assertNotNull( $hub );
+		$this->assertFalse( $hub->backing_page );
+		$this->assertFalse( $hub->admin_managed );
+		$this->assertSame( '', $hub->default_slug, 'A slug would let the isolation mu-plugin strip Member Blog from its own URL.' );
+		$this->assertNull( ( $hub->resolve_template )( MemberBlogBridge::WRITE_HUB ), 'A bare ?bn_hub=blogwrite must not render the hub.' );
+
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( 'blog/write-hub.php', ( $hub->resolve_template )( MemberBlogBridge::WRITE_HUB ) );
+	}
+
+	public function test_both_mapped_pages_route_into_the_hub(): void {
+		wp_set_current_user( $this->writer() );
+
+		foreach ( array( $this->post_page, $this->dashboard_page ) as $page_id ) {
+			$this->visit( $page_id );
+			$this->bridge->route_write_pages();
+			$this->assertSame( MemberBlogBridge::WRITE_HUB, get_query_var( 'bn_hub' ) );
+			$this->assertSame( $page_id, MemberBlogBridge::write_hub_page()->ID );
+		}
+	}
+
+	public function test_member_blog_links_with_query_args_stay_in_the_hub(): void {
+		wp_set_current_user( $this->writer() );
+
+		// Shapes Member Blog itself links to: Edit (post_id), dashboard sub-tabs, row actions.
+		$cases = array(
+			array( $this->post_page, array( 'post_id' => 1 ) ),
+			array(
+				$this->post_page,
+				array(
+					'post_id' => 1,
+					'action'  => 'edit',
+				),
+			),
+			array( $this->dashboard_page, array( 'tab' => 'drafts' ) ),
+			array( $this->dashboard_page, array( 'tab' => 'analytics' ) ),
+		);
+		foreach ( $cases as $case ) {
+			$this->go_to( add_query_arg( $case[1], get_permalink( $case[0] ) ) );
+			set_query_var( 'bn_hub', '' );
+			$this->bridge->route_write_pages();
+			$this->assertSame( MemberBlogBridge::WRITE_HUB, get_query_var( 'bn_hub' ), 'Query args: ' . wp_json_encode( $case[1] ) );
+			$this->assertSame( $case[0], MemberBlogBridge::write_hub_page()->ID );
+		}
+	}
+
+	public function test_the_entry_reaches_the_mobile_more_sheet(): void {
+		// The More sheet (templates/partials/nav.php) lists ShellNavService::resolve(),
+		// which applies buddynext_rail_items: the same list the desktop rail renders.
+		// The plugin's own boot wires the bridge, so no filter is added here.
+		wp_set_current_user( $this->writer() );
+
+		$items = buddynext_service( 'shell_nav' )->resolve( get_current_user_id(), '' )['items'];
+		$write = array_values( array_filter( $items, static fn( array $i ): bool => 'write-post' === $i['key'] ) );
+		$this->assertCount( 1, $write );
+		$this->assertSame( 'you', $write[0]['group'] );
+		$this->assertSame( 'Write a post', $write[0]['label'] );
+	}
+
+	public function test_an_ordinary_page_is_left_alone(): void {
+		wp_set_current_user( $this->writer() );
+		$this->visit( self::factory()->post->create( array( 'post_type' => 'page' ) ) );
+		$this->bridge->route_write_pages();
+		$this->assertSame( '', get_query_var( 'bn_hub' ) );
+	}
+
+	public function test_the_nav_switch_off_keeps_the_theme_page(): void {
+		update_option( 'buddynext_integration_blog_nav', '0' );
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( '', get_query_var( 'bn_hub' ) );
+	}
+
+	public function test_the_opt_out_filter_keeps_the_theme_page(): void {
+		add_filter( 'buddynext_blog_write_in_shell', '__return_false' );
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( '', get_query_var( 'bn_hub' ) );
+	}
+
+	public function test_an_existing_hub_is_left_alone(): void {
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		set_query_var( 'bn_hub', 'feed' );
+		$this->bridge->route_write_pages();
+		$this->assertSame( 'feed', get_query_var( 'bn_hub' ) );
+	}
+
+	public function test_a_guest_is_sent_to_sign_in_and_back(): void {
+		wp_set_current_user( 0 );
+		$this->visit( $this->post_page );
+
+		$location = '';
+		add_filter(
+			'wp_redirect',
+			static function ( $to ) use ( &$location ) {
+				$location = (string) $to;
+				throw new \RuntimeException( 'redirected' );
+			}
+		);
+		try {
+			$this->bridge->route_write_pages();
+		} catch ( \RuntimeException $e ) {
+			unset( $e );
+		}
+
+		$this->assertNotSame( '', $location, 'A guest must be redirected.' );
+		$this->assertStringContainsString( 'redirect_to=', $location );
+		$this->assertStringContainsString( rawurlencode( (string) wp_parse_url( get_permalink( $this->post_page ), PHP_URL_PATH ) ), $location );
+		$this->assertSame( '', get_query_var( 'bn_hub' ) );
+	}
+
+	public function test_a_guest_on_an_edit_link_returns_to_that_post(): void {
+		wp_set_current_user( 0 );
+		$url = add_query_arg( 'post_id', 42, get_permalink( $this->post_page ) );
+		$this->go_to( $url );
+		set_query_var( 'bn_hub', '' );
+		$_GET['post_id'] = '42';
+
+		$location = '';
+		add_filter(
+			'wp_redirect',
+			static function ( $to ) use ( &$location ) {
+				$location = (string) $to;
+				throw new \RuntimeException( 'redirected' );
+			}
+		);
+		try {
+			$this->bridge->route_write_pages();
+		} catch ( \RuntimeException $e ) {
+			unset( $e );
+		}
+		unset( $_GET['post_id'] );
+
+		$this->assertStringContainsString( rawurlencode( $url ), $location, 'The return address keeps ?post_id=.' );
+	}
+
+	public function test_the_rail_item_shows_only_to_a_writer(): void {
+		$keys = fn(): array => wp_list_pluck( $this->bridge->add_write_rail_item( array(), MemberBlogBridge::WRITE_HUB ), 'key' );
+
+		wp_set_current_user( 0 );
+		$this->assertNotContains( 'write-post', $keys(), 'Guest.' );
+
+		wp_set_current_user( self::factory()->user->create() );
+		$this->assertNotContains( 'write-post', $keys(), 'Non-writer.' );
+
+		wp_set_current_user( $this->writer() );
+		$items = $this->bridge->add_write_rail_item( array(), MemberBlogBridge::WRITE_HUB );
+		$this->assertSame( 'write-post', $items[0]['key'] );
+		$this->assertSame( 'you', $items[0]['group'] );
+		$this->assertSame( 208, $items[0]['order'] );
+		$this->assertTrue( $items[0]['active'] );
+		$this->assertSame( get_permalink( $this->post_page ), $items[0]['url'] );
+
+		update_option( 'buddynext_integration_blog_nav', '0' );
+		$this->assertNotContains( 'write-post', $keys(), 'Nav switch off.' );
+	}
+
+	public function test_tabs_are_for_writers_only(): void {
+		wp_set_current_user( self::factory()->user->create() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( array(), MemberBlogBridge::write_hub_tabs() );
+
+		wp_set_current_user( $this->writer() );
+		$tabs = MemberBlogBridge::write_hub_tabs();
+		$this->assertSame( array( 'New post', 'My articles' ), wp_list_pluck( $tabs, 'label' ) );
+		$this->assertSame( array( true, false ), wp_list_pluck( $tabs, 'current' ) );
+	}
+
+	public function test_the_global_post_is_restored_after_enqueue(): void {
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+
+		$shell_post      = new \WP_Post(
+			(object) array(
+				'ID'        => 0,
+				'post_type' => 'page',
+			)
+		);
+		$GLOBALS['post'] = $shell_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+
+		$this->bridge->lend_page_to_enqueue();
+		$this->assertSame( $this->post_page, $GLOBALS['post']->ID, 'Member Blog sees its own page while it enqueues.' );
+
+		$this->bridge->restore_after_enqueue();
+		$this->assertSame( $shell_post, $GLOBALS['post'] );
+	}
+
+	public function test_write_pages_always_full_load(): void {
+		$deny = $this->bridge->deny_client_nav( array() );
+		$this->assertSame(
+			array( wp_parse_url( get_permalink( $this->post_page ), PHP_URL_PATH ), wp_parse_url( get_permalink( $this->dashboard_page ), PHP_URL_PATH ) ),
+			$deny['blog-write']
+		);
+
+		set_query_var( 'bn_hub', MemberBlogBridge::WRITE_HUB );
+		$this->assertFalse( $this->bridge->no_client_nav_on_write_hub( true ) );
+		set_query_var( 'bn_hub', 'feed' );
+		$this->assertTrue( $this->bridge->no_client_nav_on_write_hub( true ) );
+	}
+}

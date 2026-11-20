@@ -1184,3 +1184,49 @@ body.admin-bar .bn-app__rail {
 	pointer-events: none;
 	user-select: none;
 }
+
+/* ── Write hub: Member Blog's post + dashboard pages in the shell ─────────
+   BuddyNext styles only its frame (heading + tab strip). The form and the
+   dashboard below are Member Blog's own markup and CSS. */
+.bn-blog-write__head {
+	margin-block-end: var(--bn-s4);
+}
+.bn-blog-write__title {
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+}
+.bn-blog-write__sub {
+	margin: var(--bn-s1) 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+.bn-blog-write__tabs {
+	margin-block-end: var(--bn-s5);
+}
+/* Focus ring comes from the shared .bn-tab rule; only the hit area is raised. */
+.bn-blog-write__tabs .bn-tab {
+	min-block-size: 44px;
+}
+
+@media (max-width: 640px) {
+	.bn-blog-write__title {
+		font-size: var(--bn-text-xl);
+	}
+
+	/* Member Blog pins Save draft / Publish to the bottom of the screen under
+	   640px; the shell's fixed mobile tab bar (z-index 9500) sits there too and
+	   covered it. Lift the bar to sit flush above the tab bar, which already
+	   carries the safe-area inset, and give the page room to scroll clear of
+	   both. --bn-mobile-nav-h is the tab bar's measured height (shell/extras.js);
+	   the fallback is pre-hydration only. */
+	.bn-blog-write .bp-member-blog-form-actions.bpmb-composer__bar {
+		inset-block-end: var(--bn-mobile-nav-h, calc(60px + env(safe-area-inset-bottom, 0px)));
+		padding-block-end: var(--bn-s2);
+	}
+	.bn-blog-write__body:has(.bpmb-composer__bar) {
+		padding-block-end: var(--bn-s16);
+	}
+}

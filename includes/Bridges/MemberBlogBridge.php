@@ -38,6 +38,10 @@ defined( 'ABSPATH' ) || exit;
  * Reference, not embed (bridge contract rule 7): every row links OUT to the post and
  * the owner's controls link OUT to Member Blog's dashboard. BuddyNext renders no
  * editor and owns no authoring UI.
+ *
+ * Since 1.3.0 Member Blog's own Add new post and My Blog Dashboard pages are framed
+ * by the shell (the write hub below): same pages and URLs, Member Blog's own markup
+ * and assets, with BuddyNext's header, rail and two tabs around them.
  */
 class MemberBlogBridge {
 
@@ -49,6 +53,27 @@ class MemberBlogBridge {
 	 * two entries that can contradict each other.
 	 */
 	private const INTEGRATION = 'blog';
+
+	/**
+	 * Hub key (and bn_hub value) of the write hub that frames Member Blog's
+	 * Add new post and My Blog Dashboard pages in the shell. Letters only: the
+	 * bn_hub rewrite tag matches [a-z]+.
+	 */
+	public const WRITE_HUB = 'blogwrite';
+
+	/**
+	 * The Member Blog page this request renders in the write hub (0 = none).
+	 *
+	 * @var int
+	 */
+	private static int $write_page = 0;
+
+	/**
+	 * The global post held aside while Member Blog enqueues its assets.
+	 *
+	 * @var \WP_Post|null
+	 */
+	private static ?\WP_Post $held_post = null;
 
 	/**
 	 * Attach hooks. Called via the `buddynext_load_bridges` action (priority 25).
@@ -71,6 +96,273 @@ class MemberBlogBridge {
 				( new MemberBlogRestController() )->register_routes();
 			}
 		);
+
+		// Member Blog's Add new post and My Blog Dashboard pages render inside the
+		// shell: same pages, same URLs, Member Blog's own markup, BuddyNext's frame.
+		add_action( 'buddynext_register_hubs', array( $this, 'register_write_hub' ) );
+		// Priority 5: before the hub dispatch (10) reads bn_hub.
+		add_action( 'template_redirect', array( $this, 'route_write_pages' ), 5 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'lend_page_to_enqueue' ), 0 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'restore_after_enqueue' ), 9999 );
+		add_filter( 'buddynext_rail_items', array( $this, 'add_write_rail_item' ), 10, 2 );
+		add_filter( 'buddynext_document_title', array( $this, 'write_document_title' ), 10, 2 );
+		add_filter( 'buddynext_client_nav_deny', array( $this, 'deny_client_nav' ) );
+		add_filter( 'buddynext_client_nav_enabled', array( $this, 'no_client_nav_on_write_hub' ) );
+	}
+
+	/**
+	 * Register the write hub while Member Blog is active. No rewrite rule and no
+	 * backing page: it is reached only by route_write_pages() on Member Blog's
+	 * own two pages.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param \BuddyNext\Core\HubRegistry $reg Hub registry.
+	 * @return void
+	 */
+	public function register_write_hub( \BuddyNext\Core\HubRegistry $reg ): void {
+		// Fires at init:0, after every plugin loaded, so the presence check is final here.
+		if ( ! self::available() ) {
+			return;
+		}
+		$reg->register(
+			new \BuddyNext\Core\HubDescriptor(
+				self::WRITE_HUB,
+				'buddynext_slug_' . self::WRITE_HUB,
+				'', // No slug of its own, so the isolation mu-plugin never claims Member Blog's URLs.
+				'',
+				__( 'Write a post', 'buddynext' ),
+				'',
+				resolve_template: static fn( string $hub ): ?string => self::WRITE_HUB === $hub && self::$write_page > 0 ? 'blog/write-hub.php' : null,
+				backing_page: false,
+				configurable_slug: false,
+				admin_managed: false
+			)
+		);
+	}
+
+	/**
+	 * Member Blog's post page and dashboard page ids, from its settings.
+	 *
+	 * @return array{post:int,dashboard:int}
+	 */
+	private static function write_pages(): array {
+		if ( ! function_exists( 'bp_member_blog_get_settings' ) ) {
+			return array(
+				'post'      => 0,
+				'dashboard' => 0,
+			);
+		}
+		return array(
+			'post'      => (int) bp_member_blog_get_settings( 'bp_post_page', 0 ),
+			'dashboard' => (int) bp_member_blog_get_settings( 'bp_dashboard_page', 0 ),
+		);
+	}
+
+	/**
+	 * Point a request for Member Blog's post or dashboard page at the write hub.
+	 *
+	 * The old URLs keep working (no redirect); only the chrome changes. A guest
+	 * is sent to sign in and back, since both pages are for writing.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public function route_write_pages(): void {
+		if ( '' !== (string) get_query_var( 'bn_hub', '' ) || ! self::articles_tab_available() ) {
+			return;
+		}
+
+		$page_id = 0;
+		foreach ( self::write_pages() as $candidate ) {
+			if ( $candidate > 0 && is_page( $candidate ) ) {
+				$page_id = $candidate;
+				break;
+			}
+		}
+		if ( $page_id <= 0 ) {
+			return;
+		}
+
+		/**
+		 * Filters whether Member Blog's Add new post and My Blog Dashboard pages
+		 * render inside the BuddyNext shell.
+		 *
+		 * Return false to keep the theme's own page template for them. Returning
+		 * false for guests only (`is_user_logged_in() ? $in_shell : false`) shows
+		 * Member Blog's own sign-in state instead of sending them to sign in.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param bool $in_shell Default true.
+		 * @param int  $page_id  The Member Blog page being viewed.
+		 */
+		if ( ! (bool) apply_filters( 'buddynext_blog_write_in_shell', true, $page_id ) ) {
+			return;
+		}
+
+		if ( ! is_user_logged_in() ) {
+			// Back to this page with its query args: an emailed edit link carries ?post_id=.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only return address, sanitised and encoded.
+			$args = rawurlencode_deep( map_deep( wp_unslash( $_GET ), 'sanitize_text_field' ) );
+			wp_safe_redirect( \BuddyNext\Core\PageRouter::login_url( add_query_arg( $args, (string) get_permalink( $page_id ) ) ) );
+			exit;
+		}
+
+		self::$write_page = $page_id;
+		set_query_var( 'bn_hub', self::WRITE_HUB );
+	}
+
+	/**
+	 * The Member Blog page the write hub is rendering, or null.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return \WP_Post|null
+	 */
+	public static function write_hub_page(): ?\WP_Post {
+		$post = self::$write_page > 0 ? get_post( self::$write_page ) : null;
+		return $post instanceof \WP_Post ? $post : null;
+	}
+
+	/**
+	 * The write hub's two tabs (New post, My articles), or none for a member
+	 * Member Blog does not let write: they see its own "not available" notice.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array<int,array{label:string,url:string,current:bool}>
+	 */
+	public static function write_hub_tabs(): array {
+		if ( ! self::can_write( get_current_user_id() ) ) {
+			return array();
+		}
+
+		$labels = array(
+			'post'      => __( 'New post', 'buddynext' ),
+			'dashboard' => __( 'My articles', 'buddynext' ),
+		);
+		$tabs   = array();
+		foreach ( self::write_pages() as $key => $page_id ) {
+			$url = $page_id > 0 ? (string) get_permalink( $page_id ) : '';
+			if ( '' !== $url ) {
+				$tabs[] = array(
+					'label'   => $labels[ $key ],
+					'url'     => $url,
+					'current' => $page_id === self::$write_page,
+				);
+			}
+		}
+		return $tabs;
+	}
+
+	/**
+	 * Lend Member Blog the real page as the global post while scripts enqueue.
+	 *
+	 * Member Blog decides what to load from is_page() and the global post's
+	 * content; inside the hub the global post is the shell's virtual one, so it
+	 * would load nothing. Restored by restore_after_enqueue().
+	 *
+	 * @return void
+	 */
+	public function lend_page_to_enqueue(): void {
+		$page = self::write_hub_page();
+		if ( null === $page || self::WRITE_HUB !== (string) get_query_var( 'bn_hub', '' ) ) {
+			return;
+		}
+		self::$held_post = $GLOBALS['post'] ?? null;
+		$GLOBALS['post'] = $page; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- lent for the span of wp_enqueue_scripts, restored at 9999.
+	}
+
+	/**
+	 * Put the shell's global post back after Member Blog enqueued.
+	 *
+	 * @return void
+	 */
+	public function restore_after_enqueue(): void {
+		if ( null === self::$held_post ) {
+			return;
+		}
+		$GLOBALS['post'] = self::$held_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- restoring the shell's own post.
+		self::$held_post = null;
+	}
+
+	/**
+	 * Add "Write a post" to the rail's You group for a member who can write.
+	 *
+	 * @param array<int,array<string,mixed>> $items Rail items.
+	 * @param string                         $hub   Current hub.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function add_write_rail_item( array $items, string $hub = '' ): array {
+		$uid = get_current_user_id();
+		if ( $uid <= 0 || ! self::articles_tab_available() || ! self::can_write( $uid ) ) {
+			return $items;
+		}
+		$pages = self::write_pages();
+		$url   = $pages['post'] > 0 ? (string) get_permalink( $pages['post'] ) : '';
+		if ( '' === $url ) {
+			return $items;
+		}
+
+		$items[] = array(
+			'key'    => 'write-post',
+			'label'  => __( 'Write a post', 'buddynext' ),
+			'url'    => $url,
+			'icon'   => 'edit',
+			'show'   => true,
+			'active' => self::WRITE_HUB === $hub,
+			'group'  => 'you',
+			// After Events (207), before Edit Profile (210).
+			'order'  => 208,
+		);
+		return $items;
+	}
+
+	/**
+	 * Name the browser tab after the Member Blog page, not the hub.
+	 *
+	 * @param string $title Title the shell would use.
+	 * @param string $hub   Hub key.
+	 * @return string
+	 */
+	public function write_document_title( string $title, string $hub ): string {
+		$page = self::WRITE_HUB === $hub ? self::write_hub_page() : null;
+		return null !== $page && '' !== get_the_title( $page ) ? get_the_title( $page ) : $title;
+	}
+
+	/**
+	 * Links to the write pages full-load: Member Blog's editor scripts cannot
+	 * survive a client-side region swap.
+	 *
+	 * @param array<string,string|string[]> $deny Deny-list keyed by surface.
+	 * @return array<string,string|string[]>
+	 */
+	public function deny_client_nav( array $deny ): array {
+		$paths = array();
+		foreach ( self::write_pages() as $page_id ) {
+			$path = $page_id > 0 ? (string) wp_parse_url( (string) get_permalink( $page_id ), PHP_URL_PATH ) : '';
+			if ( '' !== $path && '/' !== $path ) {
+				$paths[] = $path;
+			}
+		}
+		if ( array() !== $paths ) {
+			$deny['blog-write'] = $paths;
+		}
+		return $deny;
+	}
+
+	/**
+	 * No client-side navigation away from a write page either: a swap would keep
+	 * Member Blog's editor scripts running on a page without the editor and skip
+	 * its unsaved-changes prompt.
+	 *
+	 * @param bool $enabled Whether client-nav is on.
+	 * @return bool
+	 */
+	public function no_client_nav_on_write_hub( $enabled ): bool {
+		return (bool) $enabled && self::WRITE_HUB !== (string) get_query_var( 'bn_hub', '' );
 	}
 
 	/**
@@ -150,7 +442,8 @@ class MemberBlogBridge {
 				// none consumed here. Tested against 4.3.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
 				// 4.5.1 (2026-11-04): get_dashboard_url and bp_member_blog_get_settings unchanged from 4.5.0.
 				// 4.5.2 (2026-11-11, 1.2.9 release site): every hook and API above checked at the tag; 4.5.2 changed only CSS, POT and Pro notices.
-				'tested_version' => self::available() ? '4.5.2' : ( $existing['tested_version'] ?? null ),
+				// 4.5.3 (2026-11-20): the write hub also reads bp_post_page / bp_dashboard_page and bp_member_blog_user_can_create; all unchanged.
+				'tested_version' => self::available() ? '4.5.3' : ( $existing['tested_version'] ?? null ),
 			)
 		);
 

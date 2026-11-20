@@ -116,7 +116,7 @@ Current declared values (update the row when you re-verify a bridge against a ne
 | `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.8.0 |
 | `jetonomy` | `JETONOMY_VERSION` | (none) | 2.0.1 |
 | `listora` | `WB_LISTORA_VERSION` | (none) | 1.9.0 |
-| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.3.0 |
+| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.5.3 |
 
 ## Product icons
 
@@ -339,6 +339,8 @@ Surfaces a member's published WordPress posts as an **Articles** profile tab. Un
 - **Registry entry:** merges the `nav` aspect onto the SAME `blog` integration key `BlogPostListener` already registers for `feed` (`register_integration()` on `buddynext_integrations`, merge not replace, so neither side can silently turn the other off). Reports `version` / `tested_version` (`4.1.0`) only once Member Blog is actually present; while the plugin is absent, site tracking's own `null` version is left untouched.
 - **Surfaces:** an "Articles" profile tab (priority 65, after Discussions) listing the member's published posts with pagination - the same list for every viewer, owner included; drafts are managed in the Member Blog dashboard. `articles_data()` / `MemberBlogRestController` expose the same list as JSON for the app.
 - **Dashboard link:** `dashboard_url()` prefers Member Blog's own `Member_Blog_Compat::get_dashboard_url()` when it happens to be loaded, falls back to the configured dashboard page option, then to wp-admin for a member who can reach it, and returns `''` (no link rendered) rather than a URL that 404s or bounces off a login wall.
+- **Write pages in the shell (1.3.0):** Member Blog's Add new post page (`bp_post_page`) and My Blog Dashboard page (`bp_dashboard_page`) render inside the BuddyNext shell through the `blogwrite` hub (no rewrite rule, no backing page). Same pages, same URLs, no redirect; the page content is Member Blog's own form or dashboard. A heading and two tabs (New post, My articles) frame it, and members Member Blog lets write get a "Write a post" rail item in the You group. A member who cannot write sees no tabs and no rail item, and the page shows Member Blog's own notice. A guest is sent to the BuddyNext sign-in and back. Both pages follow the `blog` integration's `nav` switch and the same private-community gate as every other hub (no article-specific rule), and always full-load (never a client-side swap).
+- **`buddynext_blog_write_in_shell`** (filter, `bool $in_shell`, `int $page_id`, since 1.3.0): return `false` to keep the theme's own page template for these two pages. Return `false` for guests only (`is_user_logged_in() ? $in_shell : false`) to show Member Blog's own sign-in state instead of the redirect to sign-in.
 
 ## WP Career Board bridge (registered in Pro)
 
