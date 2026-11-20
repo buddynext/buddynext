@@ -3657,6 +3657,18 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	box-shadow: var(--bn-shadow-xs);
 	transition: transform var(--bn-dur) var(--bn-ease);
 }
+/* Touch target: the track stays its drawn size, an invisible layer around it reaches
+   44px (WCAG 2.5.8 / Apple HIG) whatever the size variant. Centered, so it is the same
+   under RTL. */
+.bn-toggle::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: max( 100%, 44px );
+	height: max( 100%, 44px );
+	transform: translate( -50%, -50% );
+}
 .bn-toggle[aria-checked="true"] {
 	background: var(--bn-accent);
 }
