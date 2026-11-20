@@ -154,6 +154,10 @@ class BridgeCardFactsTest extends WP_UnitTestCase {
 		$this->assertSame( 0, IntegrationActivity::card_space( 0 ) );
 		$this->assertSame( 0, IntegrationActivity::card_space( 999999 ), 'A Space that does not exist.' );
 
+		$other = $make( 'open' );
+		$this->assertSame( $other, IntegrationActivity::card_space( array( $make( 'private' ), $other, $open ) ), 'Several Spaces: the first open one wins, in the order given.' );
+		$this->assertSame( 0, IntegrationActivity::card_space( array( $make( 'secret' ), 0 ) ), 'No open Space in the list: site-wide.' );
+
 		$never = static fn(): int => 0;
 		add_filter( 'buddynext_partner_card_space', $never );
 		$this->assertSame( 0, IntegrationActivity::card_space( $open ), 'A site can keep every card site-wide.' );

@@ -3556,7 +3556,49 @@ class PostService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], (array) $rows ) ) );
+		return $this->move_rows_to_space( (array) $rows, $space_id );
+	}
+
+	/**
+	 * Put every card of a type that points at one link into another space.
+	 *
+	 * For cards a partner identifies by URL only (a Listora listing). Same rules as move_link_meta_space().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $type     Post type marker (e.g. 'listing').
+	 * @param string $link_url The card's link.
+	 * @param int    $space_id Target BuddyNext space id, or 0 for none.
+	 * @return int Cards moved.
+	 */
+	public function move_link_url_space( string $type, string $link_url, int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s AND COALESCE( space_id, 0 ) <> %d",
+				$type,
+				$link_url,
+				$space_id
+			),
+			ARRAY_A
+		);
+
+		return $this->move_rows_to_space( (array) $rows, $space_id );
+	}
+
+	/**
+	 * Move the given card rows (id, space_id) into a space and tell the old and new feeds.
+	 *
+	 * @param array<int,array<string,mixed>> $rows     Rows with id and space_id.
+	 * @param int                            $space_id Target space id, or 0 for none.
+	 * @return int Cards moved.
+	 */
+	private function move_rows_to_space( array $rows, int $space_id ): int {
+		global $wpdb;
+
+		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], $rows ) ) );
 		if ( empty( $ids ) ) {
 			return 0;
 		}
@@ -3573,7 +3615,7 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$spaces = $space_id > 0 ? array( $space_id => true ) : array();
-		foreach ( (array) $rows as $row ) {
+		foreach ( $rows as $row ) {
 			wp_cache_delete( 'post_' . (int) $row['id'], self::CACHE_GROUP );
 			if ( ! empty( $row['space_id'] ) ) {
 				$spaces[ (int) $row['space_id'] ] = true;
@@ -3585,6 +3627,44 @@ class PostService {
 		}
 
 		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
+	 * The cards of one type in a space, as link and link_meta (bounded, newest first).
+	 *
+	 * Lets a bridge re-place its partner items' cards when the Space they sit in changes type or is
+	 * deleted. One indexed read (space_type_feed).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $space_id Space id.
+	 * @param string $type     Card type (e.g. 'event').
+	 * @param int    $limit    Most rows to return.
+	 * @return array<int,array{link_url:string,link_meta:array<string,mixed>}>
+	 */
+	public function cards_in_space( int $space_id, string $type, int $limit = 500 ): array {
+		global $wpdb;
+
+		if ( $space_id <= 0 || '' === $type ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare( "SELECT link_url, link_meta FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND type = %s ORDER BY id DESC LIMIT %d", $space_id, $type, max( 1, $limit ) ),
+			ARRAY_A
+		);
+
+		return array_map(
+			static function ( $row ): array {
+				$meta = json_decode( (string) ( $row['link_meta'] ?? '' ), true );
+				return array(
+					'link_url'  => (string) ( $row['link_url'] ?? '' ),
+					'link_meta' => is_array( $meta ) ? $meta : array(),
+				);
+			},
+			$rows
+		);
 	}
 
 	/**

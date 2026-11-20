@@ -589,6 +589,38 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Put a partner item's card(s) into another Space, found by the link the card points at.
+	 *
+	 * For items a partner identifies by URL only (a Listora listing); see set_space_by_meta() for the id form.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $type     Card post type (e.g. 'listing').
+	 * @param string $link_url The card's link.
+	 * @param int    $space_id Target Space id, or 0 for site-wide.
+	 * @return int Cards moved.
+	 */
+	public static function set_space_by_link( string $type, string $link_url, int $space_id ): int {
+		if ( '' === $type || '' === $link_url || $space_id < 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->move_link_url_space( $type, $link_url, $space_id );
+	}
+
+	/**
+	 * The cards of a type sitting in a Space (link and link_meta), for re-placing them.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $space_id Space id.
+	 * @param string $type     Card post type.
+	 * @return array<int,array{link_url:string,link_meta:array<string,mixed>}>
+	 */
+	public static function cards_in_space( int $space_id, string $type ): array {
+		return ( new PostService() )->cards_in_space( $space_id, $type );
+	}
+
+	/**
 	 * Every typed integration card, keyed by post type: the source label and icon
 	 * the feed card and the Explore card both show. One list, so a bridge's card
 	 * reads the same on the feed and on Explore, and Explore can never fall back
@@ -810,14 +842,24 @@ class IntegrationActivity {
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param int $space_id The Space the item was made for (0 = none).
-	 * @return int The same id when that Space is open, else 0.
+	 * An item tied to several Spaces gets one card: pass the Space ids in order of preference (the
+	 * item's own Space first, then the Spaces it was linked to, earliest first) and the first OPEN
+	 * one wins.
+	 *
+	 * @param int|int[] $space_id The Space the item was made for (0 = none), or several in order.
+	 * @return int The first open Space id, else 0.
 	 */
-	public static function card_space( int $space_id ): int {
+	public static function card_space( $space_id ): int {
 		$card_space = 0;
-		if ( $space_id > 0 && function_exists( 'buddynext_service' ) ) {
-			$space      = buddynext_service( 'spaces' )->get( $space_id );
-			$card_space = ( null !== $space && \BuddyNext\Spaces\SpaceService::TYPE_OPEN === (string) ( $space['type'] ?? '' ) ) ? $space_id : 0;
+		$space_ids  = array_values( array_filter( array_map( 'intval', (array) $space_id ) ) );
+		if ( array() !== $space_ids && function_exists( 'buddynext_service' ) ) {
+			foreach ( $space_ids as $id ) {
+				$space = buddynext_service( 'spaces' )->get( $id );
+				if ( null !== $space && \BuddyNext\Spaces\SpaceService::TYPE_OPEN === (string) ( $space['type'] ?? '' ) ) {
+					$card_space = $id;
+					break;
+				}
+			}
 		}
 
 		/**
@@ -827,8 +869,8 @@ class IntegrationActivity {
 		 *
 		 * @since 1.3.0
 		 *
-		 * @param int $card_space The Space the card goes in (0 = site-wide).
-		 * @param int $space_id   The Space the item was made for.
+		 * @param int       $card_space The Space the card goes in (0 = site-wide).
+		 * @param int|int[] $space_id   The Space(s) the item belongs to, in order of preference.
 		 */
 		return max( 0, (int) apply_filters( 'buddynext_partner_card_space', $card_space, $space_id ) );
 	}
