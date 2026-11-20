@@ -123,6 +123,15 @@ class GamificationBridge {
 		// feed. Unshare WITHDRAWS the card reversibly (draft), so a re-share brings the
 		// same card — id, date, reactions, comments — back rather than minting a new one.
 		add_action( 'wb_gam_badge_shared', array( $this, 'on_badge_shared_activity' ), 10, 2 );
+		// Badge cards from before the facts line get one, from the member's current totals.
+		add_filter(
+			'buddynext_card_facts_backfill',
+			function ( $builders ) {
+				$builders          = is_array( $builders ) ? $builders : array();
+				$builders['badge'] = fn( array $card ): array => $this->badge_facts( (int) $card['user_id'] );
+				return $builders;
+			}
+		);
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );

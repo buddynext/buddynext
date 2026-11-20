@@ -1200,15 +1200,30 @@
    whatever its shape. Legacy markup that does not carry --grid keeps the flex rules above. */
 .bn-post-card__bridge-card--grid {
 	display: grid;
-	grid-template-columns: auto minmax(0, 1fr);
-	grid-template-areas: "icon head" ". text";
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-areas: "head" "text";
 	column-gap: var(--bn-s3);
 	row-gap: var(--bn-s2);
 	align-items: start;
 }
 
-.bn-post-card__bridge-card--grid > .bn-post-card__bridge-icon { grid-area: icon; }
 .bn-post-card__bridge-card--grid > .bn-post-card__bridge-content { grid-area: head; min-inline-size: 0; }
+
+/* The type icon is part of the label row, so the title, facts and description keep the full width. */
+.bn-post-card__bridge-kind {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-post-card__bridge-card--grid.has-cover .bn-post-card__bridge-icon {
+	display: none;
+}
+
+.bn-post-card__bridge-kind .bn-post-card__bridge-icon svg {
+	inline-size: 14px;
+	block-size: 14px;
+}
 .bn-post-card__bridge-card--grid > .bn-post-card__bridge-text { grid-area: text; margin: 0; }
 
 .bn-post-card__bridge-card--grid.has-cover {

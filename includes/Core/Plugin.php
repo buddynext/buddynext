@@ -577,6 +577,7 @@ class Plugin {
 		// WordPress community expects. Gated at fire time on the 'blog'
 		// integration toggle, so registering the listener costs nothing.
 		( new \BuddyNext\Feed\BlogPostListener() )->register();
+		( new \BuddyNext\Feed\CardFactsBackfill() )->register();
 
 		// One article, one conversation: comments left on the post and on its
 		// feed card mirror each other, so members are not split into two

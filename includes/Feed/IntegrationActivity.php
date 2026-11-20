@@ -777,11 +777,13 @@ class IntegrationActivity {
 			$html .= '</a>';
 		}
 
-		$html .= '<span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( $icon ) . '</span>';
+		// The type icon sits in front of the label, so the text has the card's full width.
 		$html .= '<div class="bn-post-card__bridge-content">';
+		$html .= '<span class="bn-post-card__bridge-kind"><span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( $icon ) . '</span>';
 		if ( '' !== $label ) {
 			$html .= '<span class="bn-post-card__bridge-source">' . esc_html( $label ) . '</span>';
 		}
+		$html .= '</span>';
 		$html .= '<a class="bn-post-card__bridge-title" href="' . esc_url( $url ) . '">' . esc_html( $title ) . '</a>';
 		if ( array() !== $facts ) {
 			$html .= '<ul class="bn-post-card__bridge-facts">';

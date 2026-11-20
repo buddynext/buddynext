@@ -835,7 +835,23 @@ class WPMediaVerseBridge {
 
 		$args = is_array( $args ) ? $args : array();
 
-		return IntegrationActivity::render_bridge_card( $this->hydrate_media_preview( $args ) );
+		$args = $this->hydrate_media_preview( $args );
+
+		// "Video", "Audio" or "Photo" rather than a bare "Media", read for this card's own item.
+		$label = '';
+		$repo  = MediaClient::repo();
+		$id    = (int) ( $args['link_preview']['media_id'] ?? 0 );
+		if ( $id > 0 && is_object( $repo ) && method_exists( $repo, 'get' ) ) {
+			$kinds = array(
+				'video' => __( 'Video', 'buddynext' ),
+				'audio' => __( 'Audio', 'buddynext' ),
+				'image' => __( 'Photo', 'buddynext' ),
+				'photo' => __( 'Photo', 'buddynext' ),
+			);
+			$label = $kinds[ strtolower( (string) $repo->get( $id, 'type' ) ) ] ?? '';
+		}
+
+		return IntegrationActivity::render_bridge_card( $args, '', $label );
 	}
 
 	/**
