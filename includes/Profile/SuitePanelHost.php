@@ -176,6 +176,12 @@ class SuitePanelHost {
 				'owner_empty'   => $owner_empty,
 				'items'         => $items,
 			);
+			// Optional grouped view: the panel's items shown as titled sections (e.g.
+			// jobs by company). Shape on render_groups(). Kept only when supplied, so
+			// every other panel's shape is unchanged.
+			if ( isset( $panel['sections'] ) && is_array( $panel['sections'] ) ) {
+				$panels[ array_key_last( $panels ) ]['sections'] = $panel['sections'];
+			}
 		}
 
 		// Sort by priority, then key — a stable, deterministic order even if two
@@ -458,7 +464,9 @@ class SuitePanelHost {
 			echo '</div>';
 		}
 
-		if ( ! empty( $panel['items'] ) ) {
+		if ( ! empty( $panel['items'] ) && isset( $panel['sections'] ) && is_array( $panel['sections'] ) ) {
+			$this->render_groups( (string) $panel['key'], $panel['sections'] );
+		} elseif ( ! empty( $panel['items'] ) ) {
 			echo '<ul class="bn-suite-panel__items" role="list">';
 			foreach ( $panel['items'] as $item ) {
 				if ( is_array( $item ) && ! empty( $item['title'] ) ) {
@@ -472,6 +480,127 @@ class SuitePanelHost {
 	}
 
 	/**
+	 * Render a panel's grouped view: one titled section per group (e.g. per
+	 * company), the first `shown` open and the rest inside a native disclosure,
+	 * so every group is in the server HTML and the reveal needs no script.
+	 *
+	 * `$sections` keys: `groups` (list of { `name`, `url` (group page, '' for
+	 * none), `logo` (image URL, '' for an initials tile), `summary` (e.g. "6 open
+	 * jobs"), `items` (list of { `title`, `url`, `meta`, `meta_short` (phone
+	 * meta), `badge` (desktop pill) }) }), `shown` (groups before the reveal),
+	 * `more_label` (the reveal control's text), `link_label` /
+	 * `link_label_short` (each group's link text, desktop / phone) and `empty`
+	 * (shown when there is no group).
+	 *
+	 * @param string              $key      Panel key, for unique heading ids.
+	 * @param array<string,mixed> $sections Grouped view.
+	 * @return void
+	 */
+	private function render_groups( string $key, array $sections ): void {
+		$groups = isset( $sections['groups'] ) && is_array( $sections['groups'] ) ? array_values( array_filter( $sections['groups'], 'is_array' ) ) : array();
+		if ( empty( $groups ) ) {
+			echo '<p class="bn-suite-groups__empty">' . esc_html( (string) ( $sections['empty'] ?? '' ) ) . '</p>';
+			return;
+		}
+		$shown = max( 1, (int) ( $sections['shown'] ?? count( $groups ) ) );
+
+		echo '<div class="bn-suite-groups">';
+		foreach ( array_slice( $groups, 0, $shown ) as $i => $group ) {
+			$this->render_group( $key . '-' . $i, $group, $sections );
+		}
+		$extra = array_slice( $groups, $shown );
+		if ( ! empty( $extra ) ) {
+			// <details>: keyboard operable and announced expanded/collapsed by the
+			// browser itself; the hidden sections stay in the HTML for crawlers.
+			echo '<details class="bn-suite-groups__more">';
+			echo '<summary class="bn-suite-groups__toggle">'
+				. '<span class="bn-suite-groups__toggle-more">' . esc_html( (string) ( $sections['more_label'] ?? '' ) ) . '</span>'
+				. '<span class="bn-suite-groups__toggle-less">' . esc_html__( 'Show fewer', 'buddynext' ) . '</span>'
+				. '</summary>';
+			echo '<div class="bn-suite-groups__extra">';
+			foreach ( $extra as $i => $group ) {
+				$this->render_group( $key . '-' . ( $shown + $i ), $group, $sections );
+			}
+			echo '</div></details>';
+		}
+		echo '</div>';
+	}
+
+	/**
+	 * Render one group of a grouped view (see render_groups()).
+	 *
+	 * @param string              $slot     Unique suffix for the heading id.
+	 * @param array<string,mixed> $group    Group.
+	 * @param array<string,mixed> $sections Grouped view, for the shared labels.
+	 * @return void
+	 */
+	private function render_group( string $slot, array $group, array $sections ): void {
+		$name     = (string) ( $group['name'] ?? '' );
+		$url      = (string) ( $group['url'] ?? '' );
+		$logo     = (string) ( $group['logo'] ?? '' );
+		$heading  = 'bn-suite-group-' . sanitize_html_class( $slot );
+		$items    = isset( $group['items'] ) && is_array( $group['items'] ) ? $group['items'] : array();
+		$label    = (string) ( $sections['link_label'] ?? '' );
+		$short    = (string) ( $sections['link_label_short'] ?? '' );
+		$short    = '' !== $short ? $short : $label;
+		$has_link = '' !== $url && '' !== $label;
+
+		echo '<section class="bn-suite-group" aria-labelledby="' . esc_attr( $heading ) . '">';
+		echo '<header class="bn-suite-group__head">';
+		// The logo is decorative: the name sits beside it.
+		if ( '' !== $logo ) {
+			echo '<span class="bn-suite-panel__thumb bn-suite-group__logo" aria-hidden="true"><img class="bn-suite-panel__logo" src="' . esc_url( $logo ) . '" alt="" loading="lazy" decoding="async" width="40" height="40" /></span>';
+		} else {
+			echo '<span class="bn-suite-panel__thumb bn-suite-group__logo is-mono" data-tone="' . esc_attr( (string) Monogram::tone( $name ) ) . '" aria-hidden="true">'
+				. esc_html( Monogram::initials( $name ) ) . '</span>';
+		}
+		echo '<span class="bn-suite-group__id">';
+		echo '<h4 class="bn-suite-group__name" id="' . esc_attr( $heading ) . '">' . esc_html( $name ) . '</h4>';
+		if ( '' !== (string) ( $group['summary'] ?? '' ) ) {
+			echo '<span class="bn-suite-group__summary">' . esc_html( (string) $group['summary'] ) . '</span>';
+		}
+		echo '</span>';
+		if ( $has_link ) {
+			// aria-describedby names the company, so five "View all jobs" links stay distinct.
+			echo '<a class="bn-link bn-suite-group__all" href="' . esc_url( $url ) . '" aria-describedby="' . esc_attr( $heading ) . '">'
+				. '<span class="bn-suite-group__wide">' . esc_html( $label ) . '</span>'
+				. '<span class="bn-suite-group__narrow">' . esc_html( $short ) . '</span></a>';
+		}
+		echo '</header>';
+
+		if ( ! empty( $items ) ) {
+			echo '<ul class="bn-suite-group__items" role="list">';
+			foreach ( $items as $item ) {
+				if ( ! is_array( $item ) || '' === (string) ( $item['title'] ?? '' ) ) {
+					continue;
+				}
+				$item_url   = (string) ( $item['url'] ?? '' );
+				$meta       = (string) ( $item['meta'] ?? '' );
+				$meta_short = (string) ( $item['meta_short'] ?? '' );
+				$meta_short = '' !== $meta_short ? $meta_short : $meta;
+				$badge      = (string) ( $item['badge'] ?? '' );
+
+				echo '<li class="bn-suite-group__item">';
+				echo '' !== $item_url ? '<a class="bn-suite-group__job" href="' . esc_url( $item_url ) . '">' : '<div class="bn-suite-group__job">';
+				echo '<span class="bn-suite-group__job-body">';
+				echo '<span class="bn-suite-group__job-title">' . esc_html( (string) $item['title'] ) . '</span>';
+				if ( '' !== $meta ) {
+					echo '<span class="bn-suite-group__job-meta bn-suite-group__wide">' . esc_html( $meta ) . '</span>';
+					echo '<span class="bn-suite-group__job-meta bn-suite-group__narrow">' . esc_html( $meta_short ) . '</span>';
+				}
+				echo '</span>';
+				if ( '' !== $badge ) {
+					echo '<span class="bn-suite-group__badge">' . esc_html( $badge ) . '</span>';
+				}
+				echo '' !== $item_url ? '</a>' : '</div>';
+				echo '</li>';
+			}
+			echo '</ul>';
+		}
+		echo '</section>';
+	}
+
+	/**
 	 * Render one panel item as a media-card row: a per-row medal (image, else a
 	 * deterministic initials monogram — never the section icon, which would just
 	 * repeat down the list) + title + optional meta + a chevron when it links out.
@@ -480,8 +609,10 @@ class SuitePanelHost {
 	 * `meta` (one-line subtitle; also seeds the monogram), `facts` (string[] of
 	 * short structured facts appended to the meta line as a middot row — e.g.
 	 * location, type, posted), and `highlight` (a compact emphasis pinned to the
-	 * end of the title line — e.g. a salary range). `facts` and `highlight` are
-	 * optional; panels that set neither render exactly as before.
+	 * end of the title line, e.g. a salary range), and `logo` (true when `image`
+	 * is a logo: it is shown whole instead of cropped to the square). `facts`,
+	 * `highlight` and `logo` are optional; panels that set none render exactly
+	 * as before.
 	 *
 	 * @param array<string,mixed> $item Panel item.
 	 * @return void
@@ -489,6 +620,7 @@ class SuitePanelHost {
 	private function render_item( array $item ): void {
 		$url            = (string) ( $item['url'] ?? '' );
 		$image          = (string) ( $item['image'] ?? '' );
+		$is_logo        = ! empty( $item['logo'] );
 		$meta           = (string) ( $item['meta'] ?? '' );
 		$title          = (string) ( $item['title'] ?? '' );
 		$highlight      = (string) ( $item['highlight'] ?? '' );
@@ -522,7 +654,8 @@ class SuitePanelHost {
 		// monogram seeded from the subtitle (e.g. company) or the title — so each
 		// row is distinct and the header icon is never repeated in the list.
 		if ( '' !== $image ) {
-			echo '<span class="bn-suite-panel__thumb"><img src="' . esc_url( $image ) . '" alt="" loading="lazy" /></span>';
+			// alt stays empty: the row's title and subtitle (e.g. company) are adjacent text.
+			echo '<span class="bn-suite-panel__thumb"><img' . ( $is_logo ? ' class="bn-suite-panel__logo"' : '' ) . ' src="' . esc_url( $image ) . '" alt="" loading="lazy" decoding="async" width="48" height="48" /></span>';
 		} else {
 			$seed = '' !== $meta ? $meta : $title;
 			echo '<span class="bn-suite-panel__thumb is-mono" data-tone="' . esc_attr( (string) Monogram::tone( $seed ) ) . '" aria-hidden="true">'
