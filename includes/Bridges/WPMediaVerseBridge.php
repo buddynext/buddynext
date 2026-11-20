@@ -797,7 +797,11 @@ class WPMediaVerseBridge {
 			'media',
 			'',
 			0,
-			array( 'media_id' => $media_id )
+			// An upload (possibly a bulk one) does not notify every member of a Space.
+			array(
+				'media_id'     => $media_id,
+				'notify_space' => false,
+			)
 		);
 		// Same as a photo card: comments made before the card existed are carried
 		// onto it, so a video or audio post shows the conversation it links to.

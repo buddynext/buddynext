@@ -737,7 +737,7 @@ class NotificationListener implements ListenerInterface {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post_row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT space_id, status, scheduled_at, is_announcement FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				"SELECT space_id, status, scheduled_at, is_announcement, type, link_meta FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
 				$post_id
 			),
 			ARRAY_A
@@ -754,6 +754,30 @@ class NotificationListener implements ListenerInterface {
 		// An announcement has its own fan-out (one bell, one email); a new-post
 		// notification on top of it doubled both.
 		if ( 0 === $space_id || ! empty( $post_row['is_announcement'] ) ) {
+			return;
+		}
+
+		// A card a bridge wrote on the member's behalf (a course completed, a badge earned)
+		// is not something they wrote to share with the Space, and a partner may already
+		// notify its own audience. The bridge says so when it publishes the card
+		// (link_meta.notify_space = false); a human post never carries it.
+		$bn_card_meta = '' !== (string) ( $post_row['link_meta'] ?? '' ) ? json_decode( (string) $post_row['link_meta'], true ) : array();
+		$bn_notify    = ! ( is_array( $bn_card_meta ) && array_key_exists( 'notify_space', $bn_card_meta ) && false === $bn_card_meta['notify_space'] );
+
+		/**
+		 * Filter whether a new post or card in a Space notifies the Space's members.
+		 *
+		 * Defaults to yes, except for a card whose bridge set `notify_space` to false in its
+		 * link meta. Return false to keep a card type quiet, true to notify for one that is not.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param bool   $notify   Whether to notify the Space.
+		 * @param int    $post_id  The post or card id.
+		 * @param int    $space_id The Space.
+		 * @param string $type     The post type ('post', 'poll', 'article', 'badge', ...).
+		 */
+		if ( ! (bool) apply_filters( 'buddynext_notify_space_of_post', $bn_notify, $post_id, $space_id, (string) ( $post_row['type'] ?? '' ) ) ) {
 			return;
 		}
 

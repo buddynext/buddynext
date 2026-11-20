@@ -740,7 +740,11 @@ class JetonomyBridge {
 						'discussion',
 						$excerpt,
 						$this->space_id_for_forum( $space_id ),
-						array( 'post_id' => $post_id )
+						// Jetonomy notifies its own members of a topic: the Space is not told twice.
+						array(
+							'post_id'      => $post_id,
+							'notify_space' => false,
+						)
 					);
 				}
 			} else {

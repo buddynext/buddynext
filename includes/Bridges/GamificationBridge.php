@@ -662,7 +662,11 @@ class GamificationBridge {
 			// show the achievement rather than a bare name.
 			(string) ( $def['description'] ?? '' ),
 			0,
-			'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array()
+			// A badge is earned, not shared: it never notifies a whole Space.
+			array_merge(
+				'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array(),
+				array( 'notify_space' => false )
+			)
 		);
 	}
 
