@@ -61,4 +61,19 @@ class JetonomyBannedWordsTest extends WP_UnitTestCase {
 		$read->set_param( 'content', 'zzbadword' );
 		$this->assertNull( $bridge->check_forum_edit( null, array(), $read ) );
 	}
+
+	public function test_an_invalid_byte_cannot_switch_the_check_off(): void {
+		$bridge = new JetonomyBridge();
+		$author = self::factory()->user->create();
+		$result = $bridge->check_new_reply( array( 'content' => "zzbad\xC3\x28word zzbadword", 'author_id' => $author ) );
+		$this->assertWPError( $result, 'A body with an invalid UTF-8 byte is still checked.' );
+	}
+
+	public function test_a_blocked_link_inside_an_anchor_is_seen(): void {
+		update_option( 'buddynext_blocked_domains', "blocked.example\n" );
+		$bridge = new JetonomyBridge();
+		$result = $bridge->check_new_reply( array( 'content' => '<a href="https://blocked.example/x">click</a>', 'author_id' => self::factory()->user->create() ) );
+		delete_option( 'buddynext_blocked_domains' );
+		$this->assertWPError( $result );
+	}
 }

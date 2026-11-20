@@ -824,9 +824,10 @@ class SpaceService {
 		 * @param int   $space_id Space ID.
 		 * @param int   $user_id  User who updated the space.
 		 * @param array $data     Fields that were updated.
+		 * @param string $previous_type The space's type before this save ('' if unknown), so a listener can tell a real type change from a save that repeats the same type.
 		 */
 		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
-		do_action( 'buddynext_space_updated', $space_id, $user_id, $fields );
+		do_action( 'buddynext_space_updated', $space_id, $user_id, $fields, (string) ( $space['type'] ?? '' ) );
 
 		return true;
 	}

@@ -2586,7 +2586,7 @@ class JetonomyBridge {
 	 * @return mixed The data, or a WP_Error that refuses the topic.
 	 */
 	public function check_new_topic( $data ) {
-		return is_array( $data ) ? $this->scan_forum_text( $data, trim( ( $data['title'] ?? '' ) . "\n" . ( $data['content'] ?? '' ) ) ) : $data;
+		return is_array( $data ) ? $this->scan_forum_text( $data, trim( ( $data['title'] ?? '' ) . "\n" . ( $data['content'] ?? '' ) ), $this->space_id_for_forum( (int) ( $data['space_id'] ?? 0 ) ) ) : $data;
 	}
 
 	/**
@@ -2610,7 +2610,7 @@ class JetonomyBridge {
 		if ( '' === $text || is_wp_error( $response ) ) {
 			return $response;
 		}
-		$checked = $this->scan_forum_text( array( 'author_id' => get_current_user_id() ), $text, 'edit' );
+		$checked = $this->scan_forum_text( array( 'author_id' => get_current_user_id() ), $text );
 		return is_wp_error( $checked ) ? $checked : $response;
 	}
 
@@ -2632,14 +2632,19 @@ class JetonomyBridge {
 	 *
 	 * @param array<string,mixed> $data Row Jetonomy is about to write.
 	 * @param string              $text What the member wrote.
-	 * @param string              $context 'create' or 'edit': the edit context skips the create-time rules.
+	 * @param int                 $bn_space_id The BuddyNext Space the forum belongs to (0 = none), for its own banned-word list.
 	 * @return array<string,mixed>|\WP_Error
 	 */
-	private function scan_forum_text( array $data, string $text, string $context = 'create' ) {
+	private function scan_forum_text( array $data, string $text, int $bn_space_id = 0 ) {
 		if ( '' === trim( $text ) || ! function_exists( 'buddynext_service' ) ) {
 			return $data;
 		}
-		$verdict = buddynext_service( 'safeguard' )->check_content( wp_strip_all_tags( $text ), '', (int) ( $data['author_id'] ?? 0 ), 0, $context, 'post' );
+		// Forum text is HTML: scan the words without the markup, but keep every link target, so a blocked
+		// domain inside an anchor is still seen. Content rules only ('edit' context): Jetonomy has its own
+		// post limits, and a rate-limit refusal must not be shown as "banned content".
+		preg_match_all( '/href\s*=\s*["\']([^"\']+)/i', $text, $links );
+		$scan    = trim( wp_strip_all_tags( $text ) . "\n" . implode( "\n", $links[1] ) );
+		$verdict = buddynext_service( 'safeguard' )->check_content( $scan, '', (int) ( $data['author_id'] ?? 0 ), $bn_space_id, 'edit', 'post' );
 		if ( ! is_wp_error( $verdict ) || \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $verdict ) ) {
 			return $data;
 		}

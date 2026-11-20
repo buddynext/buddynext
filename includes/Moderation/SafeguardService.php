@@ -190,7 +190,7 @@ class SafeguardService {
 
 		$pattern = $this->banned_word_pattern( $words );
 
-		if ( '' === $pattern || 1 !== preg_match( $pattern, $content ) ) {
+		if ( '' === $pattern || ! $this->banned_words_match( $pattern, $words, $content ) ) {
 			return true;
 		}
 
@@ -223,6 +223,34 @@ class SafeguardService {
 			),
 			array( 'status' => 422 )
 		);
+	}
+
+	/**
+	 * Whether the content contains a banned word, and never "no" just because the matcher failed.
+	 *
+	 * @param string   $pattern Pattern from banned_word_pattern().
+	 * @param string[] $words   The banned words (for the substring fallback).
+	 * @param string   $content Text to scan.
+	 * @return bool
+	 */
+	private function banned_words_match( string $pattern, array $words, string $content ): bool {
+		$found = preg_match( $pattern, $content );
+		if ( false === $found ) {
+			// The pattern is Unicode-aware, so one invalid byte makes preg_match fail. A failed match
+			// must never read as "allowed": retry on a cleaned copy, then fall back to plain substrings.
+			$clean = wp_check_invalid_utf8( $content, true );
+			$found = preg_match( $pattern, $clean );
+			if ( false === $found ) {
+				foreach ( $words as $word ) {
+					$word = trim( str_replace( '*', '', $word ) );
+					if ( '' !== $word && false !== mb_stripos( $clean, $word ) ) {
+						return true;
+					}
+				}
+				return false;
+			}
+		}
+		return 1 === $found;
 	}
 
 	/**
