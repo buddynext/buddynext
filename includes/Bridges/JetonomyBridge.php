@@ -1924,19 +1924,29 @@ class JetonomyBridge {
 		if ( null === $space || 'active' === $members->get_status( $space_id, (int) $user_id ) ) {
 			return $proceed;
 		}
-		if ( ! $members->can_join( $space, (int) $user_id ) ) {
-			return new \WP_Error( 'bn_space_join_refused', __( 'You cannot join this discussion right now.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-
 		// Approving a private space's forum request admits the member to the space, so
 		// the reviewer must be someone the space lets approve (owner, moderator, site
-		// admin). Refused here, Jetonomy hands the request back as pending.
+		// admin), and the space's own gate (a paid plan, a seat cap) must pass. The
+		// space words that refusal for the reviewer; Jetonomy hands the request back as pending.
 		$request = \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === (string) ( $space['type'] ?? '' )
 			? self::approved_request( (int) $forum_id, (int) $user_id )
 			: null;
 		$refused = null === $request ? null : $members->approval_refusal( $space_id, (int) $request->reviewed_by, (int) $user_id, false );
 		if ( null !== $refused ) {
 			return new \WP_Error( 'bn_space_approval_refused', $refused->get_error_message(), array( 'status' => 403 ) );
+		}
+
+		if ( ! $members->can_join( $space, (int) $user_id ) ) {
+			// A reviewer approving a request is told why it stays pending (the space's gate: a plan, a
+			// seat cap, a ban); a member asking to join gets the plain refusal.
+			$approving = null !== self::approved_request( (int) $forum_id, (int) $user_id );
+			return new \WP_Error(
+				'bn_space_join_refused',
+				$approving
+					? __( 'This member cannot join this space, so the request stays pending.', 'buddynext' )
+					: __( 'You cannot join this discussion right now.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		return $proceed;

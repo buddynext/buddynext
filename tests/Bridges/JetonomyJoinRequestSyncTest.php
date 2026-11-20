@@ -284,6 +284,7 @@ namespace BuddyNext\Tests\Bridges {
 
 			$this->assertWPError( $refused );
 			$this->assertSame( 'bn_space_join_refused', $refused->get_error_code() );
+			$this->assertStringContainsString( 'the request stays pending', $refused->get_error_message(), 'The reviewer is told why the request did not go through.' );
 		}
 
 		public function test_a_forum_join_with_no_approval_still_goes_to_the_space_queue(): void {
