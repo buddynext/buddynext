@@ -36,7 +36,10 @@ class HubSlugFlushTest extends WP_UnitTestCase {
 	 */
 	public function test_flush_hook_registered_for_every_hub_slug_option(): void {
 		( new PageRouter() )->init();
-		foreach ( HubRegistry::instance()->all() as $hub ) {
+		foreach ( HubRegistry::instance()->all() as $key => $hub ) {
+			if ( 'blogwrite' === $key ) {
+				continue; // Member Blog's pages in the shell: it takes over two existing pages and owns no slug.
+			}
 			$this->assertNotFalse( has_action( 'update_option_' . $hub->slug_option ), 'no flush hook for ' . $hub->slug_option );
 		}
 		// Spot-check a couple of exact legacy option names are still hooked.
