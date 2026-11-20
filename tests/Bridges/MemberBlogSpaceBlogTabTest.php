@@ -380,4 +380,59 @@ class MemberBlogSpaceBlogTabTest extends \WP_UnitTestCase {
 			$this->assertStringNotContainsString( 'Writing for', $this->hub_for( $forged ), "space {$forged} shows nothing" );
 		}
 	}
+
+	private function card_space( int $post_id ): int {
+		global $wpdb;
+		$card = BlogPostListener::card_id_for_post( $post_id );
+		$this->assertGreaterThan( 0, $card, 'The article has a card.' );
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(space_id,0) FROM {$wpdb->prefix}bn_posts WHERE id = %d", $card ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	}
+
+	public function test_the_articles_in_spaces_switch_hides_every_space_entry_and_restores_on_turning_back_on(): void {
+		$space = $this->space();
+		$this->article( $space );
+		$this->assertTrue( BlogPostListener::spaces_enabled(), 'On by default.' );
+		$this->assertContains( 'blog', $this->tabs( $space, $this->writer ) );
+		$this->assertNotSame( '', MemberBlogBridge::space_write_url( $space, $this->writer ) );
+
+		$entry = buddynext_integrations()['blog'];
+		$this->assertArrayHasKey( 'spaces', $entry['subtab_options'], 'Declared as an option card.' );
+		$this->assertArrayNotHasKey( 'spaces', $entry['subtabs_unavailable'], 'Available while Member Blog is active.' );
+
+		update_option( 'buddynext_integration_blog_subtab_spaces', '0' );
+		$this->assertFalse( BlogPostListener::spaces_enabled() );
+		$this->assertNotContains( 'blog', $this->tabs( $space, $this->writer ), 'No tab for a writer.' );
+		$this->assertNotContains( 'blog', $this->tabs( $space, 0 ), 'No tab for a guest, even with an article.' );
+		$this->assertSame( '', MemberBlogBridge::space_write_url( $space, $this->writer ), 'No Write for this Space link.' );
+		$this->assertSame( '', $this->panel( $space, $this->writer ), 'The panel renders nothing.' );
+		$this->assertFalse( BlogPostListener::space_accepts_article( $space, $this->writer ), 'A new association is refused.' );
+		$this->assertStringNotContainsString( 'Writing for', $this->hub_for( $space ), 'The write form ignores ?bn_space.' );
+
+		update_option( 'buddynext_integration_blog_subtab_spaces', '1' );
+		$this->assertContains( 'blog', $this->tabs( $space, $this->writer ), 'Restored.' );
+		$this->assertStringContainsString( 'Writing for', $this->hub_for( $space ) );
+	}
+
+	public function test_turning_the_switch_off_moves_only_open_space_cards_site_wide_and_back_on_restores_them(): void {
+		$open    = $this->space();
+		$private = $this->space( 'private' );
+		$in_open = $this->article( $open );
+		$in_priv = $this->article( $private );
+		$this->assertSame( $open, $this->card_space( $in_open ) );
+		$this->assertSame( $private, $this->card_space( $in_priv ) );
+
+		update_option( 'buddynext_integration_blog_subtab_spaces', '0' );
+		( new BlogPostListener() )->resync_space_cards( 0 );
+		$this->assertSame( 0, $this->card_space( $in_open ), 'The open Space card is site-wide (it was already public).' );
+		$this->assertSame( $private, $this->card_space( $in_priv ), 'A private Space card never leaves its Space.' );
+		$this->assertSame( (string) $open, (string) get_post_meta( $in_open, BlogPostListener::SPACE_META, true ), 'Nothing is deleted: the association is kept.' );
+
+		( new BlogPostListener() )->resync_space_cards( 0 );
+		$this->assertSame( 0, $this->card_space( $in_open ), 'Idempotent.' );
+
+		update_option( 'buddynext_integration_blog_subtab_spaces', '1' );
+		( new BlogPostListener() )->resync_space_cards( 0 );
+		$this->assertSame( $open, $this->card_space( $in_open ), 'Turning it back on restores the Space.' );
+		$this->assertSame( $private, $this->card_space( $in_priv ) );
+	}
 }

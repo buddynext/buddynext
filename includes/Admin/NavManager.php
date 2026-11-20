@@ -843,16 +843,18 @@ class NavManager extends AdminPageBase {
 					?? ( '' !== (string) ( $item['description'] ?? '' ) ? sanitize_text_field( (string) $item['description'] ) : __( 'Added by another plugin', 'buddynext' ) );
 			}
 			$tabs[ $id ] = array(
-				'slug'         => $id,
-				'label'        => $labels[ $id ],
-				'order'        => (int) ( $item['priority'] ?? 50 ),
-				'icon'         => $known['icon'] ?? $core[ $scope ][ $id ][1] ?? ( '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom' ),
-				'description'  => $description,
-				'capability'   => 'read',
-				'parent'       => isset( $labels[ $parent ] ) ? $parent : '',
-				'parent_label' => $labels[ $parent ] ?? '',
-				'core'         => isset( $known['slug'] ) || isset( $core[ $scope ][ $id ] ),
-				'integration'  => sanitize_key( (string) ( $item['integration'] ?? '' ) ),
+				'slug'            => $id,
+				'label'           => $labels[ $id ],
+				'order'           => (int) ( $item['priority'] ?? 50 ),
+				'icon'            => $known['icon'] ?? $core[ $scope ][ $id ][1] ?? ( '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom' ),
+				'description'     => $description,
+				'capability'      => 'read',
+				'parent'          => isset( $labels[ $parent ] ) ? $parent : '',
+				'parent_label'    => $labels[ $parent ] ?? '',
+				'core'            => isset( $known['slug'] ) || isset( $core[ $scope ][ $id ] ),
+				'integration'     => sanitize_key( (string) ( $item['integration'] ?? '' ) ),
+				// A sub-switch of that integration that also gates this tab (e.g. blog > spaces).
+				'integration_sub' => sanitize_key( (string) ( $item['integration_sub'] ?? '' ) ),
 			);
 		}
 
@@ -1491,7 +1493,8 @@ class NavManager extends AdminPageBase {
 		$integration = (string) ( $tab['integration'] ?? '' );
 		$all_integ   = '' !== $integration ? buddynext_integrations() : array();
 		$integ_label = (string) ( $all_integ[ $integration ]['label'] ?? '' );
-		$integ_off   = '' !== $integ_label && ! buddynext_integration_enabled( $integration, 'nav' );
+		$integ_sub   = (string) ( $tab['integration_sub'] ?? '' );
+		$integ_off   = '' !== $integ_label && ! buddynext_integration_enabled( $integration, 'nav', $integ_sub );
 		$is_child    = '' !== (string) ( $tab['parent'] ?? '' );
 		$from_other  = $is_core && isset( $tab['core'] ) && ! $tab['core'];
 		?>
@@ -1592,6 +1595,13 @@ class NavManager extends AdminPageBase {
 								__( 'Unavailable: install and activate the %s plugin to enable messaging.', 'buddynext' ),
 								$requires
 							)
+						);
+					} elseif ( $integ_off && '' !== $integ_sub && buddynext_integration_enabled( $integration, 'nav' ) ) {
+						printf(
+							/* translators: 1: integration name, 2: link to Integration Settings. */
+							esc_html__( 'Not shown on the site: the sub-tab switch for %1$s is off in %2$s.', 'buddynext' ),
+							esc_html( $integ_label ),
+							'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>'
 						);
 					} elseif ( $integ_off ) {
 						printf(

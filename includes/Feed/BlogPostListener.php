@@ -18,6 +18,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Contracts\ListenerInterface;
 
 /**
@@ -54,6 +55,21 @@ class BlogPostListener implements ListenerInterface {
 	 * @since 1.3.0
 	 */
 	public const SPACE_META = '_bn_space_id';
+
+	/**
+	 * Action Scheduler hook that re-places article cards after the "Articles in
+	 * Spaces" switch changes.
+	 *
+	 * @since 1.3.0
+	 */
+	public const RESYNC_HOOK = 'buddynext_resync_article_spaces';
+
+	/**
+	 * Articles per resync batch.
+	 *
+	 * @since 1.3.0
+	 */
+	private const RESYNC_BATCH = 25;
 
 	/**
 	 * Posts per batch of the one-time article crop pass.
@@ -129,6 +145,10 @@ class BlogPostListener implements ListenerInterface {
 		add_action( 'added_post_meta', array( $this, 'on_thumbnail_set' ), 10, 4 );
 		add_action( 'updated_post_meta', array( $this, 'on_thumbnail_set' ), 10, 4 );
 		add_action( ArticleImage::REGEN_HOOK, array( $this, 'regen_crops_batch' ), 10, 2 );
+
+		// The "Articles in Spaces" switch: its flip re-places the cards in batches.
+		add_action( 'buddynext_integration_subtab_changed', array( $this, 'on_subtab_changed' ), 10, 3 );
+		add_action( self::RESYNC_HOOK, array( $this, 'resync_space_cards' ), 10, 1 );
 
 		// The composer and app article counts drop their cache when a post changes.
 		ArticleProvider::register();
@@ -335,6 +355,108 @@ class BlogPostListener implements ListenerInterface {
 	}
 
 	/**
+	 * Whether articles may be written for, and listed in, a Space.
+	 *
+	 * The owner's "Articles in Spaces" switch (Integration Settings, Blog row; on by
+	 * default). It reads the stored switch alone, not the Navigation switch or Member
+	 * Blog's presence: those hide the surface, but where an existing card lives must
+	 * not shuffle because a partner was deactivated.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return bool
+	 */
+	public static function spaces_enabled(): bool {
+		return '0' !== (string) get_option( 'buddynext_integration_' . MemberBlogBridge::INTEGRATION . '_subtab_spaces', '1' );
+	}
+
+	/**
+	 * Re-place the article cards when "Articles in Spaces" is switched.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $key Integration key.
+	 * @param string $sub Sub-tab key.
+	 * @param bool   $on  New state.
+	 * @return void
+	 */
+	public function on_subtab_changed( $key, $sub, $on ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- hook signature.
+		if ( MemberBlogBridge::INTEGRATION !== $key || 'spaces' !== $sub ) {
+			return;
+		}
+		self::queue_resync( 0 );
+	}
+
+	/**
+	 * Queue one resync batch.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $cursor Last postmeta id handled.
+	 * @return void
+	 */
+	private static function queue_resync( int $cursor ): void {
+		$args = array( $cursor );
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::RESYNC_HOOK, $args, 'buddynext' );
+			return;
+		}
+		if ( ! wp_next_scheduled( self::RESYNC_HOOK, $args ) ) {
+			wp_schedule_single_event( time(), self::RESYNC_HOOK, $args );
+		}
+	}
+
+	/**
+	 * One batch of the card re-placement.
+	 *
+	 * Walks the articles that carry a Space on the core meta_key index, in meta_id
+	 * order, and moves each one's card to where space_for() now says it belongs: an
+	 * open Space's card goes site-wide while the switch is off and back when it is on,
+	 * a private or secret Space's card never moves. Idempotent, so a rerun is harmless.
+	 * Posts only: MediaVerse albums use the same meta key.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $cursor Last postmeta id handled.
+	 * @return void
+	 */
+	public function resync_space_cards( $cursor = 0 ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT pm.meta_id, pm.post_id FROM {$wpdb->postmeta} pm
+				 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+				 WHERE pm.meta_key = %s AND pm.meta_id > %d AND p.post_type = 'post'
+				 ORDER BY pm.meta_id ASC LIMIT %d",
+				self::SPACE_META,
+				(int) $cursor,
+				self::RESYNC_BATCH
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$last = (int) $cursor;
+		foreach ( $rows as $row ) {
+			$last = (int) $row['meta_id'];
+			$post = get_post( (int) $row['post_id'] );
+			if ( $post instanceof \WP_Post ) {
+				IntegrationActivity::set_space_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID, self::space_for( $post ) );
+			}
+		}
+
+		if ( self::RESYNC_BATCH === count( $rows ) ) {
+			self::queue_resync( $last );
+			return;
+		}
+
+		// Last batch: the pages that list these cards were cached before they moved.
+		\BuddyNext\Core\PageCachePurger::purge_all();
+	}
+
+	/**
 	 * Whether an article by this author may be newly associated with this space.
 	 *
 	 * The check for a new or changed association (space_for() decides for one
@@ -350,7 +472,7 @@ class BlogPostListener implements ListenerInterface {
 	 * @return bool
 	 */
 	public static function space_accepts_article( int $space_id, int $author ): bool {
-		if ( $space_id <= 0 || $author <= 0 ) {
+		if ( $space_id <= 0 || $author <= 0 || ! self::spaces_enabled() ) {
 			return false;
 		}
 		$space = buddynext_service( 'spaces' )->get( $space_id );

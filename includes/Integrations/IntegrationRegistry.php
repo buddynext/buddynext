@@ -101,6 +101,15 @@ final class IntegrationRegistry {
 			// Installed version of the partner plugin, as declared by the entry.
 			// Null when the integration did not declare one — an honest "unknown",
 			// never a guess. Clients must treat null as "cannot version-gate".
+			// Sub-tabs shown as an option card with their own hint instead of a pill:
+			// sub key => hint, only for declared sub-tabs.
+			$subtab_options = array();
+			foreach ( (array) ( $entry['subtab_options'] ?? array() ) as $sub_key => $hint ) {
+				$sub_key = sanitize_key( (string) $sub_key );
+				if ( isset( $subtabs[ $sub_key ] ) && '' !== trim( (string) $hint ) ) {
+					$subtab_options[ $sub_key ] = (string) $hint;
+				}
+			}
 			$version = isset( $entry['version'] ) ? trim( (string) $entry['version'] ) : '';
 
 			// Staleness metadata, both null-safe like `version`:
@@ -148,6 +157,7 @@ final class IntegrationRegistry {
 					? sanitize_text_field( (string) $entry['rest_namespace'] )
 					: null,
 				'subtabs'             => $subtabs,
+				'subtab_options'      => $subtab_options,
 				// Raw declaration; ProductIcon validates it at render (http(s) or plugin path only).
 				'icon'                => isset( $entry['icon'] ) ? trim( (string) $entry['icon'] ) : '',
 				// Sub-tabs the partner cannot serve right now (a module of its own is

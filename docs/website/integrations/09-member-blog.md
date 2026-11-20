@@ -52,6 +52,19 @@ The tab lists the member's posts in the standard WordPress `post` type, newest f
 
 Visitors and other members see published posts only. You see your own drafts, pending review and scheduled posts as well, each labelled. With no posts yet, your own tab says "You have not published an article yet." with a **Write your first article** button.
 
+## Articles in Spaces
+
+Members can write an article for an open Space: the Space gets a **Blog** tab listing its articles, and a **Write for this Space** button for members who may post there. If you want articles on member profiles and in the feed only, turn this off.
+
+Go to **Integration Settings**, open the **WB Member Blog** row and switch **Articles in Spaces** off, then save.
+
+- The **Blog** tab in Spaces and every **Write for this Space** button are hidden, and the write form ignores a Space link. A bookmarked `/spaces/your-space/blog/` address simply opens the Space.
+- Nothing is deleted. Articles written for an open Space show in the site feed instead; they were already public. Articles written for a private or secret Space stay members-only in that Space.
+- Turning it back on restores the Space for every article. The cards are moved in the background in small batches, so a large site is not slowed down.
+- The switch shows disabled, with the reason, while WB Member Blog is not active or Navigation is off for the row. **Settings > Navigation** shows the Space **Blog** tab as off in Integration Settings.
+
+This is a site-wide setting. There is no per-Space version of it yet.
+
 ## Pro
 
 Neither BuddyNext Pro nor WB Member Blog Pro is required. The Articles tab works with BuddyNext free and Member Blog free. Both Pro plugins add their own features on their own surfaces; none of them are involved in this tab.

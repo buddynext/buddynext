@@ -283,12 +283,16 @@ class IntegrationControlsAdmin {
 									foreach ( $bn_surfaces as $bn_sk => $bn_sd ) {
 										$this->surface( $bn_sd[1], $bn_sd[2], ! empty( $entry[ $bn_sd[0] ] ), "{$bn_sk}[{$key}]", buddynext_integration_enabled( $key, $bn_sk ), $bn_arias[ $bn_sk ] );
 									}
+									foreach ( (array) ( $entry['subtab_options'] ?? array() ) as $bn_opt_sub => $bn_opt_hint ) {
+										$this->sub_option( (string) $key, (string) $bn_opt_sub, (string) ( $bn_subtabs[ $bn_opt_sub ] ?? '' ), (string) $bn_opt_hint, $entry );
+									}
 									?>
 								</div>
-								<?php if ( ! empty( $bn_subtabs ) ) : ?>
+								<?php $bn_pill_subs = array_diff_key( $bn_subtabs, (array) ( $entry['subtab_options'] ?? array() ) ); ?>
+								<?php if ( ! empty( $bn_pill_subs ) ) : ?>
 									<div class="bn-int-subs">
 										<span class="bn-int-subs__label"><?php esc_html_e( 'Tabs inside Navigation', 'buddynext' ); ?></span>
-										<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
+										<?php foreach ( $bn_pill_subs as $bn_sub => $bn_sub_label ) : ?>
 											<?php $bn_sub_off = $entry['subtabs_unavailable'][ $bn_sub ] ?? null; ?>
 											<span class="bn-int-sub">
 												<label class="bn-int-pillswitch">
@@ -378,6 +382,40 @@ class IntegrationControlsAdmin {
 			</ul>
 			<?php
 		endif;
+	}
+
+	/**
+	 * A sub-tab shown as a full-width option card with its own hint (not a pill).
+	 *
+	 * Disabled, with the reason, when the partner cannot serve it right now or the
+	 * integration's Navigation switch is off; saving then keeps the stored choice.
+	 *
+	 * @param string              $key   Integration key.
+	 * @param string              $sub   Sub-tab key.
+	 * @param string              $label Option label.
+	 * @param string              $hint  What it does.
+	 * @param array<string,mixed> $entry Registry entry.
+	 * @return void
+	 */
+	private function sub_option( string $key, string $sub, string $label, string $hint, array $entry ): void {
+		$reason = '';
+		if ( isset( $entry['subtabs_unavailable'][ $sub ] ) ) {
+			$reason = (string) $entry['subtabs_unavailable'][ $sub ]['note'];
+		} elseif ( ! empty( $entry['has_nav'] ) && ! buddynext_integration_enabled( $key, 'nav' ) ) {
+			$reason = __( 'Off while Navigation is off. Turn Navigation on to allow articles in Spaces.', 'buddynext' );
+		}
+		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
+		printf(
+			'<label class="bn-int-opt bn-int-opt--wide%1$s"><span class="bn-toggle-label"><input type="checkbox" name="subtab[%2$s][%3$s]" value="1" %4$s %5$s role="switch" aria-label="%6$s"><span class="bn-toggle--inline"></span></span><span class="bn-int-opt__copy"><span class="bn-int-opt__label">%6$s</span><span class="bn-int-opt__hint">%7$s</span>%8$s</span></label>',
+			'' !== $reason ? ' is-off' : '',
+			esc_attr( $key ),
+			esc_attr( $sub ),
+			checked( $on && '' === $reason, true, false ),
+			disabled( '' !== $reason, true, false ),
+			esc_html( $label ),
+			esc_html( $hint ),
+			'' !== $reason ? '<span class="bn-int-opt__hint">' . esc_html( $reason ) . '</span>' : ''
+		);
 	}
 
 	/**
@@ -485,11 +523,36 @@ class IntegrationControlsAdmin {
 				if ( isset( $entry['subtabs_unavailable'][ $sub ] ) ) {
 					continue;
 				}
-				$on = isset( $subtab[ $key ] ) && is_array( $subtab[ $key ] ) && ! empty( $subtab[ $key ][ $sub ] );
-				$ok = $this->write_flag( "buddynext_integration_{$key}_subtab_{$sub}", $on ) && $ok;
+				// An option card is disabled while Navigation is off: keep the stored choice too.
+				if ( isset( $entry['subtab_options'][ $sub ] ) && ! empty( $entry['has_nav'] ) && empty( $nav[ $key ] ) ) {
+					continue;
+				}
+				$was = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
+				$on  = isset( $subtab[ $key ] ) && is_array( $subtab[ $key ] ) && ! empty( $subtab[ $key ][ $sub ] );
+				$ok  = $this->write_flag( "buddynext_integration_{$key}_subtab_{$sub}", $on ) && $ok;
+
+				if ( $was !== $on ) {
+					/**
+					 * A sub-tab switch of an integration was changed.
+					 *
+					 * Fires once, on the transition only (re-saving the screen is silent), so a
+					 * listener can re-place the content the switch governs in batches.
+					 *
+					 * @since 1.3.0
+					 *
+					 * @param string $key Integration key.
+					 * @param string $sub Sub-tab key.
+					 * @param bool   $on  New state.
+					 */
+					do_action( 'buddynext_integration_subtab_changed', $key, $sub, $on );
+				}
 			}
 			$ok = ( new \BuddyNext\Addons\AddonSettingsForm() )->save( $key ) && $ok;
 		}
+
+		// Integration switches decide what the public pages show, and they are not registered
+		// settings, so the page cache is cleared here once for the whole class.
+		\BuddyNext\Core\PageCachePurger::purge_all();
 
 		wp_safe_redirect( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integration-controls', array( 'bn_intctl' => $ok ? '1' : 'error' ) ) );
 		exit;

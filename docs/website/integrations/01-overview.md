@@ -97,6 +97,7 @@ If a sub-tab needs something the partner cannot provide right now, its switch sh
 - **Navigation** - adds (or removes) the integration's tab in member navigation.
 - **Feed** - whether that integration's events (new discussions, new listings, new media, and so on) appear in the community feed.
 - **Search** - whether members can find that integration's content in community search. Offered by the integrations that have content worth searching (discussions, jobs, listings, events).
+- **Option switches** - a few integrations add one more full-width switch under the three above. WB Member Blog has **Articles in Spaces**, which decides whether articles can be written for and listed in Spaces (see [WB Member Blog](09-member-blog.md)).
 - **Navigation sub-tabs** - integrations that add several member tabs (for example WP Career Board's Jobs and Resume, or Learnomy's Learning, Certifications and Teaching) let you switch each sub-tab individually.
 
 In **Settings > Navigation**, the Events and Businesses space tabs name their integration (Eventonomy, WB Listora) and show when Integration Settings has them off.

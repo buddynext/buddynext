@@ -82,4 +82,42 @@ test.describe('spaces / Blog tab (J-910)', () => {
             await deleteSpaceApi(page, space.id);
         }
     });
+    test('Articles in Spaces off: no tab, no write link, the old address opens the Space, and turning it on restores', async ({ authenticatedPage: page }) => {
+        test.skip(!(await memberBlogActive()), 'Member Blog is not active on this site');
+        const space = await createSpaceApi(page, { name: `Switch ${Date.now().toString().slice(-6)}` });
+        const uid = await userId(ADMIN_LOGIN);
+        const title = `Switch article ${Date.now().toString().slice(-6)}`;
+        const OPTION = 'buddynext_integration_blog_subtab_spaces';
+        // The settings screen queues this batch when the switch is saved; run it directly here.
+        const settle = () => wp(['eval', '(new \\BuddyNext\\Feed\\BlogPostListener())->resync_space_cards( 0 );']);
+        const postId = Number(
+            await wp(['post', 'create', `--post_title=${title}`, '--post_content=Body.', '--post_status=publish', `--post_author=${uid}`, `--meta_input={"_bn_space_id":${space.id}}`, '--porcelain'])
+        );
+        const tab = page.locator(`a[href$="/spaces/${space.slug}/blog/"]`);
+
+        try {
+            await page.goto(`/spaces/${space.slug}/`);
+            await expect(tab.first()).toBeAttached(); // present; it may sit in the More menu at some widths
+
+            await wp(['option', 'update', OPTION, '0']);
+            await settle();
+            await page.goto(`/spaces/${space.slug}/`);
+            await expect(tab).toHaveCount(0);
+            await expect(page.getByRole('link', { name: 'Write for this Space' })).toHaveCount(0);
+            await page.goto(`/add-new-post/?bn_space=${space.id}`);
+            await expect(page.getByText('Writing for')).toHaveCount(0);
+            await page.goto(`/spaces/${space.slug}/blog/`);
+            await expect(page.locator('.bn-article-card', { hasText: title })).toHaveCount(0);
+            await expect(page.locator('h1').first()).toContainText('Switch');
+
+            await wp(['option', 'update', OPTION, '1']);
+            await settle();
+            await page.goto(`/spaces/${space.slug}/`);
+            await expect(tab.first()).toBeAttached();
+        } finally {
+            await wp(['option', 'update', OPTION, '1']).catch(() => undefined);
+            await wp(['post', 'delete', String(postId), '--force']).catch(() => undefined);
+            await deleteSpaceApi(page, space.id);
+        }
+    });
 });

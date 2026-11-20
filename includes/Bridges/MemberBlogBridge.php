@@ -55,7 +55,7 @@ class MemberBlogBridge {
 	 * gets one control for it, with `feed` and `nav` as its two aspects, rather than
 	 * two entries that can contradict each other.
 	 */
-	private const INTEGRATION = 'blog';
+	public const INTEGRATION = 'blog';
 
 	/**
 	 * Hub key (and bn_hub value) of the write hub that frames Member Blog's
@@ -863,15 +863,30 @@ class MemberBlogBridge {
 				// The Articles tab only exists with Member Blog active, so the "Show in
 				// navigation" switch is only offered then. It used to be offered always,
 				// for a tab that could not appear.
-				'has_nav'        => self::available(),
-				'nav_label'      => __( 'Articles', 'buddynext' ),
+				'has_nav'             => self::available(),
+				'nav_label'           => __( 'Articles', 'buddynext' ),
+				// "Articles in Spaces": the stored switch is the sub-tab flag (read by
+				// BlogPostListener::spaces_enabled()), shown as an option card with its hint.
+				'subtabs'             => array( 'spaces' => __( 'Articles in Spaces', 'buddynext' ) ),
+				'subtab_options'      => array(
+					'spaces' => __( 'When off, articles are written for member profiles and the feed only, and the Blog tab in Spaces and Write for this Space are hidden. Nothing is deleted: articles in open Spaces show in the site feed, articles in private Spaces stay members-only in their Space, and turning this back on restores them.', 'buddynext' ),
+				),
+				'subtabs_unavailable' => self::available()
+					? array()
+					: array(
+						'spaces' => array(
+							'note'         => __( 'WB Member Blog is not active, so there are no articles to place in Spaces. Activate it to use this setting.', 'buddynext' ),
+							'action_label' => '',
+							'action_url'   => '',
+						),
+					),
 				// BlogPostListener registers this key with a null version, because
 				// site tracking is core - there is no plugin behind it to name. Once
 				// Member Blog IS present it is the thing supplying the surface, so
 				// report its version: /app/config publishes these so a mobile client
 				// can gate a module on the build actually installed, and a null there
 				// means the app cannot tell an old Member Blog from no Member Blog.
-				'version'        => self::available() ? BUDDYPRESS_MEMBER_BLOG_VERSION : ( $existing['version'] ?? null ),
+				'version'             => self::available() ? BUDDYPRESS_MEMBER_BLOG_VERSION : ( $existing['version'] ?? null ),
 				// Only meaningful when Member Blog is the thing supplying the
 				// surface; core site-tracking has no partner release to test.
 				// Verified against 4.1.0: both consumed symbols (Member_Blog_Compat::
@@ -881,7 +896,7 @@ class MemberBlogBridge {
 				// 4.5.1 (2026-11-04): get_dashboard_url and bp_member_blog_get_settings unchanged from 4.5.0.
 				// 4.5.2 (2026-11-11, 1.2.9 release site): every hook and API above checked at the tag; 4.5.2 changed only CSS, POT and Pro notices.
 				// 4.5.3 (2026-11-20): the write hub also reads bp_post_page / bp_dashboard_page and bp_member_blog_user_can_create; all unchanged.
-				'tested_version' => self::available() ? '4.5.3' : ( $existing['tested_version'] ?? null ),
+				'tested_version'      => self::available() ? '4.5.3' : ( $existing['tested_version'] ?? null ),
 			)
 		);
 
@@ -936,21 +951,25 @@ class MemberBlogBridge {
 		// space: its article cards stay members-only in its feed.
 		$registry->register(
 			array(
-				'id'          => 'blog',
-				'surface'     => 'space',
-				'integration' => self::INTEGRATION,
-				'layer'       => 'primary',
-				'label'       => __( 'Blog', 'buddynext' ),
+				'id'              => 'blog',
+				'surface'         => 'space',
+				'integration'     => self::INTEGRATION,
+				'layer'           => 'primary',
+				'label'           => __( 'Blog', 'buddynext' ),
 				// Right after Discussions wherever the site puts it; the priority places
 				// it when Discussions is absent. An owner's own order replaces both.
-				'priority'    => 36,
-				'after'       => 'discussions',
-				'condition'   => fn( NavContext $c ): bool => self::articles_tab_available()
+				'priority'        => 36,
+				'after'           => 'discussions',
+				// The Space Blog tab follows the owner's "Articles in Spaces" switch as well
+				// as Navigation: Settings > Navigation reads this key to say why it is off.
+				'integration_sub' => 'spaces',
+				'condition'       => fn( NavContext $c ): bool => self::articles_tab_available()
+					&& buddynext_integration_enabled( self::INTEGRATION, 'nav', 'spaces' )
 					&& self::space_is_open( $c->subject_id )
 					&& ( null !== self::space_writer( $c->subject_id, $c->viewer_id )
 						|| array() !== $this->space_articles( $c->subject_id, $c->viewer_id, null, 1 )['items'] ),
-				'url'         => static fn( NavContext $c ): string => self::space_blog_url( $c->subject_id ),
-				'render'      => function ( NavContext $c ): void {
+				'url'             => static fn( NavContext $c ): string => self::space_blog_url( $c->subject_id ),
+				'render'          => function ( NavContext $c ): void {
 					$this->render_space_blog_panel( $c->subject_id, $c->viewer_id );
 				},
 			)
@@ -1049,7 +1068,7 @@ class MemberBlogBridge {
 	 * @return void
 	 */
 	public function render_space_blog_panel( int $space_id, int $viewer_id ): void {
-		if ( ! self::articles_tab_available() || ! self::space_is_open( $space_id ) ) {
+		if ( ! self::articles_tab_available() || ! buddynext_integration_enabled( self::INTEGRATION, 'nav', 'spaces' ) || ! self::space_is_open( $space_id ) ) {
 			return;
 		}
 
