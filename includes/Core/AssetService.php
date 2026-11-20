@@ -193,6 +193,36 @@ class AssetService {
 	}
 
 	/**
+	 * Register the two focus modules shared by the front end and wp-admin.
+	 *
+	 * `@buddynext/focus-trap` holds trapFocus() and keepFocus() and has no side
+	 * effects. `@buddynext/modal-a11y` is the ONE modal keyboard-accessibility
+	 * primitive: focus-in, focus-trap, focus-return and Escape-to-close for every
+	 * .bn-modal-backdrop, plus keepFocus() on the page so a busy or swapped button
+	 * keeps focus. On the front end it is a side-effect import of nav-init, so it
+	 * loads wherever any feature store loads and its observers persist across
+	 * client navigations. In wp-admin it is enqueued directly on BuddyNext screens;
+	 * it does not pull in shell-dialog, whose window.bnConfirm / bnToast would
+	 * replace the admin versions (bn-admin-dialogs.js).
+	 *
+	 * @return void
+	 */
+	private function register_focus_modules(): void {
+		wp_register_script_module(
+			'@buddynext/focus-trap',
+			$this->assets_url . 'js/shell/focus-trap.js',
+			array(),
+			$this->module_version( 'js/shell/focus-trap.js' )
+		);
+		wp_register_script_module(
+			'@buddynext/modal-a11y',
+			$this->assets_url . 'js/shell/modal-a11y.js',
+			array( array( 'id' => '@buddynext/focus-trap' ) ),
+			$this->module_version( 'js/shell/modal-a11y.js' )
+		);
+	}
+
+	/**
 	 * Enqueue BuddyNext admin CSS on BuddyNext admin pages.
 	 *
 	 * Only fires when the current admin page slug contains 'buddynext'
@@ -244,6 +274,13 @@ class AssetService {
 		// register_admin_dialogs) so off-hub surfaces can depend on it too.
 		wp_enqueue_style( 'bn-admin-dialogs' );
 		wp_enqueue_script( 'bn-admin-dialogs' );
+
+		// Keyboard focus for every admin modal (.bn-modal-backdrop: Tab trap,
+		// focus-in, focus-return, Escape) and for buttons that disable themselves
+		// while they work. bn-admin-dialogs.js reaches the same trap through
+		// window.bnTrapFocus, which this module sets.
+		$this->register_focus_modules();
+		wp_enqueue_script_module( '@buddynext/modal-a11y' );
 
 		// Members admin (Members + Member Types + Profile Fields + Avatar
 		// Settings + Member Type Field). Lives at ?page=buddynext-members.
@@ -553,10 +590,11 @@ class AssetService {
 		// Shared shell modules — used as dependencies by feature stores.
 		// `@buddynext/shell-dialog` exposes bnConfirm/bnPrompt/bnToast for
 		// stores that need accessible replacements for window.confirm/prompt.
+		$this->register_focus_modules();
 		wp_register_script_module(
 			'@buddynext/shell-dialog',
 			$this->assets_url . 'js/shell/dialog.js',
-			array(),
+			array( array( 'id' => '@buddynext/focus-trap' ) ),
 			$this->module_version( 'js/shell/dialog.js' )
 		);
 
@@ -604,19 +642,6 @@ class AssetService {
 			$this->assets_url . 'js/shell/slug.js',
 			array(),
 			$this->module_version( 'js/shell/slug.js' )
-		);
-
-		// `@buddynext/modal-a11y` is the ONE modal keyboard-accessibility primitive:
-		// focus-in, focus-trap, focus-return and Escape-to-close for every
-		// .bn-modal-backdrop, store-agnostic, so features render modal markup and do
-		// not each re-solve dialog behaviour. It is a side-effect import of nav-init
-		// (below), so it loads once wherever any feature store loads — i.e. wherever
-		// a modal can appear — and its observer persists across client navigations.
-		wp_register_script_module(
-			'@buddynext/modal-a11y',
-			$this->assets_url . 'js/shell/modal-a11y.js',
-			array( array( 'id' => '@buddynext/shell-dialog' ) ),
-			$this->module_version( 'js/shell/modal-a11y.js' )
 		);
 
 		// `@buddynext/nav-init` exposes onNavReady() — the uniform init binder

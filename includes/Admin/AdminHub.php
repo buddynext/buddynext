@@ -1832,7 +1832,9 @@ class AdminHub {
 		$this->render_header( (string) $active['label'], 'get-started' === $section_key && 'home' === $active_slug );
 		$this->render_subhead( $active );
 		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );
-		printf( '<main class="%s" id="bn-admin-hub-panel" role="region" tabindex="0">', esc_attr( $main_classes ) );
+		// A named region, not a second main landmark: WordPress already marks #wpbody
+		// as main. Named by the page h1; no tabindex, so it is not a stray Tab stop.
+		printf( '<main class="%s" id="bn-admin-hub-panel" role="region" aria-labelledby="bn-admin-hub-title">', esc_attr( $main_classes ) );
 
 		// Tell the owner when they were misrouted, instead of silently swapping the
 		// destination (card 10264294727).
@@ -2312,7 +2314,7 @@ class AdminHub {
 	 */
 	private function render_header( string $label, bool $visually_hidden = false ): void {
 		echo '<header class="bn-admin-hub__header' . ( $visually_hidden ? ' is-title-hidden' : '' ) . '">';
-		echo '<h1 class="bn-admin-hub__title' . ( $visually_hidden ? ' screen-reader-text' : '' ) . '">' . esc_html__( $label, 'buddynext' ) . '</h1>'; // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
+		echo '<h1 id="bn-admin-hub-title" class="bn-admin-hub__title' . ( $visually_hidden ? ' screen-reader-text' : '' ) . '">' . esc_html__( $label, 'buddynext' ) . '</h1>'; // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
 		echo '</header>';
 		// WordPress core hoists admin notices to just after the first <h1>, which
 		// here lands them inside the flex header and squishes them to a sliver.

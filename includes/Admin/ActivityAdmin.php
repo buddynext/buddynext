@@ -483,7 +483,7 @@ class ActivityAdmin implements ListenerInterface {
 							<?php endif; ?>
 							<span class="bn-activity-edit__media-title"><?php echo esc_html( $title ); ?></span>
 							<label class="bn-check-row">
-								<input type="checkbox" name="remove_media[]" value="<?php echo esc_attr( (string) $media_id ); ?>">
+								<input type="checkbox" name="remove_media[]" value="<?php echo esc_attr( (string) $media_id ); ?>" aria-label="<?php /* translators: %s: title of the attached file. */ echo esc_attr( sprintf( __( 'Remove %s', 'buddynext' ), $title ) ); ?>">
 								<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 							</label>
 						</li>

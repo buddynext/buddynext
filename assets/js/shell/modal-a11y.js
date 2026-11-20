@@ -21,13 +21,20 @@
  * @package BuddyNext
  */
 
-import { trapFocus } from '@buddynext/shell-dialog';
+import { trapFocus, keepFocus } from '@buddynext/focus-trap';
 
 /** Every modal in the product is one of these. */
 const SELECTOR = '.bn-modal-backdrop';
 
 /** backdrop element -> { trigger, release }, in open order (topmost = last). */
 const openModals = new Map();
+
+/**
+ * The last element focused outside any modal. A screen that moves focus into its
+ * modal itself as it opens (the admin email editor focuses the first field) has
+ * already left the opener by the time the observer runs, so this is the opener.
+ */
+let lastOutside = null;
 
 /**
  * Whether a backdrop is currently hidden (closed).
@@ -76,7 +83,7 @@ function activate( backdrop ) {
 		return;
 	}
 
-	const trigger = document.activeElement;
+	const trigger = backdrop.contains( document.activeElement ) ? lastOutside : document.activeElement;
 	const panel   = panelOf( backdrop );
 
 	// Focus synchronously — not in requestAnimationFrame. We are only called from
@@ -209,11 +216,26 @@ function boot() {
 	}
 	window.__bnModalA11y = true;
 
+	// Classic scripts (the wp-admin confirm dialog, the media lightbox) reach the
+	// same trap through the window; on the front end dialog.js sets the same function.
+	if ( 'function' !== typeof window.bnTrapFocus ) {
+		window.bnTrapFocus = trapFocus;
+	}
+
+	// A busy or swapped control keeps keyboard focus (Follow, Connect, every
+	// data-wp-bind--disabled button) instead of dropping it to <body>.
+	keepFocus( document.body );
+
 	// Capture phase: Escape layering is top-down. Transient dialogs (window,
 	// capture) run first, these modals next, and surfaces that sit beneath a modal
 	// (the media lightbox, menus) listen in the bubble phase and skip an event that
 	// is already defaultPrevented. So one Escape closes exactly one layer.
 	document.addEventListener( 'keydown', onEscape, true );
+	document.addEventListener( 'focusin', function ( ev ) {
+		if ( ev.target.closest && ! ev.target.closest( SELECTOR ) ) {
+			lastOutside = ev.target;
+		}
+	}, true );
 
 	const observer = new MutationObserver( function ( mutations ) {
 		mutations.forEach( function ( m ) {

@@ -290,10 +290,10 @@ $posts_pct_abs = abs( $posts_pct );
 
 	<!-- Admin subheader -->
 	<div class="bn-ca-subheader" role="banner">
-		<span class="bn-ca-subheader__title">
+		<h1 class="bn-ca-subheader__title">
 			<?php buddynext_icon( 'shield' ); ?>
 			<?php esc_html_e( 'Community Admin Panel', 'buddynext' ); ?>
-		</span>
+		</h1>
 		<span class="bn-ca-subheader__role"><?php esc_html_e( 'Community Manager', 'buddynext' ); ?></span>
 		<span class="bn-ca-subheader__site">
 			<?php

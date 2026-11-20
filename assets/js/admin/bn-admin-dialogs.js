@@ -147,8 +147,16 @@
 			var m = createModal( opts );
 			var lastActive = document.activeElement;
 
+			// Tab stays inside the dialog (aria-modal promises it). The shared trap is
+			// set by the modal-a11y module on BuddyNext screens; off-hub screens that
+			// only load this script keep Escape and focus return.
+			var releaseTrap = 'function' === typeof window.bnTrapFocus ? window.bnTrapFocus( m.backdrop ) : null;
+
 			function close( result ) {
 				document.removeEventListener( 'keydown', onKey );
+				if ( releaseTrap ) {
+					releaseTrap();
+				}
 				m.destroy();
 				if ( lastActive && typeof lastActive.focus === 'function' ) {
 					lastActive.focus();

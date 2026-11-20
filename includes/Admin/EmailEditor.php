@@ -1000,12 +1000,13 @@ class EmailEditor {
 						<label
 							class="bn-email-editor__toggle-control"
 							data-bn-toggle-wrap
-							aria-label="<?php esc_attr_e( 'Email enabled', 'buddynext' ); ?>"
 							for="bn-email-enabled"
 						>
 							<input
 								id="bn-email-enabled"
 								type="checkbox"
+								role="switch"
+								aria-label="<?php esc_attr_e( 'Email enabled', 'buddynext' ); ?>"
 								name="enabled"
 								value="1"
 								form="bn-email-save-form"
