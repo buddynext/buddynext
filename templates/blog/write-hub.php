@@ -29,7 +29,7 @@ $bn_write_notice = MemberBlogBridge::write_hub_notice();
 ?>
 <div class="bn-blog-write">
 	<header class="bn-blog-write__head">
-		<h1 class="bn-blog-write__title"><?php esc_html_e( 'Write a post', 'buddynext' ); ?></h1>
+		<h1 class="bn-blog-write__title"><?php echo esc_html( MemberBlogBridge::write_hub_heading() ); ?></h1>
 		<?php if ( array() !== $bn_write_tabs ) : ?>
 			<p class="bn-blog-write__sub"><?php esc_html_e( 'Share an article with the community. It appears on your profile and in the feed.', 'buddynext' ); ?></p>
 		<?php endif; ?>

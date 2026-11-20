@@ -338,6 +338,23 @@ class MemberBlogBridge {
 	}
 
 	/**
+	 * The write hub's heading. A member who cannot write and opens the dashboard
+	 * sees Member Blog's reading view (Saved, Following), so it is headed
+	 * "My reading", not "Write a post".
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string
+	 */
+	public static function write_hub_heading(): string {
+		$page = self::write_hub_page();
+		if ( $page instanceof \WP_Post && array() === self::write_hub_tabs() && self::write_pages()['dashboard'] === (int) $page->ID && '' === self::write_hold( get_current_user_id() ) ) {
+			return __( 'My reading', 'buddynext' );
+		}
+		return __( 'Write a post', 'buddynext' );
+	}
+
+	/**
 	 * The write hub's two tabs (New post, My articles), or none for a member
 	 * Member Blog does not let write: they see its own "not available" notice.
 	 *

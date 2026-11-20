@@ -327,6 +327,23 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertSame( array( true, false ), wp_list_pluck( $tabs, 'current' ) );
 	}
 
+	public function test_a_non_writer_on_the_dashboard_sees_my_reading_not_write_a_post(): void {
+		// Someone Member Blog does not let write sees its reading view on the dashboard page.
+		wp_set_current_user( self::factory()->user->create() );
+		$this->visit( $this->dashboard_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( 'My reading', MemberBlogBridge::write_hub_heading() );
+
+		$this->visit( $this->post_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( 'Write a post', MemberBlogBridge::write_hub_heading(), 'The new post page is always the writing page.' );
+
+		wp_set_current_user( $this->writer() );
+		$this->visit( $this->dashboard_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( 'Write a post', MemberBlogBridge::write_hub_heading(), 'A writer keeps the heading and both tabs.' );
+	}
+
 	public function test_the_global_post_is_restored_after_enqueue(): void {
 		wp_set_current_user( $this->writer() );
 		$this->visit( $this->post_page );
