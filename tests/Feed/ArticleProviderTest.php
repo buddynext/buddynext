@@ -141,7 +141,12 @@ class ArticleProviderTest extends \WP_UnitTestCase {
 	}
 
 	public function test_a_long_intro_ends_with_a_plain_ellipsis_not_the_wordpress_marker(): void {
-		$post = self::factory()->post->create_and_get( array( 'post_content' => str_repeat( 'Plenty of words fill this article. ', 30 ) ) );
+		$post = self::factory()->post->create_and_get(
+			array(
+				'post_excerpt' => '',
+				'post_content' => str_repeat( 'Plenty of words fill this article. ', 30 ),
+			)
+		);
 
 		$intro = \BuddyNext\Feed\BlogPostListener::excerpt_for( $post, 28 );
 
