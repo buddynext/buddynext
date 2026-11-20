@@ -291,7 +291,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		update_option( 'buddynext_integration_blog_nav', '0' );
 
 		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
-		$this->assertSame( 'WordPress', ArticleProvider::for_user( $editor )['key'] ); // phpcs:ignore WordPress.WP.CapitalPDangit.Misspelled -- a provider slug, not the product name.
+		$this->assertSame( ArticleProvider::FALLBACK_KEY, ArticleProvider::for_user( $editor )['key'] );
 		$this->assertNull( ArticleProvider::for_user( self::factory()->user->create() ), 'Subscriber with no provider.' );
 
 		wp_set_current_user( $editor );

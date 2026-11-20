@@ -26,7 +26,7 @@ class ArticleProviderTest extends \WP_UnitTestCase {
 		$provider = ArticleProvider::for_user( $uid );
 
 		$this->assertSame( self::KEYS, array_keys( $provider ) );
-		$this->assertSame( 'WordPress', $provider['key'] );
+		$this->assertSame( ArticleProvider::FALLBACK_KEY, $provider['key'] );
 		$this->assertTrue( $provider['can_write'] );
 		$this->assertSame( admin_url( 'post-new.php' ), $provider['new_url'] );
 		$this->assertStringStartsWith( admin_url( 'edit.php' ), $provider['drafts_url'] );
@@ -66,7 +66,7 @@ class ArticleProviderTest extends \WP_UnitTestCase {
 
 	public function test_a_filter_returning_null_hands_over_to_the_fallback(): void {
 		add_filter( 'buddynext_article_provider', '__return_null' );
-		$this->assertSame( 'WordPress', ArticleProvider::for_user( self::factory()->user->create( array( 'role' => 'editor' ) ) )['key'] );
+		$this->assertSame( ArticleProvider::FALLBACK_KEY, ArticleProvider::for_user( self::factory()->user->create( array( 'role' => 'editor' ) ) )['key'] );
 	}
 
 	public function test_it_resolves_once_per_request_per_member(): void {

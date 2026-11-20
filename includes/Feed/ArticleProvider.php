@@ -27,6 +27,14 @@ defined( 'ABSPATH' ) || exit;
 final class ArticleProvider {
 
 	/**
+	 * The key of the built-in WordPress-editor provider. A named constant so no formatter
+	 * rewrites the lower-case slug to the product spelling.
+	 *
+	 * @since 1.3.0
+	 */
+	public const FALLBACK_KEY = 'wordpress'; // phpcs:ignore WordPress.WP.CapitalPDangit.Misspelled -- a provider slug, not the product name.
+
+	/**
 	 * Resolved payloads for this request, keyed by user id.
 	 *
 	 * @var array<int,array<string,mixed>|null>
@@ -82,7 +90,7 @@ final class ArticleProvider {
 
 		if ( ! is_array( $provider ) && user_can( $user_id, 'edit_posts' ) ) {
 			$provider = array(
-				'key'             => 'wordpress',
+				'key'             => self::FALLBACK_KEY,
 				'label'           => __( 'Article', 'buddynext' ),
 				'icon'            => 'file-text',
 				'can_write'       => '' === \BuddyNext\Bridges\MemberBlogBridge::write_hold( $user_id ),
