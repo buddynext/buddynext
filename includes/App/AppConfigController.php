@@ -369,6 +369,8 @@ class AppConfigController {
 			'emoji_picker'        => (bool) get_option( 'buddynext_enable_emoji_picker', true ),
 			'media_max_mb'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
 			'report_reasons'      => $reasons,
+			// Where this member writes an article (null: nowhere). One answer with the web.
+			'article_provider'    => \BuddyNext\Feed\ArticleProvider::for_user( get_current_user_id() ),
 		);
 	}
 

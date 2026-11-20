@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Feed\ArticleProvider;
 use BuddyNext\Nav\NavContext;
 use BuddyNext\Nav\NavRegistry;
 
@@ -108,6 +109,52 @@ class MemberBlogBridge {
 		add_filter( 'buddynext_document_title', array( $this, 'write_document_title' ), 10, 2 );
 		add_filter( 'buddynext_client_nav_deny', array( $this, 'deny_client_nav' ) );
 		add_filter( 'buddynext_client_nav_enabled', array( $this, 'no_client_nav_on_write_hub' ) );
+		// Member Blog is the article provider, registered from BuddyNext's side.
+		add_filter( 'buddynext_article_provider', array( $this, 'register_article_provider' ), 10, 2 );
+	}
+
+	/**
+	 * Offer Member Blog as the article provider while the Articles tab is on.
+	 *
+	 * Fills the slot only when nothing earlier claimed it. Member Blog's editor
+	 * reads no title query arg today, so `title_arg` is '' and the composer's
+	 * title is not carried into it.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string,mixed>|null $provider Provider so far.
+	 * @param int                      $user_id  Member.
+	 * @return array<string,mixed>|null
+	 */
+	public function register_article_provider( $provider, int $user_id ): ?array {
+		if ( is_array( $provider ) || ! self::articles_tab_available() ) {
+			return is_array( $provider ) ? $provider : null;
+		}
+
+		$dashboard = $this->dashboard_url( $user_id );
+		return array(
+			'key'             => 'member-blog',
+			'label'           => __( 'Article', 'buddynext' ),
+			'icon'            => 'file-text',
+			'can_write'       => self::can_write( $user_id ),
+			'new_url'         => $this->write_url( $user_id ),
+			// Member Blog's dashboard page opens a tab from ?tab=.
+			'drafts_url'      => '' !== $dashboard ? add_query_arg( 'tab', 'drafts', $dashboard ) : '',
+			'my_articles_url' => $dashboard,
+			'title_arg'       => '',
+			'supports_space'  => false,
+		);
+	}
+
+	/**
+	 * Whether the member's article provider is Member Blog and lets them write.
+	 *
+	 * @param int $user_id Member.
+	 * @return array<string,mixed>|null The provider when it is, else null.
+	 */
+	private static function member_blog_writer( int $user_id ): ?array {
+		$provider = ArticleProvider::for_user( $user_id );
+		return null !== $provider && 'member-blog' === $provider['key'] && $provider['can_write'] ? $provider : null;
 	}
 
 	/**
@@ -235,22 +282,25 @@ class MemberBlogBridge {
 	 * @return array<int,array{label:string,url:string,current:bool}>
 	 */
 	public static function write_hub_tabs(): array {
-		if ( ! self::can_write( get_current_user_id() ) ) {
+		$provider = self::member_blog_writer( get_current_user_id() );
+		if ( null === $provider ) {
 			return array();
 		}
 
-		$labels = array(
-			'post'      => __( 'New post', 'buddynext' ),
-			'dashboard' => __( 'My articles', 'buddynext' ),
-		);
-		$tabs   = array();
-		foreach ( self::write_pages() as $key => $page_id ) {
-			$url = $page_id > 0 ? (string) get_permalink( $page_id ) : '';
+		$here = self::$write_page > 0 ? untrailingslashit( (string) get_permalink( self::$write_page ) ) : '';
+		$tabs = array();
+		foreach (
+			array(
+				'new_url'         => __( 'New post', 'buddynext' ),
+				'my_articles_url' => __( 'My articles', 'buddynext' ),
+			) as $key => $label
+		) {
+			$url = (string) $provider[ $key ];
 			if ( '' !== $url ) {
 				$tabs[] = array(
-					'label'   => $labels[ $key ],
+					'label'   => $label,
 					'url'     => $url,
-					'current' => $page_id === self::$write_page,
+					'current' => '' !== $here && untrailingslashit( (string) strtok( $url, '?' ) ) === $here,
 				);
 			}
 		}
@@ -296,12 +346,10 @@ class MemberBlogBridge {
 	 * @return array<int,array<string,mixed>>
 	 */
 	public function add_write_rail_item( array $items, string $hub = '' ): array {
-		$uid = get_current_user_id();
-		if ( $uid <= 0 || ! self::articles_tab_available() || ! self::can_write( $uid ) ) {
-			return $items;
-		}
-		$pages = self::write_pages();
-		$url   = $pages['post'] > 0 ? (string) get_permalink( $pages['post'] ) : '';
+		// The entry opens the write hub, which frames Member Blog's pages only: the
+		// WordPress-editor fallback has no rail entry.
+		$provider = self::articles_tab_available() ? self::member_blog_writer( get_current_user_id() ) : null;
+		$url      = null !== $provider ? (string) $provider['new_url'] : '';
 		if ( '' === $url ) {
 			return $items;
 		}
@@ -459,7 +507,7 @@ class MemberBlogBridge {
 		// Shown to members Member Blog lets write, and on any profile that already
 		// has articles; never an empty tab inviting a member who cannot write.
 		$enabled = fn( NavContext $c ): bool => self::articles_tab_available()
-			&& ( self::can_write( $c->subject_id ) || $this->article_count( $c->subject_id ) > 0 );
+			&& ( ( ArticleProvider::for_user( $c->subject_id )['can_write'] ?? false ) || $this->article_count( $c->subject_id ) > 0 );
 
 		$registry->register(
 			array(
@@ -557,8 +605,11 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * WP_Query args for a member's articles: published only, for every viewer,
-	 * owner included. Drafts are managed in the Member Blog dashboard.
+	 * WP_Query args for a member's articles: published and not password protected,
+	 * for every viewer, owner included. The tab is the member's public showcase, so
+	 * it lists only what everyone may read; drafts, private and password-protected
+	 * posts are managed in the Member Blog dashboard. The tab, its count, the
+	 * past-the-end check and REST all read these args, so the rule holds on each.
 	 *
 	 * @param int $user_id  Profile owner.
 	 * @param int $per_page Page size.
@@ -570,6 +621,7 @@ class MemberBlogBridge {
 			'author'                 => $user_id,
 			'post_type'              => $this->tracked_types(),
 			'post_status'            => 'publish',
+			'has_password'           => false,
 			'posts_per_page'         => $per_page,
 			'paged'                  => $paged,
 			'ignore_sticky_posts'    => true,
@@ -579,7 +631,13 @@ class MemberBlogBridge {
 		// Member Blog's own seam for "posts this member writes": Pro widens the query
 		// to co-authored posts in SQL (paginated, indexed) and leaves it untouched when
 		// the member co-authors nothing or Pro is off.
-		return (array) apply_filters( 'bp_member_blog_dashboard_query_args', $args, $user_id, 'publish', 'posts' );
+		$args = (array) apply_filters( 'bp_member_blog_dashboard_query_args', $args, $user_id, 'publish', 'posts' );
+
+		// Re-asserted after the partner filter: what may show publicly is BuddyNext's
+		// rule, and a filter that rebuilds the args must not widen it.
+		$args['post_status']  = 'publish';
+		$args['has_password'] = false;
+		return $args;
 	}
 
 	/**
@@ -617,6 +675,7 @@ class MemberBlogBridge {
 
 		$query    = new \WP_Query( $this->articles_query_args( $user_id, $per_page, $paged ) );
 		$is_owner = $viewer_id > 0 && $viewer_id === $user_id;
+		$provider = ArticleProvider::for_user( $user_id );
 
 		// Each row's Edit goes to THAT post. It used to open the dashboard for
 		// every row, leaving the owner to find the post again.
@@ -635,15 +694,15 @@ class MemberBlogBridge {
 				'profile_user_id' => $user_id,
 				'viewer_id'       => $viewer_id,
 				'is_owner'        => $is_owner,
-				'can_write'       => self::can_write( $user_id ),
+				'can_write'       => (bool) ( $provider['can_write'] ?? false ),
 				'articles'        => $query->posts,
 				'edit_urls'       => $edit_urls,
 				'co_writers'      => $co_writers,
 				'article_count'   => (int) $query->found_posts,
 				'page'            => $paged,
 				'total_pages'     => (int) $query->max_num_pages,
-				'dashboard_url'   => $this->dashboard_url( $user_id ),
-				'write_url'       => $this->write_url( $user_id ),
+				'dashboard_url'   => (string) ( $provider['my_articles_url'] ?? '' ),
+				'write_url'       => (string) ( $provider['new_url'] ?? '' ),
 			)
 		);
 
@@ -709,7 +768,7 @@ class MemberBlogBridge {
 		$out['total']         = (int) $query->found_posts;
 		$out['total_pages']   = (int) $query->max_num_pages;
 		$out['items']         = $items;
-		$out['dashboard_url'] = $is_owner ? $this->dashboard_url( $user_id ) : '';
+		$out['dashboard_url'] = $is_owner ? (string) ( ArticleProvider::for_user( $user_id )['my_articles_url'] ?? '' ) : '';
 		return $out;
 	}
 

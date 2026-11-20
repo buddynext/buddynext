@@ -337,10 +337,71 @@ Surfaces a member's published WordPress posts as an **Articles** profile tab. Un
 - **Guard:** `MemberBlogBridge::available()` checks `defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' )` - the plugin's own bootstrap constant - evaluated lazily inside each surface (the nav condition, the REST handler), not at `init()`. Hooks attach unconditionally because `plugins_loaded:25` can still run before Member Blog's own late bootstrap on some sites; a presence check at hook time would silently disable the tab where the plugin is in fact present.
 - **The feed side is NOT this bridge.** Free's `Feed\BlogPostListener` already publishes an `article` card on `publish` for every tracked post type, independent of Member Blog. This bridge only adds the profile surface and the owner's route back to Member Blog's dashboard.
 - **Registry entry:** merges the `nav` aspect onto the SAME `blog` integration key `BlogPostListener` already registers for `feed` (`register_integration()` on `buddynext_integrations`, merge not replace, so neither side can silently turn the other off). Reports `version` / `tested_version` (`4.1.0`) only once Member Blog is actually present; while the plugin is absent, site tracking's own `null` version is left untouched.
-- **Surfaces:** an "Articles" profile tab (priority 65, after Discussions) listing the member's published posts with pagination - the same list for every viewer, owner included; drafts are managed in the Member Blog dashboard. `articles_data()` / `MemberBlogRestController` expose the same list as JSON for the app.
+- **Surfaces:** an "Articles" profile tab (priority 65, after Discussions) listing the member's published posts with pagination - the same list for every viewer, owner included. Only posts everyone may read are listed: private and password-protected posts never appear (not their title, cover or excerpt), nor do drafts, pending or scheduled posts; the author manages all of those in the Member Blog dashboard. The same rule holds for the tab count, the REST list and the feed card (an article card is withdrawn when its post turns private or gains a password, and any reader that still reaches it gets no title, excerpt or cover). `articles_data()` / `MemberBlogRestController` expose the same list as JSON for the app.
 - **Dashboard link:** `dashboard_url()` prefers Member Blog's own `Member_Blog_Compat::get_dashboard_url()` when it happens to be loaded, falls back to the configured dashboard page option, then to wp-admin for a member who can reach it, and returns `''` (no link rendered) rather than a URL that 404s or bounces off a login wall.
 - **Write pages in the shell (1.3.0):** Member Blog's Add new post page (`bp_post_page`) and My Blog Dashboard page (`bp_dashboard_page`) render inside the BuddyNext shell through the `blogwrite` hub (no rewrite rule, no backing page). Same pages, same URLs, no redirect; the page content is Member Blog's own form or dashboard. A heading and two tabs (New post, My articles) frame it, and members Member Blog lets write get a "Write a post" rail item in the You group. A member who cannot write sees no tabs and no rail item, and the page shows Member Blog's own notice. A guest is sent to the BuddyNext sign-in and back. Both pages follow the `blog` integration's `nav` switch and the same private-community gate as every other hub (no article-specific rule), and always full-load (never a client-side swap).
 - **`buddynext_blog_write_in_shell`** (filter, `bool $in_shell`, `int $page_id`, since 1.3.0): return `false` to keep the theme's own page template for these two pages. Return `false` for guests only (`is_user_logged_in() ? $in_shell : false`) to show Member Blog's own sign-in state instead of the redirect to sign-in.
+
+### Article provider (1.3.0)
+
+Every doorway to "write an article" (the profile Articles tab links, the write hub tabs, the rail entry, and `posting.article_provider` in `GET /buddynext/v1/app/config`) reads one payload, `BuddyNext\Feed\ArticleProvider::for_user( $user_id )`, resolved once per request per member. BuddyNext owns the surfaces; the editor is a provider.
+
+| Key | Type | Meaning |
+|---|---|---|
+| `key` | string | Provider slug (`member-blog`, `wordpress`, or yours). |
+| `label` | string | Label for the Article tab. |
+| `icon` | string | BuddyNext icon slug. |
+| `can_write` | bool | Whether this member may write. The one answer every doorway uses. |
+| `new_url` | string | Where a new article starts. |
+| `drafts_url` | string | The member's drafts. |
+| `my_articles_url` | string | Where the member manages their articles. |
+| `title_arg` | string | Query arg the editor reads to prefill the title (`post_title` for the WordPress editor); `''` when it reads none. |
+| `supports_space` | bool | Whether the editor can post into a space (false for both built-in providers). |
+
+Resolution order: the `buddynext_article_provider` filter (default `null`); WB Member Blog registers itself from BuddyNext's side at priority 10 while the Articles tab is available (Member Blog active and the Blog posts "Show in navigation" switch on), and only when nothing earlier claimed the slot. Its `title_arg` is `''` because Member Blog's editor reads no title query arg. With no provider, a member with `edit_posts` gets the WordPress editor (`post-new.php`, `can_write` true); everyone else, and every guest, gets `null`. The "Write a post" rail entry and the write hub tabs appear only for the Member Blog provider; the WordPress fallback has neither.
+
+- **`buddynext_article_provider`** (filter, `array|null $provider`, `int $user_id`, since 1.3.0): return the payload above, or `null` for "nowhere to write". Missing keys are filled with empty defaults.
+- **`buddynext_composer_article_tab`** (filter, `bool $show`, `array $context`, since 1.3.0): whether the feed composer offers the Article tab beside Post. `$context` carries `surface` (`feed` for the main What's New composer, `space` in a space), `space_id` in a space, and `user_id`. Default: the member has a provider with `can_write`, the Blog posts "Show in navigation" switch (`buddynext_integration_blog_nav`) is on, and `surface` is `feed`. Read it through `ArticleProvider::show_composer_tab( $user_id, $context )`.
+
+Registering another editor as the provider:
+
+```php
+add_filter(
+	'buddynext_article_provider',
+	function ( $provider, int $user_id ) {
+		if ( ! user_can( $user_id, 'my_editor_write' ) ) {
+			return $provider;
+		}
+		return array(
+			'key'             => 'my-editor',
+			'label'           => __( 'Article', 'my-editor' ),
+			'icon'            => 'file-text',
+			'can_write'       => true,
+			'new_url'         => home_url( '/write/' ),
+			'drafts_url'      => home_url( '/write/drafts/' ),
+			'my_articles_url' => home_url( '/write/mine/' ),
+			'title_arg'       => 'title',
+			'supports_space'  => false,
+		);
+	},
+	20, // After Member Blog (10), so this one wins.
+	2
+);
+
+// Offer the Article tab in space composers too.
+add_filter(
+	'buddynext_composer_article_tab',
+	function ( bool $show, array $context ): bool {
+		if ( 'space' !== ( $context['surface'] ?? '' ) ) {
+			return $show;
+		}
+		$provider = \BuddyNext\Feed\ArticleProvider::for_user( (int) $context['user_id'] );
+		return null !== $provider && $provider['can_write'];
+	},
+	10,
+	2
+);
+```
 
 ## WP Career Board bridge (registered in Pro)
 

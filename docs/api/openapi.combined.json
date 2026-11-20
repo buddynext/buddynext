@@ -24563,6 +24563,42 @@
                                         }
                                     }
                                 }
+                            },
+                            "article_provider": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "description": "Where the viewer writes an article (Feed\\ArticleProvider::for_user()); null when they have nowhere to write.",
+                                "properties": {
+                                    "key": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "icon": {
+                                        "type": "string"
+                                    },
+                                    "can_write": {
+                                        "type": "boolean"
+                                    },
+                                    "new_url": {
+                                        "type": "string"
+                                    },
+                                    "drafts_url": {
+                                        "type": "string"
+                                    },
+                                    "my_articles_url": {
+                                        "type": "string"
+                                    },
+                                    "title_arg": {
+                                        "type": "string"
+                                    },
+                                    "supports_space": {
+                                        "type": "boolean"
+                                    }
+                                }
                             }
                         }
                     }

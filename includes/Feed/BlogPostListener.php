@@ -173,7 +173,7 @@ class BlogPostListener implements ListenerInterface {
 			return;
 		}
 
-		if ( ! $this->is_shareable( $post ) ) {
+		if ( ! self::is_shareable( $post ) ) {
 			IntegrationActivity::withdraw_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID );
 			return;
 		}
@@ -248,7 +248,7 @@ class BlogPostListener implements ListenerInterface {
 			return;
 		}
 
-		if ( ! $this->is_shareable( $post ) ) {
+		if ( ! self::is_shareable( $post ) ) {
 			return;
 		}
 
@@ -326,7 +326,14 @@ class BlogPostListener implements ListenerInterface {
 	public static function live_link_meta( array $meta ): array {
 		$post_id = (int) ( $meta[ self::META_POST_ID ] ?? 0 );
 		$post    = $post_id > 0 ? get_post( $post_id ) : null;
-		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) {
+		if ( ! $post instanceof \WP_Post ) {
+			return $meta;
+		}
+		// Private or password protected now: the card is withdrawn, and any reader
+		// that still reaches it (a reshare, a cached copy) gets no title, excerpt or
+		// cover from the stored snapshot either.
+		if ( ! self::is_shareable( $post ) ) {
+			unset( $meta['title'], $meta['description'], $meta['image'], $meta['thumbnail'] );
 			return $meta;
 		}
 
@@ -418,7 +425,7 @@ class BlogPostListener implements ListenerInterface {
 	 * @param \WP_Post $post Source post.
 	 * @return bool
 	 */
-	private function is_shareable( \WP_Post $post ): bool {
+	private static function is_shareable( \WP_Post $post ): bool {
 		if ( '' !== (string) $post->post_password ) {
 			return false;
 		}

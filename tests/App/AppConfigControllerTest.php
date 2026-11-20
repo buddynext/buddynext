@@ -368,6 +368,25 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The composer block carries the viewer's article provider: the WordPress
+	 * editor for a member who can use it, null for a guest or a subscriber.
+	 *
+	 * @return void
+	 */
+	public function test_posting_carries_the_article_provider(): void {
+		$this->assertArrayHasKey( 'article_provider', $this->get_config()['posting'] );
+		$this->assertNull( $this->get_config()['posting']['article_provider'], 'Guest.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$this->assertNull( $this->get_config()['posting']['article_provider'], 'Subscriber, no provider.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
+		$provider = $this->get_config()['posting']['article_provider'];
+		$this->assertSame( \BuddyNext\Feed\ArticleProvider::for_user( get_current_user_id() ), $provider );
+		$this->assertTrue( $provider['can_write'] );
+	}
+
+	/**
 	 * Register one integration for the duration of a test.
 	 *
 	 * @param string      $key     Integration key.

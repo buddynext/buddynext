@@ -15,6 +15,7 @@ namespace BuddyNext\Tests\Bridges;
 
 use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Core\HubRegistry;
+use BuddyNext\Feed\ArticleProvider;
 
 /**
  * @covers \BuddyNext\Bridges\MemberBlogBridge
@@ -244,6 +245,53 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 
 		update_option( 'buddynext_integration_blog_nav', '0' );
 		$this->assertNotContains( 'write-post', $keys(), 'Nav switch off.' );
+	}
+
+	public function test_member_blog_is_the_article_provider(): void {
+		$writer   = $this->writer();
+		$provider = ArticleProvider::for_user( $writer );
+
+		$this->assertSame( 'member-blog', $provider['key'] );
+		$this->assertTrue( $provider['can_write'] );
+		$this->assertSame( get_permalink( $this->post_page ), $provider['new_url'] );
+		$this->assertSame( get_permalink( $this->dashboard_page ), $provider['my_articles_url'] );
+		$this->assertSame( add_query_arg( 'tab', 'drafts', get_permalink( $this->dashboard_page ) ), $provider['drafts_url'] );
+		$this->assertSame( '', $provider['title_arg'], 'Member Blog\'s editor reads no title query arg.' );
+		$this->assertFalse( $provider['supports_space'] );
+
+		// A member Member Blog does not let write still gets its payload, with can_write false.
+		$reader = ArticleProvider::for_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
+		$this->assertSame( 'member-blog', $reader['key'] );
+		$this->assertFalse( $reader['can_write'] );
+	}
+
+	public function test_with_the_articles_tab_off_the_fallback_has_no_rail_entry(): void {
+		update_option( 'buddynext_integration_blog_nav', '0' );
+
+		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
+		$this->assertSame( 'wordpress', ArticleProvider::for_user( $editor )['key'] );
+		$this->assertNull( ArticleProvider::for_user( self::factory()->user->create() ), 'Subscriber with no provider.' );
+
+		wp_set_current_user( $editor );
+		$this->assertSame( array(), $this->bridge->add_write_rail_item( array(), '' ) );
+		$this->assertSame( array(), MemberBlogBridge::write_hub_tabs() );
+	}
+
+	public function test_a_provider_registered_first_wins(): void {
+		add_filter(
+			'buddynext_article_provider',
+			static fn(): array => array(
+				'key'       => 'my-editor',
+				'can_write' => true,
+				'new_url'   => home_url( '/write/' ),
+			),
+			5
+		);
+		$writer = $this->writer();
+		$this->assertSame( 'my-editor', ArticleProvider::for_user( $writer )['key'] );
+
+		wp_set_current_user( $writer );
+		$this->assertSame( array(), $this->bridge->add_write_rail_item( array(), '' ), 'The rail entry opens Member Blog\'s write hub only.' );
 	}
 
 	public function test_tabs_are_for_writers_only(): void {

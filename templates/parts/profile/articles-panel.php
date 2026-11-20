@@ -18,9 +18,9 @@
  * @var int        $article_count   Total matching posts across all pages.
  * @var int        $page            Current page (1-based).
  * @var int        $total_pages     Total pages.
- * @var string     $dashboard_url   Where the owner writes/manages ('' = no affordance).
- * @var string     $write_url       Where the owner starts a new post (falls back to the dashboard).
- * @var bool       $can_write       Whether Member Blog lets the owner write (hides the Write links when not).
+ * @var string     $dashboard_url   The article provider's "my articles" address ('' = no affordance).
+ * @var string     $write_url       The article provider's new-article address (falls back to the dashboard).
+ * @var bool       $can_write       The article provider's can_write for the owner (hides the Write links when false).
  */
 
 declare( strict_types=1 );
@@ -43,7 +43,7 @@ $bn_ar_writers   = isset( $co_writers ) && is_array( $co_writers ) ? $co_writers
 // The owner's route back to where they write. Shown ABOVE the list and also in the
 // empty state, because a member with nothing published is exactly who needs it.
 $bn_ar_manage = $bn_ar_owner && '' !== $bn_ar_dashboard;
-// Write links only for a member Member Blog lets write (its own role check);
+// Write links only for a member the article provider lets write;
 // a member who can no longer write still manages what they published.
 $bn_ar_can_write = $bn_ar_manage && ( ! isset( $can_write ) || (bool) $can_write );
 

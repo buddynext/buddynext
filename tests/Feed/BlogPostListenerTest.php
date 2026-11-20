@@ -120,6 +120,32 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A private or password-protected source yields no title, excerpt or cover,
+	 * even from the copy stored when the card was published (a reshare or a cached
+	 * copy can still reach a withdrawn card).
+	 *
+	 * @return void
+	 */
+	public function test_live_meta_hides_a_private_or_protected_source(): void {
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$meta   = array(
+			'title'       => 'Stored secret title',
+			'description' => 'Stored secret excerpt',
+			'image'       => 'https://example.com/secret-cover.jpg',
+			'thumbnail'   => 'https://example.com/secret-cover.jpg',
+			'url'         => 'https://example.com/?p=1',
+		);
+
+		foreach ( array( array( 'post_status' => 'private' ), array( 'post_status' => 'publish', 'post_password' => 'pw' ) ) as $shape ) {
+			$post_id = self::factory()->post->create( array_merge( array( 'post_author' => $author, 'post_title' => 'Live secret title' ), $shape ) );
+			$live    = BlogPostListener::live_link_meta( array_merge( $meta, array( BlogPostListener::META_POST_ID => $post_id ) ) );
+
+			$encoded = (string) wp_json_encode( $live );
+			$this->assertStringNotContainsString( 'secret', $encoded, wp_json_encode( $shape ) . ' leaked: ' . $encoded );
+		}
+	}
+
+	/**
 	 * A post published before the author verified reaches the feed once they do.
 	 *
 	 * @return void
