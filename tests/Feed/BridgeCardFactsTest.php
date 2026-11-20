@@ -135,4 +135,28 @@ class BridgeCardFactsTest extends WP_UnitTestCase {
 		remove_filter( 'buddynext_card_facts', '__return_empty_array' );
 		$this->assertStringNotContainsString( 'Hidden by the site', $html );
 	}
+
+	public function test_a_partner_card_goes_into_an_open_space_only(): void {
+		$owner = self::factory()->user->create();
+		$make  = static fn( string $type ): int => (int) buddynext_service( 'spaces' )->create(
+			$owner,
+			array(
+				'name' => 'Card space ' . $type . wp_rand(),
+				'slug' => 'card-space-' . $type . '-' . wp_rand( 10000, 99999 ),
+				'type' => $type,
+			)
+		);
+		$open  = $make( 'open' );
+
+		$this->assertSame( $open, IntegrationActivity::card_space( $open ), 'An open Space gets the card in its own feed.' );
+		$this->assertSame( 0, IntegrationActivity::card_space( $make( 'private' ) ), 'A private Space: the card stays site-wide.' );
+		$this->assertSame( 0, IntegrationActivity::card_space( $make( 'secret' ) ), 'A secret Space too.' );
+		$this->assertSame( 0, IntegrationActivity::card_space( 0 ) );
+		$this->assertSame( 0, IntegrationActivity::card_space( 999999 ), 'A Space that does not exist.' );
+
+		$never = static fn(): int => 0;
+		add_filter( 'buddynext_partner_card_space', $never );
+		$this->assertSame( 0, IntegrationActivity::card_space( $open ), 'A site can keep every card site-wide.' );
+		remove_filter( 'buddynext_partner_card_space', $never );
+	}
 }

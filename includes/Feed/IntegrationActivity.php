@@ -802,6 +802,38 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * The Space a partner item's card may live in: an open Space, else none (site-wide).
+	 *
+	 * An event or listing is public, and its card must stay public. In an open Space the card
+	 * also shows in that Space's own feed; for a private or secret Space it stays in the site
+	 * feed, and the Space shows the item on its own tab. Pass the result as the card's space.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id The Space the item was made for (0 = none).
+	 * @return int The same id when that Space is open, else 0.
+	 */
+	public static function card_space( int $space_id ): int {
+		$card_space = 0;
+		if ( $space_id > 0 && function_exists( 'buddynext_service' ) ) {
+			$space      = buddynext_service( 'spaces' )->get( $space_id );
+			$card_space = ( null !== $space && \BuddyNext\Spaces\SpaceService::TYPE_OPEN === (string) ( $space['type'] ?? '' ) ) ? $space_id : 0;
+		}
+
+		/**
+		 * Filter the Space a partner item's card is placed in.
+		 *
+		 * Defaults to the item's Space when it is open, else 0 (site-wide).
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int $card_space The Space the card goes in (0 = site-wide).
+		 * @param int $space_id   The Space the item was made for.
+		 */
+		return max( 0, (int) apply_filters( 'buddynext_partner_card_space', $card_space, $space_id ) );
+	}
+
+	/**
 	 * The facts line of a bridge card, cleaned.
 	 *
 	 * A bridge passes `'facts' => array( array( 'icon' => 'map-pin', 'text' => 'Remote' ), ... )`
