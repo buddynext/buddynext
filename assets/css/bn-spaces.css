@@ -1616,7 +1616,8 @@ a.bn-sh-statpill:focus-visible {
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
-	overflow: hidden;
+	/* No overflow clip here: the tab strip's More menu opens below the header and a
+	 * clip cut off its last items. The cover rounds its own top corners instead. */
 	margin-block-end: var(--bn-s4);
 }
 
@@ -1625,6 +1626,8 @@ a.bn-sh-statpill:focus-visible {
 	background: linear-gradient(135deg, var(--bn-accent-100), var(--bn-sunken));
 	position: relative;
 	overflow: hidden;
+	border-start-start-radius: calc(var(--bn-r-lg) - 1px);
+	border-start-end-radius: calc(var(--bn-r-lg) - 1px);
 }
 
 .bn-sh-cover img {
