@@ -53,7 +53,7 @@ final class ArticleImage {
 	 * Smallest original that still makes a cover. Under 600px wide it would blur;
 	 * under 225px tall the 16:9 box would scale it past about 1.5x.
 	 */
-	private const COVER_MIN_W = 600;
+	public const COVER_MIN_W  = 600;
 	private const COVER_MIN_H = 225;
 
 	/**

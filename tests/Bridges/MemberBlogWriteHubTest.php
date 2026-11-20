@@ -607,4 +607,21 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertSame( add_query_arg( 'tab', 'drafts', get_permalink( $this->dashboard_page ) ), $provider['drafts_url'] );
 		$this->assertArrayNotHasKey( 'draft', ArticleProvider::composer_summary( $uid ), 'The composer summary is counts only.' );
 	}
+
+	public function test_the_crop_preview_prints_only_inside_the_write_hub(): void {
+		set_query_var( 'bn_hub', '' );
+		ob_start();
+		$this->bridge->render_crop_preview();
+		$this->assertSame( '', ob_get_clean(), 'Nothing outside the hub.' );
+
+		set_query_var( 'bn_hub', MemberBlogBridge::WRITE_HUB );
+		ob_start();
+		$this->bridge->render_crop_preview();
+		$html = ob_get_clean();
+		set_query_var( 'bn_hub', '' );
+
+		$this->assertStringContainsString( 'bn-crop-preview', $html );
+		$this->assertStringContainsString( 'data-bn-crop-min="' . \BuddyNext\Feed\ArticleImage::COVER_MIN_W . '"', $html, 'The size floor comes from the card rule.' );
+		$this->assertStringContainsString( 'Wide photos work best.', $html );
+	}
 }

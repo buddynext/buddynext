@@ -681,6 +681,14 @@ class AssetService {
 			$this->module_version( 'js/blog/write-prefill.js' )
 		);
 
+		// Write hub: the crop preview under Member Blog's featured-image box.
+		wp_register_script_module(
+			'@buddynext/blog-write-crop',
+			$this->assets_url . 'js/blog/write-crop.js',
+			array(),
+			$this->module_version( 'js/blog/write-crop.js' )
+		);
+
 		wp_register_script_module(
 			'@buddynext/navigate',
 			$this->assets_url . 'js/shell/navigate.js',

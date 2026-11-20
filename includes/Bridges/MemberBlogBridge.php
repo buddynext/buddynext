@@ -129,6 +129,7 @@ class MemberBlogBridge {
 		// Writing for a space: the choice rides Member Blog's form as a hidden field
 		// and is stored on the post through its save filter, before the post is written.
 		add_action( 'bp_post_before_submit_button', array( $this, 'render_space_field' ) );
+		add_action( 'bp_post_before_submit_button', array( $this, 'render_crop_preview' ) );
 		add_filter( 'bp_member_blog_post_data', array( $this, 'save_space_choice' ), 10, 2 );
 	}
 
@@ -544,9 +545,42 @@ class MemberBlogBridge {
 	 * @return void
 	 */
 	public function enqueue_title_prefill(): void {
-		if ( self::WRITE_HUB === (string) get_query_var( 'bn_hub', '' ) && '' !== self::write_hub_prefill_title() ) {
+		if ( self::WRITE_HUB !== (string) get_query_var( 'bn_hub', '' ) ) {
+			return;
+		}
+
+		wp_enqueue_script_module( '@buddynext/blog-write-crop' );
+		if ( '' !== self::write_hub_prefill_title() ) {
 			wp_enqueue_script_module( '@buddynext/blog-write-prefill' );
 		}
+	}
+
+	/**
+	 * Show how the chosen featured image will be cropped, under Member Blog's image box.
+	 *
+	 * Two crops (the feed's 16:9 cover and the lists' square) plus a size hint; the
+	 * `@buddynext/blog-write-crop` module moves it under the image box and fills it from
+	 * the image Member Blog shows. Printed from the submit-button hook because Member Blog
+	 * routes `bp_post_after_featured_image` into its collapsed Details panel. Hidden until
+	 * there is an image. Only inside the write hub.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public function render_crop_preview(): void {
+		if ( self::WRITE_HUB !== (string) get_query_var( 'bn_hub', '' ) ) {
+			return;
+		}
+		?>
+		<div class="bn-crop-preview" data-bn-crop-min="<?php echo (int) ArticleImage::COVER_MIN_W; ?>" data-bn-crop-small="<?php echo esc_attr__( 'This photo is small, so it will not be used as a cover.', 'buddynext' ); ?>" hidden>
+			<p class="bn-crop-preview__hint" data-bn-crop-hint><?php esc_html_e( 'Wide photos work best. We crop to 16:9 for the feed and a square for lists. At least 1200 px wide.', 'buddynext' ); ?></p>
+			<div class="bn-crop-preview__crops">
+				<figure class="bn-crop-preview__crop bn-crop-preview__crop--feed"><img src="" alt="" /><figcaption><?php esc_html_e( 'In the feed', 'buddynext' ); ?></figcaption></figure>
+				<figure class="bn-crop-preview__crop bn-crop-preview__crop--list"><img src="" alt="" /><figcaption><?php esc_html_e( 'In lists', 'buddynext' ); ?></figcaption></figure>
+			</div>
+		</div>
+		<?php
 	}
 
 	/**
