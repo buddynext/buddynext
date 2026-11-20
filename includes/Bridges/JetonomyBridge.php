@@ -186,6 +186,9 @@ class JetonomyBridge {
 		// Jetonomy fires no event when a topic moves to another forum, so the move is read off
 		// its own REST route once it has succeeded.
 		add_filter( 'rest_request_after_callbacks', array( $this, 'on_move_response' ), 10, 3 );
+		// Banned words and the Pro rules apply to forum topics, titles and replies like any other post.
+		add_filter( 'jetonomy_before_create_post', array( $this, 'check_new_topic' ), 10, 1 );
+		add_filter( 'jetonomy_before_create_reply', array( $this, 'check_new_reply' ), 10, 1 );
 		add_action( 'jetonomy_post_publish_transition', array( $this, 'sync_discussion' ), 10, 1 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
@@ -2570,6 +2573,49 @@ class JetonomyBridge {
 			default:
 				return 'hidden';
 		}
+	}
+
+	/**
+	 * Run the shared banned-content check on a new forum topic (title and body).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $data Topic data Jetonomy is about to write.
+	 * @return mixed The data, or a WP_Error that refuses the topic.
+	 */
+	public function check_new_topic( $data ) {
+		return is_array( $data ) ? $this->scan_forum_text( $data, trim( ( $data['title'] ?? '' ) . "\n" . ( $data['content'] ?? '' ) ) ) : $data;
+	}
+
+	/**
+	 * Run the shared banned-content check on a new forum reply.
+	 *
+	 * @param mixed $data Reply data Jetonomy is about to write.
+	 * @return mixed The data, or a WP_Error that refuses the reply.
+	 */
+	public function check_new_reply( $data ) {
+		return is_array( $data ) ? $this->scan_forum_text( $data, (string) ( $data['content'] ?? '' ) ) : $data;
+	}
+
+	/**
+	 * The one check behind both: banned words, blocked links and the Pro rules.
+	 *
+	 * Only a hard block refuses the write (a flag verdict lets it through, as it does for a comment). The
+	 * member sees one generic line; which word or rule fired is not told to them.
+	 *
+	 * @param array<string,mixed> $data Row Jetonomy is about to write.
+	 * @param string              $text What the member wrote.
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	private function scan_forum_text( array $data, string $text ) {
+		if ( '' === trim( $text ) || ! function_exists( 'buddynext_service' ) ) {
+			return $data;
+		}
+		$verdict = buddynext_service( 'safeguard' )->check_content( wp_strip_all_tags( $text ), '', (int) ( $data['author_id'] ?? 0 ), 0, 'create', 'post' );
+		if ( ! is_wp_error( $verdict ) || \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $verdict ) ) {
+			return $data;
+		}
+		return new \WP_Error( 'bn_forum_content_blocked', __( 'This cannot be posted because it contains content that is not allowed in this community.', 'buddynext' ), array( 'status' => 422 ) );
 	}
 
 	/**

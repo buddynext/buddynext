@@ -79,6 +79,10 @@ If WB Gamification is active, a topic, a reply and a topic removed by a moderato
 
 A member suspended in BuddyNext keeps reading the forum but cannot post, reply or vote until the suspension ends. People a member has blocked in BuddyNext are hidden from that member's forum lists and notifications. This needs a recent Jetonomy (2.0.7 or later); an older Jetonomy ignores it. Muting and restricting do not carry over.
 
+### Banned words in the forum
+
+The banned words and blocked links you set for the community also apply to forum topics (title and body) and replies. A topic or reply that contains one is refused with one general message, and the member is not told which word or rule matched; that detail stays in the moderation log. Flag-only rules let the text through, as they do for comments.
+
 ### Forum reports in the moderation queue
 
 When a member reports a topic or reply in the forum, the report also appears in the BuddyNext moderation queue. Your community moderators can act on it there with Remove, Warn, Strike and Suspend, even if they hold no forum role: Remove moves the topic or reply to the forum trash, so it can be restored. Closing a report in either place closes it in the other. If the same discussion was also reported from its card in the activity feed, both reports close together. The queue names the forum a report came from only to moderators who can see that forum, and never shows a topic's title.
