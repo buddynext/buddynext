@@ -19,19 +19,20 @@ use BuddyNext\Feed\ArticleProvider;
  */
 class ArticleProviderTest extends \WP_UnitTestCase {
 
-	private const KEYS = array( 'key', 'label', 'icon', 'can_write', 'new_url', 'drafts_url', 'my_articles_url', 'title_arg', 'supports_space' );
+	private const KEYS = array( 'key', 'label', 'icon', 'can_write', 'new_url', 'drafts_url', 'my_articles_url', 'pending_url', 'title_arg', 'supports_space' );
 
 	public function test_a_member_who_can_use_the_editor_gets_the_wordpress_fallback(): void {
 		$uid      = self::factory()->user->create( array( 'role' => 'author' ) );
 		$provider = ArticleProvider::for_user( $uid );
 
 		$this->assertSame( self::KEYS, array_keys( $provider ) );
-		$this->assertSame( 'wordpress', $provider['key'] );
+		$this->assertSame( 'WordPress', $provider['key'] );
 		$this->assertTrue( $provider['can_write'] );
 		$this->assertSame( admin_url( 'post-new.php' ), $provider['new_url'] );
 		$this->assertStringStartsWith( admin_url( 'edit.php' ), $provider['drafts_url'] );
 		$this->assertStringContainsString( 'post_status=draft', $provider['drafts_url'] );
 		$this->assertStringStartsWith( admin_url( 'edit.php' ), $provider['my_articles_url'] );
+		$this->assertSame( admin_url( 'edit.php?post_status=pending&author=' . $uid ), $provider['pending_url'] );
 		$this->assertSame( 'post_title', $provider['title_arg'] );
 		$this->assertFalse( $provider['supports_space'] );
 	}
@@ -65,7 +66,7 @@ class ArticleProviderTest extends \WP_UnitTestCase {
 
 	public function test_a_filter_returning_null_hands_over_to_the_fallback(): void {
 		add_filter( 'buddynext_article_provider', '__return_null' );
-		$this->assertSame( 'wordpress', ArticleProvider::for_user( self::factory()->user->create( array( 'role' => 'editor' ) ) )['key'] );
+		$this->assertSame( 'WordPress', ArticleProvider::for_user( self::factory()->user->create( array( 'role' => 'editor' ) ) )['key'] );
 	}
 
 	public function test_it_resolves_once_per_request_per_member(): void {

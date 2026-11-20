@@ -382,8 +382,82 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 		$provider = $this->get_config()['posting']['article_provider'];
-		$this->assertSame( \BuddyNext\Feed\ArticleProvider::for_user( get_current_user_id() ), $provider );
+		$this->assertSame( \BuddyNext\Feed\ArticleProvider::for_user( get_current_user_id() ), array_diff_key( $provider, array( 'counts' => true ) ) );
 		$this->assertTrue( $provider['can_write'] );
+	}
+
+	/**
+	 * The app gets the composer counts with the provider for a writer, and no
+	 * provider (no links, no counts) for anyone who cannot write.
+	 *
+	 * @return void
+	 */
+	public function test_article_provider_counts_per_persona(): void {
+		$writer = self::factory()->user->create( array( 'role' => 'author' ) );
+		self::factory()->post->create(
+			array(
+				'post_author' => $writer,
+				'post_status' => 'draft',
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_author' => $writer,
+				'post_status' => 'private',
+			)
+		);
+		$pending = self::factory()->post->create(
+			array(
+				'post_author' => $writer,
+				'post_status' => 'pending',
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_author' => $writer,
+				'post_status' => 'future',
+				'post_date'   => gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS ),
+			)
+		);
+
+		wp_set_current_user( $writer );
+		$provider = $this->get_config()['posting']['article_provider'];
+		$this->assertIsArray( $provider );
+		$this->assertTrue( $provider['can_write'] );
+		$this->assertSame( admin_url( 'edit.php?post_status=pending&author=' . $writer ), $provider['pending_url'] );
+		$this->assertSame(
+			array(
+				'drafts'   => 1,
+				'articles' => 1,
+				'pending'  => 1,
+			),
+			$provider['counts']
+		);
+		$this->assertSame( \BuddyNext\Feed\ArticleProvider::composer_summary( $writer ), $provider['counts'], 'Same numbers as the website composer.' );
+		foreach ( array( 'key', 'label', 'icon', 'can_write', 'new_url', 'drafts_url', 'my_articles_url', 'title_arg', 'supports_space' ) as $key ) {
+			$this->assertArrayHasKey( $key, $provider, "Existing key {$key} unchanged." );
+		}
+		$this->assertSame( \BuddyNext\Feed\ArticleProvider::for_user( $writer ), array_diff_key( $provider, array( 'counts' => true ) ) );
+
+		wp_publish_post( $pending );
+		$this->assertSame( 0, $this->get_config()['posting']['article_provider']['counts']['pending'], 'Refreshed after a status change: the only post held for review went live.' );
+		$this->assertSame( 2, $this->get_config()['posting']['article_provider']['counts']['articles'] );
+
+		wp_set_current_user( 0 );
+		$this->assertNull( $this->get_config()['posting']['article_provider'], 'Guest.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$this->assertNull( $this->get_config()['posting']['article_provider'], 'A role that cannot write.' );
+
+		$suspended = self::factory()->user->create( array( 'role' => 'author' ) );
+		$this->assertIsInt( buddynext_service( 'moderation' )->suspend_user( $suspended, 1, 'phpunit' ) );
+		wp_set_current_user( $suspended );
+		$this->assertNull( $this->get_config()['posting']['article_provider'], 'Suspended.' );
+
+		$held = self::factory()->user->create( array( 'role' => 'author' ) );
+		update_user_meta( $held, 'bn_pending_approval', '1' );
+		wp_set_current_user( $held );
+		$this->assertNull( $this->get_config()['posting']['article_provider'], 'Pending approval.' );
 	}
 
 	/**
@@ -445,7 +519,12 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 		$this->register_integration( 'testkit', '1.0.0' );
 		add_filter(
 			'buddynext_integration_card_types',
-			static fn() => array( 'testkit_item' => array( 'label' => 'Item', 'icon' => 'book' ) )
+			static fn() => array(
+				'testkit_item' => array(
+					'label' => 'Item',
+					'icon'  => 'book',
+				),
+			)
 		);
 
 		$config = $this->get_config();

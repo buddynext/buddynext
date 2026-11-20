@@ -319,6 +319,7 @@ class MemberBlogBridge {
 			// Member Blog's dashboard page opens a tab from ?tab=.
 			'drafts_url'      => '' !== $dashboard ? add_query_arg( 'tab', 'drafts', $dashboard ) : '',
 			'my_articles_url' => $dashboard,
+			'pending_url'     => '' !== $dashboard ? add_query_arg( 'tab', 'pending', $dashboard ) : '',
 			'title_arg'       => '',
 			'supports_space'  => false,
 		);

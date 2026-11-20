@@ -2931,9 +2931,15 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	gap: var(--bn-s1) var(--bn-s4);
 	margin-block-end: var(--bn-s3);
 }
-.bn-composer-switch__head[hidden],
-.bn-composer-switch__links[hidden] {
+.bn-composer-switch__head[hidden] {
 	display: none;
+}
+/* On Post the links keep their box (hidden from sight, the Tab order and assistive tech), so the
+	tab row is as tall on both tabs even when the links wrap, and the feed never jumps. */
+.bn-composer-switch__links[hidden] {
+	display: flex !important;
+	visibility: hidden;
+	pointer-events: none;
 }
 .bn-composer-switch__tabs {
 	display: inline-flex;
@@ -3828,7 +3834,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	.bn-composer-switch { padding: var(--bn-s3); }
 	/* The two links wrap under the tabs on a phone: show them in both modes so the card keeps one height
 		and there is no blank band, whichever tab is selected. */
-	.bn-composer-switch__links[hidden] { display: flex !important; }
+	.bn-composer-switch__links[hidden] { display: flex !important; visibility: visible; pointer-events: auto; }
 	.bn-composer-switch__head { gap: 0; }
 	.bn-composer-switch__tabs { display: flex; inline-size: 100%; }
 	.bn-composer-switch__tab { flex: 1 1 0; }

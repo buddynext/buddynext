@@ -34,11 +34,10 @@ final class ArticleProvider {
 	private static array $resolved = array();
 
 	/**
-	 * Composer summaries for this request, keyed by user id.
-	 *
-	 * @var array<int,array{drafts:int,articles:int}>
+	 * Object-cache group and key prefix of a member's article counts (composer_summary()).
 	 */
-	private static array $summaries = array();
+	private const CACHE_GROUP = 'buddynext';
+	private const CACHE_KEY   = 'bn_article_counts_';
 
 	/**
 	 * The article provider for a member, or null when they have nowhere to write.
@@ -48,7 +47,7 @@ final class ArticleProvider {
 	 * @since 1.3.0
 	 *
 	 * @param int $user_id Member.
-	 * @return array{key:string,label:string,icon:string,can_write:bool,new_url:string,drafts_url:string,my_articles_url:string,title_arg:string,supports_space:bool}|null
+	 * @return array{key:string,label:string,icon:string,can_write:bool,new_url:string,drafts_url:string,my_articles_url:string,pending_url:string,title_arg:string,supports_space:bool}|null
 	 */
 	public static function for_user( int $user_id ): ?array {
 		if ( $user_id <= 0 ) {
@@ -65,11 +64,14 @@ final class ArticleProvider {
 		 * Return an array with these keys, or null for "nowhere to write":
 		 * `key` (string slug), `label`, `icon` (a BuddyNext icon slug),
 		 * `can_write` (bool), `new_url`, `drafts_url`, `my_articles_url`,
+		 * `pending_url` (the member's posts waiting for review),
 		 * `title_arg` (query arg the editor reads to prefill the title, '' for
 		 * none) and `supports_space` (bool). Missing keys are filled with empty
 		 * defaults. WB Member Blog registers at priority 10 when the incoming
 		 * value is null; hook earlier to be offered first, later to override.
-		 * With no provider, a member with `edit_posts` gets the WordPress editor.
+		 * With no provider, a member with `edit_posts` gets the WordPress editor
+		 * (`can_write` false while a BuddyNext hold, suspension or pending
+		 * approval, applies).
 		 *
 		 * @since 1.3.0
 		 *
@@ -83,10 +85,11 @@ final class ArticleProvider {
 				'key'             => 'wordpress',
 				'label'           => __( 'Article', 'buddynext' ),
 				'icon'            => 'file-text',
-				'can_write'       => true,
+				'can_write'       => '' === \BuddyNext\Bridges\MemberBlogBridge::write_hold( $user_id ),
 				'new_url'         => admin_url( 'post-new.php' ),
 				'drafts_url'      => admin_url( 'edit.php?post_status=draft&author=' . $user_id ),
 				'my_articles_url' => admin_url( 'edit.php?author=' . $user_id ),
+				'pending_url'     => admin_url( 'edit.php?post_status=pending&author=' . $user_id ),
 				'title_arg'       => 'post_title',
 				'supports_space'  => false,
 			);
@@ -133,41 +136,47 @@ final class ArticleProvider {
 	}
 
 	/**
-	 * What the composer's Article tab shows a writer: how many drafts and
-	 * articles they have (the counts beside the composer tabs).
+	 * What the composer's Article tab shows a writer: how many drafts, articles
+	 * and posts waiting they have (the counts beside the composer tabs). The app
+	 * reads the same numbers (/app/config `posting.article_provider.counts`).
 	 *
 	 * `drafts` counts status 'draft' and `articles` counts 'publish' + 'private':
 	 * the same statuses the provider's My drafts and My articles views list (a
-	 * private post is published to a smaller audience). Posts held for review
-	 * ('pending') and scheduled posts ('future') are in neither number. Counts are
-	 * of `post` posts the member authored.
+	 * private post is published to a smaller audience). `pending` counts posts held
+	 * for review ('pending') only, the composer's Pending link: Member Blog's Pending
+	 * list shows just those, so the number always matches the list it opens
+	 * (scheduled posts join the count when Member Blog lists them). Counts are of `post` posts the member authored.
 	 *
-	 * One grouped COUNT on post_author, resolved once per request. Zeros for a
+	 * One grouped COUNT on post_author, cached per member in the object cache
+	 * (a per-request memo without a persistent one) and dropped by flush_counts()
+	 * when one of their posts changes status, author or is deleted. Zeros for a
 	 * member who cannot write.
 	 *
 	 * @since 1.3.0
 	 *
 	 * @param int $user_id Member.
-	 * @return array{drafts:int,articles:int}
+	 * @return array{drafts:int,articles:int,pending:int}
 	 */
 	public static function composer_summary( int $user_id ): array {
 		$summary  = array(
 			'drafts'   => 0,
 			'articles' => 0,
+			'pending'  => 0,
 		);
 		$provider = self::for_user( $user_id );
 		if ( null === $provider || ! $provider['can_write'] ) {
 			return $summary;
 		}
-		if ( isset( self::$summaries[ $user_id ] ) ) {
-			return self::$summaries[ $user_id ];
+		$cached = wp_cache_get( self::CACHE_KEY . $user_id, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
 		}
 
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one grouped COUNT per member per request (memoised above); core has no per-author status count.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one grouped COUNT per member, object-cached below; core has no per-author status count.
 		$rows   = (array) $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT post_status, COUNT(*) AS total FROM {$wpdb->posts} WHERE post_author = %d AND post_type = 'post' AND post_status IN ( 'draft', 'publish', 'private' ) GROUP BY post_status",
+				"SELECT post_status, COUNT(*) AS total FROM {$wpdb->posts} WHERE post_author = %d AND post_type = 'post' AND post_status IN ( 'draft', 'publish', 'private', 'pending' ) GROUP BY post_status",
 				$user_id
 			),
 			ARRAY_A
@@ -176,16 +185,95 @@ final class ArticleProvider {
 
 		$summary['drafts']   = (int) ( $counts['draft'] ?? 0 );
 		$summary['articles'] = (int) ( $counts['publish'] ?? 0 ) + (int) ( $counts['private'] ?? 0 );
+		$summary['pending']  = (int) ( $counts['pending'] ?? 0 );
 
-		self::$summaries[ $user_id ] = $summary;
+		// The hour is a backstop for writes that skip the post hooks (raw SQL); flush_counts() is the real refresh.
+		wp_cache_set( self::CACHE_KEY . $user_id, $summary, self::CACHE_GROUP, HOUR_IN_SECONDS );
 		return $summary;
+	}
+
+	/**
+	 * Keep the cached article counts fresh: a post's status, author or deletion
+	 * changes its author's counts. Wired from BlogPostListener::register().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public static function register(): void {
+		add_action( 'transition_post_status', array( self::class, 'on_status_change' ), 10, 3 );
+		add_action( 'post_updated', array( self::class, 'on_post_updated' ), 10, 3 );
+		add_action( 'deleted_post', array( self::class, 'on_deleted' ), 10, 2 );
+	}
+
+	/**
+	 * Drop a member's cached article counts (composer_summary()).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $user_id Member.
+	 * @return void
+	 */
+	public static function flush_counts( int $user_id ): void {
+		if ( $user_id > 0 ) {
+			wp_cache_delete( self::CACHE_KEY . $user_id, self::CACHE_GROUP );
+		}
+	}
+
+	/**
+	 * `transition_post_status`: a post's status changed, so its author's counts did.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string   $new_status New status.
+	 * @param string   $old_status Old status.
+	 * @param \WP_Post $post       The post.
+	 * @return void
+	 */
+	public static function on_status_change( $new_status, $old_status, $post ): void {
+		if ( $post instanceof \WP_Post && 'post' === $post->post_type && $new_status !== $old_status ) {
+			self::flush_counts( (int) $post->post_author );
+		}
+	}
+
+	/**
+	 * `post_updated`: a post moved to another author, so both members' counts changed.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int      $post_id     Post id.
+	 * @param \WP_Post $post_after  The post after the update.
+	 * @param \WP_Post $post_before The post before it.
+	 * @return void
+	 */
+	public static function on_post_updated( $post_id, $post_after, $post_before ): void {
+		if ( $post_after instanceof \WP_Post && $post_before instanceof \WP_Post && 'post' === $post_after->post_type
+			&& (int) $post_after->post_author !== (int) $post_before->post_author ) {
+			self::flush_counts( (int) $post_after->post_author );
+			self::flush_counts( (int) $post_before->post_author );
+		}
+	}
+
+	/**
+	 * `deleted_post`: a deleted post leaves its author's counts.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int           $post_id Post id.
+	 * @param \WP_Post|null $post    The deleted post.
+	 * @return void
+	 */
+	public static function on_deleted( $post_id, $post = null ): void {
+		if ( $post instanceof \WP_Post && 'post' === $post->post_type ) {
+			self::flush_counts( (int) $post->post_author );
+		}
 	}
 
 	/**
 	 * Fill and type every key of a provider payload.
 	 *
 	 * @param array<string,mixed> $provider Raw payload.
-	 * @return array{key:string,label:string,icon:string,can_write:bool,new_url:string,drafts_url:string,my_articles_url:string,title_arg:string,supports_space:bool}
+	 * @return array{key:string,label:string,icon:string,can_write:bool,new_url:string,drafts_url:string,my_articles_url:string,pending_url:string,title_arg:string,supports_space:bool}
 	 */
 	private static function normalise( array $provider ): array {
 		return array(
@@ -196,6 +284,7 @@ final class ArticleProvider {
 			'new_url'         => esc_url_raw( (string) ( $provider['new_url'] ?? '' ) ),
 			'drafts_url'      => esc_url_raw( (string) ( $provider['drafts_url'] ?? '' ) ),
 			'my_articles_url' => esc_url_raw( (string) ( $provider['my_articles_url'] ?? '' ) ),
+			'pending_url'     => esc_url_raw( (string) ( $provider['pending_url'] ?? '' ) ),
 			'title_arg'       => sanitize_key( (string) ( $provider['title_arg'] ?? '' ) ),
 			'supports_space'  => (bool) ( $provider['supports_space'] ?? false ),
 		);

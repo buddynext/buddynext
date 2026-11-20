@@ -129,6 +129,9 @@ class BlogPostListener implements ListenerInterface {
 		add_action( 'added_post_meta', array( $this, 'on_thumbnail_set' ), 10, 4 );
 		add_action( 'updated_post_meta', array( $this, 'on_thumbnail_set' ), 10, 4 );
 		add_action( ArticleImage::REGEN_HOOK, array( $this, 'regen_crops_batch' ), 10, 2 );
+
+		// The composer and app article counts drop their cache when a post changes.
+		ArticleProvider::register();
 	}
 
 	/**

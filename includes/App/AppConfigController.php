@@ -370,8 +370,27 @@ class AppConfigController {
 			'media_max_mb'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
 			'report_reasons'      => $reasons,
 			// Where this member writes an article (null: nowhere). One answer with the web.
-			'article_provider'    => \BuddyNext\Feed\ArticleProvider::for_user( get_current_user_id() ),
+			'article_provider'    => $this->article_provider(),
 		);
+	}
+
+	/**
+	 * The viewer's article provider with the composer's counts, or null when they
+	 * cannot write (guest, a held member, a role the provider refuses).
+	 *
+	 * Same payload and counts the web composer reads (Feed\ArticleProvider), so the
+	 * app and the website never disagree.
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	private function article_provider(): ?array {
+		$user_id  = get_current_user_id();
+		$provider = \BuddyNext\Feed\ArticleProvider::for_user( $user_id );
+		if ( null === $provider || ! $provider['can_write'] ) {
+			return null;
+		}
+		$provider['counts'] = \BuddyNext\Feed\ArticleProvider::composer_summary( $user_id );
+		return $provider;
 	}
 
 	/**

@@ -1895,7 +1895,7 @@ final class ResponseSchema {
 							),
 						),
 						'article_provider'    => array(
-							'description' => 'Where the viewer writes an article (Feed\\ArticleProvider::for_user()); null when they have nowhere to write.',
+							'description' => 'Where the viewer writes an article (Feed\\ArticleProvider::for_user()) with the composer counts; null when they cannot write (guest, suspended, pending approval, or a role the provider refuses).',
 							'type'        => array( 'object', 'null' ),
 							'properties'  => array(
 								'key'             => array( 'type' => 'string' ),
@@ -1905,8 +1905,21 @@ final class ResponseSchema {
 								'new_url'         => array( 'type' => 'string' ),
 								'drafts_url'      => array( 'type' => 'string' ),
 								'my_articles_url' => array( 'type' => 'string' ),
+								'pending_url'     => array(
+									'description' => 'The member\'s posts waiting for review.',
+									'type'        => 'string',
+								),
 								'title_arg'       => array( 'type' => 'string' ),
 								'supports_space'  => array( 'type' => 'boolean' ),
+								'counts'          => array(
+									'description' => 'The composer counts (Feed\\ArticleProvider::composer_summary()): drafts = draft, articles = publish + private, pending = pending (held for review)',
+									'type'        => 'object',
+									'properties'  => array(
+										'drafts'   => array( 'type' => 'integer' ),
+										'articles' => array( 'type' => 'integer' ),
+										'pending'  => array( 'type' => 'integer' ),
+									),
+								),
 							),
 						),
 					),

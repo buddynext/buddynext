@@ -277,6 +277,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertSame( get_permalink( $this->post_page ), $provider['new_url'] );
 		$this->assertSame( get_permalink( $this->dashboard_page ), $provider['my_articles_url'] );
 		$this->assertSame( add_query_arg( 'tab', 'drafts', get_permalink( $this->dashboard_page ) ), $provider['drafts_url'] );
+		$this->assertSame( add_query_arg( 'tab', 'pending', get_permalink( $this->dashboard_page ) ), $provider['pending_url'] );
 		$this->assertSame( '', $provider['title_arg'], 'Member Blog\'s editor reads no title query arg.' );
 		$this->assertFalse( $provider['supports_space'] );
 
@@ -290,7 +291,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		update_option( 'buddynext_integration_blog_nav', '0' );
 
 		$editor = self::factory()->user->create( array( 'role' => 'editor' ) );
-		$this->assertSame( 'wordpress', ArticleProvider::for_user( $editor )['key'] ); // phpcs:ignore WordPress.WP.CapitalPDangit.Misspelled -- a provider slug, not the product name.
+		$this->assertSame( 'WordPress', ArticleProvider::for_user( $editor )['key'] ); // phpcs:ignore WordPress.WP.CapitalPDangit.Misspelled -- a provider slug, not the product name.
 		$this->assertNull( ArticleProvider::for_user( self::factory()->user->create() ), 'Subscriber with no provider.' );
 
 		wp_set_current_user( $editor );

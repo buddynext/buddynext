@@ -189,7 +189,16 @@ $composer_switch_id        = $composer_article ? wp_unique_id( 'bn-composer-swit
 $composer_article_summary  = $composer_article ? \BuddyNext\Feed\ArticleProvider::composer_summary( $composer_user_id ) : array(
 	'drafts'   => 0,
 	'articles' => 0,
+	'pending'  => 0,
 );
+// Pending (waiting for review) is offered only while the member has one.
+$composer_links = array(
+	array( 'drafts_url', __( 'My drafts', 'buddynext' ), 'drafts' ),
+	array( 'my_articles_url', __( 'My articles', 'buddynext' ), 'articles' ),
+);
+if ( $composer_article_summary['pending'] > 0 ) {
+	$composer_links[] = array( 'pending_url', _x( 'Pending', 'composer link: articles waiting for review', 'buddynext' ), 'pending' );
+}
 ?>
 <?php if ( $composer_article ) : ?>
 <div class="bn-composer-switch"
@@ -217,9 +226,9 @@ $composer_article_summary  = $composer_article ? \BuddyNext\Feed\ArticleProvider
 			data-wp-bind--tabindex="state.articleTabIndex"
 			data-wp-on--click="actions.selectMode"><?php esc_html_e( 'Article', 'buddynext' ); ?></button>
 	</div>
-	<?php // My drafts and My articles sit beside the tabs (only with the Article tab), so the panel below stays one row tall. ?>
+	<?php // My drafts, My articles and Pending sit beside the tabs (seen only with the Article tab, their space kept on Post), so the panel below stays one row tall. ?>
 	<ul class="bn-composer-switch__links" hidden data-wp-bind--hidden="state.isPostMode">
-		<?php foreach ( array( array( 'drafts_url', __( 'My drafts', 'buddynext' ), 'drafts' ), array( 'my_articles_url', __( 'My articles', 'buddynext' ), 'articles' ) ) as $composer_link ) : ?>
+		<?php foreach ( $composer_links as $composer_link ) : ?>
 			<?php if ( '' !== (string) ( $composer_article_provider[ $composer_link[0] ] ?? '' ) ) : ?>
 				<li>
 					<a class="bn-composer-switch__link" data-bn-full-load href="<?php echo esc_url( (string) $composer_article_provider[ $composer_link[0] ] ); ?>">

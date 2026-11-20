@@ -133,6 +133,7 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 		$summary = ArticleProvider::composer_summary( $uid );
 		$this->assertSame( 2, $summary['drafts'], 'My drafts = draft posts only.' );
 		$this->assertSame( 4, $summary['articles'], 'My articles = publish + private.' );
+		$this->assertSame( 1, $summary['pending'], 'Pending = posts held for review only.' );
 
 		global $wpdb;
 		$before = $wpdb->num_queries;
@@ -143,6 +144,7 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 			array(
 				'drafts'   => 0,
 				'articles' => 0,
+				'pending'  => 0,
 			),
 			ArticleProvider::composer_summary( self::factory()->user->create( array( 'role' => 'subscriber' ) ) ),
 			'Nothing for a member who cannot write.'
@@ -208,5 +210,101 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( '<input type="hidden" name="page_id" value="42">', $html, 'A GET form drops the action\'s query string, so it travels as a field.' );
 		$this->assertStringContainsString( 'My drafts', $html );
 		$this->assertStringNotContainsString( 'My articles', $html, 'No link without a URL.' );
+	}
+
+	private function pending_link( int $uid, int $count ): string {
+		return '/class="bn-composer-switch__link"[^>]*href="' . preg_quote( esc_url( admin_url( 'edit.php?post_status=pending&author=' . $uid ) ), '/' )
+			. '">\s*Pending\s*<span class="bn-composer-switch__count">' . $count . '<\/span>/';
+	}
+
+	public function test_pending_counts_posts_held_for_review_only(): void {
+		$uid = $this->writer();
+		self::factory()->post->create(
+			array(
+				'post_author' => $uid,
+				'post_status' => 'draft',
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_author' => $uid,
+				'post_status' => 'pending',
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_author' => $uid,
+				'post_status' => 'future',
+				'post_date'   => gmdate( 'Y-m-d H:i:s', time() + WEEK_IN_SECONDS ),
+			)
+		);
+		self::factory()->post->create(
+			array(
+				'post_author' => $uid,
+				'post_status' => 'pending',
+				'post_type'   => 'page',
+			)
+		);
+
+		$summary = ArticleProvider::composer_summary( $uid );
+		$this->assertSame( 1, $summary['pending'], 'Only the post held for review: a scheduled post is not in Member Blog\'s Pending list, and pages never count.' );
+		$this->assertSame( 1, $summary['drafts'], 'My drafts is unaffected.' );
+		$this->assertSame( 0, $summary['articles'] );
+	}
+
+	public function test_the_pending_link_shows_only_while_something_is_waiting(): void {
+		$uid  = $this->writer();
+		$html = $this->feed( $uid );
+		$this->assertDoesNotMatchRegularExpression( '/>\s*Pending\s*<span class="bn-composer-switch__count">/', $html, 'Nothing waiting: no link.' );
+		$this->assertStringNotContainsString( 'post_status=pending', $html );
+
+		self::factory()->post->create(
+			array(
+				'post_author' => $uid,
+				'post_status' => 'pending',
+			)
+		);
+		$this->assertMatchesRegularExpression( $this->pending_link( $uid, 1 ), $this->feed( $uid ), 'Pending (1) after a post goes to review.' );
+
+		$other = $this->writer();
+		self::factory()->post->create(
+			array(
+				'post_author' => $other,
+				'post_status' => 'future',
+				'post_date'   => gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS ),
+			)
+		);
+		$html = $this->feed( $other );
+		$this->assertStringNotContainsString( 'post_status=pending', $html, 'A member whose only waiting post is scheduled gets no Pending link (it would open an empty list).' );
+		$this->assertLessThan( strpos( $html, 'bn-composer-article"' ), strpos( $html, 'post_status=pending' ), 'In the tab row, beside My drafts / My articles.' );
+	}
+
+	public function test_counts_refresh_when_a_post_changes_status_author_or_is_deleted(): void {
+		$uid   = $this->writer();
+		$other = $this->writer();
+		$post  = self::factory()->post->create(
+			array(
+				'post_author' => $uid,
+				'post_status' => 'pending',
+			)
+		);
+		$this->assertSame( 1, ArticleProvider::composer_summary( $uid )['pending'] );
+
+		wp_publish_post( $post );
+		$this->assertSame( 0, ArticleProvider::composer_summary( $uid )['pending'], 'Publish drops the cache.' );
+		$this->assertSame( 1, ArticleProvider::composer_summary( $uid )['articles'] );
+		$this->assertSame( 0, ArticleProvider::composer_summary( $other )['articles'] );
+
+		wp_update_post(
+			array(
+				'ID'          => $post,
+				'post_author' => $other,
+			)
+		);
+		$this->assertSame( 0, ArticleProvider::composer_summary( $uid )['articles'], 'Old author.' );
+		$this->assertSame( 1, ArticleProvider::composer_summary( $other )['articles'], 'New author.' );
+
+		wp_delete_post( $post, true );
+		$this->assertSame( 0, ArticleProvider::composer_summary( $other )['articles'], 'Deleted.' );
 	}
 }
