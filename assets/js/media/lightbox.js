@@ -1223,7 +1223,11 @@
 
 		var privacy = document.createElement( 'select' );
 		privacy.className = 'bn-lightbox__field-input';
-		var opts = m.privacy_options || {};
+		// MediaVerse Pro sends the levels with each media item; with MediaVerse Free alone they come from
+		// its own list, handed over in the page config. Never a list kept on this side.
+		var opts = m.privacy_options || cfg.privacyChoices || {};
+		var privacyTouched = false;
+		privacy.addEventListener( 'change', function () { privacyTouched = true; } );
 		Object.keys( opts ).forEach( function ( k ) {
 			var o = document.createElement( 'option' );
 			var v = opts[ k ];
@@ -1243,7 +1247,10 @@
 
 		host.appendChild( field( __( 'Title' ), title ) );
 		host.appendChild( field( __( 'Description' ), desc ) );
-		host.appendChild( field( __( 'Privacy' ), privacy ) );
+		// No levels to offer: no select at all, rather than a blank one that would send nothing.
+		if ( privacy.options.length > 0 ) {
+			host.appendChild( field( __( 'Privacy' ), privacy ) );
+		}
 		host.appendChild( field( __( 'Allow downloads' ), dl ) );
 		// Say what the switch can and cannot do, so an owner does not rely on it as protection.
 		var dlHint = document.createElement( 'p' );
@@ -1254,14 +1261,19 @@
 		var actions = document.createElement( 'div' );
 		actions.className = 'bn-lightbox__panel-actions';
 		actions.appendChild( panelBtn( __( 'Save changes' ), 'primary', function () {
+			var changes = {
+				title: title.value,
+				description: desc.value,
+				allow_download: dl.checked,
+			};
+			// Only a level the member actually chose is sent, so an item whose current level is not in
+			// the list is never changed by pressing Save on something else.
+			if ( privacyTouched && privacy.options.length > 0 ) {
+				changes.privacy = privacy.value;
+			}
 			api( '/media/' + current, {
 				method: 'PATCH',
-				json: {
-					title: title.value,
-					description: desc.value,
-					privacy: privacy.value,
-					allow_download: dl.checked,
-				},
+				json: changes,
 			} ).then( function ( updated ) {
 				if ( updated && updated.id ) {
 					currentMedia = updated;

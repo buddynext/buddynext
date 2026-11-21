@@ -89,14 +89,18 @@ class MediaAssets {
 			'bn-media-lightbox',
 			'bnMedia',
 			array(
-				'mvsRest'       => esc_url_raw( rest_url( 'mvs/v1' ) ),
-				'nonce'         => wp_create_nonce( 'wp_rest' ),
-				'userId'        => get_current_user_id(),
+				'mvsRest'        => esc_url_raw( rest_url( 'mvs/v1' ) ),
+				'nonce'          => wp_create_nonce( 'wp_rest' ),
+				'userId'         => get_current_user_id(),
 				// Media reporting is WPMediaVerse's own owner setting (on by default). Ask it, so an
 				// owner who turns it off gets no Report button rather than one that answers 403.
-				'canReport'     => class_exists( '\\WPMediaVerse\\Social\\ReportService' ) && \WPMediaVerse\Social\ReportService::reports_enabled(),
-				'reactionTypes' => array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' ),
-				'i18n'          => array(
+				'canReport'      => class_exists( '\\WPMediaVerse\\Social\\ReportService' ) && \WPMediaVerse\Social\ReportService::reports_enabled(),
+				// The levels the Edit panel offers. MediaVerse Pro adds them to each media response; MediaVerse
+				// Free alone does not, so its own list (the one its pickers print) is handed over here and the
+				// panel is never left with an empty select. Empty when MediaVerse is not available.
+				'privacyChoices' => self::mediaverse_privacy_choices(),
+				'reactionTypes'  => array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' ),
+				'i18n'           => array(
 					'view'             => __( 'view', 'buddynext' ),
 					'views'            => __( 'views', 'buddynext' ),
 					'favorite'         => __( 'Favorite', 'buddynext' ),
@@ -150,5 +154,21 @@ class MediaAssets {
 		if ( function_exists( 'buddynext_get_template' ) ) {
 			buddynext_get_template( 'partials/media-lightbox.php' );
 		}
+	}
+
+	/**
+	 * MediaVerse's own list of privacy levels a member may choose (slug => label).
+	 *
+	 * @return array<string,string> Empty when MediaVerse is not active or does not expose the list.
+	 */
+	private static function mediaverse_privacy_choices(): array {
+		$callback = array( '\\WPMediaVerse\\Core\\TemplateHelpers', 'privacy_choices' );
+		if ( ! class_exists( $callback[0] ) || ! is_callable( $callback ) ) {
+			return array();
+		}
+
+		$choices = $callback();
+
+		return is_array( $choices ) ? array_map( 'strval', $choices ) : array();
 	}
 }
