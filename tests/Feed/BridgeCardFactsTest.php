@@ -151,6 +151,12 @@ class BridgeCardFactsTest extends WP_UnitTestCase {
 		$this->assertSame( $open, IntegrationActivity::card_space( $open ), 'An open Space gets the card in its own feed.' );
 		$this->assertSame( 0, IntegrationActivity::card_space( $make( 'private' ) ), 'A private Space: the card stays site-wide.' );
 		$this->assertSame( 0, IntegrationActivity::card_space( $make( 'secret' ) ), 'A secret Space too.' );
+		global $wpdb;
+		$gated = $make( 'open' );
+		$wpdb->update( $wpdb->prefix . 'bn_spaces', array( 'required_ability' => 'buddynext-pro/plan-x' ), array( 'id' => $gated ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		wp_cache_flush();
+		$this->assertSame( 0, IntegrationActivity::card_space( $gated ), 'An open Space gated by a plan is members-only in practice: the card stays site-wide.' );
+		$this->assertSame( $open, IntegrationActivity::card_space( array( $gated, $open ) ), 'The next open, ungated Space is used.' );
 		$this->assertSame( 0, IntegrationActivity::card_space( 0 ) );
 		$this->assertSame( 0, IntegrationActivity::card_space( 999999 ), 'A Space that does not exist.' );
 

@@ -875,7 +875,7 @@ class IntegrationActivity {
 	 * one wins.
 	 *
 	 * @param int|int[] $space_id The Space the item was made for (0 = none), or several in order.
-	 * @return int The first open Space id, else 0.
+	 * @return int The first open Space id that is not plan-gated, else 0.
 	 */
 	public static function card_space( $space_id ): int {
 		$card_space = 0;
@@ -883,7 +883,9 @@ class IntegrationActivity {
 		if ( array() !== $space_ids && function_exists( 'buddynext_service' ) ) {
 			foreach ( $space_ids as $id ) {
 				$space = buddynext_service( 'spaces' )->get( $id );
-				if ( null !== $space && \BuddyNext\Spaces\SpaceService::TYPE_OPEN === (string) ( $space['type'] ?? '' ) ) {
+				// Open, and not gated by a plan or ability: a gated Space is members-only in practice, so a
+				// public item's card stays in the site feed instead of going into it.
+				if ( null !== $space && \BuddyNext\Spaces\SpaceService::TYPE_OPEN === (string) ( $space['type'] ?? '' ) && '' === (string) ( $space['required_ability'] ?? '' ) ) {
 					$card_space = $id;
 					break;
 				}
