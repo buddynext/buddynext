@@ -44,6 +44,8 @@ The two kinds of rule behave differently on an edit, and the difference is delib
 
 **Rules that count how much someone posted do not run.** The rate limit is a question about *new* posts in the last hour. An edit is not a new post. So a member who has hit the hourly cap can still go back and fix a typo, correct a link, or improve the wording of something they already published - they simply cannot publish anything new until the hour rolls over. Applying the cap to edits would have meant a member who tripped the limit could not even edit the posts that tripped it, which is a punishment nobody intended and no owner would have predicted from a setting called "posts per hour."
 
+**Imports are not flooding.** Posts and comments created by an import, a seeder or a WP-CLI command skip the rate limits, so a forum import of one author's 500 topics is not stopped halfway. Banned words, blocked links and duplicate checks still apply. Members posting from the site keep the limit. Developers: wrap bulk work in `SafeguardService::bulk_import()`; see the moderation hooks page.
+
 ### Severity and actions
 
 How a rule responds when it matches:

@@ -166,6 +166,25 @@ class CommentServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $result['total'] );
 	}
 
+	public function test_bulk_import_scope_lifts_the_rate_limit_and_only_inside_it(): void {
+		update_option( 'buddynext_comment_rate_limit', 2 );
+
+		$this->assertFalse( \BuddyNext\Moderation\SafeguardService::is_bulk_import() );
+		\BuddyNext\Moderation\SafeguardService::bulk_import(
+			function () {
+				$this->assertTrue( \BuddyNext\Moderation\SafeguardService::is_bulk_import() );
+				for ( $i = 0; $i < 6; $i++ ) {
+					$this->assertIsInt( $this->service->create( $this->user_id, 'post', $this->post_id, 'bulk ' . $i ) );
+				}
+			}
+		);
+		$this->assertFalse( \BuddyNext\Moderation\SafeguardService::is_bulk_import(), 'The scope closes, also after an exception.' );
+
+		$this->assertIsInt( $this->service->create( $this->user_id, 'post', $this->post_id, 'one' ) );
+		$this->assertIsInt( $this->service->create( $this->user_id, 'post', $this->post_id, 'two' ) );
+		$this->assertWPError( $this->service->create( $this->user_id, 'post', $this->post_id, 'three' ), 'The limit is back for a normal request.' );
+	}
+
 	public function test_comment_rate_limit_blocks_excess(): void {
 		update_option( 'buddynext_comment_rate_limit', 2 );
 

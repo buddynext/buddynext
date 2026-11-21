@@ -104,7 +104,7 @@ class CommentService {
 		// write storm at scale. The window can't slide open under steady traffic
 		// the way a TTL-reset counter would.
 		$bn_comment_rate_limit = (int) get_option( 'buddynext_comment_rate_limit', 30 );
-		if ( $bn_comment_rate_limit > 0 && $user_id > 0 ) {
+		if ( $bn_comment_rate_limit > 0 && $user_id > 0 && ! SafeguardService::is_bulk_import() ) {
 			$bn_rate_bucket = 'bn_comment_rate_' . $user_id . '_' . (int) floor( time() / MINUTE_IN_SECONDS );
 			if ( RateLimiter::hit( $bn_rate_bucket, 2 * MINUTE_IN_SECONDS ) > $bn_comment_rate_limit ) {
 				return new WP_Error(

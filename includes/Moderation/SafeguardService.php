@@ -391,6 +391,47 @@ class SafeguardService {
 	}
 
 	/**
+	 * How many bulk_import() scopes are open in this request.
+	 *
+	 * @var int
+	 */
+	private static int $bulk_depth = 0;
+
+	/**
+	 * Run bulk work (an import, a seeder, a migration) outside the post rate limits.
+	 *
+	 * Only code can open this scope, never a request parameter, so a spammer cannot claim it.
+	 * Every other rule (banned words, blocked links and domains, duplicates) still applies.
+	 * WP-CLI runs count as bulk without calling this.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param callable $work The bulk work.
+	 * @return mixed Whatever $work returns.
+	 */
+	public static function bulk_import( callable $work ) {
+		++self::$bulk_depth;
+		try {
+			return $work();
+		} finally {
+			--self::$bulk_depth;
+		}
+	}
+
+	/**
+	 * Whether the current work is a bulk import (an open bulk_import() scope or a WP-CLI run).
+	 *
+	 * The post, comment and Pro anti-flood rate limits stand down while this is true.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return bool
+	 */
+	public static function is_bulk_import(): bool {
+		return self::$bulk_depth > 0 || ( defined( 'WP_CLI' ) && WP_CLI );
+	}
+
+	/**
 	 * Check whether the user has exceeded the per-minute post rate limit.
 	 *
 	 * Reads option buddynext_post_rate_limit (int, default 10). A value of 0 or
@@ -403,7 +444,7 @@ class SafeguardService {
 	private function check_rate_limit( int $user_id ): bool|WP_Error {
 		$limit = (int) get_option( 'buddynext_post_rate_limit', 10 );
 
-		if ( $limit <= 0 ) {
+		if ( $limit <= 0 || self::is_bulk_import() ) {
 			return true;
 		}
 
