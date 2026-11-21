@@ -63,6 +63,8 @@ class PageCachePurger implements ListenerInterface {
 			add_action( $hook, array( $this, 'on_post_change' ), 10, 1 );
 		}
 		add_action( 'buddynext_space_posts_changed', array( $this, 'on_space_change' ), 10, 1 );
+		// A hashtag page lists a post only once its tags are indexed, which happens in the background.
+		add_action( 'buddynext_hashtags_synced', array( $this, 'on_hashtags_synced' ), 10, 3 );
 		// A space made private or secret hides its Blog tab and its cards from guests:
 		// their cached copies of its pages must go too.
 		add_action( 'buddynext_space_updated', array( $this, 'on_space_updated' ), 10, 3 );
@@ -226,6 +228,26 @@ class PageCachePurger implements ListenerInterface {
 		// The site's front page may be the activity hub (a static front page).
 		self::purge( home_url( '/' ) );
 		self::purge( PageRouter::post_url( $post_id ) );
+	}
+
+	/**
+	 * A post's hashtags were written to the index: the hashtag pages that list it.
+	 *
+	 * Indexing runs in the background after the post is created, so a hashtag page only starts
+	 * listing the post now. Purging at creation would just cache the old list again.
+	 *
+	 * @param string   $object_type Object type ('post', 'comment').
+	 * @param int      $object_id   Object id (unused).
+	 * @param string[] $slugs       Tag slugs on the object.
+	 * @return void
+	 */
+	public function on_hashtags_synced( $object_type, $object_id = 0, $slugs = array() ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		if ( 'post' !== $object_type ) {
+			return;
+		}
+		foreach ( (array) $slugs as $slug ) {
+			self::purge( PageRouter::hashtag_feed_url( (string) $slug ) );
+		}
 	}
 
 	/**

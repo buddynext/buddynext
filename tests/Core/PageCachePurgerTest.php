@@ -53,6 +53,19 @@ class PageCachePurgerTest extends \WP_UnitTestCase {
 		$this->assertContains( PageRouter::profile_url( 7 ), $this->purged );
 	}
 
+	public function test_a_hashtag_page_is_purged_when_a_posts_tags_are_indexed(): void {
+		do_action( 'buddynext_hashtags_synced', 'post', 55, array( 'weekendrun', 'hills' ) );
+
+		$this->assertContains( PageRouter::hashtag_feed_url( 'weekendrun' ), $this->purged );
+		$this->assertContains( PageRouter::hashtag_feed_url( 'hills' ), $this->purged );
+	}
+
+	public function test_a_comments_tags_do_not_purge_hashtag_pages(): void {
+		do_action( 'buddynext_hashtags_synced', 'comment', 56, array( 'onlyincomment' ) );
+
+		$this->assertNotContains( PageRouter::hashtag_feed_url( 'onlyincomment' ), $this->purged );
+	}
+
 	public function test_each_url_is_purged_once_per_request(): void {
 		do_action( 'buddynext_post_created', 42, 7, 'text' );
 		do_action( 'buddynext_post_created', 43, 7, 'text' );

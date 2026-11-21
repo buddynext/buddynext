@@ -563,6 +563,20 @@ class HashtagService {
 		}
 
 		$this->bust_trending_cache();
+
+		/**
+		 * Fires once an object's hashtags are written to the index.
+		 *
+		 * Indexing runs a moment after a post is created (in the background), so this, not the post's
+		 * creation, is when a hashtag page first lists it. The page cache listens here.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param string   $object_type Object type ('post', 'comment').
+		 * @param int      $object_id   Object id.
+		 * @param string[] $slugs       The tag slugs now on the object (and any it just lost are re-synced too).
+		 */
+		do_action( 'buddynext_hashtags_synced', $object_type, $object_id, $slugs );
 	}
 
 	/**
