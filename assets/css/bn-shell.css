@@ -1173,6 +1173,21 @@ body.admin-bar .bn-app__rail {
 	background-color: var(--bn-sunken, #f3f4f6);
 }
 .bn-cover-repos-stage:active { cursor: grabbing; }
+.bn-cover-repos-stage:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+/* Failed save: the window stays open and says why; the cover is unchanged. */
+.bn-cover-repos-error {
+	margin: 0;
+	width: 100%;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}
+.bn-cover-repos-error[hidden] { display: none; }
+/* Touch targets: the zoom slider and both buttons reach 44px in this window. */
+.bn-avatar-crop-panel .bn-avatar-crop-zoom { min-block-size: 44px; }
+.bn-avatar-crop-panel .bn-avatar-crop-actions .bn-btn { min-block-size: 44px; }
 .bn-cover-repos-img {
 	position: absolute;
 	inset: 0;

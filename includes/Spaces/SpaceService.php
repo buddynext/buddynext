@@ -2070,7 +2070,7 @@ class SpaceService {
 	 * @return array{x:float,y:float,zoom:float}
 	 */
 	public static function cover_focal( int $space_id ): array {
-		$focal = (array) get_space_meta( $space_id, 'buddynext_cover_focal', true );
+		$focal = (array) get_space_meta( $space_id, \BuddyNext\Profile\CoverFocal::META_KEY, true );
 		return array(
 			'x'    => isset( $focal['x'] ) ? max( 0.0, min( 100.0, (float) $focal['x'] ) ) : 50.0,
 			'y'    => isset( $focal['y'] ) ? max( 0.0, min( 100.0, (float) $focal['y'] ) ) : 50.0,

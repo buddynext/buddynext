@@ -827,9 +827,9 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s1);
-	/* Keep a 40px+ tap target — the small icon + xs label would otherwise render
+	/* Keep a 44px tap target — the small icon + xs label would otherwise render
 	   ~26px tall, below the minimum touch size on the Edit Profile cover. */
-	min-height: 40px;
+	min-height: 44px;
 	border: none;
 	z-index: 2;
 	transition: background var(--bn-dur-fast) var(--bn-ease);
@@ -2169,8 +2169,8 @@ a.bn-space-row:hover .bn-space-name {
 	inset: auto;
 }
 .bn-ep-cover-remove {
-	width: 40px;
-	height: 40px;
+	width: 44px;
+	height: 44px;
 	border-radius: var(--bn-r-full);
 	background: color-mix(in oklch, var(--bn-ink) 75%, transparent);
 	color: var(--bn-surface);

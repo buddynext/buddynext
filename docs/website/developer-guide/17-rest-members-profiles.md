@@ -48,6 +48,8 @@ Every route below operates on `get_current_user_id()` and requires a logged-in c
 | DELETE | `/me/avatar` | require_auth | Remove the caller's avatar (revert to default) |
 | POST | `/me/cover` | require_auth | Upload the caller's cover image |
 | DELETE | `/me/cover` | require_auth | Remove the caller's cover image |
+| POST | `/me/cover/position` | require_auth | Reframe the cover already set (`focal_x`, `focal_y` 0 to 100, `focal_zoom` 1 to 3); 409 when there is no cover, 422 for an invalid position. No picture is sent. |
+| POST | `/users/{id}/cover/position` | require_edit_any_profile | The same for another member's cover. |
 
 ### Drafts, bookmarks, and shares
 

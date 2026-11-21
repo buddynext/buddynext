@@ -101,6 +101,9 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 	<div class="bn-pf-cover<?php echo '' !== $bn_ep_cover ? ' bn-pf-cover--has-image' : ''; ?>" data-wp-bind--aria-busy="context.coverUploading">
 		<img class="bn-pf-cover__img"
 			data-bn-cover-preview
+			data-focal-x="<?php echo esc_attr( (string) $bn_ep_fx ); ?>"
+			data-focal-y="<?php echo esc_attr( (string) $bn_ep_fy ); ?>"
+			data-focal-zoom="<?php echo esc_attr( (string) $bn_ep_zoom ); ?>"
 			src="<?php echo esc_url( $bn_ep_cover ); ?>"
 			alt=""
 			style="object-position:<?php echo esc_attr( (string) $bn_ep_fx ); ?>% <?php echo esc_attr( (string) $bn_ep_fy ); ?>%;transform:scale(<?php echo esc_attr( (string) $bn_ep_zoom ); ?>);<?php echo '' === $bn_ep_cover ? 'display:none;' : ''; ?>" />
@@ -121,6 +124,16 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 				data-wp-on--click="actions.triggerCoverUpload">
 				<?php buddynext_icon( 'camera' ); ?>
 				<span><?php esc_html_e( 'Change cover', 'buddynext' ); ?></span>
+			</button>
+			<?php // Frames the cover that is already set; shown only while there is a cover (assets/js/profile/store.js keeps it in step). ?>
+			<button class="bn-pf-cover__edit bn-ep-cover-btn"
+				type="button"
+				data-bn-cover-reposition
+				data-wp-bind--disabled="context.coverUploading"
+				<?php echo '' !== $bn_ep_cover ? '' : 'hidden'; ?>
+				data-wp-on--click="actions.repositionCover">
+				<?php buddynext_icon( 'move' ); ?>
+				<span><?php esc_html_e( 'Reposition', 'buddynext' ); ?></span>
 			</button>
 		</div>
 	</div>

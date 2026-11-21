@@ -500,6 +500,34 @@ class ProfileController extends BaseRestController {
 			)
 		);
 
+		// Reposition a cover that is already set: saves the pan and zoom only, no picture.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/cover/position',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'set_cover_position' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/cover/position',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'admin_set_cover_position' ),
+				'permission_callback' => array( $this, 'require_edit_any_profile' ),
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/me/cover',
@@ -2388,6 +2416,61 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * POST /me/cover/position: save the framing (focal_x, focal_y, focal_zoom) of the current user's cover.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function set_cover_position( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->handle_cover_position( get_current_user_id(), $request );
+	}
+
+	/**
+	 * POST /users/{id}/cover/position: the same for any member, for someone who may edit any profile.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function admin_set_cover_position( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = absint( $request->get_param( 'id' ) );
+
+		if ( ! get_userdata( $user_id ) ) {
+			return new WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return $this->handle_cover_position( $user_id, $request );
+	}
+
+	/**
+	 * Store the framing of a cover that is already set; never touches the picture.
+	 *
+	 * @param int             $user_id Member whose cover is framed.
+	 * @param WP_REST_Request $request Request carrying focal_x, focal_y and focal_zoom.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function handle_cover_position( int $user_id, WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		if ( '' === ( new AvatarService() )->get_cover_url( $user_id ) ) {
+			return new WP_Error( 'cover_missing', __( 'There is no cover photo to reposition.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
+		$focal = CoverFocal::from_params( (array) $request->get_params() );
+		if ( null === $focal ) {
+			return new WP_Error( 'focal_invalid', __( 'That position is not valid.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		update_user_meta( $user_id, CoverFocal::META_KEY, $focal );
+
+		return new WP_REST_Response(
+			array(
+				'focal_x'    => $focal['x'],
+				'focal_y'    => $focal['y'],
+				'focal_zoom' => $focal['zoom'],
+			),
+			200
+		);
+	}
+
+	/**
 	 * Fully remove a user's cover photo: usermeta URL, the stored focal point,
 	 * and the image variations on disk.
 	 *
@@ -2644,24 +2727,18 @@ class ProfileController extends BaseRestController {
 		 * phpcs:disable WordPress.Security.NonceVerification.Missing
 		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		 */
-		$focal_x_raw    = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1;
-		$focal_y_raw    = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1;
-		$focal_zoom_raw = isset( $_POST['focal_zoom'] ) ? (float) wp_unslash( (string) $_POST['focal_zoom'] ) : 1.0;
+		$focal_in = CoverFocal::from_params( wp_unslash( $_POST ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		if ( $focal_x_raw >= 0 && $focal_x_raw <= 100 && $focal_y_raw >= 0 && $focal_y_raw <= 100 ) {
-			update_user_meta(
-				$user_id,
-				'buddynext_cover_focal',
-				array(
-					'x'    => round( $focal_x_raw, 2 ),
-					'y'    => round( $focal_y_raw, 2 ),
-					'zoom' => round( max( 1.0, min( 3.0, $focal_zoom_raw ) ), 3 ),
-				)
-			);
+		if ( null !== $focal_in ) {
+			update_user_meta( $user_id, CoverFocal::META_KEY, $focal_in );
+		} else {
+			// A replacement picture sent without a position starts centred: the old framing was
+			// chosen for the old picture and must not carry over to the new one.
+			delete_user_meta( $user_id, CoverFocal::META_KEY );
 		}
 
-		$focal = (array) get_user_meta( $user_id, 'buddynext_cover_focal', true );
+		$focal = (array) get_user_meta( $user_id, CoverFocal::META_KEY, true );
 
 		return new WP_REST_Response(
 			array(

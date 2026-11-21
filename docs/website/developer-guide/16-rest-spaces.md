@@ -162,6 +162,7 @@ Avatar and cover uploads are multipart and routed through the image storage serv
 | DELETE | `/spaces/{id}/avatar` | Auth (owner) | Remove the space avatar. |
 | POST | `/spaces/{id}/cover` | Auth (owner) | Upload the space cover image. |
 | DELETE | `/spaces/{id}/cover` | Auth (owner) | Remove the space cover image. |
+| POST | `/spaces/{id}/cover/position` | Auth (owner or moderator) | Reframe the cover already set (`focal_x`, `focal_y` 0 to 100, `focal_zoom` 1 to 3); 409 when there is no cover, 422 for an invalid position. A cover uploaded without a framing starts centred. |
 
 ## Space feed
 

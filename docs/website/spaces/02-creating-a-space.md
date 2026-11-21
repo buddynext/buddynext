@@ -48,9 +48,9 @@ A member joining an open space becomes active immediately, unless the owner has 
 From the space settings, the owner uploads:
 
 - **Avatar** - the square image that represents the space across the directory and feed.
-- **Cover** - the wide banner image shown at the top of the space home.
+- **Cover** - the wide banner image shown at the top of the space home. Choosing a cover opens a window to drag the picture to the part you want shown and zoom in.
 
-Both replace the previous image when re-uploaded.
+Both replace the previous image when re-uploaded. With a cover already set, **Reposition** (next to Upload image and Remove) opens the same window on the current picture; Apply saves the new framing at once, without uploading the picture again. The owner and the space's moderators can do this. A replacement cover that arrives without a framing starts centred, not with the old picture's framing.
 
 ### Editing a space
 

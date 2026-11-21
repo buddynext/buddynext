@@ -165,6 +165,9 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 		<div
 			class="bn-space-settings__cover<?php echo ! empty( $bn_space->cover_image_url ) ? ' has-image' : ''; ?>"
 			data-bn-cover-preview
+			data-focal-x="<?php echo esc_attr( (string) ( $bn_cover_fx ?? 50 ) ); ?>"
+			data-focal-y="<?php echo esc_attr( (string) ( $bn_cover_fy ?? 50 ) ); ?>"
+			data-focal-zoom="<?php echo esc_attr( (string) ( $bn_cover_zoom ?? 1 ) ); ?>"
 			role="button"
 			tabindex="0"
 			aria-label="<?php esc_attr_e( 'Upload cover photo', 'buddynext' ); ?>"
@@ -183,7 +186,27 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			value="<?php echo esc_attr( $bn_space->cover_image_url ?? '' ); ?>"
 		>
 		<div class="bn-space-settings__cover-actions">
-			<?php // The drop-zone above is the upload/replace target; the action row only carries Remove. ?>
+			<?php // The drop-zone above is also an upload/replace target. Reposition frames the cover that is already set and is shown only while there is one. ?>
+			<button
+				type="button"
+				class="bn-btn"
+				data-variant="secondary"
+				data-size="sm"
+				data-bn-cover-upload
+			>
+				<?php esc_html_e( 'Upload image', 'buddynext' ); ?>
+			</button>
+			<button
+				type="button"
+				class="bn-btn"
+				data-variant="secondary"
+				data-size="sm"
+				data-bn-cover-reposition
+				<?php echo empty( $bn_space->cover_image_url ) ? 'hidden' : ''; ?>
+			>
+				<?php buddynext_icon( 'move' ); ?>
+				<?php esc_html_e( 'Reposition', 'buddynext' ); ?>
+			</button>
 			<button
 				type="button"
 				class="bn-btn"

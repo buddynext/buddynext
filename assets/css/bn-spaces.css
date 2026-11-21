@@ -2185,9 +2185,17 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-space-settings__cover-actions {
-	display: inline-flex;
+	display: flex;
+	flex-wrap: wrap;
 	gap: var(--bn-s2);
 	margin-block-start: var(--bn-s2);
+}
+/* Upload, Reposition and Remove are 44px targets, and wrap rather than overflow on a phone. */
+.bn-space-settings__cover-actions .bn-btn {
+	min-block-size: 44px;
+}
+.bn-space-settings__cover-actions .bn-btn[hidden] {
+	display: none;
 }
 
 .bn-space-settings__cover-empty[hidden] {

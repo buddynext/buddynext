@@ -3599,11 +3599,23 @@ document.addEventListener( 'keydown', function ( event ) {
 		var preview   = field.querySelector( '[data-bn-cover-preview]' );
 		var input     = field.querySelector( '[data-bn-cover-input]' );
 		var removeBtn = field.querySelector( '[data-bn-cover-remove]' );
+		var uploadBtn = field.querySelector( '[data-bn-cover-upload]' );
+		var repoBtn   = field.querySelector( '[data-bn-cover-reposition]' );
 		var empty     = field.querySelector( '.bn-space-settings__cover-empty' );
 		if ( ! preview ) { return; }
 
+		// The cover as it is now, so Reposition opens on the picture and framing that are shown.
+		var numAttr = function ( name, fallback ) { var n = parseFloat( preview.getAttribute( name ) ); return isFinite( n ) ? n : fallback; };
+		var current = {
+			url:   input ? input.value : '',
+			focal: { x: numAttr( 'data-focal-x', 50 ), y: numAttr( 'data-focal-y', 50 ), zoom: numAttr( 'data-focal-zoom', 1 ) },
+		};
+
 		function paint( url, focal ) {
 			if ( input ) { input.value = url || ''; }
+			current.url   = url || '';
+			current.focal = url && focal ? focal : { x: 50, y: 50, zoom: 1 };
+			if ( repoBtn ) { repoBtn.hidden = ! url; }
 			if ( url ) {
 				preview.classList.add( 'has-image' );
 				preview.style.backgroundImage    = "url('" + url.replace( /'/g, "\\'" ) + "')";
@@ -3680,6 +3692,43 @@ document.addEventListener( 'keydown', function ( event ) {
 				} );
 			} );
 		}
+
+		// Reposition the cover that is already set: same window, opened on the current picture and
+		// framing. Apply saves the framing at once (no picture is re-uploaded); a failed save keeps
+		// the window open with the reason and leaves the cover as it was.
+		function reposition() {
+			if ( ! current.url ) { return; }
+			var header = document.querySelector( '.bn-sh-cover' );
+			var box    = header ? header.getBoundingClientRect() : null;
+			openCoverReposModal( current.url, t, {
+				initial: current.focal,
+				aspect:  box && box.height > 0 ? box.width / box.height : 0,
+				onApply: function ( focal ) {
+					var body = new FormData();
+					body.append( 'focal_x', String( focal.x ) );
+					body.append( 'focal_y', String( focal.y ) );
+					body.append( 'focal_zoom', String( focal.zoom ) );
+					return restFetch( '/spaces/' + spaceId + '/cover/position', {
+						method: 'POST',
+						nonce:  imageNonce,
+						body:   body,
+						toastOnError: false,
+					} ).then( function ( res ) {
+						if ( ! res.ok ) {
+							throw new Error( ( res.data && res.data.message ) ? res.data.message : t( 'coverPositionFailed', 'Could not save the position. Try again.' ) );
+						}
+					} );
+				},
+			} ).then( function ( focal ) {
+				if ( ! focal ) { return; }
+				paint( current.url, focal );
+				paintSpaceHeader( 'cover', current.url, undefined, focal );
+				if ( window.bnToast ) { window.bnToast( t( 'coverPositionSaved', 'Cover position saved.' ), 'success' ); }
+			} );
+		}
+
+		if ( uploadBtn ) { uploadBtn.addEventListener( 'click', function ( e ) { e.preventDefault(); choose(); } ); }
+		if ( repoBtn )   { repoBtn.addEventListener( 'click', function ( e ) { e.preventDefault(); reposition(); } ); }
 
 		preview.addEventListener( 'click', function ( e ) { e.preventDefault(); choose(); } );
 		preview.addEventListener( 'keydown', function ( e ) {

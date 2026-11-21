@@ -47,7 +47,8 @@ Each field also has a privacy control next to it. The field's default is only a 
 From your profile or the edit screen you can upload two images. On your own profile, **Edit cover** sits on the cover and **Edit avatar** on your picture, so either is one click away:
 
 - **Avatar** - your profile picture, shown everywhere your name appears (the directory, the feed, comments, member cards).
-- **Cover photo** - the wide banner across the top of your profile header.
+- **Cover photo** - the wide banner across the top of your profile header. Choosing a new cover opens a window where you drag the picture to the part you want shown and zoom in (drag, scroll or use the slider; the arrow keys move it and plus and minus zoom). The window is the same shape as your real cover, so what you frame is what everyone sees.
+- **Reposition** - with a cover already set, **Reposition** opens the same window on your current picture so you can reframe it without uploading it again. Apply stages the new framing and **Save changes** keeps it; Cancel changes nothing.
 
 Pick an image and it uploads and replaces the current one immediately. If you have not uploaded an avatar, the community shows a fallback based on the site owner's avatar style setting (see Setting it up). If you have not uploaded a cover photo, the site's default cover is shown.
 

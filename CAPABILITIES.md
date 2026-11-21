@@ -98,7 +98,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Can it... | Status | How |
 |---|---|---|
 | Give members a profile with custom fields? | YES | `bn_profile_groups` / `bn_profile_fields` / `bn_profile_values`; admin at `buddynext-members` |
-| Set your own display name, avatar, cover photo and headline? | YES | `ProfileController::update_profile()` writes `display_name` (WP core), `headline` (profile value), plus dedicated `POST`/`DELETE /me/avatar` and `/me/cover` routes |
+| Set your own display name, avatar, cover photo and headline? | YES | `ProfileController::update_profile()` writes `display_name` (WP core), `headline` (profile value), plus dedicated `POST`/`DELETE /me/avatar` and `/me/cover` routes; a cover already set is reframed without re-uploading through `POST /me/cover/position` (and `POST /spaces/{id}/cover/position` for a Space cover, owner or moderator) |
 | See in-app notifications, mark them read, and set preferences? | YES | `Notifications\NotificationController`; `GET /me/notifications`, `PUT /me/notifications/read-all`, `GET`/`PUT /me/notification-prefs` backed by `NotificationPrefCatalogue` |
 | Get a header user menu and notification bell in any theme? | YES | `buddynext/header-user-menu` and `buddynext/notification-bell` blocks (`Header\HeaderUserSection`) |
 | Show a member's cover photo on their directory card? | YES | `MemberDirectoryController::shape_item()` sends `cover_url` via `buddynext_user_cover_url()`; falls back to a tone gradient when the member has none |

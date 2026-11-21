@@ -181,6 +181,21 @@ function setCoverPreview( url ) {
 function toggleCoverRemove( show ) {
 	var btn = document.querySelector( '[data-bn-cover-remove]' );
 	if ( btn ) { btn.hidden = ! show; }
+	// Reposition only makes sense while there is a cover to frame.
+	var reposition = document.querySelector( '[data-bn-cover-reposition]' );
+	if ( reposition ) { reposition.hidden = ! show; }
+}
+
+/**
+ * Paint a cover framing onto the edit-page preview and remember it on the element, so the next
+ * Reposition opens on what is shown.
+ */
+function paintCoverFraming( img, x, y, zoom ) {
+	img.style.objectPosition = x + '% ' + y + '%';
+	img.style.transform      = 'scale(' + zoom + ')';
+	img.dataset.focalX    = String( x );
+	img.dataset.focalY    = String( y );
+	img.dataset.focalZoom = String( zoom );
 }
 
 /**
@@ -760,21 +775,23 @@ async function flushStagedMedia( ctx ) {
 		// Reactive busy flag for the cover's deferred upload (see avatar note).
 		ctx.coverUploading = true;
 		var cvFd    = new FormData();
-		cvFd.append( 'avatar', _pendingCover.file );
+		// A staged position with no new file saves the framing of the cover already set.
+		var posOnly = ! _pendingCover.file;
+		if ( ! posOnly ) { cvFd.append( 'avatar', _pendingCover.file ); }
 		cvFd.append( 'focal_x', String( _pendingCover.x ) );
 		cvFd.append( 'focal_y', String( _pendingCover.y ) );
 		cvFd.append( 'focal_zoom', String( _pendingCover.zoom ) );
 		try {
-			var cvRes = await restFetch( profileResourcePath( 'cover' ), {
+			var cvRes = await restFetch( profileResourcePath( posOnly ? 'cover/position' : 'cover' ), {
 				method:       'POST',
 				nonce:        ctx.restNonce,
 				body:         cvFd,
 				toastOnError: false,
 			} );
 			var cvData = cvRes.data || {};
-			if ( cvRes.ok && cvData.cover_url ) {
+			if ( cvRes.ok && ( posOnly ? undefined !== cvData.focal_x : cvData.cover_url ) ) {
 				coverOk      = true;
-				ctx.coverUrl = cvData.cover_url;
+				if ( ! posOnly ) { ctx.coverUrl = cvData.cover_url; }
 				toggleCoverRemove( true );
 			} else {
 				allOk = false;
@@ -1961,6 +1978,42 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
+		/**
+		 * Reposition the cover that is already set: the same window as a new cover, opened on the
+		 * current picture and its saved framing. Apply stages the framing (like a new cover) and it is
+		 * saved with Save changes; Cancel changes nothing.
+		 */
+		async repositionCover() {
+			var ctx = getContext();
+			var img = document.querySelector( '[data-bn-cover-preview]' );
+			var src = _pendingCover && _pendingCover.file ? _pendingCover.file : ( img ? img.getAttribute( 'src' ) : '' );
+			if ( ! img || ! src ) { return; }
+
+			var wrap   = img.closest( '.bn-pf-cover' );
+			var box    = wrap ? wrap.getBoundingClientRect() : null;
+			var num    = function ( v, fallback ) { var n = parseFloat( v ); return isFinite( n ) ? n : fallback; };
+			var repos  = await openCoverReposModal( src, t, {
+				initial: { x: num( img.dataset.focalX, 50 ), y: num( img.dataset.focalY, 50 ), zoom: num( img.dataset.focalZoom, 1 ) },
+				aspect:  box && box.height > 0 ? box.width / box.height : 0,
+			} );
+			if ( ! repos ) { return; }
+
+			if ( _pendingCover ) {
+				_pendingCover.x    = repos.x;
+				_pendingCover.y    = repos.y;
+				_pendingCover.zoom = repos.zoom;
+			} else {
+				_pendingCover = { file: null, x: repos.x, y: repos.y, zoom: repos.zoom };
+			}
+			ctx.coverFocalX = repos.x;
+			ctx.coverFocalY = repos.y;
+			ctx.coverZoom   = repos.zoom;
+			paintCoverFraming( img, repos.x, repos.y, repos.zoom );
+			ctx.isDirty = true;
+			syncDirtyAttr( true );
+			bnToast( t( 'coverPositionReady', 'Position ready: click Save changes to keep it' ), { tone: 'info' } );
+		},
+
 		async handleCoverFileChange( event ) {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
@@ -1990,8 +2043,7 @@ const profileStore = store( 'buddynext/profile', {
 				if ( coverImg ) {
 					coverImg.src = URL.createObjectURL( file );
 					coverImg.style.display = '';
-					coverImg.style.objectPosition = repos.x + '% ' + repos.y + '%';
-					coverImg.style.transform = 'scale(' + repos.zoom + ')';
+					paintCoverFraming( coverImg, repos.x, repos.y, repos.zoom );
 					var wrap = coverImg.closest( '.bn-pf-cover' );
 					if ( wrap ) { wrap.classList.add( 'bn-pf-cover--has-image' ); }
 				}
