@@ -76,4 +76,24 @@ class PublicOpenSpacesSqlTest extends WP_UnitTestCase {
 		$this->assertContains( (int) $open_id, $seen );
 		$this->assertNotContains( (int) $gate_id, $seen );
 	}
+
+	public function test_a_space_an_add_on_hides_for_one_viewer_leaves_their_home_feed(): void {
+		$owner  = self::factory()->user->create();
+		$viewer = self::factory()->user->create();
+		$space  = $this->space( $owner, 'open' );
+		buddynext_service( 'space_members' )->join( $space, $viewer );
+		$post = ( new PostService() )->create( $owner, array( 'type' => 'text', 'content' => 'a joined space post', 'space_id' => $space, 'privacy' => 'public' ) );
+		$ids  = static function ( int $user ): array {
+			return array_map( static fn( $item ) => (int) ( $item['id'] ?? 0 ), (array) ( buddynext_service( 'feed' )->home_feed( $user )['items'] ?? array() ) );
+		};
+
+		$this->assertContains( (int) $post, $ids( $viewer ), 'A joined Space shows in the home feed by default.' );
+
+		$hide = static fn( $found, $user ) => $user === $viewer ? array_merge( (array) $found, array( $space ) ) : $found;
+		add_filter( 'buddynext_feed_hidden_space_ids', $hide, 10, 2 );
+		wp_cache_flush();
+		$this->assertNotContains( (int) $post, $ids( $viewer ), 'An add-on can close a Space for this viewer.' );
+		$this->assertContains( (int) $post, $ids( $owner ), 'Other viewers are not affected.' );
+		remove_filter( 'buddynext_feed_hidden_space_ids', $hide, 10 );
+	}
 }

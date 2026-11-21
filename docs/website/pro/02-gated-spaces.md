@@ -45,7 +45,7 @@ When a logged-in member who lacks access opens a gated space, BuddyNext shows th
 A space that needs a plan keeps its content and its member list to people the plan admits, everywhere, not only on the space page:
 
 - **Member list.** The space's member list (the Members page, the app and the leaderboard) is shown only to people who may read the space. A guest or a member without the plan gets a "not allowed" answer.
-- **Feeds.** Posts from a gated space do not appear in the site-wide activity feed, Explore or the hashtag feeds for people who have not joined it. A member who joined it still sees them in their own feed.
+- **Feeds.** Posts from a gated space do not appear in the site-wide activity feed, Explore or the hashtag feeds for people who have not joined it. A member who joined it and still holds the plan sees them in their own feed. If the plan lapses, the member stays on the member list but the space's posts leave their feed and the space page shows the paywall, until they renew.
 - **Search.** A member who holds the plan but has not joined still finds the space's posts through search.
 
 ## Setting it up (for owners)

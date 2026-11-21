@@ -956,13 +956,44 @@ class FeedService {
 		// Honour each space's "Push space posts to activity feed" toggle: a space
 		// the owner opted out of (bn_space_{id}_push_to_feed = 0) must not surface
 		// in the home feed through ANY branch. Non-space posts are unaffected.
-		$excluded_spaces = $this->feed_excluded_space_ids();
+		$excluded_spaces = array_values( array_unique( array_merge( $this->feed_excluded_space_ids(), $this->viewer_hidden_space_ids( $user_id ) ) ) );
 		if ( ! empty( $excluded_spaces ) ) {
 			$id_list = implode( ',', array_map( 'absint', $excluded_spaces ) );
 			$sql     = "( {$sql} ) AND ( space_id IS NULL OR space_id = 0 OR space_id NOT IN ( {$id_list} ) )";
 		}
 
 		return array( $sql, $params );
+	}
+
+	/**
+	 * Spaces this viewer may not read right now, even though they belong to them.
+	 *
+	 * A member who joined a plan-gated Space and whose plan has since lapsed is still on its roster
+	 * (the owner's rule), but access closes live: their home feed must stop showing its posts. Free
+	 * does not know about plans, so an add-on answers.
+	 *
+	 * @param int $user_id Viewer.
+	 * @return int[] Space ids to leave out of this viewer's home feed.
+	 */
+	private function viewer_hidden_space_ids( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		/**
+		 * Filter the Spaces left out of one viewer's home feed.
+		 *
+		 * Pro adds the plan-gated Spaces the viewer joined but is no longer entitled to. Only add ids;
+		 * keep the answer cheap, it runs whenever the home feed is built.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int[] $space_ids Space ids to hide (default: none).
+		 * @param int   $user_id   The viewer.
+		 */
+		$ids = apply_filters( 'buddynext_feed_hidden_space_ids', array(), $user_id );
+
+		return array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
 	}
 
 	/**
