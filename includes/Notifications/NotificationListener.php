@@ -804,20 +804,13 @@ class NotificationListener implements ListenerInterface {
 		// disabled or stalled, which previously meant members got no
 		// notification at all. The first batch is the same bounded keyset query
 		// the async worker uses, so the posting request cost is capped.
-		$batch_size    = $this->fanout_batch_size();
-		$batch         = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, 0, $batch_size );
-		$after_user_id = (int) $batch['last_user_id'];
-		$has_more      = ( $batch_size === $batch['count'] && $after_user_id > 0 );
+		$batch_size = $this->fanout_batch_size();
+		$scheduler  = function_exists( 'as_enqueue_async_action' );
 
-		if ( ! $has_more ) {
-			return;
-		}
-
-		// More members remain. Page the rest through a background action
-		// (keyset-resumed from the last user_id) so a large roster never loops
-		// inside the posting request. Fall back to inline draining only when
-		// Action Scheduler is absent.
-		if ( function_exists( 'as_enqueue_async_action' ) ) {
+		// The next page is queued BEFORE this one is processed: if anything in the first batch fails,
+		// the rest of the roster is still notified instead of the whole chain stopping here.
+		$next_cursor = $scheduler ? $this->next_fanout_cursor( $space_id, $user_id, 0, $batch_size ) : 0;
+		if ( $next_cursor > 0 && function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_async_space_post_fanout',
 				array(
@@ -825,11 +818,28 @@ class NotificationListener implements ListenerInterface {
 						'post_id'       => $post_id,
 						'space_id'      => $space_id,
 						'author_id'     => $user_id,
-						'after_user_id' => $after_user_id,
+						'after_user_id' => $next_cursor,
 					),
 				),
 				'buddynext'
 			);
+		}
+
+		try {
+			$batch = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, 0, $batch_size );
+		} catch ( \Throwable $e ) {
+			// Posting must not fail because a notification did; the queued pages carry on.
+			error_log( 'BuddyNext: space post fan-out, first page failed: ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			return;
+		}
+
+		if ( $scheduler ) {
+			return;
+		}
+
+		// No Action Scheduler (local/test): drain the rest inline, bounded per query.
+		$after_user_id = (int) $batch['last_user_id'];
+		if ( $batch_size !== $batch['count'] || $after_user_id <= 0 ) {
 			return;
 		}
 
@@ -862,11 +872,12 @@ class NotificationListener implements ListenerInterface {
 		}
 
 		$batch_size = $this->fanout_batch_size();
-		$batch      = $this->fan_out_space_post_batch( $post_id, $space_id, $author_id, $after_user_id, $batch_size );
 
-		// A full batch means more members may remain — schedule the next page,
-		// resuming from the last user_id (keyset, never OFFSET).
-		if ( $batch_size === $batch['count'] && $batch['last_user_id'] > 0 && function_exists( 'as_enqueue_async_action' ) ) {
+		// Queue the next page first (keyset, never OFFSET paging of the work itself), then do this one:
+		// a page that fails is marked failed in Action Scheduler and costs at most one page of members,
+		// not the rest of the roster.
+		$next_cursor = $this->next_fanout_cursor( $space_id, $author_id, $after_user_id, $batch_size );
+		if ( $next_cursor > 0 && function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_async_space_post_fanout',
 				array(
@@ -874,12 +885,57 @@ class NotificationListener implements ListenerInterface {
 						'post_id'       => $post_id,
 						'space_id'      => $space_id,
 						'author_id'     => $author_id,
-						'after_user_id' => $batch['last_user_id'],
+						'after_user_id' => $next_cursor,
 					),
 				),
 				'buddynext'
 			);
 		}
+		$this->fan_out_space_post_batch( $post_id, $space_id, $author_id, $after_user_id, $batch_size );
+	}
+
+	/**
+	 * Where the page after this one starts, or 0 when this page is the last.
+	 *
+	 * One keyset peek on the same index the page itself reads. A pager queues the next page with this
+	 * BEFORE it processes its own, so the chain never depends on the current page finishing.
+	 *
+	 * @param int $space_id      Space whose members are paged (0 = every member).
+	 * @param int $author_id     Author, never notified.
+	 * @param int $after_user_id This page starts after this user id.
+	 * @param int $limit         Page size.
+	 * @return int The last user id of this page when it is full, else 0.
+	 */
+	private function next_fanout_cursor( int $space_id, int $author_id, int $after_user_id, int $limit ): int {
+		global $wpdb;
+
+		// The last member of this page (offset limit - 1), if the page is full.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		if ( $space_id > 0 ) {
+			$next = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT user_id FROM {$wpdb->prefix}bn_space_members
+					 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d
+					 ORDER BY user_id ASC LIMIT 1 OFFSET %d",
+					$space_id,
+					$author_id,
+					$after_user_id,
+					max( 0, $limit - 1 )
+				)
+			);
+		} else {
+			$next = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT ID FROM {$wpdb->users} WHERE ID != %d AND ID > %d" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ) . ' ORDER BY ID ASC LIMIT 1 OFFSET %d',
+					$author_id,
+					$after_user_id,
+					max( 0, $limit - 1 )
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		return $next;
 	}
 
 	/**
@@ -964,9 +1020,10 @@ class NotificationListener implements ListenerInterface {
 		}
 
 		$batch_size = $this->fanout_batch_size();
-		$batch      = $this->fan_out_announcement_batch( $post_id, $author_id, $space_id, $after_user_id, $batch_size );
 
-		if ( $batch_size === $batch['count'] && $batch['last_user_id'] > 0 && function_exists( 'as_enqueue_async_action' ) ) {
+		// Next page first, then this one: a failing page does not stop the rest of the audience.
+		$next_cursor = $this->next_fanout_cursor( $space_id, $author_id, $after_user_id, $batch_size );
+		if ( $next_cursor > 0 && function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_async_announcement_fanout',
 				array(
@@ -974,12 +1031,13 @@ class NotificationListener implements ListenerInterface {
 						'post_id'       => $post_id,
 						'author_id'     => $author_id,
 						'space_id'      => $space_id,
-						'after_user_id' => $batch['last_user_id'],
+						'after_user_id' => $next_cursor,
 					),
 				),
 				'buddynext'
 			);
 		}
+		$this->fan_out_announcement_batch( $post_id, $author_id, $space_id, $after_user_id, $batch_size );
 	}
 
 	/**
