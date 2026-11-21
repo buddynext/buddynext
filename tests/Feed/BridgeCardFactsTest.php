@@ -163,4 +163,23 @@ class BridgeCardFactsTest extends WP_UnitTestCase {
 		$this->assertSame( 0, IntegrationActivity::card_space( $open ), 'A site can keep every card site-wide.' );
 		remove_filter( 'buddynext_partner_card_space', $never );
 	}
+
+	public function test_a_small_set_runs_inline_and_a_large_one_is_queued_in_chunks(): void {
+		$ran = array();
+		IntegrationActivity::run_in_chunks( 'bn_test_chunk_hook', range( 1, 10 ), static function ( $id ) use ( &$ran ) {
+			$ran[] = $id;
+		} );
+		$this->assertSame( range( 1, 10 ), $ran, 'A small set runs now, in order.' );
+
+		if ( ! function_exists( 'as_get_scheduled_actions' ) ) {
+			return;
+		}
+		$ran = array();
+		IntegrationActivity::run_in_chunks( 'bn_test_chunk_hook', range( 1, 230 ), static function ( $id ) use ( &$ran ) {
+			$ran[] = $id;
+		} );
+		$this->assertSame( array(), $ran, 'A large set is not run inside the request.' );
+		$this->assertCount( 3, as_get_scheduled_actions( array( 'hook' => 'bn_test_chunk_hook', 'status' => 'pending' ), 'ids' ), '230 items in chunks of 100.' );
+		as_unschedule_all_actions( 'bn_test_chunk_hook' );
+	}
 }

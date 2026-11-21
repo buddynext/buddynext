@@ -608,6 +608,34 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Run a bridge's re-placing now for a small set of items, or in background chunks for a large one.
+	 *
+	 * A Space with thousands of partner items must not re-place them inside the owner's save: up to
+	 * $inline_max items run at once (the normal case, so the result is immediate); more are queued on
+	 * Action Scheduler in chunks, each running the bridge's own handler on the given hook. Without
+	 * Action Scheduler everything runs inline.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string                $hook       Action the bridge listens on; it receives one chunk (array).
+	 * @param array<int,int|string> $items      Item ids (or links) to re-place.
+	 * @param callable              $now        Runs one item inline.
+	 * @param int                   $inline_max Most items run inline.
+	 * @param int                   $chunk      Items per queued chunk.
+	 * @return void
+	 */
+	public static function run_in_chunks( string $hook, array $items, callable $now, int $inline_max = 25, int $chunk = 100 ): void {
+		$items = array_values( array_unique( array_filter( $items ) ) );
+		if ( count( $items ) <= $inline_max || ! function_exists( 'as_enqueue_async_action' ) ) {
+			array_map( $now, $items );
+			return;
+		}
+		foreach ( array_chunk( $items, max( 1, $chunk ) ) as $part ) {
+			as_enqueue_async_action( $hook, array( $part ), 'buddynext' );
+		}
+	}
+
+	/**
 	 * The cards of a type sitting in a Space (link and link_meta), for re-placing them.
 	 *
 	 * @since 1.3.0
