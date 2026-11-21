@@ -271,6 +271,25 @@ final class SpaceVisibility {
 	}
 
 	/**
+	 * SQL subquery of the Space ids whose posts anyone may read: open Spaces that carry no plan or
+	 * ability gate.
+	 *
+	 * The site feed, Explore and the hashtag feeds all show an open Space's posts to everyone. A
+	 * Space gated by a plan (its required_ability, kept in step with the plan rows by Pro) is
+	 * members-only in practice, so its posts are left out here; a member who joined it still sees
+	 * them through the joined-Spaces branch of the feed.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string A subquery selecting `id`, ready to put inside `space_id IN ( ... )`.
+	 */
+	public static function public_open_spaces_sql(): string {
+		global $wpdb;
+
+		return "SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND ( required_ability IS NULL OR required_ability = '' )";
+	}
+
+	/**
 	 * Read a space row's type slug, defaulting to the most restrictive-safe 'open'
 	 * fallback the registry itself uses for unknown slugs.
 	 *

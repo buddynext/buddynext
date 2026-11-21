@@ -1072,7 +1072,7 @@ class HashtagService {
 			. " AND {$alias}.privacy = 'public'"
 			. " AND ( {$alias}.space_id IS NULL"
 			. " OR {$alias}.space_id = 0"
-			. " OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' ) )"
+			. " OR {$alias}.space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::public_open_spaces_sql() . ' ) )'
 			. \BuddyNext\SocialGraph\FollowService::private_author_where( 0, "{$alias}.user_id" )
 			// And never a hidden-suspended or shadow-banned author's: the tag feed,
 			// its counts, its contributors and the trending list all read this.
@@ -1099,7 +1099,7 @@ class HashtagService {
 		$sql    = "AND (
 			{$alias}.space_id IS NULL
 			OR {$alias}.space_id = 0
-			OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )";
+			OR {$alias}.space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::public_open_spaces_sql() . ' )';
 		$params = array();
 
 		if ( $viewer_id > 0 ) {

@@ -274,7 +274,7 @@ class FeedService {
 			(
 				( ( space_id IS NULL OR space_id = 0 ) AND privacy = 'public' )
 				OR (
-					space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+					space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::public_open_spaces_sql() . " )
 					AND privacy IN ( 'public', 'space_members' )
 				)
 			)
@@ -314,11 +314,11 @@ class FeedService {
 	private function readable_space_where( int $viewer_id ): array {
 		global $wpdb;
 
-		$sql = "AND (
+		$sql = 'AND (
 			space_id IS NULL
 			OR space_id = 0
 			OR user_id = %d
-			OR space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+			OR space_id IN ( ' . \BuddyNext\Spaces\SpaceVisibility::public_open_spaces_sql() . " )
 			OR space_id IN (
 				SELECT space_id FROM {$wpdb->prefix}bn_space_members
 				WHERE user_id = %d AND status = 'active'

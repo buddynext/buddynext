@@ -40,6 +40,14 @@ The All gated spaces perk is the all-access pass. A plan that grants it lets its
 When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button points to the call-to-action link you set. With no link set, it goes to the plan's own page when one plan is on offer, Unlisted plans included, or to your pricing page when several listed plans are. A hidden Unlisted plan is not named or linked while a listed plan opens the same space. When none of the space's plans can be bought, only a listed all-access plan can stand in; otherwise there is no button. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
 
 
+### Where a gated space shows up
+
+A space that needs a plan keeps its content and its member list to people the plan admits, everywhere, not only on the space page:
+
+- **Member list.** The space's member list (the Members page, the app and the leaderboard) is shown only to people who may read the space. A guest or a member without the plan gets a "not allowed" answer.
+- **Feeds.** Posts from a gated space do not appear in the site-wide activity feed, Explore or the hashtag feeds for people who have not joined it. A member who joined it still sees them in their own feed.
+- **Search.** A member who holds the plan but has not joined still finds the space's posts through search.
+
 ## Setting it up (for owners)
 
 Gating a space is a two-part setup: mark the space as gated, then configure the paywall prompt members see.
