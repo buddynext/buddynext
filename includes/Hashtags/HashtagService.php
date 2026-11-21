@@ -474,6 +474,9 @@ class HashtagService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$old_hashtag_ids = array_keys( $old_stamps );
+		// The tags the object carried before this change, so a page that listed it for a tag it no
+		// longer has (deleted, edited away) can be refreshed too.
+		$old_slugs = $this->slugs_for_ids( $old_hashtag_ids );
 
 		// Remove all existing links for this object first.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -498,6 +501,8 @@ class HashtagService {
 
 		if ( empty( $slugs ) ) {
 			$this->bust_trending_cache();
+			/** This action is documented below. */
+			do_action( 'buddynext_hashtags_synced', $object_type, $object_id, $old_slugs );
 			return;
 		}
 
@@ -574,9 +579,32 @@ class HashtagService {
 		 *
 		 * @param string   $object_type Object type ('post', 'comment').
 		 * @param int      $object_id   Object id.
-		 * @param string[] $slugs       The tag slugs now on the object (and any it just lost are re-synced too).
+		 * @param string[] $slugs       Every tag slug the change touched: the ones now on the object and
+		 *                              the ones it had before (a removed or deleted tag's page lists it too).
 		 */
-		do_action( 'buddynext_hashtags_synced', $object_type, $object_id, $slugs );
+		do_action( 'buddynext_hashtags_synced', $object_type, $object_id, array_values( array_unique( array_merge( array_map( array( self::class, 'normalize_slug' ), $slugs ), $old_slugs ) ) ) );
+	}
+
+	/**
+	 * The slugs of some hashtag ids (one indexed read).
+	 *
+	 * @param int[] $ids Hashtag ids.
+	 * @return string[]
+	 */
+	private function slugs_for_ids( array $ids ): array {
+		$ids = array_values( array_filter( array_map( 'absint', $ids ) ) );
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// $in is a run of %d placeholders, one per int-cast id.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$slugs = $wpdb->get_col( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}bn_hashtags WHERE id IN ({$in})", $ids ) );
+		// phpcs:enable
+
+		return array_map( 'strval', (array) $slugs );
 	}
 
 	/**

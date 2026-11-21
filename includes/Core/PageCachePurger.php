@@ -228,6 +228,35 @@ class PageCachePurger implements ListenerInterface {
 		// The site's front page may be the activity hub (a static front page).
 		self::purge( home_url( '/' ) );
 		self::purge( PageRouter::post_url( $post_id ) );
+
+		// The hashtag pages that list the post. Whatever changed (made private, moved or removed from a
+		// Space, hidden, restored) can show it or hide it there, so they are refreshed with the hubs.
+		// Read from the index, which still holds the post's tags; a brand-new post has none yet and is
+		// handled when its tags are indexed (on_hashtags_synced).
+		foreach ( $this->indexed_hashtag_slugs( $post_id ) as $slug ) {
+			self::purge( PageRouter::hashtag_feed_url( $slug ) );
+		}
+	}
+
+	/**
+	 * The hashtag slugs a post is indexed under (one indexed read).
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string[]
+	 */
+	private function indexed_hashtag_slugs( int $post_id ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map(
+			'strval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT h.slug FROM {$wpdb->prefix}bn_post_hashtags ph INNER JOIN {$wpdb->prefix}bn_hashtags h ON h.id = ph.hashtag_id WHERE ph.post_id = %d AND ph.object_type = 'post'",
+					$post_id
+				)
+			)
+		);
 	}
 
 	/**
@@ -381,7 +410,37 @@ class PageCachePurger implements ListenerInterface {
 		unset( $user_id );
 		if ( is_array( $fields ) && array_key_exists( 'type', $fields ) ) {
 			$this->on_space_change( (int) $space_id );
+			// A Space that turned private or secret drops all its posts from the hashtag pages (and one
+			// that opened adds them): refresh the pages of the tags its posts use.
+			foreach ( $this->space_hashtag_slugs( (int) $space_id ) as $slug ) {
+				self::purge( PageRouter::hashtag_feed_url( $slug ) );
+			}
 		}
+	}
+
+	/**
+	 * The hashtag slugs used by a Space's posts (bounded: the most recent 200 distinct tags).
+	 *
+	 * @param int $space_id Space ID.
+	 * @return string[]
+	 */
+	private function space_hashtag_slugs( int $space_id ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map(
+			'strval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT h.slug FROM {$wpdb->prefix}bn_posts p
+					 INNER JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.post_id = p.id AND ph.object_type = 'post'
+					 INNER JOIN {$wpdb->prefix}bn_hashtags h ON h.id = ph.hashtag_id
+					 WHERE p.space_id = %d
+					 GROUP BY h.slug ORDER BY MAX( ph.created_at ) DESC LIMIT 200",
+					$space_id
+				)
+			)
+		);
 	}
 
 	/**

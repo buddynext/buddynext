@@ -66,6 +66,57 @@ class PageCachePurgerTest extends \WP_UnitTestCase {
 		$this->assertNotContains( PageRouter::hashtag_feed_url( 'onlyincomment' ), $this->purged );
 	}
 
+	private function forget_purges(): void {
+		$this->purged = array();
+		$prop         = new \ReflectionProperty( PageCachePurger::class, 'purged' );
+		$prop->setAccessible( true );
+		$prop->setValue( null, array() );
+	}
+
+	public function test_deleting_a_post_purges_the_hashtag_pages_it_was_on(): void {
+		$tags = buddynext_service( 'hashtags' );
+		$tags->sync( 'post', 901, array( 'kept', 'gone' ) );
+		$this->forget_purges();
+
+		// What deleting a post does to its tags: sync with none. The pages that listed it are refreshed.
+		$tags->sync( 'post', 901, array() );
+
+		$this->assertContains( PageRouter::hashtag_feed_url( 'kept' ), $this->purged );
+		$this->assertContains( PageRouter::hashtag_feed_url( 'gone' ), $this->purged );
+	}
+
+	public function test_editing_a_tag_away_purges_the_page_it_left_and_the_one_it_joined(): void {
+		$tags = buddynext_service( 'hashtags' );
+		$tags->sync( 'post', 902, array( 'oldtag' ) );
+		$this->forget_purges();
+
+		$tags->sync( 'post', 902, array( 'newtag' ) );
+
+		$this->assertContains( PageRouter::hashtag_feed_url( 'oldtag' ), $this->purged, 'The tag it lost.' );
+		$this->assertContains( PageRouter::hashtag_feed_url( 'newtag' ), $this->purged, 'The tag it gained.' );
+	}
+
+	public function test_a_privacy_change_purges_the_hashtag_pages_of_the_post(): void {
+		buddynext_service( 'hashtags' )->sync( 'post', 903, array( 'privatised' ) );
+		$this->forget_purges();
+
+		do_action( 'buddynext_post_updated', 903, 1, array( 'privacy' => 'private' ) );
+
+		$this->assertContains( PageRouter::hashtag_feed_url( 'privatised' ), $this->purged );
+	}
+
+	public function test_a_space_changing_type_purges_the_hashtag_pages_of_its_posts(): void {
+		global $wpdb;
+		$space = (int) buddynext_service( 'spaces' )->create( self::factory()->user->create(), array( 'name' => 'Tag space', 'slug' => 'tag-space-' . wp_rand( 10000, 99999 ), 'type' => 'open' ) );
+		$post  = (int) buddynext_service( 'post_service' )->create( 1, array( 'type' => 'text', 'content' => 'in a space', 'space_id' => $space, 'privacy' => 'public' ) );
+		buddynext_service( 'hashtags' )->sync( 'post', $post, array( 'spacetag' ) );
+		$this->forget_purges();
+
+		do_action( 'buddynext_space_updated', $space, 1, array( 'type' => 'private' ), 'open' );
+
+		$this->assertContains( PageRouter::hashtag_feed_url( 'spacetag' ), $this->purged );
+	}
+
 	public function test_each_url_is_purged_once_per_request(): void {
 		do_action( 'buddynext_post_created', 42, 7, 'text' );
 		do_action( 'buddynext_post_created', 43, 7, 'text' );
