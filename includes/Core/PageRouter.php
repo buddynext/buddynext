@@ -1135,6 +1135,16 @@ class PageRouter {
 			return;
 		}
 
+		// ── Unknown tab gate ──────────────────────────────────────────────
+		// /members/lena/zzzz/ and /spaces/x/zzzz/ showed the profile or the Space with a 200: the
+		// first unknown path level was read as "open the default tab". A made-up tab, and a real one
+		// this viewer cannot see, now answer 404 like any other dead link. Decided here, before any
+		// output, for the same reason as the gates around it.
+		if ( $this->is_unknown_tab( $hub, $context ) ) {
+			$this->send_404();
+			return;
+		}
+
 		// ── Community Admin gate ──────────────────────────────────────────
 		// Whoever may review the moderation queue (Roles tab row; community
 		// moderators by default) and administrators. This is the same
@@ -1802,6 +1812,81 @@ class PageRouter {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Whether the address names a profile or Space tab that does not exist for this viewer.
+	 *
+	 * A tab is valid when it is in the navigation this viewer gets for that profile or Space (the same
+	 * resolved nav the page renders, memoised per request, so this costs the page nothing extra), or it
+	 * is one of the few routes with a page of their own. Anything else, a typo or a tab hidden from this
+	 * viewer, is not found. The default (no tab in the address) is always valid.
+	 *
+	 * @param string              $hub     Hub key ('people' or 'spaces' are checked).
+	 * @param array<string,mixed> $context Resolved route context (user_id / space_id).
+	 * @return bool True when the address should answer 404.
+	 */
+	private function is_unknown_tab( string $hub, array $context ): bool {
+		$viewer = get_current_user_id();
+
+		if ( 'people' === $hub && ! empty( $context['user_id'] ) ) {
+			$tab = sanitize_key( (string) get_query_var( 'bn_profile_action', '' ) );
+			// The edit screen is a page of its own (it handles who may open it).
+			if ( '' === $tab || 'edit' === $tab ) {
+				return false;
+			}
+			$nav   = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', (int) $context['user_id'], (int) $viewer ) );
+			$known = array();
+			foreach ( $nav->layer( 'primary' ) as $item ) {
+				$known[] = (string) $item->id;
+				foreach ( $item->children as $child ) {
+					$known[] = (string) $child->id;
+				}
+			}
+			foreach ( $nav->layer( 'metric' ) as $item ) {
+				$known[] = (string) $item->id;
+			}
+			$surface = 'profile';
+		} elseif ( 'spaces' === $hub && ! empty( $context['space_id'] ) ) {
+			$tab = sanitize_key( (string) get_query_var( 'bn_space_action', '' ) );
+			// The core tabs and pages keep answering for everyone: each explains access itself (the
+			// join prompt on a private Space, the manager screens check their own permission).
+			if ( '' === $tab || in_array( $tab, array( 'feed', 'about', 'members', 'moderation', 'settings', 'admin' ), true ) ) {
+				return false;
+			}
+			$space_id = (int) $context['space_id'];
+			$members  = new \BuddyNext\Spaces\SpaceMemberService();
+			$active   = $viewer > 0 && 'active' === (string) $members->get_status( $space_id, $viewer );
+			$role     = $active ? (string) $members->get_role( $space_id, $viewer ) : '';
+			$nav      = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', $space_id, (int) $viewer, $role ) );
+			$known    = array();
+			foreach ( $nav->layer( 'primary' ) as $item ) {
+				$known[] = (string) $item->id;
+				foreach ( $item->children as $child ) {
+					$known[] = (string) $child->id;
+				}
+			}
+			$surface = 'space';
+		} else {
+			return false;
+		}
+
+		$is_known = in_array( $tab, $known, true );
+
+		/**
+		 * Filter whether a profile or Space tab address is a real route.
+		 *
+		 * Lets an add-on that serves a tab outside the navigation (a deep link its own page handles)
+		 * keep it from answering 404.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param bool                $is_known Whether the tab is in the viewer's navigation.
+		 * @param string              $surface  'profile' or 'space'.
+		 * @param string              $tab      The tab slug in the address.
+		 * @param array<string,mixed> $context  Resolved route context.
+		 */
+		return ! (bool) apply_filters( 'buddynext_route_tab_exists', $is_known, $surface, $tab, $context );
 	}
 
 	/**

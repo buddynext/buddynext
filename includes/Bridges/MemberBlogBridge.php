@@ -127,6 +127,13 @@ class MemberBlogBridge {
 		add_filter( 'buddynext_client_nav_enabled', array( $this, 'no_client_nav_on_write_hub' ) );
 		// Member Blog is the article provider, registered from BuddyNext's side.
 		add_filter( 'buddynext_article_provider', array( $this, 'register_article_provider' ), 10, 2 );
+		// An old /spaces/{slug}/blog/ link opens the Space instead of a not-found page, even when the tab is off.
+		add_filter(
+			'buddynext_route_tab_exists',
+			static fn( $known, $surface, $tab ) => $known || ( 'space' === $surface && 'blog' === $tab ),
+			10,
+			3
+		);
 		// A suspended or pending-approval member may not write, on Member Blog's own
 		// handlers too: its form submit, autosave, dashboard actions, /wp/v2/posts gate
 		// and Pro's scheduled publish all ask can_create() or can_edit(), and both
