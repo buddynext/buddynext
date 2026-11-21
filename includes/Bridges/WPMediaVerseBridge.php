@@ -279,6 +279,7 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_can_follow', array( $this, 'can_follow' ), 10, 3 );
 		add_action( 'mvs_user_followed', array( $this, 'mirror_mvs_follow' ), 10, 2 );
 		add_action( 'mvs_user_unfollowed', array( $this, 'mirror_mvs_unfollow' ), 10, 2 );
+		add_action( 'mvs_follow_request_withdrawn', array( $this, 'withdraw_pending_follow' ), 10, 2 );
 		add_action( 'buddynext_user_followed', array( $this, 'mirror_bn_follow' ), 10, 2 );
 		add_action( 'buddynext_user_unfollowed', array( $this, 'mirror_bn_unfollow' ), 10, 2 );
 
@@ -2662,6 +2663,30 @@ class WPMediaVerseBridge {
 		$this->mirroring_follow = true;
 		try {
 			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->unfollow( $follower_id, $following_id ) );
+		} finally {
+			$this->mirroring_follow = false;
+		}
+	}
+
+	/**
+	 * Cancel a pending follow request when the member unfollows from a WPMediaVerse client.
+	 *
+	 * A private account's request lives only in BuddyNext; without this the client showed "not
+	 * following" while the request stayed alive and the owner could still approve it.
+	 *
+	 * @param int $follower_id  User who unfollowed.
+	 * @param int $following_id User whose request is withdrawn.
+	 * @return void
+	 */
+	public function withdraw_pending_follow( int $follower_id, int $following_id ): void {
+		$bn = $this->bn_follows();
+		if ( null === $bn || ! method_exists( $bn, 'unfollow' ) || ! method_exists( $bn, 'has_pending_request' ) || ! $bn->has_pending_request( $follower_id, $following_id ) ) {
+			return;
+		}
+		// Guard up: BuddyNext's own unfollow event must not mirror back into MediaVerse.
+		$this->mirroring_follow = true;
+		try {
+			$bn->unfollow( $follower_id, $following_id );
 		} finally {
 			$this->mirroring_follow = false;
 		}

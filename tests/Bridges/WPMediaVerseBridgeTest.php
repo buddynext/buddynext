@@ -98,6 +98,35 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Cancelling a private account's request from a MediaVerse client removes the pending request.
+	 */
+	public function test_mediaverse_unfollow_withdraws_a_pending_request(): void {
+		$target   = self::factory()->user->create();
+		$follower = self::factory()->user->create();
+		$bn       = new \BuddyNext\SocialGraph\FollowService();
+
+		update_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META, 1 );
+		$bn->follow( $follower, $target );
+		$this->assertTrue( $bn->has_pending_request( $follower, $target ) );
+
+		$mirrored = 0;
+		$count    = static function () use ( &$mirrored ): void {
+			++$mirrored;
+		};
+		add_action( 'mvs_user_unfollowed', $count );
+
+		$this->bridge->withdraw_pending_follow( $follower, $target );
+
+		remove_action( 'mvs_user_unfollowed', $count );
+		$this->assertFalse( $bn->has_pending_request( $follower, $target ), 'The request is gone, so the owner can no longer approve it.' );
+		$this->assertSame( 0, $mirrored, 'Nothing bounces back into MediaVerse.' );
+
+		// Nothing pending: nothing happens.
+		$this->bridge->withdraw_pending_follow( $follower, $target );
+		$this->assertFalse( $bn->has_pending_request( $follower, $target ) );
+	}
+
+	/**
 	 * A media report becomes a row in the BuddyNext queue; a MediaVerse-only reason
 	 * folds into the nearest BuddyNext one and keeps its name in the note; other
 	 * kinds of report are left to MediaVerse.
