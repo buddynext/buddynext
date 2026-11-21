@@ -2604,12 +2604,15 @@ class WPMediaVerseBridge {
 	 * Older MediaVerse builds never call this, and mirror_mvs_follow() still
 	 * takes the follow back for them.
 	 *
-	 * @param bool $can          Whether the follow may be recorded.
-	 * @param int  $follower_id  User who is following.
-	 * @param int  $following_id User being followed.
-	 * @return bool
+	 * A request is answered 'pending' (WPMediaVerse 2.6.5+ turns that into "follow requested", not an
+	 * error); an older build reads any non-true answer as a refusal, as before.
+	 *
+	 * @param bool|string $can          Whether the follow may be recorded.
+	 * @param int         $follower_id  User who is following.
+	 * @param int         $following_id User being followed.
+	 * @return bool|string True to record it, false to refuse it, 'pending' for a request.
 	 */
-	public function can_follow( $can, int $follower_id, int $following_id ): bool {
+	public function can_follow( $can, int $follower_id, int $following_id ): bool|string {
 		if ( ! $can ) {
 			return false;
 		}
@@ -2631,7 +2634,10 @@ class WPMediaVerseBridge {
 			}
 		}
 
-		return (bool) $bn->is_following( $follower_id, $following_id );
+		if ( $bn->is_following( $follower_id, $following_id ) ) {
+			return true;
+		}
+		return method_exists( $bn, 'has_pending_request' ) && $bn->has_pending_request( $follower_id, $following_id ) ? 'pending' : false;
 	}
 
 	/**

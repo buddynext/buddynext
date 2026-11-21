@@ -78,7 +78,7 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	/**
 	 * A follow BuddyNext decides is never approved by the bridge: a refusal
 	 * already made upstream stays refused, and a private account's follow turns
-	 * into a request so MediaVerse records nothing.
+	 * into a pending request so MediaVerse records nothing.
 	 */
 	public function test_can_follow_defers_to_buddynext(): void {
 		$target   = self::factory()->user->create();
@@ -87,7 +87,9 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$this->assertFalse( $this->bridge->can_follow( false, $follower, $target ) );
 
 		update_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META, 1 );
-		$this->assertFalse( $this->bridge->can_follow( true, $follower, $target ) );
+		// A request is reported as pending (WPMediaVerse answers "follow requested"), never as a refusal.
+		$this->assertSame( 'pending', $this->bridge->can_follow( true, $follower, $target ) );
+		$this->assertSame( 'pending', $this->bridge->can_follow( true, $follower, $target ), 'Asking again still reads as pending.' );
 
 		// The first try left a pending request; a different member follows the
 		// same account once it is public again.
