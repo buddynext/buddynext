@@ -38,6 +38,12 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 |---|---|---|---|
 | `buddynext_profile_viewed` | action | A member's profile is served to a different viewer (never on self-view) | `int $profile_user_id, int $viewer_id` |
 
+### Profile and Space tab addresses
+
+| Hook | Type | When | Arguments |
+|---|---|---|---|
+| `buddynext_route_tab_exists` | filter | A profile or Space address names a tab. A tab that is not in the viewer's navigation answers 404. Return true to keep an address you serve yourself (for example an old link your add-on redirects). | `bool $is_known`, `string $surface` (`profile` or `space`), `string $tab`, `array $context` |
+
 > **Note:** The old `buddynext_profile_extra_data` filter that injected extra stat blocks into the profile header has been removed. Profile and space tabs are now registered through the unified Nav API - hook `buddynext_register_nav` to add a profile tab. See the integration registry (`buddynext_integrations`) for owner-toggle wiring.
 
 ## Profile tab pagination
