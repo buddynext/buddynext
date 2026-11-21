@@ -169,6 +169,9 @@ class JetonomyBridge {
 
 		// jetonomy_after_create_post fires ($post_id, $space_id) — 2 args only.
 		add_action( 'jetonomy_after_create_post', array( $this, 'on_post_created' ), 10, 2 );
+		// A forum import running in this request is not flooding: lift the post and comment rate limits for
+		// it only (Jetonomy's flag is request-local). Banned words and blocked links still apply.
+		add_filter( 'buddynext_rate_limit_exempt', array( $this, 'exempt_import_from_rate_limit' ) );
 
 		// Keep mirrored rows in step with the forum's anonymous flag: clears what a
 		// version before 1.2.5 stored, and any later drift. Admin-only, daily.
@@ -581,6 +584,21 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Treat a forum import run from this request as exempt from the post rate limits.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param bool $exempt Whether the author is already exempt.
+	 * @return bool
+	 */
+	public function exempt_import_from_rate_limit( $exempt ): bool {
+		// Jetonomy older than 2.0.8 has no flag: nothing is lifted.
+		$flag      = array( '\\Jetonomy\\Import\\Import_Manager', 'is_running' );
+		$importing = is_callable( $flag ) && (bool) call_user_func( $flag );
+		return (bool) $exempt || $importing;
+	}
+
+	/**
 	 * Announce a new Jetonomy discussion and refresh cached counts.
 	 *
 	 * Hooked on: jetonomy_after_create_post( int $post_id, int $space_id ).
@@ -664,7 +682,7 @@ class JetonomyBridge {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT space_id, author_id, title, content_plain, is_private, status{$this->anonymous_column()} FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- a fixed column name or ''.
+				"SELECT space_id, author_id, title, content_plain, is_private, status, created_at{$this->anonymous_column()} FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- a fixed column name or ''.
 				$post_id
 			)
 		);
@@ -752,7 +770,10 @@ class JetonomyBridge {
 						array(
 							'post_id'      => $post_id,
 							'notify_space' => false,
-						)
+						),
+						// The topic's own date (Jetonomy stamps the moment it went live, in UTC): an imported
+						// or backdated topic is not announced as new today. A topic made now gets now.
+						(string) $post->created_at
 					);
 				}
 			} else {
