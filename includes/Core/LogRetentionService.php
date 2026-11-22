@@ -100,8 +100,10 @@ class LogRetentionService {
 
 	/**
 	 * Action Scheduler group.
+	 *
+	 * @deprecated 1.3.0 Use CronScheduler::GROUP.
 	 */
-	public const AS_GROUP = 'buddynext';
+	public const AS_GROUP = CronScheduler::GROUP;
 
 	/**
 	 * Days a completed BuddyNext Action Scheduler row is kept (filterable, not stored).
@@ -140,33 +142,12 @@ class LogRetentionService {
 	}
 
 	/**
-	 * Arm the daily recurring action, exactly once.
-	 *
-	 * The as_has_scheduled_action guard stops it re-arming on every request — without
-	 * it, every page view would enqueue another copy.
+	 * Arm the daily recurring action, exactly once (CronScheduler::ensure_recurring()).
 	 *
 	 * @return void
 	 */
 	public static function arm(): void {
-		if ( ! \BuddyNext\Core\CronScheduler::is_scheduling_request() ) {
-			return;
-		}
-		if ( ! function_exists( 'as_has_scheduled_action' ) || ! function_exists( 'as_schedule_recurring_action' ) ) {
-			return;
-		}
-
-		if ( as_has_scheduled_action( self::HOOK, array(), self::AS_GROUP ) ) {
-			return;
-		}
-
-		as_schedule_recurring_action(
-			time() + HOUR_IN_SECONDS,
-			DAY_IN_SECONDS,
-			self::HOOK,
-			array(),
-			self::AS_GROUP,
-			true
-		);
+		CronScheduler::ensure_recurring( self::HOOK, DAY_IN_SECONDS, time() + HOUR_IN_SECONDS );
 	}
 
 	/**
@@ -187,7 +168,7 @@ class LogRetentionService {
 	/**
 	 * Delete aged rows from both log tables, in batches.
 	 *
-	 * @return array{notifications:int,email_log:int,webhook_log:int,presence:int} Rows deleted, per table.
+	 * @return array{notifications:int,email_log:int,webhook_log:int,presence:int,invites:int,orphaned_notifications:int,scheduler_actions:int} Rows deleted, per table.
 	 */
 	public function purge(): array {
 		global $wpdb;
@@ -344,7 +325,7 @@ class LogRetentionService {
 		 *
 		 * @param string[] $groups Group slugs. Default array( 'buddynext' ).
 		 */
-		$groups = array_values( array_filter( array_map( 'strval', (array) apply_filters( 'buddynext_finished_action_groups', array( self::AS_GROUP ) ) ) ) );
+		$groups = array_values( array_filter( array_map( 'strval', (array) apply_filters( 'buddynext_finished_action_groups', array( CronScheduler::GROUP ) ) ) ) );
 		if ( array() === $groups ) {
 			return 0;
 		}

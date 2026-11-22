@@ -1797,7 +1797,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							 * and the first two did exactly the same thing: the ONLY code that
 							 * reads this option is EmailSender::digests_enabled(), which asks
 							 * `'never' !== $value`. Both cron jobs are scheduled unconditionally
-							 * (CronScheduler::maybe_schedule for JOB_DAILY_DIGEST and
+							 * (CronScheduler::ensure_recurring for JOB_DAILY_DIGEST and
 							 * JOB_WEEKLY_DIGEST), and the cadence a member actually receives
 							 * comes from their own `email_freq` preference. So an owner who
 							 * picked Daily changed nothing, and the hint - "how often BuddyNext

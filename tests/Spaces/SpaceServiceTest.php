@@ -550,7 +550,7 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( $this->service->is_archived( $space_id ) );
 		$this->assertFalse( \BuddyNext\Spaces\SpaceVisibility::can_view_space( $this->service->get( $space_id ), $this->owner_id ) );
 		$this->assertSame( 5, $this->posts_in( $space_id ) );
-		$this->assertTrue( as_has_scheduled_action( SpaceService::DELETE_HOOK, array( $space_id, $this->owner_id, 0 ), 'buddynext' ) );
+		$this->assertTrue( as_has_scheduled_action( SpaceService::DELETE_HOOK, array( $space_id, $this->owner_id ), 'buddynext' ) );
 
 		// Half-deleted, it can only be finished: never brought back.
 		$restored = $this->service->unarchive( $space_id, $this->owner_id );
@@ -558,15 +558,16 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 'space_deleting', $restored->get_error_code() );
 		$this->assertTrue( SpaceService::is_deleting( $space_id ) );
 
-		// First job removes one chunk and has already queued the next link.
-		$this->service->run_delete_chunk( $space_id, $this->owner_id, 0 );
+		// First job (now running, so no longer pending) removes one chunk and has already queued the next.
+		as_unschedule_all_actions( SpaceService::DELETE_HOOK );
+		$this->service->run_delete_chunk( $space_id, $this->owner_id );
 		$this->assertSame( 3, $this->posts_in( $space_id ) );
-		$this->assertTrue( as_has_scheduled_action( SpaceService::DELETE_HOOK, array( $space_id, $this->owner_id, 1 ), 'buddynext' ) );
+		$this->assertTrue( as_has_scheduled_action( SpaceService::DELETE_HOOK, array( $space_id, $this->owner_id ), 'buddynext' ) );
 
-		// Link 1 is lost (killed process). Link 2, queued by link 1 before it died, still finishes the job.
-		$this->service->run_delete_chunk( $space_id, $this->owner_id, 1 );
+		// The next job is lost (killed process). The one it queued before dying still finishes the job.
+		$this->service->run_delete_chunk( $space_id, $this->owner_id );
 		$this->assertSame( 1, $this->posts_in( $space_id ) );
-		$this->service->run_delete_chunk( $space_id, $this->owner_id, 2 );
+		$this->service->run_delete_chunk( $space_id, $this->owner_id );
 
 		$this->assertNull( $this->service->get( $space_id ) );
 		$this->assertSame( 0, $this->posts_in( $space_id ) );
@@ -588,7 +589,7 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 		);
 		$this->seed_posts( $space_id, 3 );
 
-		$this->service->run_delete_chunk( $space_id, $this->owner_id, 0 );
+		$this->service->run_delete_chunk( $space_id, $this->owner_id );
 
 		$this->assertNotNull( $this->service->get( $space_id ) );
 		$this->assertSame( 3, $this->posts_in( $space_id ) );

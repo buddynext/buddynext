@@ -1569,17 +1569,11 @@ class SpaceService {
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $user_id  Member who asked for the deletion.
-	 * @param int $link     Position in the chain, 0 for the first job.
 	 * @return void
 	 */
-	private function queue_delete_chunk( int $space_id, int $user_id, int $link = 0 ): void {
-		// The link number makes each job's arguments its own: Action Scheduler counts
-		// a RUNNING job as already scheduled, so a guard on identical arguments would
-		// see the job that is queuing the next one and queue nothing.
-		$args = array( $space_id, $user_id, $link );
-		if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::DELETE_HOOK, $args, 'buddynext' ) ) {
-			as_enqueue_async_action( self::DELETE_HOOK, $args, 'buddynext' );
-		}
+	private function queue_delete_chunk( int $space_id, int $user_id ): void {
+		// Pending only: the running job queuing its successor does not count.
+		\BuddyNext\Core\CronScheduler::enqueue_once( self::DELETE_HOOK, array( $space_id, $user_id ) );
 	}
 
 	/**
@@ -1595,19 +1589,17 @@ class SpaceService {
 	 *
 	 * @param mixed $space_id Space ID.
 	 * @param mixed $user_id  Member who asked for the deletion.
-	 * @param mixed $link     Position in the chain.
 	 * @return void
 	 */
-	public function run_delete_chunk( $space_id = 0, $user_id = 0, $link = 0 ): void {
+	public function run_delete_chunk( $space_id = 0, $user_id = 0 ): void {
 		$space_id = (int) $space_id;
 		$user_id  = (int) $user_id;
-		$link     = (int) $link;
 		$space    = $space_id > 0 ? $this->get( $space_id ) : null;
 		if ( null === $space || ! self::is_deleting( $space_id ) ) {
 			return;
 		}
 
-		$this->queue_delete_chunk( $space_id, $user_id, $link + 1 );
+		$this->queue_delete_chunk( $space_id, $user_id );
 
 		global $wpdb;
 		$count  = fn(): int => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery

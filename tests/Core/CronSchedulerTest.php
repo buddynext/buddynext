@@ -74,29 +74,11 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 		);
 	}
 
-	/**
-	 * No custom intervals are registered — all remaining Free jobs use built-in
-	 * WordPress recurrences so no sub-minute / sub-hour intervals are needed.
-	 */
-	public function test_no_removed_custom_intervals_registered(): void {
-		$schedules = $this->scheduler->add_custom_schedules( array() );
+	public function test_no_custom_intervals_registered(): void {
+		$schedules = wp_get_schedules();
 		$this->assertArrayNotHasKey( 'buddynext_1min', $schedules );
 		$this->assertArrayNotHasKey( 'buddynext_5min', $schedules );
 		$this->assertArrayNotHasKey( 'buddynext_30min', $schedules );
-	}
-
-	/**
-	 * The add_custom_schedules() filter returns the input array unmodified.
-	 */
-	public function test_add_custom_schedules_returns_input_unchanged(): void {
-		$input  = array(
-			'daily' => array(
-				'interval' => DAY_IN_SECONDS,
-				'display'  => 'Once Daily',
-			),
-		);
-		$result = $this->scheduler->add_custom_schedules( $input );
-		$this->assertSame( $input, $result );
 	}
 
 	/**
@@ -256,5 +238,30 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	public function test_site_health_ignores_a_task_that_is_only_just_due(): void {
 		as_schedule_single_action( time() - MINUTE_IN_SECONDS, 'buddynext_async_index_hashtags', array( 'post', 2, '' ), CronScheduler::GROUP );
 		$this->assertSame( 'good', CronScheduler::site_health_queue_test()['status'] );
+	}
+
+	public function test_ensure_recurring_arms_once_and_returns_the_new_id(): void {
+		$first = CronScheduler::ensure_recurring( 'buddynext_zz_recurring', DAY_IN_SECONDS );
+		$again = CronScheduler::ensure_recurring( 'buddynext_zz_recurring', DAY_IN_SECONDS );
+
+		$this->assertGreaterThan( 0, $first );
+		$this->assertSame( 0, $again, 'Already armed: nothing scheduled.' );
+		$this->assertCount( 1, as_get_scheduled_actions( array( 'hook' => 'buddynext_zz_recurring', 'status' => 'pending' ), 'ids' ) );
+	}
+
+	public function test_a_concurrent_arm_that_passed_the_check_still_adds_no_second_row(): void {
+		CronScheduler::ensure_recurring( 'buddynext_zz_race', DAY_IN_SECONDS );
+		// The other request already passed as_next_scheduled_action(); its insert carries unique.
+		$second = as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_zz_race', array(), CronScheduler::GROUP, true );
+
+		$this->assertSame( 0, (int) $second );
+		$this->assertCount( 1, as_get_scheduled_actions( array( 'hook' => 'buddynext_zz_race', 'status' => 'pending' ), 'ids' ) );
+	}
+
+	public function test_ensure_recurring_does_nothing_on_an_ordinary_request(): void {
+		remove_filter( 'wp_doing_cron', '__return_true' );
+		$this->assertSame( 0, CronScheduler::ensure_recurring( 'buddynext_zz_front', DAY_IN_SECONDS ) );
+		$this->assertFalse( as_next_scheduled_action( 'buddynext_zz_front' ) );
+		add_filter( 'wp_doing_cron', '__return_true' );
 	}
 }

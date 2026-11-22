@@ -817,7 +817,7 @@ class Plugin {
 		// The Portfolio profile tab every integration's panels register into.
 		( new \BuddyNext\Profile\SuitePanelHost() )->register();
 		( new \BuddyNext\Spaces\SpaceLinkService() )->register();
-		add_action( \BuddyNext\Spaces\SpaceService::DELETE_HOOK, array( new \BuddyNext\Spaces\SpaceService(), 'run_delete_chunk' ), 10, 3 );
+		add_action( \BuddyNext\Spaces\SpaceService::DELETE_HOOK, array( new \BuddyNext\Spaces\SpaceService(), 'run_delete_chunk' ), 10, 2 );
 
 		add_action(
 			'buddynext_load_bridges',

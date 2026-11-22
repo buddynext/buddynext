@@ -22,6 +22,11 @@ use BuddyNext\Core\PageRouter;
 class ModerationListener implements ListenerInterface {
 
 	/**
+	 * Daily moderation queue check (recurring, group 'buddynext').
+	 */
+	public const QUEUE_CHECK_HOOK = 'buddynext_daily_queue_check';
+
+	/**
 	 * Register all moderation event hook listeners.
 	 */
 	public function register(): void {
@@ -51,7 +56,7 @@ class ModerationListener implements ListenerInterface {
 		add_action( 'buddynext_report_created', array( $this, 'on_report_created' ), 10, 4 );
 		add_action( 'buddynext_user_shadow_banned', array( $this, 'on_user_shadow_banned' ), 10, 1 );
 		add_action( 'buddynext_user_shadow_ban_removed', array( $this, 'on_user_shadow_ban_removed' ), 10, 1 );
-		add_action( 'buddynext_daily_queue_check', array( $this, 'on_daily_queue_check' ), 10, 0 );
+		add_action( self::QUEUE_CHECK_HOOK, array( $this, 'on_daily_queue_check' ), 10, 0 );
 
 		// Pre-moderation decisions — tell the author when their held post is
 		// approved (now live) or rejected, so they are never left guessing.
@@ -75,22 +80,7 @@ class ModerationListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function schedule_queue_check(): void {
-		if ( ! \BuddyNext\Core\CronScheduler::is_scheduling_request() ) {
-			return;
-		}
-		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
-			if ( false === as_next_scheduled_action( 'buddynext_daily_queue_check', array(), 'buddynext' ) ) {
-				if ( wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
-					wp_clear_scheduled_hook( 'buddynext_daily_queue_check' );
-				}
-				as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_daily_queue_check', array(), 'buddynext', true );
-			}
-			return;
-		}
-
-		if ( ! wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
-			wp_schedule_event( time(), 'daily', 'buddynext_daily_queue_check' );
-		}
+		\BuddyNext\Core\CronScheduler::ensure_recurring( self::QUEUE_CHECK_HOOK, DAY_IN_SECONDS );
 	}
 
 	/**

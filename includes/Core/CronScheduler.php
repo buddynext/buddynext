@@ -129,7 +129,6 @@ class CronScheduler {
 	 * @return void
 	 */
 	public function init(): void {
-		add_filter( 'cron_schedules', array( $this, 'add_custom_schedules' ) ); // phpcs:ignore WordPress.WP.CronInterval.CronSchedulesInterval
 		add_action( 'wp_loaded', array( $this, 'schedule_events' ) );
 
 		// No action_scheduler_retention_period filter here: it is site-wide and
@@ -225,25 +224,6 @@ class CronScheduler {
 		);
 	}
 
-	/**
-	 * Add custom recurrence intervals required by BuddyNext jobs.
-	 *
-	 * All three sub-minute / sub-hour intervals (buddynext_1min, buddynext_5min,
-	 * buddynext_30min) have been removed because no Free job uses them after the
-	 * cron-minimisation pass:
-	 *   - publish_scheduled moved to Pro (ScheduledPostsService, buddynextpro_5min).
-	 *   - recount_stats moved to built-in 'daily'.
-	 *   - trending_hashtags dropped (lazy transient on HashtagService::get_trending).
-	 *   - webhook_retry dropped (single-event backoff in OutboundWebhookService::deliver).
-	 *
-	 * @param array<string, array<string, mixed>> $schedules Existing schedules.
-	 * @return array<string, array<string, mixed>>
-	 */
-	public function add_custom_schedules( array $schedules ): array {
-		// No additional intervals needed — all remaining Free jobs use built-in
-		// WordPress recurrences ('daily', 'weekly').
-		return $schedules;
-	}
 
 	/**
 	 * Is a PENDING action queued for this hook (and args, when given)?
@@ -385,6 +365,49 @@ class CronScheduler {
 	}
 
 	/**
+	 * Keep one recurring job armed: the one check every recurring job in Free and Pro uses.
+	 *
+	 * Gated by is_scheduling_request(); a no-op when the job is already queued.
+	 * Action Scheduler is asked with unique, so two requests arming at once still
+	 * leave one row; a legacy WP-Cron event of the same hook is cleared so it never
+	 * double-runs. Without Action Scheduler it falls back to WP-Cron, using the
+	 * registered recurrence whose interval matches (daily when none does).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $hook     Action hook.
+	 * @param int    $interval Seconds between runs.
+	 * @param int    $first    First run (Unix time); 0 for now.
+	 * @param string $group    Action group (an add-on passes its own).
+	 * @return int The new action id; 0 when nothing was scheduled (already armed,
+	 *             not a scheduling request, a concurrent arm won, or WP-Cron used).
+	 */
+	public static function ensure_recurring( string $hook, int $interval, int $first = 0, string $group = self::GROUP ): int {
+		if ( ! self::is_scheduling_request() ) {
+			return 0;
+		}
+		$first = $first > 0 ? $first : time();
+		if ( function_exists( 'as_schedule_recurring_action' ) ) {
+			if ( false !== as_next_scheduled_action( $hook, array(), $group ) ) {
+				return 0;
+			}
+			wp_clear_scheduled_hook( $hook );
+			return (int) as_schedule_recurring_action( $first, $interval, $hook, array(), $group, true );
+		}
+		if ( ! wp_next_scheduled( $hook ) ) {
+			$recurrence = 'daily';
+			foreach ( wp_get_schedules() as $name => $schedule ) {
+				if ( (int) $schedule['interval'] === $interval ) {
+					$recurrence = (string) $name;
+					break;
+				}
+			}
+			wp_schedule_event( $first, $recurrence, $hook );
+		}
+		return 0;
+	}
+
+	/**
 	 * Is this a request where recurring schedules should be checked and armed?
 	 *
 	 * Checking a schedule is a database lookup per job (as_next_scheduled_action),
@@ -392,8 +415,8 @@ class CronScheduler {
 	 * largest part of every request's query floor. A recurring job only needs to
 	 * be checked where it is cheap and still reliable: the cron runner (which runs
 	 * on any live site and re-arms a lost job within one tick), wp-admin page
-	 * loads and WP-CLI. Never front-end, REST or AJAX. Every ensure_*() in Free
-	 * and Pro asks this first.
+	 * loads and WP-CLI. Never front-end, REST or AJAX. ensure_recurring() asks
+	 * this first.
 	 *
 	 * @return bool
 	 */
@@ -416,9 +439,9 @@ class CronScheduler {
 			return;
 		}
 
-		$this->maybe_schedule( self::JOB_DAILY_DIGEST, 'daily' );
-		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );
-		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
+		self::ensure_recurring( self::JOB_DAILY_DIGEST, DAY_IN_SECONDS );
+		self::ensure_recurring( self::JOB_WEEKLY_DIGEST, WEEK_IN_SECONDS );
+		self::ensure_recurring( self::JOB_RECOUNT_STATS, DAY_IN_SECONDS );
 	}
 
 	/**
@@ -440,7 +463,7 @@ class CronScheduler {
 			self::JOB_CLEANUP_REPORTS,
 			self::JOB_RECOUNT_STATS,
 			// Recurring jobs armed outside this class, same 'buddynext' group.
-			'buddynext_daily_queue_check',
+			\BuddyNext\Moderation\ModerationListener::QUEUE_CHECK_HOOK,
 			LogRetentionService::HOOK,
 			// Legacy hooks — may still be scheduled on older installs; clear them too.
 			'buddynext_trending_hashtags',
@@ -491,7 +514,7 @@ class CronScheduler {
 		wp_clear_scheduled_hook( 'buddynext_webhook_retry' );
 
 		// 4. Drop any legacy native WP-Cron recount_stats event (older installs ran
-		// it on a sub-hour custom recurrence). schedule_events() -> maybe_schedule()
+		// it on a sub-hour custom recurrence). schedule_events() -> ensure_recurring()
 		// re-registers it on Action Scheduler ('daily') on the next wp_loaded;
 		// clearing it here makes the migration self-contained rather than relying on
 		// a later request to undo the stale recurrence.
@@ -522,7 +545,7 @@ class CronScheduler {
 		}
 
 		// 6. The remaining recurring jobs migrate from native WP-Cron to Action
-		// Scheduler automatically: schedule_events() -> maybe_schedule() clears each
+		// Scheduler automatically: schedule_events() -> ensure_recurring() clears each
 		// legacy WP-Cron event and registers the AS action on the next wp_loaded.
 
 		// 7. Onboarding nudges now schedule per-user Action Scheduler single actions at
@@ -655,60 +678,5 @@ class CronScheduler {
 		set_transient( 'bn_cron_loopback_ok', $ok ? '1' : '0', 15 * MINUTE_IN_SECONDS );
 
 		return $ok;
-	}
-
-	// ── Private helpers ───────────────────────────────────────────────────────
-
-	/**
-	 * Schedule a recurring job, preferring Action Scheduler.
-	 *
-	 * Action Scheduler gives one observable queue (Tools -> Scheduled Actions),
-	 * automatic retries, and a non-blocking runner that processes a bounded batch
-	 * in a separate async request rather than the visitor's page load — fast by
-	 * default with no site configuration required. When AS is unavailable the
-	 * method falls back to a native WP-Cron event so the job still runs.
-	 *
-	 * Idempotent: a no-op once the action/event exists. On an existing install it
-	 * clears the legacy native WP-Cron event before registering the AS action so
-	 * the job never double-runs across both systems.
-	 *
-	 * @param string $hook  Job hook (also the action hook the handler listens on).
-	 * @param string $recur Recurrence slug ('daily', 'weekly').
-	 * @return void
-	 */
-	private function maybe_schedule( string $hook, string $recur ): void {
-		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
-			if ( false === as_next_scheduled_action( $hook, array(), self::GROUP ) ) {
-				// Don't double-run alongside a legacy native WP-Cron event.
-				if ( wp_next_scheduled( $hook ) ) {
-					wp_clear_scheduled_hook( $hook );
-				}
-				as_schedule_recurring_action( time(), self::recurrence_seconds( $recur ), $hook, array(), self::GROUP, true );
-			}
-			return;
-		}
-
-		// Fallback: native WP-Cron when Action Scheduler is unavailable.
-		if ( ! wp_next_scheduled( $hook ) ) {
-			wp_schedule_event( time(), $recur, $hook );
-		}
-	}
-
-	/**
-	 * Map a WordPress recurrence slug to an Action Scheduler interval in seconds.
-	 *
-	 * @param string $recur Recurrence slug ('daily', 'weekly').
-	 * @return int Interval in seconds (defaults to daily for unknown slugs).
-	 */
-	private static function recurrence_seconds( string $recur ): int {
-		switch ( $recur ) {
-			case 'weekly':
-				return WEEK_IN_SECONDS;
-			case 'hourly':
-				return HOUR_IN_SECONDS;
-			case 'daily':
-			default:
-				return DAY_IN_SECONDS;
-		}
 	}
 }
