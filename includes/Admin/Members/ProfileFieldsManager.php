@@ -1096,7 +1096,7 @@ class ProfileFieldsManager {
 			return true;
 		}
 
-		return mb_strtolower( $input ) === mb_strtolower( trim( $label ) );
+		return \BuddyNext\Support\Text::lower( $input ) === \BuddyNext\Support\Text::lower( trim( $label ) );
 	}
 
 	/**

@@ -30,7 +30,7 @@ class MemberDisplay {
 		}
 		$first = mb_substr( reset( $parts ), 0, 1 );
 		$last  = count( $parts ) > 1 ? mb_substr( end( $parts ), 0, 1 ) : '';
-		return mb_strtoupper( $first . $last );
+		return \BuddyNext\Support\Text::upper( $first . $last );
 	}
 
 	/**

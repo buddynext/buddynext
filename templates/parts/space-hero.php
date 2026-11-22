@@ -154,7 +154,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 		} else {
 			$bn_sh_emblem = sprintf(
 				'<span class="bn-sh-hero__emblem-letter">%s</span>',
-				esc_html( mb_strtoupper( mb_substr( (string) $bn_space->name, 0, 1 ) ) )
+				esc_html( \BuddyNext\Support\Text::upper( mb_substr( (string) $bn_space->name, 0, 1 ) ) )
 			);
 		}
 		?>

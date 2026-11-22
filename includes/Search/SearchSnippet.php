@@ -91,7 +91,7 @@ class SearchSnippet {
 	 * @return string
 	 */
 	private static function window( string $text, string $query ): string {
-		$pos = mb_stripos( $text, $query );
+		$pos = \BuddyNext\Support\Text::ipos( $text, $query );
 
 		if ( false === $pos ) {
 			return mb_substr( $text, 0, self::WINDOW );

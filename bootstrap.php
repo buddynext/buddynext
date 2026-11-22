@@ -283,6 +283,32 @@ add_action(
 	}
 );
 
+// Server check: BuddyNext runs without mbstring, ctype or dom (Support\Text falls back), but names, search and link
+// previews follow ASCII rules or switch off, so the owner is told what to ask the host for. Plugins screen and
+// BuddyNext screens only.
+add_action(
+	'admin_notices',
+	static function (): void {
+		if ( ! current_user_can( 'update_plugins' ) || ! \BuddyNext\Admin\AdminHub::is_notice_screen() ) {
+			return;
+		}
+		$missing = \BuddyNext\Support\Text::missing_extensions();
+		if ( array() === $missing ) {
+			return;
+		}
+		printf(
+			'<div class="notice notice-warning"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %s: comma-separated PHP extension names, e.g. "mbstring, dom" */
+					__( 'BuddyNext works, but this server is missing the PHP extensions %s. Without them, names in other alphabets are not capitalised or searched correctly and link previews are off. Ask your host to enable them.', 'buddynext' ),
+					implode( ', ', $missing )
+				)
+			)
+		);
+	}
+);
+
 // Network Admin > Plugins: say where the community lives. Settings are on the main
 // site, so a super admin looking at the plugin row is pointed there.
 add_action(
@@ -611,7 +637,7 @@ function buddynext_readable_text_color( string $background, string $preferred = 
 		if ( 3 === strlen( $hex ) ) {
 			$hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
 		}
-		if ( 6 !== strlen( $hex ) || ! ctype_xdigit( $hex ) ) {
+		if ( 1 !== preg_match( '/^[0-9a-f]{6}$/iD', $hex ) ) {
 			return null;
 		}
 		$channels = array();

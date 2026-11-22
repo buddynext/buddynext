@@ -254,7 +254,7 @@ class SinglePostMeta {
 
 		$cut = mb_substr( $text, 0, $max );
 		// Snap to last space when one exists in the second half of the cut.
-		$last_space = mb_strrpos( $cut, ' ' );
+		$last_space = \BuddyNext\Support\Text::last_pos( $cut, ' ' );
 		if ( false !== $last_space && $last_space > (int) ( $max * 0.5 ) ) {
 			$cut = mb_substr( $cut, 0, (int) $last_space );
 		}

@@ -243,7 +243,7 @@ class SafeguardService {
 			if ( false === $found ) {
 				foreach ( $words as $word ) {
 					$word = trim( str_replace( '*', '', $word ) );
-					if ( '' !== $word && false !== mb_stripos( $clean, $word ) ) {
+					if ( '' !== $word && false !== \BuddyNext\Support\Text::ipos( $clean, $word ) ) {
 						return true;
 					}
 				}

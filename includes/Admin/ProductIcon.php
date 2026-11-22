@@ -88,7 +88,7 @@ final class ProductIcon {
 				self::SIZE
 			);
 		}
-		$initial = function_exists( 'mb_substr' ) ? mb_strtoupper( mb_substr( $label, 0, 1 ) ) : strtoupper( substr( $label, 0, 1 ) );
+		$initial = \BuddyNext\Support\Text::initial( $label );
 		return '<span class="bn-int-tile" aria-hidden="true">' . esc_html( $initial ) . '</span>';
 	}
 }

@@ -219,7 +219,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 				$bn_chip_style = '';
 				if ( '' === $bn_glyph ) {
 					if ( '' === $reaction_char ) {
-						$reaction_char = mb_strtoupper( mb_substr( $reaction_label, 0, 1 ) );
+						$reaction_char = \BuddyNext\Support\Text::upper( mb_substr( $reaction_label, 0, 1 ) );
 					}
 					if ( '' !== $reaction_color && preg_match( '/^#[0-9a-fA-F]{6}$/', $reaction_color ) ) {
 						$bn_chip_style = 'color:' . $reaction_color . ';';

@@ -291,14 +291,14 @@ class SetupWizard {
 		$requested = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( (string) $_GET['step'] ) ) : ( isset( $_POST['step'] ) ? sanitize_key( wp_unslash( (string) $_POST['step'] ) ) : '' );
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing
 		if ( '' !== $requested ) {
-			$requested_key = ctype_digit( $requested )
+			$requested_key = \BuddyNext\Support\Text::is_digits( $requested )
 				? ( $keys[ max( 1, (int) $requested ) - 1 ] ?? '' )
 				: $requested;
 
 			if ( '' !== $requested_key && in_array( $requested_key, $keys, true ) ) {
 				$furthest = $this->is_complete()
 					? count( $keys ) - 1
-					: (int) ( array_search( ctype_digit( $stored ) ? ( $keys[ max( 1, (int) $stored ) - 1 ] ?? $keys[0] ) : $stored, $keys, true ) ?: 0 );
+					: (int) ( array_search( \BuddyNext\Support\Text::is_digits( $stored ) ? ( $keys[ max( 1, (int) $stored ) - 1 ] ?? $keys[0] ) : $stored, $keys, true ) ?: 0 );
 
 				if ( (int) array_search( $requested_key, $keys, true ) <= $furthest ) {
 					return $requested_key;
@@ -306,7 +306,7 @@ class SetupWizard {
 			}
 		}
 
-		if ( ctype_digit( $stored ) ) {
+		if ( \BuddyNext\Support\Text::is_digits( $stored ) ) {
 			$idx = max( 1, (int) $stored ) - 1;
 			return $keys[ $idx ] ?? $keys[ count( $keys ) - 1 ];
 		}

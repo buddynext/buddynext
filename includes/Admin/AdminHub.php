@@ -858,6 +858,18 @@ class AdminHub {
 	}
 
 	/**
+	 * Whether the current admin screen may carry an owner notice: the Plugins screen or a BuddyNext screen.
+	 *
+	 * Owner rule: BuddyNext notices (licence, server checks) never spread across the whole of wp-admin.
+	 *
+	 * @return bool
+	 */
+	public static function is_notice_screen(): bool {
+		$hook_suffix = (string) ( $GLOBALS['hook_suffix'] ?? '' );
+		return 'plugins.php' === $hook_suffix || self::is_hub_screen( $hook_suffix );
+	}
+
+	/**
 	 * Whether a tab is the active tab on the current hub screen — regardless of
 	 * which section the tab now lives in.
 	 *

@@ -81,10 +81,10 @@ $user_login_str = \BuddyNext\Core\PageRouter::member_handle( (int) $profile_user
 $name_parts = explode( ' ', $display_name );
 $initials   = '';
 foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
-	$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) );
+	$initials .= \BuddyNext\Support\Text::upper( mb_substr( $part, 0, 1 ) );
 }
 if ( ! $initials ) {
-	$initials = mb_strtoupper( mb_substr( $user_login_str, 0, 2 ) );
+	$initials = \BuddyNext\Support\Text::upper( mb_substr( $user_login_str, 0, 2 ) );
 }
 
 $avatar_url = get_avatar_url( $user_id, array( 'size' => 192 ) );

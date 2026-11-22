@@ -311,12 +311,12 @@ class AvatarService {
 		$parts = array_values( array_filter( explode( ' ', trim( $name ) ) ) );
 
 		if ( count( $parts ) >= 2 ) {
-			return mb_strtoupper(
+			return \BuddyNext\Support\Text::upper(
 				mb_substr( $parts[0], 0, 1 ) . mb_substr( $parts[ count( $parts ) - 1 ], 0, 1 )
 			);
 		}
 
-		return '' !== $name ? mb_strtoupper( mb_substr( trim( $name ), 0, 2 ) ) : '?';
+		return '' !== $name ? \BuddyNext\Support\Text::upper( mb_substr( trim( $name ), 0, 2 ) ) : '?';
 	}
 
 	// ── Public helpers ────────────────────────────────────────────────────────
@@ -591,7 +591,7 @@ class AvatarService {
 			return $id_or_email;
 		}
 
-		if ( is_int( $id_or_email ) || ( is_string( $id_or_email ) && ctype_digit( $id_or_email ) ) ) {
+		if ( is_int( $id_or_email ) || ( is_string( $id_or_email ) && \BuddyNext\Support\Text::is_digits( $id_or_email ) ) ) {
 			$user = get_userdata( (int) $id_or_email );
 			return $user instanceof WP_User ? $user : null;
 		}

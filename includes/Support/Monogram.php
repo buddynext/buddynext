@@ -42,7 +42,7 @@ final class Monogram {
 		}
 		$first    = mb_substr( (string) reset( $parts ), 0, 1 );
 		$last     = count( $parts ) > 1 ? mb_substr( (string) end( $parts ), 0, 1 ) : '';
-		$initials = mb_strtoupper( $first . $last );
+		$initials = Text::upper( $first . $last );
 
 		return '' !== trim( $initials ) ? $initials : '•';
 	}

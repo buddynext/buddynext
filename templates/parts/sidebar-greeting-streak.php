@@ -205,7 +205,7 @@ do_action( 'buddynext_part_sidebar_greeting_streak_before', $args );
 				aria-label="<?php echo esc_attr( $bn_cell_aria ); ?>"
 				title="<?php echo esc_attr( $bn_cell_aria ); ?>"
 			>
-				<?php echo esc_html( mb_strtoupper( (string) $bn_cell['letter'] ) ); ?>
+				<?php echo esc_html( \BuddyNext\Support\Text::upper( (string) $bn_cell['letter'] ) ); ?>
 			</li>
 		<?php endforeach; ?>
 	</ol>

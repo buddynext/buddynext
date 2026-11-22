@@ -1027,7 +1027,7 @@ class NotificationService {
 			return null;
 		}
 
-		if ( ctype_digit( $since ) ) {
+		if ( \BuddyNext\Support\Text::is_digits( $since ) ) {
 			return gmdate( 'Y-m-d H:i:s', (int) $since );
 		}
 

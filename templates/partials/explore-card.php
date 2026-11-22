@@ -101,7 +101,7 @@ if ( 'member' === $bn_kind ) {
 				<?php if ( '' !== $bn_av ) : ?>
 					<img src="<?php echo esc_url( $bn_av ); ?>" alt="" width="64" height="64" loading="lazy" decoding="async">
 				<?php else : ?>
-					<?php echo esc_html( mb_strtoupper( mb_substr( $bn_name, 0, 1 ) ) ); ?>
+					<?php echo esc_html( \BuddyNext\Support\Text::upper( mb_substr( $bn_name, 0, 1 ) ) ); ?>
 				<?php endif; ?>
 			</span>
 			<span class="ec-member-name"><?php echo esc_html( $bn_name ); ?></span>
@@ -275,7 +275,7 @@ $bn_render_foot = static function ( string $av, string $tone, string $name, stri
 				<?php if ( '' !== $av ) : ?>
 					<img src="<?php echo esc_url( $av ); ?>" alt="" width="22" height="22" loading="lazy" decoding="async">
 				<?php else : ?>
-					<?php echo esc_html( mb_strtoupper( mb_substr( $name, 0, 1 ) ) ); ?>
+					<?php echo esc_html( \BuddyNext\Support\Text::upper( mb_substr( $name, 0, 1 ) ) ); ?>
 				<?php endif; ?>
 			</span>
 			<span class="name"><?php echo esc_html( $name ); ?></span>
