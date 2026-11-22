@@ -627,10 +627,10 @@ class ModerationQueue {
 					}
 					?>
 					<div class="bn-more-menu" data-uid="<?php echo absint( $report_id ); ?>">
-						<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="<?php /* translators: %d: report id. */ echo esc_attr( sprintf( __( 'More actions for report #%d', 'buddynext' ), $report_id ) ); ?>">
+						<button type="button" class="bn-more-btn" aria-label="<?php /* translators: %d: report id. */ echo esc_attr( sprintf( __( 'More actions for report #%d', 'buddynext' ), $report_id ) ); ?>">
 							<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 						</button>
-						<div class="bn-more-dropdown" role="menu">
+						<div class="bn-more-dropdown">
 							<?php
 							if ( $bn_can_act ) {
 								$this->report_button( $report_id, 'resolve', __( 'Resolve', 'buddynext' ), 'secondary', '', true );
@@ -1438,7 +1438,7 @@ class ModerationQueue {
 						<option value="<?php echo esc_attr( $bn_cw_key ); ?>" <?php selected( $type, $bn_cw_key ); ?>><?php echo esc_html( $bn_cw_label ); ?></option>
 					<?php endforeach; ?>
 				</select>
-				<button type="submit" class="bn-dropdown-item bn-cw-form__submit" role="menuitem">
+				<button type="submit" class="bn-dropdown-item bn-cw-form__submit">
 					<?php echo $has ? esc_html__( 'Update warning', 'buddynext' ) : esc_html__( 'Add warning', 'buddynext' ); ?>
 				</button>
 			</div>
@@ -1585,7 +1585,7 @@ class ModerationQueue {
 				<input type="hidden" name="<?php echo esc_attr( (string) $name ); ?>" value="<?php echo esc_attr( (string) $value ); ?>">
 			<?php endforeach; ?>
 			<?php if ( $in_dropdown ) : ?>
-				<button type="submit" class="bn-dropdown-item<?php echo 'delete' === $variant ? ' bn-dropdown-danger' : ''; ?>" role="menuitem"><?php echo esc_html( $label ); ?></button>
+				<button type="submit" class="bn-dropdown-item<?php echo 'delete' === $variant ? ' bn-dropdown-danger' : ''; ?>"><?php echo esc_html( $label ); ?></button>
 			<?php else : ?>
 				<button type="submit" class="bn-btn" data-variant="<?php echo esc_attr( $data_variant ); ?>" data-size="sm"><?php echo esc_html( $label ); ?></button>
 			<?php endif; ?>

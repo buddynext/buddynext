@@ -2081,7 +2081,7 @@ class Members extends AdminPageBase {
 										if ( $member['suspended'] || $bn_can_suspend ) :
 											?>
 										<div class="bn-more-menu" data-uid="<?php echo absint( $member['id'] ); ?>">
-											<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
+											<button type="button" class="bn-more-btn" aria-label="
 											<?php
 												/* translators: %s: name of the item the actions apply to. */
 												echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), $member['display'] ) );
@@ -2089,13 +2089,13 @@ class Members extends AdminPageBase {
 											">
 												<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 											</button>
-											<div class="bn-more-dropdown" role="menu">
+											<div class="bn-more-dropdown">
 												<?php if ( $member['suspended'] ) : ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 														<input type="hidden" name="action" value="bn_unsuspend_member">
 														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
 														<?php wp_nonce_field( 'bn_unsuspend_member' ); ?>
-														<button type="submit" class="bn-dropdown-item" role="menuitem">
+														<button type="submit" class="bn-dropdown-item">
 															<?php esc_html_e( 'Unsuspend', 'buddynext' ); ?>
 														</button>
 													</form>
@@ -2110,7 +2110,7 @@ class Members extends AdminPageBase {
 														<input type="hidden" name="action" value="bn_suspend_member">
 														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
 														<?php wp_nonce_field( 'bn_suspend_member' ); ?>
-														<button type="submit" class="bn-dropdown-item bn-dropdown-danger" role="menuitem">
+														<button type="submit" class="bn-dropdown-item bn-dropdown-danger">
 															<?php esc_html_e( 'Suspend', 'buddynext' ); ?>
 														</button>
 													</form>

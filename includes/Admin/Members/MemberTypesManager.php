@@ -279,7 +279,7 @@ class MemberTypesManager {
 												"
 										class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
 									<div class="bn-more-menu">
-										<button class="bn-more-btn" type="button" aria-label="<?php esc_attr_e( 'More actions', 'buddynext' ); ?>"><?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+										<button class="bn-more-btn" type="button" aria-label="<?php /* translators: %s: member type name. */ echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), $t['name'] ) ); ?>"><?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 										<div class="bn-more-dropdown">
 											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 												<?php wp_nonce_field( 'bn_delete_member_type' ); ?>

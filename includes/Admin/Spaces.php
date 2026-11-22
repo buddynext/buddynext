@@ -688,7 +688,7 @@ class Spaces extends AdminPageBase {
 											$bn_is_featured    = in_array( (int) $space['id'], $bn_featured_ids, true );
 											?>
 											<div class="bn-more-menu" data-space-id="<?php echo absint( $space['id'] ); ?>">
-												<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
+												<button type="button" class="bn-more-btn" aria-label="
 												<?php
 													/* translators: %s: name of the item the actions apply to. */
 													echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), (string) $space['name'] ) );
@@ -696,7 +696,7 @@ class Spaces extends AdminPageBase {
 												">
 													<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
 												</button>
-												<div class="bn-more-dropdown" role="menu">
+												<div class="bn-more-dropdown">
 													<?php $bn_is_deleting = ! empty( $space['is_deleting'] ); ?>
 													<?php if ( ! $bn_is_deleting ) : // A half-deleted space can only be finished, never brought back. ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -704,7 +704,7 @@ class Spaces extends AdminPageBase {
 														<input type="hidden" name="action" value="bn_archive_space">
 														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
 														<input type="hidden" name="archive" value="<?php echo $bn_space_archived ? '0' : '1'; ?>">
-														<button type="submit" class="bn-dropdown-item" role="menuitem">
+														<button type="submit" class="bn-dropdown-item">
 															<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
 														</button>
 													</form>
@@ -716,14 +716,14 @@ class Spaces extends AdminPageBase {
 														<input type="hidden" name="action" value="bn_feature_space">
 														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
 														<input type="hidden" name="feature" value="<?php echo $bn_is_featured ? '0' : '1'; ?>">
-														<button type="submit" class="bn-dropdown-item" role="menuitem">
+														<button type="submit" class="bn-dropdown-item">
 															<?php echo $bn_is_featured ? esc_html__( 'Unfeature', 'buddynext' ) : esc_html__( 'Feature', 'buddynext' ); ?>
 														</button>
 													</form>
 													<?php endif; ?>
 													<?php // Change owner opens a small dialog that asks who; the dialog's own form posts bn_transfer_space. ?>
 													<?php if ( ! $bn_is_deleting ) : ?>
-													<button type="button" class="bn-dropdown-item" role="menuitem"
+													<button type="button" class="bn-dropdown-item"
 															data-bn-owner-trigger
 															data-space-id="<?php echo esc_attr( (string) $space['id'] ); ?>"
 															data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
@@ -738,7 +738,6 @@ class Spaces extends AdminPageBase {
 														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
 														<button type="submit"
 																class="bn-dropdown-item bn-dropdown-danger"
-																role="menuitem"
 																data-bn-delete-space-trigger
 																data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
 															<?php $bn_is_deleting ? esc_html_e( 'Finish deleting', 'buddynext' ) : esc_html_e( 'Delete', 'buddynext' ); ?>

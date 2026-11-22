@@ -6,14 +6,21 @@
  * page reuses ONE implementation instead of copying the wiring. Markup contract:
  *
  *   <div class="bn-more-menu">
- *     <button class="bn-more-btn" aria-haspopup="menu">…</button>
- *     <div class="bn-more-dropdown" role="menu">…</div>
+ *     <button class="bn-more-btn" aria-label="More actions for …">…</button>
+ *     <div class="bn-more-dropdown">… <button class="bn-dropdown-item">…</button></div>
  *   </div>
  *
- * Keyboard: Enter, Space or ArrowDown on the button opens the menu and focuses
- * the first item; Tab, Shift+Tab and the arrows cycle through the items;
- * Escape closes it and returns focus to the button. The button carries
- * aria-expanded.
+ * The ARIA menu semantics are added HERE, not in the PHP markup: aria-haspopup
+ * and aria-expanded on the button, role="menu" on the dropdown, role="menuitem"
+ * on each .bn-dropdown-item. A menu role promises the keyboard behaviour below,
+ * which only exists when this script runs, and one source means the four lists
+ * (Members, Member types, Spaces, Reports) cannot drift apart again.
+ *
+ * Keyboard (WAI-ARIA APG menu button): Enter, Space or ArrowDown on the button
+ * opens the menu and focuses the first item; ArrowDown/ArrowUp move between the
+ * items and wrap, Home/End go to the first/last; Escape closes it and returns
+ * focus to the button; Tab and Shift+Tab close it and move on to the next or
+ * previous focusable element after or before the button.
  *
  * Enqueued by each list page's admin class (handle: bn-admin-more-menu).
  *
@@ -145,6 +152,10 @@
 			btn.setAttribute( 'aria-haspopup', 'menu' );
 			btn.setAttribute( 'aria-expanded', 'false' );
 			if ( owner && owner.bnDropdown ) {
+				owner.bnDropdown.setAttribute( 'role', 'menu' );
+				owner.bnDropdown.querySelectorAll( '.bn-dropdown-item' ).forEach( function ( item ) {
+					item.setAttribute( 'role', 'menuitem' );
+				} );
 				// The open menu lives under <body>; the dropdown handles its own keys.
 				owner.bnDropdown.bnMenu = owner;
 				owner.bnDropdown.addEventListener( 'keydown', onMenuKeydown );
@@ -217,9 +228,9 @@
 		window.addEventListener( 'resize', closeAllRowMenus );
 	}
 
-	// Keys inside an open menu: arrows, Home/End and Tab move between items and
-	// wrap (the menu sits under <body>, so the page's own tab order would leave
-	// it); Escape closes it and gives focus back to its button.
+	// Keys inside an open menu: arrows and Home/End move between items and wrap;
+	// Escape closes it and gives focus back to its button; Tab closes it and
+	// lets the browser move on from the button.
 	function onMenuKeydown( e ) {
 		var menu = this.bnMenu;
 		if ( ! menu || ! menu.classList.contains( 'open' ) ) {
@@ -239,8 +250,15 @@
 				btn.focus();
 			}
 		} else if ( 'Tab' === e.key ) {
-			e.preventDefault();
-			focusItem( menu, at + ( e.shiftKey ? -1 : 1 ) );
+			// The open menu sits under <body>, so the browser's own Tab would
+			// leave it for the end of the page. Close it (which puts the hidden
+			// dropdown back after the button) and focus the button WITHOUT
+			// preventing the default: the browser's Tab then moves on from the
+			// button, to the next or previous focusable element.
+			closeMenu( menu );
+			if ( btn ) {
+				btn.focus( { preventScroll: true } );
+			}
 		} else if ( ! inSelect && ( 'ArrowDown' === e.key || 'ArrowUp' === e.key ) ) {
 			e.preventDefault();
 			focusItem( menu, at + ( 'ArrowDown' === e.key ? 1 : -1 ) );
