@@ -264,6 +264,58 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The same walk against MediaVerse's real repository query (its cursor read):
+	 * 450 items on a space drive, the first 250 refused by trash(), every other
+	 * item trashed. Only trash() is wrapped, to refuse the blocked ids.
+	 */
+	public function test_untrashable_media_walk_uses_the_real_mediaverse_cursor(): void {
+		global $wpdb;
+		$real = \BuddyNext\Media\MediaClient::available() ? \BuddyNext\Media\MediaClient::repo() : null;
+		if ( ! is_object( $real ) || ! method_exists( $real, 'space_drive_media_ids' ) || 3 > ( new \ReflectionMethod( $real, 'space_drive_media_ids' ) )->getNumberOfParameters() ) {
+			$this->markTestSkipped( 'Needs MediaVerse 2.6.5 with the $after_id cursor.' );
+		}
+		$table = $wpdb->prefix . 'mvs_media_index';
+		$ids   = array();
+		for ( $i = 0; $i < 450; $i++ ) {
+			$wpdb->insert( $table, array( 'post_author' => 1, 'media_type' => 'image', 'status' => 'publish', 'drive_type' => 'space', 'drive_id' => 777004 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$ids[] = (int) $wpdb->insert_id;
+		}
+		$blocked = array_flip( array_slice( $ids, 0, 250 ) );
+		$repo    = new class( $real, $blocked ) {
+			/**
+			 * @param object         $real    MediaVerse repository.
+			 * @param array<int,int> $blocked Ids trash() refuses.
+			 */
+			public function __construct( private object $real, private array $blocked ) {}
+			public function space_drive_media_ids( int $space_id, int $limit = 100, int $after_id = 0 ): array {
+				return $this->real->space_drive_media_ids( $space_id, $limit, $after_id );
+			}
+			public function trash( int $id ): bool {
+				return isset( $this->blocked[ $id ] ) ? false : (bool) $this->real->trash( $id );
+			}
+		};
+		$seam = static fn( $svc, $key ) => 'media_repository' === $key ? $repo : $svc;
+		add_filter( 'buddynext_media_service', $seam, 10, 2 );
+		as_unschedule_all_actions( WPMediaVerseBridge::DRIVE_MEDIA_HOOK );
+
+		$this->bridge->trash_space_drive_media( 777004 );
+		for ( $run = 0; $run < 10; $run++ ) {
+			$next = as_get_scheduled_actions( array( 'hook' => WPMediaVerseBridge::DRIVE_MEDIA_HOOK, 'status' => 'pending', 'per_page' => 5 ) );
+			if ( array() === $next ) {
+				break;
+			}
+			$action = reset( $next );
+			as_unschedule_all_actions( WPMediaVerseBridge::DRIVE_MEDIA_HOOK );
+			$this->bridge->trash_space_drive_media( ...$action->get_args() );
+		}
+		remove_filter( 'buddynext_media_service', $seam, 10 );
+
+		$left = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT media_id FROM {$table} WHERE drive_id = %d AND status = 'publish' ORDER BY media_id", 777004 ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( array_slice( $ids, 0, 250 ), $left, 'Every trashable item is trashed; the blocked 250 are left.' );
+		$this->assertLessThan( 10, $run, 'The chain ends with the drive.' );
+	}
+
+	/**
 	 * A BuddyNext block closes the blocker's media to the blocked member only, and
 	 * hides either side from the other's lists.
 	 */
