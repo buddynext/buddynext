@@ -179,20 +179,26 @@ class HashtagListener implements ListenerInterface {
 	 * it is now. A post that is gone or removed (status neither readable nor
 	 * pre-publication, e.g. deleted) is skipped: its tags were unlinked when it
 	 * was removed. Only native posts are queued; bridge content is synced inline
-	 * by on_index_hashtags().
+	 * by on_index_hashtags(). A job queued by 1.2.x for other content (bridge
+	 * items) carries its content as a third arg and is synced from it; that
+	 * legacy signature is kept for queued copies and removed in 1.4.0.
 	 *
-	 * @param string $object_type Object type ('post').
-	 * @param int    $object_id   Post ID.
-	 * @param string $legacy      Content arg a 1.2.x job carried; ignored, the saved content is read.
+	 * @param string $object_type Object type ('post', or a 1.2.x bridge type).
+	 * @param int    $object_id   Object ID.
+	 * @param string $legacy      Content a 1.2.x job carried; used only for non-post types.
 	 * @return void
 	 */
 	public function async_index_hashtags( string $object_type, int $object_id, string $legacy = '' ): void {
-		unset( $legacy );
-
 		// Authoritative guard: covers already-queued jobs and any direct callers
 		// of this worker hook, so no extraction/sync/signal happens while the
 		// Hashtags feature is off.
-		if ( ! buddynext_feature_enabled( 'hashtags' ) || 'post' !== $object_type ) {
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return;
+		}
+		if ( 'post' !== $object_type ) {
+			if ( '' !== $legacy && $object_id > 0 ) {
+				$this->sync_tags( $object_type, $object_id, $legacy );
+			}
 			return;
 		}
 

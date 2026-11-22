@@ -99,6 +99,13 @@ class HashtagListenerTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'fresh' ), $this->linked_slugs( $post ) );
 	}
 
+	public function test_a_queued_1_2_job_for_bridge_content_is_still_indexed(): void {
+		global $wpdb;
+		$this->listener->async_index_hashtags( 'mvs_media', 4242, 'photo #legacyjob' );
+		$slugs = $wpdb->get_col( "SELECT h.slug FROM {$wpdb->prefix}bn_post_hashtags ph JOIN {$wpdb->prefix}bn_hashtags h ON h.id = ph.hashtag_id WHERE ph.post_id = 4242 AND ph.object_type = 'mvs_media'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( array( 'legacyjob' ), array_map( 'strval', (array) $slugs ) );
+	}
+
 	public function test_job_for_a_deleted_post_is_skipped(): void {
 		global $wpdb;
 		$post = $this->seed_post( 'gone #ghost' );
