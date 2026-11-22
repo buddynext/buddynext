@@ -42,6 +42,10 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		) as $hook => $group ) {
 			as_schedule_single_action( time() + HOUR_IN_SECONDS, $hook, array(), $group );
 		}
+		// 1.2.x nudges: no group, canceled, with a log row; plus another plugin's ungrouped job.
+		$nudge = as_schedule_single_action( time() + HOUR_IN_SECONDS, 'bn_onboarding_nudge_72h', array( 7 ) );
+		as_unschedule_action( 'bn_onboarding_nudge_72h', array( 7 ) );
+		as_schedule_single_action( time() + HOUR_IN_SECONDS, 'other_ungrouped_job', array() );
 
 		$this->uninstall();
 
@@ -51,6 +55,9 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		$this->assertContains( 'buddynextpro_drip_tick', $hooks );
 		$this->assertContains( 'buddynext_pro_learnomy_backfill_chunk', $hooks );
 		$this->assertContains( 'buddynext_lookalike_job', $hooks, 'Another plugin\'s group is never read.' );
+		$this->assertNotContains( 'bn_onboarding_nudge_72h', $hooks, 'Ungrouped 1.2.x nudges go, whatever their status.' );
+		$this->assertSame( '0', (string) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}actionscheduler_logs WHERE action_id = %d", $nudge ) ), 'With their log rows.' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$this->assertContains( 'other_ungrouped_job', $hooks, 'Another plugin\'s ungrouped job stays.' );
 	}
 
 	public function test_a_subsite_opt_in_cannot_wipe_network_wide_member_meta(): void {

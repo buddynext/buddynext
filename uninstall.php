@@ -129,9 +129,9 @@ $bn_purge_meta = static function ( $options_only = false ) use ( $wpdb ) {
  * EVERY uninstall regardless of the data-retention setting — leaving them
  * behind was the "211 Action Scheduler actions and transients" orphan the audit
  * flagged. Action Scheduler is not loaded during uninstall, so its rows are
- * deleted directly by our own hook prefix (every Free job hook starts
- * `buddynext_`; Pro's are left to Pro); the tables may be absent if AS never
- * ran, hence the guard.
+ * deleted directly: Free's 'buddynext' group (Pro's hooks there are left to
+ * Pro) plus the two onboarding nudge hooks by exact name; the tables may be
+ * absent if AS never ran, hence the guard.
  *
  * @return void
  */
@@ -151,26 +151,29 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 	// Action Scheduler rows of Free's own group ('buddynext'), deleted directly
 	// because AS is not booted here. Pro's hooks that run in that group
 	// (buddynextpro_* / buddynext_pro_*) stay for Pro's uninstall, and no other
-	// plugin's group is read (DATA-LIFECYCLE: delete only what you own). Log rows
+	// plugin's group is read (DATA-LIFECYCLE: delete only what you own). The two
+	// onboarding nudge hooks go by exact name whatever their group or status:
+	// 1.2.x scheduled them with no group. Log rows
 	// go first, by action id, in bounded batches; the loop stops on a DELETE that
 	// fails or removes nothing.
 	$bn_as_actions = $wpdb->prefix . 'actionscheduler_actions';
 	$bn_as_logs    = $wpdb->prefix . 'actionscheduler_logs';
-	$bn_group_id   = 0;
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_actions ) ) === $bn_as_actions ) {
-		$bn_group_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT group_id FROM {$wpdb->prefix}actionscheduler_groups WHERE slug = %s", 'buddynext' ) );
-	}
-	if ( $bn_group_id > 0 ) {
+	$bn_as_present = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_actions ) ) === $bn_as_actions;
+	if ( $bn_as_present ) {
+		// -1 when the group does not exist: group_id 0 holds every plugin's ungrouped rows.
+		$bn_group_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT group_id FROM {$wpdb->prefix}actionscheduler_groups WHERE slug = %s", 'buddynext' ) ) ?: -1;
 		$bn_has_logs = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_logs ) ) === $bn_as_logs;
 		do {
 			$bn_ids = array_map(
 				'intval',
 				(array) $wpdb->get_col(
 					$wpdb->prepare(
-						"SELECT action_id FROM `{$bn_as_actions}` WHERE group_id = %d AND hook NOT LIKE %s AND hook NOT LIKE %s LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						"SELECT action_id FROM `{$bn_as_actions}` WHERE ( group_id = %d AND hook NOT LIKE %s AND hook NOT LIKE %s ) OR hook IN ( %s, %s ) LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						$bn_group_id,
 						$wpdb->esc_like( 'buddynextpro_' ) . '%',
 						$wpdb->esc_like( 'buddynext_pro_' ) . '%',
+						'bn_onboarding_nudge_24h',
+						'bn_onboarding_nudge_72h',
 						\BuddyNext\Core\Installer::UNINSTALL_BATCH
 					)
 				)
