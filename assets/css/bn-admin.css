@@ -883,6 +883,7 @@
  * (render_*_row) still win where set. */
 .bn-ss-body input.bn-text-input:not([type="number"]):not([type="color"]),
 .bn-ss-body input.bn-input:not([type="number"]):not([type="color"]),
+.bn-ss-body input[type="text"].regular-text,
 .bn-ss-body input[type="email"].regular-text,
 .bn-ss-body input[type="url"].regular-text {
 	width: 100%;

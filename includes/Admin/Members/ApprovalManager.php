@@ -350,7 +350,8 @@ class ApprovalManager {
 				);
 				?>
 			<?php else : ?>
-				<table class="wp-list-table widefat fixed">
+				<div class="bn-table-wrap__scroll">
+				<table class="bn-table">
 					<thead>
 						<tr>
 							<th class="manage-column column-primary"><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
@@ -432,6 +433,7 @@ class ApprovalManager {
 					<?php endforeach; ?>
 					</tbody>
 				</table>
+				</div>
 
 				<?php if ( $pages > 1 ) : ?>
 					<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Pending members pages', 'buddynext' ); ?>">
