@@ -180,7 +180,6 @@ wp_register_ability( 'buddynext-post-in-feed', [ 'label' => 'Post in Feed' ] );
 
 | Table | Domain |
 |-------|-------|
-| `bn_activity_log` | Core |
 | `bn_follows`, `bn_connections`, `bn_blocks` | Social Graph |
 | `bn_posts`, `bn_post_media`, `bn_poll_options`, `bn_poll_votes`, `bn_bookmarks`, `bn_shares` | Activity Feed |
 | `bn_profile_groups`, `bn_profile_fields`, `bn_profile_values` | Profiles |
@@ -320,7 +319,10 @@ that surfaces partner content into the community) MUST:
 
 ### Background jobs
 
-`Core\CronScheduler` is the one scheduling API for Free and Pro; Pro calls it and keeps no copy.
+`Core\CronScheduler` holds the shared helpers Free and Pro call for the common shapes
+(`ensure_recurring`, `enqueue_once`, `has_pending`, `when_ready`, `cancel_pending`); Pro keeps
+no copy. Sites that still call `as_*()` directly for a shape no helper covers are listed as the
+known remainder in the standard.
 Full rules and the job register: `buddynext-pro/free-internal/docs/standards/BACKGROUND-JOBS.md`;
 public reference: `docs/website/developer-guide/37-cron-and-async.md`.
 
@@ -330,14 +332,20 @@ public reference: `docs/website/developer-guide/37-cron-and-async.md`.
 - Args are ids and cursors under 191 characters. Paged work passes a keyset cursor to its own
   continuation.
 - Skip an identical pending job with `CronScheduler::enqueue_once()`; check with
-  `CronScheduler::has_pending()` (pending only). Never pass `unique` with args.
+  `CronScheduler::has_pending()` (pending only). Never pass `unique` with args (AS 3.9 ignores
+  args for uniqueness); the one exception is the outbound webhook delivery, which relies on
+  AS 4.0.0 (bundled) matching hook, group and args.
 - Never coalesce a job if that delays something a member or owner sees.
-- One AS group per plugin family; cleanup deletes only our own rows (completed and canceled
-  after 7 days, failed after 90).
-- Deactivation cancels with `CronScheduler::cancel_pending()` (set-based); code that may run
-  before Action Scheduler is ready wraps its call in `CronScheduler::when_ready()`.
-- Recurring actions pass `unique` (`as_schedule_recurring_action( ..., true )`); they carry no args.
-- A removed public method keeps a `_deprecated_function` stand-in for one release.
+- One AS group per plugin: Free uses `buddynext`, an add-on (Pro included) uses its own group
+  and adds it to `buddynext_finished_action_groups`. Cleanup deletes only our own rows
+  (completed and canceled after 7 days, failed after 90).
+- Deactivation cancels with `CronScheduler::cancel_pending()` (set-based) everything that can be
+  recomputed; jobs that finish a committed action stay pending (`CronScheduler::DEACTIVATION_KEEP`,
+  Pro: `BUDDYNEXTPRO_DEACTIVATION_KEEP`). Uninstall deletes every row of ours.
+- Code that may run before Action Scheduler is ready wraps its call in `CronScheduler::when_ready()`.
+- Recurring jobs arm through `CronScheduler::ensure_recurring()` (unique, no args, gated to
+  scheduling requests).
+- A removed public method keeps a `_deprecated_function` stand-in for two major versions.
 - Retiring or merging a job: delete the old path and cancel its schedule once in the existing
   upgrade routine, with a comment naming the version.
 - Batch sizes and retention windows are named constants.
