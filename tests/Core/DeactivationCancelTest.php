@@ -59,4 +59,18 @@ class DeactivationCancelTest extends WP_UnitTestCase {
 		$this->assertSame( 'in-progress', $this->status( $running ), 'A running row is untouched.' );
 		as_unschedule_all_actions( '', array(), 'other-plugin' );
 	}
+
+	public function test_deactivating_free_leaves_pro_jobs_in_the_buddynext_group(): void {
+		$free = as_schedule_single_action( time() + HOUR_IN_SECONDS, 'buddynext_zz_free', array(), 'buddynext' );
+		$pro  = as_schedule_single_action( time() + HOUR_IN_SECONDS, 'buddynext_pro_evnm_replace_cards', array( 3 ), 'buddynext' );
+		$pro2 = as_schedule_single_action( time() + HOUR_IN_SECONDS, 'buddynextpro_ai_mod_sweep', array(), 'buddynext' );
+
+		( new CronScheduler() )->clear_events();
+
+		$this->assertSame( 'canceled', $this->status( $free ) );
+		$this->assertSame( 'pending', $this->status( $pro ), 'Pro\'s hook in Free\'s group is Pro\'s to clear.' );
+		$this->assertSame( 'pending', $this->status( $pro2 ) );
+		as_unschedule_all_actions( 'buddynext_pro_evnm_replace_cards' );
+		as_unschedule_all_actions( 'buddynextpro_ai_mod_sweep' );
+	}
 }

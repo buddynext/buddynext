@@ -313,11 +313,13 @@ class CronScheduler {
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param string[] $groups Our group slugs.
-	 * @param string[] $hooks  Our hooks to cancel in any group (jobs queued without our group).
+	 * @param string[] $groups        Our group slugs.
+	 * @param string[] $hooks         Our hooks to cancel in any group (jobs queued without our group).
+	 * @param string[] $keep_prefixes Hook prefixes left alone inside $groups (Free passes Pro's,
+	 *                                whose hooks run in the 'buddynext' group).
 	 * @return int Rows canceled.
 	 */
-	public static function cancel_pending( array $groups, array $hooks = array() ): int {
+	public static function cancel_pending( array $groups, array $hooks = array(), array $keep_prefixes = array() ): int {
 		global $wpdb;
 		$actions = $wpdb->prefix . 'actionscheduler_actions';
 		$groups  = array_values( array_filter( array_map( 'strval', $groups ) ) );
@@ -341,7 +343,11 @@ class CronScheduler {
 				)
 			);
 			if ( array() !== $group_ids ) {
-				$wheres[] = 'group_id IN (' . implode( ',', $group_ids ) . ')';
+				$where = 'group_id IN (' . implode( ',', $group_ids ) . ')';
+				foreach ( $keep_prefixes as $prefix ) {
+					$where .= $wpdb->prepare( ' AND hook NOT LIKE %s', $wpdb->esc_like( (string) $prefix ) . '%' );
+				}
+				$wheres[] = $where;
 			}
 		}
 		if ( array() !== $hooks ) {
@@ -453,7 +459,9 @@ class CronScheduler {
 		// onboarding nudges, which a busy community holds by the thousand. A
 		// switched-off plugin would leave each to fail with no listener. Set-based,
 		// so a large queue cannot time the deactivation out (see cancel_pending()).
-		self::cancel_pending( array( self::GROUP ), array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) );
+		// Pro's hooks in the 'buddynext' group are Pro's: deactivating Free leaves them
+		// (Pro stands down without Free; its own deactivation clears them), as uninstall does.
+		self::cancel_pending( array( self::GROUP ), array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ), array( 'buddynextpro_', 'buddynext_pro_' ) );
 	}
 
 	/**
