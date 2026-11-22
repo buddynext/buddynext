@@ -73,4 +73,30 @@ class DeactivationCancelTest extends WP_UnitTestCase {
 		as_unschedule_all_actions( 'buddynext_pro_evnm_replace_cards' );
 		as_unschedule_all_actions( 'buddynextpro_ai_mod_sweep' );
 	}
+
+	public function test_deactivation_leaves_a_pending_gdpr_purge_continuation(): void {
+		$purge  = (int) as_schedule_single_action( time() + MINUTE_IN_SECONDS, 'buddynext_purge_member_continue', array( 42, 'cursor' ), CronScheduler::GROUP );
+		$drive  = (int) as_schedule_single_action( time() + MINUTE_IN_SECONDS, 'buddynext_space_drive_media_trash', array( 9, 100, 0 ), CronScheduler::GROUP );
+		$digest = (int) as_schedule_single_action( time() + MINUTE_IN_SECONDS, CronScheduler::JOB_DAILY_DIGEST, array(), CronScheduler::GROUP );
+
+		( new CronScheduler() )->clear_events();
+
+		$this->assertSame( 'pending', $this->status( $purge ), 'A committed hard delete is finished after reactivation.' );
+		$this->assertSame( 'pending', $this->status( $drive ) );
+		$this->assertSame( 'canceled', $this->status( $digest ), 'Recomputable jobs still go.' );
+		as_unschedule_all_actions( 'buddynext_purge_member_continue' );
+		as_unschedule_all_actions( 'buddynext_space_drive_media_trash' );
+	}
+
+	public function test_every_kept_hook_is_one_this_plugin_schedules(): void {
+		$src = '';
+		foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( dirname( __DIR__, 2 ) . '/includes' ) ) as $file ) {
+			if ( str_ends_with( (string) $file, '.php' ) ) {
+				$src .= file_get_contents( (string) $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			}
+		}
+		foreach ( CronScheduler::DEACTIVATION_KEEP as $hook ) {
+			$this->assertGreaterThan( 1, substr_count( $src, "'" . $hook . "'" ) + substr_count( $src, $hook ), $hook . ' is a real hook.' );
+		}
+	}
 }

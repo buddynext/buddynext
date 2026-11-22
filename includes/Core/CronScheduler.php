@@ -117,6 +117,49 @@ class CronScheduler {
 	public const GROUP = 'buddynext';
 
 	/**
+	 * Jobs deactivation leaves pending: each FINISHES an action a member or the
+	 * owner already committed, or carries state nothing can rebuild. Everything
+	 * else of ours (digests, sends, reindexes, recounts, prunes, nudges, caches)
+	 * can be recomputed or is lost by nature and is canceled. Kept, and why:
+	 *   buddynext_purge_member_continue    GDPR hard delete of a member's content.
+	 *   buddynext_space_delete_chunk       A Space deletion already under way.
+	 *   buddynext_space_drive_media_trash  That deletion's media trash chain.
+	 *   buddynext_purge_field_values       Values of a profile field the owner deleted.
+	 *   buddynext_finish_upgrade           The upgrade's data migrations.
+	 *   buddynext_space_link_backfill_chunk Course-to-Space link backfill (migration).
+	 *   buddynext_reconcile_media_privacy  Media privacy cascade after a privacy change.
+	 *   buddynext_async_withdraw_forum_surfaces Forum surfaces withdrawn after a privacy change.
+	 *   buddynext_jetonomy_grant_space_members / _copy_forum_members  Forum access already granted.
+	 *   buddynext_async_send_invite_email  An invite the member sent (the only delivery).
+	 *   buddynext_webhook_deliver / _deliver_one / _retry_single  Event payloads promised to a receiver.
+	 *   buddynext_prune_replaced_image     Old file of an image a member replaced.
+	 *
+	 * Limit: while BuddyNext is off, another plugin's Action Scheduler still runs
+	 * due rows with no listener and marks them complete, so a deactivation longer
+	 * than about a minute loses them. The supported update flow (deactivate,
+	 * replace files, activate) runs nothing in between and keeps them.
+	 *
+	 * @since 1.3.0
+	 */
+	public const DEACTIVATION_KEEP = array(
+		'buddynext_purge_member_continue',
+		'buddynext_space_delete_chunk',
+		'buddynext_space_drive_media_trash',
+		'buddynext_purge_field_values',
+		'buddynext_finish_upgrade',
+		'buddynext_space_link_backfill_chunk',
+		'buddynext_reconcile_media_privacy',
+		'buddynext_async_withdraw_forum_surfaces',
+		'buddynext_jetonomy_grant_space_members',
+		'buddynext_jetonomy_copy_forum_members',
+		'buddynext_async_send_invite_email',
+		'buddynext_webhook_deliver',
+		'buddynext_webhook_deliver_one',
+		'buddynext_webhook_retry_single',
+		'buddynext_prune_replaced_image',
+	);
+
+	/**
 	 * Rows one cancel statement marks; keeps each UPDATE's lock short.
 	 */
 	private const CANCEL_BATCH = 10000;
@@ -297,9 +340,10 @@ class CronScheduler {
 	 * @param string[] $hooks         Our hooks to cancel in any group (jobs queued without our group).
 	 * @param string[] $keep_prefixes Hook prefixes left alone inside $groups (Free passes Pro's,
 	 *                                whose hooks run in the 'buddynext' group).
+	 * @param string[] $keep_hooks    Exact hooks left alone inside $groups (DEACTIVATION_KEEP).
 	 * @return int Rows canceled.
 	 */
-	public static function cancel_pending( array $groups, array $hooks = array(), array $keep_prefixes = array() ): int {
+	public static function cancel_pending( array $groups, array $hooks = array(), array $keep_prefixes = array(), array $keep_hooks = array() ): int {
 		global $wpdb;
 		$actions = $wpdb->prefix . 'actionscheduler_actions';
 		$groups  = array_values( array_filter( array_map( 'strval', $groups ) ) );
@@ -326,6 +370,9 @@ class CronScheduler {
 				$where = 'group_id IN (' . implode( ',', $group_ids ) . ')';
 				foreach ( $keep_prefixes as $prefix ) {
 					$where .= $wpdb->prepare( ' AND hook NOT LIKE %s', $wpdb->esc_like( (string) $prefix ) . '%' );
+				}
+				if ( array() !== $keep_hooks ) {
+					$where .= $wpdb->prepare( ' AND hook NOT IN (' . implode( ',', array_fill( 0, count( $keep_hooks ), '%s' ) ) . ')', array_values( $keep_hooks ) );
 				}
 				$wheres[] = $where;
 			}
@@ -477,14 +524,15 @@ class CronScheduler {
 			wp_clear_scheduled_hook( $hook );
 		}
 
-		// Everything else still pending of ours: the async and chained jobs (fan-out
-		// pages, search reindex, purge continuations, backfills) and the per-member
-		// onboarding nudges, which a busy community holds by the thousand. A
-		// switched-off plugin would leave each to fail with no listener. Set-based,
-		// so a large queue cannot time the deactivation out (see cancel_pending()).
-		// Pro's hooks in the 'buddynext' group are Pro's: deactivating Free leaves them
-		// (Pro stands down without Free; its own deactivation clears them), as uninstall does.
-		self::cancel_pending( array( self::GROUP ), array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ), array( 'buddynextpro_', 'buddynext_pro_' ) );
+		// Everything else still pending of ours that can be recomputed or is lost by
+		// nature (fan-out pages, reindexes, backfills of caches, the per-member
+		// onboarding nudges a busy community holds by the thousand). Set-based, so a
+		// large queue cannot time the deactivation out (see cancel_pending()). Jobs
+		// that finish a committed action stay pending (DEACTIVATION_KEEP), as in
+		// 1.2.9. Pro's hooks in the 'buddynext' group are Pro's: deactivating Free
+		// leaves them (Pro stands down without Free; its own deactivation clears
+		// them), as uninstall does.
+		self::cancel_pending( array( self::GROUP ), array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ), array( 'buddynextpro_', 'buddynext_pro_' ), self::DEACTIVATION_KEEP );
 	}
 
 	/**
