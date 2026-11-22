@@ -116,6 +116,11 @@ class CronScheduler {
 	 */
 	public const GROUP = 'buddynext';
 
+	/**
+	 * Rows one cancel statement marks; keeps each UPDATE's lock short.
+	 */
+	private const CANCEL_BATCH = 10000;
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -295,6 +300,66 @@ class CronScheduler {
 	}
 
 	/**
+	 * Cancel every PENDING action in the given groups, and of the given hooks, set-based.
+	 *
+	 * For deactivation. Action Scheduler's own group cancel is one UPDATE per 1,000
+	 * rows only while its tables store is active; AS clears its "migration complete"
+	 * flag on every plugin deactivation, so in that request it often runs the hybrid
+	 * store, which cancels one row at a time (three queries a row: 100,000 pending
+	 * rows took minutes and timed the deactivation out). This marks our own pending
+	 * rows canceled directly, CANCEL_BATCH at a time, on the group_id and status
+	 * indexes. Running, failed, complete and other plugins' rows are never touched;
+	 * no "action canceled" log row is written (the finished-row purge clears ours).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string[] $groups Our group slugs.
+	 * @param string[] $hooks  Our hooks to cancel in any group (jobs queued without our group).
+	 * @return int Rows canceled.
+	 */
+	public static function cancel_pending( array $groups, array $hooks = array() ): int {
+		global $wpdb;
+		$actions = $wpdb->prefix . 'actionscheduler_actions';
+		$groups  = array_values( array_filter( array_map( 'strval', $groups ) ) );
+		$hooks   = array_values( array_filter( array_map( 'strval', $hooks ) ) );
+		$total   = 0;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		if ( null === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $actions ) ) ) {
+			return 0; // Action Scheduler never installed its tables here.
+		}
+
+		$wheres = array();
+		if ( array() !== $groups ) {
+			$group_ids = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT group_id FROM {$wpdb->prefix}actionscheduler_groups WHERE slug IN (" . implode( ',', array_fill( 0, count( $groups ), '%s' ) ) . ')',
+						$groups
+					)
+				)
+			);
+			if ( array() !== $group_ids ) {
+				$wheres[] = 'group_id IN (' . implode( ',', $group_ids ) . ')';
+			}
+		}
+		if ( array() !== $hooks ) {
+			$wheres[] = $wpdb->prepare( 'hook IN (' . implode( ',', array_fill( 0, count( $hooks ), '%s' ) ) . ')', $hooks );
+		}
+
+		foreach ( $wheres as $where ) {
+			do {
+				$done   = (int) $wpdb->query( $wpdb->prepare( "UPDATE {$actions} SET status = 'canceled' WHERE status = 'pending' AND {$where} LIMIT %d", self::CANCEL_BATCH ) );
+				$total += $done;
+			} while ( $done >= self::CANCEL_BATCH );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return $total;
+	}
+
+	/**
 	 * Is this a request where recurring schedules should be checked and armed?
 	 *
 	 * Checking a schedule is a database lookup per job (as_next_scheduled_action),
@@ -358,29 +423,18 @@ class CronScheduler {
 			'buddynext_webhook_retry',
 		);
 
+		// WP-Cron copies (AS-absent fallback, legacy installs). Their Action
+		// Scheduler copies are in our group and go with the cancel below.
 		foreach ( $jobs as $hook ) {
-			if ( function_exists( 'as_unschedule_all_actions' ) ) {
-				as_unschedule_all_actions( $hook, array(), self::GROUP );
-			}
 			wp_clear_scheduled_hook( $hook );
 		}
 
-		// The per-member onboarding nudges (one 24h and one 72h single action per
-		// sign-up, carrying the user id). A busy community holds thousands, and a
-		// switched-off plugin would leave every one to fail with no listener. Passed
-		// with no group, Action Scheduler cancels them by hook in batched UPDATEs
-		// rather than one query per action. New sign-ups schedule their own again.
-		if ( function_exists( 'as_unschedule_all_actions' ) ) {
-			foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
-				as_unschedule_all_actions( $hook );
-			}
-
-			// Then everything else still pending in our group: the async and chained
-			// jobs (fan-out pages, search reindex, purge continuations, backfills)
-			// would otherwise fail one by one with no listener. A hook-less call with
-			// a group cancels by group in one UPDATE, on AS 3.9 and 4.0 alike.
-			as_unschedule_all_actions( '', array(), self::GROUP );
-		}
+		// Everything else still pending of ours: the async and chained jobs (fan-out
+		// pages, search reindex, purge continuations, backfills) and the per-member
+		// onboarding nudges, which a busy community holds by the thousand. A
+		// switched-off plugin would leave each to fail with no listener. Set-based,
+		// so a large queue cannot time the deactivation out (see cancel_pending()).
+		self::cancel_pending( array( self::GROUP ), array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) );
 	}
 
 	/**
