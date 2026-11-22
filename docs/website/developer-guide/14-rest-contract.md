@@ -231,14 +231,14 @@ On a private community (Members-only access) both `/app/config` and `/app/string
 | Method | `GET` |
 | Path | `/wp-json/buddynext/v1/app/config` |
 | Auth | Public - `permission_callback` is `'__return_true'`; read before login |
-| Extension | `apply_filters( 'buddynext_app_config', $data, $request )` - Pro flips `app_enabled` on a valid licence, fills `legal`, and may override `branding` |
+| Extension | `apply_filters( 'buddynext_app_config', $data, $request )` - Pro flips `app_enabled` on whenever Pro is active (the licence decides updates only), fills `legal`, and may override `branding` |
 
 Top-level response keys:
 
 | Key | Type | Meaning |
 |---|---|---|
 | `contract_version` | int | Payload shape version. Bumped only when a field's meaning changes, never for additive fields; the app refuses a contract it does not understand. |
-| `app_enabled` | bool | Whether the app may run here. Fails closed - unlocks on `=== true` and nothing else. Pro flips it on a valid licence. |
+| `app_enabled` | bool | Whether the app may run here. Fails closed - unlocks on `=== true` and nothing else. Pro turns it on whenever Pro is active; the licence decides updates only. |
 | `pro_active` | bool | Whether BuddyNext Pro is active on the site. |
 | `min_app_version` | string | Lowest app version this site will serve. Fails open - empty (the default) or unparseable means "no floor". |
 | `branding` | object | Pre-auth theming: `app_name`, `accent_color`, `logo_url`, `login_bg_url`, `color_scheme_default` (`auto`/`light`/`dark`). The site's "Follow the visitor's device" choice (`system`) is sent as `auto`, since an app has no host theme to match. Empty values mean "use your own default". |

@@ -168,6 +168,18 @@ add_action(
 	}
 );
 
+// The free product authorises updates with the preset key above, so there is nothing for an owner to manage: drop
+// the SDK's "Manage License" link from the BuddyNext row (it runs at 100). Not `keyless`, which would stop sending
+// the preset key the store authorises updates with.
+add_filter(
+	'plugin_action_links_' . BUDDYNEXT_BASENAME,
+	static function ( $actions ) {
+		unset( $actions['edd_sdk_manage'] );
+		return $actions;
+	},
+	101
+);
+
 /**
  * One licence-server request (activate, deactivate, check or get_version) for BuddyNext and BuddyNext Pro.
  *
