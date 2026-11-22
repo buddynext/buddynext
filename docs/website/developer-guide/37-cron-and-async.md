@@ -12,7 +12,7 @@ BuddyNext is built to be fast on a vanilla install with zero server changes. Thr
 2. **Action Scheduler first, WP-Cron fallback.** When Action Scheduler is present, recurring and async actions run through it under the `buddynext` group so they are observable and retryable in Tools > Scheduled Actions. When it is absent, the same hooks run on WP-Cron.
 3. **Never force-disable WP-Cron.** The plugin never defines `DISABLE_WP_CRON` and never requires a system cron to be fast. See Cron policy below.
 
-The full engineering standard lives in the Background-Jobs standard (`docs/standards/BACKGROUND-JOBS.md`); this page documents the jobs that exist today.
+This page documents the jobs that exist today and the rules an add-on follows when it adds its own.
 
 ## Scheduled jobs (Free)
 
@@ -26,10 +26,10 @@ Registered on `wp_loaded` by `Core\CronScheduler` under the Action Scheduler gro
 |---|---|---|
 | `buddynext_daily_digest` | Daily | Sends the daily activity digest. |
 | `buddynext_weekly_digest` | Weekly | Sends the weekly activity digest. |
-| `buddynext_purge_logs` | Daily | The one daily retention job. Age-purges read notifications, `bn_email_log`, the webhook delivery logs and stale presence rows, in batches. The window is the `buddynext_log_retention_days` option (30, 60 or 90 days, default 60); unread notifications are kept until a hard maximum of 90 days. On the same run it prunes expired auth and verification tokens, closed `bn_reports` rows past the data-retention window, and BuddyNext's own completed and canceled Action Scheduler rows older than 7 days and failed ones older than 90 days (see Extending below). Pro's analytics prune runs on it too. Registered by `Core\LogRetentionService` on `init`, group `buddynext`. |
+| `buddynext_purge_logs` | Daily | The one daily retention job. It age-purges read notifications, `bn_email_log`, the webhook delivery logs and stale presence rows, in batches. The window is the `buddynext_log_retention_days` option (30, 60 or 90 days, default 60); unread notifications are kept until a hard maximum of 90 days. The same run prunes expired auth and verification tokens, closed `bn_reports` rows past the data-retention window, and BuddyNext's own finished Action Scheduler rows (see Extending below). Pro's analytics prune runs on it too. Each listener keeps its own time budget, so a large backlog in one cannot starve another. Registered by `Core\LogRetentionService` on `init`, group `buddynext`. |
 | `buddynext_recount_stats` | Daily | Reconcile pass for counters. Counters are maintained incrementally on every write; this only repairs drift. |
 | `buddynext_daily_queue_check` | Daily | Sweeps the moderation queue for items needing a daily reconcile (aging reports, expiring strikes). Registered by the moderation listener. |
-| `buddynext_publish_scheduled_sweep` | Hourly | Safety sweep that publishes any scheduled post whose time has passed. Registered by `Feed\ScheduledPostsPublisher`. |
+| `buddynext_publish_scheduled_sweep` | Hourly | Safety sweep that publishes any scheduled post whose time has passed. Registered by `Feed\ScheduledPostsPublisher` on WP-Cron (no Action Scheduler group). |
 
 ### Single-event / reactive hooks
 
@@ -38,11 +38,13 @@ Armed on demand and self-clearing - they do not poll when there is no work.
 | Hook | When it fires | What it does |
 |---|---|---|
 | `buddynext_finish_upgrade` | After a schema upgrade made by a request outside wp-admin | Runs the one-time data migrations that upgrade left owing, under the upgrade lock. The next wp-admin load runs them if no runner has. |
-| `buddynext_publish_scheduled` | Armed at the next due scheduled post's time | Publishes due scheduled posts, then re-arms for the next one (or stays disarmed). Free-owned - runs with Pro absent. |
-| `bn_onboarding_nudge_24h` | Single event, 24h after signup | Sends the first onboarding nudge to a member who has not finished the setup steps. Armed per user at registration; self-clears once onboarding completes. |
-| `bn_onboarding_nudge_72h` | Single event, 72h after signup | Sends the second onboarding nudge if the member is still incomplete at 72 hours. Same per-user arming model as the 24h nudge. |
+| `buddynext_publish_scheduled` | Armed at the next due scheduled post's time (WP-Cron single event) | Publishes due scheduled posts, then re-arms for the next one (or stays disarmed). Free-owned - runs with Pro absent. |
+| `bn_onboarding_nudge_24h` | Single action, 24h after signup | Sends the first onboarding nudge to a member who has not finished the setup steps. Armed per user at registration, and armed again after an update or reactivation only for members whose 72-hour window is still open (a member who signed up more than 72 hours ago never gets a late nudge). Self-clears once onboarding completes. |
+| `bn_onboarding_nudge_72h` | Single action, 72h after signup | Sends the second onboarding nudge if the member is still incomplete at 72 hours. Same arming model as the 24h nudge. |
 | `buddynext_reindex_all_cron` | Single event, 30 seconds after a rebuild is requested | WP-Cron fallback for a full rebuild of the `bn_search_index` table (members, posts, spaces, hashtags), used when Action Scheduler is absent. With Action Scheduler the same rebuild runs as the async `buddynext_reindex_all` action. |
-| `buddynext_webhook_deliver` | Single event, per outbound dispatch | Delivers the outbound webhooks for one event off-request. Enqueued async (Action Scheduler, group `buddynext`) when an event fires; `buddynext_webhook_deliver_one` delivers a single webhook the same way. |
+| `buddynext_webhook_deliver` | Single action, per outbound dispatch | Delivers the outbound webhooks for one event off-request. Enqueued async (Action Scheduler, group `buddynext`) when an event fires; `buddynext_webhook_deliver_one` delivers a single webhook the same way. The job carries the event payload: it is what was promised to the receiver. |
+| `buddynext_space_delete_chunk` | Single action, while a Space deletion runs | Removes one chunk of a hidden Space's posts and queues the next before it works, so a killed process never ends the chain. Args: `$space_id, $user_id`. |
+| `buddynext_space_drive_media_trash` | Single action, after a Space is deleted | Trashes the Space drive's photos, videos and audio, 100 a run, continuing after the last media id it saw. Args: `$space_id, $after_id, $blocked`. |
 | `buddynext_webhook_retry_single` | Single event, per failed delivery | Retries a failed webhook delivery with exponential backoff (300s base, up to 3 attempts). |
 | `edd_sl_sdk_weekly_license_check_{slug}` | Weekly | License-validation check from the bundled EDD Software Licensing SDK. Gates plugin updates only, never functionality. |
 
@@ -52,7 +54,7 @@ Armed on demand and self-clearing - they do not poll when there is no work.
 
 ## Scheduled jobs (Pro)
 
-Pro adds its own recurring jobs. Unlike Free they do **not** share the `buddynext` group - each Pro subsystem uses its own Action Scheduler group, so it can be observed and cancelled independently in Tools > Scheduled Actions.
+Pro adds its own jobs in its own Action Scheduler groups (`buddynextpro`, `buddynext-pro`, `buddynextpro_email`, `buddynextpro_push`, `buddynextpro_analytics`, `buddynextpro_bulk_mod`, `buddynextpro_ai_moderation`), so each can be observed and cancelled independently in Tools > Scheduled Actions. Since 1.3.0 Pro's integration jobs (Eventonomy and Listora card rebuilds, the Learnomy Space revoke) also queue in `buddynextpro`; rows queued in `buddynext` by an earlier version still run and are cleared by Pro's deactivation and uninstall. The Learnomy course backfill (`buddynext_space_link_backfill_chunk`) stays in `buddynext`: its hook and listener are Free's.
 
 | Hook | Schedule | Group | What it does |
 |---|---|---|---|
@@ -61,6 +63,7 @@ Pro adds its own recurring jobs. Unlike Free they do **not** share the `buddynex
 | `buddynextpro_expire_subscriptions` | Daily | `buddynextpro` | Expires membership subscriptions past their end date, then fires `buddynextpro_membership_daily`, where the renewal reminders and the grant-bridge reconcile run. Handled by `Membership\SubscriptionService`. |
 | `buddynextpro_ai_mod_sweep` | Configurable cadence (from the AI-moderation settings) | `buddynextpro_ai_moderation` | AI-moderation sweep over the pending report queue, paged up to the per-run cap. Handled by `Moderation\AiModerationSweep`. |
 | `buddynextpro_renewal_reminders` | Single action, only when a sweep stops part way | `buddynextpro` | Continues a renewal-reminder pass (args: cursor). The daily pass runs on `buddynextpro_membership_daily`. |
+| `buddynextpro_grant_sweep_continue` | Single action, only when the daily grant sweep runs out of its 20 seconds | `buddynextpro` | Continues the membership grant reconcile at the bridge and page it reached (args: bridge class, offset). |
 
 > **Note:** since 1.3.0 `buddynextpro_reconcile_memberships` and the recurring `buddynextpro_renewal_reminders` run inside `buddynextpro_membership_daily`, and `buddynextpro_data_retention` runs inside Free's `buddynext_purge_logs`. The upgrade routine cancels their old recurring actions once. `buddynextpro_ai_mod_cleanup` is retired the same way.
 
@@ -79,16 +82,20 @@ The pattern, as implemented for new-space-post notifications:
 if ( function_exists( 'as_enqueue_async_action' ) ) {
     as_enqueue_async_action(
         'buddynext_async_space_post_fanout',
-        array(
-            'post_id'       => $post_id,
-            'space_id'      => $space_id,
-            'author_id'     => $author_id,
-            'after_user_id' => $after_user_id, // keyset cursor
+        array(                                   // positional args: one, the payload array
+            array(
+                'post_id'       => $post_id,
+                'space_id'      => $space_id,
+                'author_id'     => $author_id,
+                'after_user_id' => $after_user_id, // keyset cursor
+            ),
         ),
         'buddynext' // group
     );
 }
 ```
+
+Action Scheduler spreads the args array into the callback's parameters, so a payload you want to arrive as one array goes inside a one-element list, as above. An associative array passed directly would arrive as separate parameters.
 
 3. The worker processes one bounded batch, then **re-enqueues itself** for the next page until the roster is exhausted. Neither the request nor any single scheduled action ever loads or loops the whole roster.
 4. When Action Scheduler is absent (local/test), the worker drains the remaining batches inline, still bounded to one batch per query, so every member is still notified.
@@ -106,9 +113,9 @@ Content from another plugin, passed with its text on `buddynext_index_hashtags( 
 
 | Hook | Fired when | Args |
 |---|---|---|
-| `buddynext_async_space_post_fanout` | A space post needs background notification fan-out (RECORD stage) beyond the first batch | `array{ post_id, space_id, author_id, after_user_id }` |
-| `buddynext_async_space_post_emails` | DELIVER stage: send the space new-post emails for a recipient batch, off the fan-out task (self-paginating in chunks of 50) | `array{ post_id, space_id, author_id, recipients }` |
-| `buddynext_async_index_hashtags` | A post was created or its content edited; the job reads the saved content when it runs | `'post', int $post_id` (since 1.3.0; earlier jobs also carried the content) |
+| `buddynext_async_space_post_fanout` | A space post needs background notification fan-out (RECORD stage) beyond the first batch | one arg: `array{ post_id, space_id, author_id, after_user_id }` |
+| `buddynext_async_space_post_emails` | DELIVER stage: emails one fan-out page, 50 members per action, off the fan-out task | `int $post_id, int $space_id, int $author_id, int $after_id, int $to_id, string $type, int $cursor` (since 1.3.0; earlier jobs carried one payload array with the recipient list) |
+| `buddynext_async_index_hashtags` | A post was created or its content edited; the job reads the saved content when it runs | `'post', int $post_id` (since 1.3.0; a job queued by 1.2.x for other content still carries its text as a third arg and is indexed from it, until 1.4.0) |
 | `buddynext_reindex_all` | A full search-index rebuild is requested | none |
 | `buddynext_async_index_post` | A post is created or edited and needs indexing | `int $post_id, int $user_id` |
 | `buddynext_async_deindex_post` | A post is removed from search | `int $post_id` |
@@ -117,7 +124,7 @@ Content from another plugin, passed with its text on `buddynext_index_hashtags( 
 | `buddynext_async_reindex_space_posts` | A space's posts need re-indexing (self-paginating) | `int $space_id, int $offset` |
 | `buddynext_async_index_user` | A member's profile changed and needs indexing | `int $user_id` |
 | `buddynext_async_fetch_link_meta` | A post with a link needs its preview fetched | `int $post_id` |
-| `buddynext_async_send_invite_email` | An invitation email is queued | `array $payload` |
+| `buddynext_async_send_invite_email` | An invitation email is queued | `int $invite_id` (since 1.3.0; the worker reads the invite, so no token is stored in the job) |
 | `buddynext_async_announcement_fanout` | An announcement needs notification fan-out | `array` |
 | `buddynext_send_notification_email` | A notification email is sent off-request | `int $user_id, string $notification_type, array $data` |
 | `buddynext_retry_notification_email` | A failed notification email is retried | `int $user_id, string $notification_type, array $data` |
@@ -128,7 +135,7 @@ Content from another plugin, passed with its text on `buddynext_index_hashtags( 
 
 Rules for any new fan-out you add:
 
-- **One group.** Always pass `'buddynext'` as the group so the action is observable and bulk-cancelable in Tools > Scheduled Actions.
+- **Your own group.** An add-on queues its jobs in its own group (for example `'my_addon'`) and adds it to `buddynext_finished_action_groups` so the daily purge clears its finished rows. Never queue in `'buddynext'`: Free's deactivation and uninstall treat that group as Free's. Helpers that queue for you take the group as a parameter (`CronScheduler::enqueue_once()`, `ensure_recurring()`, `IntegrationActivity::run_in_chunks()`).
 - **Idempotent handlers.** Action Scheduler retries on failure; the handler must tolerate re-running the same batch.
 - **Keyset, not OFFSET.** Page with a `last_id` cursor so large rosters never get slower as you page deeper.
 - **Cap the synchronous slice.** Do the first bounded batch in-request, only background the remainder.
@@ -177,6 +184,29 @@ CronScheduler::has_pending( 'my_addon_reindex' );               // true
 
 Those are the values a test run returned. Keep args to ids and short scalars: Action Scheduler matches args by their stored JSON, and keys longer than 191 characters are compared by hash.
 
+### Keeping a recurring job armed: `CronScheduler::ensure_recurring()`
+
+`\BuddyNext\Core\CronScheduler::ensure_recurring( string $hook, int $interval, int $first = 0, string $group = 'buddynext' ): int` keeps one recurring job armed. Call it on `wp_loaded`. It does nothing outside the cron runner, wp-admin page loads and WP-CLI (so front-end, REST and AJAX requests never pay for the check), skips when the job is already queued, schedules with Action Scheduler's `unique` flag so two requests arming at once still leave one row, falls back to WP-Cron when Action Scheduler is absent, and returns the new action id (0 when nothing was scheduled).
+
+```php
+add_action( 'wp_loaded', static function () {
+    \BuddyNext\Core\CronScheduler::ensure_recurring( 'my_addon_daily', DAY_IN_SECONDS, 0, 'my_addon' );
+} );
+```
+
+### Deactivation: what an add-on cancels and what it keeps
+
+`CronScheduler::cancel_pending( array $groups, array $hooks = array(), array $keep_prefixes = array(), array $keep_hooks = array() ): int` marks your pending jobs canceled in a few queries, whatever the queue size, and never touches another plugin's jobs. Cancel only jobs that can be recomputed or are lost by nature (digests, sends, reindexes, recounts, prunes). Leave pending, by listing them in `$keep_hooks`, the jobs that finish something a member or the site owner already did: a deletion under way, a privacy change still cascading, a promised delivery. The routine update (deactivate, replace files, activate) runs nothing in between, so kept jobs pick up where they stopped. While a plugin stays deactivated, another plugin's Action Scheduler may still run due rows that have no listener and mark them complete, so a long deactivation can lose them.
+
+```php
+register_deactivation_hook( __FILE__, static function () {
+    wp_clear_scheduled_hook( 'my_addon_daily' );
+    \BuddyNext\Core\CronScheduler::cancel_pending( array( 'my_addon' ), array(), array(), array( 'my_addon_delete_continue' ) );
+} );
+```
+
+BuddyNext itself keeps these on deactivation: a member's GDPR hard delete (`buddynext_purge_member_continue`), a Space deletion and its media trash (`buddynext_space_delete_chunk`, `buddynext_space_drive_media_trash`), a deleted profile field's purge, the upgrade and course-link migrations, privacy-change cascades, forum access grants, sent invites, promised webhook deliveries and the old file of a replaced image. Pro keeps a moderator's bulk action, a sent broadcast's recipient listing and a Learnomy unlink's access revoke. Uninstall deletes all of BuddyNext's jobs.
+
 ## Migrating to 1.3.0
 
 Background-job hooks that changed in 1.3.0. Nothing changes for members or site owners; nothing needs setting up.
@@ -189,15 +219,21 @@ Background-job hooks that changed in 1.3.0. Nothing changes for members or site 
 | `buddynextpro_reconcile_memberships` (Pro) | No longer scheduled; the reconcile runs on `buddynextpro_membership_daily`. | Hook `buddynextpro_membership_daily`. |
 | `buddynextpro_renewal_reminders` (Pro) | No longer a daily recurring action; the daily pass runs on `buddynextpro_membership_daily`. The hook still carries continuations of a pass that stopped part way. | Hook `buddynextpro_membership_daily` for daily work. |
 | `buddynext_async_index_hashtags` | Args are `'post', $post_id`; the job reads the saved content. Text passed on `buddynext_index_hashtags` is extracted at once, not queued. | A listener reading a third content arg gets none; read the post instead. |
+| `buddynext_async_space_post_emails` | Seven positional args (`$post_id, $space_id, $author_id, $after_id, $to_id, $type, $cursor`) instead of one payload array with a recipient list. Jobs queued earlier still run. | A listener reading the payload array reads the post id and page range instead. |
+| `buddynext_async_send_invite_email` | One arg, the invite id, instead of the payload with the invite token. | Read the invite by id. |
+| `buddynext_space_delete_chunk` | Args are `$space_id, $user_id` (the chain counter is gone). | A listener with two parameters keeps working. |
+| Action Scheduler retention | BuddyNext no longer shortens Action Scheduler's site-wide retention to 14 days (`action_scheduler_retention_period`); it deletes only its own finished rows (7 days, failed 90). | Nothing: other plugins' history is kept for Action Scheduler's default 30 days again. |
+| Deactivation | Recomputable jobs are canceled; jobs that finish a committed action stay pending. | An add-on lists its own committed jobs in `cancel_pending()`'s `$keep_hooks`. |
 | `buddynextpro_async_index_embedding` (Pro) | Args are `'post', $post_id`, queued once while pending; the job reads the published content. `buddynext_index_embedding` ignores its text for posts and embeds other types at once. | Same as above. |
 | `buddynextpro_broadcast_send_pending`, `buddynextpro_drip_tick` (Pro) | Single actions at the next due time instead of a fixed 5-minute / hourly cadence; `buddynextpro_drip_tick` passes `$after_id, $next_due`. | A listener with no parameters keeps working. |
 | `buddynext_finished_action_retention_days` | New filter. | Optional. |
 | `buddynext_finished_action_groups` | New filter. | Add your own group if your add-on runs its jobs in one. |
 | `buddynextpro_membership_daily` (Pro) | New action. | Optional. |
-| `CronScheduler::enqueue_once()`, `CronScheduler::has_pending()`, `CronScheduler::cancel_pending()`, `CronScheduler::when_ready()` | New public methods. | Optional; see above. |
-| `buddynext_space_drive_media_trash` | Args are `$space_id, $link, $after_id, $blocked`; each run continues after the last media id it saw. | A listener with two parameters keeps working. |
+| `CronScheduler::enqueue_once()`, `has_pending()`, `cancel_pending()`, `when_ready()`, `ensure_recurring()` | New public methods. | Optional; see above. |
+| `IntegrationActivity::run_in_chunks()` | New trailing `$group` parameter (default `'buddynext'`). | An add-on passes its own group. |
+| `buddynext_space_drive_media_trash` | New in 1.3.0. Args are `$space_id, $after_id, $blocked`; each run continues after the last media id it saw. | Nothing. |
 
-Public methods removed in 1.3.0 keep a deprecated stand-in that raises a `_deprecated_function` notice. Move to the replacement:
+Public methods removed in 1.3.0 keep a deprecated stand-in that raises a `_deprecated_function` notice for two major versions. Move to the replacement:
 
 | Removed | Replacement |
 |---|---|
@@ -224,9 +260,8 @@ BuddyNext never changes a site-wide cron setting on the owner's behalf.
 ## Notes / gotchas
 
 - **Schedule on `wp_loaded` or `init`, never `plugins_loaded`.** Action Scheduler is not initialized until `init`; an `as_schedule_*` call before that silently no-ops. If you cleared the WP-Cron event first, the job ends up unscheduled entirely. Always verify scheduling happened after the fact.
-- **Deactivation clears both systems.** An add-on's deactivation handler clears its WP-Cron events with `wp_clear_scheduled_hook( $hook )` and cancels its pending Action Scheduler jobs with `\BuddyNext\Core\CronScheduler::cancel_pending( array( 'my-addon-group' ) )`, which cancels a large queue in a few queries and never touches another plugin's jobs.
-- **BuddyNext clears every recurring job on deactivation.** Since 1.3.0 `CronScheduler::clear_events()` unschedules all of Free's recurring jobs (digests, the retired token, notification and report cleanups, log retention, the recount, the moderation queue check and log retention, plus a few legacy hooks), from Action Scheduler and WP-Cron alike, so a switched-off plugin leaves nothing to fail in the background. Each job re-arms itself on the next run after the plugin is activated again. Pro does the same for everything in its own groups, and its AI moderation sweep, when Pro is deactivated while Free stays active.
-- **Free / Pro boundary.** Pro registers its jobs independently on its own boot, using the same AS-first / WP-Cron-fallback pattern. Unlike Free's shared `buddynext` group, each Pro subsystem uses its own group (`buddynextpro_email`, `buddynextpro`, `buddynextpro_ai_moderation`); scheduled-post publishing is not a Pro job - Pro delegates it to Free's `ScheduledPostsPublisher`.
+- **Deactivation.** See "Deactivation: what an add-on cancels and what it keeps" above. BuddyNext's own deactivation cancels its recurring jobs (digests, log retention, the recount, the moderation queue check) and its recomputable one-off jobs, from Action Scheduler and WP-Cron alike; each recurring job re-arms on the first wp-admin load or cron run after the plugin is activated again. Pro does the same for its own groups.
+- **Free / Pro boundary.** Pro registers its jobs on its own boot through the same helpers, in its own groups (listed under Scheduled jobs (Pro)); scheduled-post publishing is not a Pro job - Pro delegates it to Free's `ScheduledPostsPublisher`.
 - **Pruning.** Action Scheduler's own retention clears completed rows after 30 days; BuddyNext additionally deletes its own completed and canceled rows after 7 days (`buddynext_finished_action_retention_days`) and its failed rows after 90 days so a busy community does not fill `actionscheduler_*` tables.
 
-See also the Background-Jobs standard for the full decision tree and copy-paste patterns, and the Scale Contract for the fan-out and indexing rules that shaped these jobs.
+See also the Scale Contract for the fan-out and indexing rules that shaped these jobs.
