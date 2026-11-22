@@ -255,15 +255,14 @@ class AppConfigController {
 			// Fail closed. The app unlocks on === true and nothing else, so a site
 			// running a version of this plugin that predates the field, or a Pro
 			// that never answered, reads as "no" rather than as "yes by accident".
-			// Pro flips this via buddynext_app_config, and only on a valid licence.
+			// Pro flips this via buddynext_app_config whenever Pro is active (the licence gates updates only).
 			'app_enabled'      => false,
 
 			'pro_active'       => defined( 'BUDDYNEXTPRO_VERSION' ),
 
 			// Fails OPEN, unlike app_enabled: an empty or malformed floor must not
 			// wall off every member of the site behind an update that may not
-			// exist. A licence gate that fails open leaks revenue; a version gate
-			// that fails closed bricks a community over a typo.
+			// exist. A version gate that fails closed bricks a community over a typo.
 			'min_app_version'  => $this->min_app_version(),
 
 			'branding'         => $this->branding(),
@@ -307,7 +306,7 @@ class AppConfigController {
 		/**
 		 * Filter the mobile app's bootstrap config.
 		 *
-		 * Pro uses this to flip app_enabled on a valid licence, fill the legal
+		 * Pro uses this to flip app_enabled while Pro is active, fill the legal
 		 * block, and add its own feature flags. Site owners can override branding.
 		 *
 		 * @since 1.0.9

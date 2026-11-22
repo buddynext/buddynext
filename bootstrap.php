@@ -308,16 +308,17 @@ add_action(
 		if ( array() === $missing ) {
 			return;
 		}
-		printf(
-			'<div class="notice notice-warning"><p>%s</p></div>',
-			esc_html(
-				sprintf(
-					/* translators: %s: comma-separated PHP extension names, e.g. "mbstring, dom" */
-					__( 'BuddyNext works, but this server is missing the PHP extensions %s. Without them, names in other alphabets are not capitalised or searched correctly and link previews are off. Ask your host to enable them.', 'buddynext' ),
-					implode( ', ', $missing )
-				)
-			)
+		// One line per missing extension, saying what the owner's members actually lose.
+		$effects = array(
+			'mbstring' => __( 'mbstring: names and text in other alphabets (accents, Cyrillic, Arabic, CJK) are not capitalised, shortened or searched correctly.', 'buddynext' ),
+			'dom'      => __( 'dom: link previews are off, so a pasted link posts as a plain link with no title or image card.', 'buddynext' ),
+			'ctype'    => __( 'ctype: BuddyNext uses its own check instead, so nothing changes for members, but other plugins may need it.', 'buddynext' ),
 		);
+		echo '<div class="notice notice-warning"><p>' . esc_html__( 'BuddyNext works, but this server is missing PHP extensions. Ask your host to enable them:', 'buddynext' ) . '</p><ul class="ul-disc">';
+		foreach ( $missing as $ext ) {
+			echo '<li>' . esc_html( $effects[ $ext ] ?? $ext ) . '</li>';
+		}
+		echo '</ul></div>';
 	}
 );
 
