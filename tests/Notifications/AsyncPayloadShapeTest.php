@@ -47,7 +47,6 @@ class AsyncPayloadShapeTest extends \WP_UnitTestCase {
 	private const SINGLE_ARRAY_ARG_HOOKS = array(
 		'buddynext_async_space_post_fanout',
 		'buddynext_async_announcement_fanout',
-		'buddynext_async_space_post_emails',
 	);
 
 	/**
@@ -142,7 +141,6 @@ class AsyncPayloadShapeTest extends \WP_UnitTestCase {
 		$methods = array(
 			'async_space_post_fanout',
 			'async_announcement_fanout',
-			'async_space_post_emails',
 		);
 
 		foreach ( $methods as $method ) {
@@ -197,17 +195,17 @@ class AsyncPayloadShapeTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The emails stage specifically wraps its payload.
+	 * The email stage takes positional scalars (a member-id range), so it is NOT wrapped.
 	 *
-	 * Named separately because this is the one with 63 recorded failures.
+	 * It used to carry the recipient list in one wrapped map; the range keeps the
+	 * args under Action Scheduler's 191-character column. SpacePostEmailCursorTest
+	 * proves the recipients are unchanged.
 	 *
 	 * @return void
 	 */
-	public function test_the_email_stage_wraps_its_payload(): void {
-		$this->assertStringContainsString(
-			"as_enqueue_async_action( 'buddynext_async_space_post_emails', array( \$args ), 'buddynext' );",
-			$this->listener_source(),
-			'the email stage must enqueue array( $args ), not $args'
-		);
+	public function test_the_email_stage_takes_positional_scalars(): void {
+		$source = $this->listener_source();
+		$this->assertStringContainsString( "add_action( 'buddynext_async_space_post_emails', array( \$this, 'async_space_post_emails' ), 10, 7 );", $source );
+		$this->assertStringContainsString( '$args = array( $post_id, $space_id, $author_id, $after_id, $to_id, $type, $after_id );', $source );
 	}
 }

@@ -100,7 +100,7 @@ class NotificationListener implements ListenerInterface {
 		// record stage (the fan-out only creates in-app rows); email is not
 		// real-time, so it runs here off the fan-out task. Type-generic: the
 		// announcement fan-out reuses this same stage (passing bn.announcement).
-		add_action( 'buddynext_async_space_post_emails', array( $this, 'async_space_post_emails' ), 10, 1 );
+		add_action( 'buddynext_async_space_post_emails', array( $this, 'async_space_post_emails' ), 10, 7 );
 	}
 
 	/**
@@ -1041,22 +1041,18 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
-	 * Create one keyset page of announcement notifications.
+	 * Read and gate one keyset page of an announcement's audience.
 	 *
-	 * Site-wide announcements (space_id 0) fan out to every member; space-scoped
-	 * ones only to that space's active members. Each recipient goes through
-	 * NotificationService::create(), which applies the per-recipient preference
-	 * gates and email dispatch — so this batched path notifies exactly who the
-	 * per-row path would.
+	 * Shared by the record stage and the email job (see space_post_page()).
 	 *
-	 * @param int $post_id       Announcement post ID.
-	 * @param int $author_id     Author (excluded).
 	 * @param int $space_id      Target space (0 = site-wide).
-	 * @param int $after_user_id Keyset cursor.
+	 * @param int $author_id     Author (excluded).
+	 * @param int $after_user_id Keyset anchor (exclusive).
 	 * @param int $limit         Page size.
-	 * @return array{count:int,last_user_id:int}
+	 * @param int $to_user_id    Optional inclusive upper bound (0 = none).
+	 * @return array{count:int,last_user_id:int,all_ids:int[],bell:int[]}
 	 */
-	private function fan_out_announcement_batch( int $post_id, int $author_id, int $space_id, int $after_user_id, int $limit ): array {
+	private function announcement_page( int $space_id, int $author_id, int $after_user_id, int $limit, int $to_user_id = 0 ): array {
 		global $wpdb;
 
 		// ── Read stage (batched, keyset) ──────────────────────────────────────
@@ -1069,12 +1065,13 @@ class NotificationListener implements ListenerInterface {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT user_id, notification_pref FROM {$wpdb->prefix}bn_space_members
-					 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d
+					 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d AND user_id <= %d
 					 ORDER BY user_id ASC
 					 LIMIT %d",
 					$space_id,
 					$author_id,
 					$after_user_id,
+					$to_user_id > 0 ? $to_user_id : PHP_INT_MAX,
 					$limit
 				),
 				ARRAY_A
@@ -1083,11 +1080,12 @@ class NotificationListener implements ListenerInterface {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT ID AS user_id, NULL AS notification_pref FROM {$wpdb->users}
-					 WHERE ID != %d AND ID > %d" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ) . '
+					 WHERE ID != %d AND ID > %d AND ID <= %d" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ) . '
 					 ORDER BY ID ASC
 					 LIMIT %d',
 					$author_id,
 					$after_user_id,
+					$to_user_id > 0 ? $to_user_id : PHP_INT_MAX,
 					$limit
 				),
 				ARRAY_A
@@ -1099,6 +1097,8 @@ class NotificationListener implements ListenerInterface {
 			return array(
 				'count'        => 0,
 				'last_user_id' => $after_user_id,
+				'all_ids'      => array(),
+				'bell'         => array(),
 			);
 		}
 
@@ -1135,6 +1135,43 @@ class NotificationListener implements ListenerInterface {
 			$bell        = array_values( array_filter( $bell, $keep ) );
 		}
 
+		return array(
+			'count'        => $fetched_count,
+			'last_user_id' => $last_user_id,
+			'all_ids'      => $all_ids,
+			'bell'         => $bell,
+		);
+	}
+
+	/**
+	 * Create one keyset page of announcement notifications.
+	 *
+	 * Site-wide announcements (space_id 0) fan out to every member; space-scoped
+	 * ones only to that space's active members. Each recipient goes through
+	 * NotificationService::create(), which applies the per-recipient preference
+	 * gates and email dispatch — so this batched path notifies exactly who the
+	 * per-row path would.
+	 *
+	 * @param int $post_id       Announcement post ID.
+	 * @param int $author_id     Author (excluded).
+	 * @param int $space_id      Target space (0 = site-wide).
+	 * @param int $after_user_id Keyset cursor.
+	 * @param int $limit         Page size.
+	 * @return array{count:int,last_user_id:int}
+	 */
+	private function fan_out_announcement_batch( int $post_id, int $author_id, int $space_id, int $after_user_id, int $limit ): array {
+		$page          = $this->announcement_page( $space_id, $author_id, $after_user_id, $limit );
+		$fetched_count = $page['count'];
+		$last_user_id  = $page['last_user_id'];
+		$all_ids       = $page['all_ids'];
+		$bell          = $page['bell'];
+		if ( 0 === $fetched_count ) {
+			return array(
+				'count'        => 0,
+				'last_user_id' => $after_user_id,
+			);
+		}
+
 		// ── In-app record stage (bulk, retry-safe) ────────────────────────────
 		// One bell per member per announcement: group_key is unique per (post,
 		// member), so unlike a space new-post there is no 24h merge - rows that
@@ -1147,7 +1184,7 @@ class NotificationListener implements ListenerInterface {
 		// The owner's must-know message emails EVERY active member, "none" included,
 		// minus blocks - through the shared batched email stage (respects each
 		// member's email frequency), never one job per member.
-		$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, $all_ids, 'bn.announcement' );
+		$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, $all_ids, 'bn.announcement', $after_user_id, $last_user_id );
 
 		return array(
 			'count'        => $fetched_count,
@@ -1306,20 +1343,22 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
-	 * Process one bounded batch of space members for a new-post notification.
+	 * Read and gate one keyset page of space members for a new-post notification.
 	 *
-	 * @param int $post_id       Post that was created.
-	 * @param int $space_id      Space the post belongs to.
-	 * @param int $author_id     Post author (excluded from recipients).
-	 * @param int $after_user_id Keyset anchor — only members with a greater
-	 *                           user_id are fetched. Backed by the
-	 *                           bn_space_members PRIMARY KEY (space_id, user_id),
-	 *                           so each batch is O(limit) regardless of depth.
-	 * @param int $limit         Maximum members to process this batch.
-	 * @return array{count: int, last_user_id: int} Rows fetched and the last
-	 *               user_id seen (the next batch's anchor).
+	 * The ONE place the space-post audience is decided: the per-space pref, blocks,
+	 * mutes and restricts, the In-app-off rule and the should_send / send_at filters.
+	 * The record stage (fan-out page) and the deliver stage (email job) both call
+	 * it, so the email goes to exactly the members the bell row was written for.
+	 *
+	 * @param int $post_id       Post.
+	 * @param int $space_id      Space.
+	 * @param int $author_id     Author, never notified.
+	 * @param int $after_user_id Keyset anchor (exclusive).
+	 * @param int $limit         Page size.
+	 * @param int $to_user_id    Optional inclusive upper bound (0 = none), used by the email job to re-read its page.
+	 * @return array{count:int,last_user_id:int,recipients:array<int,array<string,mixed>>,bell_off:array<int,bool>}
 	 */
-	private function fan_out_space_post_batch( int $post_id, int $space_id, int $author_id, int $after_user_id, int $limit ): array {
+	private function space_post_page( int $post_id, int $space_id, int $author_id, int $after_user_id, int $limit, int $to_user_id = 0 ): array {
 		global $wpdb;
 
 		// ── Read stage (batched) ──────────────────────────────────────────────
@@ -1330,12 +1369,13 @@ class NotificationListener implements ListenerInterface {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT user_id, notification_pref FROM {$wpdb->prefix}bn_space_members
-				 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d
+				 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d AND user_id <= %d
 				 ORDER BY user_id ASC
 				 LIMIT %d",
 				$space_id,
 				$author_id,
 				$after_user_id,
+				$to_user_id > 0 ? $to_user_id : PHP_INT_MAX,
 				$limit
 			),
 			ARRAY_A
@@ -1346,6 +1386,8 @@ class NotificationListener implements ListenerInterface {
 			return array(
 				'count'        => 0,
 				'last_user_id' => $after_user_id,
+				'recipients'   => array(),
+				'bell_off'     => array(),
 			);
 		}
 
@@ -1374,6 +1416,8 @@ class NotificationListener implements ListenerInterface {
 			return array(
 				'count'        => $fetched_count,
 				'last_user_id' => $last_user_id,
+				'recipients'   => array(),
+				'bell_off'     => array(),
 			);
 		}
 
@@ -1387,6 +1431,8 @@ class NotificationListener implements ListenerInterface {
 			return array(
 				'count'        => $fetched_count,
 				'last_user_id' => $last_user_id,
+				'recipients'   => array(),
+				'bell_off'     => array(),
 			);
 		}
 
@@ -1430,6 +1476,46 @@ class NotificationListener implements ListenerInterface {
 
 			$recipients[ $member_id ] = $data;
 		}
+
+		if ( empty( $recipients ) ) {
+			return array(
+				'count'        => $fetched_count,
+				'last_user_id' => $last_user_id,
+				'recipients'   => array(),
+				'bell_off'     => array(),
+			);
+		}
+
+		return array(
+			'count'        => $fetched_count,
+			'last_user_id' => $last_user_id,
+			'recipients'   => $recipients,
+			'bell_off'     => $bell_off,
+		);
+	}
+
+	/**
+	 * Process one bounded batch of space members for a new-post notification.
+	 *
+	 * @param int $post_id       Post that was created.
+	 * @param int $space_id      Space the post belongs to.
+	 * @param int $author_id     Post author (excluded from recipients).
+	 * @param int $after_user_id Keyset anchor — only members with a greater
+	 *                           user_id are fetched. Backed by the
+	 *                           bn_space_members PRIMARY KEY (space_id, user_id),
+	 *                           so each batch is O(limit) regardless of depth.
+	 * @param int $limit         Maximum members to process this batch.
+	 * @return array{count: int, last_user_id: int} Rows fetched and the last
+	 *               user_id seen (the next batch's anchor).
+	 */
+	private function fan_out_space_post_batch( int $post_id, int $space_id, int $author_id, int $after_user_id, int $limit ): array {
+		global $wpdb;
+
+		$page          = $this->space_post_page( $post_id, $space_id, $author_id, $after_user_id, $limit );
+		$fetched_count = $page['count'];
+		$last_user_id  = $page['last_user_id'];
+		$recipients    = $page['recipients'];
+		$bell_off      = $page['bell_off'];
 
 		if ( empty( $recipients ) ) {
 			return array(
@@ -1554,7 +1640,7 @@ class NotificationListener implements ListenerInterface {
 		}
 
 		// Hand email delivery to the batched AS stage (off the fan-out task).
-		$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, array_keys( $recipients ) );
+		$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, array_keys( $recipients ), 'bn.space_new_post', $after_user_id, $last_user_id );
 
 		return array(
 			'count'        => $fetched_count,
@@ -1616,106 +1702,118 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
-	 * Enqueue (or run inline) the batched email-delivery stage for a space post.
+	 * Enqueue (or run inline) the batched email-delivery stage for one fan-out page.
+	 *
+	 * The job carries the page's member-id range, never the recipient list: Action
+	 * Scheduler keeps args in a 191-character indexed column and a 200-id list
+	 * spilled into extended_args (about 1 KB a row). The worker re-reads the page
+	 * through the same space_post_page() / announcement_page() gate the record
+	 * stage used, so the same members get the same email.
 	 *
 	 * @param int    $post_id    Post ID.
 	 * @param int    $space_id   Space ID.
 	 * @param int    $author_id  Author ID.
-	 * @param int[]  $recipients Recipients to email this batch.
-	 * @param string $type       Notification type the email renders as
-	 *                           (bn.space_new_post default, bn.announcement for the
-	 *                           announcement fan-out). Carried through the AS job.
+	 * @param int[]  $recipients This page's recipients (used only to skip a page nobody gets email for).
+	 * @param string $type       bn.space_new_post or bn.announcement.
+	 * @param int    $after_id   The page's keyset anchor (exclusive).
+	 * @param int    $to_id      The page's last member id (inclusive).
 	 * @return void
 	 */
-	private function enqueue_space_post_emails( int $post_id, int $space_id, int $author_id, array $recipients, string $type = 'bn.space_new_post' ): void {
-		// Queue email work only for members who can get this email. space_new_post
-		// emails are off by default, so without this a 5,000-member space queued
-		// about 100 email actions that each sent nothing. The worker still checks
-		// each member again at send time (EmailSender::send).
-		$recipients = buddynext_service( 'notification_prefs' )->email_wanted_ids( $recipients, $type );
-		if ( empty( $recipients ) ) {
+	private function enqueue_space_post_emails( int $post_id, int $space_id, int $author_id, array $recipients, string $type, int $after_id, int $to_id ): void {
+		// Queue email work only when someone on the page can get this email.
+		// space_new_post emails are off by default, so without this a 5,000-member
+		// space queued about 100 email actions that each sent nothing.
+		if ( array() === buddynext_service( 'notification_prefs' )->email_wanted_ids( $recipients, $type ) ) {
 			return;
 		}
 
-		$args = array(
-			'post_id'    => $post_id,
-			'space_id'   => $space_id,
-			'author_id'  => $author_id,
-			'recipients' => array_values( $recipients ),
-			'type'       => $type,
-		);
-
-		/*
-		 * The payload is wrapped in an outer array(), and that wrap is the whole
-		 * difference between this working and failing silently.
-		 *
-		 * Action Scheduler's second parameter is the callback's ARGUMENT LIST, not
-		 * a payload, and ActionScheduler_Action::execute() dispatches it as
-		 * `do_action_ref_array( $hook, array_values( $this->get_args() ) )`. That
-		 * array_values() is the trap: it throws the string keys away, so an
-		 * associative map is flattened to a positional list and spread across the
-		 * callback's parameters. Handing this map over bare meant
-		 * async_space_post_emails( array $args ) received $post_id — an int — as
-		 * argument 1: TypeError, action failed, no email sent.
-		 *
-		 * It was silent. The in-app notification is recorded before this stage, so
-		 * the bell looked right, and the failure existed only in the queue log. On
-		 * the dev site this hook had 63 failed runs and zero completed ones.
-		 *
-		 * Wrapping makes the argument list a single element, so array_values() has
-		 * nothing to flatten and the callback receives the map intact as $args.
-		 *
-		 * Note it is array_values(), NOT WordPress's array_slice() in
-		 * class-wp-hook.php — array_slice always PRESERVES string keys, so the
-		 * blame does not lie there. Worth stating because the reindex looks like
-		 * the obvious culprit and is not.
-		 *
-		 * The inline fallback below is why the bug survived review: it calls the
-		 * method directly with $args and has always been correct, so the code reads
-		 * fine and behaves correctly on any site WITHOUT Action Scheduler — which
-		 * is no real site. A test that calls the method directly cannot catch this;
-		 * it has to assert the shape handed to the enqueue.
-		 */
+		$args = array( $post_id, $space_id, $author_id, $after_id, $to_id, $type, $after_id );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_async_space_post_emails', array( $args ), 'buddynext' );
+			as_enqueue_async_action( 'buddynext_async_space_post_emails', $args, 'buddynext' );
 			return;
 		}
 
 		// No Action Scheduler (small sites / CLI): deliver inline.
-		$this->async_space_post_emails( $args );
+		$this->async_space_post_emails( ...$args );
 	}
 
 	/**
-	 * Deliver stage: send space new-post emails for a recipient batch.
+	 * Deliver stage: email one fan-out page, 50 members per action.
 	 *
 	 * Runs as its OWN Action Scheduler action so email never blocks the record
-	 * stage (the fan-out). Self-paginates a bounded chunk at a time and delivers
-	 * inline through EmailSender ($defer = false, since this is already an async
-	 * worker): immediate frequencies send now, daily/weekly queue a digest, 'off'
-	 * is dropped. The in-app rows already exist; this only handles email.
+	 * stage. Re-reads the page range through the shared gate, keeps the members
+	 * whose preferences want this email, sends the first 50 after $cursor inline
+	 * through EmailSender ($defer = false, already async) and queues the next 50.
 	 *
-	 * @param array<string,mixed> $args post_id, space_id, author_id, recipients[].
+	 * @param int|array<string,mixed> $post_id   Post ID, or a pre-1.3.0 payload array.
+	 * @param int                     $space_id  Space ID.
+	 * @param int                     $author_id Author ID.
+	 * @param int                     $after_id  Page keyset anchor (exclusive).
+	 * @param int                     $to_id     Page last member id (inclusive).
+	 * @param string                  $type      bn.space_new_post or bn.announcement.
+	 * @param int                     $cursor    Last member already emailed on this page.
 	 * @return void
 	 */
-	public function async_space_post_emails( array $args ): void {
-		$post_id    = (int) ( $args['post_id'] ?? 0 );
-		$author_id  = (int) ( $args['author_id'] ?? 0 );
-		$space_id   = (int) ( $args['space_id'] ?? 0 );
-		$type       = (string) ( $args['type'] ?? 'bn.space_new_post' );
-		$recipients = array_values( array_filter( array_map( 'intval', (array) ( $args['recipients'] ?? array() ) ) ) );
-
-		if ( 0 === $post_id || empty( $recipients ) ) {
+	public function async_space_post_emails( $post_id, $space_id = 0, $author_id = 0, $after_id = 0, $to_id = 0, $type = 'bn.space_new_post', $cursor = 0 ): void {
+		// A job queued before 1.3.0 carries the old payload array with its recipient list.
+		if ( is_array( $post_id ) ) {
+			$legacy = $post_id;
+			$this->send_space_post_emails(
+				(int) ( $legacy['post_id'] ?? 0 ),
+				(int) ( $legacy['space_id'] ?? 0 ),
+				(int) ( $legacy['author_id'] ?? 0 ),
+				(string) ( $legacy['type'] ?? 'bn.space_new_post' ),
+				array_values( array_filter( array_map( 'intval', (array) ( $legacy['recipients'] ?? array() ) ) ) )
+			);
 			return;
 		}
 
+		$post_id   = (int) $post_id;
+		$space_id  = (int) $space_id;
+		$author_id = (int) $author_id;
+		$type      = (string) $type;
+		$cursor    = max( (int) $after_id, (int) $cursor );
+		if ( 0 === $post_id || (int) $to_id <= $cursor ) {
+			return;
+		}
+
+		// The page was at most one fan-out batch; read the whole remaining range.
+		$limit      = max( 1000, $this->fanout_batch_size() );
+		$recipients = 'bn.announcement' === $type
+			? $this->announcement_page( $space_id, $author_id, $cursor, $limit, (int) $to_id )['all_ids']
+			: array_keys( $this->space_post_page( $post_id, $space_id, $author_id, $cursor, $limit, (int) $to_id )['recipients'] );
+		$recipients = buddynext_service( 'notification_prefs' )->email_wanted_ids( $recipients, $type );
+
+		$chunk = array_slice( $recipients, 0, 50 );
+		if ( array() === $chunk ) {
+			return;
+		}
+		$this->send_space_post_emails( $post_id, $space_id, $author_id, $type, $chunk );
+
+		if ( count( $recipients ) > 50 && function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action(
+				'buddynext_async_space_post_emails',
+				array( $post_id, $space_id, $author_id, (int) $after_id, (int) $to_id, $type, (int) end( $chunk ) ),
+				'buddynext'
+			);
+		}
+	}
+
+	/**
+	 * Send the space-post (or announcement) email to a list of members.
+	 *
+	 * @param int    $post_id    Post ID.
+	 * @param int    $space_id   Space ID (0 = site-wide announcement).
+	 * @param int    $author_id  Author ID.
+	 * @param string $type       Notification type.
+	 * @param int[]  $member_ids Members to email.
+	 * @return void
+	 */
+	private function send_space_post_emails( int $post_id, int $space_id, int $author_id, string $type, array $member_ids ): void {
 		$sender = buddynext_service( 'email_sender' );
-		if ( ! is_object( $sender ) || ! method_exists( $sender, 'send' ) ) {
+		if ( 0 === $post_id || array() === $member_ids || ! is_object( $sender ) || ! method_exists( $sender, 'send' ) ) {
 			return;
 		}
-
-		$chunk_size = 50;
-		$chunk      = array_slice( $recipients, 0, $chunk_size );
-		$remaining  = array_slice( $recipients, $chunk_size );
 
 		// The email says where and what: the space, the author and a short excerpt.
 		// Without them the template's {{notification_message}} rendered empty.
@@ -1742,14 +1840,10 @@ class NotificationListener implements ListenerInterface {
 			'space_name'  => $names['space'],
 		);
 
-		foreach ( $chunk as $member_id ) {
+		foreach ( $member_ids as $member_id ) {
 			// $defer = false: already an async AS worker, so immediate emails send
 			// inline here rather than spawning one sub-action per recipient.
-			$sender->send( $member_id, $type, $data, false );
-		}
-
-		if ( ! empty( $remaining ) ) {
-			$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, $remaining, $type );
+			$sender->send( (int) $member_id, $type, $data, false );
 		}
 	}
 
