@@ -1012,6 +1012,8 @@ class PageRouter {
 				wp_safe_redirect( self::activity_url() );
 				exit;
 			}
+			// The member is starting the wizard: make sure their reminder nudges exist (once).
+			( new \BuddyNext\Onboarding\OnboardingListener() )->ensure_nudges( get_current_user_id() );
 		}
 
 		// ── No-cache: token-bearing pages ─────────────────────────────────

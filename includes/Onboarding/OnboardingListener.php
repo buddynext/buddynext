@@ -133,6 +133,76 @@ class OnboardingListener implements ListenerInterface {
 	}
 
 	/**
+	 * Put back the nudges a deactivation cancelled, for members still inside the window.
+	 *
+	 * Deactivating cancels every pending nudge. Runs once on the first admin page after
+	 * activation (Plugin's activation-redirect step), never on a front-end request, for
+	 * members who registered in the last 72 hours and still owe the wizard.
+	 *
+	 * @return void
+	 */
+	public function restore_nudges(): void {
+		// ponytail: newest 500 sign-ups of the last 72h; a community with more sign-ups than that
+		// in three days gets the rest from ensure_nudges() when each member reaches the wizard.
+		$user_ids = get_users(
+			array(
+				'fields'     => 'ID',
+				'number'     => 500,
+				'orderby'    => 'registered',
+				'order'      => 'DESC',
+				'date_query' => array(
+					array(
+						'after'  => gmdate( 'Y-m-d H:i:s', time() - 3 * DAY_IN_SECONDS ),
+						'column' => 'user_registered',
+					),
+				),
+			)
+		);
+		foreach ( $user_ids as $user_id ) {
+			$this->ensure_nudges( (int) $user_id );
+		}
+	}
+
+	/**
+	 * Schedule a member's nudges once, if they still owe the wizard and never had them.
+	 *
+	 * "Once" is read from Action Scheduler itself: a nudge that is pending, running, sent
+	 * or failed is never scheduled again; only a cancelled one (deactivation) is replaced.
+	 * A data wipe removes BuddyNext's Action Scheduler rows, so after a reinstall a member
+	 * reaching the wizard gets their nudges one time. Each nudge keeps its original moment
+	 * (registration + 24h / 72h); one whose moment has passed counts from now.
+	 *
+	 * @param int $user_id Member ID.
+	 * @return void
+	 */
+	public function ensure_nudges( int $user_id ): void {
+		if ( $user_id <= 0 || ! function_exists( 'as_get_scheduled_actions' ) || ! did_action( 'action_scheduler_init' )
+			|| ! buddynext_service( 'onboarding' )->is_required_for( $user_id ) ) {
+			return;
+		}
+		$user       = get_userdata( $user_id );
+		$registered = $user ? (int) strtotime( (string) $user->user_registered . ' UTC' ) : 0;
+		$args       = array( $user_id );
+		foreach ( $this->nudge_hooks() as $hook => $offset ) {
+			$had = as_get_scheduled_actions(
+				array(
+					'hook'     => $hook,
+					'args'     => $args,
+					'group'    => self::NUDGE_GROUP,
+					'status'   => array( 'pending', 'in-progress', 'complete', 'failed' ),
+					'per_page' => 1,
+				),
+				'ids'
+			);
+			if ( array() !== $had ) {
+				continue;
+			}
+			$due = $registered + $offset;
+			as_schedule_single_action( $due > time() ? $due : time() + $offset, $hook, $args, self::NUDGE_GROUP );
+		}
+	}
+
+	/**
 	 * Action Scheduler callback: send a deferred invite email.
 	 *
 	 * InviteService::create() enqueues this (one per invite) so a bulk/CSV import
