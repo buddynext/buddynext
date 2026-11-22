@@ -75,7 +75,7 @@ class CronService {
 				continue;
 			}
 
-			$sent = $this->send_digest_email( $user_id, $template, $notifications );
+			$sent = $this->send_digest_email( $user_id, 'bn.daily_digest', $template, $notifications );
 			if ( $sent ) {
 				$this->log_digest( $user_id, 'bn.daily_digest' );
 			} else {
@@ -125,7 +125,7 @@ class CronService {
 				continue;
 			}
 
-			$sent = $this->send_digest_email( $user_id, $template, $notifications );
+			$sent = $this->send_digest_email( $user_id, 'bn.weekly_digest', $template, $notifications );
 			if ( $sent ) {
 				$this->log_digest( $user_id, 'bn.weekly_digest' );
 			} else {
@@ -726,11 +726,32 @@ class CronService {
 	 * template subject and body_html before dispatching via wp_mail().
 	 *
 	 * @param int                                               $user_id       Recipient user ID.
+	 * @param string                                            $type          Template type (bn.daily_digest / bn.weekly_digest).
 	 * @param object                                            $template      Template row with subject, body_html.
 	 * @param array<int, array{type: string, group_count: int}> $notifications Notification rows for list.
 	 * @return bool True when wp_mail() reports success.
 	 */
-	private function send_digest_email( int $user_id, object $template, array $notifications ): bool {
+	private function send_digest_email( int $user_id, string $type, object $template, array $notifications ): bool {
+		// The recipient's language: their profile locale when set, else the site's.
+		$switched = switch_to_user_locale( $user_id );
+		try {
+			return $this->send_digest_in_locale( $user_id, \BuddyNext\Notifications\EmailDefaults::localise( $type, $template ), $notifications );
+		} finally {
+			if ( $switched ) {
+				restore_previous_locale();
+			}
+		}
+	}
+
+	/**
+	 * Body of send_digest_email(), run inside the recipient's locale.
+	 *
+	 * @param int                              $user_id       Recipient user ID.
+	 * @param object                           $template      Localised template row.
+	 * @param array<int, array<string, mixed>> $notifications Notification rows.
+	 * @return bool
+	 */
+	private function send_digest_in_locale( int $user_id, object $template, array $notifications ): bool {
 		$user = get_userdata( $user_id );
 		if ( false === $user || '' === $user->user_email ) {
 			return false;

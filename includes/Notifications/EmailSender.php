@@ -235,6 +235,29 @@ class EmailSender {
 	 * @return bool True when the email was handed off to wp_mail(), false otherwise.
 	 */
 	public function send_now( int $user_id, string $notification_type, array $data, bool $is_retry = false ): bool {
+		// Render in the recipient's language: their own profile locale when set, else the
+		// site's. Every __() below (the unsubscribe line, the brand wrapper) and every
+		// unedited template field (EmailDefaults::localise) then reads in that language.
+		$switched = $user_id > 0 && switch_to_user_locale( $user_id );
+		try {
+			return $this->send_in_locale( $user_id, $notification_type, $data, $is_retry );
+		} finally {
+			if ( $switched ) {
+				restore_previous_locale();
+			}
+		}
+	}
+
+	/**
+	 * Body of send_now(), run inside the recipient's locale.
+	 *
+	 * @param int                  $user_id           Recipient user ID.
+	 * @param string               $notification_type Notification type slug.
+	 * @param array<string, mixed> $data              Notification data.
+	 * @param bool                 $is_retry          Whether this is the single retry.
+	 * @return bool
+	 */
+	private function send_in_locale( int $user_id, string $notification_type, array $data, bool $is_retry ): bool {
 		// The email was queued while its actor existed. If that member has since
 		// been deleted (account erased, demo cleanup) the subject would render
 		// with no name, so there is nothing left to tell the recipient about.
@@ -275,6 +298,9 @@ class EmailSender {
 		}
 
 		$template = $this->get_template( $notification_type );
+		if ( null !== $template && ! $has_inline ) {
+			$template = EmailDefaults::localise( $notification_type, $template );
+		}
 
 		if ( null === $template && ! $has_inline ) {
 			return false;
