@@ -1628,6 +1628,11 @@ class NotificationListener implements ListenerInterface {
 	 * @return void
 	 */
 	private function enqueue_space_post_emails( int $post_id, int $space_id, int $author_id, array $recipients, string $type = 'bn.space_new_post' ): void {
+		// Queue email work only for members who can get this email. space_new_post
+		// emails are off by default, so without this a 5,000-member space queued
+		// about 100 email actions that each sent nothing. The worker still checks
+		// each member again at send time (EmailSender::send).
+		$recipients = buddynext_service( 'notification_prefs' )->email_wanted_ids( $recipients, $type );
 		if ( empty( $recipients ) ) {
 			return;
 		}

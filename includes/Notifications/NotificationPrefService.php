@@ -138,6 +138,70 @@ class NotificationPrefService {
 	}
 
 	/**
+	 * Batch variant of email_wanted(): the members of $user_ids this type can email.
+	 *
+	 * Same rules as email_wanted() (catalogue can_email, master email channel,
+	 * per-type email_freq not 'off', absent row = catalogue default), in two
+	 * queries for any number of members instead of two per member. Built so the
+	 * space-post fan-out queues email work only for members who want the email.
+	 *
+	 * @param int[]  $user_ids User IDs.
+	 * @param string $type     Notification type key.
+	 * @return int[] The subset, in input order.
+	 */
+	public function email_wanted_ids( array $user_ids, string $type ): array {
+		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( empty( $user_ids ) ) {
+			return array();
+		}
+		if ( null === $this->catalogue ) {
+			$this->catalogue = new NotificationPrefCatalogue();
+		}
+		if ( ! $this->catalogue->can_email( $type ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$type         = sanitize_text_field( $type );
+		$placeholders = implode( ', ', array_fill( 0, count( $user_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_id, email_freq FROM {$wpdb->prefix}bn_notification_prefs
+				 WHERE type = %s AND user_id IN ( {$placeholders} )",
+				array_merge( array( $type ), $user_ids )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$freq = array();
+		foreach ( (array) $rows as $row ) {
+			$freq[ (int) $row['user_id'] ] = (string) $row['email_freq'];
+		}
+		$default = (string) $this->default_pref( $type )['email_freq'];
+
+		// One query primes the bn_channel_prefs reads below.
+		update_meta_cache( 'user', $user_ids );
+
+		$wanted = array();
+		foreach ( $user_ids as $uid ) {
+			if ( 'off' === ( $freq[ $uid ] ?? $default ) ) {
+				continue;
+			}
+			$channels = $this->get_channel_prefs( $uid );
+			if ( array_key_exists( 'email', $channels ) && empty( $channels['email'] ) ) {
+				continue;
+			}
+			$wanted[] = $uid;
+		}
+
+		return $wanted;
+	}
+
+	/**
 	 * Batch variant of get_pref()'s on_site decision for many users at once.
 	 *
 	 * Returns a map of user_id => bool (whether the in-app/on_site channel is
