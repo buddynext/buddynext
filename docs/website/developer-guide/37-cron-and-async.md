@@ -196,12 +196,15 @@ add_action( 'wp_loaded', static function () {
 
 ### Deactivation: what an add-on cancels and what it keeps
 
-`CronScheduler::cancel_pending( array $groups, array $hooks = array(), array $keep_prefixes = array(), array $keep_hooks = array() ): int` marks your pending jobs canceled in a few queries, whatever the queue size, and never touches another plugin's jobs. Cancel only jobs that can be recomputed or are lost by nature (digests, sends, reindexes, recounts, prunes). Leave pending, by listing them in `$keep_hooks`, the jobs that finish something a member or the site owner already did: a deletion under way, a privacy change still cascading, a promised delivery. The routine update (deactivate, replace files, activate) runs nothing in between, so kept jobs pick up where they stopped. While a plugin stays deactivated, another plugin's Action Scheduler may still run due rows that have no listener and mark them complete, so a long deactivation can lose them.
+`CronScheduler::cancel_pending( array $groups, array $hooks = array(), array $keep_prefixes = array(), array $keep_hooks = array() ): int` marks your pending jobs canceled in a few queries, whatever the queue size, and never touches another plugin's jobs. Cancel only jobs that can be recomputed or are lost by nature (digests, sends, reindexes, recounts, prunes). Leave pending, by listing them in `$keep_hooks`, the jobs that finish something a member or the site owner already did: a deletion under way, a privacy change still cascading, a promised delivery. The routine update (deactivate, replace files, activate) runs nothing in between, so kept jobs pick up where they stopped. While a plugin stays deactivated, another plugin's Action Scheduler may still run due rows that have no listener; Action Scheduler marks each one failed with "no callbacks are registered". `CronScheduler::requeue_orphaned( array $hooks ): int` puts those back: call it on `wp_loaded` with your keep list. On the cron runner, wp-admin page loads and WP-CLI, it re-queues up to 200 such rows a request with the same args and group (one pending copy each), deletes the failed row and its logs, and leaves alone a row that really ran and errored, or whose listener is not registered yet. BuddyNext and Pro do this for their own lists. Rows older than Action Scheduler's failed retention (90 days for BuddyNext's own) are gone.
 
 ```php
 register_deactivation_hook( __FILE__, static function () {
     wp_clear_scheduled_hook( 'my_addon_daily' );
     \BuddyNext\Core\CronScheduler::cancel_pending( array( 'my_addon' ), array(), array(), array( 'my_addon_delete_continue' ) );
+} );
+add_action( 'wp_loaded', static function () {
+    \BuddyNext\Core\CronScheduler::requeue_orphaned( array( 'my_addon_delete_continue' ) );
 } );
 ```
 
@@ -229,7 +232,7 @@ Background-job hooks that changed in 1.3.0. Nothing changes for members or site 
 | `buddynext_finished_action_retention_days` | New filter. | Optional. |
 | `buddynext_finished_action_groups` | New filter. | Add your own group if your add-on runs its jobs in one. |
 | `buddynextpro_membership_daily` (Pro) | New action. | Optional. |
-| `CronScheduler::enqueue_once()`, `has_pending()`, `cancel_pending()`, `when_ready()`, `ensure_recurring()` | New public methods. | Optional; see above. |
+| `CronScheduler::enqueue_once()`, `has_pending()`, `cancel_pending()`, `when_ready()`, `ensure_recurring()`, `requeue_orphaned()` | New public methods. | Optional; see above. |
 | `IntegrationActivity::run_in_chunks()` | New trailing `$group` parameter (default `'buddynext'`). | An add-on passes its own group. |
 | `buddynext_space_drive_media_trash` | New in 1.3.0. Args are `$space_id, $after_id, $blocked`; each run continues after the last media id it saw. | Nothing. |
 

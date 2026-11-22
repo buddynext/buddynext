@@ -341,7 +341,10 @@ public reference: `docs/website/developer-guide/37-cron-and-async.md`.
   (completed and canceled after 7 days, failed after 90).
 - Deactivation cancels with `CronScheduler::cancel_pending()` (set-based) everything that can be
   recomputed; jobs that finish a committed action stay pending (`CronScheduler::DEACTIVATION_KEEP`,
-  Pro: `BUDDYNEXTPRO_DEACTIVATION_KEEP`). Uninstall deletes every row of ours.
+  Pro: `BUDDYNEXTPRO_DEACTIVATION_KEEP`). A kept row another plugin's runner consumed while we
+  were off is marked FAILED ("no callbacks are registered"), not complete;
+  `CronScheduler::requeue_orphaned()` puts it back on the next scheduling request. Uninstall
+  deletes every row of ours.
 - Code that may run before Action Scheduler is ready wraps its call in `CronScheduler::when_ready()`.
 - Recurring jobs arm through `CronScheduler::ensure_recurring()` (unique, no args, gated to
   scheduling requests).

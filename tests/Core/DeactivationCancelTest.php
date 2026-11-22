@@ -88,6 +88,44 @@ class DeactivationCancelTest extends WP_UnitTestCase {
 		as_unschedule_all_actions( 'buddynext_space_drive_media_trash' );
 	}
 
+	public function test_a_kept_job_that_failed_while_the_plugin_was_off_is_requeued_once(): void {
+		global $wp_filter;
+		$hook  = 'buddynext_purge_member_continue';
+		$saved = $wp_filter[ $hook ] ?? null;
+		$args  = array( 42, 'cursor' );
+		$lost  = (int) as_schedule_single_action( time() - 1, $hook, $args, CronScheduler::GROUP );
+		$real  = (int) as_schedule_single_action( time() - 1, $hook, array( 43, 'cursor' ), CronScheduler::GROUP );
+		( new CronScheduler() )->clear_events();
+
+		// Plugin off: another plugin's runner finds no listener.
+		remove_all_actions( $hook );
+		\ActionScheduler::runner()->process_action( $lost, 'test' );
+		// Plugin on, and this job really errors.
+		add_action(
+			$hook,
+			static function () {
+				throw new \RuntimeException( 'database gone away' );
+			}
+		);
+		\ActionScheduler::runner()->process_action( $real, 'test' );
+		$this->assertSame( 'failed', $this->status( $lost ) );
+		$this->assertSame( 'failed', $this->status( $real ) );
+
+		add_filter( 'wp_doing_cron', '__return_true' );
+		$this->assertSame( 1, CronScheduler::requeue_orphaned( CronScheduler::DEACTIVATION_KEEP ) );
+		$this->assertSame( 0, CronScheduler::requeue_orphaned( CronScheduler::DEACTIVATION_KEEP ), 'Once.' );
+		remove_filter( 'wp_doing_cron', '__return_true' );
+
+		$this->assertSame( '', $this->status( $lost ), 'The failed row is gone.' );
+		$this->assertSame( 'failed', $this->status( $real ), 'A job that really ran and errored stays failed.' );
+		$pending = as_get_scheduled_actions( array( 'hook' => $hook, 'status' => 'pending', 'group' => CronScheduler::GROUP ) );
+		$this->assertCount( 1, $pending );
+		$this->assertSame( $args, array_values( reset( $pending )->get_args() ) );
+
+		$wp_filter[ $hook ] = $saved; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+		as_unschedule_all_actions( $hook );
+	}
+
 	public function test_every_kept_hook_is_one_this_plugin_schedules(): void {
 		$src = '';
 		foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( dirname( __DIR__, 2 ) . '/includes' ) ) as $file ) {

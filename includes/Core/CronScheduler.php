@@ -124,10 +124,11 @@ class CronScheduler {
 	 *   buddynext_webhook_deliver / _deliver_one / _retry_single  Event payloads promised to a receiver.
 	 *   buddynext_prune_replaced_image     Old file of an image a member replaced.
 	 *
-	 * Limit: while BuddyNext is off, another plugin's Action Scheduler still runs
-	 * due rows with no listener and marks them complete, so a deactivation longer
-	 * than about a minute loses them. The supported update flow (deactivate,
-	 * replace files, activate) runs nothing in between and keeps them.
+	 * While BuddyNext is off, another plugin's Action Scheduler still runs due rows
+	 * with no listener and marks them failed ("no callbacks are registered"). The
+	 * first scheduling request after activation puts them back (requeue_orphaned()).
+	 * The supported update flow (deactivate, replace files, activate) runs nothing in
+	 * between. Lost for good: rows already deleted by the 90-day failed retention.
 	 *
 	 * @since 1.3.0
 	 */
@@ -153,6 +154,11 @@ class CronScheduler {
 	 * Rows one cancel statement marks; keeps each UPDATE's lock short.
 	 */
 	private const CANCEL_BATCH = 10000;
+
+	/**
+	 * Orphaned rows one scheduling request re-queues; the rest wait for the next one.
+	 */
+	public const REQUEUE_BATCH = 200;
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -483,6 +489,67 @@ class CronScheduler {
 		self::ensure_recurring( self::JOB_DAILY_DIGEST, DAY_IN_SECONDS );
 		self::ensure_recurring( self::JOB_WEEKLY_DIGEST, WEEK_IN_SECONDS );
 		self::ensure_recurring( self::JOB_RECOUNT_STATS, DAY_IN_SECONDS );
+		self::requeue_orphaned( self::DEACTIVATION_KEEP );
+	}
+
+	/**
+	 * Re-queue kept jobs that ran while their plugin was off and failed for want of a listener.
+	 *
+	 * Deactivation leaves DEACTIVATION_KEEP rows pending. If another plugin's Action
+	 * Scheduler runs them while this plugin is off, each fails with "no callbacks are
+	 * registered" and the committed work stops. This puts each one back once its
+	 * listener exists again: same hook, args and group, one pending copy (enqueue_once),
+	 * and deletes the failed row with its logs. A row whose log does not carry that
+	 * message really ran and errored, so it stays failed. Runs on scheduling requests
+	 * (like ensure_recurring), at most REQUEUE_BATCH rows each; rows older than the
+	 * 90-day failed retention are already gone.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string[] $hooks Our kept hooks.
+	 * @return int Rows re-queued.
+	 */
+	public static function requeue_orphaned( array $hooks ): int {
+		global $wpdb;
+		// A hook with no listener now would fail again: leave it until its listener is back.
+		$hooks = array_values( array_filter( array_map( 'strval', $hooks ), 'has_action' ) );
+		if ( array() === $hooks || ! self::is_scheduling_request() || ! did_action( 'action_scheduler_init' ) || ! function_exists( 'as_enqueue_async_action' ) ) {
+			return 0;
+		}
+		$actions = $wpdb->prefix . 'actionscheduler_actions';
+		$logs    = $wpdb->prefix . 'actionscheduler_logs';
+		$groups  = $wpdb->prefix . 'actionscheduler_groups';
+		// The message is translated; match the English text and this site's translation.
+		$english = 'will not be executed as no callbacks are registered';
+		/* translators: 1: action hook. Action Scheduler's own string, read to match its log. */
+		$parts = explode( '%1$s', __( 'Scheduled action for %1$s will not be executed as no callbacks are registered.', 'action-scheduler' ) );
+		usort( $parts, static fn( $x, $y ) => strlen( $y ) <=> strlen( $x ) );
+		$translated = trim( (string) $parts[0], ' .' ); // The longest piece around the hook name.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT a.action_id, a.hook, a.args, a.extended_args, g.slug FROM {$actions} a
+				LEFT JOIN {$groups} g ON g.group_id = a.group_id
+				WHERE a.status = 'failed' AND a.hook IN (" . implode( ',', array_fill( 0, count( $hooks ), '%s' ) ) . ")
+				AND EXISTS ( SELECT 1 FROM {$logs} l WHERE l.action_id = a.action_id AND ( l.message LIKE %s OR l.message LIKE %s ) )
+				ORDER BY a.action_id LIMIT %d",
+				array_merge( $hooks, array( '%' . $wpdb->esc_like( $english ) . '%', '%' . $wpdb->esc_like( '' !== $translated ? $translated : $english ) . '%', self::REQUEUE_BATCH ) )
+			)
+		);
+		$done = array();
+		foreach ( (array) $rows as $row ) {
+			$args = json_decode( (string) ( $row->extended_args ?? $row->args ), true );
+			self::enqueue_once( (string) $row->hook, is_array( $args ) ? $args : array(), (string) ( $row->slug ?? '' ) );
+			$done[] = (int) $row->action_id;
+		}
+		if ( array() !== $done ) {
+			$in = implode( ',', $done );
+			$wpdb->query( "DELETE FROM {$logs} WHERE action_id IN ({$in})" );
+			$wpdb->query( "DELETE FROM {$actions} WHERE action_id IN ({$in})" );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return count( $done );
 	}
 
 	/**
