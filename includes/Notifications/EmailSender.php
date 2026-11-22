@@ -206,15 +206,7 @@ class EmailSender {
 		// caller is already an AS worker ($defer = false): it sends inline below
 		// rather than spawning one sub-action per recipient.
 		if ( $defer && function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action(
-				'buddynext_send_notification_email',
-				array(
-					'user_id'           => $user_id,
-					'notification_type' => $notification_type,
-					'data'              => $data,
-				),
-				'buddynext'
-			);
+			self::defer( $user_id, $notification_type, $data );
 			return;
 		}
 
@@ -532,6 +524,79 @@ class EmailSender {
 	 * @var string|null
 	 */
 	private static ?string $last_error = null;
+
+	/**
+	 * Immediate emails asked for during this request, sent as one background job
+	 * per batch at the end of it rather than one job per recipient.
+	 *
+	 * @var array<int, array{0:int,1:string,2:array<string,mixed>}>
+	 */
+	private static array $deferred = array();
+
+	/**
+	 * Most emails one batched job carries.
+	 */
+	private const DEFER_BATCH = 25;
+
+	/**
+	 * Hold an immediate email for this request's batched send.
+	 *
+	 * An event that emails 500 members (a tier expiring, an announcement) used to
+	 * add 500 background jobs, each with its own log rows. They now go out as one
+	 * job per 25. A request that emails one member queues the same single job as
+	 * before.
+	 *
+	 * @param int                  $user_id           Recipient.
+	 * @param string               $notification_type Notification type.
+	 * @param array<string, mixed> $data              Notification data.
+	 * @return void
+	 */
+	private static function defer( int $user_id, string $notification_type, array $data ): void {
+		if ( array() === self::$deferred ) {
+			add_action( 'shutdown', array( self::class, 'flush_deferred' ), 0 );
+		}
+		self::$deferred[] = array( $user_id, $notification_type, $data );
+		if ( count( self::$deferred ) >= self::DEFER_BATCH ) {
+			self::flush_deferred();
+		}
+	}
+
+	/**
+	 * Queue the held emails: the single-email job for one, batched jobs for more.
+	 *
+	 * Public for the shutdown hook; also safe to call any time (it empties the hold).
+	 *
+	 * @return void
+	 */
+	public static function flush_deferred(): void {
+		$held           = self::$deferred;
+		self::$deferred = array();
+		if ( array() === $held || ! function_exists( 'as_enqueue_async_action' ) ) {
+			return;
+		}
+		if ( 1 === count( $held ) ) {
+			as_enqueue_async_action(
+				'buddynext_send_notification_email',
+				array(
+					'user_id'           => $held[0][0],
+					'notification_type' => $held[0][1],
+					'data'              => $held[0][2],
+				),
+				'buddynext'
+			);
+			return;
+		}
+		// Each batch stays well under Action Scheduler's 8,000-character args limit.
+		$batch = array();
+		foreach ( $held as $email ) {
+			if ( array() !== $batch && strlen( (string) wp_json_encode( array( array_merge( $batch, array( $email ) ) ) ) ) > 7000 ) {
+				as_enqueue_async_action( 'buddynext_send_notification_emails', array( $batch ), 'buddynext' );
+				$batch = array();
+			}
+			$batch[] = $email;
+		}
+		as_enqueue_async_action( 'buddynext_send_notification_emails', array( $batch ), 'buddynext' );
+	}
 
 	/**
 	 * The reason the most recent send failed, or null when it succeeded.
