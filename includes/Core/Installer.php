@@ -2653,6 +2653,12 @@ class Installer {
 		// Create/upgrade every bn_* table. Split out so the PHPUnit bootstrap can
 		// create the schema without the first-run seeds / hub pages / mu-plugin
 		// that follow (which would otherwise collide with test fixtures).
+		// Tables absent before this run start empty, so their one-time starter seeds are owed again: with the tables
+		// dropped and the options kept, the fresh-install guard below left profile fields, member types and space
+		// categories at zero for good. A table that did not exist holds no owner edits to protect.
+		$bn_missing_before = $is_fresh_install ? array() : self::missing_tables();
+		$bn_seed_owed      = static fn( string $table ): bool => $is_fresh_install || in_array( $table, $bn_missing_before, true );
+
 		self::install_schema();
 
 		self::seed_email_templates( $wpdb->prefix );
@@ -2669,7 +2675,7 @@ class Installer {
 		// skips rows that exist, and a deleted row conflicts with nothing, so it
 		// came back as if new. Same fresh-install rule as the starter space
 		// categories and member types below, for the same reason.
-		if ( $is_fresh_install ) {
+		if ( $bn_seed_owed( 'bn_profile_groups' ) ) {
 			self::seed_default_profile_groups_and_fields( $wpdb->prefix );
 		}
 
@@ -2733,8 +2739,6 @@ class Installer {
 		// the fresh-install guard means deleted ones never come back.
 		if ( $is_fresh_install ) {
 			RecommendedDefaults::seed();
-			self::seed_starter_space_categories( $wpdb->prefix );
-			self::seed_starter_member_types( $wpdb->prefix );
 
 			// Mirror BuddyNext's default OPEN registration mode onto WP core's
 			// users_can_register - the same sync Settings performs on save. WP
@@ -2763,6 +2767,13 @@ class Installer {
 			// deprecation warning already written to the webhook log on every legacy
 			// request, until the default flips for everyone in a later release.
 			add_option( 'buddynext_webhook_strict_signatures', true );
+		}
+
+		if ( $bn_seed_owed( 'bn_space_categories' ) ) {
+			self::seed_starter_space_categories( $wpdb->prefix );
+		}
+		if ( $bn_seed_owed( 'bn_member_types' ) ) {
+			self::seed_starter_member_types( $wpdb->prefix );
 		}
 
 		self::create_hub_pages();

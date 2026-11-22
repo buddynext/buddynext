@@ -556,8 +556,18 @@ class ToolsTab {
 						<span><?php esc_html_e( 'Delete all BuddyNext data when the plugin is uninstalled', 'buddynext' ); ?></span>
 					</label>
 					<p class="description">
-						<?php esc_html_e( 'Default is off: a delete keeps your spaces, posts, members and settings so a reinstall restores everything. Turn this on only if you want deleting the plugin to permanently erase all community content. Financial records (invoices and subscriptions) are always kept.', 'buddynext' ); ?>
+						<?php esc_html_e( 'Default is off: a delete keeps your spaces, posts, members and settings so a reinstall restores everything. When on, deleting BuddyNext removes every community table, setting and member preference, and the pages BuddyNext created (Activity, Members, Spaces and the other community pages). BuddyNext Pro follows the same choice when you delete it. Financial records (invoices and subscriptions) are always kept.', 'buddynext' ); ?>
 					</p>
+					<p class="description">
+						<?php
+						printf(
+							/* translators: %s: the site's uploads folder path, e.g. wp-content/uploads */
+							esc_html__( 'Uploaded files are never deleted: avatars and covers stay in %s (the bn-avatars, bn-covers, bn-space-avatars and bn-space-covers folders) and photos shared in posts stay where they were uploaded (the Media Library, or MediaVerse when it handles your media), so you can remove them yourself.', 'buddynext' ),
+							'<code>' . esc_html( str_replace( ABSPATH, '', (string) wp_upload_dir( null, false )['basedir'] ) ) . '</code>'
+						);
+						?>
+					</p>
+					<p class="description"><strong><?php esc_html_e( 'This cannot be undone. Take a database backup before you delete the plugin with this on.', 'buddynext' ); ?></strong></p>
 					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 				</form>
 			</div>
