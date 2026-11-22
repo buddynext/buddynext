@@ -69,11 +69,18 @@ $bn_purge_meta = static function ( $options_only = false ) use ( $wpdb ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$wpdb->query(
 		$wpdb->prepare(
-			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s",
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s AND option_name <> %s",
 			$wpdb->esc_like( 'buddynext_' ) . '%',
-			$wpdb->esc_like( 'buddynext_pro_' ) . '%'
+			$wpdb->esc_like( 'buddynext_pro_' ) . '%',
+			// The wipe choice is SHARED with Pro, which reads it when it is deleted: it is removed last, only when Pro is
+			// gone (see the end of this file). Deleting it here made a Free-first uninstall turn Pro's delete into a keep.
+			'buddynext_delete_data_on_uninstall'
 		)
 	);
+
+	// Widget instances (widget_buddynext_*), part of the same settings the wipe removes.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'widget_buddynext_' ) . '%' ) );
 
 	// Default-delete keeps member content: the user meta below is member-owned
 	// (onboarding, privacy, follows), so it is purged only on the opt-in wipe.
@@ -152,13 +159,20 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 		// and stay for Pro to manage (DATA-LIFECYCLE: delete only what you own).
 		$wpdb->query(
 			$wpdb->prepare(
-				"DELETE FROM `{$bn_as_actions}` WHERE hook LIKE %s AND hook NOT LIKE %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"DELETE FROM `{$bn_as_actions}` WHERE ( hook LIKE %s OR hook LIKE %s ) AND hook NOT LIKE %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$wpdb->esc_like( 'buddynext_' ) . '%',
+				// Free's onboarding nudges are bn_onboarding_nudge_24h / _72h.
+				$wpdb->esc_like( 'bn_' ) . '%',
 				$wpdb->esc_like( 'buddynext_pro_' ) . '%'
 			)
 		);
 	}
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	// Cron events that fire into code that is gone: the licence SDK's weekly check (named after the plugin slug) and the
+	// preset-key activation retry. Pro's own events are left for Pro.
+	wp_clear_scheduled_hook( 'edd_sl_sdk_weekly_license_check_buddynext' );
+	wp_clear_scheduled_hook( 'buddynext_activate_preset_key' );
 
 	// The isolation mu-plugin (buddynext-isolation.php) filters option_active_plugins
 	// on front-end routes. Left behind, it keeps stripping plugins with BuddyNext
@@ -214,7 +228,16 @@ $bn_clean_site( $wpdb->prefix );
 
 if ( $bn_wipe_members ) {
 	$bn_purge_meta();
+	// Last of all: the shared wipe choice. Pro reads it when it is deleted, so it stays while Pro is installed.
+	if ( ! file_exists( WP_PLUGIN_DIR . '/buddynext-pro/buddynext-pro.php' ) ) {
+		delete_option( 'buddynext_delete_data_on_uninstall' );
+	}
 }
+
+// The deletes above went straight to SQL, so a persistent object cache (Redis, Memcached) still holds the old options,
+// pages and db version: a reinstall would read them back, point at pages that no longer exist and show the setup wizard
+// as complete on a wiped site. Flush it, data kept or removed (transients and Action Scheduler rows were deleted either way).
+wp_cache_flush();
 
 if ( is_multisite() ) {
 	restore_current_blog();
