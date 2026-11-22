@@ -296,7 +296,9 @@ class CronScheduler {
 	 * identical job before the first has started would only repeat the same work.
 	 * A job already running does not count, so an edit made while it runs is
 	 * still picked up by a fresh pass. Never pass 'unique' to Action Scheduler with
-	 * args (3.9 ignores args for uniqueness); use this instead.
+	 * args (3.9 ignores args for uniqueness); use this instead. The one exception is
+	 * OutboundWebhookService::dispatch(), which relies on the bundled AS 4.0.0
+	 * matching hook, group and args.
 	 *
 	 * @since 1.3.0
 	 *
