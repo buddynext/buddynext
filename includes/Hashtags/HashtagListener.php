@@ -349,7 +349,8 @@ class HashtagListener implements ListenerInterface {
 	 */
 	private function dispatch( string $hook, array $args ): void {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( $hook, $args, 'buddynext' );
+			// Same object, same content, not started yet: the pending job does it.
+			\BuddyNext\Core\CronScheduler::enqueue_once( $hook, $args );
 		} else {
 			do_action_ref_array( $hook, $args );
 		}

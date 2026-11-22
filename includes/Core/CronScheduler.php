@@ -255,7 +255,7 @@ class CronScheduler {
 		$query = array(
 			'hook'     => $hook,
 			'group'    => $group,
-			'status'   => \ActionScheduler_Store::STATUS_PENDING,
+			'status'   => 'pending', // ActionScheduler_Store::STATUS_PENDING.
 			'per_page' => 1,
 		);
 		if ( null !== $args ) {
@@ -263,6 +263,31 @@ class CronScheduler {
 		}
 
 		return array() !== as_get_scheduled_actions( $query, 'ids' );
+	}
+
+	/**
+	 * Queue an async job unless an identical one (same hook, args and group) is already pending.
+	 *
+	 * For per-event jobs whose worker reads current state when it runs: a second
+	 * identical job before the first has started would only repeat the same work.
+	 * A job already running does not count, so an edit made while it runs is
+	 * still picked up by a fresh pass. Never pass 'unique' to Action Scheduler with
+	 * args (3.9 ignores args for uniqueness); use this instead.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $hook  Action hook.
+	 * @param array  $args  Job args (ids, kept under 191 characters).
+	 * @param string $group Action group.
+	 * @return bool True when a job was queued, false when an identical one was already pending.
+	 */
+	public static function enqueue_once( string $hook, array $args, string $group = self::GROUP ): bool {
+		if ( ! function_exists( 'as_enqueue_async_action' ) || self::has_pending( $hook, $args, $group ) ) {
+			return false;
+		}
+		as_enqueue_async_action( $hook, $args, $group );
+
+		return true;
 	}
 
 	/**

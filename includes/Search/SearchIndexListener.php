@@ -406,6 +406,12 @@ class SearchIndexListener implements ListenerInterface {
 		// author account. Those posts are re-indexed so each is decided by the
 		// same rule that wrote it in the first place. Async and batched: this one
 		// is not a leak, and a large space should not block the request.
+		// One pending pass per space: saving the space settings again before it
+		// starts would only queue the same re-read.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_reindex_space_posts', array( $space_id, 0 ) );
+			return;
+		}
 		$this->dispatch( 'buddynext_async_reindex_space_posts', array( $space_id, 0 ) );
 	}
 

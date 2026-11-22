@@ -1,0 +1,49 @@
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing -- concise, self-describing test methods.
+/**
+ * Per-event jobs are not queued twice while an identical one is still pending.
+ *
+ * @package BuddyNext\Tests\Core
+ */
+
+declare( strict_types=1 );
+
+namespace BuddyNext\Tests\Core;
+
+use WP_UnitTestCase;
+
+class EnqueueOnceTest extends WP_UnitTestCase {
+
+	private function pending( string $hook ): int {
+		return count( as_get_scheduled_actions( array( 'hook' => $hook, 'status' => 'pending', 'per_page' => 20 ), 'ids' ) );
+	}
+
+	public function test_saving_a_space_twice_queues_one_reindex_pass(): void {
+		as_unschedule_all_actions( 'buddynext_async_reindex_space_posts' );
+		$space = (int) buddynext_service( 'spaces' )->create( self::factory()->user->create(), array( 'name' => 'Once ' . wp_rand(), 'slug' => 'once-' . wp_rand( 10000, 99999 ), 'type' => 'open' ) );
+		as_unschedule_all_actions( 'buddynext_async_reindex_space_posts' );
+
+		do_action( 'buddynext_space_updated', $space, array(), array() );
+		do_action( 'buddynext_space_updated', $space, array(), array() );
+
+		$this->assertSame( 1, $this->pending( 'buddynext_async_reindex_space_posts' ) );
+	}
+
+	public function test_indexing_the_same_content_twice_queues_one_job(): void {
+		as_unschedule_all_actions( 'buddynext_async_index_hashtags' );
+		do_action( 'buddynext_index_hashtags', 'media', 77, 'hello #once' );
+		do_action( 'buddynext_index_hashtags', 'media', 77, 'hello #once' );
+		do_action( 'buddynext_index_hashtags', 'media', 77, 'changed #twice' );
+
+		$this->assertSame( 2, $this->pending( 'buddynext_async_index_hashtags' ), 'Identical pending job skipped; changed content still queued.' );
+	}
+
+	public function test_a_running_job_does_not_block_a_fresh_one(): void {
+		as_unschedule_all_actions( 'buddynext_async_index_hashtags' );
+		$running = as_enqueue_async_action( 'buddynext_async_index_hashtags', array( 'media', 78, 'x #y' ), 'buddynext' );
+		\ActionScheduler::store()->log_execution( $running );
+
+		do_action( 'buddynext_index_hashtags', 'media', 78, 'x #y' );
+
+		$this->assertSame( 1, $this->pending( 'buddynext_async_index_hashtags' ), 'An edit made while the job runs is still picked up.' );
+	}
+}
