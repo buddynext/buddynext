@@ -325,7 +325,7 @@ class WPMediaVerseBridge {
 		// Photos, videos and audio on a deleted space's drive go with it. The
 		// document half of the drive is MediaVerse Pro's own cleanup.
 		add_action( 'buddynext_purge_space_data', array( $this, 'trash_space_drive_media' ), 10, 1 );
-		add_action( self::DRIVE_MEDIA_HOOK, array( $this, 'trash_space_drive_media' ), 10, 2 );
+		add_action( self::DRIVE_MEDIA_HOOK, array( $this, 'trash_space_drive_media' ), 10, 4 );
 		add_action( 'mvs_report_resolved', array( $this, 'close_bn_media_report' ), 10, 5 );
 
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
@@ -2436,38 +2436,50 @@ class WPMediaVerseBridge {
 	 * Trash the photos, videos and audio on a deleted space's drive.
 	 *
 	 * One run trashes up to DRIVE_MEDIA_PER_RUN items and queues the next run when
-	 * the drive still holds more, so a big drive never needs one long request.
-	 * Trashing (not erasing) is the same ordinary delete a member performs; the
-	 * file leaves with MediaVerse's own trash purge.
+	 * the page was full, so a big drive never needs one long request. Trashing (not
+	 * erasing) is the same ordinary delete a member performs; the file leaves with
+	 * MediaVerse's own trash purge.
+	 *
+	 * Each run starts after the last id the previous run saw ($after_id), so an
+	 * item that cannot be trashed is passed over, not listed again: the chain walks
+	 * the whole drive and ends where the drive ends. A blocked item is left as it
+	 * is and counted; the last run logs the count once.
 	 *
 	 * @param int $space_id Deleted space.
 	 * @param int $link     Position in the continuation chain (0 for the first run).
+	 * @param int $after_id Last media id the previous run saw (0 for the first run).
+	 * @param int $blocked  Items earlier runs could not trash.
 	 * @return void
 	 */
-	public function trash_space_drive_media( $space_id, $link = 0 ): void {
+	public function trash_space_drive_media( $space_id, $link = 0, $after_id = 0, $blocked = 0 ): void {
 		$space_id = (int) $space_id;
 		$link     = (int) $link;
+		$after_id = (int) $after_id;
+		$blocked  = (int) $blocked;
 		$repo     = MediaClient::available() ? MediaClient::repo() : null;
 		if ( $space_id <= 0 || ! is_object( $repo ) || ! method_exists( $repo, 'space_drive_media_ids' ) ) {
 			return;
 		}
 
-		$ids   = $repo->space_drive_media_ids( $space_id, self::DRIVE_MEDIA_PER_RUN );
-		$moved = 0;
+		// MediaVerse lists the drive oldest first, starting after $after_id. A
+		// MediaVerse without that argument ignores it and starts from the oldest;
+		// ids already seen are dropped here, so the chain still ends.
+		$page = array_map( 'intval', (array) $repo->space_drive_media_ids( $space_id, self::DRIVE_MEDIA_PER_RUN, $after_id ) );
+		$ids  = array_values( array_filter( $page, static fn( int $id ): bool => $id > $after_id ) );
 		foreach ( $ids as $media_id ) {
-			$moved += $repo->trash( (int) $media_id ) ? 1 : 0;
+			$blocked += $repo->trash( $media_id ) ? 0 : 1;
 		}
 
-		// Queue another run only when this one moved something: a row that cannot be
-		// trashed is listed again by the next run, so a full page of them used to
-		// re-queue itself forever.
-		if ( $moved > 0 && count( $ids ) >= self::DRIVE_MEDIA_PER_RUN && function_exists( 'as_enqueue_async_action' ) ) {
+		if ( array() !== $ids && count( $page ) >= self::DRIVE_MEDIA_PER_RUN && function_exists( 'as_enqueue_async_action' ) ) {
 			// The link number keeps each run's arguments its own: a running job counts as
 			// already scheduled, so identical arguments would queue nothing.
-			$args = array( $space_id, $link + 1 );
-			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::DRIVE_MEDIA_HOOK, $args, 'buddynext' ) ) {
-				as_enqueue_async_action( self::DRIVE_MEDIA_HOOK, $args, 'buddynext' );
-			}
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::DRIVE_MEDIA_HOOK, array( $space_id, $link + 1, max( $ids ), $blocked ) );
+			return;
+		}
+
+		if ( $blocked > 0 ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- one line per deleted space, for the site owner's log.
+			error_log( sprintf( 'BuddyNext: %d media item(s) on deleted space %d could not be moved to the trash and were left in place.', $blocked, $space_id ) );
 		}
 	}
 

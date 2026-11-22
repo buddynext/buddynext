@@ -207,6 +207,63 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A drive whose first 250 items cannot be trashed still has every other item
+	 * trashed: each run starts after the last id it saw, and the chain ends with
+	 * the drive. Stubbed repository (the MediaVerse contract with $after_id).
+	 */
+	public function test_untrashable_media_do_not_stop_the_space_drive_chain(): void {
+		if ( ! \BuddyNext\Media\MediaClient::available() ) {
+			$this->markTestSkipped( 'Needs MediaVerse.' );
+		}
+		$repo = new class() {
+			/** @var array<int,string> */
+			public array $status = array();
+			public function space_drive_media_ids( int $space_id, int $limit = 100, int $after_id = 0 ): array {
+				unset( $space_id );
+				$out = array();
+				foreach ( $this->status as $id => $st ) {
+					if ( 'publish' === $st && $id > $after_id ) {
+						$out[] = $id;
+					}
+					if ( count( $out ) >= $limit ) {
+						break;
+					}
+				}
+				return $out;
+			}
+			public function trash( int $id ): bool {
+				if ( $id <= 250 ) {
+					return false;
+				}
+				$this->status[ $id ] = 'trash';
+				return true;
+			}
+		};
+		for ( $id = 1; $id <= 450; $id++ ) {
+			$repo->status[ $id ] = 'publish';
+		}
+		$seam = static fn( $svc, $key ) => 'media_repository' === $key ? $repo : $svc;
+		add_filter( 'buddynext_media_service', $seam, 10, 2 );
+		as_unschedule_all_actions( WPMediaVerseBridge::DRIVE_MEDIA_HOOK );
+
+		$this->bridge->trash_space_drive_media( 777003 );
+		for ( $run = 0; $run < 10; $run++ ) {
+			$next = as_get_scheduled_actions( array( 'hook' => WPMediaVerseBridge::DRIVE_MEDIA_HOOK, 'status' => 'pending', 'per_page' => 5 ) );
+			if ( array() === $next ) {
+				break;
+			}
+			$action = reset( $next );
+			as_unschedule_all_actions( WPMediaVerseBridge::DRIVE_MEDIA_HOOK );
+			$this->bridge->trash_space_drive_media( ...$action->get_args() );
+		}
+		remove_filter( 'buddynext_media_service', $seam, 10 );
+
+		$left = array_keys( array_filter( $repo->status, static fn( $st ) => 'publish' === $st ) );
+		$this->assertSame( range( 1, 250 ), $left, 'Every trashable item is trashed; the blocked 250 are left.' );
+		$this->assertLessThan( 10, $run, 'The chain ends with the drive.' );
+	}
+
+	/**
 	 * A BuddyNext block closes the blocker's media to the blocked member only, and
 	 * hides either side from the other's lists.
 	 */
