@@ -275,6 +275,8 @@ class CronScheduler {
 	 * and as_next_scheduled_action() also count the action running right now, so from
 	 * inside that action they always say yes and the chain stops after one pass.
 	 *
+	 * @since 1.3.0
+	 *
 	 * @param string     $hook  Action hook.
 	 * @param array|null $args  Exact args to match, or null for any.
 	 * @param string     $group Action group.

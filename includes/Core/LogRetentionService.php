@@ -108,12 +108,12 @@ class LogRetentionService {
 	/**
 	 * Days a completed BuddyNext Action Scheduler row is kept (filterable, not stored).
 	 */
-	public const FINISHED_ACTION_DAYS = 7;
+	public const FINISHED_RETENTION_DAYS = 7;
 
 	/**
 	 * Days a failed BuddyNext Action Scheduler row is kept, for diagnosis (the family rule).
 	 */
-	public const FAILED_ACTION_DAYS = 90;
+	public const FAILED_RETENTION_DAYS = 90;
 
 	/**
 	 * Scheduler rows removed per statement, the per-run cap (10,000 rows a day, the
@@ -312,9 +312,9 @@ class LogRetentionService {
 		 *
 		 * @since 1.3.0
 		 *
-		 * @param int $days Whole days. Default 7 (LogRetentionService::FINISHED_ACTION_DAYS); values below 1 count as 1.
+		 * @param int $days Whole days. Default 7 (LogRetentionService::FINISHED_RETENTION_DAYS); values below 1 count as 1.
 		 */
-		$days = max( 1, (int) apply_filters( 'buddynext_finished_action_retention_days', self::FINISHED_ACTION_DAYS ) );
+		$days = max( 1, (int) apply_filters( 'buddynext_finished_action_retention_days', self::FINISHED_RETENTION_DAYS ) );
 
 		/**
 		 * Action Scheduler groups whose completed rows the daily retention job may
@@ -355,7 +355,7 @@ class LogRetentionService {
 		$passes   = array(
 			'complete' => $cutoff,
 			'canceled' => $cutoff,
-			'failed'   => gmdate( 'Y-m-d H:i:s', time() - ( self::FAILED_ACTION_DAYS * DAY_IN_SECONDS ) ),
+			'failed'   => gmdate( 'Y-m-d H:i:s', time() - ( self::FAILED_RETENTION_DAYS * DAY_IN_SECONDS ) ),
 		);
 		$batches  = 0;
 		$deadline = microtime( true ) + self::ACTION_SECONDS;
