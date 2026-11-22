@@ -89,6 +89,27 @@ class HashtagListenerTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'beta', 'gamma' ), $this->linked_slugs( $post ), 'alpha unlinked, gamma linked, beta kept' );
 	}
 
+	public function test_job_reads_the_saved_content_not_the_queued_text(): void {
+		global $wpdb;
+		$post = $this->seed_post( 'now #fresh' );
+
+		// A job queued by 1.2.x carries the text as it was then.
+		$this->listener->async_index_hashtags( 'post', $post, 'then #stale' );
+
+		$this->assertSame( array( 'fresh' ), $this->linked_slugs( $post ) );
+	}
+
+	public function test_job_for_a_deleted_post_is_skipped(): void {
+		global $wpdb;
+		$post = $this->seed_post( 'gone #ghost' );
+		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'status' => 'deleted' ), array( 'id' => $post ) );
+
+		$this->listener->async_index_hashtags( 'post', $post, 'gone #ghost' );
+		$this->listener->async_index_hashtags( 'post', 999999 );
+
+		$this->assertSame( array(), $this->linked_slugs( $post ) );
+	}
+
 	public function test_content_only_edits_trigger_a_resync(): void {
 		// A save that did not write the content column changes no tags, so
 		// on_post_updated must not dispatch. With Action Scheduler absent in the
