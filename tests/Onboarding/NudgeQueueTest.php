@@ -79,6 +79,38 @@ class NudgeQueueTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * ensure_nudges() (wizard view, reactivation) never re-nudges a member past the
+	 * 72h window: the prune deletes sent nudge rows after 7 days, so "no row" there
+	 * does not mean "never nudged". Inside the window it schedules both, once.
+	 *
+	 * @return void
+	 */
+	public function test_ensure_nudges_only_inside_the_window_and_only_once(): void {
+		$f               = (array) get_option( 'buddynext_features', array() );
+		$f['onboarding'] = true;
+		update_option( 'buddynext_features', $f );
+		update_option( 'buddynext_onboarding_gate_since', 1 );
+		$old = self::factory()->user->create( array( 'user_registered' => gmdate( 'Y-m-d H:i:s', time() - 10 * DAY_IN_SECONDS ) ) );
+		$new = self::factory()->user->create( array( 'user_registered' => gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ) ) );
+		$this->assertTrue( buddynext_service( 'onboarding' )->is_required_for( $old ), 'Precondition: the wizard is owed.' );
+		foreach ( array( $old, $new ) as $u ) {
+			foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
+				as_unschedule_all_actions( $hook, array( $u ), 'buddynext' );
+			}
+		}
+
+		for ( $run = 0; $run < 2; $run++ ) {
+			$this->listener->ensure_nudges( $old );
+			$this->listener->ensure_nudges( $new );
+		}
+
+		foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
+			$this->assertCount( 0, as_get_scheduled_actions( array( 'hook' => $hook, 'args' => array( $old ), 'status' => 'pending' ), 'ids' ), "10 days in: no {$hook}." );
+			$this->assertCount( 1, as_get_scheduled_actions( array( 'hook' => $hook, 'args' => array( $new ), 'status' => 'pending' ), 'ids' ), "1 hour in: one {$hook}, also after a second run." );
+		}
+	}
+
+	/**
 	 * Registration schedules both nudges as pending Action Scheduler actions.
 	 *
 	 * @return void

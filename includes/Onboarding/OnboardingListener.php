@@ -163,9 +163,10 @@ class OnboardingListener implements ListenerInterface {
 	 *
 	 * "Once" is read from Action Scheduler itself: a nudge that is pending, running, sent
 	 * or failed is never scheduled again; only a cancelled one (deactivation) is replaced.
-	 * A data wipe removes BuddyNext's Action Scheduler rows, so after a reinstall a member
-	 * reaching the wizard gets their nudges one time. Each nudge keeps its original moment
-	 * (registration + 24h / 72h); one whose moment has passed counts from now.
+	 * Only inside the nudge window (registration + the last nudge's offset): the daily prune
+	 * deletes sent nudge rows after 7 days, so outside the window "no row" cannot mean
+	 * "never nudged", and a member past it is never nudged again. Each nudge keeps its
+	 * original moment (registration + 24h / 72h); one whose moment has passed counts from now.
 	 *
 	 * @param int $user_id Member ID.
 	 * @return void
@@ -177,8 +178,12 @@ class OnboardingListener implements ListenerInterface {
 		}
 		$user       = get_userdata( $user_id );
 		$registered = $user ? (int) strtotime( (string) $user->user_registered . ' UTC' ) : 0;
-		$args       = array( $user_id );
-		foreach ( $this->nudge_hooks() as $hook => $offset ) {
+		$hooks      = $this->nudge_hooks();
+		if ( $registered + max( $hooks ) <= time() ) {
+			return; // Past the window: nudged at signup (1.2.9 behaviour), never again.
+		}
+		$args = array( $user_id );
+		foreach ( $hooks as $hook => $offset ) {
 			$had = as_get_scheduled_actions(
 				array(
 					'hook'     => $hook,
