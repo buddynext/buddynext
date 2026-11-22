@@ -69,6 +69,8 @@ class SearchIndexListener implements ListenerInterface {
 
 		// Workers: called inline for one post or space, and by queued bulk jobs.
 		add_action( 'buddynext_async_index_user', array( $this, 'async_index_user' ), 10, 1 );
+		add_action( 'buddynext_async_index_users', array( $this, 'async_index_users' ), 10, 3 );
+		add_action( 'buddynext_async_reindex_user_posts', array( $this, 'async_reindex_user_posts' ), 10, 2 );
 		add_action( 'buddynext_async_index_post', array( $this, 'async_index_post' ), 10, 2 );
 		add_action( 'buddynext_async_deindex_post', array( $this, 'async_deindex_post' ), 10, 1 );
 		add_action( 'buddynext_async_index_space', array( $this, 'async_index_space' ), 10, 1 );
@@ -302,8 +304,11 @@ class SearchIndexListener implements ListenerInterface {
 	 * Fired when a member toggles an account-level setting that governs whether
 	 * their posts appear in global search (private account / search-indexable).
 	 * Each published post is re-indexed so its stored visibility matches the new
-	 * setting; dispatching one async action per post lets Action Scheduler chunk
-	 * the work for prolific authors.
+	 * setting. One chained action walks the posts a page at a time.
+	 *
+	 * This used to queue one action per post: a member with 50k posts put 50k
+	 * Action Scheduler rows (and about 150k log rows) in the queue from one
+	 * settings save.
 	 *
 	 * @param int $user_id The member whose search visibility changed.
 	 * @return void
@@ -313,17 +318,23 @@ class SearchIndexListener implements ListenerInterface {
 			return;
 		}
 
+		$this->dispatch( 'buddynext_async_reindex_user_posts', array( $user_id, 0 ) );
+	}
+
+	/**
+	 * Re-index one keyset page of a member's published posts, then queue the next.
+	 *
+	 * @param int $user_id Member.
+	 * @param int $after   Keyset cursor: the last post id already done.
+	 * @return void
+	 */
+	public function async_reindex_user_posts( int $user_id, int $after = 0 ): void {
 		global $wpdb;
 
-		// Keyset-paged, not one unbounded SELECT. A member who flips their search visibility
-		// used to load EVERY id they have ever published into PHP at once, then fan out a
-		// dispatch per post. A prolific author with 50k posts did that inline, on a settings
-		// save.
-		$after = 0;
-
-		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$post_ids = $wpdb->get_col(
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT id FROM {$wpdb->prefix}bn_posts
 					  WHERE user_id = %d AND status = 'published' AND id > %d
@@ -333,15 +344,16 @@ class SearchIndexListener implements ListenerInterface {
 					$after,
 					self::REINDEX_BATCH
 				)
-			);
+			)
+		);
 
-			$fetched = count( (array) $post_ids );
+		foreach ( $post_ids as $post_id ) {
+			$this->async_index_post( $post_id, $user_id );
+		}
 
-			foreach ( $post_ids as $post_id ) {
-				$after = (int) $post_id;
-				$this->dispatch( 'buddynext_async_index_post', array( (int) $post_id, $user_id ) );
-			}
-		} while ( self::REINDEX_BATCH === $fetched );
+		if ( self::REINDEX_BATCH === count( $post_ids ) ) {
+			$this->dispatch( 'buddynext_async_reindex_user_posts', array( $user_id, (int) end( $post_ids ) ) );
+		}
 	}
 
 	/**
@@ -471,6 +483,34 @@ class SearchIndexListener implements ListenerInterface {
 	 */
 	public function async_index_user( int $user_id ): void {
 		buddynext_service( 'profiles' )->index_user( $user_id );
+	}
+
+	/**
+	 * Re-index the members holding a value for one profile field, by user-id range.
+	 *
+	 * Queued once per profile-mirror rebuild batch. The range, not the id list,
+	 * travels in the args, so the action stays three ints (Action Scheduler keeps
+	 * args under 191 characters in an indexed column and spills longer ones).
+	 *
+	 * @param int $field_id Profile field whose values changed.
+	 * @param int $from_id  First user id of the batch (inclusive).
+	 * @param int $to_id    Last user id of the batch (inclusive).
+	 * @return void
+	 */
+	public function async_index_users( $field_id, $from_id = 0, $to_id = 0 ): void {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one bounded background read.
+		$user_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_profile_values WHERE field_id = %d AND user_id BETWEEN %d AND %d",
+				(int) $field_id,
+				(int) $from_id,
+				(int) $to_id
+			)
+		);
+		foreach ( array_map( 'intval', $user_ids ) as $user_id ) {
+			$this->async_index_user( $user_id );
+		}
 	}
 
 	/**

@@ -4218,7 +4218,7 @@ class ProfileService {
 		do {
 			$rows   = $this->field_value_batch( $field_id, $is_multi, $cursor, $batch_size );
 			$found  = count( $rows );
-			$cursor = $this->rebuild_mirror_batch( $rows, $field, $queued );
+			$cursor = $this->rebuild_mirror_batch( $rows, $field, $queued, $field_id );
 
 			if ( $found < $batch_size ) {
 				// Last batch — the rebuild is complete.
@@ -4301,10 +4301,13 @@ class ProfileService {
 	 * @param array<int, array<string, mixed>> $rows   Value rows (user_id ASC).
 	 * @param array<string, mixed>             $field  Flat field definition.
 	 * @param bool                             $queued Whether Action Scheduler is available.
+	 * @param int                              $field_id The field being rebuilt.
 	 * @return int The highest user_id processed (the next keyset cursor).
 	 */
-	private function rebuild_mirror_batch( array $rows, array $field, bool $queued ): int {
-		$cursor = 0;
+	private function rebuild_mirror_batch( array $rows, array $field, bool $queued, int $field_id ): int {
+		$cursor   = 0;
+		$first    = 0;
+		$to_index = false;
 
 		foreach ( $rows as $row ) {
 			$user_id = (int) $row['user_id'];
@@ -4321,12 +4324,20 @@ class ProfileService {
 			// (SearchIndexListener), which would mean one FULLTEXT upsert per member
 			// inside the admin request.
 			if ( $queued ) {
-				as_enqueue_async_action( 'buddynext_async_index_user', array( $user_id ), 'buddynext' );
+				$to_index = true;
+				$first    = $first > 0 ? $first : $user_id;
 			} else {
 				do_action( 'buddynext_index_user', $user_id );
 			}
 
 			$cursor = max( $cursor, $user_id );
+		}
+
+		// One action for the whole batch, not one per member: a field flip on a
+		// 100k-member site queued 100k actions and about 300k log rows. Rows come
+		// in user_id order, so the batch is the range first..cursor of this field.
+		if ( $to_index ) {
+			as_enqueue_async_action( 'buddynext_async_index_users', array( $field_id, $first, $cursor ), 'buddynext' );
 		}
 
 		return $cursor;
