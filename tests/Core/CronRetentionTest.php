@@ -59,6 +59,27 @@ class CronRetentionTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Canceled rows (a deactivation cancels a whole queue) go after a week like
+	 * completed ones; failed rows are kept 90 days, then go too.
+	 *
+	 * @return void
+	 */
+	public function test_canceled_rows_go_after_a_week_and_failed_rows_after_90_days(): void {
+		$canceled   = $this->action( 'buddynext_zz_canceled', 'canceled', 8, 'buddynext' );
+		$old_failed = $this->action( 'buddynext_zz_failed_old', 'failed', 91, 'buddynext' );
+		$new_failed = $this->action( 'buddynext_zz_failed_new', 'failed', 30, 'buddynext' );
+		$other      = $this->action( 'woocommerce_zz_failed', 'failed', 91, 'woocommerce' );
+
+		( new LogRetentionService() )->purge();
+
+		$this->assertFalse( $this->exists( $canceled ), 'A week-old canceled row goes.' );
+		$this->assertFalse( $this->exists( $old_failed ), 'A failed row older than 90 days goes.' );
+		$this->assertSame( 0, $this->log_count( $old_failed ) );
+		$this->assertTrue( $this->exists( $new_failed ), 'A 30-day-old failed row stays.' );
+		$this->assertTrue( $this->exists( $other ), 'Another plugin\'s failed row stays.' );
+	}
+
+	/**
 	 * Insert one action row (and one log row) in a group, N days old.
 	 *
 	 * @param string $hook   Hook.

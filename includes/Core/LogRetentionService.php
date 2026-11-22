@@ -109,6 +109,11 @@ class LogRetentionService {
 	public const FINISHED_ACTION_DAYS = 7;
 
 	/**
+	 * Days a failed BuddyNext Action Scheduler row is kept, for diagnosis (the family rule).
+	 */
+	public const FAILED_ACTION_DAYS = 90;
+
+	/**
 	 * Completed scheduler rows removed per statement, and the per-run cap.
 	 */
 	private const ACTION_BATCH       = 200;
@@ -299,7 +304,10 @@ class LogRetentionService {
 	}
 
 	/**
-	 * Delete BuddyNext's completed Action Scheduler rows older than a week, with their logs.
+	 * Delete BuddyNext's finished Action Scheduler rows, with their logs.
+	 *
+	 * Completed and canceled rows go after a week (deactivation cancels a whole
+	 * queue at once), failed rows after 90 days.
 	 *
 	 * Matched by exact group name (every BuddyNext action is scheduled in one of
 	 * them; Pro adds its own through buddynext_finished_action_groups), on the same
@@ -312,9 +320,10 @@ class LogRetentionService {
 		global $wpdb;
 
 		/**
-		 * Days to keep BuddyNext's completed Action Scheduler rows before the daily
-		 * retention job deletes them (with their logs). Failed and pending rows are
-		 * never touched; other plugins' rows are never touched.
+		 * Days to keep BuddyNext's completed and canceled Action Scheduler rows
+		 * before the daily retention job deletes them (with their logs). Failed rows
+		 * are kept 90 days; pending and running rows and other plugins' rows are
+		 * never touched.
 		 *
 		 * @since 1.3.0
 		 *
@@ -356,26 +365,38 @@ class LogRetentionService {
 		}
 		$in = implode( ',', $group_ids );
 
-		for ( $i = 0; $i < self::MAX_ACTION_BATCHES; $i++ ) {
-			$ids = array_map(
-				'intval',
-				(array) $wpdb->get_col(
-					$wpdb->prepare(
-						"SELECT action_id FROM {$actions} WHERE status = 'complete' AND scheduled_date_gmt < %s AND group_id IN ({$in}) LIMIT %d",
-						$cutoff,
-						self::ACTION_BATCH
+		// One pass per status, each on the status + scheduled-date index, sharing
+		// one per-run cap of batches.
+		$passes  = array(
+			'complete' => $cutoff,
+			'canceled' => $cutoff,
+			'failed'   => gmdate( 'Y-m-d H:i:s', time() - ( self::FAILED_ACTION_DAYS * DAY_IN_SECONDS ) ),
+		);
+		$batches = 0;
+		foreach ( $passes as $status => $before ) {
+			while ( $batches < self::MAX_ACTION_BATCHES ) {
+				++$batches;
+				$ids = array_map(
+					'intval',
+					(array) $wpdb->get_col(
+						$wpdb->prepare(
+							"SELECT action_id FROM {$actions} WHERE status = %s AND scheduled_date_gmt < %s AND group_id IN ({$in}) LIMIT %d",
+							$status,
+							$before,
+							self::ACTION_BATCH
+						)
 					)
-				)
-			);
-			if ( array() === $ids ) {
-				break;
-			}
-			$list = implode( ',', $ids );
-			$wpdb->query( "DELETE FROM {$logs} WHERE action_id IN ({$list})" );
-			$wpdb->query( "DELETE FROM {$actions} WHERE action_id IN ({$list})" );
-			$total += count( $ids );
-			if ( count( $ids ) < self::ACTION_BATCH ) {
-				break;
+				);
+				if ( array() === $ids ) {
+					break;
+				}
+				$list = implode( ',', $ids );
+				$wpdb->query( "DELETE FROM {$logs} WHERE action_id IN ({$list})" );
+				$done   = (int) $wpdb->query( "DELETE FROM {$actions} WHERE action_id IN ({$list})" );
+				$total += $done;
+				if ( $done < self::ACTION_BATCH ) {
+					break;
+				}
 			}
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
