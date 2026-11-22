@@ -2049,7 +2049,9 @@ class SearchService {
 	 */
 	public static function schedule_reindex_all(): void {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_reindex_all', array(), 'buddynext' );
+			// unique: Installer::run() calls this on activation and on every schema
+			// upgrade pass, so without it each pass queued another whole-site reindex.
+			as_enqueue_async_action( 'buddynext_reindex_all', array(), 'buddynext', true );
 		} elseif ( ! wp_next_scheduled( 'buddynext_reindex_all_cron' ) ) {
 			// Schedule via WP-Cron so the container is fully bootstrapped before
 			// reindex_all_sync() calls buddynext_service(). Running it inline here
