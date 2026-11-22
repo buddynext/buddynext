@@ -2264,14 +2264,18 @@ class Members extends AdminPageBase {
 	/**
 	 * Deprecated: the whole member list as one CSV string.
 	 *
-	 * It loaded every member in one query and wrote cells unescaped, so it was
-	 * removed; it now returns an empty string.
+	 * Delegates to the current export (paged reads, escaped cells) and captures its
+	 * output, so callers get the same CSV the Members > Export screen downloads.
 	 *
-	 * @deprecated 1.3.0 Use the Members > Export screen (\BuddyNext\Admin\Members\MemberExport).
-	 * @return string Always ''.
+	 * @deprecated 1.3.0 Use \BuddyNext\Admin\Members\MemberExport::export_members_csv(), which streams.
+	 * @return string CSV, header row first.
 	 */
 	public function export_members_csv(): string {
 		_deprecated_function( __METHOD__, '1.3.0', '\\BuddyNext\\Admin\\Members\\MemberExport::export_members_csv()' );
-		return '';
+		// ponytail: the whole file is held in memory (about 100 bytes a member);
+		// a caller with a very large site should stream with MemberExport instead.
+		ob_start();
+		( new \BuddyNext\Admin\Members\MemberExport() )->export_members_csv();
+		return (string) ob_get_clean();
 	}
 }

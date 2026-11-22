@@ -19,6 +19,15 @@ class DeprecatedShimsTest extends WP_UnitTestCase {
 		$this->assertSame( \BuddyNext\Moderation\SafeguardService::client_ip(), \BuddyNext\Auth\AuthController::client_ip() );
 	}
 
+	public function test_members_csv_returns_the_real_escaped_export(): void {
+		$id = self::factory()->user->create( array( 'display_name' => '=HYPERLINK("x")' ) );
+		$this->setExpectedDeprecated( 'BuddyNext\Admin\Members::export_members_csv' );
+		$csv = ( new \BuddyNext\Admin\Members() )->export_members_csv();
+		$this->assertStringStartsWith( 'ID,Login,Email', $csv, 'Not an empty string: the header row comes first.' );
+		$this->assertStringContainsString( (string) $id . ',', $csv, 'Members are listed.' );
+		$this->assertStringContainsString( "'=HYPERLINK", $csv, 'Member-controlled cells are defused.' );
+	}
+
 	public function test_removed_methods_still_exist(): void {
 		$this->assertTrue( method_exists( \BuddyNext\Admin\Members::class, 'export_members_csv' ) );
 		$this->assertTrue( method_exists( \BuddyNext\Bridges\JetonomyBridge::class, 'rest_provision_permission' ) );
