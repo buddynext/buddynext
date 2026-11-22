@@ -728,6 +728,10 @@ class BlockService {
 			return;
 		}
 
+		// The presence gate (is_user_online_at -> PresenceService) reads each peer's
+		// user meta and the viewer's (staff check); load them all in one query.
+		update_meta_cache( 'user', array_merge( array( $viewer_id ), $peer_ids ) );
+
 		$restricted = array_fill_keys( $this->restricted_users( $viewer_id ), true );
 		foreach ( $peer_ids as $peer ) {
 			wp_cache_set(

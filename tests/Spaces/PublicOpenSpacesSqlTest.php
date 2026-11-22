@@ -92,6 +92,8 @@ class PublicOpenSpacesSqlTest extends WP_UnitTestCase {
 		$hide = static fn( $found, $user ) => $user === $viewer ? array_merge( (array) $found, array( $space ) ) : $found;
 		add_filter( 'buddynext_feed_hidden_space_ids', $hide, 10, 2 );
 		wp_cache_flush();
+		// The hidden-space list is remembered per request; a filter added mid-request needs a fresh read.
+		( new \ReflectionProperty( \BuddyNext\Spaces\SpaceVisibility::class, 'hidden_memo' ) )->setValue( null, array() );
 		$this->assertNotContains( (int) $post, $ids( $viewer ), 'An add-on can close a Space for this viewer.' );
 		$this->assertContains( (int) $post, $ids( $owner ), 'Other viewers are not affected.' );
 		remove_filter( 'buddynext_feed_hidden_space_ids', $hide, 10 );

@@ -69,6 +69,10 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\Spaces\SpaceLinkService::class          => array(
 			'system_depth' => 0,
 		),
+		// Spaces an add-on hides from a viewer, remembered for one request.
+		\BuddyNext\Spaces\SpaceVisibility::class           => array(
+			'hidden_memo' => array(),
+		),
 		// Modules switched off by a failure last only for the request that failed.
 		\BuddyNext\Addons\ModuleWiring::class              => array(
 			'disabled' => array(),
