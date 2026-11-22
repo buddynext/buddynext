@@ -2801,8 +2801,10 @@ class Installer {
 		// brief bn_onboarding_nudges table, and the idle publish sweep still around
 		// (cards 10264295353 / 10264291719). run_cron_migration() is idempotent and
 		// each step guards on the current schedule/table state, so calling it here on
-		// every activation — fresh or upgrade — is safe.
-		CronScheduler::run_cron_migration();
+		// every activation — fresh or upgrade — is safe. On the update path run()
+		// is reached at init:0, before Action Scheduler's data store (init:1), so the
+		// as_* calls wait for it; on activation it is ready and this runs inline.
+		CronScheduler::when_ready( array( CronScheduler::class, 'run_cron_migration' ) );
 
 		// Same activation gap for the isolation-state preserve (card 10264291719 RFT
 		// round 4): a ZIP-upload update runs run() but not maybe_upgrade(), so a site
@@ -2818,7 +2820,7 @@ class Installer {
 		// pre-1.2.0 upgrade and is idempotent.
 		self::maybe_clear_unconsented_tracking( $stored_schema );
 
-		\BuddyNext\Search\SearchService::schedule_reindex_all();
+		CronScheduler::when_ready( array( \BuddyNext\Search\SearchService::class, 'schedule_reindex_all' ) );
 	}
 
 	/**
