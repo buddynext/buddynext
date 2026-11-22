@@ -26,7 +26,7 @@ Registered on `wp_loaded` by `Core\CronScheduler` under the Action Scheduler gro
 |---|---|---|
 | `buddynext_daily_digest` | Daily | Sends the daily activity digest. |
 | `buddynext_weekly_digest` | Weekly | Sends the weekly activity digest. |
-| `buddynext_purge_logs` | Daily | The one daily retention job. Age-purges read notifications, `bn_email_log`, the webhook delivery logs and stale presence rows, in batches. The window is the `buddynext_log_retention_days` option (30, 60 or 90 days, default 60); unread notifications are kept until a hard maximum of 90 days. On the same run it prunes expired auth and verification tokens, closed `bn_reports` rows past the data-retention window, and BuddyNext's own completed Action Scheduler rows older than 7 days (see Extending below). Pro's analytics prune runs on it too. Registered by `Core\LogRetentionService` on `init`, group `buddynext`. |
+| `buddynext_purge_logs` | Daily | The one daily retention job. Age-purges read notifications, `bn_email_log`, the webhook delivery logs and stale presence rows, in batches. The window is the `buddynext_log_retention_days` option (30, 60 or 90 days, default 60); unread notifications are kept until a hard maximum of 90 days. On the same run it prunes expired auth and verification tokens, closed `bn_reports` rows past the data-retention window, and BuddyNext's own completed and canceled Action Scheduler rows older than 7 days and failed ones older than 90 days (see Extending below). Pro's analytics prune runs on it too. Registered by `Core\LogRetentionService` on `init`, group `buddynext`. |
 | `buddynext_recount_stats` | Daily | Reconcile pass for counters. Counters are maintained incrementally on every write; this only repairs drift. |
 | `buddynext_daily_queue_check` | Daily | Sweeps the moderation queue for items needing a daily reconcile (aging reports, expiring strikes). Registered by the moderation listener. |
 | `buddynext_publish_scheduled_sweep` | Hourly | Safety sweep that publishes any scheduled post whose time has passed. Registered by `Feed\ScheduledPostsPublisher`. |
@@ -137,7 +137,7 @@ Rules for any new fan-out you add:
 
 ### `buddynext_finished_action_retention_days` (filter, since 1.3.0)
 
-Days to keep BuddyNext's completed Action Scheduler rows (and their logs) before the daily `buddynext_purge_logs` run deletes them. Default `7`; values below 1 count as 1. Failed and pending rows, and other plugins' rows, are never touched.
+Days to keep BuddyNext's completed and canceled Action Scheduler rows (and their logs) before the daily `buddynext_purge_logs` run deletes them. Default `7`; values below 1 count as 1. Failed rows are kept 90 days, then deleted the same way. Pending and running rows, and other plugins' rows, are never touched. A run removes at most 100,000 rows (500 batches of 200).
 
 ### `buddynext_finished_action_groups` (filter, since 1.3.0)
 
@@ -194,7 +194,18 @@ Background-job hooks that changed in 1.3.0. Nothing changes for members or site 
 | `buddynext_finished_action_retention_days` | New filter. | Optional. |
 | `buddynext_finished_action_groups` | New filter. | Add your own group if your add-on runs its jobs in one. |
 | `buddynextpro_membership_daily` (Pro) | New action. | Optional. |
-| `CronScheduler::enqueue_once()`, `CronScheduler::has_pending()` | New public methods. | Optional; see above. |
+| `CronScheduler::enqueue_once()`, `CronScheduler::has_pending()`, `CronScheduler::cancel_pending()`, `CronScheduler::when_ready()` | New public methods. | Optional; see above. |
+| `buddynext_space_drive_media_trash` | Args are `$space_id, $link, $after_id, $blocked`; each run continues after the last media id it saw. | A listener with two parameters keeps working. |
+
+Public methods removed in 1.3.0 keep a deprecated stand-in that raises a `_deprecated_function` notice. Move to the replacement:
+
+| Removed | Replacement |
+|---|---|
+| `Auth\AuthController::client_ip()` | `Moderation\SafeguardService::client_ip()` (the stand-in delegates). |
+| `Bridges\JetonomyBridge::rest_provision_permission()` | `rest_discussion_manage_permission()` (the stand-in delegates). |
+| `Admin\Members::export_members_csv()` | The Members > Export screen. The stand-in returns an empty string: the old method loaded every member in one query and wrote cells unescaped. |
+| Pro `BroadcastService::deactivate_cron()`, `DripEnrollmentService::deactivate_cron()`, `SubscriptionService::deactivate_cron()`, `RenewalReminderService::deactivate_cron()` | Nothing: Pro's one deactivation handler clears every Pro job. The stand-ins still clear their own job. |
+| Pro `RenewalReminderService::ensure_scheduled()`, `GrantBridgeRegistrar::ensure_scheduled()`, `Analytics\RetentionJob::sync_schedule()` | Nothing: the work runs inside `buddynextpro_membership_daily` or `buddynext_purge_logs`. The stand-ins do nothing. |
 
 The old recurring actions are cancelled once by the upgrade routine, so nothing is left firing into an empty hook.
 
@@ -216,6 +227,6 @@ BuddyNext never changes a site-wide cron setting on the owner's behalf.
 - **Deactivation clears both systems.** An add-on's deactivation handler clears its WP-Cron events with `wp_clear_scheduled_hook( $hook )` and cancels its pending Action Scheduler jobs with `\BuddyNext\Core\CronScheduler::cancel_pending( array( 'my-addon-group' ) )`, which cancels a large queue in a few queries and never touches another plugin's jobs.
 - **BuddyNext clears every recurring job on deactivation.** Since 1.3.0 `CronScheduler::clear_events()` unschedules all of Free's recurring jobs (digests, the retired token, notification and report cleanups, log retention, the recount, the moderation queue check and log retention, plus a few legacy hooks), from Action Scheduler and WP-Cron alike, so a switched-off plugin leaves nothing to fail in the background. Each job re-arms itself on the next run after the plugin is activated again. Pro does the same for everything in its own groups, and its AI moderation sweep, when Pro is deactivated while Free stays active.
 - **Free / Pro boundary.** Pro registers its jobs independently on its own boot, using the same AS-first / WP-Cron-fallback pattern. Unlike Free's shared `buddynext` group, each Pro subsystem uses its own group (`buddynextpro_email`, `buddynextpro`, `buddynextpro_ai_moderation`); scheduled-post publishing is not a Pro job - Pro delegates it to Free's `ScheduledPostsPublisher`.
-- **Pruning.** Action Scheduler's own retention clears completed rows after 30 days; BuddyNext additionally deletes its own completed rows after 7 days (`buddynext_finished_action_retention_days`) so a busy community does not fill `actionscheduler_*` tables.
+- **Pruning.** Action Scheduler's own retention clears completed rows after 30 days; BuddyNext additionally deletes its own completed and canceled rows after 7 days (`buddynext_finished_action_retention_days`) and its failed rows after 90 days so a busy community does not fill `actionscheduler_*` tables.
 
 See also the Background-Jobs standard for the full decision tree and copy-paste patterns, and the Scale Contract for the fan-out and indexing rules that shaped these jobs.

@@ -332,7 +332,12 @@ public reference: `docs/website/developer-guide/37-cron-and-async.md`.
 - Skip an identical pending job with `CronScheduler::enqueue_once()`; check with
   `CronScheduler::has_pending()` (pending only). Never pass `unique` with args.
 - Never coalesce a job if that delays something a member or owner sees.
-- One AS group per plugin family; cleanup deletes only our own completed rows.
+- One AS group per plugin family; cleanup deletes only our own rows (completed and canceled
+  after 7 days, failed after 90).
+- Deactivation cancels with `CronScheduler::cancel_pending()` (set-based); code that may run
+  before Action Scheduler is ready wraps its call in `CronScheduler::when_ready()`.
+- Recurring actions pass `unique` (`as_schedule_recurring_action( ..., true )`); they carry no args.
+- A removed public method keeps a `_deprecated_function` stand-in for one release.
 - Retiring or merging a job: delete the old path and cancel its schedule once in the existing
   upgrade routine, with a comment naming the version.
 - Batch sizes and retention windows are named constants.
