@@ -116,13 +116,14 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Token and report cleanup run inside the one daily retention job: their own
-	 * recurring actions are dropped (an upgraded site's included) and not re-armed.
+	 * Token and report cleanup run inside the one daily retention job: the upgrade
+	 * cancels their own recurring actions and nothing re-arms them.
 	 */
 	public function test_cleanup_jobs_ride_the_daily_retention_job(): void {
 		as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP );
 		as_schedule_recurring_action( time(), WEEK_IN_SECONDS, 'buddynext_cleanup_reports', array(), CronScheduler::GROUP );
 		$this->scheduler->init();
+		CronScheduler::run_cron_migration(); // The 1.3.0 upgrade step.
 		$this->scheduler->schedule_events();
 
 		$this->assertFalse( as_has_scheduled_action( 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP ) );

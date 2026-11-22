@@ -50,7 +50,9 @@ class CronScheduler {
 	public const JOB_WEEKLY_DIGEST = 'buddynext_weekly_digest';
 
 	/**
-	 * Daily token cleanup job hook.
+	 * RETIRED in 1.3.0 — token cleanup runs inside the daily retention job
+	 * (LogRetentionService::HOOK). Kept so clear_events() and the upgrade migration
+	 * can unschedule it where it is still armed.
 	 */
 	public const JOB_CLEANUP_TOKENS = 'buddynext_cleanup_tokens';
 
@@ -88,7 +90,9 @@ class CronScheduler {
 	public const JOB_CLEANUP_EMAIL_LOG = 'buddynext_cleanup_email_log';
 
 	/**
-	 * Weekly prune of CLOSED bn_reports rows (honours the data-retention window).
+	 * RETIRED in 1.3.0 as its own job — the prune of CLOSED bn_reports rows runs on
+	 * every daily run of the retention job (LogRetentionService::HOOK). Kept so
+	 * clear_events() and the upgrade migration can unschedule it where it is armed.
 	 *
 	 * Free owns bn_reports, so Free prunes it. Pro used to DELETE from this table (and from
 	 * the append-only bn_mod_log) out of its AI-moderation sweep, on every site that had Pro
@@ -324,10 +328,6 @@ class CronScheduler {
 
 		$this->maybe_schedule( self::JOB_DAILY_DIGEST, 'daily' );
 		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );
-		// Retired into the daily retention job: drop a schedule left by an older version.
-		// Same one lookup per job the old maybe_schedule() made, on the same requests.
-		$this->retire( self::JOB_CLEANUP_TOKENS );
-		$this->retire( self::JOB_CLEANUP_REPORTS );
 		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
 	}
 
@@ -430,7 +430,10 @@ class CronScheduler {
 		// it simply fires into nothing, forever, staying in the cron array (and in
 		// Action Scheduler's tables) as permanent litter that every future debugger has
 		// to explain. Clear both explicitly, on both schedulers.
-		foreach ( array( self::JOB_CLEANUP_NOTIFICATIONS, self::JOB_CLEANUP_EMAIL_LOG, self::JOB_CLEANUP_ACTIVITY_LOG ) as $bn_retired ) {
+		//
+		// 1.3.0: token and report cleanup run inside the daily retention job
+		// (LogRetentionService::HOOK), so their own recurring actions are retired here too.
+		foreach ( array( self::JOB_CLEANUP_NOTIFICATIONS, self::JOB_CLEANUP_EMAIL_LOG, self::JOB_CLEANUP_ACTIVITY_LOG, self::JOB_CLEANUP_TOKENS, self::JOB_CLEANUP_REPORTS ) as $bn_retired ) {
 			if ( function_exists( 'as_unschedule_all_actions' ) ) {
 				as_unschedule_all_actions( $bn_retired, array(), self::GROUP );
 			}
@@ -607,21 +610,6 @@ class CronScheduler {
 		// Fallback: native WP-Cron when Action Scheduler is unavailable.
 		if ( ! wp_next_scheduled( $hook ) ) {
 			wp_schedule_event( time(), $recur, $hook );
-		}
-	}
-
-	/**
-	 * Drop a retired recurring job's schedule (Action Scheduler and WP-Cron).
-	 *
-	 * @param string $hook Job hook.
-	 * @return void
-	 */
-	private function retire( string $hook ): void {
-		if ( function_exists( 'as_next_scheduled_action' ) && false !== as_next_scheduled_action( $hook, array(), self::GROUP ) ) {
-			as_unschedule_all_actions( $hook, array(), self::GROUP );
-		}
-		if ( wp_next_scheduled( $hook ) ) {
-			wp_clear_scheduled_hook( $hook );
 		}
 	}
 
