@@ -114,10 +114,13 @@ class LogRetentionService {
 	public const FAILED_ACTION_DAYS = 90;
 
 	/**
-	 * Completed scheduler rows removed per statement, and the per-run cap.
+	 * Scheduler rows removed per statement, the per-run cap (10,000 rows a day, the
+	 * family number) and the seconds a run may spend; the rest waits for the next
+	 * day, and Action Scheduler's own cleaner is the backstop beyond that.
 	 */
-	private const ACTION_BATCH       = 200;
-	private const MAX_ACTION_BATCHES = 500;
+	public const ACTION_BATCH       = 200;
+	public const MAX_ACTION_BATCHES = 50;
+	private const ACTION_SECONDS    = 10;
 
 	/**
 	 * Hook the worker and arm the daily schedule.
@@ -368,14 +371,15 @@ class LogRetentionService {
 
 		// One pass per status, each on the status + scheduled-date index, sharing
 		// one per-run cap of batches.
-		$passes  = array(
+		$passes   = array(
 			'complete' => $cutoff,
 			'canceled' => $cutoff,
 			'failed'   => gmdate( 'Y-m-d H:i:s', time() - ( self::FAILED_ACTION_DAYS * DAY_IN_SECONDS ) ),
 		);
-		$batches = 0;
+		$batches  = 0;
+		$deadline = microtime( true ) + self::ACTION_SECONDS;
 		foreach ( $passes as $status => $before ) {
-			while ( $batches < self::MAX_ACTION_BATCHES ) {
+			while ( $batches < self::MAX_ACTION_BATCHES && microtime( true ) < $deadline ) {
 				++$batches;
 				$ids = array_map(
 					'intval',

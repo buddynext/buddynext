@@ -80,6 +80,30 @@ class CronRetentionTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * One run removes at most 50 batches of 200 rows (10,000, the family cap); the
+	 * rest waits for the next day.
+	 *
+	 * @return void
+	 */
+	public function test_one_run_removes_at_most_10000_rows(): void {
+		global $wpdb;
+		$seed = $this->action( 'buddynext_zz_bulk', 'complete', 8, 'buddynext' );
+		$t    = $wpdb->prefix . 'actionscheduler_actions';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		for ( $i = 0; $i < 14; $i++ ) { // Doubling: 1 -> 16,384 rows.
+			$wpdb->query( "INSERT INTO {$t} (hook, status, scheduled_date_gmt, scheduled_date_local, args, group_id) SELECT hook, status, scheduled_date_gmt, scheduled_date_local, args, group_id FROM {$t} WHERE hook = 'buddynext_zz_bulk'" );
+		}
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$t} WHERE hook = 'buddynext_zz_bulk'" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$this->assertSame( 16384, $total, 'Seeded more than one run can take.' );
+		unset( $seed );
+
+		$deleted = ( new LogRetentionService() )->purge();
+
+		$this->assertSame( 10000, $deleted['scheduler_actions'] );
+	}
+
+	/**
 	 * Insert one action row (and one log row) in a group, N days old.
 	 *
 	 * @param string $hook   Hook.
