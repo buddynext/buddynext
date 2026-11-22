@@ -53,7 +53,6 @@ class EmailDispatchListener implements ListenerInterface {
 	public function register(): void {
 		add_action( 'buddynext_notification_created', array( $this, 'on_notification_created' ), 10, 3 );
 		add_action( 'buddynext_send_notification_email', array( $this, 'on_send_notification_email' ), 10, 3 );
-		add_action( 'buddynext_send_notification_emails', array( $this, 'on_send_notification_emails' ), 10, 1 );
 		add_action( 'buddynext_retry_notification_email', array( $this, 'on_retry_notification_email' ), 10, 3 );
 		add_action( 'init', array( $this, 'handle_unsubscribe_request' ) );
 		add_action( 'wp_footer', array( $this, 'render_unsubscribe_status_notice' ) );
@@ -105,33 +104,6 @@ class EmailDispatchListener implements ListenerInterface {
 	 */
 	public function on_send_notification_email( int $user_id, string $notification_type, array $data ): void {
 		$this->sender->send_now( $user_id, $notification_type, $data );
-	}
-
-	/**
-	 * Action Scheduler callback: send a batch of held notification emails.
-	 *
-	 * One failing email does not stop the rest of the batch; the first error is
-	 * raised afterwards so the job still shows as failed.
-	 *
-	 * @param array $batch List of array( user_id, notification_type, data ).
-	 * @return void
-	 * @throws \Throwable The first send error, after the whole batch was tried.
-	 */
-	public function on_send_notification_emails( $batch ): void {
-		$error = null;
-		foreach ( (array) $batch as $email ) {
-			if ( ! is_array( $email ) || count( $email ) < 3 ) {
-				continue;
-			}
-			try {
-				$this->sender->send_now( (int) $email[0], (string) $email[1], (array) $email[2] );
-			} catch ( \Throwable $e ) {
-				$error = $error ?? $e;
-			}
-		}
-		if ( null !== $error ) {
-			throw $error;
-		}
 	}
 
 	/**

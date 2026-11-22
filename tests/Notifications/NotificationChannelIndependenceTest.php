@@ -105,7 +105,6 @@ class NotificationChannelIndependenceTest extends WP_UnitTestCase {
 	}
 
 	public function test_email_really_goes_out(): void {
-		\BuddyNext\Notifications\EmailSender::flush_deferred(); // Empty what earlier tests in this process held.
 		$this->prefs->set_pref(
 			$this->member,
 			self::TYPE,
@@ -137,7 +136,6 @@ class NotificationChannelIndependenceTest extends WP_UnitTestCase {
 		);
 
 		$this->create();
-		\BuddyNext\Notifications\EmailSender::flush_deferred(); // End of request.
 
 		$this->assertSame( 1, $queued + $mailed );
 	}
