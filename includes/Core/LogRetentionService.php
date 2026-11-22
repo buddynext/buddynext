@@ -125,6 +125,20 @@ class LogRetentionService {
 	private const ACTION_SECONDS    = 10;
 
 	/**
+	 * Seconds this listener's whole run may spend (tables and scheduler rows). Each
+	 * listener on HOOK keeps its own budget, so one slow table cannot starve another
+	 * plugin's prune of the same job.
+	 */
+	private const RUN_SECONDS = 15;
+
+	/**
+	 * When the current run must stop (INF outside a run).
+	 *
+	 * @var float
+	 */
+	private float $deadline = INF;
+
+	/**
 	 * Hook the worker and arm the daily schedule.
 	 *
 	 * @return void
@@ -172,6 +186,8 @@ class LogRetentionService {
 	 */
 	public function purge(): array {
 		global $wpdb;
+
+		$this->deadline = microtime( true ) + self::RUN_SECONDS;
 
 		$window        = self::window_days();
 		$read_cutoff   = gmdate( 'Y-m-d H:i:s', time() - ( $window * DAY_IN_SECONDS ) );
@@ -358,7 +374,7 @@ class LogRetentionService {
 			'failed'   => gmdate( 'Y-m-d H:i:s', time() - ( self::FAILED_RETENTION_DAYS * DAY_IN_SECONDS ) ),
 		);
 		$batches  = 0;
-		$deadline = microtime( true ) + self::ACTION_SECONDS;
+		$deadline = min( microtime( true ) + self::ACTION_SECONDS, $this->deadline );
 		foreach ( $passes as $status => $before ) {
 			while ( $batches < self::MAX_ACTION_BATCHES && microtime( true ) < $deadline ) {
 				++$batches;
@@ -417,6 +433,9 @@ class LogRetentionService {
 		// prepare(), so the block is disabled and re-enabled around the two queries.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		for ( $i = 0; $i < self::MAX_BATCHES_PER_RUN; $i++ ) {
+			if ( microtime( true ) >= $this->deadline ) {
+				break;
+			}
 			$ids = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT n.id FROM {$notifs} n
@@ -467,6 +486,9 @@ class LogRetentionService {
 		// $sql is a caller-supplied literal with a %s cutoff + %d limit; both are bound.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		for ( $i = 0; $i < self::MAX_BATCHES_PER_RUN; $i++ ) {
+			if ( microtime( true ) >= $this->deadline ) {
+				break;
+			}
 			$rows = (int) $wpdb->query( $wpdb->prepare( $sql, $cutoff, self::BATCH ) );
 
 			$total += $rows;
