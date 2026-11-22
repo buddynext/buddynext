@@ -325,7 +325,7 @@ class WPMediaVerseBridge {
 		// Photos, videos and audio on a deleted space's drive go with it. The
 		// document half of the drive is MediaVerse Pro's own cleanup.
 		add_action( 'buddynext_purge_space_data', array( $this, 'trash_space_drive_media' ), 10, 1 );
-		add_action( self::DRIVE_MEDIA_HOOK, array( $this, 'trash_space_drive_media' ), 10, 4 );
+		add_action( self::DRIVE_MEDIA_HOOK, array( $this, 'trash_space_drive_media' ), 10, 3 );
 		add_action( 'mvs_report_resolved', array( $this, 'close_bn_media_report' ), 10, 5 );
 
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
@@ -2446,17 +2446,15 @@ class WPMediaVerseBridge {
 	 * is and counted; the last run logs the count once.
 	 *
 	 * @param int $space_id Deleted space.
-	 * @param int $link     Position in the continuation chain (0 for the first run).
 	 * @param int $after_id Last media id the previous run saw (0 for the first run).
 	 * @param int $blocked  Items earlier runs could not trash.
 	 * @return void
 	 */
-	public function trash_space_drive_media( $space_id, $link = 0, $after_id = 0, $blocked = 0 ): void {
+	public function trash_space_drive_media( $space_id, $after_id = 0, $blocked = 0 ): void {
 		$space_id = (int) $space_id;
-		$link     = (int) $link;
 		$after_id = (int) $after_id;
 		$blocked  = (int) $blocked;
-		$repo     = MediaClient::available() ? MediaClient::repo() : null;
+		$repo     = MediaClient::repo(); // Null without MediaVerse, unless the media seam supplies one.
 		if ( $space_id <= 0 || ! is_object( $repo ) || ! method_exists( $repo, 'space_drive_media_ids' ) ) {
 			return;
 		}
@@ -2471,9 +2469,8 @@ class WPMediaVerseBridge {
 		}
 
 		if ( array() !== $ids && count( $page ) >= self::DRIVE_MEDIA_PER_RUN && function_exists( 'as_enqueue_async_action' ) ) {
-			// The link number keeps each run's arguments its own: a running job counts as
-			// already scheduled, so identical arguments would queue nothing.
-			\BuddyNext\Core\CronScheduler::enqueue_once( self::DRIVE_MEDIA_HOOK, array( $space_id, $link + 1, max( $ids ), $blocked ) );
+			// The cursor (last id seen) makes each run's arguments its own.
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::DRIVE_MEDIA_HOOK, array( $space_id, max( $ids ), $blocked ) );
 			return;
 		}
 

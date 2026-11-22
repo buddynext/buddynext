@@ -212,9 +212,6 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	 * the drive. Stubbed repository (the MediaVerse contract with $after_id).
 	 */
 	public function test_untrashable_media_do_not_stop_the_space_drive_chain(): void {
-		if ( ! \BuddyNext\Media\MediaClient::available() ) {
-			$this->markTestSkipped( 'Needs MediaVerse.' );
-		}
 		$repo = new class() {
 			/** @var array<int,string> */
 			public array $status = array();
