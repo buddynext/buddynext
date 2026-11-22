@@ -84,6 +84,13 @@ class ProfileController extends BaseRestController {
 	);
 
 	/**
+	 * "Show when I'm online": a profile-write key whose storage PresenceService owns.
+	 *
+	 * @var string
+	 */
+	private const PROFILE_SHOW_ONLINE_KEY = 'bn_privacy_show_online';
+
+	/**
 	 * Boolean preference metas accepted by a profile write.
 	 *
 	 * @since 1.1.6
@@ -137,7 +144,8 @@ class ProfileController extends BaseRestController {
 			self::PROFILE_META_AUDIENCE,
 			array( self::PROFILE_DM_KEY ),
 			array_keys( self::PROFILE_META_GATES ),
-			self::PROFILE_META_BOOLS
+			self::PROFILE_META_BOOLS,
+			array( self::PROFILE_SHOW_ONLINE_KEY )
 		);
 
 		// Flat fields — exactly the set save_profile() resolves by field_key.
@@ -1369,6 +1377,13 @@ class ProfileController extends BaseRestController {
 		$search_vis_before = array();
 		foreach ( $search_vis_keys as $svk ) {
 			$search_vis_before[ $svk ] = (string) get_user_meta( $user_id, $svk, true );
+		}
+
+		// "Show when I'm online" is stored inverted, on Jetonomy's key while Jetonomy
+		// is active (PresenceService::set_hidden owns the storage rule).
+		if ( array_key_exists( self::PROFILE_SHOW_ONLINE_KEY, $data ) ) {
+			\BuddyNext\Realtime\PresenceService::set_hidden( $user_id, empty( $data[ self::PROFILE_SHOW_ONLINE_KEY ] ) );
+			unset( $data[ self::PROFILE_SHOW_ONLINE_KEY ] );
 		}
 
 		foreach ( $bool_keys as $bk ) {

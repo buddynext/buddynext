@@ -174,7 +174,7 @@ class MessagesData {
 				'role_label'        => 'admin' === $role ? __( 'Admin', 'buddynext' ) : __( 'Member', 'buddynext' ),
 				'role_action_label' => 'admin' === $role ? __( 'Make member', 'buddynext' ) : __( 'Make admin', 'buddynext' ),
 				'is_admin'          => 'admin' === $role,
-				'is_online'         => ! empty( self::val( $p, 'is_online', false ) ) || self::is_online( $viewer, $uid ),
+				'is_online'         => ( ! empty( self::val( $p, 'is_online', false ) ) || self::is_online( $viewer, $uid ) ) && \BuddyNext\Realtime\PresenceService::can_see( $viewer, $uid ),
 				'is_self'           => $is_self,
 				// A group admin manages everyone but themselves (leaving is the
 				// self path); non-admins manage no-one.
@@ -607,7 +607,7 @@ class MessagesData {
 			'display_name'    => $is_group
 				? self::group_label( $conv, $viewer )
 				: ( $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ) ),
-			'is_online'       => ( ! $is_group && $other ) ? ( ! empty( self::val( $other, 'is_online', false ) ) || self::is_online( $viewer, (int) self::val( $other, 'id', 0 ) ) ) : false,
+			'is_online'       => ( ! $is_group && $other ) ? ( ( ! empty( self::val( $other, 'is_online', false ) ) || self::is_online( $viewer, (int) self::val( $other, 'id', 0 ) ) ) && \BuddyNext\Realtime\PresenceService::can_see( $viewer, (int) self::val( $other, 'id', 0 ) ) ) : false,
 			// Real avatar markup for the other user, mirroring the rail list
 			// (dm-rail-item.php) so the header, bubbles, and typing indicator show
 			// the SAME image the conversation list does instead of initials. Groups

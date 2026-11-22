@@ -4834,6 +4834,7 @@ final class ResponseSchema {
 						'bn_account_private'            => array( 'type' => 'boolean' ),
 						'bn_privacy_show_in_directory'  => array( 'type' => 'boolean' ),
 						'bn_privacy_search_indexable'   => array( 'type' => 'boolean' ),
+						'bn_privacy_show_online'        => array( 'type' => 'boolean' ),
 						'bn_pro_hide_profile_views'     => array( 'type' => 'boolean' ),
 					),
 				),

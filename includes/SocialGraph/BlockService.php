@@ -561,7 +561,9 @@ class BlockService {
 		// Presence is hidden from logged-out visitors (owner decision) — this is
 		// the single seam every dot surface that routes through is_user_online() /
 		// is_user_online_at() shares (directory cards, profile hero, DM, feed).
-		if ( ! \BuddyNext\Realtime\PresenceService::visible_to_viewer( $viewer_id ) ) {
+		// can_see() also covers "Show when I'm online" off: the member's own choice,
+		// and the reciprocal rule that a hidden member sees no one else's status.
+		if ( ! \BuddyNext\Realtime\PresenceService::can_see( $viewer_id, $target_id ) ) {
 			return false;
 		}
 

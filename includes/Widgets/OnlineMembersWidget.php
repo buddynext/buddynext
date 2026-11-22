@@ -65,6 +65,8 @@ class OnlineMembersWidget extends \WP_Widget {
 			wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
+		// The cached list is shared; drop members who hide their status per viewer.
+		$ids   = \BuddyNext\Realtime\PresenceService::without_hidden( (array) $ids, get_current_user_id() );
 		$users = empty( $ids )
 			? array()
 			: get_users(

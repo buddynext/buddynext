@@ -252,6 +252,9 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 			<div class="bn-pf-id">
 				<div class="bn-pf-name-row">
 					<h1 class="bn-pf-name"><?php echo esc_html( $bn_pf_name ); ?><?php buddynext_presence_text( $bn_pf_is_online ? 'online' : '' ); ?></h1>
+					<?php if ( $bn_pf_viewer !== $bn_pf_uid && \BuddyNext\Realtime\PresenceService::is_hidden( $bn_pf_uid ) && \BuddyNext\Realtime\PresenceService::is_staff( $bn_pf_viewer ) ) : ?>
+						<span class="bn-badge bn-pf-presence-hidden" data-tone="neutral" title="<?php esc_attr_e( 'This member turned off "Show when I\'m online". Members do not see their status; staff do.', 'buddynext' ); ?>"><?php esc_html_e( 'Hidden from members', 'buddynext' ); ?></span>
+					<?php endif; ?>
 					<?php
 					if ( $bn_pf_degree ) :
 						$bn_pf_degree_title = '';

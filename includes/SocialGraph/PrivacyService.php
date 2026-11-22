@@ -134,6 +134,7 @@ class PrivacyService {
 			'bn_account_private'            => (bool) get_user_meta( $user_id, 'bn_account_private', true ),
 			'bn_privacy_show_in_directory'  => '0' !== (string) get_user_meta( $user_id, 'bn_privacy_show_in_directory', true ),
 			'bn_privacy_search_indexable'   => '0' !== (string) get_user_meta( $user_id, 'bn_privacy_search_indexable', true ),
+			'bn_privacy_show_online'        => ! \BuddyNext\Realtime\PresenceService::is_hidden( $user_id ),
 			// The canonical Pro-shared key (Pro reads it for who-viewed-your-profile).
 			'bn_pro_hide_profile_views'     => '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true ),
 		);

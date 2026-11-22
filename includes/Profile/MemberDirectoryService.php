@@ -503,7 +503,7 @@ class MemberDirectoryService {
 		}
 
 		if ( $online_only ) {
-			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::online_window();
+			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::online_window() . PresenceService::hidden_sql( 'u.ID', (int) $viewer_id );
 		}
 
 		// Snapshot the filter-only WHERE for the bounded total (A6e): the count must NOT
@@ -1098,7 +1098,7 @@ class MemberDirectoryService {
 		// anonymous visitor cannot narrow the community to its online members.
 		if ( ! empty( $args['online_only'] ) && PresenceService::visible_to_viewer( $viewer_id ) ) {
 			$online_window = PresenceService::online_window();
-			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )";
+			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )" . PresenceService::hidden_sql( $user_col, (int) $viewer_id );
 		}
 
 		return array( implode( ' AND ', $clauses ), $params );
@@ -1361,8 +1361,9 @@ class MemberDirectoryService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		// Members who hide their status show no dot (staff still see it).
 		$map = array();
-		foreach ( (array) $rows as $uid ) {
+		foreach ( PresenceService::without_hidden( array_map( 'intval', (array) $rows ), get_current_user_id() ) as $uid ) {
 			$map[ (int) $uid ] = true;
 		}
 		return $map;
@@ -1532,6 +1533,8 @@ class MemberDirectoryService {
 		$self_where = $viewer_id > 0
 			? $wpdb->prepare( ' AND u.ID <> %d', $viewer_id )
 			: '';
+		// Members who hide their status are not listed as online (staff still see them).
+		$hidden_where = PresenceService::hidden_sql( 'u.ID', (int) $viewer_id );
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -1542,6 +1545,7 @@ class MemberDirectoryService {
 				    AND {$exclusions}
 				    {$block_where}
 				    {$self_where}
+				    {$hidden_where}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
 				time() - PresenceService::online_window(),

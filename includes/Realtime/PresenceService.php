@@ -5,7 +5,7 @@
  * Writers, all event-driven (no Heartbeat API, no admin-ajax, no timer):
  *   1. template_redirect - every front-end page view by a logged-in member.
  *   2. POST /me/presence/heartbeat (RealtimeController) - called by the
- *      @buddynext/presence module after a client-side navigation and when a
+ *      buddynext/presence script module after a client-side navigation and when a
  *      tab comes back into view, at most once per ~4 minutes per tab. This is
  *      also the path that works when a page cache served the HTML, because the
  *      cached page skips template_redirect.
@@ -389,7 +389,9 @@ class PresenceService {
 	 */
 	public static function visible_to_viewer( int $viewer_id ): bool {
 		if ( $viewer_id > 0 ) {
-			return true;
+			// A member who hides their own status stops seeing everyone else's
+			// (reciprocal, like WhatsApp). Staff keep it: they need it for reports.
+			return ! self::is_hidden( $viewer_id ) || self::is_staff( $viewer_id );
 		}
 
 		/**
@@ -398,6 +400,120 @@ class PresenceService {
 		 * @param bool $visible Default false (presence hidden from anonymous).
 		 */
 		return (bool) apply_filters( 'buddynext_presence_visible_to_anonymous', false );
+	}
+
+	/**
+	 * Usermeta key BuddyNext owns for "Show when I'm online" = off.
+	 */
+	public const HIDE_META = 'bn_hide_online';
+
+	/**
+	 * Jetonomy's key for the same choice. While Jetonomy is active it is the one
+	 * BuddyNext writes, so Jetonomy pages honour the member's choice too.
+	 */
+	public const JETONOMY_HIDE_META = 'jetonomy_hide_online';
+
+	/**
+	 * Whether a member chose to hide their online status ("Show when I'm online" off).
+	 *
+	 * Either key counts, so a member who hid it on Jetonomy before BuddyNext had
+	 * the setting stays hidden without saving anything.
+	 *
+	 * @param int $user_id Member ID.
+	 * @return bool
+	 */
+	public static function is_hidden( int $user_id ): bool {
+		return $user_id > 0
+			&& ( '1' === (string) get_user_meta( $user_id, self::HIDE_META, true ) || '1' === (string) get_user_meta( $user_id, self::JETONOMY_HIDE_META, true ) );
+	}
+
+	/**
+	 * Save "Show when I'm online".
+	 *
+	 * Writes Jetonomy's key while Jetonomy is active, BuddyNext's own otherwise, and
+	 * brings the other key along when it exists so the two can never disagree.
+	 *
+	 * @param int  $user_id Member ID.
+	 * @param bool $hidden  True = hide (setting off).
+	 * @return void
+	 */
+	public static function set_hidden( int $user_id, bool $hidden ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		$primary = class_exists( '\\Jetonomy\\Models\\Space' ) ? self::JETONOMY_HIDE_META : self::HIDE_META;
+		foreach ( array( self::HIDE_META, self::JETONOMY_HIDE_META ) as $key ) {
+			if ( $key !== $primary && '' === (string) get_user_meta( $user_id, $key, true ) ) {
+				continue;
+			}
+			if ( $hidden ) {
+				update_user_meta( $user_id, $key, 1 );
+			} else {
+				delete_user_meta( $user_id, $key );
+			}
+		}
+	}
+
+	/**
+	 * Whether a viewer is staff who still see hidden presence (site moderators and admins).
+	 *
+	 * @param int $viewer_id Viewer ID.
+	 * @return bool
+	 */
+	public static function is_staff( int $viewer_id ): bool {
+		return $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-moderation/review-queue' );
+	}
+
+	/**
+	 * Whether a viewer may see a target's presence (dot and last seen).
+	 *
+	 * @param int $viewer_id Viewer ID (0 = guest).
+	 * @param int $target_id Member whose presence would show.
+	 * @return bool
+	 */
+	public static function can_see( int $viewer_id, int $target_id ): bool {
+		if ( ! self::visible_to_viewer( $viewer_id ) ) {
+			return false;
+		}
+		return $viewer_id === $target_id || ! self::is_hidden( $target_id ) || self::is_staff( $viewer_id );
+	}
+
+	/**
+	 * Drop members who hide their status from a list of ids, unless the viewer is staff.
+	 *
+	 * @param int[] $user_ids  Member IDs.
+	 * @param int   $viewer_id Viewer ID.
+	 * @return int[]
+	 */
+	public static function without_hidden( array $user_ids, int $viewer_id ): array {
+		if ( array() === $user_ids || self::is_staff( $viewer_id ) ) {
+			return $user_ids;
+		}
+		update_meta_cache( 'user', $user_ids );
+		return array_values(
+			array_filter(
+				$user_ids,
+				static fn( $id ): bool => (int) $id === $viewer_id || ! self::is_hidden( (int) $id )
+			)
+		);
+	}
+
+	/**
+	 * SQL condition that excludes members who hide their status, for a non-staff viewer.
+	 *
+	 * Returns '' for staff. The usermeta meta_key index serves the subquery; the hidden
+	 * set is small.
+	 *
+	 * @param string $user_col  Column holding the member ID, e.g. "u.ID".
+	 * @param int    $viewer_id Viewer ID.
+	 * @return string " AND ..." or ''.
+	 */
+	public static function hidden_sql( string $user_col, int $viewer_id ): string {
+		if ( self::is_staff( $viewer_id ) ) {
+			return '';
+		}
+		global $wpdb;
+		return " AND {$user_col} NOT IN ( SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key IN ( '" . self::HIDE_META . "', '" . self::JETONOMY_HIDE_META . "' ) AND meta_value = '1' )";
 	}
 
 	/**
