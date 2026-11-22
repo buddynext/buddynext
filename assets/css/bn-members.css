@@ -697,6 +697,9 @@
 .bn-md-strip {
 	display: flex;
 	flex-direction: column;
+	/* .bn-filter-strip wraps; in a column that makes each line as wide as its widest
+	   item, so the tab row overflowed the strip at 320. One column, no wrap. */
+	flex-wrap: nowrap;
 	gap: var(--bn-s3);
 	/* Stretch (not the inherited align-items:center from .bn-filter-strip) so
 		the relation tabs sit left-aligned and the filter toolbar spans full

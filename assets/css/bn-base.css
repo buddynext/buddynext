@@ -4756,9 +4756,12 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-section-head__actions {
 	display: inline-flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-s2);
-	flex-shrink: 0;
+	/* Wraps instead of pushing the page sideways when two actions do not fit (320px). */
+	min-inline-size: 0;
+	max-inline-size: 100%;
 }
 
 /* ── Filter strip — top-of-list chrome wrapping .bn-tabs + filters ─── */
