@@ -353,7 +353,7 @@ class CronService {
 	 * by design." It is the record of who actioned whom, which an appeal reviewer or a legal /
 	 * GDPR request needs, and it grows by one narrow row per moderator action.
 	 *
-	 * Runs weekly. Driven by the Privacy → retention setting (buddynext_data_retention_days,
+	 * Runs daily (inside the retention job). Driven by the Privacy → retention setting (buddynext_data_retention_days,
 	 * default 365); 0 (or less) disables pruning. Batched at 1,000 with a per-run cap so a
 	 * large table never locks or times the cron out.
 	 *
@@ -369,8 +369,11 @@ class CronService {
 
 		global $wpdb;
 
-		$cutoff      = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
-		$max_batches = 50; // up to 50k rows per weekly run.
+		$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
+		// created_at < cutoff is implied (a report is resolved after it is filed) and
+		// lets the status_date index skip every row inside the window, so the daily
+		// run on an already-pruned table reads almost nothing.
+		$max_batches = 50; // up to 50k rows per run.
 
 		do {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -378,8 +381,10 @@ class CronService {
 				$wpdb->prepare(
 					"DELETE FROM {$wpdb->prefix}bn_reports
 					  WHERE status IN ( 'resolved', 'dismissed' )
+					    AND created_at < %s
 					    AND COALESCE( resolved_at, created_at ) < %s
 					  LIMIT 1000",
+					$cutoff,
 					$cutoff
 				)
 			);

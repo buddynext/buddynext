@@ -132,18 +132,10 @@ class CronScheduler {
 		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
 		add_action( self::JOB_WEEKLY_DIGEST, array( $handlers, 'handle_weekly_digest' ) );
 		// Token and report cleanup ride the one daily retention job (LogRetentionService)
-		// instead of two recurring actions of their own. Reports keep their weekly
-		// cadence: they are pruned on the Monday (UTC) run.
+		// instead of two recurring actions of their own. Reports were weekly; daily
+		// costs one index-bounded DELETE and cannot skip a week when a run is missed.
 		add_action( LogRetentionService::HOOK, array( $handlers, 'handle_cleanup_tokens' ), 20 );
-		add_action(
-			LogRetentionService::HOOK,
-			static function () use ( $handlers ): void {
-				if ( '1' === gmdate( 'N' ) ) {
-					$handlers->handle_cleanup_reports();
-				}
-			},
-			20
-		);
+		add_action( LogRetentionService::HOOK, array( $handlers, 'handle_cleanup_reports' ), 20 );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
 
 		add_filter( 'site_status_tests', array( self::class, 'register_site_health' ) );

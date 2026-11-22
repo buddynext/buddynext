@@ -129,6 +129,15 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 		$this->assertFalse( as_has_scheduled_action( 'buddynext_cleanup_reports', array(), CronScheduler::GROUP ) );
 		$this->assertNotFalse( has_action( \BuddyNext\Core\LogRetentionService::HOOK ), 'The retention job carries the cleanup.' );
 
+		// Reports are pruned on every daily run, so a missed run never skips a week.
+		$daily = false;
+		foreach ( $GLOBALS['wp_filter'][ \BuddyNext\Core\LogRetentionService::HOOK ]->callbacks as $callbacks ) {
+			foreach ( $callbacks as $cb ) {
+				$daily = $daily || ( is_array( $cb['function'] ) && 'handle_cleanup_reports' === $cb['function'][1] );
+			}
+		}
+		$this->assertTrue( $daily, 'Report cleanup runs on every daily run, not one weekday.' );
+
 		global $wpdb;
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_verify_tokens',
