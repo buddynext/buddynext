@@ -116,11 +116,31 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Calling schedule_events() registers the cleanup tokens event.
+	 * Token and report cleanup run inside the one daily retention job: their own
+	 * recurring actions are dropped (an upgraded site's included) and not re-armed.
 	 */
-	public function test_schedule_events_registers_cleanup_tokens(): void {
+	public function test_cleanup_jobs_ride_the_daily_retention_job(): void {
+		as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP );
+		as_schedule_recurring_action( time(), WEEK_IN_SECONDS, 'buddynext_cleanup_reports', array(), CronScheduler::GROUP );
+		$this->scheduler->init();
 		$this->scheduler->schedule_events();
-		$this->assertTrue( as_has_scheduled_action( 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP ) );
+
+		$this->assertFalse( as_has_scheduled_action( 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP ) );
+		$this->assertFalse( as_has_scheduled_action( 'buddynext_cleanup_reports', array(), CronScheduler::GROUP ) );
+		$this->assertNotFalse( has_action( \BuddyNext\Core\LogRetentionService::HOOK ), 'The retention job carries the cleanup.' );
+
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_verify_tokens',
+			array(
+				'user_id'    => 1,
+				'token'      => 'old-' . wp_rand(),
+				'type'       => 'email',
+				'expires_at' => gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ),
+			)
+		);
+		do_action( \BuddyNext\Core\LogRetentionService::HOOK );
+		$this->assertSame( '0', (string) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_verify_tokens WHERE expires_at < UTC_TIMESTAMP()" ), 'Expired tokens are pruned by the daily retention run.' );
 	}
 
 	/**

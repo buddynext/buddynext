@@ -131,8 +131,19 @@ class CronScheduler {
 		$handlers = new CronService();
 		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
 		add_action( self::JOB_WEEKLY_DIGEST, array( $handlers, 'handle_weekly_digest' ) );
-		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
-		add_action( self::JOB_CLEANUP_REPORTS, array( $handlers, 'handle_cleanup_reports' ) );
+		// Token and report cleanup ride the one daily retention job (LogRetentionService)
+		// instead of two recurring actions of their own. Reports keep their weekly
+		// cadence: they are pruned on the Monday (UTC) run.
+		add_action( LogRetentionService::HOOK, array( $handlers, 'handle_cleanup_tokens' ), 20 );
+		add_action(
+			LogRetentionService::HOOK,
+			static function () use ( $handlers ): void {
+				if ( '1' === gmdate( 'N' ) ) {
+					$handlers->handle_cleanup_reports();
+				}
+			},
+			20
+		);
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
 
 		add_filter( 'site_status_tests', array( self::class, 'register_site_health' ) );
@@ -267,8 +278,10 @@ class CronScheduler {
 
 		$this->maybe_schedule( self::JOB_DAILY_DIGEST, 'daily' );
 		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );
-		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
-		$this->maybe_schedule( self::JOB_CLEANUP_REPORTS, 'weekly' );
+		// Retired into the daily retention job: drop a schedule left by an older version.
+		// Same one lookup per job the old maybe_schedule() made, on the same requests.
+		$this->retire( self::JOB_CLEANUP_TOKENS );
+		$this->retire( self::JOB_CLEANUP_REPORTS );
 		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
 	}
 
@@ -548,6 +561,21 @@ class CronScheduler {
 		// Fallback: native WP-Cron when Action Scheduler is unavailable.
 		if ( ! wp_next_scheduled( $hook ) ) {
 			wp_schedule_event( time(), $recur, $hook );
+		}
+	}
+
+	/**
+	 * Drop a retired recurring job's schedule (Action Scheduler and WP-Cron).
+	 *
+	 * @param string $hook Job hook.
+	 * @return void
+	 */
+	private function retire( string $hook ): void {
+		if ( function_exists( 'as_next_scheduled_action' ) && false !== as_next_scheduled_action( $hook, array(), self::GROUP ) ) {
+			as_unschedule_all_actions( $hook, array(), self::GROUP );
+		}
+		if ( wp_next_scheduled( $hook ) ) {
+			wp_clear_scheduled_hook( $hook );
 		}
 	}
 
