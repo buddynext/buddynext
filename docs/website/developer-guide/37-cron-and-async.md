@@ -93,16 +93,14 @@ if ( function_exists( 'as_enqueue_async_action' ) ) {
 3. The worker processes one bounded batch, then **re-enqueues itself** for the next page until the roster is exhausted. Neither the request nor any single scheduled action ever loads or loops the whole roster.
 4. When Action Scheduler is absent (local/test), the worker drains the remaining batches inline, still bounded to one batch per query, so every member is still notified.
 
-Hashtag indexing follows the same shape on a smaller scale. When a post is created, the hashtag listener dispatches `buddynext_async_index_hashtags` instead of extracting and syncing tags inside the request:
+Hashtag indexing follows the same shape on a smaller scale. When a post is created or its content is edited, the hashtag listener queues `buddynext_async_index_hashtags` with the post id only; the job reads the saved content when it runs, so it never indexes text that changed after it was queued, and a post that is deleted by then is skipped:
 
 ```php
 // includes/Hashtags/HashtagListener.php
-if ( function_exists( 'as_enqueue_async_action' ) ) {
-    as_enqueue_async_action( 'buddynext_async_index_hashtags', $args, 'buddynext' );
-} else {
-    wp_schedule_single_event( time(), 'buddynext_async_index_hashtags', $args );
-}
+\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_index_hashtags', array( 'post', $post_id ) );
 ```
+
+Content from another plugin, passed with its text on `buddynext_index_hashtags( $object_type, $object_id, $content )`, is extracted at once instead of being copied into a job.
 
 ### Async hooks you can extend
 
@@ -110,7 +108,7 @@ if ( function_exists( 'as_enqueue_async_action' ) ) {
 |---|---|---|
 | `buddynext_async_space_post_fanout` | A space post needs background notification fan-out (RECORD stage) beyond the first batch | `array{ post_id, space_id, author_id, after_user_id }` |
 | `buddynext_async_space_post_emails` | DELIVER stage: send the space new-post emails for a recipient batch, off the fan-out task (self-paginating in chunks of 50) | `array{ post_id, space_id, author_id, recipients }` |
-| `buddynext_async_index_hashtags` | A post or other content needs hashtag extraction + sync | `object_type, object_id, content` |
+| `buddynext_async_index_hashtags` | A post was created or its content edited; the job reads the saved content when it runs | `'post', int $post_id` (since 1.3.0; earlier jobs also carried the content) |
 | `buddynext_reindex_all` | A full search-index rebuild is requested | none |
 | `buddynext_async_index_post` | A post is created or edited and needs indexing | `int $post_id, int $user_id` |
 | `buddynext_async_deindex_post` | A post is removed from search | `int $post_id` |
@@ -190,6 +188,8 @@ Background-job hooks that changed in 1.3.0. Nothing changes for members or site 
 | `buddynextpro_data_retention` (Pro) | No longer scheduled; the prune runs on `buddynext_purge_logs`. | Hook `buddynext_purge_logs`. |
 | `buddynextpro_reconcile_memberships` (Pro) | No longer scheduled; the reconcile runs on `buddynextpro_membership_daily`. | Hook `buddynextpro_membership_daily`. |
 | `buddynextpro_renewal_reminders` (Pro) | No longer a daily recurring action; the daily pass runs on `buddynextpro_membership_daily`. The hook still carries continuations of a pass that stopped part way. | Hook `buddynextpro_membership_daily` for daily work. |
+| `buddynext_async_index_hashtags` | Args are `'post', $post_id`; the job reads the saved content. Text passed on `buddynext_index_hashtags` is extracted at once, not queued. | A listener reading a third content arg gets none; read the post instead. |
+| `buddynextpro_async_index_embedding` (Pro) | Args are `'post', $post_id`, queued once while pending; the job reads the published content. `buddynext_index_embedding` ignores its text for posts and embeds other types at once. | Same as above. |
 | `buddynextpro_broadcast_send_pending`, `buddynextpro_drip_tick` (Pro) | Single actions at the next due time instead of a fixed 5-minute / hourly cadence; `buddynextpro_drip_tick` passes `$after_id, $next_due`. | A listener with no parameters keeps working. |
 | `buddynext_finished_action_retention_days` | New filter. | Optional. |
 | `buddynext_finished_action_groups` | New filter. | Add your own group if your add-on runs its jobs in one. |
