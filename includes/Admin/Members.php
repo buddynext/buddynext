@@ -2260,4 +2260,18 @@ class Members extends AdminPageBase {
 		</div>
 		<?php
 	}
+
+	/**
+	 * Deprecated: the whole member list as one CSV string.
+	 *
+	 * It loaded every member in one query and wrote cells unescaped, so it was
+	 * removed; it now returns an empty string.
+	 *
+	 * @deprecated 1.3.0 Use the Members > Export screen (\BuddyNext\Admin\Members\MemberExport).
+	 * @return string Always ''.
+	 */
+	public function export_members_csv(): string {
+		_deprecated_function( __METHOD__, '1.3.0', '\\BuddyNext\\Admin\\Members\\MemberExport::export_members_csv()' );
+		return '';
+	}
 }

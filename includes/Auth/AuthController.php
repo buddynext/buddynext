@@ -2474,4 +2474,15 @@ class AuthController {
 
 		return wp_validate_redirect( $requested, $fallback );
 	}
+
+	/**
+	 * Deprecated: the caller's IP address.
+	 *
+	 * @deprecated 1.3.0 Use \BuddyNext\Moderation\SafeguardService::client_ip().
+	 * @return string
+	 */
+	public static function client_ip(): string {
+		_deprecated_function( __METHOD__, '1.3.0', '\\BuddyNext\\Moderation\\SafeguardService::client_ip()' );
+		return \BuddyNext\Moderation\SafeguardService::client_ip();
+	}
 }

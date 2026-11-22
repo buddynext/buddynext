@@ -5695,4 +5695,16 @@ class JetonomyBridge {
 		}
 		return false;
 	}
+
+	/**
+	 * Deprecated: REST permission gate for management-only forum routes.
+	 *
+	 * @deprecated 1.3.0 Use rest_discussion_manage_permission().
+	 * @param \WP_REST_Request $request Request.
+	 * @return true|\WP_Error
+	 */
+	public function rest_provision_permission( \WP_REST_Request $request ) {
+		_deprecated_function( __METHOD__, '1.3.0', 'JetonomyBridge::rest_discussion_manage_permission()' );
+		return $this->rest_discussion_manage_permission( $request );
+	}
 }
