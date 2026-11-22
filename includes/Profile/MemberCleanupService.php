@@ -1020,21 +1020,10 @@ class MemberCleanupService {
 			return;
 		}
 
-		// Dedupe on PENDING rows only. as_next_scheduled_action() also reports the
-		// action that is running right now, and this is called from inside that
-		// action (continue_purge), so it blocked every follow-on: a purge needing
-		// three or more passes stopped after the second with the member half-erased.
-		$queued = as_get_scheduled_actions(
-			array(
-				'hook'     => self::CONTINUE_HOOK,
-				'args'     => $args,
-				'group'    => self::AS_GROUP,
-				'status'   => \ActionScheduler_Store::STATUS_PENDING,
-				'per_page' => 1,
-			),
-			'ids'
-		);
-		if ( ! empty( $queued ) ) {
+		// Dedupe on PENDING rows only: this runs from inside continue_purge, and a
+		// check that counted the running action stopped a purge needing three or more
+		// passes after the second, with the member half-erased.
+		if ( \BuddyNext\Core\CronScheduler::has_pending( self::CONTINUE_HOOK, $args, self::AS_GROUP ) ) {
 			return; // Already queued.
 		}
 

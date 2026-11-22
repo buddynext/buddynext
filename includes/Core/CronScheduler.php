@@ -245,6 +245,35 @@ class CronScheduler {
 	}
 
 	/**
+	 * Is a PENDING action queued for this hook (and args, when given)?
+	 *
+	 * The dedupe check for jobs that queue their own next run. as_has_scheduled_action()
+	 * and as_next_scheduled_action() also count the action running right now, so from
+	 * inside that action they always say yes and the chain stops after one pass.
+	 *
+	 * @param string     $hook  Action hook.
+	 * @param array|null $args  Exact args to match, or null for any.
+	 * @param string     $group Action group.
+	 * @return bool
+	 */
+	public static function has_pending( string $hook, ?array $args = null, string $group = self::GROUP ): bool {
+		if ( ! function_exists( 'as_get_scheduled_actions' ) ) {
+			return false;
+		}
+		$query = array(
+			'hook'     => $hook,
+			'group'    => $group,
+			'status'   => \ActionScheduler_Store::STATUS_PENDING,
+			'per_page' => 1,
+		);
+		if ( null !== $args ) {
+			$query['args'] = $args;
+		}
+
+		return array() !== as_get_scheduled_actions( $query, 'ids' );
+	}
+
+	/**
 	 * Is this a request where recurring schedules should be checked and armed?
 	 *
 	 * Checking a schedule is a database lookup per job (as_next_scheduled_action),
