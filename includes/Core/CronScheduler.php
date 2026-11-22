@@ -360,6 +360,25 @@ class CronScheduler {
 	}
 
 	/**
+	 * Run a callback now if Action Scheduler's data store is ready, else when it is.
+	 *
+	 * An as_*() call made before action_scheduler_init logs "called before the
+	 * data store was initialized" and does nothing. The one place this check lives.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param callable $callback Work that calls Action Scheduler.
+	 * @return void
+	 */
+	public static function when_ready( callable $callback ): void {
+		if ( did_action( 'action_scheduler_init' ) ) {
+			$callback();
+			return;
+		}
+		add_action( 'action_scheduler_init', $callback );
+	}
+
+	/**
 	 * Is this a request where recurring schedules should be checked and armed?
 	 *
 	 * Checking a schedule is a database lookup per job (as_next_scheduled_action),
@@ -656,7 +675,7 @@ class CronScheduler {
 				if ( wp_next_scheduled( $hook ) ) {
 					wp_clear_scheduled_hook( $hook );
 				}
-				as_schedule_recurring_action( time(), self::recurrence_seconds( $recur ), $hook, array(), self::GROUP );
+				as_schedule_recurring_action( time(), self::recurrence_seconds( $recur ), $hook, array(), self::GROUP, true );
 			}
 			return;
 		}

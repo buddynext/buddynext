@@ -83,7 +83,7 @@ class ModerationListener implements ListenerInterface {
 				if ( wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
 					wp_clear_scheduled_hook( 'buddynext_daily_queue_check' );
 				}
-				as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_daily_queue_check', array(), 'buddynext' );
+				as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_daily_queue_check', array(), 'buddynext', true );
 			}
 			return;
 		}

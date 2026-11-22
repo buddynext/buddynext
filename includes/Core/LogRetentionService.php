@@ -161,7 +161,8 @@ class LogRetentionService {
 			DAY_IN_SECONDS,
 			self::HOOK,
 			array(),
-			self::AS_GROUP
+			self::AS_GROUP,
+			true
 		);
 	}
 

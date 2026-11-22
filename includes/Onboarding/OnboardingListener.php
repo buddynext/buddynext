@@ -100,12 +100,7 @@ class OnboardingListener implements ListenerInterface {
 		// never fires enqueue_nudges() at all, so it gets no nudge. That is the
 		// owner-accepted ceiling of the two-single-actions-per-signup design (card
 		// 10264295353); widen it only by registering user_register earlier, not here.
-		if ( did_action( 'action_scheduler_init' ) ) {
-			$this->schedule_nudges( $user_id );
-			return;
-		}
-		add_action(
-			'action_scheduler_init',
+		\BuddyNext\Core\CronScheduler::when_ready(
 			function () use ( $user_id ) {
 				$this->schedule_nudges( $user_id );
 			}
