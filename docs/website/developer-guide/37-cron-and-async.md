@@ -137,7 +137,7 @@ Rules for any new fan-out you add:
 
 ### `buddynext_finished_action_retention_days` (filter, since 1.3.0)
 
-Days to keep BuddyNext's completed and canceled Action Scheduler rows (and their logs) before the daily `buddynext_purge_logs` run deletes them. Default `7`; values below 1 count as 1. Failed rows are kept 90 days, then deleted the same way. Pending and running rows, and other plugins' rows, are never touched. A run removes at most 100,000 rows (500 batches of 200).
+Days to keep BuddyNext's completed and canceled Action Scheduler rows (and their logs) before the daily `buddynext_purge_logs` run deletes them. Default `7`; values below 1 count as 1. Failed rows are kept 90 days, then deleted the same way. Pending and running rows, and other plugins' rows, are never touched. A run removes at most 10,000 rows (50 batches of 200) and stops after about 10 seconds; anything left waits for the next day, and Action Scheduler's own cleaner is the backstop.
 
 ### `buddynext_finished_action_groups` (filter, since 1.3.0)
 
@@ -203,9 +203,9 @@ Public methods removed in 1.3.0 keep a deprecated stand-in that raises a `_depre
 |---|---|
 | `Auth\AuthController::client_ip()` | `Moderation\SafeguardService::client_ip()` (the stand-in delegates). |
 | `Bridges\JetonomyBridge::rest_provision_permission()` | `rest_discussion_manage_permission()` (the stand-in delegates). |
-| `Admin\Members::export_members_csv()` | The Members > Export screen. The stand-in returns an empty string: the old method loaded every member in one query and wrote cells unescaped. |
+| `Admin\Members::export_members_csv()` | `Admin\Members\MemberExport::export_members_csv()`, which streams. The stand-in returns the same CSV (paged reads, escaped cells) as one string held in memory, about 100 bytes a member; on a very large site stream with `MemberExport` instead. |
 | Pro `BroadcastService::deactivate_cron()`, `DripEnrollmentService::deactivate_cron()`, `SubscriptionService::deactivate_cron()`, `RenewalReminderService::deactivate_cron()` | Nothing: Pro's one deactivation handler clears every Pro job. The stand-ins still clear their own job. |
-| Pro `RenewalReminderService::ensure_scheduled()`, `GrantBridgeRegistrar::ensure_scheduled()`, `Analytics\RetentionJob::sync_schedule()` | Nothing: the work runs inside `buddynextpro_membership_daily` or `buddynext_purge_logs`. The stand-ins do nothing. |
+| Pro `RenewalReminderService::ensure_scheduled()`, `GrantBridgeRegistrar::ensure_scheduled()`, `Analytics\RetentionJob::sync_schedule()` | Pro `SubscriptionService::ensure_scheduled()` or Free `LogRetentionService::arm()`. The work now runs inside `buddynextpro_membership_daily` or `buddynext_purge_logs`, and each stand-in schedules that job. |
 
 The old recurring actions are cancelled once by the upgrade routine, so nothing is left firing into an empty hook.
 
