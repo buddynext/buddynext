@@ -85,7 +85,9 @@
 	content: "";
 	position: absolute;
 	inset-block-start: 50%;
-	inset-inline-start: 50%;
+	/* Physical left on purpose: translate is physical, so a logical start would put the
+	   layer a full width off-centre in RTL and widen the page. Centring has no direction. */
+	left: 50%;
 	translate: -50% -50%;
 	inline-size: max(100%, 40px);
 	block-size: max(100%, 40px);

@@ -1553,7 +1553,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-post-card__emoji-picker {
 	position: absolute;
 	inset-block-end: calc(100% + 8px);
-	inset-inline-start: 50%;
+	left: 50%; /* physical: pairs with the physical translateX, so RTL centres too */
 	transform: translateX(-50%);
 	display: flex;
 	gap: var(--bn-s1);
