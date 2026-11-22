@@ -387,13 +387,13 @@ class ApprovalManager {
 							<td data-colname="<?php esc_attr_e( 'Email', 'buddynext' ); ?>"><?php echo esc_html( $user->user_email ); ?></td>
 							<td data-colname="<?php esc_attr_e( 'Registered', 'buddynext' ); ?>"><?php echo esc_html( $user->user_registered ); ?></td>
 							<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
-								<?php if ( ! empty( $bn_submitted ) ) : ?>
-									<button type="button" class="button-link" data-bn-approval-view="<?php echo esc_attr( (string) $user->ID ); ?>"><?php esc_html_e( 'View submitted data', 'buddynext' ); ?></button>
-									&nbsp;|&nbsp;
-								<?php endif; ?>
-								<a href="<?php echo esc_url( $approve_url ); ?>"><?php esc_html_e( 'Approve', 'buddynext' ); ?></a>
-								&nbsp;|&nbsp;
-								<a href="<?php echo esc_url( $reject_url ); ?>" class="bn-text-danger" data-bn-confirm="<?php esc_attr_e( 'Reject and permanently delete this pending account?', 'buddynext' ); ?>" data-bn-confirm-tone="danger"><?php esc_html_e( 'Reject', 'buddynext' ); ?></a>
+								<div class="bn-row-actions">
+									<a href="<?php echo esc_url( $approve_url ); ?>" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Approve', 'buddynext' ); ?></a>
+									<a href="<?php echo esc_url( $reject_url ); ?>" class="bn-btn" data-variant="danger" data-size="sm" data-bn-confirm="<?php esc_attr_e( 'Reject and permanently delete this pending account?', 'buddynext' ); ?>" data-bn-confirm-tone="danger"><?php esc_html_e( 'Reject', 'buddynext' ); ?></a>
+									<?php if ( ! empty( $bn_submitted ) ) : ?>
+										<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-approval-view="<?php echo esc_attr( (string) $user->ID ); ?>"><?php esc_html_e( 'View submitted data', 'buddynext' ); ?></button>
+									<?php endif; ?>
+								</div>
 								<?php if ( ! empty( $bn_submitted ) ) : ?>
 									<?php // What the member submitted at sign-up. A native <dialog> (its own top layer, backdrop, Esc, focus trap); members.js opens it. ?>
 									<dialog class="bn-approval-details" id="bn-approval-details-<?php echo esc_attr( (string) $user->ID ); ?>">

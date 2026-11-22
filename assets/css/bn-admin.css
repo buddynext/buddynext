@@ -4315,9 +4315,9 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 	}
 }
 
-/* Touch (iPad included) and narrow screens: the sub-tabs and the row expander
-   meet the 40px tap floor. The expander grows into the 44px the stacked row
-   already reserves for it, by sitting 4px from the corner instead of 8px. */
+/* Touch (iPad included) and narrow screens: the sub-tabs meet the 40px tap floor
+   and the row expander takes the full 44px the stacked row reserves for it,
+   sitting in the corner. */
 @media (pointer: coarse), (max-width: 782px) {
 	.bn-atab {
 		box-sizing: border-box;
@@ -4325,10 +4325,10 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 	}
 
 	.bn-table .toggle-row {
-		inset-inline-end: var(--bn-a-s1, 4px);
-		top: var(--bn-a-s1, 4px);
-		inline-size: var(--bn-tap, 40px);
-		block-size: var(--bn-tap, 40px);
+		inset-inline-end: 0;
+		top: 0;
+		inline-size: 44px;
+		block-size: 44px;
 	}
 }
 
