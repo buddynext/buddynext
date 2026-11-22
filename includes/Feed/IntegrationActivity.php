@@ -622,16 +622,17 @@ class IntegrationActivity {
 	 * @param callable              $now        Runs one item inline.
 	 * @param int                   $inline_max Most items run inline.
 	 * @param int                   $chunk      Items per queued chunk.
+	 * @param string                $group      Action Scheduler group (an add-on passes its own).
 	 * @return void
 	 */
-	public static function run_in_chunks( string $hook, array $items, callable $now, int $inline_max = 25, int $chunk = 100 ): void {
+	public static function run_in_chunks( string $hook, array $items, callable $now, int $inline_max = 25, int $chunk = 100, string $group = \BuddyNext\Core\CronScheduler::GROUP ): void {
 		$items = array_values( array_unique( array_filter( $items ) ) );
 		if ( count( $items ) <= $inline_max || ! function_exists( 'as_enqueue_async_action' ) ) {
 			array_map( $now, $items );
 			return;
 		}
 		foreach ( array_chunk( $items, max( 1, $chunk ) ) as $part ) {
-			as_enqueue_async_action( $hook, array( $part ), 'buddynext' );
+			as_enqueue_async_action( $hook, array( $part ), $group );
 		}
 	}
 
