@@ -829,8 +829,9 @@ class SearchIndexListener implements ListenerInterface {
 	/**
 	 * Dispatch a hook via Action Scheduler or run it inline.
 	 *
-	 * When Action Scheduler is available the job is queued for async execution.
-	 * When it is absent the hook is fired immediately via do_action_ref_array()
+	 * When Action Scheduler is available the job is queued for async execution,
+	 * once: an identical job still pending (a privacy flipped twice) is not
+	 * queued again (args are ids, the job reads current state). When it is absent the hook is fired immediately via do_action_ref_array()
 	 * so the synchronous fallback handlers registered in init() handle it.
 	 *
 	 * @param string  $hook Hook name to dispatch.
@@ -839,7 +840,7 @@ class SearchIndexListener implements ListenerInterface {
 	 */
 	private function dispatch( string $hook, array $args ): void {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( $hook, $args, 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( $hook, $args );
 		} else {
 			do_action_ref_array( $hook, $args );
 		}

@@ -4229,9 +4229,10 @@ class ProfileService {
 			if ( $queued ) {
 				// Park the cursor and hand the next batch to Action Scheduler. The
 				// only listener on this hook is rebuild_field_mirror() itself
-				// (Plugin.php), so re-firing it resumes exactly here.
+				// (Plugin.php), so re-firing it resumes exactly here. Queued once: a
+				// field saved twice resumes from the same parked cursor.
 				update_option( self::MIRROR_CURSOR_OPTION . $field_id, $cursor, false );
-				as_enqueue_async_action( 'buddynext_profile_field_updated', array( $field_id ), 'buddynext' );
+				\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_profile_field_updated', array( $field_id ) );
 				return;
 			}
 
