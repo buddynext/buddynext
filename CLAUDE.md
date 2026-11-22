@@ -318,6 +318,25 @@ that surfaces partner content into the community) MUST:
 7. **Reference, not embed.** Link OUT to the partner's configured page; the bridge
    owns all partner-table access; additive to the partner's own UI.
 
+### Background jobs
+
+`Core\CronScheduler` is the one scheduling API for Free and Pro; Pro calls it and keeps no copy.
+Full rules and the job register: `buddynext-pro/free-internal/docs/standards/BACKGROUND-JOBS.md`;
+public reference: `docs/website/developer-guide/37-cron-and-async.md`.
+
+- Pick the lightest mechanism: lazy-on-read, then a single action at the next due time, then a
+  recurring job. New daily work hooks an existing daily run (`buddynext_purge_logs`,
+  `buddynextpro_membership_daily`) instead of adding a recurring job.
+- Args are ids and cursors under 191 characters. Paged work passes a keyset cursor to its own
+  continuation.
+- Skip an identical pending job with `CronScheduler::enqueue_once()`; check with
+  `CronScheduler::has_pending()` (pending only). Never pass `unique` with args.
+- Never coalesce a job if that delays something a member or owner sees.
+- One AS group per plugin family; cleanup deletes only our own completed rows.
+- Retiring or merging a job: delete the old path and cancel its schedule once in the existing
+  upgrade routine, with a comment naming the version.
+- Batch sizes and retention windows are named constants.
+
 ### Tests Mirror Source
 
 ```
