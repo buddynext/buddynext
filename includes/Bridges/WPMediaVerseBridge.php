@@ -2452,14 +2452,16 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		$ids = $repo->space_drive_media_ids( $space_id, self::DRIVE_MEDIA_PER_RUN );
+		$ids   = $repo->space_drive_media_ids( $space_id, self::DRIVE_MEDIA_PER_RUN );
+		$moved = 0;
 		foreach ( $ids as $media_id ) {
-			$repo->trash( (int) $media_id );
+			$moved += $repo->trash( (int) $media_id ) ? 1 : 0;
 		}
 
 		// Queue another run only when this one moved something: a row that cannot be
-		// trashed must not keep re-queuing itself.
-		if ( count( $ids ) >= self::DRIVE_MEDIA_PER_RUN && function_exists( 'as_enqueue_async_action' ) ) {
+		// trashed is listed again by the next run, so a full page of them used to
+		// re-queue itself forever.
+		if ( $moved > 0 && count( $ids ) >= self::DRIVE_MEDIA_PER_RUN && function_exists( 'as_enqueue_async_action' ) ) {
 			// The link number keeps each run's arguments its own: a running job counts as
 			// already scheduled, so identical arguments would queue nothing.
 			$args = array( $space_id, $link + 1 );
