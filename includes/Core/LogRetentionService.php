@@ -104,6 +104,17 @@ class LogRetentionService {
 	public const AS_GROUP = 'buddynext';
 
 	/**
+	 * Days a completed BuddyNext Action Scheduler row is kept (filterable, not stored).
+	 */
+	public const FINISHED_ACTION_DAYS = 7;
+
+	/**
+	 * Completed scheduler rows removed per statement, and the per-run cap.
+	 */
+	private const ACTION_BATCH       = 200;
+	private const MAX_ACTION_BATCHES = 500;
+
+	/**
 	 * Hook the worker and arm the daily schedule.
 	 *
 	 * @return void
@@ -269,17 +280,95 @@ class LogRetentionService {
 		// ID — MySQL column names are case-insensitive, so the join's o.id resolves.
 		$deleted['orphaned_notifications'] += $this->delete_orphans_batched( 'user', 'users' );
 
+		// Our own finished Action Scheduler rows. Fan-out and async jobs leave many
+		// completed rows; this keeps a week of them and leaves every other plugin's
+		// rows (and the site-wide retention setting) alone.
+		$deleted['scheduler_actions'] = $this->purge_finished_actions();
+
 		/**
 		 * Fires after a retention purge, so a site can log or monitor it.
 		 *
 		 * @since 1.0.8
 		 *
-		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int,invites:int,orphaned_notifications:int} $deleted Rows removed per table.
+		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int,invites:int,orphaned_notifications:int,scheduler_actions:int} $deleted Rows removed per table.
 		 * @param int                                    $window  The window used, in days.
 		 */
 		do_action( 'buddynext_logs_purged', $deleted, $window );
 
 		return $deleted;
+	}
+
+	/**
+	 * Delete BuddyNext's completed Action Scheduler rows older than a week, with their logs.
+	 *
+	 * Matched by exact group name (every BuddyNext action is scheduled in one of
+	 * them; Pro adds its own through buddynext_action_groups), on the same
+	 * status + scheduled-date index Action Scheduler's own cleaner uses. Log rows
+	 * go first so none are orphaned; 200 rows per statement keeps locks short.
+	 *
+	 * @return int Action rows deleted.
+	 */
+	private function purge_finished_actions(): int {
+		global $wpdb;
+
+		/**
+		 * Days to keep BuddyNext's completed scheduler rows.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int $days Default 7.
+		 */
+		$days   = max( 1, (int) apply_filters( 'buddynext_finished_action_retention_days', self::FINISHED_ACTION_DAYS ) );
+		$groups = array_values( array_filter( array_map( 'strval', (array) apply_filters( 'buddynext_action_groups', array( self::AS_GROUP ) ) ) ) );
+		if ( array() === $groups ) {
+			return 0;
+		}
+
+		$actions = $wpdb->prefix . 'actionscheduler_actions';
+		$logs    = $wpdb->prefix . 'actionscheduler_logs';
+		$cutoff  = gmdate( 'Y-m-d H:i:s', time() - ( $days * DAY_IN_SECONDS ) );
+		$total   = 0;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$group_ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT group_id FROM {$wpdb->prefix}actionscheduler_groups WHERE slug IN (" . implode( ',', array_fill( 0, count( $groups ), '%s' ) ) . ')',
+					$groups
+				)
+			)
+		);
+		if ( array() === $group_ids ) {
+			return 0;
+		}
+		$in = implode( ',', $group_ids );
+
+		for ( $i = 0; $i < self::MAX_ACTION_BATCHES; $i++ ) {
+			$ids = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT action_id FROM {$actions} WHERE status = 'complete' AND scheduled_date_gmt < %s AND group_id IN ({$in}) LIMIT %d",
+						$cutoff,
+						self::ACTION_BATCH
+					)
+				)
+			);
+			if ( array() === $ids ) {
+				break;
+			}
+			$list = implode( ',', $ids );
+			$wpdb->query( "DELETE FROM {$logs} WHERE action_id IN ({$list})" );
+			$wpdb->query( "DELETE FROM {$actions} WHERE action_id IN ({$list})" );
+			$total += count( $ids );
+			if ( count( $ids ) < self::ACTION_BATCH ) {
+				break;
+			}
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return $total;
 	}
 
 	/**
