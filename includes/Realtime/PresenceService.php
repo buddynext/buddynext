@@ -589,7 +589,11 @@ class PresenceService {
 	}
 
 	/**
-	 * Whether a user has been active within the window.
+	 * Whether a user has been active within the window, as the current viewer may know it.
+	 *
+	 * Partner plugins (Jetonomy) ask this for their dots, so a member who turned off "Show when
+	 * I'm online" reads as offline here too, unless the viewer is that member or staff. Jetonomy
+	 * only knows its own key, and a member who hid while Jetonomy was inactive holds bn_hide_online.
 	 *
 	 * @since 1.0.0
 	 *
@@ -599,6 +603,10 @@ class PresenceService {
 	 */
 	public static function is_online( int $user_id, int $within = 0 ): bool {
 		if ( $user_id <= 0 ) {
+			return false;
+		}
+		$viewer = get_current_user_id();
+		if ( $viewer !== $user_id && self::is_hidden( $user_id ) && ! self::is_staff( $viewer ) ) {
 			return false;
 		}
 		return self::last_active_at( $user_id ) > ( time() - self::window( $within ) );
