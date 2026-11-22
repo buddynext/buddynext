@@ -227,10 +227,10 @@ class JetonomyBridge {
 		// Level 2 context nav: Discussion sub-pages (Home / Search / Leaderboard).
 		add_filter( 'buddynext_context_nav', array( $this, 'inject_discussion_context_nav' ), 10, 2 );
 
-		// Jetonomy pages (e.g. /community/) render as the plugin's own default —
-		// BuddyNext does not inject its nav/wrapper or suppress Jetonomy's own
-		// navigation. (Owner rule: BN must not touch Jetonomy pages.) The link
-		// INTO discussions lives on BuddyNext's own rail (inject_discussions_nav_item).
+		// Jetonomy pages (e.g. /community/) render as the plugin's own default, with one
+		// exception the owner decided (2026-11-22): on a phone they carry BuddyNext's
+		// bottom bar, so a member has the same bar everywhere under BuddyNext.
+		add_action( 'wp', array( $this, 'maybe_add_mobile_bar' ) );
 
 		// Register Discussions on BOTH the member-profile and space nav surfaces via
 		// the unified Nav API (one registry, one renderer) — profile tab carries a
@@ -1266,6 +1266,66 @@ class JetonomyBridge {
 		);
 
 		return $items;
+	}
+
+	/**
+	 * On a Jetonomy page, show BuddyNext's mobile bottom bar (owner decision 2026-11-22).
+	 *
+	 * Jetonomy renders no bar under BuddyNext. The bar is the same partial the hubs use,
+	 * with the forum slot marked current; bn-base.css (already on these pages) styles it,
+	 * hides Jetonomy's floating Reply button and slides the bar away while a composer has focus.
+	 *
+	 * @return void
+	 */
+	public function maybe_add_mobile_bar(): void {
+		if ( '' === (string) get_query_var( 'jetonomy_route' ) || ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
+			return;
+		}
+		add_filter( 'buddynext_mobile_nav_items', array( $this, 'forum_bar_items' ) );
+		add_action(
+			'wp_enqueue_scripts',
+			static function (): void {
+				wp_enqueue_style( 'bn-base' );
+				wp_enqueue_script( 'bn-mobile-more' );
+			}
+		);
+		add_action(
+			'wp_footer',
+			static function (): void {
+				buddynext_get_template( 'partials/mobile-nav.php' );
+			}
+		);
+	}
+
+	/**
+	 * Bottom-bar slots on a Jetonomy page: Activity, the forum (current), Spaces, then
+	 * Messages and Profile for a member or Log in for a guest (approved mockup).
+	 *
+	 * Built from the rail's resolved items so owner relabels, hidden items and feature
+	 * switches carry over. Profile folds into More, as on every other page.
+	 *
+	 * @param array<int,array<string,mixed>> $items Default bar items.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function forum_bar_items( array $items ): array {
+		$uid  = get_current_user_id();
+		$rail = array_column( buddynext_service( 'shell_nav' )->resolve( $uid )['items'], null, 'key' );
+		$own  = array_column( $items, null, 'key' );
+		$keys = $uid > 0 ? array( 'feed', 'discussions', 'spaces', 'messages', 'profile' ) : array( 'feed', 'discussions', 'spaces', 'login' );
+		$bar  = array();
+		foreach ( $keys as $key ) {
+			$item = $rail[ $key ] ?? $own[ $key ] ?? null;
+			if ( null === $item ) {
+				continue;
+			}
+			$item['show']   = $item['show'] ?? true;
+			$item['active'] = 'discussions' === $key;
+			if ( ! empty( $item['badge'] ) && ! isset( $item['badge_count'] ) ) {
+				$item['badge_count'] = (int) $item['badge'];
+			}
+			$bar[] = $item;
+		}
+		return $bar;
 	}
 
 	/**

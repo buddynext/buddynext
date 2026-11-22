@@ -1550,6 +1550,30 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	.bn-profile-container { padding-bottom: 72px; }
 }
 
+/* ── The bar on Jetonomy pages (JetonomyBridge::maybe_add_mobile_bar) ─────
+   Jetonomy renders no bar under BuddyNext, so the forum gets ours. The
+   forum's content clears it, Jetonomy's floating Reply button (which sits
+   where the bar goes) is hidden because the inline Reply stays, and the bar
+   slides away while a composer or field has focus (the phone keyboard is
+   up), then returns on blur. Scoped to .jt-app + :has(.bn-mobile-nav) so no
+   other page changes. */
+@media (max-width: 768px) {
+	body:has(.bn-mobile-nav) .jt-app {
+		padding-block-end: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+	body:has(.bn-mobile-nav) .jt-app a.jt-reply-fab {
+		display: none;
+	}
+	body:has(.bn-mobile-nav) .bn-mobile-nav {
+		transition: transform var(--bn-dur) var(--bn-ease), visibility 0s;
+	}
+	body:has(.jt-app :is(textarea, input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"]), [contenteditable="true"]):focus) .bn-mobile-nav {
+		transform: translateY(100%);
+		visibility: hidden;
+		transition: transform var(--bn-dur) var(--bn-ease), visibility 0s var(--bn-dur);
+	}
+}
+
 /* ── Search overlay (cmd+K) ───────────────────────────────────────────── */
 .bn-search-overlay {
 	position: fixed;

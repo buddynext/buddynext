@@ -505,10 +505,18 @@ class AssetService {
 		// Loaded in the footer so it can hydrate any shell-level UI surfaces.
 		// Data is localized by PageRouter::enqueue_hub_assets() into
 		// window.bnShellData before this script runs.
+		// The bottom bar's More sheet, alone so the Jetonomy bridge can load it without the shell.
+		wp_register_script(
+			'bn-mobile-more',
+			$this->assets_url . 'js/shell/mobile-more.js',
+			array(),
+			$v,
+			true
+		);
 		wp_register_script(
 			'bn-shell-extras',
 			$this->assets_url . 'js/shell/extras.js',
-			array( 'wp-i18n' ),
+			array( 'wp-i18n', 'bn-mobile-more' ),
 			$v,
 			true
 		);

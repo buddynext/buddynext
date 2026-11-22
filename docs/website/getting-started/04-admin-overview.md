@@ -135,6 +135,8 @@ The tab bars on profiles, spaces, space settings, member settings and feed filte
 
 On a phone, the **More** sheet is always there, on any theme. It lists Members, Explore, Messages, Bookmarks and Settings, so they stay reachable even when the bottom bar has no room for them. The sheet is built from the same list as the left rail.
 
+With Jetonomy active, the bottom bar also shows on Jetonomy's community pages. There it holds Activity, Discussions (marked as the current page), Spaces, then Messages for a member or Log in for a visitor, plus the **More** sheet. Jetonomy's floating Reply button is hidden there, because the Reply link on the topic stays, and the bar slides away while a member is typing a reply. Turning off the Jetonomy navigation integration removes the bar from those pages.
+
 ## Jump to any setting with the command palette
 
 You do not have to remember which section a setting lives in. BuddyNext registers every one of its settings with WordPress core's built-in **Command Palette**.
