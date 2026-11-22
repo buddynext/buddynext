@@ -10,6 +10,11 @@
  *     <div class="bn-more-dropdown" role="menu">…</div>
  *   </div>
  *
+ * Keyboard: Enter, Space or ArrowDown on the button opens the menu and focuses
+ * the first item; Tab, Shift+Tab and the arrows cycle through the items;
+ * Escape closes it and returns focus to the button. The button carries
+ * aria-expanded.
+ *
  * Enqueued by each list page's admin class (handle: bn-admin-more-menu).
  *
  * @package BuddyNext\Admin
@@ -56,10 +61,39 @@
 	}
 
 	function closeAllRowMenus() {
-		document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( open ) {
-			open.classList.remove( 'open' );
-			restoreDropdown( open );
-		} );
+		document.querySelectorAll( '.bn-more-menu.open' ).forEach( closeMenu );
+	}
+
+	function closeMenu( menu ) {
+		menu.classList.remove( 'open' );
+		restoreDropdown( menu );
+		var btn = menu.querySelector( '.bn-more-btn' );
+		if ( btn ) {
+			btn.setAttribute( 'aria-expanded', 'false' );
+		}
+	}
+
+	// Everything a keyboard user can operate inside the open menu, in order.
+	function itemsOf( menu ) {
+		var dd = dropdownOf( menu );
+		if ( ! dd ) {
+			return [];
+		}
+		return Array.prototype.filter.call(
+			dd.querySelectorAll( 'a[href], button:not([disabled]), select:not([disabled]), input:not([type="hidden"]):not([disabled]), textarea:not([disabled])' ),
+			function ( el ) {
+				return el.offsetWidth > 0 || el.offsetHeight > 0;
+			}
+		);
+	}
+
+	function focusItem( menu, index ) {
+		var items = itemsOf( menu );
+		if ( ! items.length ) {
+			return;
+		}
+		var i = ( index + items.length ) % items.length;
+		items[ i ].focus( { preventScroll: true } );
 	}
 
 	// Place it under the trigger, right-aligned, flipping above when it would
@@ -108,6 +142,34 @@
 				owner.bnDropdown = owner.querySelector( '.bn-more-dropdown' );
 			}
 
+			btn.setAttribute( 'aria-haspopup', 'menu' );
+			btn.setAttribute( 'aria-expanded', 'false' );
+			if ( owner && owner.bnDropdown ) {
+				// The open menu lives under <body>; the dropdown handles its own keys.
+				owner.bnDropdown.bnMenu = owner;
+				owner.bnDropdown.addEventListener( 'keydown', onMenuKeydown );
+				owner.bnDropdown.addEventListener( 'click', function ( e ) {
+					// A select or input inside the menu must not close it on click.
+					if ( e.target.closest( 'select, input, textarea, label' ) ) {
+						e.stopPropagation();
+					}
+				} );
+			}
+
+			// ArrowDown opens the menu like Enter and Space do (those arrive as a click).
+			btn.addEventListener( 'keydown', function ( e ) {
+				if ( 'ArrowDown' === e.key ) {
+					e.preventDefault();
+					var menu = btn.closest( '.bn-more-menu' );
+					if ( menu && ! menu.classList.contains( 'open' ) ) {
+						btn.click();
+					}
+					if ( menu ) {
+						focusItem( menu, 0 );
+					}
+				}
+			} );
+
 			btn.addEventListener( 'click', function ( e ) {
 				e.stopPropagation();
 				var menu = btn.closest( '.bn-more-menu' );
@@ -116,12 +178,12 @@
 				}
 				document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( open ) {
 					if ( open !== menu ) {
-						open.classList.remove( 'open' );
-						restoreDropdown( open );
+						closeMenu( open );
 					}
 				} );
 				menu.classList.toggle( 'open' );
 				var isOpen = menu.classList.contains( 'open' );
+				btn.setAttribute( 'aria-expanded', isOpen ? 'true' : 'false' );
 				if ( isOpen ) {
 					// Re-parent BEFORE measuring: the maths below is
 					// viewport-relative and only resolves that way once the
@@ -131,6 +193,10 @@
 					// element carries its own open state.
 					menu.bnDropdown.classList.add( 'is-open' );
 					positionRowMenu( menu );
+					// Opened from the keyboard (Enter / Space report detail 0): move into it.
+					if ( 0 === e.detail ) {
+						focusItem( menu, 0 );
+					}
 				} else {
 					restoreDropdown( menu );
 				}
@@ -149,6 +215,39 @@
 		// scroll (capture: catch scrolling containers too) or resize.
 		window.addEventListener( 'scroll', closeAllRowMenus, true );
 		window.addEventListener( 'resize', closeAllRowMenus );
+	}
+
+	// Keys inside an open menu: arrows, Home/End and Tab move between items and
+	// wrap (the menu sits under <body>, so the page's own tab order would leave
+	// it); Escape closes it and gives focus back to its button.
+	function onMenuKeydown( e ) {
+		var menu = this.bnMenu;
+		if ( ! menu || ! menu.classList.contains( 'open' ) ) {
+			return;
+		}
+		var items = itemsOf( menu );
+		var at    = items.indexOf( document.activeElement );
+		var btn   = menu.querySelector( '.bn-more-btn' );
+		// A select uses the arrow keys itself.
+		var inSelect = document.activeElement && 'SELECT' === document.activeElement.tagName;
+
+		if ( 'Escape' === e.key ) {
+			e.preventDefault();
+			e.stopPropagation();
+			closeMenu( menu );
+			if ( btn ) {
+				btn.focus();
+			}
+		} else if ( 'Tab' === e.key ) {
+			e.preventDefault();
+			focusItem( menu, at + ( e.shiftKey ? -1 : 1 ) );
+		} else if ( ! inSelect && ( 'ArrowDown' === e.key || 'ArrowUp' === e.key ) ) {
+			e.preventDefault();
+			focusItem( menu, at + ( 'ArrowDown' === e.key ? 1 : -1 ) );
+		} else if ( ! inSelect && ( 'Home' === e.key || 'End' === e.key ) ) {
+			e.preventDefault();
+			focusItem( menu, 'Home' === e.key ? 0 : items.length - 1 );
+		}
 	}
 
 	if ( 'loading' === document.readyState ) {

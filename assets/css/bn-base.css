@@ -184,8 +184,9 @@ html:has( .bn-app__main, .bn-app--auth ) { scrollbar-gutter: stable; }
 	 * Nine rules across bn-feed.css / bn-spaces.css already read this token as
 	 * `var(--bn-tap, 40px)` but it was never declared, so every one of them was
 	 * silently living on its fallback. Declaring it here makes the floor real
-	 * and gives one knob for the whole UI. Touch viewports raise it to 44px in
-	 * the tap-target block near the end of this file. */
+	 * and gives one knob for the whole UI. The admin hub raises it to 44px for a
+	 * coarse pointer (bn-admin-hub.css); member-facing touch floors are set
+	 * directly in the tap-target block near the end of this file. */
 	--bn-tap: 40px;
 
 	/* Radius — single source. Adopt the host theme's global corner radius

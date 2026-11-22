@@ -436,7 +436,7 @@
 	// .bn-tabs strips scroll horizontally when they overflow (CSS overflow-x:
 	// auto) and a scroll-driven edge fade hints there is more. But a mouse wheel
 	// only scrolls vertically, so desktop mouse users could not reach tabs past
-	// the fade (keyboard users already get auto-scroll on focus, trackpad users
+	// the fade (keyboard focus is handled below, trackpad users
 	// get native horizontal scroll). Translate vertical wheel intent into
 	// horizontal scroll while the strip can still move; release to the page at
 	// the ends so the surrounding scroll never feels stuck.
@@ -452,6 +452,16 @@
 		strip.scrollLeft += e.deltaY;
 		e.preventDefault();
 	}, { passive: false } );
+
+	// Browsers only scroll a focused element into view when it is fully out of
+	// sight, so a tab half under the edge fade stayed half hidden on Tab. Bring
+	// the focused tab fully into the strip (only the strip moves: inline, nearest).
+	document.addEventListener( 'focusin', function ( e ) {
+		var strip = e.target.closest && e.target.closest( '.bn-tabs' );
+		if ( strip && strip.scrollWidth > strip.clientWidth && e.target !== strip ) {
+			e.target.scrollIntoView( { block: 'nearest', inline: 'nearest' } );
+		}
+	} );
 
 	// ── User hover card ────────────────────────────────────────────────────
 	( function () {

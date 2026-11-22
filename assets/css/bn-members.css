@@ -718,6 +718,16 @@
 	max-inline-size: none;
 	margin-inline: 0;
 }
+
+/* At 320 with a classic 15px scrollbar the three relation tabs ran 12px past
+   the strip and the last one sat under the edge fade. Tighter side padding on
+   the smallest phones lets them fit; the tab height is unchanged. */
+@media (max-width: 360px) {
+	.bn-md-strip .bn-tabs .bn-tab {
+		padding-inline: var(--bn-s2);
+	}
+}
+
 /* Controls size by flex, not the 100%-wide .bn-input/.bn-select default, so
 	they sit inline instead of each taking a full row. */
 .bn-md-strip__form .bn-select { inline-size: auto; }

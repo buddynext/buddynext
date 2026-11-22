@@ -4319,7 +4319,13 @@ td .bn-btn[data-variant="danger"]:focus-visible {
    and the row expander takes the full 44px the stacked row reserves for it,
    sitting in the corner. */
 @media (pointer: coarse), (max-width: 782px) {
-	.bn-atab {
+	/* Sub-tabs and the list filter fields (core sizes those at 40px) meet the tap
+	   floor: 40px on a narrow mouse window, 44px for a finger. */
+	.bn-atab,
+	.bn-admin-hub .bn-mod-queue-filters select,
+	.bn-admin-hub .bn-mod-queue-filters input:is([type="text"], [type="search"], [type="date"], [type="number"]),
+	.bn-admin-hub .bn-filter-bar select,
+	.bn-admin-hub .bn-filter-bar input:is([type="text"], [type="search"], [type="date"], [type="number"]) {
 		box-sizing: border-box;
 		min-block-size: var(--bn-tap, 40px);
 	}
@@ -4336,6 +4342,20 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 	.bn-admin-hub .bn-table .bn-more-btn {
 		inline-size: 44px;
 		block-size: 44px;
+	}
+
+	/* Its menu rows too: 33px with a mouse is fine, a finger needs 44px. The
+	   open dropdown lives under <body> (more-menu.js), so no hub ancestor here. */
+	.bn-more-dropdown a,
+	.bn-more-dropdown button,
+	.bn-more-dropdown select {
+		box-sizing: border-box;
+		min-block-size: 44px;
+	}
+
+	.bn-more-dropdown .bn-dropdown-item {
+		display: flex;
+		align-items: center;
 	}
 }
 
