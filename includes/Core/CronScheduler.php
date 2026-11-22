@@ -324,6 +324,12 @@ class CronScheduler {
 			foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
 				as_unschedule_all_actions( $hook );
 			}
+
+			// Then everything else still pending in our group: the async and chained
+			// jobs (fan-out pages, search reindex, purge continuations, backfills)
+			// would otherwise fail one by one with no listener. A hook-less call with
+			// a group cancels by group in one UPDATE, on AS 3.9 and 4.0 alike.
+			as_unschedule_all_actions( '', array(), self::GROUP );
 		}
 	}
 

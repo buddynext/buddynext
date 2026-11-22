@@ -150,22 +150,38 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 
 	// Action Scheduler rows for our own hooks, deleted directly because AS is not
 	// booted here. Guarded on table existence so an install that never scheduled
-	// anything is a no-op.
+	// anything is a no-op. Free's hooks are buddynext_* plus the two onboarding
+	// nudges by exact name (a bare bn_% could match another plugin's hooks); Pro's
+	// buddynextpro_* / buddynext_pro_* stay for Pro (DATA-LIFECYCLE: delete only
+	// what you own). Log rows go first, by action id, so none are orphaned, and
+	// both deletes run in bounded batches so a big queue cannot lock the tables.
 	$bn_as_actions = $wpdb->prefix . 'actionscheduler_actions';
-	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$bn_as_logs    = $wpdb->prefix . 'actionscheduler_logs';
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_actions ) ) === $bn_as_actions ) {
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		// Free's hooks are buddynext_*; Pro's are buddynextpro_* and buddynext_pro_*,
-		// and stay for Pro to manage (DATA-LIFECYCLE: delete only what you own).
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM `{$bn_as_actions}` WHERE ( hook LIKE %s OR hook LIKE %s ) AND hook NOT LIKE %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$wpdb->esc_like( 'buddynext_' ) . '%',
-				// Free's onboarding nudges are bn_onboarding_nudge_24h / _72h.
-				$wpdb->esc_like( 'bn_' ) . '%',
-				$wpdb->esc_like( 'buddynext_pro_' ) . '%'
-			)
-		);
+		$bn_has_logs = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_logs ) ) === $bn_as_logs;
+		do {
+			$bn_ids = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT action_id FROM `{$bn_as_actions}` WHERE ( hook LIKE %s AND hook NOT LIKE %s ) OR hook IN ( %s, %s ) LIMIT 2000", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$wpdb->esc_like( 'buddynext_' ) . '%',
+						$wpdb->esc_like( 'buddynext_pro_' ) . '%',
+						'bn_onboarding_nudge_24h',
+						'bn_onboarding_nudge_72h'
+					)
+				)
+			);
+			if ( array() === $bn_ids ) {
+				break;
+			}
+			$bn_in = implode( ',', $bn_ids );
+			if ( $bn_has_logs ) {
+				$wpdb->query( "DELETE FROM `{$bn_as_logs}` WHERE action_id IN ( {$bn_in} )" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ints only.
+			}
+			$wpdb->query( "DELETE FROM `{$bn_as_actions}` WHERE action_id IN ( {$bn_in} )" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ints only.
+			$bn_more = 2000 === count( $bn_ids );
+		} while ( $bn_more );
 	}
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
