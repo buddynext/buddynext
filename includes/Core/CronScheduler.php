@@ -5,25 +5,15 @@
  * Recurring jobs run on Action Scheduler (group 'buddynext') when available —
  * one observable, retrying queue that can be driven off real system cron so
  * nothing executes inside a visitor request — and fall back to native WP-Cron
- * when AS is absent. All job handles are defined here so other code references
- * them by constant rather than bare string.
+ * when AS is absent. This class holds the family's scheduling helpers
+ * (ensure_recurring, enqueue_once, has_pending, when_ready, cancel_pending,
+ * is_scheduling_request); the register of every job is in
+ * docs/standards/BACKGROUND-JOBS.md.
  *
- * Jobs defined:
- *   buddynext_daily_digest         — daily (first run at activation time, then every 24h)
- *   buddynext_weekly_digest        — weekly (first run at activation time, then every 7 days)
- *   buddynext_cleanup_tokens       — daily
- *   buddynext_cleanup_notifications— weekly (prune 90-day-old read rows)
- *   buddynext_recount_stats        — daily (counters maintained incrementally on write;
- *                                    daily run is a reconcile pass only)
- *
- * Removed recurring jobs (converted to lazy/reactive):
- *   buddynext_trending_hashtags    — dropped; HashtagService::get_trending() computes
- *                                    lazily on first read and caches via transient (~30 min).
- *   buddynext_publish_scheduled    — no longer a recurring 1-min poll; now a single
- *                                    on-demand event armed at the next due post's time by
- *                                    Feed\ScheduledPostsPublisher (Free-owned, runs without Pro).
- *   buddynext_webhook_retry        — dropped; OutboundWebhookService schedules a single
- *                                    wp_schedule_single_event per failed delivery with backoff.
+ * Recurring jobs armed here: buddynext_daily_digest (daily),
+ * buddynext_weekly_digest (weekly), buddynext_recount_stats (daily reconcile).
+ * Token, notification and log cleanup ride the daily retention job
+ * (LogRetentionService::HOOK).
  *
  * @package BuddyNext\Core
  */
@@ -33,7 +23,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Core;
 
 /**
- * Manages registration of BuddyNext WP-Cron events.
+ * BuddyNext's recurring jobs and the shared Action Scheduler helpers.
  */
 class CronScheduler {
 
