@@ -290,6 +290,59 @@ final class SpaceVisibility {
 	}
 
 	/**
+	 * Per-request memo of viewer_hidden_space_ids(), keyed by viewer.
+	 *
+	 * @var array<int, int[]>
+	 */
+	private static array $hidden_memo = array();
+
+	/**
+	 * Spaces a viewer belongs to but may not read posts from in feeds (for example a
+	 * plan-gated Space whose plan lapsed). Pro fills it; Free hides nothing.
+	 *
+	 * @param int $user_id Viewer.
+	 * @return int[]
+	 */
+	public static function viewer_hidden_space_ids( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		if ( ! isset( self::$hidden_memo[ $user_id ] ) ) {
+			/**
+			 * Filter the Spaces left out of one viewer's feeds although they are a member.
+			 *
+			 * Pro adds the plan-gated Spaces the viewer joined but is no longer entitled to.
+			 * Applied by every feed read path (home, profile, hashtag, announcements) through
+			 * SpaceVisibility::member_spaces_sql(). Only add ids; keep the answer cheap.
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param int[] $space_ids Space ids to hide (default: none).
+			 * @param int   $user_id   The viewer.
+			 */
+			$ids                           = apply_filters( 'buddynext_feed_hidden_space_ids', array(), $user_id );
+			self::$hidden_memo[ $user_id ] = array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
+		}
+		return self::$hidden_memo[ $user_id ];
+	}
+
+	/**
+	 * Subquery of the Spaces whose posts a viewer reads as a member, for `space_id IN ( ... )`.
+	 *
+	 * The one membership rule for feed reads: active membership, minus the Spaces
+	 * viewer_hidden_space_ids() hides. Carries ONE %d placeholder: bind the viewer id.
+	 *
+	 * @param int $viewer_id Viewer (the hidden list is resolved for them now).
+	 * @return string
+	 */
+	public static function member_spaces_sql( int $viewer_id ): string {
+		global $wpdb;
+		$hidden = self::viewer_hidden_space_ids( $viewer_id );
+		return "SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'"
+			. ( array() === $hidden ? '' : ' AND space_id NOT IN ( ' . implode( ',', $hidden ) . ' )' );
+	}
+
+	/**
 	 * Read a space row's type slug, defaulting to the most restrictive-safe 'open'
 	 * fallback the registry itself uses for unknown slugs.
 	 *

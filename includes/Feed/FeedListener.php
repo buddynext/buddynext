@@ -68,6 +68,12 @@ class FeedListener implements ListenerInterface {
 		foreach ( array( 'buddynext_comment_deleted', 'buddynext_comment_updated', 'buddynext_comment_restored', 'buddynext_post_updated' ) as $hook ) {
 			add_action( $hook, array( $this, 'bust_writer' ), 10, 2 );
 		}
+
+		// A gained or lost ability changes which gated Spaces' posts this member may read, so
+		// their cached page-1 feeds must not keep serving the old answer for the 30s TTL.
+		foreach ( array( 'buddynext_ability_granted', 'buddynext_ability_revoked' ) as $hook ) {
+			add_action( $hook, fn( $user_id ) => $this->cache->invalidate_writer( (int) $user_id ), 10, 1 );
+		}
 	}
 
 	/**

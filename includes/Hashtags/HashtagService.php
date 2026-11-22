@@ -1071,7 +1071,7 @@ class HashtagService {
 		// which is correct for a public post but would leak a members-only post in
 		// an open space to non-members. A space-members post needs membership, full
 		// stop — verified: a non-member's query returns 0 rows for such a post.
-		$member_of = " {$alias}.space_id IN ( SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active' )";
+		$member_of = " {$alias}.space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::member_spaces_sql( $viewer_id ) . ' )';
 
 		// A tag page is discovery: a private account's public post is listed for
 		// its approved followers only, the rule Explore applies.
@@ -1145,9 +1145,7 @@ class HashtagService {
 		$params = array();
 
 		if ( $viewer_id > 0 ) {
-			$sql     .= " OR {$alias}.space_id IN (
-				SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'
-			)";
+			$sql     .= " OR {$alias}.space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::member_spaces_sql( $viewer_id ) . ' )';
 			$params[] = $viewer_id;
 		}
 

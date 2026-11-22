@@ -820,14 +820,15 @@ class FeedController extends BaseRestController {
 
 		if ( $viewer > 0 ) {
 			global $wpdb;
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// member_spaces_sql() is a fixed subquery with one %d and inlined absint ids.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 			$space_ids = $wpdb->get_col(
 				$wpdb->prepare(
-					"SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
+					\BuddyNext\Spaces\SpaceVisibility::member_spaces_sql( $viewer ),
 					$viewer
 				)
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 			foreach ( $space_ids as $sid ) {
 				$ann = $feed->space_announcement( (int) $sid, $viewer );
