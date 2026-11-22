@@ -302,7 +302,7 @@ class LogRetentionService {
 	 * Delete BuddyNext's completed Action Scheduler rows older than a week, with their logs.
 	 *
 	 * Matched by exact group name (every BuddyNext action is scheduled in one of
-	 * them; Pro adds its own through buddynext_action_groups), on the same
+	 * them; Pro adds its own through buddynext_finished_action_groups), on the same
 	 * status + scheduled-date index Action Scheduler's own cleaner uses. Log rows
 	 * go first so none are orphaned; 200 rows per statement keeps locks short.
 	 *
@@ -312,14 +312,26 @@ class LogRetentionService {
 		global $wpdb;
 
 		/**
-		 * Days to keep BuddyNext's completed scheduler rows.
+		 * Days to keep BuddyNext's completed Action Scheduler rows before the daily
+		 * retention job deletes them (with their logs). Failed and pending rows are
+		 * never touched; other plugins' rows are never touched.
 		 *
 		 * @since 1.3.0
 		 *
-		 * @param int $days Default 7.
+		 * @param int $days Whole days. Default 7 (LogRetentionService::FINISHED_ACTION_DAYS); values below 1 count as 1.
 		 */
-		$days   = max( 1, (int) apply_filters( 'buddynext_finished_action_retention_days', self::FINISHED_ACTION_DAYS ) );
-		$groups = array_values( array_filter( array_map( 'strval', (array) apply_filters( 'buddynext_action_groups', array( self::AS_GROUP ) ) ) ) );
+		$days = max( 1, (int) apply_filters( 'buddynext_finished_action_retention_days', self::FINISHED_ACTION_DAYS ) );
+
+		/**
+		 * Action Scheduler groups whose completed rows the daily retention job may
+		 * delete. An add-on that runs its jobs in its own group adds it here
+		 * (BuddyNext Pro adds its groups); never add another plugin's group.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param string[] $groups Group slugs. Default array( 'buddynext' ).
+		 */
+		$groups = array_values( array_filter( array_map( 'strval', (array) apply_filters( 'buddynext_finished_action_groups', array( self::AS_GROUP ) ) ) ) );
 		if ( array() === $groups ) {
 			return 0;
 		}
