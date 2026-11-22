@@ -39,9 +39,7 @@ class NudgeQueueTest extends WP_UnitTestCase {
 	 */
 	public function set_up(): void {
 		parent::set_up();
-		if ( ! function_exists( 'as_schedule_single_action' ) || ! function_exists( 'as_next_scheduled_action' ) ) {
-			$this->markTestSkipped( 'Action Scheduler is not loaded in this harness.' );
-		}
+		$this->assertTrue( class_exists( '\ActionScheduler' ), 'Action Scheduler ships with BuddyNext; a harness without it must fail, not skip.' );
 		$this->listener = new OnboardingListener();
 		$this->user     = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 		// A fixture user_register may already have fired enqueue if the listener is

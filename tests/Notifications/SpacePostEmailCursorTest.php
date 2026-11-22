@@ -47,9 +47,7 @@ class SpacePostEmailCursorTest extends WP_UnitTestCase {
 	}
 
 	public function test_email_job_args_are_short_scalars_and_the_same_members_are_emailed(): void {
-		if ( ! function_exists( 'as_get_scheduled_actions' ) ) {
-			$this->markTestSkipped( 'Action Scheduler is not loaded.' );
-		}
+		$this->assertTrue( class_exists( '\ActionScheduler' ), 'Action Scheduler ships with BuddyNext; a harness without it must fail, not skip.' );
 		add_filter( 'buddynext_notification_fanout_batch', static fn() => 2 );
 		add_filter(
 			'pre_wp_mail',

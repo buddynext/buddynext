@@ -15,9 +15,7 @@ use WP_UnitTestCase;
 class SelfRequeueChainTest extends WP_UnitTestCase {
 
 	public function test_the_anonymous_repair_requeues_while_its_own_run_is_in_progress(): void {
-		if ( ! class_exists( '\ActionScheduler' ) ) {
-			$this->markTestSkipped( 'Action Scheduler is not loaded.' );
-		}
+		$this->assertTrue( class_exists( '\ActionScheduler' ), 'Action Scheduler ships with BuddyNext; a harness without it must fail, not skip.' );
 		as_unschedule_all_actions( JetonomyBridge::REPAIR_ANONYMOUS_HOOK );
 		$running = as_enqueue_async_action( JetonomyBridge::REPAIR_ANONYMOUS_HOOK, array(), 'buddynext' );
 		\ActionScheduler::store()->log_execution( $running ); // Now in-progress, as inside the callback.

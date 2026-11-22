@@ -25,9 +25,7 @@ class SpaceFanoutFailureTest extends WP_UnitTestCase {
 	}
 
 	public function test_the_next_page_is_queued_before_a_page_runs_so_one_failure_does_not_end_the_chain(): void {
-		if ( ! function_exists( 'as_get_scheduled_actions' ) ) {
-			$this->markTestSkipped( 'Action Scheduler is not loaded.' );
-		}
+		$this->assertTrue( class_exists( '\ActionScheduler' ), 'Action Scheduler ships with BuddyNext; a harness without it must fail, not skip.' );
 		as_unschedule_all_actions( 'buddynext_async_space_post_fanout' );
 		add_filter( 'buddynext_notification_fanout_batch', static fn() => 2 );
 
