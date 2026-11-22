@@ -174,6 +174,29 @@ class InviteServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The queued send carries the invite id only, and the worker mails the row's own link.
+	 */
+	public function test_queued_send_carries_no_token_and_sends_the_rows_link(): void {
+		global $wpdb;
+		as_unschedule_all_actions( 'buddynext_async_send_invite_email' );
+		$created = $this->service->create( 'queued@example.com', 'Q' );
+		$jobs    = as_get_scheduled_actions( array( 'hook' => 'buddynext_async_send_invite_email', 'status' => 'pending' ) );
+		$this->assertSame( array( $created['invite_id'] ), reset( $jobs )->get_args() );
+
+		$token = (string) $wpdb->get_var( $wpdb->prepare( "SELECT token FROM {$wpdb->prefix}bn_invites WHERE id = %d", $created['invite_id'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$body  = '';
+		$grab  = static function ( $pre, $atts ) use ( &$body ) {
+			$body = (string) $atts['message'];
+			return true;
+		};
+		add_filter( 'pre_wp_mail', $grab, 10, 2 );
+		( new \BuddyNext\Onboarding\OnboardingListener() )->handle_async_invite_email( $created['invite_id'] );
+		remove_filter( 'pre_wp_mail', $grab, 10 );
+		$this->assertStringContainsString( $token, $body );
+		as_unschedule_all_actions( 'buddynext_async_send_invite_email' );
+	}
+
+	/**
 	 * A refused email is reported and leaves a resendable bounced row, not a live invite.
 	 */
 	public function test_refused_email_marks_the_invite_bounced(): void {

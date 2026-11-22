@@ -208,10 +208,14 @@ class OnboardingListener implements ListenerInterface {
 	 * InviteService::create() enqueues this (one per invite) so a bulk/CSV import
 	 * never blocks the request on a loop of synchronous wp_mail() calls.
 	 *
-	 * @param mixed $invite Invite payload { id, email, first_name, token }.
+	 * @param mixed $invite Invite id; a 1.2.x job carries the full payload array
+	 *                      (kept for queued copies, removed in 1.4.0).
 	 * @return void
 	 */
 	public function handle_async_invite_email( $invite ): void {
+		if ( is_numeric( $invite ) && (int) $invite > 0 ) {
+			$invite = array( 'id' => (int) $invite );
+		}
 		if ( is_array( $invite ) ) {
 			( new InviteService() )->deliver_invite_email( $invite );
 		}
