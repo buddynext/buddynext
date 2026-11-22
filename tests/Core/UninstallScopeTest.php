@@ -34,18 +34,13 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 	public function test_pro_jobs_survive_a_free_uninstall(): void {
 		global $wpdb;
 		delete_option( 'buddynext_delete_data_on_uninstall' );
-		foreach ( array( 'buddynext_digest_weekly', 'buddynextpro_drip_tick', 'buddynext_pro_learnomy_backfill_chunk' ) as $hook ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-			$wpdb->insert(
-				$wpdb->prefix . 'actionscheduler_actions',
-				array(
-					'hook'                 => $hook,
-					'status'               => 'pending',
-					'scheduled_date_gmt'   => gmdate( 'Y-m-d H:i:s' ),
-					'scheduled_date_local' => gmdate( 'Y-m-d H:i:s' ),
-					'args'                 => '[]',
-				)
-			);
+		foreach ( array(
+			'buddynext_digest_weekly'               => 'buddynext',
+			'buddynextpro_drip_tick'                => 'buddynextpro_email',
+			'buddynext_pro_learnomy_backfill_chunk' => 'buddynext',
+			'buddynext_lookalike_job'               => 'other-plugin',
+		) as $hook => $group ) {
+			as_schedule_single_action( time() + HOUR_IN_SECONDS, $hook, array(), $group );
 		}
 
 		$this->uninstall();
@@ -55,6 +50,7 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		$this->assertNotContains( 'buddynext_digest_weekly', $hooks, 'Free\'s own job goes.' );
 		$this->assertContains( 'buddynextpro_drip_tick', $hooks );
 		$this->assertContains( 'buddynext_pro_learnomy_backfill_chunk', $hooks );
+		$this->assertContains( 'buddynext_lookalike_job', $hooks, 'Another plugin\'s group is never read.' );
 	}
 
 	public function test_a_subsite_opt_in_cannot_wipe_network_wide_member_meta(): void {

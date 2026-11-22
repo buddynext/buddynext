@@ -148,27 +148,30 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 		)
 	);
 
-	// Action Scheduler rows for our own hooks, deleted directly because AS is not
-	// booted here. Guarded on table existence so an install that never scheduled
-	// anything is a no-op. Free's hooks are buddynext_* plus the two onboarding
-	// nudges by exact name (a bare bn_% could match another plugin's hooks); Pro's
-	// buddynextpro_* / buddynext_pro_* stay for Pro (DATA-LIFECYCLE: delete only
-	// what you own). Log rows go first, by action id, so none are orphaned, and
-	// both deletes run in bounded batches so a big queue cannot lock the tables.
+	// Action Scheduler rows of Free's own group ('buddynext'), deleted directly
+	// because AS is not booted here. Pro's hooks that run in that group
+	// (buddynextpro_* / buddynext_pro_*) stay for Pro's uninstall, and no other
+	// plugin's group is read (DATA-LIFECYCLE: delete only what you own). Log rows
+	// go first, by action id, in bounded batches; the loop stops on a DELETE that
+	// fails or removes nothing.
 	$bn_as_actions = $wpdb->prefix . 'actionscheduler_actions';
 	$bn_as_logs    = $wpdb->prefix . 'actionscheduler_logs';
+	$bn_group_id   = 0;
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_actions ) ) === $bn_as_actions ) {
+		$bn_group_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT group_id FROM {$wpdb->prefix}actionscheduler_groups WHERE slug = %s", 'buddynext' ) );
+	}
+	if ( $bn_group_id > 0 ) {
 		$bn_has_logs = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_logs ) ) === $bn_as_logs;
 		do {
 			$bn_ids = array_map(
 				'intval',
 				(array) $wpdb->get_col(
 					$wpdb->prepare(
-						"SELECT action_id FROM `{$bn_as_actions}` WHERE ( hook LIKE %s AND hook NOT LIKE %s ) OR hook IN ( %s, %s ) LIMIT 2000", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-						$wpdb->esc_like( 'buddynext_' ) . '%',
+						"SELECT action_id FROM `{$bn_as_actions}` WHERE group_id = %d AND hook NOT LIKE %s AND hook NOT LIKE %s LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$bn_group_id,
+						$wpdb->esc_like( 'buddynextpro_' ) . '%',
 						$wpdb->esc_like( 'buddynext_pro_' ) . '%',
-						'bn_onboarding_nudge_24h',
-						'bn_onboarding_nudge_72h'
+						\BuddyNext\Core\Installer::UNINSTALL_BATCH
 					)
 				)
 			);
@@ -179,16 +182,24 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 			if ( $bn_has_logs ) {
 				$wpdb->query( "DELETE FROM `{$bn_as_logs}` WHERE action_id IN ( {$bn_in} )" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ints only.
 			}
-			$wpdb->query( "DELETE FROM `{$bn_as_actions}` WHERE action_id IN ( {$bn_in} )" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ints only.
-			$bn_more = 2000 === count( $bn_ids );
-		} while ( $bn_more );
+			$bn_deleted = $wpdb->query( "DELETE FROM `{$bn_as_actions}` WHERE action_id IN ( {$bn_in} )" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ints only.
+			$bn_full    = count( $bn_ids ) === \BuddyNext\Core\Installer::UNINSTALL_BATCH;
+		} while ( $bn_deleted && $bn_full );
 	}
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-	// Cron events that fire into code that is gone: the licence SDK's weekly check (named after the plugin slug) and the
-	// preset-key activation retry. Pro's own events are left for Pro.
-	wp_clear_scheduled_hook( 'edd_sl_sdk_weekly_license_check_buddynext' );
-	wp_clear_scheduled_hook( 'buddynext_activate_preset_key' );
+	// WP-Cron events (the AS-absent fallback), with any arguments: every event of
+	// Free's hook namespace and the two onboarding nudges, and the licence SDK's
+	// weekly check named after the slug. Pro's buddynext_pro_* events stay for Pro.
+	foreach ( (array) _get_cron_array() as $bn_events ) {
+		foreach ( array_keys( (array) $bn_events ) as $bn_hook ) {
+			$bn_hook = (string) $bn_hook;
+			if ( ( str_starts_with( $bn_hook, 'buddynext_' ) && ! str_starts_with( $bn_hook, 'buddynext_pro_' ) )
+				|| in_array( $bn_hook, array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h', 'edd_sl_sdk_weekly_license_check_buddynext' ), true ) ) {
+				wp_unschedule_hook( $bn_hook );
+			}
+		}
+	}
 
 	// The isolation mu-plugin (buddynext-isolation.php) filters option_active_plugins
 	// on front-end routes. Left behind, it keeps stripping plugins with BuddyNext

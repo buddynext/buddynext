@@ -116,6 +116,13 @@ class Installer {
 	 */
 	public const FINISH_UPGRADE_HOOK = 'buddynext_finish_upgrade';
 
+	/**
+	 * Rows one uninstall DELETE removes (uninstall.php).
+	 *
+	 * @since 1.3.0
+	 */
+	public const UNINSTALL_BATCH = 2000;
+
 	public const OWNED_TABLES = array(
 		'bn_appeals',
 		'bn_blocks',
