@@ -4330,6 +4330,13 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 		inline-size: 44px;
 		block-size: 44px;
 	}
+
+	/* Row "More actions" (Reports, Members, Spaces): 28px on desktop, 44px to touch. */
+	.bn-admin-hub .bn-more-btn,
+	.bn-admin-hub .bn-table .bn-more-btn {
+		inline-size: 44px;
+		block-size: 44px;
+	}
 }
 
 /* ── Core list tables inside BuddyNext: Lucide expander, not dashicons ───────
