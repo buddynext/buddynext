@@ -1007,7 +1007,7 @@ class MemberCleanupService {
 	private function schedule_continuation( int $user_id, string $context ): void {
 		$args = array( $user_id, $context );
 
-		if ( ! function_exists( 'as_enqueue_async_action' ) || ! function_exists( 'as_next_scheduled_action' ) ) {
+		if ( ! function_exists( 'as_enqueue_async_action' ) || ! function_exists( 'as_get_scheduled_actions' ) ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log(
 				sprintf(
@@ -1020,7 +1020,21 @@ class MemberCleanupService {
 			return;
 		}
 
-		if ( false !== as_next_scheduled_action( self::CONTINUE_HOOK, $args, self::AS_GROUP ) ) {
+		// Dedupe on PENDING rows only. as_next_scheduled_action() also reports the
+		// action that is running right now, and this is called from inside that
+		// action (continue_purge), so it blocked every follow-on: a purge needing
+		// three or more passes stopped after the second with the member half-erased.
+		$queued = as_get_scheduled_actions(
+			array(
+				'hook'     => self::CONTINUE_HOOK,
+				'args'     => $args,
+				'group'    => self::AS_GROUP,
+				'status'   => \ActionScheduler_Store::STATUS_PENDING,
+				'per_page' => 1,
+			),
+			'ids'
+		);
+		if ( ! empty( $queued ) ) {
 			return; // Already queued.
 		}
 
