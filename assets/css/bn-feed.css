@@ -2593,8 +2593,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-post-card__edit-schedule-input {
 	flex: 1 1 auto;
 	min-width: 0;
-	background: var(--bg-subtle);
-	border: 1px solid var(--border);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s2) var(--bn-s3);
 	font-family: var(--font-body);
@@ -4087,8 +4087,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	   before the control becomes too narrow to read the value it holds. */
 	flex: 1 1 11rem;
 	min-width: 0;
-	background: var(--bg-subtle);
-	border: 1px solid var(--border);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s2) var(--bn-s3);
 	font-family: var(--font-body);
@@ -4402,7 +4402,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	width: 100%;
 	min-height: 72px;
 	padding: var(--bn-s3);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink);
@@ -4428,7 +4428,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 .bn-share-modal__net {
 	display: inline-flex; align-items: center; gap: var(--bn-s1);
 	min-height: 36px; padding-block: var(--bn-s1); padding-inline: var(--bn-s3);
-	border: 1px solid var(--bn-line); border-radius: var(--bn-r-full, 999px);
+	border: 1px solid var(--bn-line-control); border-radius: var(--bn-r-full, 999px);
 	background: var(--bn-surface); color: var(--bn-ink);
 	font: inherit; font-size: var(--bn-text-sm); text-decoration: none; cursor: pointer;
 }
