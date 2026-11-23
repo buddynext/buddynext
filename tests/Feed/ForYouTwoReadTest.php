@@ -177,7 +177,7 @@ class ForYouTwoReadTest extends WP_UnitTestCase {
 	 * @param bool $single Run the old single query.
 	 * @return array<int,array{0:int[],1:string|null}>
 	 */
-	private function pages( int $viewer, bool $single ): array {
+	private function pages( int $viewer, bool $single, int $per_page = 20 ): array {
 		$seam = new \ReflectionProperty( FeedService::class, 'single_query' );
 		$seam->setValue( null, $single );
 
@@ -187,7 +187,7 @@ class ForYouTwoReadTest extends WP_UnitTestCase {
 		$pages  = array();
 		$cursor = null;
 		do {
-			$page    = $call->invoke( $feed, $viewer, $cursor, 20, 'for-you' );
+			$page    = $call->invoke( $feed, $viewer, $cursor, $per_page, 'for-you' );
 			$cursor  = $page['next_cursor'];
 			$pages[] = array( array_map( 'intval', wp_list_pluck( $page['items'], 'id' ) ), $cursor );
 		} while ( null !== $cursor && count( $pages ) < 200 );
@@ -220,7 +220,17 @@ class ForYouTwoReadTest extends WP_UnitTestCase {
 			$tiers = array_map( static fn( $page ) => null === $page[1] ? null : \BuddyNext\Core\CursorCodec::decode( $page[1] )['tier'], $old );
 			$seen  = array_merge( $seen, array_filter( $tiers, 'is_int' ) );
 		}
-		$this->assertContains( 1, $seen, 'Some page ends inside a boosted tier, so the cursor crosses from the boosted read to the rest.' );
+		// Small pages end inside every boosted tier (own, connections, interests).
+		foreach ( array( 1, 5 ) as $per_page ) {
+			$old = $this->pages( $this->viewers['many_connections'], true, $per_page );
+			$this->assertSame( $old, $this->pages( $this->viewers['many_connections'], false, $per_page ), "Pages of $per_page differ." );
+			foreach ( $old as $page ) {
+				$seen[] = null === $page[1] ? null : \BuddyNext\Core\CursorCodec::decode( $page[1] )['tier'];
+			}
+		}
+		foreach ( array( 0, 1, 2 ) as $tier ) {
+			$this->assertContains( $tier, $seen, "Some page ends inside boosted tier $tier, so the next page continues that tier's read." );
+		}
 	}
 
 	/**

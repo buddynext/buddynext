@@ -714,7 +714,7 @@ class FeedService {
 
 		$bn_cursor_tier = null === $cursor ? null : ( CursorCodec::decode( $cursor )['tier'] ?? null );
 		if ( null !== $tier_expr && ! self::$single_query && ( null === $cursor || null !== $bn_cursor_tier ) ) {
-			$rows = $this->for_you_rows( $bn_boosts, $tier_expr, $order_by, $cursor, $bn_cursor_tier, $per_page + 1, $source_where, $excluded_where, $hidden_where, array_merge( $source_params, $hidden_params ) );
+			$rows = $this->for_you_rows( $bn_boosts, $tier_expr, $cursor, $bn_cursor_tier, $per_page + 1, $source_where, $excluded_where, $hidden_where, array_merge( $source_params, $hidden_params ) );
 		} else {
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 			$sql = $wpdb->prepare(
@@ -2458,26 +2458,26 @@ class FeedService {
 	private static int $scan_window = 2000;
 
 	/**
-	 * The For you rows for one page, in two index-served reads instead of one
-	 * tiered sort over every visible post.
+	 * The For you rows for one page, in index-served reads instead of one tiered
+	 * sort over every visible post.
 	 *
 	 * The tiered ORDER BY (a per-viewer CASE) cannot use an index, so the single
 	 * query read and sorted the whole visible table on every page (230 ms at 100k
-	 * posts). The boosted tiers are a few recent posts by known authors or spaces,
-	 * and everything else is plain date order, so: read the boosted rows by their
-	 * own conditions, then fill the page from the rest newest first, which the
-	 * post_created index serves and stops after the page is full. Same rows, same
-	 * order and the same tier-aware cursor as the single query.
+	 * posts). Each tier is plain date order inside itself, so: read each boosted
+	 * tier newest first (own recent posts, connections, interest spaces), then
+	 * fill the page from the rest. Every read stops once the page is full, and
+	 * reading the boosted tiers one at a time keeps a busy week (most posts inside
+	 * the boost window) from turning into one sort of the whole window. Same rows,
+	 * same order and the same tier-aware cursor as the single query.
 	 *
-	 * The second read walks back past posts the viewer cannot see. When almost
-	 * nothing is visible (a new member on a site whose posts sit in private spaces)
-	 * a walk of the whole index costs more than the old scan and sort, so it walks
-	 * at most $scan_window posts and, if the page is still short, reads the
-	 * rest with the old table scan: never meaningfully slower than the old query.
+	 * A date walk passes posts outside the tier or hidden from the viewer. When a
+	 * tier is sparse (quiet connections, or a new member who can see almost
+	 * nothing) a walk of the whole index costs more than a sort, so each read
+	 * walks at most $scan_window posts and, if the page is still short, reads the
+	 * tier on its author or space index (the rest: the old table scan).
 	 *
 	 * @param string[]    $boosts         Boost conditions, tier N = $boosts[N].
 	 * @param string      $tier_expr      The tier CASE built from $boosts.
-	 * @param string      $order_by       The tiered ORDER BY.
 	 * @param string|null $cursor         Cursor.
 	 * @param int|null    $cursor_tier    Tier carried by the cursor.
 	 * @param int         $limit          Rows wanted (page size + 1).
@@ -2487,7 +2487,7 @@ class FeedService {
 	 * @param array       $params         Params for $source_where then $hidden_where.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function for_you_rows( array $boosts, string $tier_expr, string $order_by, ?string $cursor, ?int $cursor_tier, int $limit, string $source_where, string $excluded_where, string $hidden_where, array $params ): array {
+	private function for_you_rows( array $boosts, string $tier_expr, ?string $cursor, ?int $cursor_tier, int $limit, string $source_where, string $excluded_where, string $hidden_where, array $params ): array {
 		global $wpdb;
 
 		$rest  = count( $boosts ); // The ELSE tier.
@@ -2498,35 +2498,21 @@ class FeedService {
 			   AND ({$source_where})
 			   {$excluded_where}
 			   {$hidden_where}";
-		$base  = "FROM {$from} {$where}";
 		$rows  = array();
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-		if ( null === $cursor || $cursor_tier < $rest ) {
-			$rows = (array) $wpdb->get_results(
+		// The rows of one tier, newest first: walk at most $scan_window posts back
+		// on post_created (cheap while the tier is dense), and when that leaves the
+		// page short, read the tier on $fallback instead: a boosted tier's author or
+		// space index (sorts only that tier's rows, so 500 silent connections cost
+		// 2 ms, not a walk of the whole boost window), the rest a table scan.
+		$walk = function ( int $tier, string $cond, ?string $after_cursor, int $need, string $fallback ) use ( $wpdb, $from, $where, $params ): array {
+			$after      = $this->cursor_where( $after_cursor );
+			$after_args = $this->cursor_params( $after_cursor );
+			$read       = static fn( string $index, string $window, array $window_args ): array => (array) $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT *, ({$tier_expr}) AS bn_tier {$base}
-					   AND ( (" . implode( ') OR (', $boosts ) . ") )
-					   {$this->cursor_where( $cursor, $tier_expr )}
-					 ORDER BY {$order_by}
-					 LIMIT %d",
-					...array_merge( $params, $this->cursor_params( $cursor, $tier_expr ), array( $limit ) )
-				),
-				ARRAY_A
-			);
-		}
-
-		$need = $limit - count( $rows );
-		if ( $need > 0 ) {
-			// A boosted-tier cursor starts the rest from the top; a rest-tier cursor
-			// continues it by date.
-			$rest_cursor = null !== $cursor && $cursor_tier >= $rest ? $cursor : null;
-			$after       = $this->cursor_where( $rest_cursor );
-			$after_args  = $this->cursor_params( $rest_cursor );
-			$read        = static fn( string $index, string $window, array $window_args ): array => (array) $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT *, {$rest} AS bn_tier FROM {$from} {$index} {$where}
-					   AND ({$tier_expr}) = {$rest}
+					"SELECT *, {$tier} AS bn_tier FROM {$from} {$index} {$where}
+					   AND {$cond}
 					   {$after}
 					   {$window}
 					 ORDER BY created_at DESC, id DESC
@@ -2543,11 +2529,25 @@ class FeedService {
 					...array_merge( $after_args, array( self::$scan_window ) )
 				)
 			);
-			$more = null === $edge ? $read( '', '', array() ) : $read( '', 'AND created_at >= %s', array( $edge ) );
-			if ( null !== $edge && count( $more ) < $need ) {
-				$more = $read( 'IGNORE INDEX (post_created)', '', array() );
+			if ( null === $edge ) {
+				return $read( '', '', array() ); // A small site: the whole table is one window.
 			}
-			$rows = array_merge( $rows, $more );
+			$found = $read( 'FORCE INDEX (post_created)', 'AND created_at >= %s', array( $edge ) );
+
+			return count( $found ) < $need ? $read( $fallback, '', array() ) : $found;
+		};
+
+		// Each boosted tier in order (own recent posts, connections, interest spaces),
+		// then the rest. A boosted-tier cursor skips the tiers above it and continues
+		// its own by date; the rest starts from the top unless the cursor is in it.
+		for ( $tier = null === $cursor ? 0 : max( 0, $cursor_tier ); $tier <= $rest; $tier++ ) {
+			$need = $limit - count( $rows );
+			if ( $need <= 0 ) {
+				break;
+			}
+			$cond     = $tier < $rest ? "({$boosts[ $tier ]}) AND ({$tier_expr}) = {$tier}" : "({$tier_expr}) = {$rest}";
+			$fallback = $tier === $rest ? 'IGNORE INDEX (post_created)' : ( str_starts_with( $boosts[ $tier ], 'space_id' ) ? 'FORCE INDEX (space_feed)' : 'FORCE INDEX (user_feed)' );
+			$rows     = array_merge( $rows, $walk( $tier, $cond, $tier === $cursor_tier ? $cursor : null, $need, $fallback ) );
 		}
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
