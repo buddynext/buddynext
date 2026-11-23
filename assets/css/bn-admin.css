@@ -2541,7 +2541,7 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 
 .bn-page-link {
 	padding: 5px var(--bn-a-s3);
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	font-size: var(--bn-a-text-xs);
 	color: var(--bn-a-text-1);
@@ -2846,9 +2846,10 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 		flex-wrap: wrap;
 	}
 
+	/* Wrapped tabs read by their labels, as on desktop: no faint divider under the
+	   unselected ones (it drew a 1.1:1 edge); the selected tab keeps its underline. */
 	.bn-atab {
 		border-inline-end: none;
-		border-bottom: 1px solid var(--bn-a-border);
 		flex: 1 1 auto;
 		text-align: center;
 	}

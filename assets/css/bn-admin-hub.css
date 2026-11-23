@@ -1201,7 +1201,7 @@
 	font-weight: var(--bn-a-fw-semibold);
 	color: var(--bn-a-brand);
 	text-decoration: none;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: 5px var(--bn-a-s3);
 	white-space: nowrap;
@@ -1296,7 +1296,7 @@
 	gap: var(--bn-a-s3);
 	padding: var(--bn-a-s4);
 	background: var(--bn-a-bg);
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border); /* A link tile is a control: 3:1 edge. */
 	border-radius: var(--bn-a-r-md, 10px);
 	box-shadow: var(--bn-a-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
 	text-decoration: none;
