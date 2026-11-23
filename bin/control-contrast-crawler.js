@@ -19,9 +19,10 @@
 // on the page is listed under openerMissing, never silently skipped. EXEMPT controls are counted
 // apart from violations (owner decision: the composer prompt stays borderless in 1.3.0).
 // A one-sided rule under a control that is not a button, [role=button] or field (list-row separator,
-// tab underline) is a divider, not a boundary, and is judged by its text. An icon-only button whose
-// border slot is transparent and whose fill is under 3:1 fails as "transparent-edge" (its icon's
-// own ratio is reported alongside). A summary or [aria-expanded] control's chevron (svg, drawn
+// tab underline) is a divider, not a boundary, and is judged by its text. An icon-only button is judged
+// by its icon (3:1 against its fill, "icon"); every one is listed under iconOnly with its lowest
+// ratio. A button with neither text nor icon, a transparent border and a fill under 3:1 fails as
+// "transparent-edge". A summary or [aria-expanded] control's chevron (svg, drawn
 // ::before/::after, or visible ::marker) must reach 3:1; one with no indicator is listed under
 // noIndicator. Not covered: the member "Delete account" prompt (admins do not get it).
 
@@ -270,12 +271,21 @@ const IN_PAGE = (args) => {
         texts.push({ r: ratio(fg, fill), need: 4.5, fg: hex(fg), bg: hex(fill), text: el.value.slice(0, 30) });
       }
     }
+    // Icon-only button (no visible text): WCAG 1.4.11 treats the icon as the graphical object,
+    // so it must reach 3:1 against the fill; its ratio is reported for every such button. With no
+    // icon and no visible edge (transparent border, fill under 3:1), nothing shows the control.
     let icon = null;
-    if (buttonLike && !isField && !texts.length && !(el.value || '').trim() && hiddenEdge && best < 3 && nonText !== 'fail-indicator') {
-      nonText = 'fail-transparent-edge';
-      // Reported with the icon's own contrast, so a reviewer can tell a faint icon from a missing edge.
+    if (buttonLike && !isField && !texts.length && !(el.value || '').trim()) {
       const svg = el.querySelector('svg');
-      if (svg) { const scs = getComputedStyle(svg); const c = scs.stroke && scs.stroke !== 'none' && !/url/.test(scs.stroke) ? scs.stroke : (scs.fill && scs.fill !== 'none' && !/url/.test(scs.fill) ? scs.fill : scs.color); icon = ratio(over(fill, c, op), fill); }
+      if (svg && svg.checkVisibility()) {
+        const scs = getComputedStyle(svg);
+        const c = scs.stroke && scs.stroke !== 'none' && !/url/.test(scs.stroke) ? scs.stroke : (scs.fill && scs.fill !== 'none' && !/url/.test(scs.fill) ? scs.fill : scs.color);
+        icon = ratio(over(fill, c, op * parseFloat(scs.opacity || 1)), fill);
+      }
+      if (nonText !== 'fail-indicator') {
+        if (icon !== null && icon < 3) nonText = 'fail-icon';
+        else if (icon === null && hiddenEdge && best < 3) nonText = 'fail-transparent-edge';
+      }
     }
     const worstText = texts.reduce((m, t) => (!m || t.r / t.need < m.r / m.need ? t : m), null);
     out.push({
@@ -310,6 +320,7 @@ const bncCrawl = async (page, opts = {}) => {
   const disabledInfo = [];
   const fillOnly = [];
   const noIndicator = new Set();
+  const iconOnly = {};
   const exempt = new Set();
   const openerMissing = [];
   const pages = [];
@@ -337,11 +348,16 @@ const bncCrawl = async (page, opts = {}) => {
           }
           if (!ok) { openerMissing.push(`${path} ${mode} ${width}`); continue; }
         }
+        // A route may redirect client-side after load (/search/ -> /activity/search/): settle once.
+        const prep = async () => {
+          await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;caret-color:transparent!important}' });
+          await page.evaluate(() => { document.querySelectorAll('details').forEach((d) => { d.open = true; }); });
+          await page.waitForTimeout(150);
+          return page.evaluate(IN_PAGE, { scope: set, tag: true, exempt: EXEMPT });
+        };
+        let n;
+        try { n = await prep(); } catch (e) { await page.waitForLoadState('load'); await page.waitForTimeout(500); n = await prep(); }
         const finalUrl = page.url();
-        await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;caret-color:transparent!important}' });
-        await page.evaluate(() => { document.querySelectorAll('details').forEach((d) => { d.open = true; }); });
-        await page.waitForTimeout(150);
-        const n = await page.evaluate(IN_PAGE, { scope: set, tag: true, exempt: EXEMPT });
         controls += n;
         pages.push({ path, final: finalUrl.replace(BASE, ''), status: resp && resp.status(), mode, width, controls: n });
         if (!n) continue;
@@ -368,6 +384,7 @@ const bncCrawl = async (page, opts = {}) => {
             const bad = [];
             if (/^fail/.test(r.nonText)) bad.push(r.nonText === 'fail' || r.nonText === 'fail-no-boundary' ? 'nonText' : r.nonText.replace('fail-', ''));
             if (state === 'default' && r.indicator === 'none') noIndicator.add(`${r.sel} "${r.label}"`);
+            if (r.icon !== null) { const k = r.sel; iconOnly[k] = Math.min(iconOnly[k] ?? 99, r.icon); }
             if (r.textFail) bad.push('text');
             if (!bad.length) continue;
             const v = { path, mode, width, state, sel: r.sel, label: r.label, kind: bad.join('+'), icon: r.icon, surf: r.surf, fill: r.fill, parts: r.parts, best: r.best, text: r.text, rule: [] };
@@ -408,7 +425,7 @@ const bncCrawl = async (page, opts = {}) => {
   const table = Object.values(groups).map((g) => ({ sel: g.sel, label: g.label, kind: g.kind, icon: g.icon, state: g.state, mode: g.mode, widths: [...g.widths].join('/'), pages: [...g.pages].slice(0, 3).join(' ') + (g.pages.size > 3 ? ` (+${g.pages.size - 3})` : ''), surf: g.surf, fill: g.fill, parts: g.parts, text: g.text ? `${g.text.r} (${g.text.fg} on ${g.text.bg}) "${g.text.text}"` : '', rule: g.rule }));
   const fo = {};
   for (const f of fillOnly) { const k = f.sel + '|' + f.state + '|' + f.mode; if (!fo[k] || f.best < fo[k].best) fo[k] = f; }
-  return { fillOnly: Object.values(fo).map((f) => `${f.state}/${f.mode} ${f.sel} "${f.label}" fill ${f.best}`), set, modes, widths, states, pagesLoaded: pages.length, controlsMeasured: controls, violationCount: violations.length, exempt: [...exempt], openerMissing, noIndicator: [...noIndicator], uniqueViolations: table.length, table, disabled: opts.showDisabled ? disabledInfo : disabledInfo.length, pages: opts.showPages ? pages : undefined };
+  return { fillOnly: Object.values(fo).map((f) => `${f.state}/${f.mode} ${f.sel} "${f.label}" fill ${f.best}`), set, modes, widths, states, pagesLoaded: pages.length, controlsMeasured: controls, violationCount: violations.length, exempt: [...exempt], openerMissing, noIndicator: [...noIndicator], iconOnly: Object.entries(iconOnly).map(([k, r]) => `${k} icon ${r}`), uniqueViolations: table.length, table, disabled: opts.showDisabled ? disabledInfo : disabledInfo.length, pages: opts.showPages ? pages : undefined };
 };
 
 // Kept on the browser context so later calls can run it without re-sending this file.
