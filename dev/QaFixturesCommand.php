@@ -452,7 +452,7 @@ final class QaFixturesCommand {
 	private static function community_name( int $i ): string {
 		$first = array( 'Alex', 'Sara', 'Marcus', 'Amina', 'Lucia', 'Yuki', 'Diego', 'Fatima', 'Noah', 'Priya', 'Omar', 'Hana', 'Theo', 'Lena', 'Jamal', 'Grace' );
 		$last  = array( 'Rivera', 'Lindqvist', "O'Brien", 'Diallo', 'Ferrari', 'Tanaka', 'Morales', 'Zahra', 'Bergman', 'Nair', 'Haddad', 'Kim', 'Novak', 'Fischer', 'Okafor', 'Bennett' );
-		return $first[ $i % 16 ] . ' ' . $last[ ( $i / 16 ) % 16 ] . ( $i > 255 ? ' ' . (int) ( $i / 256 ) : '' );
+		return $first[ $i % 16 ] . ' ' . $last[ intdiv( $i, 16 ) % 16 ] . ( $i > 255 ? ' ' . intdiv( $i, 256 ) : '' );
 	}
 
 	/**
