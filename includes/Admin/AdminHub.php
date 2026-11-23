@@ -1941,7 +1941,7 @@ class AdminHub {
 	/**
 	 * Base URL of the public documentation site.
 	 */
-	private const DOCS_BASE = 'https://buddynext.com/docs/';
+	public const DOCS_BASE = 'https://buddynext.com/docs/';
 
 	/**
 	 * Map an admin section + tab to its most relevant documentation page.

@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-23T04:21:37+00:00\n"
+"POT-Creation-Date: 2026-11-23T08:14:32+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: buddynext\n"
@@ -259,9 +259,9 @@ msgstr ""
 #: assets/js/admin/activity-bulk.js:55
 #: assets/js/admin/activity-bulk.js:62
 #: assets/js/admin/avatar-settings.js:95
-#: assets/js/admin/bn-admin-dialogs.js:115
-#: assets/js/admin/bn-admin-dialogs.js:273
-#: assets/js/admin/bn-admin-dialogs.js:575
+#: assets/js/admin/bn-admin-dialogs.js:119
+#: assets/js/admin/bn-admin-dialogs.js:282
+#: assets/js/admin/bn-admin-dialogs.js:586
 #: assets/js/admin/spaces.js:48
 #: assets/js/admin/spaces.js:110
 #: assets/js/admin/spaces.js:134
@@ -759,6 +759,7 @@ msgstr ""
 msgid "Activity content"
 msgstr ""
 
+#. translators: %s: the word to type, e.g. DELETE
 #: includes/Admin/ActivityAdmin.php:437
 #: includes/Admin/AdminPageBase.php:895
 #: includes/Admin/AppearanceTab.php:177
@@ -773,7 +774,7 @@ msgstr ""
 #: includes/Admin/Members/ProfileFieldsManager.php:2389
 #: includes/Admin/RolesTab.php:200
 #: includes/Admin/Settings.php:432
-#: includes/Admin/ToolsTab.php:571
+#: includes/Admin/ToolsTab.php:584
 #: templates/parts/profile-edit-save-bar.php:36
 #: templates/parts/profile-edit-save-bar.php:70
 #: templates/parts/taxonomy-editor.php:251
@@ -891,7 +892,7 @@ msgstr ""
 #: includes/Admin/Spaces.php:1502
 #: includes/Admin/Spaces.php:1536
 #: includes/Admin/Spaces.php:1572
-#: includes/Admin/ToolsTab.php:968
+#: includes/Admin/ToolsTab.php:981
 #: includes/Demo/DemoAdmin.php:444
 #: includes/Demo/DemoAdmin.php:461
 #: includes/Spaces/SpaceCategoryController.php:372
@@ -1424,14 +1425,14 @@ msgid "Select image"
 msgstr ""
 
 #: includes/Admin/AdminPageBase.php:922
-#: assets/js/admin/bn-admin-dialogs.js:548
-#: assets/js/admin/bn-admin-dialogs.js:570
+#: assets/js/admin/bn-admin-dialogs.js:559
+#: assets/js/admin/bn-admin-dialogs.js:581
 msgid "Restore default settings?"
 msgstr ""
 
 #: includes/Admin/AdminPageBase.php:923
 #: includes/Admin/AdminPageBase.php:942
-#: assets/js/admin/bn-admin-dialogs.js:574
+#: assets/js/admin/bn-admin-dialogs.js:585
 msgid "Restore defaults"
 msgstr ""
 
@@ -1462,7 +1463,7 @@ msgstr ""
 #: templates/parts/space-settings-panel-danger.php:204
 #: templates/parts/space-settings-panel-danger.php:271
 #: templates/settings/notifications.php:579
-#: assets/js/admin/bn-admin-dialogs.js:553
+#: assets/js/admin/bn-admin-dialogs.js:564
 #: assets/js/admin/spaces.js:96
 msgid "Close"
 msgstr ""
@@ -3543,7 +3544,7 @@ msgid "Members pagination"
 msgstr ""
 
 #: includes/Admin/Members.php:2186
-#: assets/js/admin/bn-admin-dialogs.js:269
+#: assets/js/admin/bn-admin-dialogs.js:278
 msgid "Confirm action"
 msgstr ""
 
@@ -3612,9 +3613,9 @@ msgstr ""
 #: includes/Core/AssetService.php:1643
 #: includes/Core/PageRouter.php:2295
 #: assets/js/admin/avatar-settings.js:83
-#: assets/js/admin/bn-admin-dialogs.js:67
-#: assets/js/admin/bn-admin-dialogs.js:116
-#: assets/js/admin/bn-admin-dialogs.js:272
+#: assets/js/admin/bn-admin-dialogs.js:71
+#: assets/js/admin/bn-admin-dialogs.js:120
+#: assets/js/admin/bn-admin-dialogs.js:281
 #: assets/js/admin/spaces.js:129
 msgid "Confirm"
 msgstr ""
@@ -4069,7 +4070,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/Admin/Members/MemberEditForm.php:73
-#: includes/Auth/AuthController.php:2381
+#: includes/Auth/AuthController.php:2391
 #: includes/Bridges/JetonomyBridge.php:4357
 #: includes/Bridges/JetonomyBridge.php:4373
 #: includes/Bridges/MemberBlogRestController.php:73
@@ -9435,69 +9436,98 @@ msgstr ""
 msgid "This cannot be undone. Take a database backup before you delete the plugin with this on."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1020
+#: includes/Admin/ToolsTab.php:571
+msgid "What a delete removes and keeps"
+msgstr ""
+
+#: includes/Admin/ToolsTab.php:578
+msgid "Deleting BuddyNext will then permanently remove your members' community data (profiles, follows, connections, preferences), every space, post, comment and reaction, all BuddyNext settings, and the community pages BuddyNext created. Kept: uploaded files (avatars, covers and post photos) and financial records (invoices and subscriptions)."
+msgstr ""
+
+#: includes/Admin/ToolsTab.php:579
+msgid "Delete all community data on uninstall?"
+msgstr ""
+
+#: includes/Admin/ToolsTab.php:581
+msgid "Turn on data removal"
+msgstr ""
+
+#. translators: %s: the word to type, e.g. DELETE
+#: includes/Admin/ToolsTab.php:582
+#: includes/Admin/ToolsTab.php:583
+msgctxt "word typed to confirm data removal"
+msgid "DELETE"
+msgstr ""
+
+#. translators: %s: the word to type, e.g. DELETE
+#: includes/Admin/ToolsTab.php:583
+#, php-format
+msgid "Type %s to confirm"
+msgstr ""
+
+#: includes/Admin/ToolsTab.php:1033
 msgid "Counters recomputed."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1022
+#: includes/Admin/ToolsTab.php:1035
 msgid "Database checked: every BuddyNext table and column is present. Nothing to repair."
 msgstr ""
 
 #. translators: %d: number of tables and columns created.
-#: includes/Admin/ToolsTab.php:1025
+#: includes/Admin/ToolsTab.php:1038
 #, php-format
 msgid "Database repaired: %d missing table or column was created."
 msgid_plural "Database repaired: %d missing tables and columns were created."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Admin/ToolsTab.php:1027
+#: includes/Admin/ToolsTab.php:1040
 msgid "Some missing database structure could not be created. The reason from the database is shown below. The usual cause is a database user without permission to create or alter tables, which your host can fix."
 msgstr ""
 
 #. translators: %d: number of email templates.
-#: includes/Admin/ToolsTab.php:1030
+#: includes/Admin/ToolsTab.php:1043
 #, php-format
 msgid "%d unedited email was updated to the latest default wording."
 msgid_plural "%d unedited emails were updated to the latest default wording."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Admin/ToolsTab.php:1032
+#: includes/Admin/ToolsTab.php:1045
 msgid "Cache flushed."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1034
+#: includes/Admin/ToolsTab.php:1047
 msgid "Search index rebuild started. It runs in the background and may take a few minutes on large communities."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1036
+#: includes/Admin/ToolsTab.php:1049
 msgid "Processed a batch of background tasks. Large backlogs clear over several runs."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1038
+#: includes/Admin/ToolsTab.php:1051
 msgid "Saved. Deleting BuddyNext will now erase all community data (except financial records)."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1040
+#: includes/Admin/ToolsTab.php:1053
 msgid "Saved. Deleting BuddyNext will keep your community data so a reinstall restores it."
 msgstr ""
 
 #. translators: 1: settings applied, 2: settings skipped.
-#: includes/Admin/ToolsTab.php:1043
+#: includes/Admin/ToolsTab.php:1056
 #, php-format
 msgid "Settings imported: %1$d applied, %2$d skipped (this site keeps its own version, page and setup state)."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1045
+#: includes/Admin/ToolsTab.php:1058
 msgid "Import file had no recognised BuddyNext settings."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1047
+#: includes/Admin/ToolsTab.php:1060
 msgid "Could not read that import file."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1049
+#: includes/Admin/ToolsTab.php:1062
 msgid "This server cannot check uploaded files because the PHP fileinfo extension is missing. Ask your host to enable it, then import again."
 msgstr ""
 
@@ -9656,7 +9686,7 @@ msgid "This username is reserved. Please choose another."
 msgstr ""
 
 #: includes/Auth/AuthController.php:1454
-#: includes/Auth/AuthController.php:2057
+#: includes/Auth/AuthController.php:2067
 msgid "Password must be at least 8 characters."
 msgstr ""
 
@@ -9679,7 +9709,7 @@ msgstr ""
 
 #: includes/Auth/AuthController.php:1480
 #: includes/Auth/AuthController.php:1710
-#: includes/Auth/AuthController.php:2054
+#: includes/Auth/AuthController.php:2064
 msgid "Please correct the errors below."
 msgstr ""
 
@@ -9709,53 +9739,53 @@ msgid "Reset your %s password"
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/Auth/AuthController.php:2017
+#: includes/Auth/AuthController.php:2027
 #, php-format
 msgid "Your %s account is ready"
 msgstr ""
 
 #. translators: 1: site name, 2: email address, 3: set-password URL.
-#: includes/Auth/AuthController.php:2022
+#: includes/Auth/AuthController.php:2032
 #, php-format
 msgid "<p>Welcome. An account has been created for you on %1$s with the email address <strong>%2$s</strong>.</p><p>Choose a password to sign in for the first time.</p><p><a href=\"%3$s\">Set your password</a></p><p>If the button does not work, copy this link into your browser:<br>%3$s</p>"
 msgstr ""
 
-#: includes/Auth/AuthController.php:2067
+#: includes/Auth/AuthController.php:2077
 msgid "This password-reset link has expired or is invalid. Please request a new one."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2078
+#: includes/Auth/AuthController.php:2088
 msgid "Your password has been reset. You can now sign in."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2095
-#: includes/Auth/AuthController.php:2139
+#: includes/Auth/AuthController.php:2105
+#: includes/Auth/AuthController.php:2149
 msgid "Email verification is not enabled on this community."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2110
+#: includes/Auth/AuthController.php:2120
 msgid "Verification email sent."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2148
+#: includes/Auth/AuthController.php:2158
 #: includes/Auth/VerificationService.php:322
 msgid "Your email address is already verified."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2158
+#: includes/Auth/AuthController.php:2168
 #: includes/Core/AssetService.php:1999
 msgid "Your email address is now marked as verified."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2203
+#: includes/Auth/AuthController.php:2213
 msgid "A verification token is required."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2214
+#: includes/Auth/AuthController.php:2224
 msgid "This verification link is no longer valid. Request a new one."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2344
+#: includes/Auth/AuthController.php:2354
 #: includes/Bridges/JetonomyBridge.php:4232
 #: includes/Hashtags/HashtagController.php:281
 #: includes/Moderation/ModerationController.php:1533
@@ -9767,7 +9797,7 @@ msgstr ""
 msgid "You must be logged in."
 msgstr ""
 
-#: includes/Auth/AuthController.php:2361
+#: includes/Auth/AuthController.php:2371
 #: includes/Feed/FeedController.php:1207
 msgid "You do not have permission to do this."
 msgstr ""
@@ -10022,66 +10052,66 @@ msgid "Your account cannot use the community right now."
 msgstr ""
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:136
+#: includes/Auth/RegistrationEmailListener.php:146
 #, php-format
 msgid "Welcome to %s"
 msgstr ""
 
 #. translators: 1: display name, 2: site name, 3: community URL
-#: includes/Auth/RegistrationEmailListener.php:141
+#: includes/Auth/RegistrationEmailListener.php:151
 #, php-format
 msgid "Welcome aboard, %1$s! Your account at %2$s is ready. Jump in, complete your profile, and start connecting with the community: %3$s"
 msgstr ""
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:170
+#: includes/Auth/RegistrationEmailListener.php:191
 #, php-format
 msgid "Your registration at %s is awaiting approval"
 msgstr ""
 
 #. translators: 1: display name, 2: site name
-#: includes/Auth/RegistrationEmailListener.php:175
+#: includes/Auth/RegistrationEmailListener.php:196
 #, php-format
 msgid "Hi %1$s, thanks for registering at %2$s. An administrator needs to review your account before you can sign in: we will email you as soon as it is approved."
 msgstr ""
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:186
+#: includes/Auth/RegistrationEmailListener.php:210
 #, php-format
 msgid "New registration awaiting approval: %s"
 msgstr ""
 
 #. translators: 1: username, 2: email, 3: review URL
-#: includes/Auth/RegistrationEmailListener.php:191
+#: includes/Auth/RegistrationEmailListener.php:215
 #, php-format
 msgid "%1$s (%2$s) has registered and is awaiting your approval. Review pending members here: %3$s"
 msgstr ""
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:215
+#: includes/Auth/RegistrationEmailListener.php:251
 #, php-format
 msgid "Your account at %s is approved"
 msgstr ""
 
 #. translators: 1: display name, 2: site name, 3: sign-in URL
-#: includes/Auth/RegistrationEmailListener.php:220
+#: includes/Auth/RegistrationEmailListener.php:256
 #, php-format
 msgid "Good news, %1$s: your account at %2$s has been approved. You can now sign in: %3$s"
 msgstr ""
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:247
+#: includes/Auth/RegistrationEmailListener.php:293
 #, php-format
 msgid "Your registration at %s"
 msgstr ""
 
 #. translators: 1: display name, 2: site name
-#: includes/Auth/RegistrationEmailListener.php:252
+#: includes/Auth/RegistrationEmailListener.php:298
 #, php-format
 msgid "Hi %1$s, thank you for your interest in %2$s. Unfortunately your registration was not approved at this time."
 msgstr ""
 
-#: includes/Auth/RegistrationEmailListener.php:288
+#: includes/Auth/RegistrationEmailListener.php:334
 msgid "our community"
 msgstr ""
 
@@ -10400,7 +10430,7 @@ msgid "We emailed a one-time code to the address on your account."
 msgstr ""
 
 #: includes/Auth/TwoFactorLoginGuard.php:205
-#: includes/Auth/TwoFactorService.php:576
+#: includes/Auth/TwoFactorService.php:586
 msgid "That code was not correct. Try again, or use a backup code."
 msgstr ""
 
@@ -10436,13 +10466,13 @@ msgid "That code did not match. Check your authenticator app and try again."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/Auth/TwoFactorService.php:415
+#: includes/Auth/TwoFactorService.php:425
 #, php-format
 msgid "Your %s sign-in code"
 msgstr ""
 
 #. translators: 1: 6-digit code, 2: minutes until expiry.
-#: includes/Auth/TwoFactorService.php:420
+#: includes/Auth/TwoFactorService.php:430
 #, php-format
 msgid ""
 "Your verification code is: %1$s\n"
@@ -10450,18 +10480,18 @@ msgid ""
 "It expires in %2$d minutes. If you did not try to sign in, you can ignore this email."
 msgstr ""
 
-#: includes/Auth/TwoFactorService.php:561
+#: includes/Auth/TwoFactorService.php:571
 msgid "Too many incorrect codes. Please enter your password again to restart sign-in."
 msgstr ""
 
 #. translators: %s: site name
-#: includes/Auth/VerificationListener.php:360
+#: includes/Auth/VerificationListener.php:373
 #, php-format
 msgid "Verify your email address on %s"
 msgstr ""
 
 #. translators: 1: display name, 2: site name, 3: verification URL
-#: includes/Auth/VerificationListener.php:366
+#: includes/Auth/VerificationListener.php:379
 #, php-format
 msgid ""
 "Hi %1$s,\n"
@@ -10476,13 +10506,13 @@ msgid ""
 msgstr ""
 
 #. translators: %s: site name
-#: includes/Auth/VerificationListener.php:451
+#: includes/Auth/VerificationListener.php:477
 #, php-format
 msgid "Confirm your new email address on %s"
 msgstr ""
 
 #. translators: 1: display name, 2: site name, 3: confirmation URL
-#: includes/Auth/VerificationListener.php:457
+#: includes/Auth/VerificationListener.php:483
 #, php-format
 msgid ""
 "Hi %1$s,\n"
@@ -16290,12 +16320,12 @@ msgstr ""
 msgid "New report filed on %1$s #%2$d: review the moderation queue."
 msgstr ""
 
-#: includes/Moderation/ModerationListener.php:854
+#: includes/Moderation/ModerationListener.php:858
 msgid "BuddyNext: Moderation queue threshold reached"
 msgstr ""
 
 #. translators: %1$d: current queue count, %2$d: configured threshold
-#: includes/Moderation/ModerationListener.php:857
+#: includes/Moderation/ModerationListener.php:861
 #, php-format
 msgid ""
 "Your BuddyNext moderation queue currently has %1$d pending or escalated report(s), which meets or exceeds the configured alert threshold of %2$d.\n"
@@ -16802,22 +16832,22 @@ msgid "Manage email preferences"
 msgstr ""
 
 #. translators: %s: link text.
-#: includes/Notifications/EmailSender.php:336
+#: includes/Notifications/EmailSender.php:358
 #, php-format
 msgid "You get this email because of your notification settings. %s"
 msgstr ""
 
-#: includes/Notifications/EmailSender.php:338
+#: includes/Notifications/EmailSender.php:360
 msgid "Stop emails like this"
 msgstr ""
 
 #. translators: 1: year, 2: site name.
-#: includes/Notifications/EmailSender.php:758
+#: includes/Notifications/EmailSender.php:780
 #, php-format
 msgid "© %1$s %2$s. All rights reserved."
 msgstr ""
 
-#: includes/Notifications/EmailSender.php:880
+#: includes/Notifications/EmailSender.php:902
 #: includes/Notifications/NotificationMessageService.php:1162
 #: includes/Notifications/NotificationMessageService.php:1180
 #: includes/Notifications/NotificationMessageService.php:1263
@@ -17655,7 +17685,7 @@ msgstr ""
 msgid "Failed to create invite for %s."
 msgstr ""
 
-#: includes/Onboarding/InviteService.php:629
+#: includes/Onboarding/InviteService.php:641
 msgid "there"
 msgstr ""
 
@@ -18216,13 +18246,13 @@ msgid "Webhook URL must be a valid https:// URL."
 msgstr ""
 
 #. translators: %s: site name.
-#: includes/Outbound/OutboundWebhookService.php:884
+#: includes/Outbound/OutboundWebhookService.php:888
 #, php-format
 msgid "[%s] A webhook was disabled after repeated failures"
 msgstr ""
 
 #. translators: 1: endpoint URL, 2: failure threshold.
-#: includes/Outbound/OutboundWebhookService.php:889
+#: includes/Outbound/OutboundWebhookService.php:893
 #, php-format
 msgid ""
 "The webhook endpoint %1$s was automatically disabled after %2$d consecutive delivery failures.\n"
@@ -26570,11 +26600,11 @@ msgstr[1] ""
 msgid "Select Image"
 msgstr ""
 
-#: assets/js/admin/bn-admin-dialogs.js:500
+#: assets/js/admin/bn-admin-dialogs.js:511
 msgid "Dismiss this notice"
 msgstr ""
 
-#: assets/js/admin/bn-admin-dialogs.js:549
+#: assets/js/admin/bn-admin-dialogs.js:560
 msgid "This tab already uses the default settings."
 msgstr ""
 

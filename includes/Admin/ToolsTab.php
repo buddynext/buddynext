@@ -552,7 +552,7 @@ class ToolsTab {
 					<input type="hidden" name="action" value="bn_tools_uninstall_policy">
 					<?php wp_nonce_field( 'bn_tools_uninstall_policy' ); ?>
 					<label class="bn-checkbox-row">
-						<input type="checkbox" name="delete_data" value="1" <?php checked( $bn_delete ); ?>>
+						<input type="checkbox" name="delete_data" value="1" <?php checked( $bn_delete ); ?><?php echo $bn_delete ? ' data-was-on' : ''; ?>>
 						<span><?php esc_html_e( 'Delete all BuddyNext data when the plugin is uninstalled', 'buddynext' ); ?></span>
 					</label>
 					<p class="description">
@@ -567,8 +567,21 @@ class ToolsTab {
 						);
 						?>
 					</p>
-					<p class="description"><strong><?php esc_html_e( 'This cannot be undone. Take a database backup before you delete the plugin with this on.', 'buddynext' ); ?></strong></p>
-					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
+					<p class="description"><strong><?php esc_html_e( 'This cannot be undone. Take a database backup before you delete the plugin with this on.', 'buddynext' ); ?></strong>
+						<a href="<?php echo esc_url( AdminHub::DOCS_BASE . 'getting-started/08c-uninstall-and-your-data/' ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'What a delete removes and keeps', 'buddynext' ); ?></a>
+					</p>
+					<?php
+					// Switching the wipe ON is the one save that asks: the owner reads what goes and
+					// what stays, and types the word, before it is stored. Turning it off never asks.
+					?>
+					<button type="submit" class="bn-btn" data-variant="secondary"
+						data-bn-confirm="<?php esc_attr_e( 'Deleting BuddyNext will then permanently remove your members\' community data (profiles, follows, connections, preferences), every space, post, comment and reaction, all BuddyNext settings, and the community pages BuddyNext created. Kept: uploaded files (avatars, covers and post photos) and financial records (invoices and subscriptions).', 'buddynext' ); ?>"
+						data-bn-confirm-title="<?php esc_attr_e( 'Delete all community data on uninstall?', 'buddynext' ); ?>"
+						data-bn-confirm-tone="danger"
+						data-bn-confirm-ok="<?php esc_attr_e( 'Turn on data removal', 'buddynext' ); ?>"
+						data-bn-confirm-require="<?php echo esc_attr_x( 'DELETE', 'word typed to confirm data removal', 'buddynext' ); ?>"
+						data-bn-confirm-require-label="<?php echo esc_attr( sprintf( /* translators: %s: the word to type, e.g. DELETE */ __( 'Type %s to confirm', 'buddynext' ), _x( 'DELETE', 'word typed to confirm data removal', 'buddynext' ) ) ); ?>"
+						data-bn-confirm-when="[name=delete_data]:checked:not([data-was-on])"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 				</form>
 			</div>
 		</div>

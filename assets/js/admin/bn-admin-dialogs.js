@@ -11,7 +11,11 @@
  *      Optional: data-bn-confirm-tone="danger" | "warn" | "neutral",
  *                data-bn-confirm-title="…",
  *                data-bn-confirm-ok="Delete",
- *                data-bn-confirm-cancel="Cancel".
+ *                data-bn-confirm-cancel="Cancel",
+ *                data-bn-confirm-require="DELETE" (the owner types it to enable the button),
+ *                data-bn-confirm-require-label="Type DELETE to confirm",
+ *                data-bn-confirm-when="<selector>" (ask only while the element's form
+ *                matches it, e.g. a destructive checkbox being switched on).
  *
  *   2. Imperative:
  *      bnConfirm({ title, message, tone, okLabel, cancelLabel })
@@ -262,6 +266,11 @@
 			return;
 		}
 
+		var when = target.dataset.bnConfirmWhen;
+		if ( when && ! ( target.form || target.closest( 'form' ) || document ).querySelector( when ) ) {
+			return;
+		}
+
 		e.preventDefault();
 		e.stopImmediatePropagation();
 
@@ -271,6 +280,8 @@
 			tone:        target.dataset.bnConfirmTone   || 'neutral',
 			okLabel:     target.dataset.bnConfirmOk     || __( 'Confirm', 'buddynext' ),
 			cancelLabel: target.dataset.bnConfirmCancel || __( 'Cancel', 'buddynext' ),
+			requireText:  target.dataset.bnConfirmRequire || '',
+			requireLabel: target.dataset.bnConfirmRequireLabel || '',
 		} ).then( function ( ok ) {
 			if ( ! ok ) {
 				return;
