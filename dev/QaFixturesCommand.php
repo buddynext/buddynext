@@ -522,6 +522,14 @@ final class QaFixturesCommand {
 
 		\WP_CLI::log( 'Edge fixtures…' );
 
+		// A member mid-onboarding (saved on step 2, not complete): the crawler's
+		// onboarding set signs in as this user to measure each wizard step.
+		$ob_user = $this->make_user( 'onboarding', 'QA Onboarding' );
+		if ( $ob_user > 0 ) {
+			delete_user_meta( $ob_user, 'bn_onboarding_complete' );
+			update_user_meta( $ob_user, 'bn_onboarding_step', 2 );
+		}
+
 		// Seeded already: every row below is created once, so a second run would
 		// duplicate invites and logs and fail on the taken space slugs. Run cleanup to
 		// reseed.

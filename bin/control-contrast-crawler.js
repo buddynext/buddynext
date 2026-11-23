@@ -5,7 +5,7 @@
 // and every <a> whose class names a control (btn, button, link, cta, chip, tab, toggle, pill), inside
 // .bn-app, the admin wrappers (#wpbody-content on BuddyNext pages), any block or shortcode output
 // (wp-block-buddynext*, bn-*), and the dialogs and popovers the ACTIONS below open. States: default,
-// hover, focus-visible, active. Front: light + dark (bn_theme in localStorage, the real switch),
+// hover, focus-visible, active. Front: light + dark (bn_theme and the host theme's bx-color-mode in localStorage),
 // 1280 + 390. Admin: light, 1280 + 390.
 //
 // Run through the Playwright MCP, logged in as an admin, on a site seeded with
@@ -24,7 +24,9 @@
 // ratio. A button with neither text nor icon, a transparent border and a fill under 3:1 fails as
 // "transparent-edge". A summary or [aria-expanded] control's chevron (svg, drawn
 // ::before/::after, or visible ::marker) must reach 3:1; one with no indicator is listed under
-// noIndicator. Not covered: the member "Delete account" prompt (admins do not get it).
+// noIndicator. A page that does not answer 200 fails as http-<status>. Sets: front and admin run
+// as the admin; guest runs logged out; onboarding runs as qa_fx_onboarding (the edge-seed member
+// saved mid-onboarding) on each wizard step. Not covered: the member "Delete account" prompt.
 
 async (page) => {
 const FRONT = [
@@ -36,14 +38,23 @@ const FRONT = [
   '/messages/', '/notifications/', '/settings/', '/settings/notifications/', '/settings/privacy/',
   '/settings/account/', '/settings/membership/', '/search/?q=test', '/explore/',
   '/membership-plans/', '/qa-fx-block-page/', '/qa-fx-shortcode-page/',
+  '/members/admin/edit/', '/spaces/open-discussion/settings/',
 ];
+
+// Logged out: what a visitor sees first (guest banner, directories, the auth hub).
+const GUEST = ['/', '/activity/', '/members/', '/spaces/', '/explore/', '/search/?q=test', '/login/', '/login/signup/'];
+
+// A fixture member who has not finished onboarding, on each wizard step.
+// ?redo=1&_step=N opens a step directly, so a run never depends on saved progress.
+const ONBOARDING = [1, 2, 3, 4, 5].map((n) => '/onboarding/?redo=1&_step=' + n);
 
 const ADMIN = [
   'buddynext&tab=home', 'buddynext&tab=license', 'buddynext-members&tab=directory', 'buddynext-spaces&tab=directory',
-  'buddynext-moderation&tab=pending', 'buddynext-notifications&tab=notifications', 'buddynext-monetization&tab=tiers',
+  'buddynext-moderation&tab=pending', 'buddynext-automation&tab=bulk', 'buddynext-notifications&tab=notifications', 'buddynext-monetization&tab=tiers',
   'buddynext-integration-settings&tab=integration-controls', 'buddynext-settings&tab=general', 'buddynext-platform&tab=integrations',
   'buddynext-setup', 'buddynextpro-broadcasts', 'buddynextpro-mod-rules', 'buddynextpro-member-labels', 'buddynextpro-analytics',
   'buddynextpro-whitelabel', 'buddynext-platform&tab=tools', 'buddynext-platform&tab=tools#removedata',
+  'bnpro-subscriptions', 'bnpro-paywall-settings', 'bnpro-coupons',
 ].map((p) => '/wp-admin/admin.php?page=' + p);
 
 const click = (s) => `[data-wp-on--click="actions.${s}"]`;
@@ -63,9 +74,16 @@ const ACTIONS = {
   spacemenu: [click('toggleMenu')],
   removedata: [{ check: '[name=delete_data]' }, '[data-bn-confirm-when]'],
 };
+// Who each set runs as: the admin session, a visitor, or a member mid-onboarding.
+const AS = { front: null, admin: null, guest: 'guest', onboarding: 'qa_fx_onboarding' };
 // Report on a member card is the second menu item of the same menu as Block.
 ACTIONS['members-report'] = [click('toggleCardMenu'), click('openReport')];
-const EXEMPT = ['textarea.bn-composer__prompt'];
+// Borderless by design, each with its reason:
+// - the composer prompt: owner decision, stays borderless in 1.3.0.
+// - the profile-edit "Who can see this field" select: a compact ghost select whose
+//   chevron measures 5.5:1 in light and dark (>= 3:1) and whose value text is 9:1,
+//   with a visible field label; it gains the control edge on hover and focus.
+const EXEMPT = ['textarea.bn-composer__prompt', 'select.bn-ep-field-vis__select'];
 
 // Runs inside the page. Returns one record per tagged control.
 const IN_PAGE = (args) => {
@@ -311,8 +329,14 @@ const IN_PAGE = (args) => {
 const bncCrawl = async (page, opts = {}) => {
   const BASE = opts.base || 'http://localhost:8912';
   const set = opts.set || 'front';
-  const urls = opts.urls || (set === 'admin' ? ADMIN : FRONT);
+  const urls = opts.urls || ({ admin: ADMIN, guest: GUEST, onboarding: ONBOARDING }[set] || FRONT);
   const modes = opts.modes || (set === 'admin' ? ['light'] : ['light', 'dark']);
+  const as = AS[set] || null;
+  // Switch session: a visitor has no cookies; a member logs in through ?autologin.
+  if (as) {
+    await page.context().clearCookies();
+    if (as !== 'guest') await page.goto(BASE + '/?autologin=' + as, { waitUntil: 'load' });
+  }
   const widths = opts.widths || [1280, 390];
   const states = opts.states || ['default', 'hover', 'focus-visible', 'active'];
   const cdp = await page.context().newCDPSession(page);
@@ -332,10 +356,15 @@ const bncCrawl = async (page, opts = {}) => {
         let resp;
         const [url, act] = path.split('#');
         try {
-          if (page.url().startsWith(BASE)) await page.evaluate((m) => { try { localStorage.setItem('bn_theme', m); } catch (e) {} }, mode);
-          else { await page.goto(BASE + '/'); await page.evaluate((m) => localStorage.setItem('bn_theme', m), mode); }
+          // BuddyNext's own switch, and the host's (Reign / BuddyX store bx-color-mode; an explicit
+          // host mode wins over bn_theme), so dark is dark on every theme.
+          const setMode = (m) => { try { localStorage.setItem('bn_theme', m); localStorage.setItem('bx-color-mode', m); } catch (e) {} };
+          if (!page.url().startsWith(BASE)) await page.goto(BASE + '/');
+          await page.evaluate(setMode, mode);
           resp = await page.goto(BASE + url, { waitUntil: 'load', timeout: 30000 });
         } catch (e) { pages.push({ path, mode, width, error: String(e).slice(0, 80) }); continue; }
+        // A 403/404/500 measures the error screen, not the surface: fail it.
+        if (resp && resp.status() !== 200) { pages.push({ path, mode, width, status: resp.status() }); violations.push({ path, mode, width, state: 'load', sel: path, label: 'HTTP ' + resp.status(), kind: 'http-' + resp.status(), rule: [] }); continue; }
         if (act) {
           const key = ACTIONS[url.replace(/\/$/, '').split('/').pop() + '-' + act] ? url.replace(/\/$/, '').split('/').pop() + '-' + act : act;
           let ok = !!ACTIONS[key];
@@ -414,6 +443,8 @@ const bncCrawl = async (page, opts = {}) => {
     }
   }
   await cdp.detach();
+  // Back to the admin session for the next run.
+  if (as) { await page.context().clearCookies(); await page.goto(BASE + '/?autologin=1', { waitUntil: 'load' }); }
   // Collapse identical (selector, kind, state, mode) across pages/widths.
   const groups = {};
   for (const v of violations) {
