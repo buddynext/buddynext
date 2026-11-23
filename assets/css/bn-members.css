@@ -107,6 +107,11 @@
 	min-inline-size: 40px;
 }
 
+/* The unselected option keeps a 3:1 edge too (.bn-btn[data-variant] sets it transparent). */
+.bn-btn.bn-md-filters__view-btn {
+	border-color: var(--bn-line-control);
+}
+
 .bn-md-filters__view-btn[aria-pressed="true"] {
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
 	border-color: var(--bn-accent-text);
