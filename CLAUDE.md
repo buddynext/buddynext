@@ -319,10 +319,12 @@ that surfaces partner content into the community) MUST:
 
 ### Background jobs
 
-`Core\CronScheduler` holds the shared helpers Free and Pro call for the common shapes
-(`ensure_recurring`, `enqueue_once`, `has_pending`, `when_ready`, `cancel_pending`); Pro keeps
-no copy. Sites that still call `as_*()` directly for a shape no helper covers are listed as the
-known remainder in the standard.
+A plain `as_enqueue_async_action()` / `as_schedule_single_action()` with the plugin's group is
+the pattern for one-off and timed jobs (no wrapper). `Core\CronScheduler` holds only what a plain
+call cannot do: dedupe (`enqueue_once`, `has_pending`), recurring (`ensure_recurring( $hook,
+$first, $interval, $group )`), `when_ready`, `cancel_pending`, and the after-activation requeue
+(`flag_requeue`, `requeue_after_activation`); pruning lives in `LogRetentionService`. Pro keeps
+no copy.
 Full rules and the job register: `buddynext-pro/free-internal/docs/standards/BACKGROUND-JOBS.md`;
 public reference: `docs/website/developer-guide/37-cron-and-async.md`.
 
@@ -342,9 +344,10 @@ public reference: `docs/website/developer-guide/37-cron-and-async.md`.
 - Deactivation cancels with `CronScheduler::cancel_pending()` (set-based) everything that can be
   recomputed; jobs that finish a committed action stay pending (`CronScheduler::DEACTIVATION_KEEP`,
   Pro: `BUDDYNEXTPRO_DEACTIVATION_KEEP`). A kept row another plugin's runner consumed while we
-  were off is marked FAILED ("no callbacks are registered"), not complete;
-  `CronScheduler::requeue_orphaned()` puts it back on the next scheduling request. Uninstall
-  deletes every row of ours.
+  were off is marked FAILED ("no callbacks are registered", Action Scheduler 3.5.0+), not
+  complete. Activation and version changes set a one-week flag; while it is set,
+  `CronScheduler::requeue_after_activation()` claims each such row (failed in the last 7 days)
+  and re-queues it once. Uninstall deletes every row of ours.
 - Code that may run before Action Scheduler is ready wraps its call in `CronScheduler::when_ready()`.
 - Recurring jobs arm through `CronScheduler::ensure_recurring()` (unique, no args, gated to
   scheduling requests).

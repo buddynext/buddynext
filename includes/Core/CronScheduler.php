@@ -134,7 +134,7 @@ class CronScheduler {
 	 * neither cancel_pending() nor the requeue sees it; it is not on this list.
 	 *
 	 * While BuddyNext is off, another plugin's Action Scheduler still runs due rows
-	 * with no listener; Action Scheduler 3.0 and later marks each one failed ("no
+	 * with no listener; Action Scheduler 3.5.0 and later marks each one failed ("no
 	 * callbacks are registered"). The first scheduling requests after activation put
 	 * back the ones that failed in the last REQUEUE_DAYS (requeue_after_activation()).
 	 * The supported update flow (deactivate, replace files, activate) runs nothing in
@@ -378,7 +378,10 @@ class CronScheduler {
 	 *
 	 * @param string[] $groups        Our group slugs.
 	 * @param string[] $hooks         Our hooks to cancel in any group (legacy WP-Cron-era hooks or
-	 *                                ones a caller queued outside its group).
+	 *                                ones a caller queued outside its group). Free passes the two
+	 *                                onboarding nudge hooks here too: every release queued them in
+	 *                                'buddynext', so the by-name match only catches a row whose group
+	 *                                row was removed, and cancels nothing that is not ours.
 	 * @param string[] $keep_prefixes Hook prefixes left alone inside $groups (Free passes Pro's,
 	 *                                whose hooks run in the 'buddynext' group).
 	 * @param string[] $keep_hooks    Exact hooks left alone inside $groups (DEACTIVATION_KEEP).

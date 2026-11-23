@@ -45,7 +45,7 @@ Armed on demand and self-clearing - they do not poll when there is no work.
 | `buddynext_webhook_deliver` | Single action, per outbound dispatch | Delivers the outbound webhooks for one event off-request. Enqueued async (Action Scheduler, group `buddynext`) when an event fires; `buddynext_webhook_deliver_one` delivers a single webhook the same way. The job carries the event payload: it is what was promised to the receiver. |
 | `buddynext_space_delete_chunk` | Single action, while a Space deletion runs | Removes one chunk of a hidden Space's posts and queues the next before it works, so a killed process never ends the chain. Args: `$space_id, $user_id`. |
 | `buddynext_space_drive_media_trash` | Single action, after a Space is deleted | Trashes the Space drive's photos, videos and audio, 100 a run, continuing after the last media id it saw. Args: `$space_id, $after_id, $blocked`. |
-| `buddynext_webhook_retry_single` | Single event, per failed delivery | Retries a failed webhook delivery with exponential backoff (300s base, up to 3 attempts). |
+| `buddynext_webhook_retry_single` | Single event, per failed delivery | Retries a failed webhook delivery with exponential backoff (300s base, up to 3 attempts). A WP-Cron event that carries the payload; it is dropped if it falls due while BuddyNext is deactivated. |
 | `edd_sl_sdk_weekly_license_check_{slug}` | Weekly | License-validation check from the bundled EDD Software Licensing SDK. Gates plugin updates only, never functionality. |
 
 > **Note:** `buddynext_cleanup_tokens` and `buddynext_cleanup_reports` (since 1.3.0, now part of `buddynext_purge_logs`), `buddynext_cleanup_notifications`, `buddynext_cleanup_activity_log` and `buddynext_cleanup_email_log` are retired. The constants remain on `CronScheduler` only so that an upgrade can unschedule them where they are still armed; nothing listens to them.
@@ -144,7 +144,7 @@ Rules for any new fan-out you add:
 
 ### `buddynext_finished_action_retention_days` (filter, since 1.3.0)
 
-Days to keep BuddyNext's completed and canceled Action Scheduler rows (and their logs) before the daily `buddynext_purge_logs` run deletes them. Default `7`; values below 1 count as 1. Failed rows are kept 90 days, then deleted the same way. Pending and running rows, and other plugins' rows, are never touched. A run removes at most 10,000 rows (50 batches of 200) and stops after about 10 seconds; anything left waits for the next day, and Action Scheduler's own cleaner is the backstop.
+Days to keep BuddyNext's completed and canceled Action Scheduler rows (and their logs) before the daily `buddynext_purge_logs` run deletes them. Default `7`; values below 1 count as 1. Failed rows are kept 90 days, then deleted the same way. Pending and running rows, and other plugins' rows, are never touched. A run removes at most 10,000 rows (50 batches of 200) and stops after about 10 seconds; anything left waits for the next day, and Action Scheduler's own cleaner is the backstop. Below 3 days, a member who signed up longer ago than the value gets no restored onboarding nudge after a deactivation, because a sent nudge's row may already be deleted and cannot be told from a canceled one.
 
 ### `buddynext_finished_action_groups` (filter, since 1.3.0)
 
@@ -172,43 +172,50 @@ add_action( 'buddynextpro_membership_daily', static function () {
 
 ### Queueing a job once: `CronScheduler::enqueue_once()` and `has_pending()`
 
-`\BuddyNext\Core\CronScheduler::enqueue_once( string $hook, array $args, string $group = 'buddynext' ): bool` queues an async action unless an identical one (same hook, args and group) is still pending; it returns `true` when it queued. A running action does not count, so an edit made while the job runs is still picked up. `has_pending( string $hook, ?array $args = null, string $group = 'buddynext' ): bool` is the check on its own (pending only; `null` args match any args). Both return `false` when Action Scheduler is absent, so keep your own fallback.
+A one-off or timed job needs no helper: call `as_enqueue_async_action( $hook, $args, 'my_addon' )` or `as_schedule_single_action( $timestamp, $hook, $args, 'my_addon' )` directly, in your own group. The helpers below cover only what a plain call cannot do.
+
+`\BuddyNext\Core\CronScheduler::enqueue_once( string $hook, array $args, string $group = 'buddynext' ): bool` queues an async action unless an identical one (same hook, args and group) is still pending; it returns `true` when a copy is waiting afterwards (queued now or already pending). A running action does not count, so an edit made while the job runs is still picked up. `has_pending( string $hook, ?array $args = null, string $group = 'buddynext' ): bool` is the check on its own (pending only; `null` args match any args). Both return `false` when Action Scheduler is absent, so keep your own fallback.
 
 ```php
 use BuddyNext\Core\CronScheduler;
 
-CronScheduler::enqueue_once( 'my_addon_reindex', array( 42 ) ); // true: queued
-CronScheduler::enqueue_once( 'my_addon_reindex', array( 42 ) ); // false: one already pending
-CronScheduler::has_pending( 'my_addon_reindex' );               // true
+CronScheduler::enqueue_once( 'my_addon_reindex', array( 42 ), 'my_addon' ); // true: queued
+CronScheduler::enqueue_once( 'my_addon_reindex', array( 42 ), 'my_addon' ); // true: already pending, nothing added
+CronScheduler::has_pending( 'my_addon_reindex', null, 'my_addon' );         // true
 ```
+
+`CronScheduler::when_ready( callable $callback )` runs the callback now when Action Scheduler is ready or not loaded at all, and otherwise on `action_scheduler_init`. Use it for code that may run on `plugins_loaded`.
 
 Those are the values a test run returned. Keep args to ids and short scalars: Action Scheduler matches args by their stored JSON, and keys longer than 191 characters are compared by hash.
 
 ### Keeping a recurring job armed: `CronScheduler::ensure_recurring()`
 
-`\BuddyNext\Core\CronScheduler::ensure_recurring( string $hook, int $interval, int $first = 0, string $group = 'buddynext' ): int` keeps one recurring job armed. Call it on `wp_loaded`. It does nothing outside the cron runner, wp-admin page loads and WP-CLI (so front-end, REST and AJAX requests never pay for the check), skips when the job is already queued, schedules with Action Scheduler's `unique` flag so two requests arming at once still leave one row, falls back to WP-Cron when Action Scheduler is absent, and returns the new action id (0 when nothing was scheduled).
+`\BuddyNext\Core\CronScheduler::ensure_recurring( string $hook, int $first, int $interval, string $group = 'buddynext' ): int` (`$first` is the first run's timestamp, 0 for now) keeps one recurring job armed. Call it on `wp_loaded`. It does nothing outside the cron runner, wp-admin page loads and WP-CLI (so front-end, REST and AJAX requests never pay for the check), skips when the job is already queued, schedules with Action Scheduler's `unique` flag so two requests arming at once still leave one row, falls back to WP-Cron when Action Scheduler is absent (with a `_doing_it_wrong` notice, then `daily`, when no WP-Cron recurrence matches the interval), and returns the new action id (0 when nothing was scheduled).
 
 ```php
 add_action( 'wp_loaded', static function () {
-    \BuddyNext\Core\CronScheduler::ensure_recurring( 'my_addon_daily', DAY_IN_SECONDS, 0, 'my_addon' );
+    \BuddyNext\Core\CronScheduler::ensure_recurring( 'my_addon_daily', 0, DAY_IN_SECONDS, 'my_addon' );
 } );
 ```
 
 ### Deactivation: what an add-on cancels and what it keeps
 
-`CronScheduler::cancel_pending( array $groups, array $hooks = array(), array $keep_prefixes = array(), array $keep_hooks = array() ): int` marks your pending jobs canceled in a few queries, whatever the queue size, and never touches another plugin's jobs. Cancel only jobs that can be recomputed or are lost by nature (digests, sends, reindexes, recounts, prunes). Leave pending, by listing them in `$keep_hooks`, the jobs that finish something a member or the site owner already did: a deletion under way, a privacy change still cascading, a promised delivery. The routine update (deactivate, replace files, activate) runs nothing in between, so kept jobs pick up where they stopped. While a plugin stays deactivated, another plugin's Action Scheduler may still run due rows that have no listener; Action Scheduler marks each one failed with "no callbacks are registered". `CronScheduler::requeue_orphaned( array $hooks ): int` puts those back: call it on `wp_loaded` with your keep list. On the cron runner, wp-admin page loads and WP-CLI, it re-queues up to 200 such rows a request with the same args and group (one pending copy each), deletes the failed row and its logs, and leaves alone a row that really ran and errored, or whose listener is not registered yet. BuddyNext and Pro do this for their own lists. Rows older than Action Scheduler's failed retention (90 days for BuddyNext's own) are gone.
+`CronScheduler::cancel_pending( array $groups, array $hooks = array(), array $keep_prefixes = array(), array $keep_hooks = array() ): int` marks your pending jobs canceled in a few queries, whatever the queue size, and never touches another plugin's jobs. Cancel only jobs that can be recomputed or are lost by nature (digests, sends, reindexes, recounts, prunes). Leave pending, by listing them in `$keep_hooks`, the jobs that finish something a member or the site owner already did: a deletion under way, a privacy change still cascading, a promised delivery. The routine update (deactivate, replace files, activate) runs nothing in between, so kept jobs pick up where they stopped. While a plugin stays deactivated, another plugin's Action Scheduler may still run due rows that have no listener; Action Scheduler 3.5.0 and later marks each one failed with "no callbacks are registered" (3.0 to 3.4 marked it complete, and nothing can recover it). To put those back, set a flag on activation with `CronScheduler::flag_requeue( 'my_addon_requeue' )` (a one-week transient) and call `CronScheduler::requeue_after_activation( 'my_addon_requeue', $keep_hooks ): int` on `wp_loaded`. While the flag is set, on the cron runner, wp-admin page loads and WP-CLI, it takes up to 200 such rows a request that failed in the last 7 days and whose listener is registered again, claims each one so parallel requests never queue it twice, re-queues it with the same args and group, and deletes the old row and its logs; a copy that cannot be queued leaves the row failed. It clears the flag when a pass finds fewer than 200. A row that really ran and errored is left alone. BuddyNext and Pro do this for their own lists. A row whose request died between the claim and the copy is left canceled and pruned after 7 days.
 
 ```php
 register_deactivation_hook( __FILE__, static function () {
     wp_clear_scheduled_hook( 'my_addon_daily' );
     \BuddyNext\Core\CronScheduler::cancel_pending( array( 'my_addon' ), array(), array(), array( 'my_addon_delete_continue' ) );
 } );
+register_activation_hook( __FILE__, static function () {
+    \BuddyNext\Core\CronScheduler::flag_requeue( 'my_addon_requeue' );
+} );
 add_action( 'wp_loaded', static function () {
-    \BuddyNext\Core\CronScheduler::requeue_orphaned( array( 'my_addon_delete_continue' ) );
+    \BuddyNext\Core\CronScheduler::requeue_after_activation( 'my_addon_requeue', array( 'my_addon_delete_continue' ) );
 } );
 ```
 
-BuddyNext itself keeps these on deactivation: a member's GDPR hard delete (`buddynext_purge_member_continue`), a Space deletion and its media trash (`buddynext_space_delete_chunk`, `buddynext_space_drive_media_trash`), a deleted profile field's purge, the upgrade and course-link migrations, privacy-change cascades, forum access grants, sent invites, promised webhook deliveries and the old file of a replaced image. Pro keeps a moderator's bulk action, a sent broadcast's recipient listing and a Learnomy unlink's access revoke. Uninstall deletes all of BuddyNext's jobs.
+BuddyNext itself keeps these on deactivation: a member's GDPR hard delete (`buddynext_purge_member_continue`), a Space deletion and its media trash (`buddynext_space_delete_chunk`, `buddynext_space_drive_media_trash`), a deleted profile field's purge, the upgrade and course-link migrations, privacy-change cascades, forum access grants, sent invites, promised webhook deliveries (not the WP-Cron single retry), the old file of a replaced image, the article-crop and hashtag upgrade chains, the notifications of a post or announcement already published, and the feed post of a media upload. Pro keeps a moderator's bulk action, a sent broadcast's recipient listing, a Learnomy unlink's access revoke and the cleanup of a removed profile condition. Uninstall deletes all of BuddyNext's jobs.
 
 ## Migrating to 1.3.0
 
@@ -232,7 +239,7 @@ Background-job hooks that changed in 1.3.0. Nothing changes for members or site 
 | `buddynext_finished_action_retention_days` | New filter. | Optional. |
 | `buddynext_finished_action_groups` | New filter. | Add your own group if your add-on runs its jobs in one. |
 | `buddynextpro_membership_daily` (Pro) | New action. | Optional. |
-| `CronScheduler::enqueue_once()`, `has_pending()`, `cancel_pending()`, `when_ready()`, `ensure_recurring()`, `requeue_orphaned()` | New public methods. | Optional; see above. |
+| `CronScheduler::enqueue_once()`, `has_pending()`, `cancel_pending()`, `when_ready()`, `ensure_recurring()`, `flag_requeue()`, `requeue_after_activation()`, `requeue_orphaned()` | New public methods. | Optional; see above. |
 | `IntegrationActivity::run_in_chunks()` | New trailing `$group` parameter (default `'buddynext'`). | An add-on passes its own group. |
 | `buddynext_space_drive_media_trash` | New in 1.3.0. Args are `$space_id, $after_id, $blocked`; each run continues after the last media id it saw. | Nothing. |
 
@@ -240,6 +247,7 @@ Public methods removed in 1.3.0 keep a deprecated stand-in that raises a `_depre
 
 | Removed | Replacement |
 |---|---|
+| `Core\CronScheduler::add_custom_schedules()` | Nothing: the sub-hour recurrences are gone and every recurring job uses a built-in recurrence. The stand-in returns the schedules unchanged. |
 | `Auth\AuthController::client_ip()` | `Moderation\SafeguardService::client_ip()` (the stand-in delegates). |
 | `Bridges\JetonomyBridge::rest_provision_permission()` | `rest_discussion_manage_permission()` (the stand-in delegates). |
 | `Admin\Members::export_members_csv()` | `Admin\Members\MemberExport::export_members_csv()`, which streams. The stand-in returns the same CSV (paged reads, escaped cells) as one string held in memory, about 100 bytes a member; on a very large site stream with `MemberExport` instead. |
@@ -254,11 +262,13 @@ BuddyNext never changes a site-wide cron setting on the owner's behalf.
 
 - The plugin **never** defines `DISABLE_WP_CRON`. That constant disables WP-Cron for every plugin on the site (backups, WooCommerce, email queues) and silently breaks them if no real system cron is wired.
 - Action Scheduler runs fine off WP-Cron by default. Running it off a real system cron is an optional, owner-applied server optimization - never a requirement for BuddyNext to be fast.
-- The plugin **detects** the failure case and guides the admin. The Tools health check reports whether WP-Cron is disabled and whether any scheduled actions are overdue. Only when the site is genuinely stalled (WP-Cron off and actions overdue) does it surface a warning with a ready-to-paste system-cron line built from the site's own URL:
+- The plugin **detects** the failure case and guides the admin. The Tools health check reports whether WP-Cron is disabled and whether any scheduled actions are overdue. Only when the site is genuinely stalled (WP-Cron off or its loopback request failing, and actions overdue) does it surface a warning with a ready-to-paste system-cron line built from the site's own URL:
 
 ```cron
 */5 * * * * wget -q -O - 'https://SITE/wp-cron.php?doing_wp_cron' >/dev/null 2>&1
 ```
+
+WordPress's own Site Health screen (Tools > Site Health) runs the matching "Scheduled events" and "Loopback request" tests for the whole site.
 
 ## Notes / gotchas
 
