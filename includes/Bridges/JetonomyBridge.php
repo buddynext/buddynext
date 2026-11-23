@@ -1434,7 +1434,7 @@ class JetonomyBridge {
 		$args = array( $space_id, $forum_id, $after_id );
 
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::COPY_MEMBERS_HOOK, $args, 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::COPY_MEMBERS_HOOK, $args, 'buddynext' );
 			return;
 		}
 		if ( ! wp_next_scheduled( self::COPY_MEMBERS_HOOK, $args ) ) {
@@ -1635,7 +1635,7 @@ class JetonomyBridge {
 	private static function queue_grant( int $space_id, int $forum_id, int $after_id ): void {
 		$args = array( $space_id, $forum_id, $after_id );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::GRANT_MEMBERS_HOOK, $args, 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::GRANT_MEMBERS_HOOK, $args, 'buddynext' );
 		} elseif ( ! wp_next_scheduled( self::GRANT_MEMBERS_HOOK, $args ) ) {
 			wp_schedule_single_event( time() + 1, self::GRANT_MEMBERS_HOOK, $args );
 		}
@@ -2546,7 +2546,7 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( 200 === count( $ids ) && function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_async_withdraw_forum_surfaces', array( $forum_id, end( $ids ) ), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_withdraw_forum_surfaces', array( $forum_id, end( $ids ) ), 'buddynext' );
 		}
 	}
 
@@ -2870,7 +2870,7 @@ class JetonomyBridge {
 		// by the search service, but a reopened space needs each topic decided
 		// again, so re-index them in the background.
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_async_reindex_forum_discussions', array( $forum_id, 0 ), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_reindex_forum_discussions', array( $forum_id, 0 ), 'buddynext' );
 		} else {
 			$this->reindex_forum_discussions( $forum_id, 0 );
 		}
@@ -2900,7 +2900,7 @@ class JetonomyBridge {
 			$this->sync_discussion( (int) $id, $forum_id );
 		}
 		if ( count( $ids ) === $batch && function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_async_reindex_forum_discussions', array( $forum_id, $offset + $batch ), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_reindex_forum_discussions', array( $forum_id, $offset + $batch ), 'buddynext' );
 		}
 	}
 

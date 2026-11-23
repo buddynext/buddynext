@@ -175,7 +175,7 @@ class AsyncPayloadShapeTest extends \WP_UnitTestCase {
 
 		foreach ( self::SINGLE_ARRAY_ARG_HOOKS as $hook ) {
 			// Grab the argument-list expression between the hook name and the group.
-			$pattern = "/as_enqueue_async_action\(\s*'" . preg_quote( $hook, '/' ) . "',\s*(.+?),\s*'buddynext'\s*\)/s";
+			$pattern = "/(?:as_enqueue_async_action|CronScheduler::enqueue_once)\(\s*'" . preg_quote( $hook, '/' ) . "',\s*(.+?),\s*'buddynext'\s*\)/s";
 			preg_match_all( $pattern, $source, $matches );
 
 			$this->assertNotEmpty( $matches[1], 'expected at least one enqueue of ' . $hook );

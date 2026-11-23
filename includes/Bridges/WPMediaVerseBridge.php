@@ -1556,7 +1556,7 @@ class WPMediaVerseBridge {
 		update_option( 'buddynext_media_privacy_repair_queued', time(), true );
 
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( $hook, array(), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( $hook, array(), 'buddynext' );
 			return;
 		}
 

@@ -503,7 +503,7 @@ class CronService {
 		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
 			return; // No Action Scheduler — degrade to the next recurring run.
 		}
-		as_enqueue_async_action( $hook, array( (int) max( $user_ids ) ), CronScheduler::GROUP );
+		CronScheduler::enqueue_once( $hook, array( (int) max( $user_ids ) ), CronScheduler::GROUP );
 	}
 
 	/**

@@ -3520,7 +3520,7 @@ class ProfileService {
 		// bn_profile_values and re-enqueues itself while full batches remain;
 		// absent AS the same worker drains inline, still bounded per query.
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_purge_field_values', array( $id ), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_purge_field_values', array( $id ), 'buddynext' );
 		} else {
 			while ( self::VALUE_PURGE_BATCH === $this->purge_field_values( $id ) ) {
 				continue;
@@ -3559,7 +3559,7 @@ class ProfileService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( self::VALUE_PURGE_BATCH === $deleted && function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_purge_field_values', array( $field_id ), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_purge_field_values', array( $field_id ), 'buddynext' );
 		}
 
 		return $deleted;
@@ -4338,7 +4338,7 @@ class ProfileService {
 		// 100k-member site queued 100k actions and about 300k log rows. Rows come
 		// in user_id order, so the batch is the range first..cursor of this field.
 		if ( $to_index ) {
-			as_enqueue_async_action( 'buddynext_async_index_users', array( $field_id, $first, $cursor ), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_index_users', array( $field_id, $first, $cursor ), 'buddynext' );
 		}
 
 		return $cursor;

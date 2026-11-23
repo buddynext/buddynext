@@ -111,7 +111,7 @@ class SearchIndexListener implements ListenerInterface {
 		$args = array( $key, $after_id );
 
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::INTEGRATION_REINDEX_HOOK, $args, 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::INTEGRATION_REINDEX_HOOK, $args, 'buddynext' );
 			return;
 		}
 

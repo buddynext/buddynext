@@ -811,7 +811,7 @@ class NotificationListener implements ListenerInterface {
 		// the rest of the roster is still notified instead of the whole chain stopping here.
 		$next_cursor = $scheduler ? $this->next_fanout_cursor( $space_id, $user_id, 0, $batch_size ) : 0;
 		if ( $next_cursor > 0 && function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action(
+			\BuddyNext\Core\CronScheduler::enqueue_once(
 				'buddynext_async_space_post_fanout',
 				array(
 					array(
@@ -878,7 +878,7 @@ class NotificationListener implements ListenerInterface {
 		// not the rest of the roster.
 		$next_cursor = $this->next_fanout_cursor( $space_id, $author_id, $after_user_id, $batch_size );
 		if ( $next_cursor > 0 && function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action(
+			\BuddyNext\Core\CronScheduler::enqueue_once(
 				'buddynext_async_space_post_fanout',
 				array(
 					array(
@@ -1024,7 +1024,7 @@ class NotificationListener implements ListenerInterface {
 		// Next page first, then this one: a failing page does not stop the rest of the audience.
 		$next_cursor = $this->next_fanout_cursor( $space_id, $author_id, $after_user_id, $batch_size );
 		if ( $next_cursor > 0 && function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action(
+			\BuddyNext\Core\CronScheduler::enqueue_once(
 				'buddynext_async_announcement_fanout',
 				array(
 					array(

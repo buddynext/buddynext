@@ -126,7 +126,7 @@ final class CardFactsBackfill implements ListenerInterface {
 		}
 
 		if ( self::BATCH === count( $rows ) && function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::HOOK, array( $last ), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::HOOK, array( $last ), 'buddynext' );
 		}
 	}
 }
