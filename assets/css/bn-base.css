@@ -5425,5 +5425,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-banner-btns     { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }
 .bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--bn-accent-solid); color: var(--bn-accent-fg); border-color: var(--bn-accent-solid); }
 .bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: color-mix(in oklch, var(--bn-accent-solid) 82%, black); border-color: transparent; }
-.bn-guest-banner .bn-btn[data-variant="ghost"] { color: var(--text-1); border-color: var(--border); background: transparent; }
-.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: var(--bg-hover); }
+.bn-guest-banner .bn-btn[data-variant="ghost"],
+.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { color: var(--bn-ink); border-color: var(--bn-line-control); }
+.bn-guest-banner .bn-btn[data-variant="ghost"] { background: transparent; }
+.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: var(--bn-sunken); }
