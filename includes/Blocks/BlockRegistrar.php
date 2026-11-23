@@ -166,6 +166,7 @@ class BlockRegistrar {
 
 		// has_block() is a substring check against the serialized content, so
 		// this is a handful of strpos calls over one string, not a parse.
+		$has_ours = false !== strpos( (string) $post->post_content, '[buddynext' );
 		$registry = \WP_Block_Type_Registry::get_instance();
 		foreach ( $registry->get_all_registered() as $name => $block_type ) {
 			if ( 0 !== strpos( $name, 'buddynext/' ) ) {
@@ -174,8 +175,21 @@ class BlockRegistrar {
 			if ( ! has_block( $name, $post ) ) {
 				continue;
 			}
+			$has_ours = true;
 			foreach ( (array) $block_type->style_handles as $handle ) {
 				wp_enqueue_style( $handle );
+			}
+		}
+
+		// A page outside the hub shell that shows our blocks or shortcodes (an
+		// owner's pricing page, a page-builder canvas) needs the head bootstrap that
+		// stamps data-bn-theme too, or a dark theme shows our blocks in light colours.
+		// Hubs get it from PageRouter::enqueue_hub_assets(). The theme paints such a
+		// page, so there it follows the theme's colour mode only (bnThemeHostOnly).
+		if ( $has_ours ) {
+			wp_enqueue_script( 'bn-shell-font-scale' );
+			if ( '' === (string) get_query_var( 'bn_hub', '' ) ) {
+				wp_add_inline_script( 'bn-shell-font-scale', 'window.bnThemeHostOnly=true;', 'before' );
 			}
 		}
 	}

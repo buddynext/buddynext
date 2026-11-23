@@ -195,6 +195,12 @@
 		return ( 'light' === m || 'dark' === m ) ? m : null;
 	}
 	function currentPref() {
+		// Outside the community shell (our blocks on an owner's theme page) the
+		// theme paints the page, so only its colour mode applies: a fixed BN dark
+		// on a light theme page turned our headings light-on-white.
+		if ( window.bnThemeHostOnly ) {
+			return themeColorMode() || 'auto';
+		}
 		return themeColorMode() || readThemePref();
 	}
 
