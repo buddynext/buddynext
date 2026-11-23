@@ -205,6 +205,28 @@ class DeactivationCancelTest extends WP_UnitTestCase {
 		remove_action( $hook, $cb );
 	}
 
+	public function test_the_flag_stays_when_every_claimed_copy_was_refused(): void {
+		$hook = 'buddynext_resync_hashtags';
+		remove_all_actions( $hook );
+		$id = (int) as_schedule_single_action( time() - 1, $hook, array( 5 ), CronScheduler::GROUP );
+		\ActionScheduler::runner()->process_action( $id, 'test' ); // Plugin off: fails through the real store.
+		add_action( $hook, '__return_null' );
+		add_filter( 'wp_doing_cron', '__return_true' );
+		add_filter( 'pre_as_enqueue_async_action', '__return_zero' ); // Every copy refused.
+		CronScheduler::flag_requeue();
+
+		$this->assertSame( 0, CronScheduler::requeue_after_activation( CronScheduler::REQUEUE_FLAG, array( $hook ) ) );
+		$this->assertNotFalse( get_transient( CronScheduler::REQUEUE_FLAG ), 'Rows still wait: the flag stays for the next request.' );
+		$this->assertSame( 'failed', $this->status( $id ), 'Released, not lost.' );
+
+		remove_filter( 'pre_as_enqueue_async_action', '__return_zero' );
+		$this->assertSame( 1, CronScheduler::requeue_after_activation( CronScheduler::REQUEUE_FLAG, array( $hook ) ) );
+		$this->assertFalse( get_transient( CronScheduler::REQUEUE_FLAG ), 'Done: cleared.' );
+		remove_filter( 'wp_doing_cron', '__return_true' );
+		remove_action( $hook, '__return_null' );
+		as_unschedule_all_actions( $hook );
+	}
+
 	public function test_every_kept_hook_is_one_this_plugin_schedules(): void {
 		$src = '';
 		foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( dirname( __DIR__, 2 ) . '/includes' ) ) as $file ) {

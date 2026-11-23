@@ -577,7 +577,8 @@ class CronScheduler {
 	}
 
 	/**
-	 * While the plugin's flag is set, re-queue its kept jobs; clear the flag when a pass finds fewer than a batch.
+	 * While the plugin's flag is set, re-queue its kept jobs; clear the flag when a pass finds fewer than a batch,
+	 * unless every row it claimed was put back (all copies refused).
 	 *
 	 * Gate order: is_scheduling_request(), then has_as(), then the transient, so a
 	 * front-end request costs nothing and a site with no pass owed costs one
@@ -593,8 +594,12 @@ class CronScheduler {
 		if ( ! self::is_scheduling_request() || ! self::has_as() || ! get_transient( $flag ) ) {
 			return 0;
 		}
-		$moved = self::requeue_orphaned( $hooks );
-		if ( $moved < self::REQUEUE_BATCH ) {
+		$released = 0;
+		$moved    = self::requeue_orphaned( $hooks, $released );
+		// Keep the flag while rows wait: a full batch, or a pass where every claimed copy
+		// was refused (they are back to failed, and the next scheduling request retries
+		// until the flag's week runs out).
+		if ( $moved < self::REQUEUE_BATCH && ! ( 0 === $moved && $released > 0 ) ) {
 			delete_transient( $flag );
 		}
 		return $moved;
@@ -618,11 +623,13 @@ class CronScheduler {
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param string[] $hooks Our kept hooks.
+	 * @param string[] $hooks    Our kept hooks.
+	 * @param int      $released Set to the number of claimed rows put back to failed (copy refused).
 	 * @return int Rows re-queued.
 	 */
-	public static function requeue_orphaned( array $hooks ): int {
+	public static function requeue_orphaned( array $hooks, int &$released = 0 ): int {
 		global $wpdb;
+		$released = 0;
 		// A hook with no listener now would fail again: leave it until its listener is back.
 		$hooks = array_values( array_filter( array_map( 'strval', $hooks ), 'has_action' ) );
 		if ( array() === $hooks || ! self::has_as() ) {
@@ -676,6 +683,7 @@ class CronScheduler {
 			}
 			if ( ! $queued ) {
 				$wpdb->query( $wpdb->prepare( "UPDATE {$actions} SET status = 'failed' WHERE action_id = %d AND status = 'canceled'", $id ) );
+				++$released;
 				continue;
 			}
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$logs} WHERE action_id = %d", $id ) );
