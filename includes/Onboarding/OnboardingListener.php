@@ -53,6 +53,11 @@ class OnboardingListener implements ListenerInterface {
 	private const NUDGE_GROUP = 'buddynext';
 
 	/**
+	 * Seconds from now for a restored nudge whose original moment has passed.
+	 */
+	private const RESTORE_DELAY = 5 * MINUTE_IN_SECONDS;
+
+	/**
 	 * The two per-user nudge hooks, keyed by delay from registration.
 	 *
 	 * @return array<string,int> hook => seconds after registration it is due.
@@ -130,9 +135,10 @@ class OnboardingListener implements ListenerInterface {
 	/**
 	 * Put back the nudges a deactivation cancelled, for members still inside the window.
 	 *
-	 * Deactivating cancels every pending nudge. Runs once on the first admin page after
-	 * activation (Plugin's activation-redirect step), never on a front-end request, for
-	 * members who registered in the last 72 hours and still owe the wizard.
+	 * Deactivating cancels every pending nudge. Runs from CronScheduler::schedule_events()
+	 * while the after-activation flag is set (the first scheduling request after an
+	 * activation or update: cron runner, wp-admin page, WP-CLI), never on a front-end
+	 * request, for members who registered in the last 72 hours and still owe the wizard.
 	 *
 	 * @return void
 	 */
@@ -153,6 +159,7 @@ class OnboardingListener implements ListenerInterface {
 				),
 			)
 		);
+		cache_users( array_map( 'intval', $user_ids ) ); // One query for the users and their meta, not one per member.
 		foreach ( $user_ids as $user_id ) {
 			$this->ensure_nudges( (int) $user_id );
 		}
@@ -182,6 +189,11 @@ class OnboardingListener implements ListenerInterface {
 		if ( $registered + max( $hooks ) <= time() ) {
 			return; // Past the window: nudged at signup (1.2.9 behaviour), never again.
 		}
+		// "No row" means "never nudged" only while a sent nudge's row is still kept: with
+		// the retention filter at 1 or 2 days a sent 24h nudge is deleted inside the window.
+		if ( $registered + \BuddyNext\Core\LogRetentionService::finished_retention_days() * DAY_IN_SECONDS <= time() ) {
+			return;
+		}
 		$args = array( $user_id );
 		foreach ( $hooks as $hook => $offset ) {
 			$had = as_get_scheduled_actions(
@@ -197,8 +209,9 @@ class OnboardingListener implements ListenerInterface {
 			if ( array() !== $had ) {
 				continue;
 			}
-			$due = $registered + $offset;
-			as_schedule_single_action( $due > time() ? $due : time() + $offset, $hook, $args, self::NUDGE_GROUP );
+			// A nudge whose moment has passed (it was canceled, never sent) goes out shortly,
+			// so the 24h mail still comes before the 72h one.
+			as_schedule_single_action( max( $registered + $offset, time() + self::RESTORE_DELAY ), $hook, $args, self::NUDGE_GROUP );
 		}
 	}
 

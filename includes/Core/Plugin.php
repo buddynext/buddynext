@@ -368,12 +368,6 @@ class Plugin {
 					if ( wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 						return;
 					}
-					// First admin page after an activation: put back the onboarding nudges the
-					// deactivation cancelled. Deduped, so a bulk activation (which keeps the
-					// transient for its 30 seconds) cannot double-schedule.
-					if ( get_transient( 'buddynext_do_activation_redirect' ) ) {
-						( new OnboardingListener() )->restore_nudges();
-					}
 					// Browser page loads are GET; ignore POST/PUT admin actions.
 					if ( 'GET' !== strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) ) ) {
 						return;

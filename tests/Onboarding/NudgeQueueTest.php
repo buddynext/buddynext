@@ -109,6 +109,34 @@ class NudgeQueueTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A short retention filter closes the restore for members older than it, and a
+	 * restored 24h nudge whose moment passed goes out shortly, before the 72h one.
+	 *
+	 * @return void
+	 */
+	public function test_restore_respects_the_retention_floor_and_keeps_the_nudge_order(): void {
+		$f               = (array) get_option( 'buddynext_features', array() );
+		$f['onboarding'] = true;
+		update_option( 'buddynext_features', $f );
+		update_option( 'buddynext_onboarding_gate_since', 1 );
+		$mid = self::factory()->user->create( array( 'user_registered' => gmdate( 'Y-m-d H:i:s', time() - 40 * HOUR_IN_SECONDS ) ) );
+		foreach ( array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h' ) as $hook ) {
+			as_unschedule_all_actions( $hook, array( $mid ), 'buddynext' );
+		}
+
+		add_filter( 'buddynext_finished_action_retention_days', static fn() => 1 );
+		$this->listener->ensure_nudges( $mid );
+		remove_all_filters( 'buddynext_finished_action_retention_days' );
+		$this->assertCount( 0, as_get_scheduled_actions( array( 'hook' => 'bn_onboarding_nudge_24h', 'args' => array( $mid ), 'status' => 'pending' ), 'ids' ), 'Retention 1 day: a 40h member is not restored.' );
+
+		$this->listener->ensure_nudges( $mid );
+		$first  = as_next_scheduled_action( 'bn_onboarding_nudge_24h', array( $mid ), 'buddynext' );
+		$second = as_next_scheduled_action( 'bn_onboarding_nudge_72h', array( $mid ), 'buddynext' );
+		$this->assertLessThanOrEqual( time() + 10 * MINUTE_IN_SECONDS, $first, 'The overdue 24h nudge goes out shortly.' );
+		$this->assertLessThan( $second, $first );
+	}
+
+	/**
 	 * Registration schedules both nudges as pending Action Scheduler actions.
 	 *
 	 * @return void
