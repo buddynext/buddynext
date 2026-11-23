@@ -548,6 +548,28 @@ final class QaFixturesCommand {
 		$mod    = $this->make_user( 'heir', 'QA Heir' );
 		$member = $this->make_user( 'member', 'QA Member' );
 
+		// A direct-message thread with the first administrator, so /messages/ renders its
+		// rail and composer for an admin session (WPMediaVerse only). Deleting the fixture
+		// member removes it through WPMediaVerse's own user-deletion cascade.
+		$messaging = class_exists( \BuddyNext\Media\MediaClient::class ) ? \BuddyNext\Media\MediaClient::messaging() : null;
+		$admins    = get_users(
+			array(
+				'role'    => 'administrator',
+				'number'  => 1,
+				'orderby' => 'ID',
+				'fields'  => 'ID',
+			)
+		);
+		if ( is_object( $messaging ) && method_exists( $messaging, 'find_or_create_conversation' ) && method_exists( $messaging, 'send_message' ) && $admins ) {
+			$conv    = $messaging->find_or_create_conversation( (int) $admins[0], $member );
+			$conv_id = is_array( $conv ) ? (int) ( $conv['conversation_id'] ?? 0 ) : 0;
+			if ( $conv_id > 0 ) {
+				$messaging->send_message( $conv_id, $member, array( 'content' => 'QA fixture: hello from QA Member.' ) );
+				$messaging->send_message( $conv_id, (int) $admins[0], array( 'content' => 'QA fixture: reply from the admin.' ) );
+				\WP_CLI::log( "  direct-message thread #$conv_id (admin and QA Member)" );
+			}
+		}
+
 		$spaces = new SpaceService();
 
 		// 1. Archived space — the archive/unarchive + directory-exclusion path.
