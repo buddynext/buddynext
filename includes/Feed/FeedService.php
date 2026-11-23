@@ -505,6 +505,8 @@ class FeedService {
 	 */
 	public const OWN_POST_FLOAT_MINUTES = 15;
 
+
+
 	/**
 	 * Return the home feed for the given user.
 	 *
@@ -614,6 +616,7 @@ class FeedService {
 		// / space feeds); the admin announcement is the sole top-of-home surface.
 		$default_order_by = 'created_at DESC, id DESC';
 		$tier_expr        = null;
+		$bn_boosts        = array();
 		if ( 'for-you' === $filter && $user_id > 0 ) {
 			global $wpdb;
 			$bn_conn_ids     = $this->connection_ids_capped( $user_id );
@@ -623,7 +626,7 @@ class FeedService {
 				10
 			);
 
-			$bn_tiers = array();
+			// Each boost condition is a WHEN of the tier CASE, in order: tier N = $bn_boosts[N].
 
 			/*
 			 * Your OWN post, just published, sits at the top of your own feed.
@@ -642,8 +645,8 @@ class FeedService {
 			 * member's feed never turns into a wall of their own writing. created_at
 			 * is stored UTC, so the comparison uses UTC_TIMESTAMP().
 			 */
-			$bn_tiers[] = $wpdb->prepare(
-				'WHEN user_id = %d AND created_at > DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d MINUTE ) THEN 0',
+			$bn_boosts[] = $wpdb->prepare(
+				'user_id = %d AND created_at > DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d MINUTE )',
 				$user_id,
 				self::OWN_POST_FLOAT_MINUTES
 			);
@@ -668,17 +671,21 @@ class FeedService {
 				: '';
 
 			if ( ! empty( $bn_conn_ids ) ) {
-				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ')' . $bn_recent . ' THEN ' . count( $bn_tiers );
+				$bn_boosts[] = 'user_id IN (' . implode( ',', $bn_conn_ids ) . ')' . $bn_recent;
 			}
 			if ( ! empty( $bn_interest_ids ) ) {
-				$bn_tiers[] = "WHEN space_id IN (SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND category_id IN ("
+				$bn_boosts[] = "space_id IN (SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND category_id IN ("
 					. implode( ',', array_map( 'absint', $bn_interest_ids ) )
-					. ")){$bn_recent} THEN " . count( $bn_tiers );
+					. ")){$bn_recent}";
 			}
 			// No emptiness guard: the own-post tier above is unconditional, so there is
 			// always at least one WHEN. The guard this replaces dated from when every
 			// tier was conditional on the member having connections or interests.
-			$tier_expr        = 'CASE ' . implode( ' ', $bn_tiers ) . ' ELSE ' . count( $bn_tiers ) . ' END';
+			$bn_tiers = array();
+			foreach ( $bn_boosts as $bn_tier => $bn_boost ) {
+				$bn_tiers[] = "WHEN {$bn_boost} THEN {$bn_tier}";
+			}
+			$tier_expr        = 'CASE ' . implode( ' ', $bn_tiers ) . ' ELSE ' . count( $bn_boosts ) . ' END';
 			$default_order_by = $tier_expr . ' ASC, created_at DESC, id DESC';
 		}
 
@@ -705,26 +712,31 @@ class FeedService {
 		// return only hardcoded SQL column references + direction keywords.
 		[ $source_where, $source_params ] = $this->home_source_clause( $filter, $user_id );
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$sql = $wpdb->prepare(
-			"SELECT *{$tier_select} FROM {$wpdb->prefix}bn_posts
-			 WHERE status = 'published'
-			   AND type <> 'announcement'
-			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-			   AND ({$source_where})
-			   {$excluded_where}
-			   {$hidden_where}
-			   {$cursor_where}
-			 ORDER BY {$order_by}
-			 LIMIT %d",
-			...array_merge( $source_params, $hidden_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$bn_cursor_tier = null === $cursor ? null : ( CursorCodec::decode( $cursor )['tier'] ?? null );
+		if ( null !== $tier_expr && ! self::$single_query && ( null === $cursor || null !== $bn_cursor_tier ) ) {
+			$rows = $this->for_you_rows( $bn_boosts, $tier_expr, $order_by, $cursor, $bn_cursor_tier, $per_page + 1, $source_where, $excluded_where, $hidden_where, array_merge( $source_params, $hidden_params ) );
+		} else {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			$sql = $wpdb->prepare(
+				"SELECT *{$tier_select} FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'published'
+				   AND type <> 'announcement'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND ({$source_where})
+				   {$excluded_where}
+				   {$hidden_where}
+				   {$cursor_where}
+				 ORDER BY {$order_by}
+				 LIMIT %d",
+				...array_merge( $source_params, $hidden_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		// $sql was fully prepared by $wpdb->prepare() in the block above.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-		$rows = $wpdb->get_results( $sql, ARRAY_A );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			// $sql was fully prepared by $wpdb->prepare() in the block above.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			$rows = $wpdb->get_results( $sql, ARRAY_A );
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		}
 
 		$result = $this->paginate( (array) $rows, $per_page );
 
@@ -2427,6 +2439,119 @@ class FeedService {
 			(int) $row['id'],
 			isset( $row['bn_tier'] ) ? (int) $row['bn_tier'] : null
 		);
+	}
+
+	/**
+	 * Test seam: true runs the For you feed as the old single tiered query, so a
+	 * test can prove the two-read version returns the same pages.
+	 *
+	 * @var bool
+	 */
+	private static bool $single_query = false;
+
+	/**
+	 * Most posts the For you date read walks past before it falls back to a table
+	 * scan (see for_you_rows()). A property, not a constant, so a test can shrink it.
+	 *
+	 * @var int
+	 */
+	private static int $scan_window = 2000;
+
+	/**
+	 * The For you rows for one page, in two index-served reads instead of one
+	 * tiered sort over every visible post.
+	 *
+	 * The tiered ORDER BY (a per-viewer CASE) cannot use an index, so the single
+	 * query read and sorted the whole visible table on every page (230 ms at 100k
+	 * posts). The boosted tiers are a few recent posts by known authors or spaces,
+	 * and everything else is plain date order, so: read the boosted rows by their
+	 * own conditions, then fill the page from the rest newest first, which the
+	 * post_created index serves and stops after the page is full. Same rows, same
+	 * order and the same tier-aware cursor as the single query.
+	 *
+	 * The second read walks back past posts the viewer cannot see. When almost
+	 * nothing is visible (a new member on a site whose posts sit in private spaces)
+	 * a walk of the whole index costs more than the old scan and sort, so it walks
+	 * at most $scan_window posts and, if the page is still short, reads the
+	 * rest with the old table scan: never meaningfully slower than the old query.
+	 *
+	 * @param string[]    $boosts         Boost conditions, tier N = $boosts[N].
+	 * @param string      $tier_expr      The tier CASE built from $boosts.
+	 * @param string      $order_by       The tiered ORDER BY.
+	 * @param string|null $cursor         Cursor.
+	 * @param int|null    $cursor_tier    Tier carried by the cursor.
+	 * @param int         $limit          Rows wanted (page size + 1).
+	 * @param string      $source_where   Source blend (with %d placeholders).
+	 * @param string      $excluded_where Excluded authors.
+	 * @param string      $hidden_where   Viewer-hidden posts (with placeholders).
+	 * @param array       $params         Params for $source_where then $hidden_where.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function for_you_rows( array $boosts, string $tier_expr, string $order_by, ?string $cursor, ?int $cursor_tier, int $limit, string $source_where, string $excluded_where, string $hidden_where, array $params ): array {
+		global $wpdb;
+
+		$rest  = count( $boosts ); // The ELSE tier.
+		$from  = "{$wpdb->prefix}bn_posts";
+		$where = "WHERE status = 'published'
+			   AND type <> 'announcement'
+			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+			   AND ({$source_where})
+			   {$excluded_where}
+			   {$hidden_where}";
+		$base  = "FROM {$from} {$where}";
+		$rows  = array();
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		if ( null === $cursor || $cursor_tier < $rest ) {
+			$rows = (array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT *, ({$tier_expr}) AS bn_tier {$base}
+					   AND ( (" . implode( ') OR (', $boosts ) . ") )
+					   {$this->cursor_where( $cursor, $tier_expr )}
+					 ORDER BY {$order_by}
+					 LIMIT %d",
+					...array_merge( $params, $this->cursor_params( $cursor, $tier_expr ), array( $limit ) )
+				),
+				ARRAY_A
+			);
+		}
+
+		$need = $limit - count( $rows );
+		if ( $need > 0 ) {
+			// A boosted-tier cursor starts the rest from the top; a rest-tier cursor
+			// continues it by date.
+			$rest_cursor = null !== $cursor && $cursor_tier >= $rest ? $cursor : null;
+			$after       = $this->cursor_where( $rest_cursor );
+			$after_args  = $this->cursor_params( $rest_cursor );
+			$read        = static fn( string $index, string $window, array $window_args ): array => (array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT *, {$rest} AS bn_tier FROM {$from} {$index} {$where}
+					   AND ({$tier_expr}) = {$rest}
+					   {$after}
+					   {$window}
+					 ORDER BY created_at DESC, id DESC
+					 LIMIT %d",
+					...array_merge( $params, $after_args, $window_args, array( $need ) )
+				),
+				ARRAY_A
+			);
+
+			// The date of the $scan_window-th post after the cursor (index only).
+			$edge = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT created_at FROM {$from} WHERE 1 = 1 {$after} ORDER BY created_at DESC, id DESC LIMIT 1 OFFSET %d",
+					...array_merge( $after_args, array( self::$scan_window ) )
+				)
+			);
+			$more = null === $edge ? $read( '', '', array() ) : $read( '', 'AND created_at >= %s', array( $edge ) );
+			if ( null !== $edge && count( $more ) < $need ) {
+				$more = $read( 'IGNORE INDEX (post_created)', '', array() );
+			}
+			$rows = array_merge( $rows, $more );
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		return $rows;
 	}
 
 	/**
