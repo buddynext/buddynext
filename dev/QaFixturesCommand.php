@@ -512,6 +512,14 @@ final class QaFixturesCommand {
 
 		\WP_CLI::log( 'Edge fixtures…' );
 
+		// Seeded already: every row below is created once, so a second run would
+		// duplicate invites and logs and fail on the taken space slugs. Run cleanup to
+		// reseed.
+		if ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$p}bn_spaces WHERE slug = %s", self::SLUG_PREFIX . 'succession' ) ) ) { // phpcs:ignore WordPress.DB
+			\WP_CLI::log( '  already seeded; skipped (run cleanup first to reseed)' );
+			return;
+		}
+
 		// Two plain pages outside the community shell: one holds our blocks, one our
 		// shortcode. The control-contrast crawler (bin/control-contrast-crawler.js) and the
 		// theme bootstrap checks read them.
@@ -615,7 +623,7 @@ final class QaFixturesCommand {
 			array( 'QAFX-PENDING-0001', 'qa-invitee-pending@example.test', 'pending', $now + 7 * DAY_IN_SECONDS, 0 ),
 			array( 'QAFX-EXPIRED-0002', 'qa-invitee-expired@example.test', 'pending', $now - 2 * DAY_IN_SECONDS, 0 ),
 			array( 'QAFX-USED-0003', 'qa-invitee-used@example.test', 'registered', $now + 7 * DAY_IN_SECONDS, 0 ),
-			array( 'QAFX-SPACE-0004', 'qa-invitee-space@example.test', 'pending', $now + 7 * DAY_IN_SECONDS, $succ ),
+			array( 'QAFX-SPACE-0004', 'qa-invitee-space@example.test', 'pending', $now + 7 * DAY_IN_SECONDS, is_int( $succ ) ? $succ : 0 ),
 		);
 		foreach ( $invites as $inv ) {
 			$wpdb->insert(
