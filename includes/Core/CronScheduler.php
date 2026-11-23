@@ -247,6 +247,13 @@ class CronScheduler {
 		add_action( LogRetentionService::HOOK, array( $handlers, 'handle_cleanup_tokens' ), 20 );
 		add_action( LogRetentionService::HOOK, array( $handlers, 'handle_cleanup_reports' ), 20 );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
+		// 1.3.0 retired these two recurring actions. A runner can reach an old row before
+		// the upgrade routine cancels it; a no-op lets that row complete instead of
+		// failing ("no callbacks are registered"). The daily retention job does the work.
+		// Remove in the release after 1.3.0.
+		$noop = static function (): void {};
+		add_action( self::JOB_CLEANUP_TOKENS, $noop );
+		add_action( self::JOB_CLEANUP_REPORTS, $noop );
 
 		add_filter( 'site_status_tests', array( self::class, 'register_site_health' ) );
 	}

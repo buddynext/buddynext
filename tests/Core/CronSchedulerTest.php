@@ -65,6 +65,16 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A legacy row of a hook retired in 1.3.0 has a callback, so Action Scheduler
+	 * completes it instead of failing it.
+	 */
+	public function test_retired_cleanup_hooks_keep_a_noop_callback(): void {
+		$this->scheduler->init();
+		$this->assertNotFalse( has_action( CronScheduler::JOB_CLEANUP_TOKENS ) );
+		$this->assertNotFalse( has_action( CronScheduler::JOB_CLEANUP_REPORTS ) );
+	}
+
+	/**
 	 * Calling init() attaches the schedule action.
 	 */
 	public function test_init_adds_wp_loaded_hook(): void {
