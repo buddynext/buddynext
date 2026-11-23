@@ -2120,7 +2120,7 @@ a.bn-sh-statpill:focus-visible {
 	position: relative;
 	block-size: 96px;
 	border-radius: var(--bn-r-md);
-	border: 2px dashed var(--bn-line);
+	border: 2px dashed var(--bn-line-control); /* a drop zone is a control: 3:1 edge */
 	background: var(--bn-sunken);
 	display: flex;
 	align-items: center;

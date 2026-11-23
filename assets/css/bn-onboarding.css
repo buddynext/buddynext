@@ -222,7 +222,7 @@
 	height: 72px;
 	border-radius: 50%;
 	background: var(--bn-sunken);
-	border: 1px dashed var(--bn-line);
+	border: 1px dashed var(--bn-line-control); /* the upload control's edge (3:1) */
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -570,7 +570,7 @@
 	width: 38px;
 	height: 22px;
 	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control); /* the off switch's edge (3:1) */
 	border-radius: 999px;
 	position: relative;
 	cursor: pointer;
