@@ -1712,7 +1712,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	text-decoration: none;
 	color: inherit;
 }
-.bn-sbar-row--link:hover .bn-sbar-row__name { color: var(--bn-brand); }
+.bn-sbar-row--link:hover .bn-sbar-row__name { color: var(--bn-accent-text); }
 
 /* ── Empty state ────────────────────────────────────────────────────────────── */
 .bn-feed-empty {
@@ -3135,14 +3135,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	align-items: center;
 	gap: var(--bn-s2);
 	min-block-size: 44px;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: none;
 }
 .bn-composer-switch__link:hover,
 .bn-composer-switch__link:visited {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 .bn-composer-switch__link:hover {
 	text-decoration: underline;
@@ -3156,7 +3156,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	padding-inline: var(--bn-s2);
 	border-radius: var(--bn-r-full);
 	background: var(--bn-accent-50);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-size: var(--bn-text-2xs);
 	font-weight: var(--bn-fw-semibold);
 	line-height: var(--bn-leading-normal);
