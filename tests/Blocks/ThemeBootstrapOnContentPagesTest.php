@@ -59,6 +59,10 @@ class ThemeBootstrapOnContentPagesTest extends WP_UnitTestCase {
 		$plain = self::factory()->post->create( array( 'post_type' => 'wp_block', 'post_status' => 'publish', 'post_content' => '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->' ) );
 		$this->assertTrue( $this->queued_for( '<!-- wp:block {"ref":' . $ours . '} /-->' ), 'A synced pattern with our block.' );
 		$this->assertFalse( $this->queued_for( '<!-- wp:block {"ref":' . $plain . '} /-->' ), 'A synced pattern without one.' );
+		foreach ( array( 'trash', 'draft', 'private' ) as $status ) {
+			$hidden = self::factory()->post->create( array( 'post_type' => 'wp_block', 'post_status' => $status, 'post_content' => '<!-- wp:buddynext/member-directory /-->' ) );
+			$this->assertFalse( $this->queued_for( '<!-- wp:block {"ref":' . $hidden . '} /-->' ), "A {$status} synced pattern renders nothing." );
+		}
 	}
 
 	/**

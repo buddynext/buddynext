@@ -177,7 +177,8 @@ class BlockRegistrar {
 		if ( preg_match_all( '/<!-- wp:block \{"ref":(\d+)/', $content, $refs ) ) {
 			foreach ( array_slice( array_unique( $refs[1] ), 0, self::SYNCED_REFS_MAX ) as $ref ) {
 				$pattern = get_post( (int) $ref );
-				if ( $pattern instanceof \WP_Post && 'wp_block' === $pattern->post_type ) {
+				// Core renders only a published pattern; a trashed, draft or private one shows nothing.
+				if ( $pattern instanceof \WP_Post && 'wp_block' === $pattern->post_type && 'publish' === $pattern->post_status ) {
 					$content .= $pattern->post_content;
 				}
 			}
