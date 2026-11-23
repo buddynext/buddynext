@@ -603,12 +603,15 @@ class CronScheduler {
 	 * Deactivation leaves the keep list pending. If another plugin's Action Scheduler
 	 * runs those rows while this plugin is off, each fails with "no callbacks are
 	 * registered". This puts back the ones that failed in the last REQUEUE_DAYS, once
-	 * their listener exists again: same hook, args and group through enqueue_once()
-	 * (unique insert, one pending copy), and deletes the failed row with its logs only
-	 * when the copy is waiting. A row whose log does not carry that message really ran
-	 * and errored, so it stays failed. At most REQUEUE_BATCH rows a call. Two requests
-	 * reading the same rows are safe: the second copy is refused as a duplicate, and
-	 * deleting a row the first request already deleted affects nothing.
+	 * their listener exists again. Each row is claimed first (one UPDATE failed ->
+	 * canceled, so parallel requests never queue the same row twice, even after a
+	 * runner completed the first copy); the winner queues the copy with the same hook,
+	 * args and group through enqueue_once(), then deletes the claimed row and its logs.
+	 * A copy no scheduler accepts puts the row back to failed. A row another request
+	 * holds counts as handled. A row whose log does not carry that message really ran
+	 * and errored, so it stays failed. At most REQUEUE_BATCH rows a call. Known gap: a
+	 * request that dies between claim and copy leaves the row canceled, and the
+	 * retention prune deletes it after 7 days.
 	 *
 	 * @since 1.3.0
 	 *
@@ -647,14 +650,33 @@ class CronScheduler {
 		);
 		$moved = 0;
 		foreach ( (array) $rows as $row ) {
+			$id   = (int) $row->action_id;
 			$hook = (string) $row->hook;
 			$args = json_decode( (string) ( $row->extended_args ?? $row->args ), true );
-			if ( '' === $hook || ! is_array( $args ) || ! self::enqueue_once( $hook, $args, (string) ( $row->slug ?? '' ) ) ) {
-				continue; // Not re-queued: the failed row stays, so nothing is lost.
+			if ( '' === $hook || ! is_array( $args ) ) {
+				continue; // Unreadable: the failed row stays.
 			}
-			$id = (int) $row->action_id;
+			// Claim first, in one UPDATE: only the request that turns the row from failed
+			// to canceled queues its copy. Without the claim a slower request reached a row
+			// whose copy a runner had already completed and queued it again (unique only
+			// blocks a duplicate while the first copy is still waiting).
+			// ponytail: a request that dies between the claim and the copy leaves the row
+			// canceled; the retention prune deletes it after 7 days and that job is lost.
+			if ( 1 !== (int) $wpdb->query( $wpdb->prepare( "UPDATE {$actions} SET status = 'canceled' WHERE action_id = %d AND status = 'failed'", $id ) ) ) {
+				++$moved; // Another request holds it: handled, so the flag is not cleared early.
+				continue;
+			}
+			try {
+				$queued = self::enqueue_once( $hook, $args, (string) ( $row->slug ?? '' ) );
+			} catch ( \Throwable $e ) {
+				$queued = false; // A store error: give the row back, never lose it.
+			}
+			if ( ! $queued ) {
+				$wpdb->query( $wpdb->prepare( "UPDATE {$actions} SET status = 'failed' WHERE action_id = %d AND status = 'canceled'", $id ) );
+				continue;
+			}
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$logs} WHERE action_id = %d", $id ) );
-			$wpdb->query( $wpdb->prepare( "DELETE FROM {$actions} WHERE action_id = %d AND status = 'failed'", $id ) );
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$actions} WHERE action_id = %d AND status = 'canceled'", $id ) );
 			++$moved;
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare

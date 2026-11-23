@@ -162,6 +162,49 @@ class DeactivationCancelTest extends WP_UnitTestCase {
 		as_unschedule_all_actions( $hook );
 	}
 
+	public function test_a_row_whose_copy_already_ran_is_not_queued_again_by_a_slower_request(): void {
+		global $wpdb;
+		$hook = 'buddynext_resync_hashtags';
+		$runs = 0;
+		$cb   = static function () use ( &$runs ) {
+			++$runs;
+		};
+		remove_all_actions( $hook );
+		$id = (int) as_schedule_single_action( time() - 1, $hook, array( 9 ), CronScheduler::GROUP );
+		\ActionScheduler::runner()->process_action( $id, 'test' ); // Plugin off: fails through the real DBStore.
+		$this->assertSame( 'failed', $this->status( $id ) );
+		add_action( $hook, $cb );
+
+		// Request B has read the failed row. Before its next query runs, request A
+		// re-queues the same row and a runner completes A's copy.
+		$armed = false;
+		$race  = static function ( $sql ) use ( &$armed, $hook ) {
+			if ( false !== strpos( $sql, 'EXISTS ( SELECT 1' ) && 0 === did_action( 'bn_test_race_done' ) && ! $armed ) {
+				$armed = true; // B's SELECT; the race runs before B's next query.
+				return $sql;
+			}
+			if ( $armed ) {
+				$armed = false;
+				do_action( 'bn_test_race_done' );
+				CronScheduler::requeue_orphaned( array( $hook ) ); // Request A.
+				foreach ( as_get_scheduled_actions( array( 'hook' => $hook, 'status' => 'pending' ), 'ids' ) as $copy ) {
+					\ActionScheduler::runner()->process_action( (int) $copy, 'test' );
+				}
+			}
+			return $sql;
+		};
+		add_filter( 'query', $race );
+		CronScheduler::requeue_orphaned( array( $hook ) ); // Request B.
+		remove_filter( 'query', $race );
+		foreach ( as_get_scheduled_actions( array( 'hook' => $hook, 'status' => 'pending' ), 'ids' ) as $copy ) {
+			\ActionScheduler::runner()->process_action( (int) $copy, 'test' );
+		}
+
+		$this->assertSame( 1, $runs, 'The job ran once, not once per request.' );
+		$this->assertCount( 0, as_get_scheduled_actions( array( 'hook' => $hook, 'status' => array( 'failed', 'pending' ) ), 'ids' ) );
+		remove_action( $hook, $cb );
+	}
+
 	public function test_every_kept_hook_is_one_this_plugin_schedules(): void {
 		$src = '';
 		foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( dirname( __DIR__, 2 ) . '/includes' ) ) as $file ) {
