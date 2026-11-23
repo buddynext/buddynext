@@ -429,6 +429,12 @@ py_gate bin/check-directive-paths.py "a directive is bound to an expression — 
 section "Client IP reader"
 py_gate bin/check-client-ip.py "the client address is read outside SafeguardService::client_ip() - see above"
 
+# ensure_recurring() is ( $hook, $first, $interval, $group ) since 1.3.0. A caller left on
+# the old ( $hook, $interval ) order fataled every scheduling request (ArgumentCountError),
+# and a swapped pair schedules the first run decades away; PHPStan sees neither.
+section "ensure_recurring argument order"
+py_gate bin/check-ensure-recurring.py "an ensure_recurring() call uses the pre-1.3.0 argument order - see above"
+
 # One button API. The retired bn-btn--primary/--secondary/--sm/--block modifiers
 # lived only in bn-profile.css, so any page without that file drew them as bare grey
 # boxes (finish-sign-up, 1.2.9). Markup uses class="bn-btn" + data-variant/data-size/data-full.
