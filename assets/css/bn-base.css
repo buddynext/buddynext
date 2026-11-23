@@ -470,7 +470,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 	--bn-ink:    oklch(96% 0.005 var(--bn-hue));
 	--bn-ink-2:  oklch(78% 0.008 var(--bn-hue));
-	--bn-ink-3:  oklch(60% 0.008 var(--bn-hue));
+	--bn-ink-3:  oklch(64% 0.008 var(--bn-hue)); /* AA on every dark surface up to --bn-raised (5.1:1). Was 60%, 4.4:1 on raised. */
 	--bn-ink-4:  oklch(62% 0.008 var(--bn-hue)); /* AA on the dark canvas and cards. Was 45%, about 2.4:1. */
 
 	--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
@@ -530,7 +530,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line-control: color-mix(in oklab, var(--bn-ink) 50%, transparent);
 		--bn-ink:   oklch(96% 0.005 var(--bn-hue));
 		--bn-ink-2: oklch(78% 0.008 var(--bn-hue));
-		--bn-ink-3: oklch(60% 0.008 var(--bn-hue));
+		--bn-ink-3: oklch(64% 0.008 var(--bn-hue));
 		--bn-ink-4: oklch(62% 0.008 var(--bn-hue));
 		--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
