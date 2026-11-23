@@ -1212,8 +1212,9 @@ class Installer {
 	 * @return void
 	 */
 	public static function schedule_finish_upgrade(): void {
-		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::FINISH_UPGRADE_HOOK, array(), 'buddynext', true );
+		// enqueue_once() adds a plain copy when the unique insert is refused because this
+		// job is the one running (finish_upgrade() re-queueing itself behind the lock).
+		if ( CronScheduler::enqueue_once( self::FINISH_UPGRADE_HOOK, array() ) ) {
 			return;
 		}
 		wp_schedule_single_event( time() + 30, self::FINISH_UPGRADE_HOOK );
@@ -2709,6 +2710,15 @@ class Installer {
 		if ( array() === $missing && array() === self::$last_schema_errors ) {
 			delete_option( self::SCHEMA_FAILURE_OPTION );
 
+			// The manual update (deactivate, replace files, activate) reaches here through
+			// activation, not maybe_upgrade_schema(): owe the data migrations for the
+			// version this site was on before the stamp below, or they never run.
+			// add_option() keeps an older owed version.
+			if ( $stored_schema > 0 && $stored_schema < self::SCHEMA_VERSION ) {
+				add_option( self::PENDING_MIGRATIONS_OPTION, $stored_schema, '', false );
+				CronScheduler::when_ready( array( self::class, 'schedule_finish_upgrade' ) );
+			}
+
 			update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
 			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 		} else {
@@ -2821,6 +2831,10 @@ class Installer {
 		self::maybe_clear_unconsented_tracking( $stored_schema );
 
 		CronScheduler::when_ready( array( \BuddyNext\Search\SearchService::class, 'schedule_reindex_all' ) );
+
+		// Activation and a version change both reach run(): owe the after-activation
+		// pass (nudge restore, requeue of kept jobs that failed while the plugin was off).
+		CronScheduler::flag_requeue();
 	}
 
 	/**

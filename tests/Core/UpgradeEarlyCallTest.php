@@ -34,6 +34,23 @@ class UpgradeEarlyCallTest extends WP_UnitTestCase {
 		}
 	}
 
+	public function test_the_manual_update_flow_owes_the_data_migrations(): void {
+		$pending = (string) ( new \ReflectionClassConstant( Installer::class, 'PENDING_MIGRATIONS_OPTION' ) )->getValue();
+		$current = (int) ( new \ReflectionClassConstant( Installer::class, 'SCHEMA_VERSION' ) )->getValue();
+		update_option( 'buddynext_schema_version', 75 ); // A 1.2.9 site.
+		delete_option( $pending );
+		delete_transient( CronScheduler::REQUEUE_FLAG );
+
+		Installer::run(); // Activation after the files were replaced.
+
+		$this->assertSame( $current, (int) get_option( 'buddynext_schema_version' ) );
+		$this->assertSame( 75, (int) get_option( $pending ), 'The migrations from 75 are owed, so maybe_upgrade() runs them.' );
+		$this->assertTrue( CronScheduler::has_pending( Installer::FINISH_UPGRADE_HOOK ), 'And a runner is queued.' );
+		$this->assertNotFalse( get_transient( CronScheduler::REQUEUE_FLAG ), 'The after-activation pass is owed.' );
+		delete_option( $pending );
+		as_unschedule_all_actions( Installer::FINISH_UPGRADE_HOOK );
+	}
+
 	public function test_a_second_first_request_does_not_upgrade_while_the_first_holds_the_lock(): void {
 		global $wpdb;
 		$current = (int) ( new \ReflectionClassConstant( Installer::class, 'SCHEMA_VERSION' ) )->getValue();
