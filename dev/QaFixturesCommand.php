@@ -341,7 +341,7 @@ final class QaFixturesCommand {
 		}
 		foreach ( array_chunk( $rows, 500 ) as $chunk ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$wpdb->query( "INSERT IGNORE INTO {$p}bn_space_members (space_id, user_id, role, status, created_at) VALUES " . implode( ',', $chunk ) );
+			$wpdb->query( "INSERT IGNORE INTO {$p}bn_space_members (space_id, user_id, role, status, joined_at) VALUES " . implode( ',', $chunk ) );
 		}
 		\WP_CLI::log( '  ' . count( $rows ) . ' space memberships' );
 
@@ -550,11 +550,11 @@ final class QaFixturesCommand {
 			$wpdb->insert(
 				$p . 'bn_space_members',
 				array(
-					'space_id'   => $succ,
-					'user_id'    => $mod,
-					'role'       => 'moderator',
-					'status'     => 'active',
-					'created_at' => gmdate( 'Y-m-d H:i:s' ),
+					'space_id'  => $succ,
+					'user_id'   => $mod,
+					'role'      => 'moderator',
+					'status'    => 'active',
+					'joined_at' => gmdate( 'Y-m-d H:i:s' ),
 				),
 				array( '%d', '%d', '%s', '%s', '%s' )
 			);
