@@ -507,7 +507,7 @@ class Installer {
 	 *      filesort or a scan of the space's whole feed. Existing installs via the
 	 *      idempotent ADD KEY in maybe_alter_tables(); read-only, no data touched.
 	 */
-	private const SCHEMA_VERSION = 77;
+	private const SCHEMA_VERSION = 78;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -1554,6 +1554,9 @@ class Installer {
 		// before they existed, in Action Scheduler batches.
 		self::maybe_migrate_article_crops( $bn_stored_schema );
 
+		// v78: cancel the pending duplicate index jobs earlier builds queued.
+		self::maybe_migrate_pending_duplicates( $bn_stored_schema );
+
 		// run() is authoritative on the schema version: it stamps it when the schema
 		// is healthy and deliberately WITHHOLDS it when install_schema() recorded a
 		// failure (a missing table/column, or an index widen that did not take).
@@ -1667,6 +1670,26 @@ class Installer {
 			return;
 		}
 		\BuddyNext\Feed\BlogPostListener::queue_crop_batch( 0 );
+	}
+
+	/**
+	 * Cancel the pending duplicate jobs builds before 1.3.0 queued (v78).
+	 *
+	 * Those builds queued the search and hashtag index jobs and the chunked
+	 * continuations without a pending check, so saving a space twice left two
+	 * identical buddynext_async_index_space rows. 1.3.0 queues them once; this
+	 * clears what the old code left. See CronScheduler::cancel_duplicate_pending().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $stored_schema Schema version before this upgrade.
+	 * @return void
+	 */
+	private static function maybe_migrate_pending_duplicates( int $stored_schema ): void {
+		if ( $stored_schema >= 78 ) {
+			return;
+		}
+		CronScheduler::cancel_duplicate_pending();
 	}
 
 	/**

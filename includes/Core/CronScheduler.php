@@ -170,6 +170,43 @@ class CronScheduler {
 	private const CANCEL_BATCH = 10000;
 
 	/**
+	 * Jobs where a second pending copy with the same args only repeats the same work.
+	 *
+	 * Before 1.3.0 the search and hashtag index jobs, and the chunked continuations, were
+	 * plain enqueues, so a site carries pending duplicates of them (a space saved twice
+	 * queued two index_space rows). cancel_duplicate_pending() clears those, once, on
+	 * upgrade. The list is exact: nothing outside it, and no other plugin's row, is touched.
+	 *
+	 * @since 1.3.0
+	 */
+	public const DEDUPE_HOOKS = array(
+		'buddynext_async_index_user',
+		'buddynext_async_index_users',
+		'buddynext_async_index_post',
+		'buddynext_async_index_space',
+		'buddynext_async_deindex_post',
+		'buddynext_async_deindex_space',
+		'buddynext_async_reindex_space_posts',
+		'buddynext_async_reindex_user_posts',
+		'buddynext_async_reindex_forum_discussions',
+		'buddynext_async_withdraw_forum_surfaces',
+		'buddynext_async_index_hashtags',
+		'buddynext_recount_hashtags',
+		'buddynext_resync_hashtags',
+		'buddynext_integration_reindex',
+		'buddynext_backfill_card_facts',
+		'buddynext_purge_field_values',
+		'buddynext_jetonomy_copy_forum_members',
+		'buddynext_jetonomy_grant_space_members',
+		'buddynext_async_space_post_emails',
+	);
+
+	/**
+	 * Continues cancel_duplicate_pending() when one run's time box ends with rows left.
+	 */
+	public const DEDUPE_CONTINUE_HOOK = 'buddynext_dedupe_pending_actions';
+
+	/**
 	 * Orphaned rows one scheduling request re-queues; the rest wait for the next one.
 	 */
 	public const REQUEUE_BATCH = 200;
@@ -433,6 +470,62 @@ class CronScheduler {
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
+		return $total;
+	}
+
+	/**
+	 * Cancel pending duplicates of DEDUPE_HOOKS, keeping the oldest row per hook, group and args.
+	 *
+	 * Set-based, CANCEL_BATCH rows per statement, inside a 20 second time box; with rows
+	 * left it queues DEDUPE_CONTINUE_HOOK carrying the running total, so a large queue
+	 * finishes over several jobs. Idempotent: with no duplicates every statement matches
+	 * nothing. The total is logged once, under WP_DEBUG, when the queue is clean.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $carried Rows canceled by earlier runs of this cleanup.
+	 * @return int Rows canceled by this run.
+	 */
+	public static function cancel_duplicate_pending( int $carried = 0 ): int {
+		global $wpdb;
+		$actions = $wpdb->prefix . 'actionscheduler_actions';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		if ( null === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $actions ) ) ) {
+			return 0;
+		}
+
+		$in    = $wpdb->prepare( implode( ',', array_fill( 0, count( self::DEDUPE_HOOKS ), '%s' ) ), self::DEDUPE_HOOKS );
+		$until = microtime( true ) + 20;
+		$total = 0;
+		do {
+			// The LIMIT inside the derived table materialises it, which is what lets the
+			// UPDATE read the table it writes. <=> keeps NULL args grouped as they were.
+			$done   = (int) $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$actions} a JOIN (
+						SELECT d.action_id FROM {$actions} d
+						JOIN ( SELECT hook, group_id, args, MIN(action_id) AS keep_id FROM {$actions}
+							WHERE status = 'pending' AND hook IN ({$in})
+							GROUP BY hook, group_id, args HAVING COUNT(*) > 1 ) k
+						ON d.hook = k.hook AND d.group_id = k.group_id AND d.args <=> k.args AND d.action_id > k.keep_id
+						WHERE d.status = 'pending'
+						LIMIT %d
+					) x ON a.action_id = x.action_id
+					SET a.status = 'canceled'",
+					self::CANCEL_BATCH
+				)
+			);
+			$total += $done;
+		} while ( $done >= self::CANCEL_BATCH && microtime( true ) < $until );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		if ( $done >= self::CANCEL_BATCH && self::enqueue_once( self::DEDUPE_CONTINUE_HOOK, array( $carried + $total ) ) ) {
+			return $total;
+		}
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && $carried + $total > 0 ) {
+			error_log( sprintf( 'BuddyNext upgrade: canceled %d duplicate pending background jobs.', $carried + $total ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		}
 		return $total;
 	}
 

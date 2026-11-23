@@ -356,6 +356,7 @@ add_action( 'init', array( \BuddyNext\Core\Installer::class, 'install_if_missing
 // feature's init work. One option compare once the stored schema revision matches.
 add_action( 'init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade_schema' ), 0 );
 add_action( \BuddyNext\Core\Installer::FINISH_UPGRADE_HOOK, array( \BuddyNext\Core\Installer::class, 'finish_upgrade' ) );
+add_action( \BuddyNext\Core\CronScheduler::DEDUPE_CONTINUE_HOOK, array( \BuddyNext\Core\CronScheduler::class, 'cancel_duplicate_pending' ) );
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
 \BuddyNext\Core\Installer::register_site_health();
 \BuddyNext\Auth\SessionIssuer::register();
