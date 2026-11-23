@@ -48,6 +48,7 @@ All tokens are `--bn-` prefixed. The families:
 | Layering | `--bn-z-menu`, `--bn-z-modal`, `--bn-z-lightbox`, `--bn-z-toast` |
 | Layout | `--bn-container`, `--bn-content-max`, `--bn-content-wide`, `--bn-railw` |
 | Control edges | `--bn-line-control` is the edge of anything a member operates: outlined buttons, text fields, selects, chips, poll options, switch tracks. It is half the ink colour, so it reaches 3:1 against any BuddyNext surface in light and dark (WCAG 1.4.11). Cards and dividers keep the subtle `--bn-line`. Override it to recolour every control edge at once. |
+| Text on brand and danger | `--bn-accent-text` and `--bn-danger-text` are the brand and danger colours as TEXT (links, counts, Delete and Block in menus): each is mixed toward the ink so it reaches 4.5:1 in light and dark. Fills and badges keep `--bn-accent` and `--bn-danger`. |
 | Reading measure | `--bn-post-measure` - widest line of post text in the feed and on the post page. Not set by default, so text caps at `58ch`; set it to `none` for full-width text. Media, polls and link previews always use the full card. |
 | Toasts and dialogs | `--bn-toast-min-w`, `--bn-toast-max-w`, `--bn-dialog-max-w`, `--bn-dialog-btn-h` |
 

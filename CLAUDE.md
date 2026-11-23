@@ -395,7 +395,7 @@ Token families (all `--bn-` prefixed):
 - Ink (text): `--bn-ink`, `--bn-ink-2`, `--bn-ink-3`, `--bn-ink-4`
 - Lines/focus: `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-line-control`, `--bn-ring`. Control edges (outlined buttons, fields, chips, switch tracks) use `--bn-line-control` (3:1, WCAG 1.4.11); cards and dividers stay on `--bn-line`.
 - Accent ramp (OKLCH from `--bn-hue`): `--bn-accent`, `--bn-accent-50…900`, `--bn-accent-fg`
-- Semantic: `--bn-success(-bg)`, `--bn-danger(-bg)`, `--bn-info(-bg)`
+- Semantic: `--bn-success(-bg)`, `--bn-danger(-bg)`, `--bn-info(-bg)`. Brand or danger as TEXT uses `--bn-accent-text` / `--bn-danger-text` (4.5:1); fills keep `--bn-accent` / `--bn-danger`.
 - Integration accents: `--bn-jetonomy(-bg)`, `--bn-media(-bg)`, `--bn-paid(-bg)`, `--bn-events(-bg)`
 - Type: `--bn-font-{body,display,ui,mono}`, `--bn-text-{2xs…4xl,base,md}`, `--bn-fw-{normal…extrabold}`, `--bn-leading-{tight,snug,normal,body}`
 - Spacing (4px grid): `--bn-s1 … --bn-s16` · Radius: `--bn-r-{sm,md,lg,xl,full}` · Shadow: `--bn-shadow-{xs,sm,md,lg}`
