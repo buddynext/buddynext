@@ -80,7 +80,7 @@ class ModerationListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function schedule_queue_check(): void {
-		\BuddyNext\Core\CronScheduler::ensure_recurring( self::QUEUE_CHECK_HOOK, DAY_IN_SECONDS );
+		\BuddyNext\Core\CronScheduler::ensure_recurring( self::QUEUE_CHECK_HOOK, 0, DAY_IN_SECONDS );
 	}
 
 	/**

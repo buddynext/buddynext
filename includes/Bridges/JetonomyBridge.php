@@ -963,11 +963,9 @@ class JetonomyBridge {
 	 */
 	private static function enqueue_anonymous_repair(): void {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			// PENDING only: the job re-queues itself from inside its own run, and a check
-			// that counted the running action ended the chain after the first 200.
-			if ( ! \BuddyNext\Core\CronScheduler::has_pending( self::REPAIR_ANONYMOUS_HOOK, array(), 'buddynext' ) ) {
-				as_enqueue_async_action( self::REPAIR_ANONYMOUS_HOOK, array(), 'buddynext' );
-			}
+			// enqueue_once() counts PENDING copies only: the job re-queues itself from inside
+			// its own run, and a check that counted the running action ended the chain.
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::REPAIR_ANONYMOUS_HOOK, array() );
 			return;
 		}
 

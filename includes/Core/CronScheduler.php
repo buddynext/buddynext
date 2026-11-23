@@ -5,10 +5,12 @@
  * Recurring jobs run on Action Scheduler (group 'buddynext') when available —
  * one observable, retrying queue that can be driven off real system cron so
  * nothing executes inside a visitor request — and fall back to native WP-Cron
- * when AS is absent. This class holds the family's scheduling helpers
- * (ensure_recurring, enqueue_once, has_pending, when_ready, cancel_pending,
- * is_scheduling_request); the register of every job is in
- * docs/standards/BACKGROUND-JOBS.md.
+ * when AS is absent. This class holds the helpers for the shapes that need more
+ * than one Action Scheduler call: dedupe (enqueue_once, has_pending), recurring
+ * (ensure_recurring), when_ready, cancel_pending and the requeue pair
+ * (requeue_after_activation, requeue_orphaned). A plain job is a direct
+ * as_enqueue_async_action() / as_schedule_single_action() with the plugin group.
+ * The public reference is docs/website/developer-guide/37-cron-and-async.md.
  *
  * Recurring jobs armed here: buddynext_daily_digest (daily),
  * buddynext_weekly_digest (weekly), buddynext_recount_stats (daily reconcile).
@@ -121,14 +123,22 @@ class CronScheduler {
 	 *   buddynext_async_withdraw_forum_surfaces Forum surfaces withdrawn after a privacy change.
 	 *   buddynext_jetonomy_grant_space_members / _copy_forum_members  Forum access already granted.
 	 *   buddynext_async_send_invite_email  An invite the member sent (the only delivery).
-	 *   buddynext_webhook_deliver / _deliver_one / _retry_single  Event payloads promised to a receiver.
+	 *   buddynext_webhook_deliver / _deliver_one  Event payloads promised to a receiver.
 	 *   buddynext_prune_replaced_image     Old file of an image a member replaced.
+	 *   buddynext_regen_article_crops / buddynext_resync_hashtags  One-time upgrade
+	 *                                      chains; they never restart once the schema is stamped.
+	 *   buddynext_async_space_post_fanout / _announcement_fanout  In-app notification
+	 *                                      records for a post already published.
+	 *   buddynext_mvs_media_activity       The feed post for an upload already made.
+	 * The webhook retry (buddynext_webhook_retry_single) is a WP-Cron single event, so
+	 * neither cancel_pending() nor the requeue sees it; it is not on this list.
 	 *
 	 * While BuddyNext is off, another plugin's Action Scheduler still runs due rows
-	 * with no listener and marks them failed ("no callbacks are registered"). The
-	 * first scheduling request after activation puts them back (requeue_orphaned()).
+	 * with no listener; Action Scheduler 3.0 and later marks each one failed ("no
+	 * callbacks are registered"). The first scheduling requests after activation put
+	 * back the ones that failed in the last REQUEUE_DAYS (requeue_after_activation()).
 	 * The supported update flow (deactivate, replace files, activate) runs nothing in
-	 * between. Lost for good: rows already deleted by the 90-day failed retention.
+	 * between.
 	 *
 	 * @since 1.3.0
 	 */
@@ -146,8 +156,12 @@ class CronScheduler {
 		'buddynext_async_send_invite_email',
 		'buddynext_webhook_deliver',
 		'buddynext_webhook_deliver_one',
-		'buddynext_webhook_retry_single',
 		'buddynext_prune_replaced_image',
+		'buddynext_regen_article_crops',
+		'buddynext_resync_hashtags',
+		'buddynext_async_space_post_fanout',
+		'buddynext_async_announcement_fanout',
+		'buddynext_mvs_media_activity',
 	);
 
 	/**
@@ -159,6 +173,18 @@ class CronScheduler {
 	 * Orphaned rows one scheduling request re-queues; the rest wait for the next one.
 	 */
 	public const REQUEUE_BATCH = 200;
+
+	/**
+	 * Only rows that failed this recently are re-queued: an older webhook, invite or
+	 * forum grant is never replayed to a member months later.
+	 */
+	public const REQUEUE_DAYS = 7;
+
+	/**
+	 * Transient set on activation and on a version change; while it is set, scheduling
+	 * requests run the requeue and the nudge restore. One week at most.
+	 */
+	public const REQUEUE_FLAG = 'buddynext_requeue_kept';
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -296,30 +322,44 @@ class CronScheduler {
 	}
 
 	/**
+	 * May Action Scheduler be called? Its functions exist from plugins_loaded, its
+	 * data store only from action_scheduler_init.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return bool
+	 */
+	public static function has_as(): bool {
+		return function_exists( 'as_enqueue_async_action' ) && did_action( 'action_scheduler_init' );
+	}
+
+	/**
 	 * Queue an async job unless an identical one (same hook, args and group) is already pending.
 	 *
 	 * For per-event jobs whose worker reads current state when it runs: a second
 	 * identical job before the first has started would only repeat the same work.
-	 * A job already running does not count, so an edit made while it runs is
-	 * still picked up by a fresh pass. Never pass 'unique' to Action Scheduler with
-	 * args (3.9 ignores args for uniqueness); use this instead. The one exception is
-	 * OutboundWebhookService::dispatch(), which relies on the bundled AS 4.0.0
-	 * matching hook, group and args.
+	 * The insert is unique first (Action Scheduler 4.0.0, bundled, matches hook, group
+	 * and args), so two requests cannot both add a copy. Action Scheduler also refuses
+	 * when a copy is running, or (3.9, loaded by another plugin) when any copy of the
+	 * hook waits; then a plain copy is added unless an identical one is pending, so an
+	 * edit made while a job runs is still picked up by a fresh pass.
 	 *
 	 * @since 1.3.0
 	 *
 	 * @param string $hook  Action hook.
 	 * @param array  $args  Job args (ids, kept under 191 characters).
 	 * @param string $group Action group.
-	 * @return bool True when a job was queued, false when an identical one was already pending.
+	 * @return bool True when a copy is waiting (queued here or already pending); false
+	 *              only when nothing could be queued.
 	 */
 	public static function enqueue_once( string $hook, array $args, string $group = self::GROUP ): bool {
-		if ( ! function_exists( 'as_enqueue_async_action' ) || self::has_pending( $hook, $args, $group ) ) {
+		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
 			return false;
 		}
-		as_enqueue_async_action( $hook, $args, $group );
-
-		return true;
+		if ( as_enqueue_async_action( $hook, $args, $group, true ) ) {
+			return true;
+		}
+		return self::has_pending( $hook, $args, $group ) || (bool) as_enqueue_async_action( $hook, $args, $group );
 	}
 
 	/**
@@ -337,7 +377,8 @@ class CronScheduler {
 	 * @since 1.3.0
 	 *
 	 * @param string[] $groups        Our group slugs.
-	 * @param string[] $hooks         Our hooks to cancel in any group (jobs queued without our group).
+	 * @param string[] $hooks         Our hooks to cancel in any group (legacy WP-Cron-era hooks or
+	 *                                ones a caller queued outside its group).
 	 * @param string[] $keep_prefixes Hook prefixes left alone inside $groups (Free passes Pro's,
 	 *                                whose hooks run in the 'buddynext' group).
 	 * @param string[] $keep_hooks    Exact hooks left alone inside $groups (DEACTIVATION_KEEP).
@@ -393,7 +434,9 @@ class CronScheduler {
 	}
 
 	/**
-	 * Run a callback now if Action Scheduler's data store is ready, else when it is.
+	 * Run a callback now if Action Scheduler's data store is ready or Action Scheduler
+	 * is not loaded at all (the callback then uses its WP-Cron fallback), else on
+	 * action_scheduler_init.
 	 *
 	 * An as_*() call made before action_scheduler_init logs "called before the
 	 * data store was initialized" and does nothing. The one place this check lives.
@@ -404,7 +447,7 @@ class CronScheduler {
 	 * @return void
 	 */
 	public static function when_ready( callable $callback ): void {
-		if ( did_action( 'action_scheduler_init' ) ) {
+		if ( did_action( 'action_scheduler_init' ) || ! function_exists( 'as_enqueue_async_action' ) ) {
 			$callback();
 			return;
 		}
@@ -418,18 +461,20 @@ class CronScheduler {
 	 * Action Scheduler is asked with unique, so two requests arming at once still
 	 * leave one row; a legacy WP-Cron event of the same hook is cleared so it never
 	 * double-runs. Without Action Scheduler it falls back to WP-Cron, using the
-	 * registered recurrence whose interval matches (daily when none does).
+	 * registered recurrence whose interval matches (daily, with a _doing_it_wrong
+	 * notice, when none does). Argument order matches the MediaVerse and Jetonomy
+	 * helpers: hook, first run, interval.
 	 *
 	 * @since 1.3.0
 	 *
 	 * @param string $hook     Action hook.
-	 * @param int    $interval Seconds between runs.
 	 * @param int    $first    First run (Unix time); 0 for now.
+	 * @param int    $interval Seconds between runs.
 	 * @param string $group    Action group (an add-on passes its own).
 	 * @return int The new action id; 0 when nothing was scheduled (already armed,
 	 *             not a scheduling request, a concurrent arm won, or WP-Cron used).
 	 */
-	public static function ensure_recurring( string $hook, int $interval, int $first = 0, string $group = self::GROUP ): int {
+	public static function ensure_recurring( string $hook, int $first, int $interval, string $group = self::GROUP ): int {
 		if ( ! self::is_scheduling_request() ) {
 			return 0;
 		}
@@ -442,16 +487,33 @@ class CronScheduler {
 			return (int) as_schedule_recurring_action( $first, $interval, $hook, array(), $group, true );
 		}
 		if ( ! wp_next_scheduled( $hook ) ) {
-			$recurrence = 'daily';
+			$recurrence = '';
 			foreach ( wp_get_schedules() as $name => $schedule ) {
 				if ( (int) $schedule['interval'] === $interval ) {
 					$recurrence = (string) $name;
 					break;
 				}
 			}
+			if ( '' === $recurrence ) {
+				_doing_it_wrong( __METHOD__, esc_html( sprintf( 'No WP-Cron recurrence has an interval of %d seconds; %s runs daily.', $interval, $hook ) ), '1.3.0' );
+				$recurrence = 'daily';
+			}
 			wp_schedule_event( $first, $recurrence, $hook );
 		}
 		return 0;
+	}
+
+	/**
+	 * Deprecated: BuddyNext adds no WP-Cron intervals; every job uses a built-in recurrence.
+	 *
+	 * @deprecated 1.3.0 No replacement; the schedules pass through unchanged.
+	 *
+	 * @param array<string, array<string, mixed>> $schedules Existing schedules.
+	 * @return array<string, array<string, mixed>>
+	 */
+	public function add_custom_schedules( array $schedules ): array {
+		_deprecated_function( __METHOD__, '1.3.0' );
+		return $schedules;
 	}
 
 	/**
@@ -462,8 +524,10 @@ class CronScheduler {
 	 * largest part of every request's query floor. A recurring job only needs to
 	 * be checked where it is cheap and still reliable: the cron runner (which runs
 	 * on any live site and re-arms a lost job within one tick), wp-admin page
-	 * loads and WP-CLI. Never front-end, REST or AJAX. ensure_recurring() asks
-	 * this first.
+	 * loads and WP-CLI. Never front-end, REST or AJAX. ensure_recurring() and the
+	 * requeue ask this first. Unlike the MediaVerse and Jetonomy helpers it does not
+	 * add doing_action( 'action_scheduler_ensure_recurring_actions' ): no BuddyNext job
+	 * arms from that hook (see the standard, rule 12).
 	 *
 	 * @return bool
 	 */
@@ -474,10 +538,12 @@ class CronScheduler {
 	}
 
 	/**
-	 * Ensure every recurring event is scheduled.
+	 * Keep the recurring jobs armed, and run the after-activation pass while it is owed.
 	 *
-	 * Called on wp_loaded — safe to call on every request because
-	 * wp_schedule_event is a no-op when the event is already scheduled.
+	 * Called on wp_loaded; does nothing outside scheduling requests (cron runner,
+	 * wp-admin page loads, WP-CLI). The after-activation pass (restore the nudges a
+	 * deactivation canceled, re-queue kept jobs that failed while the plugin was off)
+	 * runs only while REQUEUE_FLAG is set.
 	 *
 	 * @return void
 	 */
@@ -486,23 +552,63 @@ class CronScheduler {
 			return;
 		}
 
-		self::ensure_recurring( self::JOB_DAILY_DIGEST, DAY_IN_SECONDS );
-		self::ensure_recurring( self::JOB_WEEKLY_DIGEST, WEEK_IN_SECONDS );
-		self::ensure_recurring( self::JOB_RECOUNT_STATS, DAY_IN_SECONDS );
-		self::requeue_orphaned( self::DEACTIVATION_KEEP );
+		self::ensure_recurring( self::JOB_DAILY_DIGEST, 0, DAY_IN_SECONDS );
+		self::ensure_recurring( self::JOB_WEEKLY_DIGEST, 0, WEEK_IN_SECONDS );
+		self::ensure_recurring( self::JOB_RECOUNT_STATS, 0, DAY_IN_SECONDS );
+		if ( self::has_as() && get_transient( self::REQUEUE_FLAG ) ) {
+			( new \BuddyNext\Onboarding\OnboardingListener() )->restore_nudges();
+		}
+		self::requeue_after_activation( self::REQUEUE_FLAG, self::DEACTIVATION_KEEP );
+	}
+
+	/**
+	 * Mark the after-activation pass owed. Called on activation and on a version change.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $flag The plugin's transient (REQUEUE_FLAG for Free).
+	 * @return void
+	 */
+	public static function flag_requeue( string $flag = self::REQUEUE_FLAG ): void {
+		set_transient( $flag, 1, WEEK_IN_SECONDS );
+	}
+
+	/**
+	 * While the plugin's flag is set, re-queue its kept jobs; clear the flag when a pass finds fewer than a batch.
+	 *
+	 * Gate order: is_scheduling_request(), then has_as(), then the transient, so a
+	 * front-end request costs nothing and a site with no pass owed costs one
+	 * autoloaded transient read.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string   $flag  The plugin's transient, set by flag_requeue().
+	 * @param string[] $hooks The plugin's keep list.
+	 * @return int Rows re-queued.
+	 */
+	public static function requeue_after_activation( string $flag, array $hooks ): int {
+		if ( ! self::is_scheduling_request() || ! self::has_as() || ! get_transient( $flag ) ) {
+			return 0;
+		}
+		$moved = self::requeue_orphaned( $hooks );
+		if ( $moved < self::REQUEUE_BATCH ) {
+			delete_transient( $flag );
+		}
+		return $moved;
 	}
 
 	/**
 	 * Re-queue kept jobs that ran while their plugin was off and failed for want of a listener.
 	 *
-	 * Deactivation leaves DEACTIVATION_KEEP rows pending. If another plugin's Action
-	 * Scheduler runs them while this plugin is off, each fails with "no callbacks are
-	 * registered" and the committed work stops. This puts each one back once its
-	 * listener exists again: same hook, args and group, one pending copy (enqueue_once),
-	 * and deletes the failed row with its logs. A row whose log does not carry that
-	 * message really ran and errored, so it stays failed. Runs on scheduling requests
-	 * (like ensure_recurring), at most REQUEUE_BATCH rows each; rows older than the
-	 * 90-day failed retention are already gone.
+	 * Deactivation leaves the keep list pending. If another plugin's Action Scheduler
+	 * runs those rows while this plugin is off, each fails with "no callbacks are
+	 * registered". This puts back the ones that failed in the last REQUEUE_DAYS, once
+	 * their listener exists again: same hook, args and group through enqueue_once()
+	 * (unique insert, one pending copy), and deletes the failed row with its logs only
+	 * when the copy is waiting. A row whose log does not carry that message really ran
+	 * and errored, so it stays failed. At most REQUEUE_BATCH rows a call. Two requests
+	 * reading the same rows are safe: the second copy is refused as a duplicate, and
+	 * deleting a row the first request already deleted affects nothing.
 	 *
 	 * @since 1.3.0
 	 *
@@ -513,43 +619,47 @@ class CronScheduler {
 		global $wpdb;
 		// A hook with no listener now would fail again: leave it until its listener is back.
 		$hooks = array_values( array_filter( array_map( 'strval', $hooks ), 'has_action' ) );
-		if ( array() === $hooks || ! self::is_scheduling_request() || ! did_action( 'action_scheduler_init' ) || ! function_exists( 'as_enqueue_async_action' ) ) {
+		if ( array() === $hooks || ! self::has_as() ) {
 			return 0;
 		}
 		$actions = $wpdb->prefix . 'actionscheduler_actions';
 		$logs    = $wpdb->prefix . 'actionscheduler_logs';
 		$groups  = $wpdb->prefix . 'actionscheduler_groups';
-		// The message is translated; match the English text and this site's translation.
+		// The message is translated at failure time; match the English text and this site's translation.
+		// ponytail: a locale changed while the plugin was off misses its rows; they stay failed.
 		$english = 'will not be executed as no callbacks are registered';
 		/* translators: 1: action hook. Action Scheduler's own string, read to match its log. */
 		$parts = explode( '%1$s', __( 'Scheduled action for %1$s will not be executed as no callbacks are registered.', 'action-scheduler' ) );
 		usort( $parts, static fn( $x, $y ) => strlen( $y ) <=> strlen( $x ) );
 		$translated = trim( (string) $parts[0], ' .' ); // The longest piece around the hook name.
+		$since      = gmdate( 'Y-m-d H:i:s', time() - self::REQUEUE_DAYS * DAY_IN_SECONDS );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		$rows = $wpdb->get_results(
+		$rows  = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT a.action_id, a.hook, a.args, a.extended_args, g.slug FROM {$actions} a
 				LEFT JOIN {$groups} g ON g.group_id = a.group_id
 				WHERE a.status = 'failed' AND a.hook IN (" . implode( ',', array_fill( 0, count( $hooks ), '%s' ) ) . ")
+				AND a.last_attempt_gmt >= %s
 				AND EXISTS ( SELECT 1 FROM {$logs} l WHERE l.action_id = a.action_id AND ( l.message LIKE %s OR l.message LIKE %s ) )
 				ORDER BY a.action_id LIMIT %d",
-				array_merge( $hooks, array( '%' . $wpdb->esc_like( $english ) . '%', '%' . $wpdb->esc_like( '' !== $translated ? $translated : $english ) . '%', self::REQUEUE_BATCH ) )
+				array_merge( $hooks, array( $since, '%' . $wpdb->esc_like( $english ) . '%', '%' . $wpdb->esc_like( '' !== $translated ? $translated : $english ) . '%', self::REQUEUE_BATCH ) )
 			)
 		);
-		$done = array();
+		$moved = 0;
 		foreach ( (array) $rows as $row ) {
+			$hook = (string) $row->hook;
 			$args = json_decode( (string) ( $row->extended_args ?? $row->args ), true );
-			self::enqueue_once( (string) $row->hook, is_array( $args ) ? $args : array(), (string) ( $row->slug ?? '' ) );
-			$done[] = (int) $row->action_id;
-		}
-		if ( array() !== $done ) {
-			$in = implode( ',', $done );
-			$wpdb->query( "DELETE FROM {$logs} WHERE action_id IN ({$in})" );
-			$wpdb->query( "DELETE FROM {$actions} WHERE action_id IN ({$in})" );
+			if ( '' === $hook || ! is_array( $args ) || ! self::enqueue_once( $hook, $args, (string) ( $row->slug ?? '' ) ) ) {
+				continue; // Not re-queued: the failed row stays, so nothing is lost.
+			}
+			$id = (int) $row->action_id;
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$logs} WHERE action_id = %d", $id ) );
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$actions} WHERE action_id = %d AND status = 'failed'", $id ) );
+			++$moved;
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
-		return count( $done );
+		return $moved;
 	}
 
 	/**

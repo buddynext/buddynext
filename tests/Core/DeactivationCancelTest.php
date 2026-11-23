@@ -126,6 +126,42 @@ class DeactivationCancelTest extends WP_UnitTestCase {
 		as_unschedule_all_actions( $hook );
 	}
 
+	public function test_requeue_is_gated_bounded_by_age_and_never_drops_a_row_it_could_not_requeue(): void {
+		global $wpdb;
+		$hook = 'buddynext_resync_hashtags';
+		add_action( $hook, '__return_null' );
+		$ids = array();
+		foreach ( array( 1, 2, 3 ) as $n ) {
+			$ids[ $n ] = (int) as_schedule_single_action( time() - 1, $hook, array( $n ), CronScheduler::GROUP );
+			$wpdb->update( $wpdb->prefix . 'actionscheduler_actions', array( 'status' => 'failed', 'last_attempt_gmt' => gmdate( 'Y-m-d H:i:s' ) ), array( 'action_id' => $ids[ $n ] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->insert( $wpdb->prefix . 'actionscheduler_logs', array( 'action_id' => $ids[ $n ], 'message' => "action failed via WP Cron: Scheduled action for {$hook} will not be executed as no callbacks are registered.", 'log_date_gmt' => gmdate( 'Y-m-d H:i:s' ), 'log_date_local' => current_time( 'mysql' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		}
+		// Row 3 failed a month ago: never replayed.
+		$wpdb->update( $wpdb->prefix . 'actionscheduler_actions', array( 'last_attempt_gmt' => gmdate( 'Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS ) ), array( 'action_id' => $ids[3] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		delete_transient( CronScheduler::REQUEUE_FLAG );
+		add_filter( 'wp_doing_cron', '__return_true' );
+
+		$this->assertSame( 0, CronScheduler::requeue_after_activation( CronScheduler::REQUEUE_FLAG, array( $hook ) ), 'No pass owed.' );
+
+		// The store refuses the copy for row 1: its failed row stays.
+		$refuse = static fn( $pre, $h, $args ) => array( 1 ) === array_values( (array) $args ) ? 0 : $pre;
+		add_filter( 'pre_as_enqueue_async_action', $refuse, 10, 3 );
+		CronScheduler::flag_requeue();
+		$this->assertSame( 1, CronScheduler::requeue_after_activation( CronScheduler::REQUEUE_FLAG, array( $hook ) ) );
+		remove_filter( 'pre_as_enqueue_async_action', $refuse, 10 );
+		remove_filter( 'wp_doing_cron', '__return_true' );
+
+		$this->assertFalse( get_transient( CronScheduler::REQUEUE_FLAG ), 'Fewer than a batch: the flag is cleared.' );
+		$this->assertSame( 'failed', $this->status( $ids[1] ), 'Not re-queued, so not deleted.' );
+		$this->assertSame( '', $this->status( $ids[2] ) );
+		$this->assertSame( 'failed', $this->status( $ids[3] ), 'Older than REQUEUE_DAYS.' );
+		$this->assertTrue( CronScheduler::has_pending( $hook, array( 2 ) ) );
+		$this->assertTrue( CronScheduler::enqueue_once( $hook, array( 2 ) ), 'True when a copy is already waiting.' );
+		$this->assertCount( 1, as_get_scheduled_actions( array( 'hook' => $hook, 'args' => array( 2 ), 'status' => 'pending' ), 'ids' ) );
+		remove_action( $hook, '__return_null' );
+		as_unschedule_all_actions( $hook );
+	}
+
 	public function test_every_kept_hook_is_one_this_plugin_schedules(): void {
 		$src = '';
 		foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( dirname( __DIR__, 2 ) . '/includes' ) ) as $file ) {

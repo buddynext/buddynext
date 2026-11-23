@@ -241,8 +241,8 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	public function test_ensure_recurring_arms_once_and_returns_the_new_id(): void {
-		$first = CronScheduler::ensure_recurring( 'buddynext_zz_recurring', DAY_IN_SECONDS );
-		$again = CronScheduler::ensure_recurring( 'buddynext_zz_recurring', DAY_IN_SECONDS );
+		$first = CronScheduler::ensure_recurring( 'buddynext_zz_recurring', 0, DAY_IN_SECONDS );
+		$again = CronScheduler::ensure_recurring( 'buddynext_zz_recurring', 0, DAY_IN_SECONDS );
 
 		$this->assertGreaterThan( 0, $first );
 		$this->assertSame( 0, $again, 'Already armed: nothing scheduled.' );
@@ -250,7 +250,7 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	public function test_a_concurrent_arm_that_passed_the_check_still_adds_no_second_row(): void {
-		CronScheduler::ensure_recurring( 'buddynext_zz_race', DAY_IN_SECONDS );
+		CronScheduler::ensure_recurring( 'buddynext_zz_race', 0, DAY_IN_SECONDS );
 		// The other request already passed as_next_scheduled_action(); its insert carries unique.
 		$second = as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_zz_race', array(), CronScheduler::GROUP, true );
 
@@ -260,7 +260,7 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 
 	public function test_ensure_recurring_does_nothing_on_an_ordinary_request(): void {
 		remove_filter( 'wp_doing_cron', '__return_true' );
-		$this->assertSame( 0, CronScheduler::ensure_recurring( 'buddynext_zz_front', DAY_IN_SECONDS ) );
+		$this->assertSame( 0, CronScheduler::ensure_recurring( 'buddynext_zz_front', 0, DAY_IN_SECONDS ) );
 		$this->assertFalse( as_next_scheduled_action( 'buddynext_zz_front' ) );
 		add_filter( 'wp_doing_cron', '__return_true' );
 	}

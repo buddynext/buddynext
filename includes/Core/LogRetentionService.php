@@ -161,7 +161,7 @@ class LogRetentionService {
 	 * @return void
 	 */
 	public static function arm(): void {
-		CronScheduler::ensure_recurring( self::HOOK, DAY_IN_SECONDS, time() + HOUR_IN_SECONDS );
+		CronScheduler::ensure_recurring( self::HOOK, time() + HOUR_IN_SECONDS, DAY_IN_SECONDS );
 	}
 
 	/**
@@ -305,6 +305,29 @@ class LogRetentionService {
 	}
 
 	/**
+	 * Days BuddyNext's completed and canceled Action Scheduler rows are kept (filtered, at least 1).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return int
+	 */
+	public static function finished_retention_days(): int {
+		/**
+		 * Days to keep BuddyNext's completed and canceled Action Scheduler rows
+		 * before the daily retention job deletes them (with their logs). Failed rows
+		 * are kept 90 days; pending and running rows and other plugins' rows are
+		 * never touched. Below 3 days, a member registered longer ago than the value
+		 * gets no restored onboarding nudge after a deactivation (a sent nudge's row
+		 * may already be gone, so it cannot be told from a canceled one).
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int $days Whole days. Default 7 (LogRetentionService::FINISHED_RETENTION_DAYS); values below 1 count as 1.
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_finished_action_retention_days', self::FINISHED_RETENTION_DAYS ) );
+	}
+
+	/**
 	 * Delete BuddyNext's finished Action Scheduler rows, with their logs.
 	 *
 	 * Completed and canceled rows go after a week (deactivation cancels a whole
@@ -319,18 +342,7 @@ class LogRetentionService {
 	 */
 	private function purge_finished_actions(): int {
 		global $wpdb;
-
-		/**
-		 * Days to keep BuddyNext's completed and canceled Action Scheduler rows
-		 * before the daily retention job deletes them (with their logs). Failed rows
-		 * are kept 90 days; pending and running rows and other plugins' rows are
-		 * never touched.
-		 *
-		 * @since 1.3.0
-		 *
-		 * @param int $days Whole days. Default 7 (LogRetentionService::FINISHED_RETENTION_DAYS); values below 1 count as 1.
-		 */
-		$days = max( 1, (int) apply_filters( 'buddynext_finished_action_retention_days', self::FINISHED_RETENTION_DAYS ) );
+		$days = self::finished_retention_days();
 
 		/**
 		 * Action Scheduler groups whose completed rows the daily retention job may
@@ -374,7 +386,7 @@ class LogRetentionService {
 			'failed'   => gmdate( 'Y-m-d H:i:s', time() - ( self::FAILED_RETENTION_DAYS * DAY_IN_SECONDS ) ),
 		);
 		$batches  = 0;
-		$deadline = min( microtime( true ) + self::ACTION_SECONDS, $this->deadline );
+		$deadline = microtime( true ) + self::ACTION_SECONDS; // Its own budget, not what is left of the run.
 		foreach ( $passes as $status => $before ) {
 			while ( $batches < self::MAX_ACTION_BATCHES && microtime( true ) < $deadline ) {
 				++$batches;

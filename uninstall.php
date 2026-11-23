@@ -152,8 +152,9 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 	// because AS is not booted here. Pro's hooks that run in that group
 	// (buddynextpro_* / buddynext_pro_*) stay for Pro's uninstall, and no other
 	// plugin's group is read (DATA-LIFECYCLE: delete only what you own). The two
-	// onboarding nudge hooks go by exact name whatever their group or status:
-	// 1.2.x scheduled them with no group. Log rows
+	// onboarding nudge hooks also go by exact name whatever their group or status:
+	// every release scheduled them in 'buddynext', so this only catches a row whose
+	// group row was removed by hand or by a cleanup plugin. Log rows
 	// go first, by action id, in bounded batches; the loop stops on a DELETE that
 	// fails or removes nothing.
 	$bn_as_actions = $wpdb->prefix . 'actionscheduler_actions';
