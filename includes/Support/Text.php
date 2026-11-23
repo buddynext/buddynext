@@ -6,7 +6,7 @@
  * without mbstring (or ctype) used to fatal on every profile page because an
  * initials avatar called mb_strtoupper(). These use the extension when it is
  * there and a byte-safe fallback when it is not, so BuddyNext degrades (ASCII
- * case rules) instead of failing.
+ * case rules) instead of failing. file_mime() does the same for fileinfo.
  *
  * @package BuddyNext\Support
  */
@@ -115,6 +115,25 @@ final class Text {
 	 * @return string[] Names of the missing extensions.
 	 */
 	public static function missing_extensions(): array {
-		return array_values( array_filter( array( 'mbstring', 'ctype', 'dom' ), static fn( string $ext ): bool => ! extension_loaded( $ext ) ) );
+		return array_values( array_filter( array( 'mbstring', 'ctype', 'dom', 'fileinfo' ), static fn( string $ext ): bool => ! extension_loaded( $ext ) ) );
+	}
+
+	/**
+	 * MIME type of a file read from its own bytes, or null when the server cannot tell.
+	 *
+	 * Null means fileinfo is missing (or disabled): callers refuse the upload with a
+	 * clear message instead of trusting the browser-sent type. '' means fileinfo ran
+	 * but could not classify the file.
+	 *
+	 * @param string $path File path.
+	 * @return string|null
+	 */
+	public static function file_mime( string $path ): ?string {
+		if ( ! function_exists( 'finfo_open' ) || ! function_exists( 'finfo_file' ) ) {
+			return null;
+		}
+		$finfo = finfo_open( FILEINFO_MIME_TYPE );
+		// No finfo_close(): the resource became an object in PHP 8.1 and is freed by refcount (deprecated no-op on 8.5).
+		return $finfo ? (string) finfo_file( $finfo, $path ) : null;
 	}
 }

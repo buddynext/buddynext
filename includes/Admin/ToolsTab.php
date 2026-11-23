@@ -68,7 +68,7 @@ class ToolsTab {
 		if ( '' !== $done ) {
 			$msg = $this->result_message( $done );
 			if ( '' !== $msg ) {
-				$is_error = in_array( $done, array( 'import_failed', 'import_empty', 'db_partial' ), true );
+				$is_error = in_array( $done, array( 'import_failed', 'import_empty', 'import_no_fileinfo', 'db_partial' ), true );
 				printf(
 					'<div class="notice %s is-dismissible"><p>%s</p></div>',
 					$is_error ? 'notice-error' : 'notice-success',
@@ -773,11 +773,12 @@ class ToolsTab {
 		// (the browser-sent type is never trusted). The JSON structure is still
 		// validated below — this is defence in depth, matching the CSV-invite
 		// import guard in InviteController.
-		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
-		$detected = $finfo ? (string) finfo_file( $finfo, $tmp ) : '';
-		// No finfo_close(): the resource became a proper object in PHP 8.1 and is
-		// freed by refcount, so the call is a deprecated no-op on 8.5+ (this
-		// plugin requires 8.1+, so there is no version to keep it for).
+		// Without fileinfo the server cannot check the file, so the import is refused
+		// with a message naming the missing extension rather than fataling.
+		$detected = \BuddyNext\Support\Text::file_mime( $tmp );
+		if ( null === $detected ) {
+			$this->redirect_back( 'import_no_fileinfo' );
+		}
 		$allowed_mime = array( 'application/json', 'text/json', 'text/plain' );
 		if ( '' !== $detected && ! in_array( $detected, $allowed_mime, true ) ) {
 			$this->redirect_back( 'import_failed' );
@@ -1044,6 +1045,8 @@ class ToolsTab {
 				return __( 'Import file had no recognised BuddyNext settings.', 'buddynext' );
 			case 'import_failed':
 				return __( 'Could not read that import file.', 'buddynext' );
+			case 'import_no_fileinfo':
+				return __( 'This server cannot check uploaded files because the PHP fileinfo extension is missing. Ask your host to enable it, then import again.', 'buddynext' );
 			default:
 				return '';
 		}

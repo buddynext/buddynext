@@ -295,7 +295,7 @@ add_action(
 	}
 );
 
-// Server check: BuddyNext runs without mbstring, ctype or dom (Support\Text falls back), but names, search and link
+// Server check: BuddyNext runs without mbstring, ctype or dom (Support\Text falls back) and without fileinfo (uploads are refused with a message), but names, search and link
 // previews follow ASCII rules or switch off, so the owner is told what to ask the host for. Plugins screen and
 // BuddyNext screens only.
 add_action(
@@ -313,6 +313,7 @@ add_action(
 			'mbstring' => __( 'mbstring: names and text in other alphabets (accents, Cyrillic, Arabic, CJK) are not capitalised, shortened or searched correctly.', 'buddynext' ),
 			'dom'      => __( 'dom: link previews are off, so a pasted link posts as a plain link with no title or image card.', 'buddynext' ),
 			'ctype'    => __( 'ctype: BuddyNext uses its own check instead, so nothing changes for members, but other plugins may need it.', 'buddynext' ),
+			'fileinfo' => __( 'fileinfo: CSV invite lists and settings files cannot be imported, because the server cannot check what an uploaded file is.', 'buddynext' ),
 		);
 		echo '<div class="notice notice-warning"><p>' . esc_html__( 'BuddyNext works, but this server is missing PHP extensions. Ask your host to enable them:', 'buddynext' ) . '</p><ul class="ul-disc">';
 		foreach ( $missing as $ext ) {

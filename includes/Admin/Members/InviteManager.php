@@ -66,11 +66,11 @@ class InviteManager {
 		// Validate MIME type from the file's own bytes — finfo is the reliable
 		// server-side check. Mirrors the REST path (InviteController) so both
 		// upload entry points enforce the same allow-list.
-		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
-		$detected = $finfo ? (string) finfo_file( $finfo, $tmp_path ) : '';
-		// No finfo_close(): the resource became a proper object in PHP 8.1 and is
-		// freed by refcount, so the call is a deprecated no-op on 8.5+ (this
-		// plugin requires 8.1+, so there is no version to keep it for).
+		$detected = \BuddyNext\Support\Text::file_mime( $tmp_path );
+		if ( null === $detected ) {
+			wp_safe_redirect( add_query_arg( 'bn_notice', 'no_fileinfo', $redirect ) );
+			exit;
+		}
 		$allowed_mime_types = array( 'text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel' );
 		if ( '' !== $detected && ! in_array( $detected, $allowed_mime_types, true ) ) {
 			wp_safe_redirect( add_query_arg( 'bn_notice', 'bad_type', $redirect ) );
@@ -323,6 +323,9 @@ class InviteManager {
 						break;
 					case 'bad_type':
 						esc_html_e( 'The uploaded file must be a CSV.', 'buddynext' );
+						break;
+					case 'no_fileinfo':
+						esc_html_e( 'This server cannot check uploaded files because the PHP fileinfo extension is missing. Ask your host to enable it, then upload the CSV again.', 'buddynext' );
 						break;
 					case 'bad_invite':
 						esc_html_e( 'Invalid invite ID.', 'buddynext' );

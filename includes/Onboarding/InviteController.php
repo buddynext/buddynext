@@ -59,10 +59,14 @@ class InviteController {
 		$file = $files['csv_file'];
 
 		// Validate MIME type. finfo is the reliable server-side check.
-		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
-		$detected = $finfo ? (string) finfo_file( $finfo, $file['tmp_name'] ) : '';
-		// No finfo_close(): the resource became a proper object in PHP 8.1 and is
-		// freed by refcount, so the call is a deprecated no-op on 8.5+.
+		$detected = \BuddyNext\Support\Text::file_mime( (string) $file['tmp_name'] );
+		if ( null === $detected ) {
+			return new WP_Error(
+				'bn_fileinfo_missing',
+				__( 'This server cannot check uploaded files because the PHP fileinfo extension is missing. Ask your host to enable it.', 'buddynext' ),
+				array( 'status' => 500 )
+			);
+		}
 
 		$allowed_mime_types = array(
 			'text/csv',
