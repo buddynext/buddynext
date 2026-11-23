@@ -185,6 +185,10 @@ final class QaFixturesCommand {
 			$wpdb->delete( $p . 'bn_posts', array( 'id' => $pid ), array( '%d' ) );
 		}
 
+		foreach ( (array) ( $m['pages'] ?? array() ) as $page_id ) {
+			wp_delete_post( (int) $page_id, true );
+		}
+
 		delete_option( self::MANIFEST );
 
 		// The whole point of the tagged teardown: leave the counters honest. A raw
@@ -507,6 +511,29 @@ final class QaFixturesCommand {
 		$p = $wpdb->prefix;
 
 		\WP_CLI::log( 'Edge fixtures…' );
+
+		// Two plain pages outside the community shell: one holds our blocks, one our
+		// shortcode. The control-contrast crawler (bin/control-contrast-crawler.js) and the
+		// theme bootstrap checks read them.
+		$fixture_pages = array(
+			'qa-fx-block-page'     => '<!-- wp:buddynext/membership-plans /--><!-- wp:buddynext/member-directory {"perPage":6} /-->',
+			'qa-fx-shortcode-page' => '[buddynext_people]',
+		);
+		foreach ( $fixture_pages as $slug => $content ) {
+			$existing = get_page_by_path( $slug );
+			if ( $existing instanceof \WP_Post ) {
+				continue;
+			}
+			$m['pages'][] = wp_insert_post(
+				array(
+					'post_type'    => 'page',
+					'post_status'  => 'publish',
+					'post_name'    => $slug,
+					'post_title'   => 'QA ' . $slug,
+					'post_content' => $content,
+				)
+			);
+		}
 
 		$owner  = $this->make_user( 'owner', 'QA Owner' );
 		$doomed = $this->make_user( 'doomed', 'QA Doomed Owner' );
