@@ -189,6 +189,16 @@ final class QaFixturesCommand {
 			wp_delete_post( (int) $page_id, true );
 		}
 
+		// The admin side of the fixture DM thread: leaving clears it from the admin's
+		// inbox (WPMediaVerse has no hard delete for a pair thread; the member's side
+		// went with the member).
+		$messaging = class_exists( \BuddyNext\Media\MediaClient::class ) ? \BuddyNext\Media\MediaClient::messaging() : null;
+		foreach ( (array) ( $m['dm'] ?? array() ) as $dm ) {
+			if ( is_object( $messaging ) && method_exists( $messaging, 'leave_conversation' ) ) {
+				$messaging->leave_conversation( (int) $dm[0], (int) $dm[1] );
+			}
+		}
+
 		delete_option( self::MANIFEST );
 
 		// The whole point of the tagged teardown: leave the counters honest. A raw
@@ -549,8 +559,8 @@ final class QaFixturesCommand {
 		$member = $this->make_user( 'member', 'QA Member' );
 
 		// A direct-message thread with the first administrator, so /messages/ renders its
-		// rail and composer for an admin session (WPMediaVerse only). Deleting the fixture
-		// member removes it through WPMediaVerse's own user-deletion cascade.
+		// rail and composer for an admin session (WPMediaVerse only). Cleanup clears it from
+		// the admin's inbox.
 		$messaging = class_exists( \BuddyNext\Media\MediaClient::class ) ? \BuddyNext\Media\MediaClient::messaging() : null;
 		$admins    = get_users(
 			array(
@@ -566,6 +576,7 @@ final class QaFixturesCommand {
 			if ( $conv_id > 0 ) {
 				$messaging->send_message( $conv_id, $member, array( 'content' => 'QA fixture: hello from QA Member.' ) );
 				$messaging->send_message( $conv_id, (int) $admins[0], array( 'content' => 'QA fixture: reply from the admin.' ) );
+				$m['dm'][] = array( $conv_id, (int) $admins[0] );
 				\WP_CLI::log( "  direct-message thread #$conv_id (admin and QA Member)" );
 			}
 		}
