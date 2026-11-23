@@ -18,8 +18,12 @@
 // A path "url#key" runs ACTIONS[key] (clicks, in order) before measuring; an opener that is not
 // on the page is listed under openerMissing, never silently skipped. EXEMPT controls are counted
 // apart from violations (owner decision: the composer prompt stays borderless in 1.3.0).
-// A one-sided rule under a non-field control (list-row separator) is a divider, not a boundary,
-// and is judged by its text. Not covered: the member "Delete account" prompt (admins do not get it).
+// A one-sided rule under a control that is not a button, [role=button] or field (list-row separator,
+// tab underline) is a divider, not a boundary, and is judged by its text. An icon-only button whose
+// border slot is transparent and whose fill is under 3:1 fails as "transparent-edge" (its icon's
+// own ratio is reported alongside). A summary or [aria-expanded] control's chevron (svg, drawn
+// ::before/::after, or visible ::marker) must reach 3:1; one with no indicator is listed under
+// noIndicator. Not covered: the member "Delete account" prompt (admins do not get it).
 
 async (page) => {
 const FRONT = [
@@ -208,12 +212,35 @@ const IN_PAGE = (args) => {
     const drawsEdge = parts.some((p) => p.k !== 'fill');
     // A rule on ONE side only (a list-row separator, a tab underline) divides rows; it is
     // not the control's boundary. Such a control is identified by its text, like a link.
+    // Never for a button or field: a lone bottom border there IS its only edge.
+    const buttonLike = el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.tagName === 'INPUT';
     const sides = parts.filter((p) => p.k.startsWith('border-'));
-    const dividerOnly = !isField && sides.length === 1 && parts.every((p) => p.k.startsWith('border-') || (p.k === 'fill' && p.r < 1.1));
+    const dividerOnly = !isField && !buttonLike && sides.length === 1 && parts.every((p) => p.k.startsWith('border-') || (p.k === 'fill' && p.r < 1.1));
+    // An icon-only button (no text of its own) whose border slot is transparent and whose
+    // fill does not reach 3:1 has no visible shape: its icon alone must carry 1.4.11.
+    const hiddenEdge = ['top', 'right', 'bottom', 'left'].some((s) => parseFloat(cs.getPropertyValue(`border-${s}-width`)) > 0 && alphaOf(cs.getPropertyValue(`border-${s}-color`)) === 0);
     let nonText = 'pass';
     if (dividerOnly && sides[0].r < 3) nonText = 'divider';
     else if (parts.length === 0) nonText = isField ? 'fail-no-boundary' : 'text-only';
     else if (best < 3) nonText = (drawsEdge || isField) ? 'fail' : 'fill-only';
+
+    // Disclosure indicator (summary, [aria-expanded]): the chevron is a graphical object
+    // (3:1 against the control's fill). Read a child svg, a drawn ::before/::after, or a
+    // visible ::marker. None found is reported, not failed.
+    let indicator = null;
+    if (el.tagName === 'SUMMARY' || el.hasAttribute('aria-expanded')) {
+      const cands = [];
+      const svg = el.querySelector('svg');
+      if (svg && svg.checkVisibility()) { const scs = getComputedStyle(svg); cands.push(scs.stroke && scs.stroke !== 'none' && !/url/.test(scs.stroke) ? scs.stroke : scs.color); }
+      for (const pe of ['::before', '::after', '::marker']) {
+        const pcs = getComputedStyle(el, pe);
+        if (pe === '::marker' ? (el.tagName !== 'SUMMARY' || cs.display !== 'list-item' || pcs.content === 'none') : (!pcs.content || pcs.content === 'none' || pcs.display === 'none')) continue;
+        const bw = ['top', 'right', 'bottom', 'left'].find((s) => parseFloat(pcs.getPropertyValue(`border-${s}-width`)) > 0 && alphaOf(pcs.getPropertyValue(`border-${s}-color`)) > 0);
+        cands.push(bw ? pcs.getPropertyValue(`border-${bw}-color`) : (alphaOf(pcs.backgroundColor) > 0 && pcs.content === '""' ? pcs.backgroundColor : pcs.color));
+      }
+      indicator = cands.length ? cands.map((c) => ratio(over(fill, c, op), fill)).reduce((m, r) => Math.max(m, r), 0) : 'none';
+      if (typeof indicator === 'number' && indicator < 3 && nonText === 'pass') nonText = 'fail-indicator';
+    }
 
     // Text runs.
     const texts = [];
@@ -226,6 +253,9 @@ const IN_PAGE = (args) => {
         const pe = n.parentElement;
         if (!pe || seen.has(pe)) continue;
         if (!pe.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+        const pr = pe.getBoundingClientRect();
+        const pcsc = getComputedStyle(pe);
+        if (pr.width <= 2 || pr.height <= 2 || pcsc.clip === 'rect(0px, 0px, 0px, 0px)' || pcsc.clipPath === 'inset(50%)') continue; // screen-reader-only text
         seen.add(pe);
         const pcs = getComputedStyle(pe);
         const bg = bgUnder(pe, true);
@@ -240,6 +270,13 @@ const IN_PAGE = (args) => {
         texts.push({ r: ratio(fg, fill), need: 4.5, fg: hex(fg), bg: hex(fill), text: el.value.slice(0, 30) });
       }
     }
+    let icon = null;
+    if (buttonLike && !isField && !texts.length && !(el.value || '').trim() && hiddenEdge && best < 3 && nonText !== 'fail-indicator') {
+      nonText = 'fail-transparent-edge';
+      // Reported with the icon's own contrast, so a reviewer can tell a faint icon from a missing edge.
+      const svg = el.querySelector('svg');
+      if (svg) { const scs = getComputedStyle(svg); const c = scs.stroke && scs.stroke !== 'none' && !/url/.test(scs.stroke) ? scs.stroke : (scs.fill && scs.fill !== 'none' && !/url/.test(scs.fill) ? scs.fill : scs.color); icon = ratio(over(fill, c, op), fill); }
+    }
     const worstText = texts.reduce((m, t) => (!m || t.r / t.need < m.r / m.need ? t : m), null);
     out.push({
       i: +el.getAttribute('data-bnc'),
@@ -252,6 +289,8 @@ const IN_PAGE = (args) => {
       parts: parts.map((p) => `${p.k}:${p.r}`).join(' '),
       best,
       nonText,
+      indicator,
+      icon,
       text: worstText,
       textFail: !!(worstText && worstText.r < worstText.need),
     });
@@ -270,6 +309,7 @@ const bncCrawl = async (page, opts = {}) => {
   const violations = [];
   const disabledInfo = [];
   const fillOnly = [];
+  const noIndicator = new Set();
   const exempt = new Set();
   const openerMissing = [];
   const pages = [];
@@ -326,14 +366,15 @@ const bncCrawl = async (page, opts = {}) => {
             if (r.exempt) { exempt.add(r.sel); continue; }
             if (r.nonText === 'fill-only') fillOnly.push({ sel: r.sel, label: r.label, state, mode, width, best: r.best, path });
             const bad = [];
-            if (r.nonText === 'fail' || r.nonText === 'fail-no-boundary') bad.push('nonText');
+            if (/^fail/.test(r.nonText)) bad.push(r.nonText === 'fail' || r.nonText === 'fail-no-boundary' ? 'nonText' : r.nonText.replace('fail-', ''));
+            if (state === 'default' && r.indicator === 'none') noIndicator.add(`${r.sel} "${r.label}"`);
             if (r.textFail) bad.push('text');
             if (!bad.length) continue;
-            const v = { path, mode, width, state, sel: r.sel, label: r.label, kind: bad.join('+'), surf: r.surf, fill: r.fill, parts: r.parts, best: r.best, text: r.text, rule: [] };
+            const v = { path, mode, width, state, sel: r.sel, label: r.label, kind: bad.join('+'), icon: r.icon, surf: r.surf, fill: r.fill, parts: r.parts, best: r.best, text: r.text, rule: [] };
             // Winning rule for the failing property.
             try {
               const ms = await cdp.send('CSS.getMatchedStylesForNode', { nodeId: nodeIds[r.i] });
-              const want = bad.includes('text') && !bad.includes('nonText')
+              const want = bad.every((k) => k === 'text')
                 ? ['color', 'background-color', 'background']
                 : ['border-color', 'border', 'border-top-color', 'border-top', 'border-inline-start-color', 'border-width', 'border-style', 'background-color', 'background', 'box-shadow'];
               const hits = [];
@@ -364,10 +405,10 @@ const bncCrawl = async (page, opts = {}) => {
     groups[key].pages.add(v.path);
     groups[key].widths.add(v.width);
   }
-  const table = Object.values(groups).map((g) => ({ sel: g.sel, label: g.label, kind: g.kind, state: g.state, mode: g.mode, widths: [...g.widths].join('/'), pages: [...g.pages].slice(0, 3).join(' ') + (g.pages.size > 3 ? ` (+${g.pages.size - 3})` : ''), surf: g.surf, fill: g.fill, parts: g.parts, text: g.text ? `${g.text.r} (${g.text.fg} on ${g.text.bg}) "${g.text.text}"` : '', rule: g.rule }));
+  const table = Object.values(groups).map((g) => ({ sel: g.sel, label: g.label, kind: g.kind, icon: g.icon, state: g.state, mode: g.mode, widths: [...g.widths].join('/'), pages: [...g.pages].slice(0, 3).join(' ') + (g.pages.size > 3 ? ` (+${g.pages.size - 3})` : ''), surf: g.surf, fill: g.fill, parts: g.parts, text: g.text ? `${g.text.r} (${g.text.fg} on ${g.text.bg}) "${g.text.text}"` : '', rule: g.rule }));
   const fo = {};
   for (const f of fillOnly) { const k = f.sel + '|' + f.state + '|' + f.mode; if (!fo[k] || f.best < fo[k].best) fo[k] = f; }
-  return { fillOnly: Object.values(fo).map((f) => `${f.state}/${f.mode} ${f.sel} "${f.label}" fill ${f.best}`), set, modes, widths, states, pagesLoaded: pages.length, controlsMeasured: controls, violationCount: violations.length, exempt: [...exempt], openerMissing, uniqueViolations: table.length, table, disabled: opts.showDisabled ? disabledInfo : disabledInfo.length, pages: opts.showPages ? pages : undefined };
+  return { fillOnly: Object.values(fo).map((f) => `${f.state}/${f.mode} ${f.sel} "${f.label}" fill ${f.best}`), set, modes, widths, states, pagesLoaded: pages.length, controlsMeasured: controls, violationCount: violations.length, exempt: [...exempt], openerMissing, noIndicator: [...noIndicator], uniqueViolations: table.length, table, disabled: opts.showDisabled ? disabledInfo : disabledInfo.length, pages: opts.showPages ? pages : undefined };
 };
 
 // Kept on the browser context so later calls can run it without re-sending this file.

@@ -717,7 +717,7 @@ gates entirely.
 |---|---|
 | Any PHP | `bin/check.sh --staged` (the pre-commit hook already does this) |
 | PHP logic with test coverage | `vendor/bin/phpunit tests/[Area]/[ClassTest].php` — the touched area, not the suite |
-| CSS | `bin/ux-audit.sh`; for a colour, border or control change also the contrast crawler: seed `wp buddynext qa-fixtures seed --profile=all`, then in the Playwright MCP run `browser_run_code_unsafe` with `filename = bin/control-contrast-crawler.js` and `async (page) => page.context().bncCrawl(page, { set: 'front', base: '<site url>' })` (and `set: 'admin'`); expect 0 violations, the composer prompt is the one exemption |
+| CSS | `bin/ux-audit.sh`; for a colour, border or control change also the contrast crawler: seed `wp buddynext qa-fixtures seed --profile=all`, then in the Playwright MCP run `browser_run_code_unsafe` with `filename = bin/control-contrast-crawler.js` and `async (page) => page.context().bncCrawl(page, { set: 'front', base: '<site url>' })` (and `set: 'admin'`); expect 0 violations (kinds: nonText, text, transparent-edge for an icon-only button with no visible edge, indicator for a disclosure chevron under 3:1) and an empty `noIndicator` list; the composer prompt is the one exemption |
 | An icon | `bin/check-icons.sh` |
 | Frontend REST / a store | `bin/check-rest-boundary.sh` |
 | Any member-facing UI | Browser verification: desktop + 390px + dark. **Not optional, not deferrable** — this is the gate that actually catches defects on a bug fix |
