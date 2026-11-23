@@ -144,6 +144,7 @@ final class QaFixturesCommand {
 		// nothing is orphaned mid-teardown.
 		$wpdb->query( "DELETE FROM {$p}bn_invites WHERE token LIKE 'QAFX%'" ); // phpcs:ignore WordPress.DB
 		$wpdb->query( "DELETE FROM {$p}bn_reports WHERE notes LIKE 'qa-fx:%'" ); // phpcs:ignore WordPress.DB
+		$this->delete_money_matrix();
 
 		$spaces = new SpaceService();
 		foreach ( (array) ( $m['spaces'] ?? array() ) as $sid ) {
@@ -444,6 +445,24 @@ final class QaFixturesCommand {
 	}
 
 	/**
+	 * Delete the subscription and invoice rows the money matrix created (tagged
+	 * qafx_ / QAFX-). Deleting the buyer does not remove them: financial records
+	 * outlive a deleted member by design.
+	 *
+	 * @return void
+	 */
+	private function delete_money_matrix(): void {
+		global $wpdb;
+		$p = $wpdb->prefix;
+		if ( $this->table_exists( $p . 'bn_subscriptions' ) ) {
+			$wpdb->query( "DELETE FROM {$p}bn_subscriptions WHERE external_id LIKE 'qafx\\_%'" ); // phpcs:ignore WordPress.DB
+		}
+		if ( $this->table_exists( $p . 'bn_invoices' ) ) {
+			$wpdb->query( "DELETE FROM {$p}bn_invoices WHERE number LIKE 'QAFX-%'" ); // phpcs:ignore WordPress.DB
+		}
+	}
+
+	/**
 	 * A plausible member name, so the directory does not read as "user 417".
 	 *
 	 * @param int $i Index.
@@ -649,6 +668,7 @@ final class QaFixturesCommand {
 		// fixture existed for "invoice written with no transaction reference",
 		// so refund_invoice() was never exercised against one.
 		if ( $this->table_exists( $p . 'bn_subscriptions' ) && $this->table_exists( $p . 'bn_invoices' ) ) {
+			$this->delete_money_matrix(); // A reseed replaces the matrix instead of adding a second copy.
 			$buyer  = $this->make_user( 'buyer', 'QA Buyer' );
 			$matrix = array(
 				array( 'stripe', 'active', '{"transaction_id":"ch_qafx_active"}' ),
