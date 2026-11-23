@@ -393,7 +393,7 @@ values. Do not paste a token table into docs; it drifts out of sync.
 Token families (all `--bn-` prefixed):
 - Surfaces: `--bn-bg`, `--bn-canvas`, `--bn-surface`, `--bn-sunken`, `--bn-raised`
 - Ink (text): `--bn-ink`, `--bn-ink-2`, `--bn-ink-3`, `--bn-ink-4`
-- Lines/focus: `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-ring`
+- Lines/focus: `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-line-control`, `--bn-ring`. Control edges (outlined buttons, fields, chips, switch tracks) use `--bn-line-control` (3:1, WCAG 1.4.11); cards and dividers stay on `--bn-line`.
 - Accent ramp (OKLCH from `--bn-hue`): `--bn-accent`, `--bn-accent-50…900`, `--bn-accent-fg`
 - Semantic: `--bn-success(-bg)`, `--bn-danger(-bg)`, `--bn-info(-bg)`
 - Integration accents: `--bn-jetonomy(-bg)`, `--bn-media(-bg)`, `--bn-paid(-bg)`, `--bn-events(-bg)`

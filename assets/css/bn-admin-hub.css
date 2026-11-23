@@ -1012,7 +1012,7 @@
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold, 600);
 	padding: 6px 11px;
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md, 8px);
 	color: var(--bn-ink-2);
 	background: var(--bn-surface);

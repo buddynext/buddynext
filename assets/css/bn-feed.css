@@ -3095,8 +3095,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 }
 .bn-composer-switch__tab[aria-selected="true"] {
 	background: var(--bn-surface);
-	color: var(--bn-accent);
-	box-shadow: 0 0 0 1px var(--bn-line);
+	color: var(--bn-accent-text);
+	box-shadow: 0 0 0 1px var(--bn-line-control);
 }
 .bn-composer-switch__tab:focus-visible {
 	outline: 2px solid transparent;
@@ -4048,7 +4048,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-composer__poll-option {
 	width: 100%;
 	background: var(--bg-subtle);
-	border: 1px solid var(--border);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s2) var(--bn-s3);
 	font-family: var(--font-body);
@@ -4115,7 +4115,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 [data-theme="dark"] .bn-composer__privacy,
 [data-bx-mode="dark"] .bn-composer__privacy {
 	background: var(--bg-subtle);
-	border-color: var(--border);
+	border-color: var(--bn-line-control);
 	color: var(--text-2);
 }
 
@@ -4123,7 +4123,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 [data-theme="dark"] .bn-composer__poll-option,
 [data-bx-mode="dark"] .bn-composer__poll-option {
 	background: var(--bg-subtle);
-	border-color: var(--border);
+	border-color: var(--bn-line-control);
 	color: var(--text-1);
 }
 
@@ -4135,7 +4135,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	align-items: center;
 	gap: 6px;
 	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-full, 999px);
 	color: var(--bn-ink-3);
 	font-family: var(--bn-font-ui);

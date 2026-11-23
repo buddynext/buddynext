@@ -116,7 +116,7 @@
 	margin: 0;
 	border: none;
 	border-radius: var(--bn-r-full);
-	background: var(--bn-line-strong);
+	background: var(--bn-line-control);
 	cursor: pointer;
 	transition: background var(--bn-dur) var(--bn-ease);
 }

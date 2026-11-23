@@ -188,7 +188,7 @@
 	--bn-a-field-max-w:       400px;
 
 	/* -- Input look (ONE uniform admin field — used by every option) ----- */
-	--bn-a-input-border:      var(--bn-line-strong);   /* crisp, reads as tappable */
+	--bn-a-input-border:      var(--bn-line-control);  /* 3:1 control edge (WCAG 1.4.11) */
 	--bn-a-input-radius:      var(--bn-a-r-sm);
 	--bn-a-input-pad-y:       var(--bn-a-s2);
 	--bn-a-input-pad-x:       var(--bn-a-s3);
@@ -1137,6 +1137,11 @@ select.bn-text-input {
 	transition: border-color var(--bn-a-transition), box-shadow var(--bn-a-transition);
 }
 
+/* Core's .wp-core-ui select:active (0,2,1) repaints the edge #949494, under 3:1. */
+.bn-admin-hub select:active {
+	border-color: var(--bn-a-input-border);
+}
+
 /* Native <select> keeps room for the UA dropdown arrow on the inline-end. */
 .bn-admin-hub select {
 	padding-inline-end: var(--bn-a-s6);
@@ -1355,7 +1360,7 @@ select.bn-text-input {
 	inline-size: 36px;
 	block-size: 36px;
 	padding: 0;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-md);
 	background: var(--bn-a-bg);
 	color: var(--bn-a-text-2);
@@ -2399,14 +2404,16 @@ table.bn-table tr:hover td {
 	border-color: transparent;
 }
 
-.bn-btn-primary:hover {
+.bn-btn-primary:hover,
+.bn-btn-primary:focus,
+.bn-btn-primary:active {
 	background: color-mix(in oklch, var(--bn-a-brand) 82%, black);
 	color: var(--bn-accent-fg);
 }
 
 .bn-btn-secondary {
 	background: var(--bn-a-bg);
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	color: var(--bn-a-text-1);
 	border-radius: var(--bn-a-r-md);
 	padding: var(--bn-a-s2) var(--bn-a-s4);
@@ -2456,12 +2463,12 @@ button.bn-btn-danger:hover {
 td .bn-btn[data-variant="danger"] {
 	background: transparent;
 	color: var(--bn-danger);
-	border-color: color-mix(in oklch, var(--bn-danger) 45%, transparent);
+	border-color: var(--bn-danger);
 }
 td .bn-btn[data-variant="danger"]:hover,
 td .bn-btn[data-variant="danger"]:focus-visible {
 	background: var(--bn-danger-bg);
-	color: var(--bn-danger);
+	color: color-mix(in oklab, var(--bn-danger) 80%, var(--bn-ink));
 	border-color: var(--bn-danger);
 }
 
@@ -2732,7 +2739,7 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 
 .bn-more-btn {
 	background: transparent;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	width: var(--bn-a-more-btn-sz);
 	height: var(--bn-a-more-btn-sz);

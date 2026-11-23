@@ -79,7 +79,7 @@
 	   in sync automatically (no separate per-state re-lock needed). */
 	--bn-tab-px: var(--bn-s4);
 	padding: var(--bn-s2) var(--bn-tab-px);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-full);
 	background: var(--bn-surface);
 	color: var(--bn-ink-2);
@@ -117,7 +117,7 @@
 }
 
 .bn-tab.bn-sd-chip:hover {
-	border-color: var(--bn-line-strong);
+	border-color: var(--bn-line-control);
 	color: var(--bn-ink);
 }
 

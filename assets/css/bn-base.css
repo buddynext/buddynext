@@ -104,6 +104,10 @@ html:has( .bn-app__main, .bn-app--auth ) { scrollbar-gutter: stable; }
 	--bn-line:        oklch(92% 0.005 var(--bn-hue));
 	--bn-line-strong: oklch(86% 0.008 var(--bn-hue));
 	--bn-line-faint:  oklch(95% 0.003 var(--bn-hue));
+	/* Edge of a control a member operates (outlined button, field, chip, switch track):
+	   half the ink colour, so it reaches 3:1 (WCAG 1.4.11) on any BuddyNext surface in
+	   light and dark. Cards and dividers keep the subtle --bn-line. */
+	--bn-line-control: color-mix(in oklab, var(--bn-ink) 50%, transparent);
 
 	/* Text (AAA contrast) */
 	--bn-ink:    oklch(20% 0.01 var(--bn-hue));
@@ -461,6 +465,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-line:        oklch(28% 0.012 var(--bn-hue));
 	--bn-line-strong: oklch(36% 0.014 var(--bn-hue));
 	--bn-line-faint:  oklch(24% 0.01  var(--bn-hue));
+	--bn-line-control: color-mix(in oklab, var(--bn-ink) 50%, transparent);
 
 	--bn-ink:    oklch(96% 0.005 var(--bn-hue));
 	--bn-ink-2:  oklch(78% 0.008 var(--bn-hue));
@@ -520,6 +525,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        oklch(28% 0.012 var(--bn-hue));
 		--bn-line-strong: oklch(36% 0.014 var(--bn-hue));
 		--bn-line-faint:  oklch(24% 0.01  var(--bn-hue));
+		--bn-line-control: color-mix(in oklab, var(--bn-ink) 50%, transparent);
 		--bn-ink:   oklch(96% 0.005 var(--bn-hue));
 		--bn-ink-2: oklch(78% 0.008 var(--bn-hue));
 		--bn-ink-3: oklch(60% 0.008 var(--bn-hue));
@@ -640,6 +646,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        #e6e6ee;
 		--bn-line-strong: #d4d4de;
 		--bn-line-faint:  #efeff5;
+		--bn-line-control: #8e8f99;
 
 		--bn-ink:   #1f2030;
 		--bn-ink-2: #4d4f60;
@@ -683,6 +690,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        #2b2c3a;
 		--bn-line-strong: #3a3c4d;
 		--bn-line-faint:  #23242f;
+		--bn-line-control: #84858f;
 
 		--bn-ink:   #ebebf2;
 		--bn-ink-2: #c2c2cf;
@@ -729,6 +737,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        oklch(50% 0 0);
 		--bn-line-strong: oklch(35% 0 0);
 		--bn-line-faint:  oklch(60% 0 0);
+		--bn-line-control: oklch(35% 0 0);
 		--bn-ink-3:       oklch(30% 0 0);
 		--bn-ink-4:       oklch(40% 0 0);
 		--bn-focus:       oklch(20% 0 0);
@@ -740,6 +749,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        oklch(70% 0 0);
 		--bn-line-strong: oklch(85% 0 0);
 		--bn-line-faint:  oklch(60% 0 0);
+		--bn-line-control: oklch(85% 0 0);
 		--bn-ink-3:       oklch(85% 0 0);
 		--bn-ink-4:       oklch(75% 0 0);
 		--bn-focus:       oklch(95% 0 0);
@@ -1183,7 +1193,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	min-inline-size: 36px;
 	min-block-size: 36px;
 	padding-inline: var(--bn-s3);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink-2);
@@ -1221,7 +1231,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	min-inline-size: 40px;
 	min-block-size: 40px;
 	padding-inline: var(--bn-s2);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink-2);
@@ -3011,7 +3021,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-btn[data-variant="secondary"] {
 	background: var(--bn-surface);
 	color: var(--bn-ink);
-	border-color: var(--bn-line-strong);
+	border-color: var(--bn-line-control);
 }
 .bn-btn[data-variant="secondary"]:hover { background: var(--bn-sunken); }
 
@@ -3053,7 +3063,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	padding: 0 var(--bn-s3);
 	height: 40px;
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font-family: var(--bn-font-ui);
@@ -3617,7 +3627,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	background-color: var(--bn-surface);
 }
 .bn-app input.bn-input:where( :not( :focus, :disabled, [aria-invalid="true"], .bn-input--error ) ) {
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 }
 /* Selects and textareas: a theme's `:focus` can blank the fill (Blocksy turns it
    transparent). Focus only, so every resting look is untouched. The DM composer
@@ -3646,7 +3656,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	width: 40px;
 	height: 22px;
 	border-radius: var(--bn-r-full);
-	background: var(--bn-line-strong);
+	background: var(--bn-line-control);
 	cursor: pointer;
 	transition: background var(--bn-dur) var(--bn-ease);
 	border: none;
@@ -3668,7 +3678,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	Checked fills still win: [aria-checked="true"] (0,2,0, later in this
 	sheet), :has(:checked) (0,2,1), and `:checked + .bn-toggle` (later sheet). */
 .bn-app .bn-toggle {
-	background-color: var(--bn-line-strong);
+	background-color: var(--bn-line-control);
 }
 .bn-toggle::before {
 	content: '';

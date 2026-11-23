@@ -109,7 +109,7 @@
 
 .bn-md-filters__view-btn[aria-pressed="true"] {
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
-	border-color: color-mix(in oklch, var(--bn-accent) 40%, var(--bn-surface));
+	border-color: var(--bn-accent-text);
 	color: var(--bn-accent-text);
 }
 
@@ -1029,7 +1029,7 @@
 	/* Translucent chip so the icon stays legible over any cover gradient. */
 	background: color-mix(in oklab, var(--bn-surface) 78%, transparent);
 	backdrop-filter: blur(4px);
-	border: 1px solid color-mix(in oklab, var(--bn-ink) 8%, transparent);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-full, 999px);
 	color: var(--bn-ink-2);
 	cursor: pointer;
