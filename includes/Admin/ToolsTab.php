@@ -68,7 +68,7 @@ class ToolsTab {
 		if ( '' !== $done ) {
 			$msg = $this->result_message( $done );
 			if ( '' !== $msg ) {
-				$is_error = in_array( $done, array( 'import_failed', 'import_empty', 'import_no_fileinfo', 'db_partial' ), true );
+				$is_error = in_array( $done, array( 'import_failed', 'import_empty', 'import_no_fileinfo', 'db_partial', 'uninstall_wipe_unconfirmed' ), true );
 				printf(
 					'<div class="notice %s is-dismissible"><p>%s</p></div>',
 					$is_error ? 'notice-error' : 'notice-success',
@@ -570,6 +570,18 @@ class ToolsTab {
 					<p class="description"><strong><?php esc_html_e( 'This cannot be undone. Take a database backup before you delete the plugin with this on.', 'buddynext' ); ?></strong>
 						<a href="<?php echo esc_url( AdminHub::DOCS_BASE . 'getting-started/08c-uninstall-and-your-data/' ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'What a delete removes and keeps', 'buddynext' ); ?></a>
 					</p>
+					<input type="hidden" name="confirm_wipe" value="" data-bn-confirm-field>
+					<noscript>
+						<p>
+							<label for="bn-confirm-wipe">
+								<?php
+								/* translators: %s: the word to type, e.g. DELETE */
+								echo esc_html( sprintf( __( 'To switch data removal on, type %s', 'buddynext' ), self::confirm_word() ) );
+								?>
+							</label>
+							<input type="text" id="bn-confirm-wipe" name="confirm_wipe" autocomplete="off">
+						</p>
+					</noscript>
 					<?php
 					// Switching the wipe ON is the one save that asks: the owner reads what goes and
 					// what stays, and types the word, before it is stored. Turning it off never asks.
@@ -579,8 +591,8 @@ class ToolsTab {
 						data-bn-confirm-title="<?php esc_attr_e( 'Delete all community data on uninstall?', 'buddynext' ); ?>"
 						data-bn-confirm-tone="danger"
 						data-bn-confirm-ok="<?php esc_attr_e( 'Turn on data removal', 'buddynext' ); ?>"
-						data-bn-confirm-require="<?php echo esc_attr_x( 'DELETE', 'word typed to confirm data removal', 'buddynext' ); ?>"
-						data-bn-confirm-require-label="<?php echo esc_attr( sprintf( /* translators: %s: the word to type, e.g. DELETE */ __( 'Type %s to confirm', 'buddynext' ), _x( 'DELETE', 'word typed to confirm data removal', 'buddynext' ) ) ); ?>"
+						data-bn-confirm-require="<?php echo esc_attr( self::confirm_word() ); ?>"
+						data-bn-confirm-require-label="<?php echo esc_attr( sprintf( /* translators: %s: the word to type, e.g. DELETE */ __( 'Type %s to confirm', 'buddynext' ), self::confirm_word() ) ); ?>"
 						data-bn-confirm-when="[name=delete_data]:checked:not([data-was-on])"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 				</form>
 			</div>
@@ -703,9 +715,28 @@ class ToolsTab {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- guard() verifies the nonce.
 		$delete = isset( $_POST['delete_data'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['delete_data'] ) );
+
+		// Switching the wipe ON needs the typed word, whether it came from the dialog
+		// (which writes it into the hidden field) or, with JavaScript off, from the
+		// field the form shows instead. Turning it off, or re-saving it on, never does.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- guard() verifies the nonce.
+		$typed = isset( $_POST['confirm_wipe'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['confirm_wipe'] ) ) ) : '';
+		if ( $delete && ! get_option( 'buddynext_delete_data_on_uninstall', false ) && self::confirm_word() !== $typed ) {
+			$this->redirect_back( 'uninstall_wipe_unconfirmed' );
+		}
+
 		update_option( 'buddynext_delete_data_on_uninstall', $delete ? 1 : 0 );
 
 		$this->redirect_back( $delete ? 'uninstall_wipe_on' : 'uninstall_wipe_off' );
+	}
+
+	/**
+	 * The word an owner types to switch the data wipe on.
+	 *
+	 * @return string
+	 */
+	private static function confirm_word(): string {
+		return _x( 'DELETE', 'word typed to confirm data removal', 'buddynext' );
 	}
 
 	/**
@@ -1049,6 +1080,12 @@ class ToolsTab {
 				return __( 'Processed a batch of background tasks. Large backlogs clear over several runs.', 'buddynext' );
 			case 'uninstall_wipe_on':
 				return __( 'Saved. Deleting BuddyNext will now erase all community data (except financial records).', 'buddynext' );
+			case 'uninstall_wipe_unconfirmed':
+				return sprintf(
+					/* translators: %s: the word to type, e.g. DELETE */
+					__( 'Not saved. To switch data removal on, tick the box and type %s to confirm.', 'buddynext' ),
+					self::confirm_word()
+				);
 			case 'uninstall_wipe_off':
 				return __( 'Saved. Deleting BuddyNext will keep your community data so a reinstall restores it.', 'buddynext' );
 			case 'imported':

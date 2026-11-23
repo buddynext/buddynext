@@ -16,6 +16,8 @@
  *                data-bn-confirm-require-label="Type DELETE to confirm",
  *                data-bn-confirm-when="<selector>" (ask only while the element's form
  *                matches it, e.g. a destructive checkbox being switched on).
+ *   A form input marked data-bn-confirm-field receives the -require word once the
+ *   owner confirms, so the server can insist on it too.
  *
  *   2. Imperative:
  *      bnConfirm({ title, message, tone, okLabel, cancelLabel })
@@ -287,6 +289,12 @@
 				return;
 			}
 			target.dataset.bnConfirmed = '1';
+			// A form that checks the typed word on the server gets it in its
+			// [data-bn-confirm-field] input.
+			var field = target.dataset.bnConfirmRequire ? ( target.form || target.closest( 'form' ) || document ).querySelector( '[data-bn-confirm-field]' ) : null;
+			if ( field ) {
+				field.value = target.dataset.bnConfirmRequire;
+			}
 			if ( target.tagName === 'FORM' ) {
 				target.submit();
 			} else {

@@ -18,6 +18,8 @@ Go to **BuddyNext > Platform > Tools** and find **Data on uninstall**. The check
 
 When you tick the box and save, BuddyNext opens a confirmation that lists what a delete will remove and what it keeps. The save goes through only after you type **DELETE** into the field and press **Turn on data removal**. Press **Cancel** or Escape and nothing is saved.
 
+With JavaScript switched off in your browser there is no dialog: the form shows a field instead, and the setting is saved only when you type **DELETE** into it. The server checks the word either way, so removal cannot be switched on without it.
+
 Turning removal off again saves straight away, with no confirmation.
 
 > **Note:** Take a database backup before you delete the plugin with removal on. A delete with removal on cannot be undone.
