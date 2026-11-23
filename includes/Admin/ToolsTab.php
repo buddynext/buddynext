@@ -863,9 +863,10 @@ class ToolsTab {
 	 * Options that are the site's own bookkeeping, not settings: schema and
 	 * version markers, "already seeded" flags, setup state and the hub page IDs.
 	 * Moving them to another site would roll its migrations back or point its hub
-	 * pages at pages that do not exist there.
+	 * pages at pages that do not exist there. Also the uninstall data wipe: only the
+	 * Tools form, with the typed word, may switch it on, so a file never carries it.
 	 */
-	private const INTERNAL_STATE = '/(_version|_v|_seeded|_migrated|_migration|_schema_alters|_sig|setup_complete|_gate_since|_last_reindex|_preset_activated|_email_defaults|_flag_convergence)$|^buddynext_(pro_)?page_/';
+	private const INTERNAL_STATE = '/(_version|_v|_seeded|_migrated|_migration|_schema_alters|_sig|setup_complete|_gate_since|_last_reindex|_preset_activated|_email_defaults|_flag_convergence)$|^buddynext_(pro_)?page_|^buddynext_delete_data_on_uninstall$/';
 
 	/**
 	 * Whether a settings export carries this option, and an import may write it.
@@ -940,8 +941,9 @@ class ToolsTab {
 	 * @return bool
 	 */
 	private function is_sensitive_option( string $name ): bool {
-		$needles   = array( 'token', 'secret', 'api_key', 'apikey', 'license_key', 'private_key', 'access_token', 'service_account', 'password', '_salt' );
-		$sensitive = false;
+		$needles = array( 'token', 'secret', 'api_key', 'apikey', 'license_key', 'private_key', 'access_token', 'service_account', 'password', '_salt' );
+		// Holds each provider's client secret under a name the needles miss.
+		$sensitive = 'buddynext_social_login' === $name;
 		foreach ( $needles as $needle ) {
 			if ( false !== strpos( $name, $needle ) ) {
 				$sensitive = true;

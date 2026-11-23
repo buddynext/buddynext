@@ -72,6 +72,24 @@ class ToolsExportTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A settings file can neither carry nor arm the uninstall data wipe (only the
+	 * typed confirmation may), nor carry the social login client secrets.
+	 *
+	 * @return void
+	 */
+	public function test_the_data_wipe_and_social_login_secrets_never_travel(): void {
+		update_option( 'buddynext_delete_data_on_uninstall', 1 );
+		update_option( 'buddynext_social_login', array( 'google' => array( 'client_secret' => 's3cret' ) ) );
+
+		$out = $this->call( 'collect_options' );
+		$this->assertArrayNotHasKey( 'buddynext_delete_data_on_uninstall', $out );
+		$this->assertArrayNotHasKey( 'buddynext_social_login', $out );
+		$this->assertFalse( $this->call( 'is_exportable', array( 'buddynext_delete_data_on_uninstall' ) ), 'An import skips the flag, so it stays as it was.' );
+		$this->assertFalse( $this->call( 'is_exportable', array( 'buddynext_social_login' ) ) );
+		delete_option( 'buddynext_delete_data_on_uninstall' );
+	}
+
+	/**
 	 * Another prefix (Pro's) joins through the filter, and the sensitive filter still applies to it.
 	 *
 	 * @return void
