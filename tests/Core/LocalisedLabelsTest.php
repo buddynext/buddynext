@@ -1,6 +1,6 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * Reaction alt text comes from the translatable reaction names.
+ * Reaction alt text and the Features tab group headings come from translatable labels.
  *
  * @package BuddyNext\Tests\Core
  */
@@ -14,6 +14,7 @@ use WP_UnitTestCase;
 
 /**
  * @covers \BuddyNext\Core\IconService::render_emoji
+ * @covers \BuddyNext\Admin\Settings
  */
 class LocalisedLabelsTest extends WP_UnitTestCase {
 
@@ -26,7 +27,7 @@ class LocalisedLabelsTest extends WP_UnitTestCase {
 	 * @return string
 	 */
 	public function translate( $translation, $text, $domain ) {
-		return 'buddynext' === $domain && 'Like' === $text ? 'XX ' . $text : $translation;
+		return 'buddynext' === $domain && in_array( $text, array( 'Like', 'Core (always on)' ), true ) ? 'XX ' . $text : $translation;
 	}
 
 	/**
@@ -40,5 +41,21 @@ class LocalisedLabelsTest extends WP_UnitTestCase {
 		remove_filter( 'gettext', array( $this, 'translate' ), 10 );
 
 		$this->assertStringContainsString( 'alt="XX Like"', $html );
+	}
+
+	/**
+	 * A plugin names its own feature groups through the filter.
+	 *
+	 * @return void
+	 */
+	public function test_feature_group_headings_come_from_the_filter(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		add_filter( 'buddynext_feature_group_labels', static fn( $labels ) => array( 'core' => 'Kern' ) + $labels );
+
+		ob_start();
+		( new \ReflectionMethod( \BuddyNext\Admin\Settings::class, 'render_tab_features' ) )->invoke( new \BuddyNext\Admin\Settings() );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( '<h3 class="bn-feature-group">Kern</h3>', $html );
 	}
 }

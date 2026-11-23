@@ -2704,10 +2704,22 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		// Integration bridges are configured on the Integrations tab (per-aspect
 		// toggles), not here — the Features tab has no 'bridges' group.
-		$group_labels = array(
-			'core'         => __( 'Core (always on)', 'buddynext' ),
-			'community'    => __( 'Community features', 'buddynext' ),
-			'integrations' => __( 'Power-user integrations', 'buddynext' ),
+		/**
+		 * Filter the Features tab group headings, keyed by a feature's `group`.
+		 * A plugin that adds features in its own groups names them here; a group
+		 * with no label shows its key.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array<string,string> $group_labels Group key => translated heading.
+		 */
+		$group_labels = (array) apply_filters(
+			'buddynext_feature_group_labels',
+			array(
+				'core'         => __( 'Core (always on)', 'buddynext' ),
+				'community'    => __( 'Community features', 'buddynext' ),
+				'integrations' => __( 'Power-user integrations', 'buddynext' ),
+			)
 		);
 
 		// S5: the page H1 + subhead already say "Features" / "Pick which features
