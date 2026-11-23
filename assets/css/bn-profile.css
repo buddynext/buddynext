@@ -2851,7 +2851,7 @@ a.bn-space-row:hover .bn-space-name {
 
 /* F6 - Edit page: dirty / saving status pills + inline field errors. */
 .bn-ep-required {
-	color: var(--bn-danger);
+	color: var(--bn-danger-text); /* text token: 4.5:1 in light and dark */
 	margin-inline-start: 2px;
 	font-weight: 600;
 }
