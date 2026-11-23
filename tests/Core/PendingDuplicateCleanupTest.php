@@ -73,18 +73,21 @@ class PendingDuplicateCleanupTest extends WP_UnitTestCase {
 		as_enqueue_async_action( $foreign, array( 1 ), 'other' );
 		as_enqueue_async_action( $kept, array( 9 ), 'buddynext' );
 		as_enqueue_async_action( $kept, array( 9 ), 'buddynext' );
-		$before = $this->pending_ids( $ours );
+		as_enqueue_async_action( $ours, array( 7 ), 'other' ); // Our hook name, a foreign group.
+		as_enqueue_async_action( $ours, array( 7 ), 'other' );
+		$before = array_values( array_filter( $this->pending_ids( $ours ), fn( $id ) => 'other' !== \ActionScheduler::store()->fetch_action( $id )->get_group() ) );
 
-		$this->assertSame( 2, $this->dup_groups( array( $ours ) ), 'Fixture: two duplicate groups.' );
+		$this->assertSame( 3, $this->dup_groups( array( $ours ) ), 'Fixture: two of ours, one foreign.' );
 
 		$this->upgrade_from_77();
 
-		$this->assertSame( 0, $this->dup_groups( array( $ours ) ) );
-		$this->assertSame( array( $before[0], $before[3], $before[5] ), $this->pending_ids( $ours ), 'The oldest row of each group stays, the single row too.' );
+		$this->assertSame( 1, $this->dup_groups( array( $ours ) ), 'Only the foreign group keeps its pair.' );
+		$this->assertSame( array( $before[0], $before[3], $before[5] ), array_slice( $this->pending_ids( $ours ), 0, 3 ), 'The oldest row of each group stays, the single row too.' );
+		$this->assertCount( 5, $this->pending_ids( $ours ), 'Our 3 kept rows plus the foreign pair, untouched.' );
 		$this->assertCount( 2, $this->pending_ids( $foreign ), 'Another plugin\'s rows are never touched.' );
 		$this->assertCount( 2, $this->pending_ids( $kept ), 'Our hooks outside the list are never touched.' );
 
 		$this->upgrade_from_77();
-		$this->assertSame( array( $before[0], $before[3], $before[5] ), $this->pending_ids( $ours ), 'A second run changes nothing.' );
+		$this->assertCount( 5, $this->pending_ids( $ours ), 'A second run changes nothing.' );
 	}
 }

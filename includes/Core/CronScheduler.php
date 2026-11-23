@@ -474,7 +474,8 @@ class CronScheduler {
 	}
 
 	/**
-	 * Cancel pending duplicates of DEDUPE_HOOKS, keeping the oldest row per hook, group and args.
+	 * Cancel pending duplicates of DEDUPE_HOOKS in our groups (buddynext, buddynextpro),
+	 * keeping the oldest row per hook, group and args.
 	 *
 	 * Set-based, CANCEL_BATCH rows per statement, inside a 20 second time box; with rows
 	 * left it queues DEDUPE_CONTINUE_HOOK carrying the running total, so a large queue
@@ -495,7 +496,12 @@ class CronScheduler {
 			return 0;
 		}
 
-		$in    = $wpdb->prepare( implode( ',', array_fill( 0, count( self::DEDUPE_HOOKS ), '%s' ) ), self::DEDUPE_HOOKS );
+		// Our groups only: another plugin may use one of these hook names in its own group.
+		$groups = array_map( 'intval', (array) $wpdb->get_col( "SELECT group_id FROM {$wpdb->prefix}actionscheduler_groups WHERE slug IN ('buddynext', 'buddynextpro')" ) );
+		if ( array() === $groups ) {
+			return 0;
+		}
+		$in    = $wpdb->prepare( implode( ',', array_fill( 0, count( self::DEDUPE_HOOKS ), '%s' ) ), self::DEDUPE_HOOKS ) . ') AND group_id IN (' . implode( ',', $groups );
 		$until = microtime( true ) + 20;
 		$total = 0;
 		do {
