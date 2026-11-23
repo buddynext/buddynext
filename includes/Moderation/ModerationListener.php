@@ -851,22 +851,28 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
-		$alert_subject = __( 'BuddyNext: Moderation queue threshold reached', 'buddynext' );
-		$alert_body    = sprintf(
-			/* translators: %1$d: current queue count, %2$d: configured threshold */
-			__(
-				"Your BuddyNext moderation queue currently has %1\$d pending or escalated report(s), which meets or exceeds the configured alert threshold of %2\$d.\n\nPlease review the queue at your earliest convenience.",
-				'buddynext'
-			),
-			$count,
-			$threshold
-		);
+		// In the alert recipient's language when that address is a member's.
+		\BuddyNext\Notifications\EmailSender::in_recipient_locale(
+			(string) $alert_email,
+			static function () use ( $count, $threshold, $alert_email ): void {
+				$alert_subject = __( 'BuddyNext: Moderation queue threshold reached', 'buddynext' );
+				$alert_body    = sprintf(
+					/* translators: %1$d: current queue count, %2$d: configured threshold */
+					__(
+						"Your BuddyNext moderation queue currently has %1\$d pending or escalated report(s), which meets or exceeds the configured alert threshold of %2\$d.\n\nPlease review the queue at your earliest convenience.",
+						'buddynext'
+					),
+					$count,
+					$threshold
+				);
 
-		\BuddyNext\Notifications\EmailSender::send_with_identity(
-			$alert_email,
-			$alert_subject,
-			\BuddyNext\Notifications\EmailSender::brand_wrap( wpautop( esc_html( $alert_body ) ), $alert_subject ),
-			array( 'Content-Type: text/html; charset=UTF-8' )
+				\BuddyNext\Notifications\EmailSender::send_with_identity(
+					$alert_email,
+					$alert_subject,
+					\BuddyNext\Notifications\EmailSender::brand_wrap( wpautop( esc_html( $alert_body ) ), $alert_subject ),
+					array( 'Content-Type: text/html; charset=UTF-8' )
+				);
+			}
 		);
 	}
 }

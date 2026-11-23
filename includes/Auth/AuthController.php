@@ -1999,6 +1999,16 @@ class AuthController {
 	 * @return bool Whether the email was handed to the mailer.
 	 */
 	public static function send_set_password_email( \WP_User $user ): bool {
+		return (bool) \BuddyNext\Notifications\EmailSender::in_recipient_locale( (int) $user->ID, static fn() => self::send_set_password_email_in_locale( $user ) );
+	}
+
+	/**
+	 * Body of send_set_password_email(), run in the member's language.
+	 *
+	 * @param \WP_User $user The new member.
+	 * @return bool
+	 */
+	private static function send_set_password_email_in_locale( \WP_User $user ): bool {
 		$key = get_password_reset_key( $user );
 		if ( is_wp_error( $key ) ) {
 			return false;

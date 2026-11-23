@@ -291,6 +291,16 @@ class VerificationListener implements ListenerInterface {
 	 * @param string $verify_url Full verification URL including token.
 	 */
 	public function send_verification_email( int $user_id, string $verify_url ): void {
+		\BuddyNext\Notifications\EmailSender::in_recipient_locale( $user_id, fn() => $this->send_verification_email_in_locale( $user_id, $verify_url ) );
+	}
+
+	/**
+	 * Body of send_verification_email(), run in the member's language.
+	 *
+	 * @param int    $user_id    WordPress user ID.
+	 * @param string $verify_url Full verification URL including token.
+	 */
+	private function send_verification_email_in_locale( int $user_id, string $verify_url ): void {
 		global $wpdb;
 
 		// Feature off: never dispatch a verification email.
@@ -311,6 +321,9 @@ class VerificationListener implements ListenerInterface {
 				'email_verify'
 			)
 		);
+		if ( null !== $template ) {
+			$template = \BuddyNext\Notifications\EmailDefaults::localise( 'email_verify', $template );
+		}
 
 		if ( null !== $template && (bool) $template->enabled ) {
 			$data = array(
@@ -396,6 +409,16 @@ class VerificationListener implements ListenerInterface {
 	 * @param string $candidate Pending email address.
 	 */
 	public function on_email_change_requested( int $user_id, string $candidate ): void {
+		\BuddyNext\Notifications\EmailSender::in_recipient_locale( $user_id, fn() => $this->send_email_change_in_locale( $user_id, $candidate ) );
+	}
+
+	/**
+	 * Body of on_email_change_requested(), run in the member's language.
+	 *
+	 * @param int    $user_id   Account requesting the change.
+	 * @param string $candidate Pending email address.
+	 */
+	private function send_email_change_in_locale( int $user_id, string $candidate ): void {
 		$user = get_userdata( $user_id );
 		if ( false === $user || '' === $candidate ) {
 			return;
@@ -430,6 +453,9 @@ class VerificationListener implements ListenerInterface {
 				'email_change_confirm'
 			)
 		);
+		if ( null !== $template ) {
+			$template = \BuddyNext\Notifications\EmailDefaults::localise( 'email_change_confirm', $template );
+		}
 
 		if ( null !== $template && (bool) $template->enabled ) {
 			$tokens  = array( '{{user_name}}', '{{site_name}}', '{{site_url}}', '{{verify_url}}' );

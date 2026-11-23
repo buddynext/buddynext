@@ -606,6 +606,17 @@ class InviteService {
 	 * @return bool True when the email was handed to wp_mail successfully.
 	 */
 	private function send_invite_email( array $invite ): bool {
+		// An invitee is not a member yet: the email reads in the site's language, never the inviter's.
+		return (bool) \BuddyNext\Notifications\EmailSender::in_recipient_locale( sanitize_email( (string) ( $invite['email'] ?? '' ) ), fn() => $this->send_invite_email_in_locale( $invite ) );
+	}
+
+	/**
+	 * Body of send_invite_email(), run in the recipient's language.
+	 *
+	 * @param array<string, mixed> $invite Invite row (must contain 'email', 'first_name', 'token').
+	 * @return bool
+	 */
+	private function send_invite_email_in_locale( array $invite ): bool {
 		$to = sanitize_email( (string) ( $invite['email'] ?? '' ) );
 		if ( '' === $to ) {
 			return false;
@@ -625,6 +636,7 @@ class InviteService {
 		if ( ! $tpl ) {
 			return false;
 		}
+		$tpl = \BuddyNext\Notifications\EmailDefaults::localise( 'bn.bulk_invite', $tpl );
 
 		$first_name = '' !== ( (string) ( $invite['first_name'] ?? '' ) ) ? (string) $invite['first_name'] : __( 'there', 'buddynext' );
 		// Point the link at the branded registration screen with the token under

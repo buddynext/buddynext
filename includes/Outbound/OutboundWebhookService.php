@@ -878,19 +878,25 @@ class OutboundWebhookService {
 			return;
 		}
 
-		$site    = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf(
-			/* translators: %s: site name. */
-			__( '[%s] A webhook was disabled after repeated failures', 'buddynext' ),
-			$site
-		);
-		$body = sprintf(
-			/* translators: 1: endpoint URL, 2: failure threshold. */
-			__( "The webhook endpoint %1\$s was automatically disabled after %2\$d consecutive delivery failures.\n\nCheck that the receiver is reachable, then click Re-enable on its row under BuddyNext, Platform, Webhooks.", 'buddynext' ),
-			$url,
-			(int) self::MAX_CONSECUTIVE_FAILURES
-		);
+		// In the admin's language when the admin address is a member's.
+		\BuddyNext\Notifications\EmailSender::in_recipient_locale(
+			$to,
+			static function () use ( $to, $url ): void {
+				$site    = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+				$subject = sprintf(
+					/* translators: %s: site name. */
+					__( '[%s] A webhook was disabled after repeated failures', 'buddynext' ),
+					$site
+				);
+				$body = sprintf(
+					/* translators: 1: endpoint URL, 2: failure threshold. */
+					__( "The webhook endpoint %1\$s was automatically disabled after %2\$d consecutive delivery failures.\n\nCheck that the receiver is reachable, then click Re-enable on its row under BuddyNext, Platform, Webhooks.", 'buddynext' ),
+					$url,
+					(int) self::MAX_CONSECUTIVE_FAILURES
+				);
 
-		wp_mail( $to, $subject, $body );
+				wp_mail( $to, $subject, $body );
+			}
+		);
 	}
 }

@@ -238,9 +238,31 @@ class EmailSender {
 		// Render in the recipient's language: their own profile locale when set, else the
 		// site's. Every __() below (the unsubscribe line, the brand wrapper) and every
 		// unedited template field (EmailDefaults::localise) then reads in that language.
-		$switched = $user_id > 0 && switch_to_user_locale( $user_id );
+		return self::in_recipient_locale( $user_id, fn() => $this->send_in_locale( $user_id, $notification_type, $data, $is_retry ) );
+	}
+
+	/**
+	 * Build (and send) an email in the recipient's language.
+	 *
+	 * The one seam every BuddyNext email goes through: a member's own profile locale
+	 * when they have one, else the site's, never the language of whoever triggered the
+	 * send (an admin approving, a member inviting). Every __() inside $build and every
+	 * unedited template field passed through EmailDefaults::localise() then reads in
+	 * that language.
+	 *
+	 * @param int|string $recipient Member id, or an email address (a member's address uses
+	 *                              their locale; anyone else, such as an invitee, gets the site's).
+	 * @param callable   $build     Builds and sends the email; its return value is passed back.
+	 * @return mixed
+	 */
+	public static function in_recipient_locale( int|string $recipient, callable $build ): mixed {
+		if ( is_string( $recipient ) ) {
+			$user      = '' !== $recipient ? get_user_by( 'email', $recipient ) : false;
+			$recipient = $user ? (int) $user->ID : 0;
+		}
+		$switched = $recipient > 0 ? switch_to_user_locale( $recipient ) : switch_to_locale( get_locale() );
 		try {
-			return $this->send_in_locale( $user_id, $notification_type, $data, $is_retry );
+			return $build();
 		} finally {
 			if ( $switched ) {
 				restore_previous_locale();

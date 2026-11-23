@@ -89,6 +89,16 @@ class RegistrationEmailListener {
 	 * @return void
 	 */
 	public function send_welcome( int $user_id ): void {
+		EmailSender::in_recipient_locale( $user_id, fn() => $this->send_welcome_in_locale( $user_id ) );
+	}
+
+	/**
+	 * Body of send_welcome(), run in the member's language.
+	 *
+	 * @param int $user_id Member user ID.
+	 * @return void
+	 */
+	private function send_welcome_in_locale( int $user_id ): void {
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
 			return;
@@ -156,6 +166,17 @@ class RegistrationEmailListener {
 	 * @return void
 	 */
 	public function on_registration_pending( int $user_id, string $email ): void {
+		EmailSender::in_recipient_locale( $user_id, fn() => $this->on_registration_pending_in_locale( $user_id, $email ) );
+	}
+
+	/**
+	 * Body of on_registration_pending(), run in the member's language.
+	 *
+	 * @param int    $user_id New (pending) user ID.
+	 * @param string $email   Registered email address.
+	 * @return void
+	 */
+	private function on_registration_pending_in_locale( int $user_id, string $email ): void {
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
 			return;
@@ -178,22 +199,27 @@ class RegistrationEmailListener {
 		);
 		$this->mail( $email, $member_subject, $member_body );
 
-		// 2) The site admin — prompt a review.
+		// 2) The site admin — prompt a review, in the admin's language.
 		$admin_email = sanitize_email( (string) get_option( 'admin_email' ) );
 		if ( '' !== $admin_email ) {
-			$admin_subject = sprintf(
-				/* translators: %s: site name */
-				__( 'New registration awaiting approval: %s', 'buddynext' ),
-				$site
+			EmailSender::in_recipient_locale(
+				$admin_email,
+				function () use ( $site, $user, $email, $admin_email ): void {
+					$admin_subject = sprintf(
+						/* translators: %s: site name */
+						__( 'New registration awaiting approval: %s', 'buddynext' ),
+						$site
+					);
+					$admin_body = sprintf(
+						/* translators: 1: username, 2: email, 3: review URL */
+						__( '%1$s (%2$s) has registered and is awaiting your approval. Review pending members here: %3$s', 'buddynext' ),
+						$user->user_login,
+						$email,
+						admin_url( 'admin.php?page=buddynext-members&tab=invites' )
+					);
+					$this->mail( $admin_email, $admin_subject, $admin_body );
+				}
 			);
-			$admin_body = sprintf(
-				/* translators: 1: username, 2: email, 3: review URL */
-				__( '%1$s (%2$s) has registered and is awaiting your approval. Review pending members here: %3$s', 'buddynext' ),
-				$user->user_login,
-				$email,
-				admin_url( 'admin.php?page=buddynext-members&tab=invites' )
-			);
-			$this->mail( $admin_email, $admin_subject, $admin_body );
 		}
 	}
 
@@ -204,6 +230,16 @@ class RegistrationEmailListener {
 	 * @return void
 	 */
 	public function on_member_approved( int $user_id ): void {
+		EmailSender::in_recipient_locale( $user_id, fn() => $this->on_member_approved_in_locale( $user_id ) );
+	}
+
+	/**
+	 * Body of on_member_approved(), run in the member's language.
+	 *
+	 * @param int $user_id Approved user ID.
+	 * @return void
+	 */
+	private function on_member_approved_in_locale( int $user_id ): void {
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
 			return;
@@ -236,6 +272,16 @@ class RegistrationEmailListener {
 	 * @return void
 	 */
 	public function on_member_rejected( int $user_id ): void {
+		EmailSender::in_recipient_locale( $user_id, fn() => $this->on_member_rejected_in_locale( $user_id ) );
+	}
+
+	/**
+	 * Body of on_member_rejected(), run in the member's language.
+	 *
+	 * @param int $user_id Rejected user ID.
+	 * @return void
+	 */
+	private function on_member_rejected_in_locale( int $user_id ): void {
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
 			return;
