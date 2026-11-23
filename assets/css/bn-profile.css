@@ -618,12 +618,12 @@
 .bn-more-menu .bn-more-menu-item--narrow { display: none; }
 
 .bn-more-menu-item--danger {
-	color: var(--bn-p-red);
+	color: var(--bn-danger-text);
 }
 .bn-more-menu-item--danger:hover,
 .bn-more-menu-item--danger:focus {
 	background: var(--bn-p-red-bg);
-	color: var(--bn-p-red);
+	color: var(--bn-danger-text);
 }
 
 [data-bn-theme="dark"] .bn-more-menu,

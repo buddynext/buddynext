@@ -86,6 +86,7 @@ html:has( .bn-app__main, .bn-app--auth ) { scrollbar-gutter: stable; }
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
 	--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink)); /* The brand colour as TEXT: mixed toward the ink so links and counts reach 4.5:1 on a light brand (orange, yellow). Fills keep --bn-accent. */
+	--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink)); /* Danger as TEXT (Delete, Block in menus): 4.5:1 on the surface and on --bn-danger-bg. */
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
 	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
 	   white label needs (see the @supports block below). */
@@ -483,6 +484,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
 	--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
+	--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink));
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 	--bn-accent-solid: var(--bn-accent);
 
@@ -534,6 +536,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
 		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink));
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 		--bn-accent-solid: var(--bn-accent);
 		--bn-focus:      var(--bn-accent-text);
@@ -635,6 +638,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-900: #1c234c;
 		--bn-accent:     #5b67d0;
 		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink));
 		--bn-accent-fg:  #ffffff;
 		--bn-accent-solid: #4754ad;
 
@@ -705,6 +709,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-50:  #1f243b;
 		--bn-accent:     #8d96e0;
 		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink));
 		--bn-accent-fg:  #15161f;
 		--bn-accent-solid: #8d96e0;
 
@@ -3032,7 +3037,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-btn[data-variant="ghost"]:hover { background: var(--bn-sunken); color: var(--bn-ink); }
 /* Quiet destructive action (e.g. Revoke next to Reset): ghost weight, danger ink. */
 .bn-btn[data-variant="ghost"][data-tone="danger"],
-.bn-btn[data-variant="ghost"][data-tone="danger"]:hover { color: var(--bn-danger); }
+.bn-btn[data-variant="ghost"][data-tone="danger"]:hover { color: var(--bn-danger-text); }
 .bn-btn[data-variant="ghost"][data-tone="danger"]:hover { background: var(--bn-danger-bg); }
 
 .bn-btn[data-variant="danger"] {

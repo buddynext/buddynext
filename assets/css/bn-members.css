@@ -1106,7 +1106,7 @@
 .bn-md-card__menu-pop .bn-md-card__menu-item--danger,
 .bn-md-card__menu-pop .bn-md-card__menu-item--danger:hover,
 .bn-md-card__menu-pop .bn-md-card__menu-item--danger:focus-visible {
-	color: var(--bn-danger);
+	color: var(--bn-danger-text);
 }
 
 /* List view: the translucent chip (tuned for legibility over a cover gradient)
