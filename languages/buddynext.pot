@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-23T08:45:48+00:00\n"
+"POT-Creation-Date: 2026-11-23T09:19:32+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: buddynext\n"
@@ -548,7 +548,7 @@ msgid "Delete"
 msgstr ""
 
 #: includes/Admin/ActivityAdmin.php:252
-#: includes/Admin/Settings.php:3680
+#: includes/Admin/Settings.php:3692
 #: includes/Core/AssetService.php:2462
 #: templates/auth/login.php:174
 #: templates/auth/signup.php:518
@@ -623,8 +623,8 @@ msgstr ""
 #: includes/Admin/Members.php:1912
 #: includes/Admin/Members.php:2030
 #: includes/Admin/Members/InviteManager.php:456
-#: includes/Admin/Settings.php:3890
-#: includes/Admin/Settings.php:3932
+#: includes/Admin/Settings.php:3902
+#: includes/Admin/Settings.php:3944
 #: includes/Privacy/PrivacyTools.php:718
 #: includes/Privacy/PrivacyTools.php:771
 #: includes/Privacy/PrivacyTools.php:829
@@ -656,8 +656,8 @@ msgstr ""
 #: includes/Admin/ModerationQueue.php:253
 #: includes/Admin/ModerationQueue.php:404
 #: includes/Admin/ModerationQueue.php:706
-#: includes/Admin/Settings.php:3892
-#: includes/Admin/Settings.php:3942
+#: includes/Admin/Settings.php:3904
+#: includes/Admin/Settings.php:3954
 #: includes/Admin/Spaces.php:549
 #: includes/Admin/Spaces.php:669
 #: includes/Admin/Spaces.php:842
@@ -689,8 +689,8 @@ msgstr ""
 #: includes/Admin/Members.php:2002
 #: includes/Admin/Members/ApprovalManager.php:384
 #: includes/Admin/Members/MemberTypesManager.php:243
-#: includes/Admin/Settings.php:3794
-#: includes/Admin/Settings.php:3918
+#: includes/Admin/Settings.php:3806
+#: includes/Admin/Settings.php:3930
 #: includes/Admin/Spaces.php:642
 #: includes/Admin/Spaces.php:868
 msgid "Show more details"
@@ -818,7 +818,7 @@ msgstr ""
 #: includes/Admin/Members/AvatarSettings.php:88
 #: includes/Admin/Members/AvatarSettings.php:292
 #: includes/Admin/Members/AvatarSettings.php:353
-#: includes/Admin/Settings.php:3971
+#: includes/Admin/Settings.php:3983
 #: includes/Core/AssetService.php:1863
 #: includes/Core/AssetService.php:1957
 #: includes/Core/AssetService.php:2086
@@ -892,7 +892,7 @@ msgstr ""
 #: includes/Admin/Spaces.php:1502
 #: includes/Admin/Spaces.php:1536
 #: includes/Admin/Spaces.php:1572
-#: includes/Admin/ToolsTab.php:1012
+#: includes/Admin/ToolsTab.php:1014
 #: includes/Demo/DemoAdmin.php:444
 #: includes/Demo/DemoAdmin.php:461
 #: includes/Spaces/SpaceCategoryController.php:372
@@ -1225,8 +1225,8 @@ msgstr ""
 #: includes/Admin/IntegrationControlsAdmin.php:38
 #: includes/Admin/NavManager.php:1604
 #: includes/Admin/NavManager.php:1611
-#: includes/Admin/Settings.php:2741
-#: includes/Admin/Settings.php:3418
+#: includes/Admin/Settings.php:2753
+#: includes/Admin/Settings.php:3430
 msgid "Integration Settings"
 msgstr ""
 
@@ -1419,7 +1419,7 @@ msgstr ""
 
 #: includes/Admin/AdminPageBase.php:503
 #: includes/Admin/Members/AvatarSettings.php:85
-#: includes/Admin/Settings.php:3055
+#: includes/Admin/Settings.php:3067
 #: assets/js/admin/media-picker.js:58
 msgid "Select image"
 msgstr ""
@@ -1596,9 +1596,9 @@ msgstr ""
 #: includes/Admin/AnnouncementsAdmin.php:228
 #: includes/Admin/Members.php:1773
 #: includes/Admin/Members.php:2036
-#: includes/Admin/Settings.php:3275
-#: includes/Admin/Settings.php:3610
-#: includes/Admin/Settings.php:3935
+#: includes/Admin/Settings.php:3287
+#: includes/Admin/Settings.php:3622
+#: includes/Admin/Settings.php:3947
 #: includes/Onboarding/SetupWizard.php:1449
 #: includes/Onboarding/SetupWizard.php:1494
 #: templates/spaces/directory.php:235
@@ -1777,7 +1777,7 @@ msgstr ""
 
 #: includes/Admin/EmailEditor.php:137
 #: includes/Admin/EmailLog.php:187
-#: includes/Admin/Settings.php:3997
+#: includes/Admin/Settings.php:4009
 #: includes/Notifications/NotificationMessageService.php:645
 #: includes/Notifications/NotificationPrefCatalogue.php:134
 msgid "Connection accepted"
@@ -1907,7 +1907,7 @@ msgid "When a space join request is approved"
 msgstr ""
 
 #: includes/Admin/EmailEditor.php:205
-#: includes/Admin/Settings.php:3998
+#: includes/Admin/Settings.php:4010
 msgid "Space joined"
 msgstr ""
 
@@ -2016,7 +2016,7 @@ msgstr ""
 
 #: includes/Admin/EmailEditor.php:262
 #: includes/Admin/EmailLog.php:195
-#: includes/Admin/Settings.php:3988
+#: includes/Admin/Settings.php:4000
 msgid "Member suspended"
 msgstr ""
 
@@ -2296,7 +2296,7 @@ msgid "Enabled"
 msgstr ""
 
 #: includes/Admin/EmailEditor.php:975
-#: includes/Admin/Settings.php:3937
+#: includes/Admin/Settings.php:3949
 msgid "Disabled"
 msgstr ""
 
@@ -2314,7 +2314,7 @@ msgstr ""
 
 #: includes/Admin/EmailEditor.php:1033
 #: includes/Admin/EmailEditor.php:1273
-#: includes/Admin/Settings.php:3958
+#: includes/Admin/Settings.php:3970
 msgid "Send test"
 msgstr ""
 
@@ -2458,7 +2458,7 @@ msgid "Space join request"
 msgstr ""
 
 #: includes/Admin/EmailLog.php:196
-#: includes/Admin/Settings.php:3989
+#: includes/Admin/Settings.php:4001
 msgid "Member unsuspended"
 msgstr ""
 
@@ -2876,7 +2876,7 @@ msgstr ""
 
 #: includes/Admin/IntegrationControlsAdmin.php:159
 #: includes/Admin/IntegrationControlsAdmin.php:218
-#: includes/Admin/Settings.php:3482
+#: includes/Admin/Settings.php:3494
 #: includes/Core/AssetService.php:1104
 #: includes/Core/AssetService.php:1427
 #: includes/Core/AssetService.php:1973
@@ -3137,8 +3137,8 @@ msgstr ""
 #: includes/Admin/Members/MemberDisplay.php:72
 #: includes/Admin/ModerationQueue.php:702
 #: includes/Admin/ModerationQueue.php:775
-#: includes/Admin/Settings.php:3781
-#: includes/Admin/Settings.php:3798
+#: includes/Admin/Settings.php:3793
+#: includes/Admin/Settings.php:3810
 #: includes/Core/AssetService.php:1205
 #: includes/Core/AssetService.php:1609
 #: includes/Core/AssetService.php:1736
@@ -4417,7 +4417,7 @@ msgid "Once"
 msgstr ""
 
 #: includes/Admin/Members/MemberTypesManager.php:259
-#: includes/Admin/Settings.php:2783
+#: includes/Admin/Settings.php:2795
 #: includes/Admin/Settings/SettingsDriver.php:260
 #: includes/Privacy/PrivacyTools.php:1291
 #: templates/settings/notifications.php:392
@@ -4425,7 +4425,7 @@ msgid "On"
 msgstr ""
 
 #: includes/Admin/Members/MemberTypesManager.php:261
-#: includes/Admin/Settings.php:2783
+#: includes/Admin/Settings.php:2795
 #: includes/Admin/Settings/SettingsDriver.php:260
 #: templates/messages/native.php:47
 #: templates/settings/notifications.php:93
@@ -5075,7 +5075,7 @@ msgstr ""
 #: includes/Admin/ModerationQueue.php:252
 #: includes/Admin/ModerationQueue.php:777
 #: includes/Admin/ModerationQueue.php:855
-#: includes/Admin/Settings.php:3779
+#: includes/Admin/Settings.php:3791
 msgid "When"
 msgstr ""
 
@@ -5305,8 +5305,8 @@ msgstr ""
 #: includes/Admin/ModerationQueue.php:857
 #: includes/Admin/ModerationQueue.php:1047
 #: includes/Admin/RolesTab.php:168
-#: includes/Admin/Settings.php:3780
-#: includes/Admin/Settings.php:3797
+#: includes/Admin/Settings.php:3792
+#: includes/Admin/Settings.php:3809
 msgid "Action"
 msgstr ""
 
@@ -5543,7 +5543,7 @@ msgstr ""
 
 #: includes/Admin/NavManager.php:276
 #: includes/Admin/Settings.php:1510
-#: includes/Admin/Settings.php:3073
+#: includes/Admin/Settings.php:3085
 #: includes/Spaces/CoreSpaceFields.php:225
 #: templates/parts/space-hero.php:230
 #: templates/parts/space-settings-panel-notifications.php:91
@@ -5937,7 +5937,7 @@ msgstr ""
 
 #. translators: %s: required plugin name
 #: includes/Admin/NavManager.php:1646
-#: includes/Admin/Settings.php:2861
+#: includes/Admin/Settings.php:2873
 #, php-format
 msgid "Requires the %s plugin"
 msgstr ""
@@ -6167,8 +6167,8 @@ msgid "Discussions the member has started."
 msgstr ""
 
 #: includes/Admin/NavManager.php:2530
-#: includes/Admin/Settings.php:3889
-#: includes/Admin/Settings.php:3921
+#: includes/Admin/Settings.php:3901
+#: includes/Admin/Settings.php:3933
 #: includes/Notifications/IntegrationNotificationListener.php:622
 msgid "Events"
 msgstr ""
@@ -6463,7 +6463,7 @@ msgstr ""
 #: includes/Admin/Settings.php:140
 #: includes/Admin/Settings.php:2341
 #: includes/Admin/Settings.php:2598
-#: includes/Admin/Settings.php:3008
+#: includes/Admin/Settings.php:3020
 msgid "Features"
 msgstr ""
 
@@ -6650,7 +6650,7 @@ msgid "Saved searches + advanced filters"
 msgstr ""
 
 #: includes/Admin/Settings.php:601
-#: includes/Admin/Settings.php:3577
+#: includes/Admin/Settings.php:3589
 msgid "Free"
 msgstr ""
 
@@ -7044,7 +7044,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:1334
 #: includes/Admin/Settings.php:1364
-#: includes/Admin/Settings.php:2842
+#: includes/Admin/Settings.php:2854
 msgid "Change in MediaVerse"
 msgstr ""
 
@@ -7436,23 +7436,23 @@ msgid "Everyone"
 msgstr ""
 
 #: includes/Admin/Settings.php:1974
-#: includes/Admin/Settings.php:2903
+#: includes/Admin/Settings.php:2915
 msgid "Registration settings"
 msgstr ""
 
 #: includes/Admin/Settings.php:1982
-#: includes/Admin/Settings.php:2935
+#: includes/Admin/Settings.php:2947
 #: includes/Onboarding/SetupWizard.php:986
 msgid "Registration mode"
 msgstr ""
 
 #: includes/Admin/Settings.php:1983
-#: includes/Admin/Settings.php:2918
+#: includes/Admin/Settings.php:2930
 msgid "Controls who can create a new account on your community."
 msgstr ""
 
 #: includes/Admin/Settings.php:1991
-#: includes/Admin/Settings.php:2983
+#: includes/Admin/Settings.php:2995
 #: includes/Onboarding/SetupWizard.php:1015
 msgid "Require email verification"
 msgstr ""
@@ -7462,7 +7462,7 @@ msgid "Ask new members to confirm their email address. Choose how strictly it is
 msgstr ""
 
 #: includes/Admin/Settings.php:2001
-#: includes/Admin/Settings.php:2994
+#: includes/Admin/Settings.php:3006
 msgid "How strictly to enforce verification"
 msgstr ""
 
@@ -7471,52 +7471,52 @@ msgid "Restricted (recommended): members can look around but cannot post or comm
 msgstr ""
 
 #: includes/Admin/Settings.php:2010
-#: includes/Admin/Settings.php:2949
+#: includes/Admin/Settings.php:2961
 msgid "Require members to accept your terms"
 msgstr ""
 
 #: includes/Admin/Settings.php:2011
-#: includes/Admin/Settings.php:2950
+#: includes/Admin/Settings.php:2962
 msgid "Shows a consent checkbox on every sign-up route. On once a Terms page is chosen under Legal pages below; it has no effect until then."
 msgstr ""
 
 #: includes/Admin/Settings.php:2019
-#: includes/Admin/Settings.php:2960
+#: includes/Admin/Settings.php:2972
 msgid "Ask new members for their name"
 msgstr ""
 
 #: includes/Admin/Settings.php:2020
-#: includes/Admin/Settings.php:2961
+#: includes/Admin/Settings.php:2973
 msgid "On by default. This is the name other members see. Turn it off only if your community wants handles rather than names."
 msgstr ""
 
 #: includes/Admin/Settings.php:2028
-#: includes/Admin/Settings.php:2967
+#: includes/Admin/Settings.php:2979
 msgid "Let members choose their own username"
 msgstr ""
 
 #: includes/Admin/Settings.php:2029
-#: includes/Admin/Settings.php:2968
+#: includes/Admin/Settings.php:2980
 msgid "Off by default: a username is generated from their email so nobody has to invent one to join, and they can change it later in Settings. Turn this on to ask for one at sign-up."
 msgstr ""
 
 #: includes/Admin/Settings.php:2037
-#: includes/Admin/Settings.php:2974
+#: includes/Admin/Settings.php:2986
 msgid "Also allow the WordPress sign-up form"
 msgstr ""
 
 #: includes/Admin/Settings.php:2038
-#: includes/Admin/Settings.php:2975
+#: includes/Admin/Settings.php:2987
 msgid "Off by default: wp-login.php sign-ups are sent to your BuddyNext sign-up page instead. Turn this on if another plugin relies on the WordPress form. It is protected by your settings either way."
 msgstr ""
 
 #: includes/Admin/Settings.php:2045
-#: includes/Admin/Settings.php:3015
+#: includes/Admin/Settings.php:3027
 msgid "Login &amp; Sign-up Panel"
 msgstr ""
 
 #: includes/Admin/Settings.php:2052
-#: includes/Admin/Settings.php:3019
+#: includes/Admin/Settings.php:3031
 msgid "Show the branding panel"
 msgstr ""
 
@@ -7525,27 +7525,27 @@ msgid "Displays a branded side panel next to the login and sign-up forms."
 msgstr ""
 
 #: includes/Admin/Settings.php:2061
-#: includes/Admin/Settings.php:3029
+#: includes/Admin/Settings.php:3041
 msgid "Panel heading"
 msgstr ""
 
 #: includes/Admin/Settings.php:2069
-#: includes/Admin/Settings.php:3036
+#: includes/Admin/Settings.php:3048
 msgid "Panel tagline"
 msgstr ""
 
 #: includes/Admin/Settings.php:2077
-#: includes/Admin/Settings.php:3044
+#: includes/Admin/Settings.php:3056
 msgid "Featured quote"
 msgstr ""
 
 #: includes/Admin/Settings.php:2085
-#: includes/Admin/Settings.php:3052
+#: includes/Admin/Settings.php:3064
 msgid "Panel banner image"
 msgstr ""
 
 #: includes/Admin/Settings.php:2093
-#: includes/Admin/Settings.php:3061
+#: includes/Admin/Settings.php:3073
 msgid "Sign-up form subtitle"
 msgstr ""
 
@@ -7554,12 +7554,12 @@ msgid "Shown under \"Join the community\" on the sign-up form."
 msgstr ""
 
 #: includes/Admin/Settings.php:2101
-#: includes/Admin/Settings.php:3068
+#: includes/Admin/Settings.php:3080
 msgid "Legal pages"
 msgstr ""
 
 #: includes/Admin/Settings.php:2108
-#: includes/Admin/Settings.php:3080
+#: includes/Admin/Settings.php:3092
 msgid "Terms of Service page"
 msgstr ""
 
@@ -7568,12 +7568,12 @@ msgid "Linked from the sign-up consent line."
 msgstr ""
 
 #: includes/Admin/Settings.php:2117
-#: includes/Admin/Settings.php:3115
+#: includes/Admin/Settings.php:3127
 msgid "Spam &amp; Abuse Protection"
 msgstr ""
 
 #: includes/Admin/Settings.php:2125
-#: includes/Admin/Settings.php:3124
+#: includes/Admin/Settings.php:3136
 msgid "Require two-factor authentication"
 msgstr ""
 
@@ -7582,7 +7582,7 @@ msgid "Members are always free to switch two-factor on themselves. This makes it
 msgstr ""
 
 #: includes/Admin/Settings.php:2134
-#: includes/Admin/Settings.php:3132
+#: includes/Admin/Settings.php:3144
 msgid "Protect the sign-up form"
 msgstr ""
 
@@ -7591,7 +7591,7 @@ msgid "In-house rate limit, honeypot, and time-trap. On by default."
 msgstr ""
 
 #: includes/Admin/Settings.php:2143
-#: includes/Admin/Settings.php:3139
+#: includes/Admin/Settings.php:3151
 msgid "Show a human-verification question"
 msgstr ""
 
@@ -7600,12 +7600,12 @@ msgid "Adds an accessible verification question to the sign-up form."
 msgstr ""
 
 #: includes/Admin/Settings.php:2152
-#: includes/Admin/Settings.php:3151
+#: includes/Admin/Settings.php:3163
 msgid "Rate-limit sign-ups per IP"
 msgstr ""
 
 #: includes/Admin/Settings.php:2153
-#: includes/Admin/Settings.php:3149
+#: includes/Admin/Settings.php:3161
 msgid "Sign-ups per hour per IP"
 msgstr ""
 
@@ -7614,12 +7614,12 @@ msgid "Maximum sign-up attempts from one IP per hour."
 msgstr ""
 
 #: includes/Admin/Settings.php:2163
-#: includes/Admin/Settings.php:3157
+#: includes/Admin/Settings.php:3169
 msgid "Access restrictions"
 msgstr ""
 
 #: includes/Admin/Settings.php:2170
-#: includes/Admin/Settings.php:3161
+#: includes/Admin/Settings.php:3173
 msgid "Allowed email domains"
 msgstr ""
 
@@ -7628,7 +7628,7 @@ msgid "One domain per line. When set, only these domains can register."
 msgstr ""
 
 #: includes/Admin/Settings.php:2179
-#: includes/Admin/Settings.php:3176
+#: includes/Admin/Settings.php:3188
 msgid "Blocked email domains"
 msgstr ""
 
@@ -7637,7 +7637,7 @@ msgid "One domain per line. Addresses from these domains cannot register."
 msgstr ""
 
 #: includes/Admin/Settings.php:2187
-#: includes/Admin/Settings.php:3208
+#: includes/Admin/Settings.php:3220
 msgid "Redirects"
 msgstr ""
 
@@ -7667,7 +7667,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:2223
 #: includes/Admin/Settings.php:2232
-#: includes/Admin/Settings.php:3229
+#: includes/Admin/Settings.php:3241
 msgid "Social login"
 msgstr ""
 
@@ -7680,7 +7680,7 @@ msgid "Webhook secret"
 msgstr ""
 
 #: includes/Admin/Settings.php:2260
-#: includes/Admin/Settings.php:3666
+#: includes/Admin/Settings.php:3678
 msgid "Shared secret"
 msgstr ""
 
@@ -7693,32 +7693,32 @@ msgid "Signature verification"
 msgstr ""
 
 #: includes/Admin/Settings.php:2281
-#: includes/Admin/Settings.php:3715
+#: includes/Admin/Settings.php:3727
 msgid "Require replay-proof webhook signatures"
 msgstr ""
 
 #: includes/Admin/Settings.php:2282
-#: includes/Admin/Settings.php:3716
+#: includes/Admin/Settings.php:3728
 msgid "On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp."
 msgstr ""
 
 #: includes/Admin/Settings.php:2290
-#: includes/Admin/Settings.php:3722
+#: includes/Admin/Settings.php:3734
 msgid "Allow role changes from outside"
 msgstr ""
 
 #: includes/Admin/Settings.php:2291
-#: includes/Admin/Settings.php:3723
+#: includes/Admin/Settings.php:3735
 msgid "Off by default. When on, a signed request can set a member to community admin, moderator or member. Leave it off unless a service you run needs it: your shared secret authorises every action, and this is the most powerful one. Plans, abilities and credits work either way."
 msgstr ""
 
 #: includes/Admin/Settings.php:2299
-#: includes/Admin/Settings.php:3729
+#: includes/Admin/Settings.php:3741
 msgid "Create an account for a new buyer"
 msgstr ""
 
 #: includes/Admin/Settings.php:2300
-#: includes/Admin/Settings.php:3730
+#: includes/Admin/Settings.php:3742
 msgid "Off by default. When on, a signed request that gives a plan, an ability or credits to an email address with no account creates the member (as a new member, never an administrator) and emails them a link to set their password. Use it when you take payment in another tool and connect it with Make or Zapier. Accounts are only created from requests signed with your secret."
 msgstr ""
 
@@ -7747,396 +7747,396 @@ msgstr ""
 msgid "Search settings (Cmd/Ctrl + K)…"
 msgstr ""
 
-#: includes/Admin/Settings.php:2708
+#: includes/Admin/Settings.php:2719
 msgid "Core (always on)"
 msgstr ""
 
-#: includes/Admin/Settings.php:2709
+#: includes/Admin/Settings.php:2720
 msgid "Community features"
 msgstr ""
 
-#: includes/Admin/Settings.php:2710
+#: includes/Admin/Settings.php:2721
 msgid "Power-user integrations"
 msgstr ""
 
-#: includes/Admin/Settings.php:2719
+#: includes/Admin/Settings.php:2731
 msgid "You can enable or disable everything except core features from this tab - changes apply immediately on save."
 msgstr ""
 
-#: includes/Admin/Settings.php:2729
+#: includes/Admin/Settings.php:2741
 msgid "Search features..."
 msgstr ""
 
-#: includes/Admin/Settings.php:2730
+#: includes/Admin/Settings.php:2742
 msgid "Search features"
 msgstr ""
 
-#: includes/Admin/Settings.php:2732
+#: includes/Admin/Settings.php:2744
 msgid "No features match your search."
 msgstr ""
 
 #. translators: %s: link to the Integration Settings tab.
-#: includes/Admin/Settings.php:2740
+#: includes/Admin/Settings.php:2752
 #, php-format
 msgid "The Power-user integrations group below turns connected apps on or off; control where they appear under %s."
 msgstr ""
 
-#: includes/Admin/Settings.php:2772
+#: includes/Admin/Settings.php:2784
 msgid "Always on"
 msgstr ""
 
-#: includes/Admin/Settings.php:2774
+#: includes/Admin/Settings.php:2786
 msgid "On by default"
 msgstr ""
 
-#: includes/Admin/Settings.php:2775
+#: includes/Admin/Settings.php:2787
 msgid "Off by default"
 msgstr ""
 
 #. translators: %s: required plugin name
-#: includes/Admin/Settings.php:2800
+#: includes/Admin/Settings.php:2812
 #, php-format
 msgid "Requires the %s plugin: install and activate it to enable this integration."
 msgstr ""
 
 #. translators: %s: list of required feature names
-#: includes/Admin/Settings.php:2815
+#: includes/Admin/Settings.php:2827
 #, php-format
 msgid "Requires: %s"
 msgstr ""
 
-#: includes/Admin/Settings.php:2831
+#: includes/Admin/Settings.php:2843
 msgid "Open its settings"
 msgstr ""
 
-#: includes/Admin/Settings.php:2838
+#: includes/Admin/Settings.php:2850
 msgid "Install MediaVerse"
 msgstr ""
 
-#: includes/Admin/Settings.php:2840
+#: includes/Admin/Settings.php:2852
 msgid "Turn on"
 msgstr ""
 
-#: includes/Admin/Settings.php:2845
+#: includes/Admin/Settings.php:2857
 msgid "This feature is always on and cannot be disabled."
 msgstr ""
 
 #. translators: %s: feature label
-#: includes/Admin/Settings.php:2867
+#: includes/Admin/Settings.php:2879
 #, php-format
 msgid "%s (unavailable, required plugin not active)"
 msgstr ""
 
 #. translators: %s: number of members.
-#: includes/Admin/Settings.php:2923
+#: includes/Admin/Settings.php:2935
 #, php-format
 msgid "%s member is waiting for approval. Changing the mode does not approve them: they stay in Members > Pending and cannot sign in until you decide."
 msgid_plural "%s members are waiting for approval. Changing the mode does not approve them: they stay in Members > Pending and cannot sign in until you decide."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Admin/Settings.php:2984
+#: includes/Admin/Settings.php:2996
 msgid "Ask new members to confirm their email address."
 msgstr ""
 
-#: includes/Admin/Settings.php:3000
+#: includes/Admin/Settings.php:3012
 msgid "Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like."
 msgstr ""
 
 #. translators: %s: link to the Features settings tab
-#: includes/Admin/Settings.php:3007
+#: includes/Admin/Settings.php:3019
 #, php-format
 msgid "Email verification is turned off under %s. Enable the Email Verification feature there to require it for new registrations."
 msgstr ""
 
-#: includes/Admin/Settings.php:3020
+#: includes/Admin/Settings.php:3032
 msgid "Displays a branded side panel next to the login and sign-up forms. Turn off for a centered form only."
 msgstr ""
 
-#: includes/Admin/Settings.php:3031
+#: includes/Admin/Settings.php:3043
 msgid "Shown large on the branding panel. Defaults to your site title."
 msgstr ""
 
-#: includes/Admin/Settings.php:3038
+#: includes/Admin/Settings.php:3050
 msgid "A short line beneath the heading. Defaults to your site tagline."
 msgstr ""
 
-#: includes/Admin/Settings.php:3046
+#: includes/Admin/Settings.php:3058
 msgid "A short quote shown prominently on the panel (for example a welcome line or member testimonial)."
 msgstr ""
 
-#: includes/Admin/Settings.php:3054
+#: includes/Admin/Settings.php:3066
 msgid "A full-bleed banner image behind the panel. Pick one from the media library or paste an image URL. Defaults to the built-in network-textured gradient."
 msgstr ""
 
-#: includes/Admin/Settings.php:3063
+#: includes/Admin/Settings.php:3075
 msgid "Shown under \"Join the community\" on the sign-up form. Reword it if joining your community is not free - for example when you only sell paid plans."
 msgstr ""
 
-#: includes/Admin/Settings.php:3083
+#: includes/Admin/Settings.php:3095
 msgid "Linked from the \"I agree to the Terms of Service\" line on the sign-up form. First create a page (Pages → Add New) with your terms, then choose it here: no code, no URL to paste. Leave as None to show the wording without a link."
 msgstr ""
 
-#: includes/Admin/Settings.php:3090
+#: includes/Admin/Settings.php:3102
 msgid "No Privacy Policy page is set yet."
 msgstr ""
 
 #. translators: %s: the current Privacy Policy page title
-#: includes/Admin/Settings.php:3094
+#: includes/Admin/Settings.php:3106
 #, php-format
 msgid "Currently using \"%s\"."
 msgstr ""
 
-#: includes/Admin/Settings.php:3100
+#: includes/Admin/Settings.php:3112
 msgid "That page is not published yet: publish it so members can open the link."
 msgstr ""
 
-#: includes/Admin/Settings.php:3103
+#: includes/Admin/Settings.php:3115
 msgid "Privacy Policy page"
 msgstr ""
 
 #. translators: 1: current privacy page status sentence, 2: link to the WordPress Privacy settings screen
-#: includes/Admin/Settings.php:3107
+#: includes/Admin/Settings.php:3119
 #, php-format
 msgid "The \"Privacy Policy\" link uses your site's Privacy Policy page. %1$s Set or change it under %2$s."
 msgstr ""
 
-#: includes/Admin/Settings.php:3109
+#: includes/Admin/Settings.php:3121
 msgid "Settings → Privacy"
 msgstr ""
 
-#: includes/Admin/Settings.php:3127
+#: includes/Admin/Settings.php:3139
 msgid "Anyone in a required role is asked to set two-factor up the next time they sign in, and cannot use the community until they do."
 msgstr ""
 
-#: includes/Admin/Settings.php:3133
+#: includes/Admin/Settings.php:3145
 msgid "In-house, no third-party service: a per-IP rate limit, a honeypot field, and a time-trap that rejects implausibly fast or forged submissions. On by default."
 msgstr ""
 
-#: includes/Admin/Settings.php:3140
+#: includes/Admin/Settings.php:3152
 msgid "Adds an accessible \"what is three plus five?\" question to the sign-up form, verified with a signed token. No images, no cookies, no external captcha. Requires spam protection to be on."
 msgstr ""
 
-#: includes/Admin/Settings.php:3152
+#: includes/Admin/Settings.php:3164
 msgid "Maximum sign-up attempts allowed from one IP address per hour."
 msgstr ""
 
-#: includes/Admin/Settings.php:3163
+#: includes/Admin/Settings.php:3175
 msgid "One domain per line (for example mycompany.com). When set, only addresses from these domains can register. Leave blank to allow all domains."
 msgstr ""
 
-#: includes/Admin/Settings.php:3178
+#: includes/Admin/Settings.php:3190
 msgid "One domain per line. Addresses from these domains cannot register. Use this to shut out a single abusive domain without having to allow-list every other domain on earth."
 msgstr ""
 
-#: includes/Admin/Settings.php:3187
+#: includes/Admin/Settings.php:3199
 msgid "Invite management"
 msgstr ""
 
-#: includes/Admin/Settings.php:3196
+#: includes/Admin/Settings.php:3208
 msgid "Manage invitations"
 msgstr ""
 
-#: includes/Admin/Settings.php:3201
+#: includes/Admin/Settings.php:3213
 msgid "Create, resend, and revoke invitations. Active in Invite Only mode."
 msgstr ""
 
-#: includes/Admin/Settings.php:3233
+#: includes/Admin/Settings.php:3245
 msgid "Let people sign in with an account they already have. For each network you want, create a free \"developer app\" on their site, paste the two keys it gives you (a Client ID and a Client Secret), and copy the redirect link below back into their app. Once enabled, a button appears on your Login and Sign-up screens. No coding required."
 msgstr ""
 
-#: includes/Admin/Settings.php:3246
+#: includes/Admin/Settings.php:3258
 msgid "Client ID"
 msgstr ""
 
-#: includes/Admin/Settings.php:3250
+#: includes/Admin/Settings.php:3262
 msgid "Client secret"
 msgstr ""
 
-#: includes/Admin/Settings.php:3278
+#: includes/Admin/Settings.php:3290
 msgid "Configured (off)"
 msgstr ""
 
-#: includes/Admin/Settings.php:3281
+#: includes/Admin/Settings.php:3293
 msgid "Not set up"
 msgstr ""
 
-#: includes/Admin/Settings.php:3293
+#: includes/Admin/Settings.php:3305
 msgid "Show this button"
 msgstr ""
 
 #. translators: %s: provider name (e.g. Apple).
-#: includes/Admin/Settings.php:3301
+#: includes/Admin/Settings.php:3313
 #, php-format
 msgid "%s sign-in returns to your site over a secure cross-site request, so it only works on HTTPS. This site is not using HTTPS, so the button will stay hidden even when configured."
 msgstr ""
 
-#: includes/Admin/Settings.php:3308
+#: includes/Admin/Settings.php:3320
 msgid "Keys and setup"
 msgstr ""
 
-#: includes/Admin/Settings.php:3326
+#: includes/Admin/Settings.php:3338
 msgid "Saved. Leave blank to keep it, or paste a new one to replace it."
 msgstr ""
 
 #. translators: %s: credential field label (e.g. Client ID).
-#: includes/Admin/Settings.php:3328
+#: includes/Admin/Settings.php:3340
 #, php-format
 msgid "Paste the %s here"
 msgstr ""
 
 #. translators: %s: provider name (e.g. Google).
-#: includes/Admin/Settings.php:3351
+#: includes/Admin/Settings.php:3363
 #, php-format
 msgid "Redirect link (paste this into %s)"
 msgstr ""
 
 #. translators: %s: provider name (e.g. Google).
-#: includes/Admin/Settings.php:3356
+#: includes/Admin/Settings.php:3368
 #, php-format
 msgid "Copy the redirect link for %s"
 msgstr ""
 
 #. translators: %s: provider name (e.g. Google).
-#: includes/Admin/Settings.php:3356
-#: includes/Admin/Settings.php:3685
-#: includes/Admin/Settings.php:3753
-#: includes/Admin/Settings.php:4075
+#: includes/Admin/Settings.php:3368
+#: includes/Admin/Settings.php:3697
+#: includes/Admin/Settings.php:3765
+#: includes/Admin/Settings.php:4087
 #: templates/parts/space-settings-panel-invite.php:153
 msgid "Copy"
 msgstr ""
 
 #. translators: %s: provider name.
-#: includes/Admin/Settings.php:3365
+#: includes/Admin/Settings.php:3377
 #, php-format
 msgid "How to get your %s keys"
 msgstr ""
 
 #. translators: %s: provider name.
-#: includes/Admin/Settings.php:3377
+#: includes/Admin/Settings.php:3389
 #, php-format
 msgid "Open the %s developer site"
 msgstr ""
 
 #. translators: %s: link to the Integration Settings screen.
-#: includes/Admin/Settings.php:3417
+#: includes/Admin/Settings.php:3429
 #, php-format
 msgid "Install companions here; choose where each one appears under %s."
 msgstr ""
 
-#: includes/Admin/Settings.php:3427
+#: includes/Admin/Settings.php:3439
 msgid "Wbcom"
 msgstr ""
 
-#: includes/Admin/Settings.php:3432
+#: includes/Admin/Settings.php:3444
 msgid "Part of the Wbcom family"
 msgstr ""
 
-#: includes/Admin/Settings.php:3434
+#: includes/Admin/Settings.php:3446
 msgid "BuddyNext is the community engine of the Wbcom stack: gamification, discussions, courses, messaging, listings, jobs, and more. Every plugin works on its own, and you can add any of them below in one click. The family keeps growing, so check back for new releases."
 msgstr ""
 
-#: includes/Admin/Settings.php:3437
+#: includes/Admin/Settings.php:3449
 msgid "Explore the full Wbcom family"
 msgstr ""
 
-#: includes/Admin/Settings.php:3447
+#: includes/Admin/Settings.php:3459
 msgid "Installing..."
 msgstr ""
 
-#: includes/Admin/Settings.php:3448
+#: includes/Admin/Settings.php:3460
 msgid "Installed - reloading..."
 msgstr ""
 
-#: includes/Admin/Settings.php:3449
+#: includes/Admin/Settings.php:3461
 #: assets/js/admin/settings.js:351
 msgid "Install failed."
 msgstr ""
 
-#: includes/Admin/Settings.php:3450
+#: includes/Admin/Settings.php:3462
 msgid "Install failed - network error."
 msgstr ""
 
-#: includes/Admin/Settings.php:3468
-#: includes/Admin/Settings.php:3479
-#: includes/Admin/Settings.php:3482
+#: includes/Admin/Settings.php:3480
+#: includes/Admin/Settings.php:3491
+#: includes/Admin/Settings.php:3494
 msgid "Installed"
 msgstr ""
 
-#: includes/Admin/Settings.php:3485
+#: includes/Admin/Settings.php:3497
 msgid "Installed, activate"
 msgstr ""
 
-#: includes/Admin/Settings.php:3488
+#: includes/Admin/Settings.php:3500
 msgid "Not installed"
 msgstr ""
 
-#: includes/Admin/Settings.php:3497
+#: includes/Admin/Settings.php:3509
 msgid "Connects with BuddyNext Pro"
 msgstr ""
 
 #. translators: %s: what the integration adds, e.g. "Job posts as activity cards in the feed."
-#: includes/Admin/Settings.php:3510
+#: includes/Admin/Settings.php:3522
 #, php-format
 msgid "Needs BuddyNext Pro to connect. With Pro: %s"
 msgstr ""
 
-#: includes/Admin/Settings.php:3526
-#: includes/Admin/Settings.php:3531
+#: includes/Admin/Settings.php:3538
+#: includes/Admin/Settings.php:3543
 #: includes/Integrations/CompanionRegistry.php:372
 msgid "Activate"
 msgstr ""
 
-#: includes/Admin/Settings.php:3526
-#: includes/Admin/Settings.php:3534
-#: includes/Admin/Settings.php:3620
+#: includes/Admin/Settings.php:3538
+#: includes/Admin/Settings.php:3546
+#: includes/Admin/Settings.php:3632
 msgid "Install free"
 msgstr ""
 
-#: includes/Admin/Settings.php:3544
-#: includes/Admin/Settings.php:3622
+#: includes/Admin/Settings.php:3556
+#: includes/Admin/Settings.php:3634
 msgid "Learn more"
 msgstr ""
 
-#: includes/Admin/Settings.php:3560
+#: includes/Admin/Settings.php:3572
 msgid "Every product above is a standalone Wbcom plugin. BuddyNext detects each one and lights up the matching features automatically when it is active."
 msgstr ""
 
-#: includes/Admin/Settings.php:3573
+#: includes/Admin/Settings.php:3585
 msgid "Free community theme built for BuddyNext - dark mode and chrome tuned to match."
 msgstr ""
 
-#: includes/Admin/Settings.php:3581
+#: includes/Admin/Settings.php:3593
 msgid "Premium BuddyX with deeper layout, header, and community controls."
 msgstr ""
 
-#: includes/Admin/Settings.php:3584
-#: includes/Admin/Settings.php:3591
+#: includes/Admin/Settings.php:3596
+#: includes/Admin/Settings.php:3603
 msgid "Premium"
 msgstr ""
 
-#: includes/Admin/Settings.php:3588
+#: includes/Admin/Settings.php:3600
 msgid "Premium multi-purpose community theme with rich BuddyNext layouts."
 msgstr ""
 
-#: includes/Admin/Settings.php:3597
+#: includes/Admin/Settings.php:3609
 msgid "Recommended themes"
 msgstr ""
 
-#: includes/Admin/Settings.php:3599
+#: includes/Admin/Settings.php:3611
 msgid "The full BuddyNext experience - dark mode, community chrome, and layouts tested on every surface - needs a purpose-built theme, and not every theme offers dark mode. Other themes can work but often need custom styling."
 msgstr ""
 
-#: includes/Admin/Settings.php:3656
+#: includes/Admin/Settings.php:3668
 msgid "Inbound access webhook (always active)"
 msgstr ""
 
-#: includes/Admin/Settings.php:3659
+#: includes/Admin/Settings.php:3671
 msgid "These settings secure the inbound POST buddynext/v1/webhook/access endpoint. They stay active whether or not the Webhooks feature is enabled: that toggle governs only the outbound endpoints below."
 msgstr ""
 
-#: includes/Admin/Settings.php:3679
-#: includes/Admin/Settings.php:3681
+#: includes/Admin/Settings.php:3691
+#: includes/Admin/Settings.php:3693
 #: includes/Core/AssetService.php:2463
 #: templates/auth/login.php:173
 #: templates/auth/login.php:176
@@ -8148,109 +8148,109 @@ msgstr ""
 msgid "Show"
 msgstr ""
 
-#: includes/Admin/Settings.php:3690
+#: includes/Admin/Settings.php:3702
 #: assets/js/admin/settings.js:445
 msgid "New secret generated. Click Save Settings to apply, then copy it into your receiving service."
 msgstr ""
 
-#: includes/Admin/Settings.php:3691
+#: includes/Admin/Settings.php:3703
 msgid "Rotate"
 msgstr ""
 
-#: includes/Admin/Settings.php:3691
+#: includes/Admin/Settings.php:3703
 msgid "Generate"
 msgstr ""
 
-#: includes/Admin/Settings.php:3698
+#: includes/Admin/Settings.php:3710
 msgid "Verifies INBOUND requests to POST buddynext/v1/webhook/access, which is the only thing this secret does. Outgoing webhooks are signed with the secret you set on each endpoint under Outbound endpoints, not with this one - do not copy this value into Slack or Zapier. Click Rotate for a new strong secret, then Save; the old value stops working immediately, so update whatever calls that endpoint. Left blank, the inbound endpoint refuses every request."
 msgstr ""
 
-#: includes/Admin/Settings.php:3700
+#: includes/Admin/Settings.php:3712
 msgid "Verifies INBOUND requests to POST buddynext/v1/webhook/access, which is the only thing this secret does. Outgoing webhooks are signed with the secret you set on each endpoint under Outbound endpoints, not with this one - do not copy this value into Slack or Zapier. Click Generate, then Save, and give the value to whatever service calls that endpoint. Left blank, the inbound endpoint refuses every request."
 msgstr ""
 
-#: includes/Admin/Settings.php:3750
-#: includes/Admin/Settings.php:3888
-#: includes/Admin/Settings.php:3913
+#: includes/Admin/Settings.php:3762
+#: includes/Admin/Settings.php:3900
+#: includes/Admin/Settings.php:3925
 msgid "Endpoint"
 msgstr ""
 
-#: includes/Admin/Settings.php:3755
+#: includes/Admin/Settings.php:3767
 msgid "POST JSON here. Sign \"{timestamp}.{body}\" with HMAC-SHA256 and the shared secret, then send the timestamp in X-BuddyNext-Timestamp and the hex signature in X-BuddyNext-Signature. Make and Zapier can do this with their built-in functions."
 msgstr ""
 
-#: includes/Admin/Settings.php:3758
+#: includes/Admin/Settings.php:3770
 msgid "Example: give a plan after a payment"
 msgstr ""
 
-#: includes/Admin/Settings.php:3761
+#: includes/Admin/Settings.php:3773
 msgid "Copy example"
 msgstr ""
 
-#: includes/Admin/Settings.php:3763
+#: includes/Admin/Settings.php:3775
 msgid "Use extend_plan with a new expires_at when a renewal is paid, and cancel_plan when the buyer cancels (access lasts to the end of the period; send \"at_period_end\": false to end it now). reference, amount and currency are kept on the member's plan so you can match the payment; they are not counted as revenue. Plans need BuddyNext Pro."
 msgstr ""
 
-#: includes/Admin/Settings.php:3770
+#: includes/Admin/Settings.php:3782
 msgid "Recent requests"
 msgstr ""
 
-#: includes/Admin/Settings.php:3772
+#: includes/Admin/Settings.php:3784
 msgid "No requests yet. Requests show here as they arrive, newest first."
 msgstr ""
 
-#: includes/Admin/Settings.php:3782
-#: includes/Admin/Settings.php:3799
+#: includes/Admin/Settings.php:3794
+#: includes/Admin/Settings.php:3811
 #: assets/js/blocks.js:330
 msgid "From"
 msgstr ""
 
-#: includes/Admin/Settings.php:3783
-#: includes/Admin/Settings.php:3800
+#: includes/Admin/Settings.php:3795
+#: includes/Admin/Settings.php:3812
 msgid "Result"
 msgstr ""
 
-#: includes/Admin/Settings.php:3798
+#: includes/Admin/Settings.php:3810
 msgid "Removed member"
 msgstr ""
 
-#: includes/Admin/Settings.php:3800
+#: includes/Admin/Settings.php:3812
 #: includes/Admin/SetupChecklist.php:525
 #: includes/Onboarding/SetupWizard.php:190
 msgid "Done"
 msgstr ""
 
-#: includes/Admin/Settings.php:3800
+#: includes/Admin/Settings.php:3812
 msgid "Refused"
 msgstr ""
 
-#: includes/Admin/Settings.php:3832
-#: includes/Admin/Settings.php:3853
+#: includes/Admin/Settings.php:3844
+#: includes/Admin/Settings.php:3865
 msgid "Outbound endpoints (requires Webhooks feature)"
 msgstr ""
 
 #. translators: %s: link to the Features settings tab.
-#: includes/Admin/Settings.php:3837
+#: includes/Admin/Settings.php:3849
 #, php-format
 msgid "Webhooks are turned off. Enable the Webhooks feature in %s to register and manage endpoints."
 msgstr ""
 
-#: includes/Admin/Settings.php:3838
+#: includes/Admin/Settings.php:3850
 msgid "Platform → Features"
 msgstr ""
 
 #. translators: %d: limit count.
-#: includes/Admin/Settings.php:3865
+#: includes/Admin/Settings.php:3877
 #, php-format
 msgid "You have %d endpoint registered (Free limit). Pro lifts this cap via the buddynext_outbound_webhook_limit filter."
 msgstr ""
 
-#: includes/Admin/Settings.php:3869
+#: includes/Admin/Settings.php:3881
 msgid "Each endpoint has its own signing secret. The host receives JSON with `event`, `timestamp` and `data`, and an `X-BuddyNext-Signature` header to verify it."
 msgstr ""
 
-#: includes/Admin/Settings.php:3891
-#: includes/Admin/Settings.php:3941
+#: includes/Admin/Settings.php:3903
+#: includes/Admin/Settings.php:3953
 #: includes/Admin/Spaces.php:548
 #: includes/Admin/Spaces.php:668
 #: includes/Onboarding/SetupWizard.php:1355
@@ -8259,87 +8259,87 @@ msgstr ""
 msgid "Created"
 msgstr ""
 
-#: includes/Admin/Settings.php:3900
+#: includes/Admin/Settings.php:3912
 msgid "No webhooks registered yet"
 msgstr ""
 
-#: includes/Admin/Settings.php:3901
+#: includes/Admin/Settings.php:3913
 msgid "Add an endpoint below to start receiving events."
 msgstr ""
 
-#: includes/Admin/Settings.php:3951
+#: includes/Admin/Settings.php:3963
 msgid "Re-enable"
 msgstr ""
 
-#: includes/Admin/Settings.php:3965
+#: includes/Admin/Settings.php:3977
 msgid "View log"
 msgstr ""
 
-#: includes/Admin/Settings.php:3986
+#: includes/Admin/Settings.php:3998
 msgid "New member registered"
 msgstr ""
 
-#: includes/Admin/Settings.php:3987
+#: includes/Admin/Settings.php:3999
 msgid "Member email verified"
 msgstr ""
 
-#: includes/Admin/Settings.php:3990
+#: includes/Admin/Settings.php:4002
 msgid "Member ability granted"
 msgstr ""
 
-#: includes/Admin/Settings.php:3991
+#: includes/Admin/Settings.php:4003
 msgid "Member ability revoked"
 msgstr ""
 
-#: includes/Admin/Settings.php:3992
+#: includes/Admin/Settings.php:4004
 msgid "New post created"
 msgstr ""
 
-#: includes/Admin/Settings.php:3993
+#: includes/Admin/Settings.php:4005
 msgid "Post deleted"
 msgstr ""
 
-#: includes/Admin/Settings.php:3994
+#: includes/Admin/Settings.php:4006
 msgid "New comment created"
 msgstr ""
 
-#: includes/Admin/Settings.php:3995
+#: includes/Admin/Settings.php:4007
 msgid "Reaction added"
 msgstr ""
 
-#: includes/Admin/Settings.php:3996
+#: includes/Admin/Settings.php:4008
 msgid "New follow"
 msgstr ""
 
-#: includes/Admin/Settings.php:3999
+#: includes/Admin/Settings.php:4011
 msgid "Space left"
 msgstr ""
 
-#: includes/Admin/Settings.php:4014
+#: includes/Admin/Settings.php:4026
 msgid "New endpoint URL"
 msgstr ""
 
-#: includes/Admin/Settings.php:4021
+#: includes/Admin/Settings.php:4033
 msgid "HTTPS endpoint that receives the JSON payload."
 msgstr ""
 
-#: includes/Admin/Settings.php:4025
+#: includes/Admin/Settings.php:4037
 msgid "Events to forward"
 msgstr ""
 
-#: includes/Admin/Settings.php:4052
+#: includes/Admin/Settings.php:4064
 msgid "Register endpoint"
 msgstr ""
 
-#: includes/Admin/Settings.php:4064
+#: includes/Admin/Settings.php:4076
 msgid "Signing secret for the new endpoint"
 msgstr ""
 
-#: includes/Admin/Settings.php:4077
+#: includes/Admin/Settings.php:4089
 msgid "Copy it now and save it in the receiving service. It verifies the X-BuddyNext-Signature header on every request and is not shown again."
 msgstr ""
 
-#: includes/Admin/Settings.php:4079
+#: includes/Admin/Settings.php:4091
 msgid "Done, I have copied it"
 msgstr ""
 
@@ -9469,75 +9469,75 @@ msgctxt "word typed to confirm data removal"
 msgid "DELETE"
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1064
+#: includes/Admin/ToolsTab.php:1066
 msgid "Counters recomputed."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1066
+#: includes/Admin/ToolsTab.php:1068
 msgid "Database checked: every BuddyNext table and column is present. Nothing to repair."
 msgstr ""
 
 #. translators: %d: number of tables and columns created.
-#: includes/Admin/ToolsTab.php:1069
+#: includes/Admin/ToolsTab.php:1071
 #, php-format
 msgid "Database repaired: %d missing table or column was created."
 msgid_plural "Database repaired: %d missing tables and columns were created."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Admin/ToolsTab.php:1071
+#: includes/Admin/ToolsTab.php:1073
 msgid "Some missing database structure could not be created. The reason from the database is shown below. The usual cause is a database user without permission to create or alter tables, which your host can fix."
 msgstr ""
 
 #. translators: %d: number of email templates.
-#: includes/Admin/ToolsTab.php:1074
+#: includes/Admin/ToolsTab.php:1076
 #, php-format
 msgid "%d unedited email was updated to the latest default wording."
 msgid_plural "%d unedited emails were updated to the latest default wording."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Admin/ToolsTab.php:1076
+#: includes/Admin/ToolsTab.php:1078
 msgid "Cache flushed."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1078
+#: includes/Admin/ToolsTab.php:1080
 msgid "Search index rebuild started. It runs in the background and may take a few minutes on large communities."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1080
+#: includes/Admin/ToolsTab.php:1082
 msgid "Processed a batch of background tasks. Large backlogs clear over several runs."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1082
+#: includes/Admin/ToolsTab.php:1084
 msgid "Saved. Deleting BuddyNext will now erase all community data (except financial records)."
 msgstr ""
 
 #. translators: %s: the word to type, e.g. DELETE
-#: includes/Admin/ToolsTab.php:1086
+#: includes/Admin/ToolsTab.php:1088
 #, php-format
 msgid "Not saved. To switch data removal on, tick the box and type %s to confirm."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1090
+#: includes/Admin/ToolsTab.php:1092
 msgid "Saved. Deleting BuddyNext will keep your community data so a reinstall restores it."
 msgstr ""
 
 #. translators: 1: settings applied, 2: settings skipped.
-#: includes/Admin/ToolsTab.php:1093
+#: includes/Admin/ToolsTab.php:1095
 #, php-format
 msgid "Settings imported: %1$d applied, %2$d skipped (this site keeps its own version, page and setup state)."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1095
+#: includes/Admin/ToolsTab.php:1097
 msgid "Import file had no recognised BuddyNext settings."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1097
+#: includes/Admin/ToolsTab.php:1099
 msgid "Could not read that import file."
 msgstr ""
 
-#: includes/Admin/ToolsTab.php:1099
+#: includes/Admin/ToolsTab.php:1101
 msgid "This server cannot check uploaded files because the PHP fileinfo extension is missing. Ask your host to enable it, then import again."
 msgstr ""
 
