@@ -21,6 +21,11 @@ namespace BuddyNext\Blocks;
 class BlockRegistrar {
 
 	/**
+	 * Synced patterns read per page when looking for our blocks.
+	 */
+	private const SYNCED_REFS_MAX = 5;
+
+	/**
 	 * Whether member_unavailable_state() has already spoken on this page.
 	 *
 	 * @var bool
@@ -146,8 +151,9 @@ class BlockRegistrar {
 	 * handle joins the normal queue during wp_enqueue_scripts, prints in the
 	 * head in dependency order, and core finds nothing to lift.
 	 *
-	 * Scope is the queried post's content. A block placed somewhere this cannot
-	 * see (a block widget, a template part) still renders and still styles
+	 * Scope is the queried post's content plus the synced patterns it references
+	 * (the first SYNCED_REFS_MAX). A block placed somewhere this cannot see (a block
+	 * widget, a template part such as the footer) still renders and still styles
 	 * correctly — it simply falls back to the late-and-hoisted path, which is
 	 * where every block was before this. So the failure mode is today's
 	 * behaviour, never worse.
@@ -164,15 +170,28 @@ class BlockRegistrar {
 			return;
 		}
 
+		// A synced pattern (<!-- wp:block {"ref":N} /-->) keeps its blocks in its own
+		// wp_block post. Read the first SYNCED_REFS_MAX of them, one level deep: one
+		// get_post() each, and a page rarely holds more than a couple.
+		$content = (string) $post->post_content;
+		if ( preg_match_all( '/<!-- wp:block \{"ref":(\d+)/', $content, $refs ) ) {
+			foreach ( array_slice( array_unique( $refs[1] ), 0, self::SYNCED_REFS_MAX ) as $ref ) {
+				$pattern = get_post( (int) $ref );
+				if ( $pattern instanceof \WP_Post && 'wp_block' === $pattern->post_type ) {
+					$content .= $pattern->post_content;
+				}
+			}
+		}
+
 		// has_block() is a substring check against the serialized content, so
 		// this is a handful of strpos calls over one string, not a parse.
-		$has_ours = false !== strpos( (string) $post->post_content, '[buddynext' );
+		$has_ours = false !== strpos( $content, '[buddynext' );
 		$registry = \WP_Block_Type_Registry::get_instance();
 		foreach ( $registry->get_all_registered() as $name => $block_type ) {
 			if ( 0 !== strpos( $name, 'buddynext/' ) ) {
 				continue;
 			}
-			if ( ! has_block( $name, $post ) ) {
+			if ( ! has_block( $name, $content ) ) {
 				continue;
 			}
 			$has_ours = true;

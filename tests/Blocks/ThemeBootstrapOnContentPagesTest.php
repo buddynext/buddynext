@@ -50,6 +50,18 @@ class ThemeBootstrapOnContentPagesTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A synced pattern holding our block counts as our content; one holding none does not.
+	 *
+	 * @return void
+	 */
+	public function test_synced_pattern_with_our_block_loads_it(): void {
+		$ours  = self::factory()->post->create( array( 'post_type' => 'wp_block', 'post_status' => 'publish', 'post_content' => '<!-- wp:buddynext/member-directory /-->' ) );
+		$plain = self::factory()->post->create( array( 'post_type' => 'wp_block', 'post_status' => 'publish', 'post_content' => '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->' ) );
+		$this->assertTrue( $this->queued_for( '<!-- wp:block {"ref":' . $ours . '} /-->' ), 'A synced pattern with our block.' );
+		$this->assertFalse( $this->queued_for( '<!-- wp:block {"ref":' . $plain . '} /-->' ), 'A synced pattern without one.' );
+	}
+
+	/**
 	 * Outside the shell the bootstrap follows the theme's colour mode only.
 	 *
 	 * @return void
