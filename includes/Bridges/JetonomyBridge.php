@@ -4604,7 +4604,7 @@ class JetonomyBridge {
 				// the partner code at that tag on 2026-10-19 (all present; hook argument
 				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
-				'tested_version'   => '2.0.7', // Verified 2026-11-11 on the 1.2.9 release site against this partner release (functional suite and bridge checks).
+				'tested_version'   => '2.1.0', // Verified 2026-11-23 by QA (J36) on 1.3.0 with MediaVerse 2.7.0 on the same site: discussions tab, My discussions, feed and Explore items, partner deactivation.
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
 				// On 2.0.0 the forum still notifies in its own list and the bell

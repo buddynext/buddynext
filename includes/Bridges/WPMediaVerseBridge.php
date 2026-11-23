@@ -2168,7 +2168,7 @@ class WPMediaVerseBridge {
 				// contract is docs/architecture/core-contract.md in MediaVerse.
 				'min_version'    => '2.6.2',
 				// Tested against the 2.6.2 branch on 2026-10-11.
-				'tested_version' => '2.6.4', // Verified 2026-11-11 on the 1.2.9 release site against this partner release (functional suite and bridge checks).
+				'tested_version' => '2.7.0', // Verified 2026-11-23 by QA (J36) on 1.3.0 with Jetonomy 2.1.0 on the same site (three-plugin pass).
 				'has_nav'        => true,
 				'nav_label'      => __( 'Media', 'buddynext' ),
 				'has_feed'       => true,
