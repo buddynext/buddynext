@@ -98,6 +98,30 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		$this->assertFalse( get_option( 'buddynext_keep_me_probe' ) );
 	}
 
+	/**
+	 * The licence SDK's update cache for BuddyNext goes with the opt-in wipe; another
+	 * plugin's cache row on the same SDK stays, and a default uninstall keeps both.
+	 */
+	public function test_the_opt_in_wipe_removes_only_our_licence_update_cache(): void {
+		update_option( 'buddynext_license_key', 'probe-key' );
+		$ours = 'edd_sl_' . md5( (string) wp_json_encode( array( 'buddynext', 'probe-key', 0 ) ) );
+		update_option( $ours, array( 'timeout' => time() + 60 ) );
+		update_option( 'edd_sl_0123456789abcdef0123456789abcdef', array( 'timeout' => time() + 60 ) );
+
+		delete_option( 'buddynext_delete_data_on_uninstall' );
+		$this->uninstall();
+		wp_cache_flush();
+		$this->assertNotFalse( get_option( $ours ), 'Data kept: the update cache stays with the key.' );
+		$this->assertSame( 'probe-key', get_option( 'buddynext_license_key' ) );
+
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
+		$this->uninstall();
+		wp_cache_flush();
+		$this->assertFalse( get_option( $ours ) );
+		$this->assertFalse( get_option( 'buddynext_license_key' ) );
+		$this->assertNotFalse( get_option( 'edd_sl_0123456789abcdef0123456789abcdef' ), 'Another plugin\'s cache is not ours.' );
+	}
+
 	public function test_the_main_site_opt_in_wipes_member_meta(): void {
 		update_option( 'buddynext_delete_data_on_uninstall', '1' );
 		$user_id = self::factory()->user->create();

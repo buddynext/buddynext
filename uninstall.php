@@ -251,6 +251,13 @@ $bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_me
 	// must be too, or a reinstall would re-seed over existing rows).
 	// Member user meta is network-wide and handled once, below.
 	if ( $bn_delete_data ) {
+		// The licence SDK's update cache, named edd_sl_md5( [ slug, key, beta ] ) (libs/edd-sl-sdk
+		// Updater::get_cache_key()). Derived exactly, before the sweep below removes the key it hashes:
+		// other plugins on the same SDK keep their own edd_sl_* rows, so no wildcard. The key, status and
+		// tracking options (buddynext_license*) go with the sweep. With data kept they all stay, and a
+		// reinstall reuses them: the same key, the cached version info until it times out, and the last
+		// licence status until the weekly check refreshes it.
+		delete_option( 'edd_sl_' . md5( (string) wp_json_encode( array( 'buddynext', get_option( 'buddynext_license_key' ), 0 ) ) ) );
 		$bn_purge_meta( true );
 	}
 };
