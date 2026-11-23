@@ -16,7 +16,7 @@
  * setters. No innerHTML is used on translated or user-controlled text.
  */
 
-import { trapFocus } from '@buddynext/focus-trap';
+import { trapFocus, returnFocus } from '@buddynext/focus-trap';
 
 export { trapFocus };
 
@@ -181,9 +181,7 @@ export function bnConfirm( opts, legacyOpts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 
@@ -331,9 +329,7 @@ export function bnPrompt( opts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 
@@ -508,9 +504,7 @@ export function bnReportDialog( opts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 		function onEscape( ev ) {
@@ -657,9 +651,7 @@ export function bnSuspendDialog( opts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 		function onEscape( ev ) {
@@ -761,9 +753,7 @@ export function bnConnectNoteDialog( opts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 		function onEscape( ev ) {

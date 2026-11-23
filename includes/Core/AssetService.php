@@ -195,7 +195,7 @@ class AssetService {
 	/**
 	 * Register the two focus modules shared by the front end and wp-admin.
 	 *
-	 * `@buddynext/focus-trap` holds trapFocus() and keepFocus() and has no side
+	 * `@buddynext/focus-trap` holds trapFocus(), keepFocus() and returnFocus() and has no side
 	 * effects. `@buddynext/modal-a11y` is the ONE modal keyboard-accessibility
 	 * primitive: focus-in, focus-trap, focus-return and Escape-to-close for every
 	 * .bn-modal-backdrop, plus keepFocus() on the page so a busy or swapped button

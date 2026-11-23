@@ -231,3 +231,30 @@ export function keepFocus( root ) {
 		document.removeEventListener( 'focusin', onFocusIn, true );
 	};
 }
+
+/**
+ * Return focus to whatever opened a dialog. A menu item that opened it is hidden
+ * once its menu closes, and focusing a hidden element drops focus to <body>
+ * (Block and Report member from a card menu). Then the visible control that
+ * opened the menu (the nearest ancestor's [aria-haspopup] / [aria-expanded]
+ * button) takes focus instead.
+ *
+ * @param {Element|null} trigger The element focused when the dialog opened.
+ * @return {void}
+ */
+export function returnFocus( trigger ) {
+	if ( ! trigger || 'function' !== typeof trigger.focus ) {
+		return;
+	}
+	if ( document.contains( trigger ) && null !== trigger.offsetParent ) {
+		trigger.focus();
+		return;
+	}
+	for ( let n = trigger.parentElement; n && n !== document.body; n = n.parentElement ) {
+		const opener = n.querySelector( '[aria-haspopup], [aria-expanded]' );
+		if ( opener && null !== opener.offsetParent ) {
+			opener.focus();
+			return;
+		}
+	}
+}

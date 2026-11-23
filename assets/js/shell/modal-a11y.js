@@ -21,7 +21,7 @@
  * @package BuddyNext
  */
 
-import { trapFocus, keepFocus } from '@buddynext/focus-trap';
+import { trapFocus, keepFocus, returnFocus } from '@buddynext/focus-trap';
 
 /** Every modal in the product is one of these. */
 const SELECTOR = '.bn-modal-backdrop';
@@ -107,20 +107,9 @@ function activate( backdrop ) {
 				released = true;
 				release();
 			}
-			// Return focus to the opener, but only if it is still there AND still
-			// visible. A modal opened from an overflow menu that collapses on open
-			// leaves its trigger in the DOM but hidden; focusing a hidden element
-			// silently dumps focus to <body>, so in that case we leave the browser's
-			// default rather than pretend we restored it. offsetParent is null for a
-			// display:none element (and for position:fixed, which no trigger is).
-			if (
-				trigger &&
-				typeof trigger.focus === 'function' &&
-				document.contains( trigger ) &&
-				null !== trigger.offsetParent
-			) {
-				trigger.focus();
-			}
+			// Return focus to the opener, or to the control that opened its menu
+			// when the opener is a menu item hidden by now.
+			returnFocus( trigger );
 		},
 	} );
 }
