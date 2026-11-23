@@ -1025,10 +1025,15 @@
 	align-items: flex-end;
 	gap: var(--bn-s2);
 	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control); /* the message field's boundary (3:1) */
 	border-radius: var(--bn-r-xl);
 	padding: var(--bn-s2);
 	transition: border-color var(--bn-dur-fast) var(--bn-ease);
+}
+
+/* Icon-only toolbar buttons have no text to identify them: draw the control edge. */
+.bn-dm-pane__actions .bn-btn[data-variant="ghost"] {
+	border-color: var(--bn-line-control);
 }
 
 .bn-dm-composer__row:focus-within {

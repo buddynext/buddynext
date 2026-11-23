@@ -3218,6 +3218,11 @@ a.bn-sh-statpill:focus-visible {
 	position: relative;
 }
 
+/* The bell is icon-only: draw the control edge like the hero's other buttons. */
+.bn-sh-notif > .bn-btn[data-variant="ghost"] {
+	border-color: var(--bn-line-control);
+}
+
 .bn-sh-notif__list {
 	position: absolute;
 	inset-inline-end: 0;
