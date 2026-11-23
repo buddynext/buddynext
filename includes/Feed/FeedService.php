@@ -2463,18 +2463,16 @@ class FeedService {
 	 *
 	 * The tiered ORDER BY (a per-viewer CASE) cannot use an index, so the single
 	 * query read and sorted the whole visible table on every page (230 ms at 100k
-	 * posts). Each tier is plain date order inside itself, so: read each boosted
-	 * tier newest first (own recent posts, connections, interest spaces), then
-	 * fill the page from the rest. Every read stops once the page is full, and
-	 * reading the boosted tiers one at a time keeps a busy week (most posts inside
-	 * the boost window) from turning into one sort of the whole window. Same rows,
-	 * same order and the same tier-aware cursor as the single query.
+	 * posts). Each tier is plain date order inside itself, so the page is read in
+	 * tier order: own recent posts and connections together (on user_feed), then
+	 * the interest-space tier, then the rest, each stopping once the page is full.
+	 * Same rows, same order and the same tier-aware cursor as the single query.
 	 *
-	 * A date walk passes posts outside the tier or hidden from the viewer. When a
-	 * tier is sparse (quiet connections, or a new member who can see almost
-	 * nothing) a walk of the whole index costs more than a sort, so each read
-	 * walks at most $scan_window posts and, if the page is still short, reads the
-	 * tier on its author or space index (the rest: the old table scan).
+	 * The interest tier and the rest are read by a date walk, which passes posts
+	 * outside the tier or hidden from the viewer. When that tier is sparse a walk
+	 * of the whole index costs more than a sort, so it walks at most $scan_window
+	 * posts and, if the page is still short, reads the tier on space_feed (the
+	 * rest: the old table scan).
 	 *
 	 * @param string[]    $boosts         Boost conditions, tier N = $boosts[N].
 	 * @param string      $tier_expr      The tier CASE built from $boosts.
@@ -2503,9 +2501,8 @@ class FeedService {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		// The rows of one tier, newest first: walk at most $scan_window posts back
 		// on post_created (cheap while the tier is dense), and when that leaves the
-		// page short, read the tier on $fallback instead: a boosted tier's author or
-		// space index (sorts only that tier's rows, so 500 silent connections cost
-		// 2 ms, not a walk of the whole boost window), the rest a table scan.
+		// page short, read the tier on $fallback instead: the interest tier on
+		// space_feed (sorts only its rows), the rest a table scan.
 		$walk = function ( int $tier, string $cond, ?string $after_cursor, int $need, string $fallback ) use ( $wpdb, $from, $where, $params ): array {
 			$after      = $this->cursor_where( $after_cursor );
 			$after_args = $this->cursor_params( $after_cursor );
@@ -2537,16 +2534,35 @@ class FeedService {
 			return count( $found ) < $need ? $read( $fallback, '', array() ) : $found;
 		};
 
-		// Each boosted tier in order (own recent posts, connections, interest spaces),
-		// then the rest. A boosted-tier cursor skips the tiers above it and continues
-		// its own by date; the rest starts from the top unless the cursor is in it.
-		for ( $tier = null === $cursor ? 0 : max( 0, $cursor_tier ); $tier <= $rest; $tier++ ) {
+		// Own recent posts and connections in one read: their conditions are on the
+		// author, so user_feed serves it and sorts only those rows. Reading them as
+		// separate tiers cost two to four more queries each carrying the connection
+		// id list, and planning those dominated (QA: about 14 ms each at 100k).
+		$direct = $rest - ( $rest > 0 && str_starts_with( $boosts[ $rest - 1 ], 'space_id' ) ? 1 : 0 );
+		if ( null === $cursor || $cursor_tier < $direct ) {
+			$rows = (array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT *, ({$tier_expr}) AS bn_tier FROM {$from} {$where}
+					   AND ( (" . implode( ') OR (', array_slice( $boosts, 0, $direct ) ) . ") )
+					   {$this->cursor_where( $cursor, $tier_expr )}
+					 ORDER BY ({$tier_expr}) ASC, created_at DESC, id DESC
+					 LIMIT %d",
+					...array_merge( $params, $this->cursor_params( $cursor, $tier_expr ), array( $limit ) )
+				),
+				ARRAY_A
+			);
+		}
+
+		// Then the interest-space tier, whose condition is on the space and which
+		// table-scanned when OR'ed with the others, and the rest. A cursor inside one
+		// of them continues it by date; a later tier starts from the top.
+		for ( $tier = null === $cursor ? $direct : max( $direct, (int) $cursor_tier ); $tier <= $rest; $tier++ ) {
 			$need = $limit - count( $rows );
 			if ( $need <= 0 ) {
 				break;
 			}
 			$cond     = $tier < $rest ? "({$boosts[ $tier ]}) AND ({$tier_expr}) = {$tier}" : "({$tier_expr}) = {$rest}";
-			$fallback = $tier === $rest ? 'IGNORE INDEX (post_created)' : ( str_starts_with( $boosts[ $tier ], 'space_id' ) ? 'FORCE INDEX (space_feed)' : 'FORCE INDEX (user_feed)' );
+			$fallback = $tier === $rest ? 'IGNORE INDEX (post_created)' : 'FORCE INDEX (space_feed)';
 			$rows     = array_merge( $rows, $walk( $tier, $cond, $tier === $cursor_tier ? $cursor : null, $need, $fallback ) );
 		}
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared

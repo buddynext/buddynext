@@ -231,6 +231,17 @@ class ForYouTwoReadTest extends WP_UnitTestCase {
 		foreach ( array( 0, 1, 2 ) as $tier ) {
 			$this->assertContains( $tier, $seen, "Some page ends inside boosted tier $tier, so the next page continues that tier's read." );
 		}
+
+		// Tier 0 present only for the viewer who posted in the last minutes.
+		foreach ( array(
+			'many_connections' => true,
+			'no_connections'   => false,
+		) as $role => $has_own ) {
+			wp_set_current_user( $this->viewers[ $role ] );
+			$first = ( new \ReflectionMethod( FeedService::class, 'home_feed_uncached' ) )->invoke( buddynext_service( 'feed' ), $this->viewers[ $role ], null, 50, 'for-you' );
+			$own   = array_filter( $first['items'], fn( $item ) => (int) $item['user_id'] === $this->viewers[ $role ] );
+			$this->assertSame( $has_own, array() !== $own, "$role: own recent posts on page 1." );
+		}
 	}
 
 	/**
