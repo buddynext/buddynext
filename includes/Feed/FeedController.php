@@ -618,7 +618,7 @@ class FeedController extends BaseRestController {
 				$item['content']      = '';
 				$item['content_html'] = '';
 				$item['link_url']     = '';
-				$item['link_meta']    = array( 'title' => IntegrationActivity::orphaned_card_title( (string) $item['type'], (string) ( $bn_orphan_meta['title'] ?? '' ) ) );
+				$item['link_meta']    = array( 'title' => IntegrationActivity::orphaned_card_title( (string) ( $item['type'] ?? '' ), (string) ( $bn_orphan_meta['title'] ?? '' ) ) );
 			}
 
 			if ( ! empty( $item['members_only'] ) ) {
