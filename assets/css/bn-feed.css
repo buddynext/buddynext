@@ -2187,7 +2187,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-comment__reply-input {
 	flex: 1;
 	min-width: 0;
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s2) var(--bn-s3);
 	font-size: var(--bn-text-sm);
@@ -2540,7 +2540,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	resize: vertical;
 	min-height: calc(var(--bn-tap, 40px) * 2);
 	padding: var(--bn-s2) var(--bn-s3);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink);
@@ -4321,7 +4321,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	width: 100%;
 	padding: var(--bn-s2) var(--bn-s3);
 	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font: inherit;

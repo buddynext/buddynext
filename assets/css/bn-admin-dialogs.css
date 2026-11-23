@@ -180,7 +180,7 @@
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink);
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-r-md);
 }
 

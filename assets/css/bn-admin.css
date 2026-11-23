@@ -503,7 +503,7 @@
 .bn-color-swatch {
 	width: 36px;
 	height: 36px;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: 2px;
 	cursor: pointer;
@@ -1626,7 +1626,7 @@ html:has(.bn-save-bar) {
 }
 
 input.bn-table-search {
-	border: 1px solid var(--bn-a-border) !important;
+	border: 1px solid var(--bn-a-input-border) !important;
 	border-radius: var(--bn-a-r-sm) !important;
 	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
 	font-size: var(--bn-a-text-sm) !important;
@@ -2651,7 +2651,7 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 .bn-search-input {
 	flex: 1;
 	min-width: var(--bn-a-input-min-w);
-	border: 1px solid var(--bn-a-border) !important;
+	border: 1px solid var(--bn-a-input-border) !important;
 	border-radius: var(--bn-a-r-sm) !important;
 	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
 	font-size: var(--bn-a-text-sm) !important;
@@ -2670,7 +2670,7 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 }
 
 .bn-filter-select {
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: var(--bn-a-s2) var(--bn-a-s3);
 	font-size: var(--bn-a-text-sm);
@@ -3042,7 +3042,7 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 	width: 100%;
 	max-width: 360px;
 	padding: var(--bn-s2) var(--bn-s3);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink);

@@ -336,7 +336,7 @@
 	width: 100%;
 	padding: 10px var(--bn-s3);
 	background: var(--bn-canvas);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font: inherit;
@@ -365,7 +365,7 @@
 .bn-ob-input-prefix {
 	display: flex;
 	align-items: stretch;
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-canvas);
 	transition: border-color var(--bn-dur) var(--bn-ease), box-shadow var(--bn-dur) var(--bn-ease);
@@ -1049,7 +1049,7 @@
 	min-height: 44px;
 	padding: 10px var(--bn-s3);
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font: inherit;

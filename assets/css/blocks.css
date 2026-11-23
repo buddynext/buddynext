@@ -663,7 +663,7 @@
 .bn-form-input {
 	width: 100%;
 	padding: var(--bn-s3) var(--bn-s4);
-	border: 1px solid var(--border);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);

@@ -822,7 +822,7 @@
 }
 
 .bn-admin-hub select.bn-pf-head-select:hover {
-	border-color: var(--bn-a-border);
+	border-color: var(--bn-a-input-border);
 	color: var(--bn-a-text-1);
 }
 
@@ -1014,7 +1014,7 @@
 
 .bn-pf-vis-field {
 	font-size: var(--bn-a-text-xs);
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: 5px var(--bn-a-s2);
 	background: var(--bn-a-bg);
@@ -1376,7 +1376,7 @@
 .bn-pf-ag-row .bn-pf-ag-field select {
 	font-size: var(--bn-a-text-sm);
 	width: 100%;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: var(--bn-a-s2) var(--bn-a-s3);
 	background: var(--bn-a-bg);
@@ -1590,7 +1590,7 @@
 }
 
 .bn-image-picker-controls input[type="text"] {
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: 7px var(--bn-a-s3);
 	font-size: var(--bn-a-text-sm);

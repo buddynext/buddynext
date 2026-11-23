@@ -702,7 +702,7 @@
 	padding: 0 var(--bn-s3);
 	height: 36px;
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font-family: var(--bn-font-ui);

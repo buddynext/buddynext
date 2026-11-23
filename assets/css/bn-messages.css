@@ -2104,7 +2104,7 @@
 [data-bx-mode="dark"] .bn-dm-compose__group-name {
 	background: var(--bn-surface);
 	color: var(--bn-ink);
-	border-color: var(--bn-line-strong);
+	border-color: var(--bn-line-control);
 }
 
 

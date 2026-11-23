@@ -2407,7 +2407,7 @@ a.bn-space-row:hover .bn-space-name {
 }
 .bn-ep-field-vis__select.bn-input:hover {
 	background-color: var(--bn-sunken);
-	border-color: var(--bn-line);
+	border-color: var(--bn-line-control);
 	color: var(--bn-ink);
 }
 .bn-ep-field-vis__select.bn-input:focus-visible {
@@ -3075,7 +3075,7 @@ a.bn-space-row:hover .bn-space-name {
 	width: 1rem;
 	height: 1rem;
 	border-radius: var(--bn-r-sm);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	flex-shrink: 0;
 }
 .bn-field-color code {
