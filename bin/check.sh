@@ -435,6 +435,17 @@ py_gate bin/check-client-ip.py "the client address is read outside SafeguardServ
 section "ensure_recurring argument order"
 py_gate bin/check-ensure-recurring.py "an ensure_recurring() call uses the pre-1.3.0 argument order - see above"
 
+# The shipped .pot matches the code. A stale template hides every new string from all
+# locales (1.3.0's translatable email defaults reached no .po because the .pot predated them).
+section "Translation template fresh"
+if ! bn_heavy_gate_skipped "pot freshness"; then
+	if command -v "${WP_CLI:-wp}" >/dev/null 2>&1; then
+		php bin/check-pot-fresh.php || fail "languages/buddynext.pot is stale - run bin/i18n.sh and commit languages/"
+	else
+		note "WP-CLI not found - skipped pot freshness"
+	fi
+fi
+
 # One button API. The retired bn-btn--primary/--secondary/--sm/--block modifiers
 # lived only in bn-profile.css, so any page without that file drew them as bare grey
 # boxes (finish-sign-up, 1.2.9). Markup uses class="bn-btn" + data-variant/data-size/data-full.
