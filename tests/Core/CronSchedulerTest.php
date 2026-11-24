@@ -274,4 +274,31 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 		$this->assertFalse( as_next_scheduled_action( 'buddynext_zz_front' ) );
 		add_filter( 'wp_doing_cron', '__return_true' );
 	}
+
+	/**
+	 * has_pending() is an existence check, so it asks the store for no order: sorting a hook's pending rows by
+	 * date is work an answer of yes or no never uses.
+	 */
+	public function test_has_pending_asks_for_existence_without_sorting(): void {
+		as_schedule_single_action( time() + HOUR_IN_SECONDS, 'bn_test_pending_probe', array(), CronScheduler::GROUP );
+
+		$selects = array();
+		$capture = static function ( $sql ) use ( &$selects ) {
+			if ( 0 === stripos( ltrim( (string) $sql ), 'SELECT' ) && false !== stripos( (string) $sql, 'actionscheduler_actions' ) ) {
+				$selects[] = (string) $sql;
+			}
+			return $sql;
+		};
+		add_filter( 'query', $capture );
+		$found   = CronScheduler::has_pending( 'bn_test_pending_probe' );
+		$missing = CronScheduler::has_pending( 'bn_test_never_scheduled' );
+		remove_filter( 'query', $capture );
+
+		$this->assertTrue( $found, 'A pending action is found.' );
+		$this->assertFalse( $missing, 'An unscheduled hook is not.' );
+		$this->assertNotEmpty( $selects, 'The store was asked.' );
+		foreach ( $selects as $sql ) {
+			$this->assertStringNotContainsStringIgnoringCase( 'ORDER BY', $sql, 'No sorting for a yes or no.' );
+		}
+	}
 }

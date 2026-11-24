@@ -357,6 +357,8 @@ class CronScheduler {
 			'group'    => $group,
 			'status'   => 'pending', // ActionScheduler_Store::STATUS_PENDING.
 			'per_page' => 1,
+			// An existence check needs no order: unordered, the store skips sorting a hook's pending rows by date.
+			'orderby'  => 'none',
 		);
 		if ( null !== $args ) {
 			$query['args'] = $args;
