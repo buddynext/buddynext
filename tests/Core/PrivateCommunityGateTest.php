@@ -201,4 +201,33 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 		update_option( PrivateCommunity::OPTION, 1 );
 		$this->assertTrue( PrivateCommunity::require_login_for_learnomy( false ), 'Community private: gated.' );
 	}
+
+	/**
+	 * Eventonomy 2.0.0 has the same two-filter wall as Learnomy and MediaVerse. One Private Community switch
+	 * closes event pages, lists, REST, ICS and the embed through it, and adds to (never replaces) the
+	 * wall Eventonomy's own setting can raise.
+	 */
+	public function test_eventonomy_wall_follows_the_switch_and_keeps_its_own(): void {
+		PrivateCommunity::register();
+
+		$this->assertFalse( (bool) apply_filters( 'evnm_require_login_for_content', false ), 'Both off: events stay public.' );
+		$this->assertTrue( (bool) apply_filters( 'evnm_require_login_for_content', true ), 'Eventonomy\'s own wall is kept.' );
+
+		update_option( PrivateCommunity::OPTION, 1 );
+		$this->assertTrue( (bool) apply_filters( 'evnm_require_login_for_content', false ), 'Private community: events are walled.' );
+	}
+
+	public function test_eventonomy_wall_lets_a_member_in_and_keeps_a_guest_out(): void {
+		PrivateCommunity::register();
+		update_option( PrivateCommunity::OPTION, 1 );
+		$member = self::factory()->user->create();
+
+		wp_set_current_user( 0 );
+		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', false, 0 ), 'A guest is refused.' );
+		wp_set_current_user( $member );
+		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $member ), 'A signed-in member passes.' );
+
+		add_filter( 'buddynext_private_community_can_access', '__return_false' );
+		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', true, $member ), 'A membership plugin can still refuse.' );
+	}
 }

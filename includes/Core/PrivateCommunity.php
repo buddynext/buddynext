@@ -56,6 +56,22 @@ final class PrivateCommunity {
 	 * @return bool
 	 */
 	public static function require_login_for_learnomy( $required ): bool {
+		return self::require_login( $required );
+	}
+
+	/**
+	 * A partner's own "require login for content" gate with this community's added.
+	 *
+	 * On when the partner's own setting is on OR this community is private. It adds to the partner's value
+	 * and never replaces it, so an owner who runs a public academy or event calendar inside a private
+	 * community can still return false from the partner's filter after this one.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $required The partner's own require-login setting.
+	 * @return bool
+	 */
+	public static function require_login( $required ): bool {
 		return (bool) $required || self::is_enabled();
 	}
 
@@ -156,6 +172,14 @@ final class PrivateCommunity {
 		// site running BuddyNext.
 		add_filter( 'learnomy_require_login_for_content', array( self::class, 'require_login_for_learnomy' ) );
 		add_filter( 'learnomy_content_can_access', array( self::class, 'can_access_user' ), 10, 2 );
+
+		// Eventonomy 2.0.0 exposes the same pair, and the wall it raises covers the event page, the embed, the
+		// calendar and place pages, the event lists, REST, ICS and the sitemaps. Its pages are served outside
+		// BuddyNext's page router, so these filters are the only wall they have. A guest is sent through
+		// wp_login_url(), which BuddyNext already points at the community login (PageRouter::core_login_url),
+		// and returns to the event afterwards. Inert on an Eventonomy that never asks.
+		add_filter( 'evnm_require_login_for_content', array( self::class, 'require_login' ) );
+		add_filter( 'evnm_content_can_access', array( self::class, 'can_access_user' ), 10, 2 );
 	}
 
 	/**
