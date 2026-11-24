@@ -1302,19 +1302,19 @@ class AuthController {
 
 		TwoFactorService::consume_login_challenge( $token );
 
-		$user = get_userdata( $ticket['user'] );
-		if ( ! $user ) {
-			return new WP_Error( 'rest_2fa_failed', __( 'Account not found.', 'buddynext' ), array( 'status' => 404 ) );
+		// The ticket can be minutes old: replay the approval and blocked-network
+		// gates before handing out the cookie, as every other door does.
+		$session = buddynext_service( 'session' )->finish_second_factor( (int) $ticket['user'], (bool) $ticket['remember'] );
+		if ( is_wp_error( $session ) ) {
+			return new WP_Error( 'rest_2fa_refused', SessionIssuer::refusal_message( $session ), array( 'status' => 403 ) );
 		}
-
-		$this->complete_login( $user, $ticket['remember'] );
 
 		$redirect_to = self::safe_destination( (string) $request->get_param( 'redirect_to' ) );
 
 		return new WP_REST_Response(
 			array(
 				'success'     => true,
-				'user_id'     => (int) $user->ID,
+				'user_id'     => (int) $ticket['user'],
 				'redirect_to' => esc_url_raw( SessionIssuer::first_page_url( $redirect_to ) ),
 			),
 			200

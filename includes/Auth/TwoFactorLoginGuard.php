@@ -214,9 +214,8 @@ class TwoFactorLoginGuard implements ListenerInterface {
 	/**
 	 * Establish the session once the second factor has verified, then redirect.
 	 *
-	 * Mirrors AuthController::complete_login() — set the cookie and fire wp_login
-	 * — but removes this guard's own wp_login hook first so completing the login
-	 * does not re-trigger the challenge.
+	 * Opens the session through SessionIssuer, after removing this guard's own
+	 * wp_login hook so completing the login does not re-trigger the challenge.
 	 *
 	 * @param int    $user_id     Verified user ID.
 	 * @param bool   $remember    Persistent cookie.
@@ -224,18 +223,22 @@ class TwoFactorLoginGuard implements ListenerInterface {
 	 * @return void
 	 */
 	private function complete( int $user_id, bool $remember, string $redirect_to ): void {
-		$user = get_userdata( $user_id );
-		if ( ! $user ) {
-			wp_safe_redirect( wp_login_url() );
-			exit;
-		}
-
-		wp_set_current_user( $user_id );
-		wp_set_auth_cookie( $user_id, $remember, is_ssl() );
-
+		// Must come off before the session opens, which fires wp_login.
 		remove_action( 'wp_login', array( $this, 'interpose_challenge' ), 10 );
-		/** This action is documented in wp-includes/user.php (wp_signon). */
-		do_action( 'wp_login', $user->user_login, $user );
+
+		// SessionIssuer replays the approval and blocked-network gates: the ticket
+		// can be minutes old, so the member may have been held since it was issued.
+		$session = buddynext_service( 'session' )->finish_second_factor( $user_id, $remember );
+		if ( is_wp_error( $session ) ) {
+			wp_die(
+				esc_html( SessionIssuer::refusal_message( $session ) ),
+				'',
+				array(
+					'response'  => 403,
+					'back_link' => true,
+				)
+			);
+		}
 
 		$dest = '' !== $redirect_to ? $redirect_to : admin_url();
 		wp_safe_redirect( wp_validate_redirect( $dest, admin_url() ) );
