@@ -1768,6 +1768,24 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertFalse( $this->bridge->leave_push_to_buddynext( false ), 'An earlier no stays a no.' );
 		remove_filter( 'jetonomy_community_notification_types', $adopt );
 	}
+
+	/**
+	 * A forum page is painted by the theme, so the member's saved text size has to be applied there by BuddyNext's own script.
+	 */
+	public function test_a_forum_page_loads_the_saved_text_size_script_and_other_pages_do_not(): void {
+		global $wp_query;
+		$wp_query = new \WP_Query();
+		wp_dequeue_script( 'bn-shell-font-scale' );
+		$this->bridge->maybe_add_mobile_bar();
+		do_action( 'wp_enqueue_scripts' );
+		$this->assertFalse( wp_script_is( 'bn-shell-font-scale', 'enqueued' ), 'Not a forum route: nothing added.' );
+
+		set_query_var( 'jetonomy_route', 'space' );
+		$this->bridge->maybe_add_mobile_bar();
+		do_action( 'wp_enqueue_scripts' );
+		$this->assertTrue( wp_script_is( 'bn-shell-font-scale', 'enqueued' ) );
+		$this->assertStringContainsString( 'bnThemeHostOnly', wp_scripts()->get_inline_script_data( 'bn-shell-font-scale', 'before' ) );
+	}
 }
 
 namespace Jetonomy\Models;

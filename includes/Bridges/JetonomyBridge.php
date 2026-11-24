@@ -1291,6 +1291,10 @@ class JetonomyBridge {
 			static function (): void {
 				wp_enqueue_style( 'bn-base' );
 				wp_enqueue_script( 'bn-mobile-more' );
+				// The member's saved text size (and colour mode) is applied by this script on every other
+				// BuddyNext page. A forum page is painted by the theme, so it follows the theme's colour mode only.
+				wp_enqueue_script( 'bn-shell-font-scale' );
+				wp_add_inline_script( 'bn-shell-font-scale', 'window.bnThemeHostOnly=true;', 'before' );
 			}
 		);
 		add_action(
