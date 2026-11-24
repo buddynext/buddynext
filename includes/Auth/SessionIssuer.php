@@ -149,6 +149,41 @@ class SessionIssuer {
 	}
 
 	/**
+	 * The sign-in refusals a member may read once they proved their password.
+	 *
+	 * @return string[] WP_Error codes.
+	 */
+	public static function reportable_codes(): array {
+		/**
+		 * Filter the sign-in refusals a member may read once they proved their password.
+		 *
+		 * Add a code here so your wp_authenticate_user or authenticate gate tells a member
+		 * why they are held. Everything else gets the generic failure. Never add a network
+		 * or anti-automation refusal (IP block, lockout, bot check): reporting it confirms
+		 * the password to whoever is being refused.
+		 *
+		 * @since 1.2.8
+		 *
+		 * @param string[] $codes Reportable WP_Error codes.
+		 */
+		return (array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) );
+	}
+
+	/**
+	 * Keep a signed-in member's session alive after something that destroyed its tokens.
+	 *
+	 * A password change or "sign out everywhere" drops every session token, including this
+	 * request's. This issues the cookie again for the same member; it is not a sign-in, so no
+	 * gate runs and wp_login does not fire.
+	 *
+	 * @param int $user_id Member who is already signed in on this request.
+	 * @return void
+	 */
+	public static function reissue_cookie( int $user_id ): void {
+		wp_set_auth_cookie( $user_id, false, is_ssl() );
+	}
+
+	/**
 	 * The words to show a member whose sign-in a gate refused after they proved who they are.
 	 *
 	 * Only the refusals the owner allows are spelled out (the approval hold by default).
@@ -159,10 +194,7 @@ class SessionIssuer {
 	 * @return string
 	 */
 	public static function refusal_message( WP_Error $refusal ): string {
-		/** This filter is documented in includes/Auth/AuthController.php. */
-		$reportable = (array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) );
-
-		return in_array( $refusal->get_error_code(), $reportable, true )
+		return in_array( $refusal->get_error_code(), self::reportable_codes(), true )
 			? $refusal->get_error_message()
 			: __( 'Sign-in is not available right now.', 'buddynext' );
 	}
@@ -188,13 +220,16 @@ class SessionIssuer {
 	}
 
 	/**
-	 * Set the auth cookie and fire wp_login. The only place BuddyNext does either.
+	 * Set the auth cookie and fire wp_login. The only place BuddyNext starts a session.
+	 *
+	 * Public for the one caller that has already run the gates and the second factor itself
+	 * (the password sign-in); every other door goes through start() or finish_second_factor().
 	 *
 	 * @param WP_User $user     Member to sign in.
 	 * @param bool    $remember Whether to issue a long-lived cookie.
 	 * @return void
 	 */
-	private function sign_in( WP_User $user, bool $remember ): void {
+	public function sign_in( WP_User $user, bool $remember ): void {
 		wp_set_current_user( $user->ID );
 		wp_set_auth_cookie( $user->ID, $remember, is_ssl() );
 

@@ -639,7 +639,7 @@ class AuthController {
 
 		// wp_set_password() destroys all session tokens — re-authenticate so the
 		// current request's cookie stays valid for the response/redirect chain.
-		wp_set_auth_cookie( $user_id, false, is_ssl() );
+		SessionIssuer::reissue_cookie( $user_id );
 
 		return new WP_REST_Response(
 			array( 'saved' => true ),
@@ -737,7 +737,7 @@ class AuthController {
 
 		// Re-issue a cookie for the current device so the user can see the
 		// confirmation toast without being booted on the response.
-		wp_set_auth_cookie( $user_id, false, is_ssl() );
+		SessionIssuer::reissue_cookie( $user_id );
 
 		return new WP_REST_Response(
 			array( 'signed_out' => true ),
@@ -934,19 +934,7 @@ class AuthController {
 		$gate_shut = is_wp_error( $gate );
 		$refusal   = $gate_shut ? $gate : $error;
 		$code      = (string) $refusal->get_error_code();
-		/**
-		 * Filter the sign-in refusals a member may read once they proved their password.
-		 *
-		 * Add a code here so your wp_authenticate_user or authenticate gate tells a member
-		 * why they are held. Everything else gets the generic failure. Never add a network
-		 * or anti-automation refusal (IP block, lockout, bot check): reporting it confirms
-		 * the password to whoever is being refused.
-		 *
-		 * @since 1.2.8
-		 *
-		 * @param string[] $codes Reportable WP_Error codes.
-		 */
-		$allowed = (array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) );
+		$allowed = SessionIssuer::reportable_codes();
 
 		// Every code in play must be harmless: a reportable gate must not speak over
 		// something unreportable, such as an IP block, that also refused this sign-in.
@@ -1078,7 +1066,7 @@ class AuthController {
 			);
 		}
 
-		$this->complete_login( $user, $remember );
+		buddynext_service( 'session' )->sign_in( $user, $remember );
 
 		$payload = array(
 			'success'     => true,
@@ -1345,22 +1333,6 @@ class AuthController {
 			),
 			200
 		);
-	}
-
-	/**
-	 * Complete sign-in for a verified user: set the current user, issue the auth
-	 * cookie, and fire wp_login (the tail of wp_signon, split out so a 2FA step
-	 * can run between password verification and session creation).
-	 *
-	 * @param \WP_User $user     Verified user.
-	 * @param bool     $remember Persistent cookie.
-	 * @return void
-	 */
-	private function complete_login( \WP_User $user, bool $remember ): void {
-		wp_set_current_user( $user->ID );
-		wp_set_auth_cookie( $user->ID, $remember, is_ssl() );
-		/** This action is documented in wp-includes/user.php (wp_signon). */
-		do_action( 'wp_login', $user->user_login, $user );
 	}
 
 	/**
