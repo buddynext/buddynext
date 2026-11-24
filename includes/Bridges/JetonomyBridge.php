@@ -346,7 +346,7 @@ class JetonomyBridge {
 		// so its bell row, email and mention notices are muted for the write too.
 		add_filter( 'jetonomy_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
 		// One push per event: when BuddyNext shows the notification and can push, its push is the one that goes out.
-		add_filter( 'jetonomy_pro_push_should_send', array( $this, 'leave_push_to_buddynext' ) );
+		add_filter( 'jetonomy_pro_push_should_send', array( $this, 'leave_push_to_buddynext' ), 10, 2 );
 		// A forum reply's comment on the card follows the reply in and out of
 		// publish: create, approve, restore, trash, purge (card 10344390418).
 		add_action( 'jetonomy_reply_publish_transition', array( $this, 'sync_reply_mirror' ), 10, 3 );
@@ -2671,16 +2671,30 @@ class JetonomyBridge {
 	 *
 	 * BuddyNext mirrors each forum notification into its bell once Jetonomy has declared its types, and its
 	 * own push follows that row under the member's Push switch. Both plugins pushed the same event, so a
-	 * member with both set up got two. BuddyNext's push is the one kept, and only while it can really
-	 * send (a provider is set up): otherwise Jetonomy Pro's push stays the only one.
+	 * member with both set up got two. BuddyNext's push is the one kept, but only for a member it will really
+	 * reach (a provider is set up, the member has a device registered here and Push is on for them):
+	 * a member who only subscribed in Jetonomy keeps Jetonomy Pro's push.
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param mixed $send Answer so far.
+	 * @param mixed $send    Answer so far.
+	 * @param mixed $user_id Recipient.
 	 * @return bool
 	 */
-	public function leave_push_to_buddynext( $send ): bool {
-		return (bool) $send && ! ( \BuddyNext\Notifications\IntegrationNotificationListener::adopted( 'jetonomy' ) && buddynext_push_available() );
+	public function leave_push_to_buddynext( $send, $user_id = 0 ): bool {
+		return (bool) $send && ! (
+			\BuddyNext\Notifications\IntegrationNotificationListener::adopted( 'jetonomy' )
+			&& buddynext_push_available()
+			/**
+			 * Whether BuddyNext's own push will reach this member (Pro answers: a registered device and Push on).
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param bool $reaches Default false.
+			 * @param int  $user_id Member.
+			 */
+			&& (bool) apply_filters( 'buddynext_push_reaches_user', false, (int) $user_id )
+		);
 	}
 
 	/**
