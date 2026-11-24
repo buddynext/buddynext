@@ -1756,6 +1756,18 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		\Jetonomy\Models\Space::$rows = array();
 	}
+
+	/**
+	 * One push per event: Jetonomy Pro keeps its push unless BuddyNext can really send one
+	 * (the stand-down itself is covered in BuddyNext Pro, where push exists).
+	 */
+	public function test_jetonomy_pro_keeps_its_push_while_buddynext_cannot_push(): void {
+		$adopt = static fn( $types ) => $types;
+		add_filter( 'jetonomy_community_notification_types', $adopt );
+		$this->assertTrue( $this->bridge->leave_push_to_buddynext( true ), 'No push provider here: Jetonomy Pro keeps its push.' );
+		$this->assertFalse( $this->bridge->leave_push_to_buddynext( false ), 'An earlier no stays a no.' );
+		remove_filter( 'jetonomy_community_notification_types', $adopt );
+	}
 }
 
 namespace Jetonomy\Models;

@@ -345,6 +345,8 @@ class JetonomyBridge {
 		// Same rule on Jetonomy's side: the mirrored reply fires Jetonomy's own listeners,
 		// so its bell row, email and mention notices are muted for the write too.
 		add_filter( 'jetonomy_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
+		// One push per event: when BuddyNext shows the notification and can push, its push is the one that goes out.
+		add_filter( 'jetonomy_pro_push_should_send', array( $this, 'leave_push_to_buddynext' ) );
 		// A forum reply's comment on the card follows the reply in and out of
 		// publish: create, approve, restore, trash, purge (card 10344390418).
 		add_action( 'jetonomy_reply_publish_transition', array( $this, 'sync_reply_mirror' ), 10, 3 );
@@ -2658,6 +2660,23 @@ class JetonomyBridge {
 			default:
 				return 'hidden';
 		}
+	}
+
+	/**
+	 * Answer Jetonomy Pro's "send this push?" with no, when BuddyNext sends it instead.
+	 *
+	 * BuddyNext mirrors each forum notification into its bell once Jetonomy has declared its types, and its
+	 * own push follows that row under the member's Push switch. Both plugins pushed the same event, so a
+	 * member with both set up got two. BuddyNext's push is the one kept, and only while it can really
+	 * send (a provider is set up): otherwise Jetonomy Pro's push stays the only one.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $send Answer so far.
+	 * @return bool
+	 */
+	public function leave_push_to_buddynext( $send ): bool {
+		return (bool) $send && ! ( \BuddyNext\Notifications\IntegrationNotificationListener::adopted( 'jetonomy' ) && buddynext_push_available() );
 	}
 
 	/**
