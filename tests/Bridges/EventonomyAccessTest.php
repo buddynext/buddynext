@@ -1,12 +1,11 @@
 <?php
 /**
- * Who counts as a member of an event: the one answer BuddyNext gives Eventonomy 2.0.0.
+ * The access answers BuddyNext gives Eventonomy 2.0.0, for the two event levels.
  *
- * Owner rule: a member is someone who can see inside the event's home Space (its owner, an active
- * member, a site admin, or a holder of the plan that gates it); an event with no Space keeps
- * Eventonomy's default (any signed-in user). Nobody else counts, and a Space that no longer exists
- * closes the event. Eventonomy derives the members-only level, "public, members register" and the
- * member ticket price from this one answer.
+ * Members only: any active community member (signed in, not held, not suspended, not blocked by the host),
+ * whatever Space the event sits in. Space members (a level BuddyNext adds): only the event's home Space,
+ * through one rule: owner or admin, a holder of the plan that gates the Space while it is valid (joined or
+ * not, never a member whose plan lapsed), otherwise an active member. A Space that is gone closes the event.
  *
  * @package BuddyNext\Tests
  */
@@ -79,85 +78,154 @@ class EventonomyAccessTest extends \WP_UnitTestCase {
 		return (bool) apply_filters( 'evnm_user_is_event_member', $user > 0, $user, $event );
 	}
 
-	public function test_an_event_with_no_space_keeps_the_default_signed_in_answer(): void {
-		$event = array( 'id' => 11, 'space_id' => 0 );
+	public function test_members_only_is_any_active_member_whatever_the_space(): void {
+		$space = $this->space( 'private' );
+		$event = array( 'id' => 11, 'author_id' => $this->owner, 'space_id' => $space );
 
-		$this->assertTrue( $this->is_member( $this->outsider, $event ) );
-		$this->assertFalse( $this->is_member( 0, $event ), 'A guest is never a member.' );
+		$this->assertTrue( $this->is_member( $this->outsider, $event ), 'The Space plays no part at the community level.' );
+		$this->assertTrue( $this->is_member( $this->outsider, array( 'id' => 12, 'author_id' => $this->owner, 'space_id' => 0 ) ) );
+		$this->assertFalse( $this->is_member( 0, $event ), 'A guest never counts.' );
 	}
 
-	public function test_an_open_space_needs_membership_not_just_a_login(): void {
+	public function test_held_suspended_and_host_blocked_people_are_not_members(): void {
+		$event = array( 'id' => 13, 'author_id' => $this->owner, 'space_id' => 0 );
+
+		$held = self::factory()->user->create();
+		add_filter( 'buddynext_member_hold', static fn( $h, $uid ) => (int) $uid === $held ? array( 'url' => home_url( '/hold/' ) ) : $h, 10, 2 );
+		$this->assertFalse( $this->is_member( $held, $event ), 'A held member is a guest for events.' );
+
+		$suspended = self::factory()->user->create();
+		$suspension = buddynext_service( 'moderation' )->suspend_user( $suspended, self::factory()->user->create( array( 'role' => 'administrator' ) ), 'test' );
+		$this->assertIsInt( $suspension, 'Precondition: the suspension was recorded.' );
+		$this->assertFalse( $this->is_member( $suspended, $event ), 'A suspended member is not a member.' );
+
+		$blocked = self::factory()->user->create();
+		buddynext_service( 'blocks' )->block( $this->owner, $blocked );
+		$this->assertFalse( $this->is_member( $blocked, $event ), 'Someone the host blocked is refused.' );
+		$this->assertTrue( $this->is_member( $blocked, array( 'id' => 14, 'author_id' => $this->member, 'space_id' => 0 ) ), 'A different host did not block them.' );
+	}
+
+	public function test_a_site_admin_is_always_a_member(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+
+		$this->assertTrue( $this->is_member( $admin, array( 'id' => 15, 'author_id' => $this->owner, 'space_id' => 0 ) ) );
+	}
+
+	public function test_the_list_question_without_an_event_is_answered_for_active_members(): void {
+		// Eventonomy asks this with no event to decide whether to list Members-only events site-wide.
+		$this->assertTrue( (bool) apply_filters( 'evnm_user_is_event_member', true, $this->member, array() ) );
+		$this->assertFalse( (bool) apply_filters( 'evnm_user_is_event_member', true, 0, array() ) );
+	}
+
+	/**
+	 * Ask the way Eventonomy does for the Space members level.
+	 */
+	private function can_view( int $user, array $event ): bool {
+		return true === apply_filters( 'evnm_event_can_view', null, $event, $user, EventonomyAccess::SPACE_LEVEL );
+	}
+
+	public function test_space_members_level_needs_membership_of_the_home_space(): void {
 		$space = $this->space( 'open' );
-		$event = array( 'id' => 12, 'space_id' => $space );
+		$event = array( 'id' => 21, 'author_id' => $this->owner, 'space_id' => $space );
 		$this->join( $space, $this->member );
 
-		$this->assertTrue( $this->is_member( $this->member, $event ), 'A member counts.' );
-		$this->assertTrue( $this->is_member( $this->owner, $event ), 'The owner counts.' );
-		$this->assertFalse( $this->is_member( $this->outsider, $event ), 'Signed in is not enough on an open Space.' );
-		$this->assertFalse( $this->is_member( 0, $event ) );
+		$this->assertTrue( $this->can_view( $this->member, $event ), 'A member counts.' );
+		$this->assertTrue( $this->can_view( $this->owner, $event ), 'The Space owner counts.' );
+		$this->assertFalse( $this->can_view( $this->outsider, $event ), 'Signed in is not enough, even on an open Space.' );
+		$this->assertFalse( $this->can_view( 0, $event ) );
 	}
 
 	public function test_private_and_secret_spaces_count_members_only(): void {
 		foreach ( array( 'private', 'secret' ) as $type ) {
 			$space = $this->space( $type );
-			$event = array( 'id' => 13, 'space_id' => $space );
+			$event = array( 'id' => 22, 'author_id' => $this->owner, 'space_id' => $space );
 			$this->join( $space, $this->member );
 
-			$this->assertTrue( $this->is_member( $this->member, $event ), "$type: a member counts." );
-			$this->assertFalse( $this->is_member( $this->outsider, $event ), "$type: an outsider does not." );
+			$this->assertTrue( $this->can_view( $this->member, $event ), "$type: a member counts." );
+			$this->assertFalse( $this->can_view( $this->outsider, $event ), "$type: an outsider does not." );
 		}
 	}
 
-	public function test_a_site_admin_counts(): void {
+	public function test_a_site_admin_sees_a_space_members_event(): void {
 		$space = $this->space( 'private' );
 		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
 
-		$this->assertTrue( $this->is_member( $admin, array( 'id' => 14, 'space_id' => $space ) ) );
+		$this->assertTrue( $this->can_view( $admin, array( 'id' => 23, 'author_id' => $this->owner, 'space_id' => $space ) ) );
 	}
 
 	public function test_a_plan_holder_who_has_not_joined_counts_on_a_plan_gated_space(): void {
 		$space = $this->space( 'open', 'tier:gold' );
-		$event = array( 'id' => 15, 'space_id' => $space );
+		$event = array( 'id' => 24, 'author_id' => $this->owner, 'space_id' => $space );
 		$plan  = $this->outsider;
 		$gate  = static fn( $can, $space_id, $viewer ) => (int) $viewer === $plan ? $can : false;
 		add_filter( 'buddynext_can_view_space_content', $gate, 10, 3 );
 
-		$this->assertTrue( $this->is_member( $plan, $event ), 'A holder of the gating plan counts.' );
-		$this->assertFalse( $this->is_member( self::factory()->user->create(), $event ), 'Someone without the plan does not.' );
+		$this->assertTrue( $this->can_view( $plan, $event ), 'A holder of the gating plan counts, joined or not.' );
+		$this->assertFalse( $this->can_view( self::factory()->user->create(), $event ), 'Someone without the plan does not.' );
 		remove_filter( 'buddynext_can_view_space_content', $gate, 10 );
 	}
 
-	public function test_a_lapsed_plan_holder_who_joined_still_counts_as_a_member(): void {
-		// Owner decision: a member stays on the roster after the plan lapses; the gate narrows content, not membership.
+	public function test_a_member_whose_plan_lapsed_no_longer_counts(): void {
+		// Owner decision: the same live rule as the Space's own posts, roster and leaderboard.
 		$space = $this->space( 'open', 'tier:gold' );
 		$this->join( $space, $this->member );
 		$gate = static fn() => false;
 		add_filter( 'buddynext_can_view_space_content', $gate );
 
-		$this->assertTrue( $this->is_member( $this->member, array( 'id' => 16, 'space_id' => $space ) ) );
+		$this->assertFalse( $this->can_view( $this->member, array( 'id' => 25, 'author_id' => $this->owner, 'space_id' => $space ) ) );
+		$this->assertTrue( $this->can_view( $this->owner, array( 'id' => 26, 'author_id' => $this->owner, 'space_id' => $space ) ), 'The owner is never locked out.' );
 		remove_filter( 'buddynext_can_view_space_content', $gate );
 	}
 
-	public function test_a_space_that_no_longer_exists_closes_the_event(): void {
-		$this->assertFalse( $this->is_member( $this->member, array( 'id' => 17, 'space_id' => 987654321 ) ) );
+	public function test_a_gated_space_with_no_plan_evaluator_falls_back_to_its_roster(): void {
+		// Pro absent: nothing answers the plan gate, so an open gated Space must not make every login a member.
+		$space = $this->space( 'open', 'tier:gold' );
+		$this->join( $space, $this->member );
+		remove_all_filters( 'buddynext_can_view_space_content' );
+		$event = array( 'id' => 27, 'author_id' => $this->owner, 'space_id' => $space );
+
+		$this->assertTrue( $this->can_view( $this->member, $event ) );
+		$this->assertFalse( $this->can_view( $this->outsider, $event ) );
 	}
 
-	public function test_the_list_question_without_an_event_is_answered_no(): void {
-		// Eventonomy asks this with no event to decide whether to list members-only events site-wide.
-		// Which Space? There is none to ask, so nothing is listed; the Space's own tab lists them.
-		$this->assertFalse( (bool) apply_filters( 'evnm_user_is_event_member', true, $this->member, array() ) );
+	public function test_a_space_that_is_gone_or_missing_closes_the_event(): void {
+		$this->assertFalse( $this->can_view( $this->member, array( 'id' => 28, 'author_id' => 1, 'space_id' => 987654321 ) ), 'Space deleted.' );
+		$this->assertFalse( $this->can_view( $this->member, array( 'id' => 29, 'author_id' => 1, 'space_id' => 0 ) ), 'No Space at all.' );
+	}
+
+	public function test_a_held_space_member_cannot_see_a_space_members_event(): void {
+		$space = $this->space( 'open' );
+		$this->join( $space, $this->member );
+		$member = $this->member;
+		add_filter( 'buddynext_member_hold', static fn( $h, $uid ) => (int) $uid === $member ? array( 'url' => home_url( '/hold/' ) ) : $h, 10, 2 );
+
+		$this->assertFalse( $this->can_view( $this->member, array( 'id' => 30, 'author_id' => $this->owner, 'space_id' => $space ) ) );
+	}
+
+	public function test_other_levels_pass_through_untouched(): void {
+		$this->assertNull( apply_filters( 'evnm_event_can_view', null, array( 'id' => 31, 'space_id' => 5 ), $this->member, 'members_only' ) );
+		$this->assertTrue( apply_filters( 'evnm_event_can_view', true, array( 'id' => 32 ), $this->member, 'public' ) );
+	}
+
+	public function test_the_space_level_is_offered_with_a_space_and_for_rest_validation(): void {
+		$base = array( 'public' => 'Public', 'members_only' => 'Members only' );
+
+		$this->assertArrayHasKey( 'space', apply_filters( 'evnm_visibility_levels', $base, array( 'space_id' => 7 ) ), 'Editing an event that has a Space.' );
+		$this->assertArrayHasKey( 'space', apply_filters( 'evnm_visibility_levels', $base, array() ), 'REST write validation passes no fields.' );
+		$this->assertArrayNotHasKey( 'space', apply_filters( 'evnm_visibility_levels', $base, array( 'space_id' => 0 ) ), 'No Space, no Space level.' );
+		$this->assertArrayHasKey( 'space', apply_filters( 'evnm_visibility_hints', array() ) );
 	}
 
 	public function test_the_answer_is_remembered_for_the_request_and_cleared_when_the_event_changes(): void {
 		$space = $this->space( 'private' );
-		$event = array( 'id' => 18, 'space_id' => $space );
-		$this->assertFalse( $this->is_member( $this->outsider, $event ) );
+		$event = array( 'id' => 33, 'author_id' => $this->owner, 'space_id' => $space );
+		$this->assertFalse( $this->can_view( $this->outsider, $event ) );
 
 		$this->join( $space, $this->outsider );
-		$this->assertFalse( $this->is_member( $this->outsider, $event ), 'Same request: the first answer stands.' );
+		$this->assertFalse( $this->can_view( $this->outsider, $event ), 'Same request: the first answer stands.' );
 
 		do_action( 'evnm_after_update_event', $event, array( 'space_id' => $space ), array() );
-		$this->assertTrue( $this->is_member( $this->outsider, $event ), 'The event changed, so it is asked again.' );
+		$this->assertTrue( $this->can_view( $this->outsider, $event ), 'The event changed, so it is asked again.' );
 	}
 
 	/**

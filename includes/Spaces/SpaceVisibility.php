@@ -245,11 +245,15 @@ final class SpaceVisibility {
 	 * Whether the viewer counts as a MEMBER of the space, for a feature that is members-only.
 	 *
 	 * Not the same as can_view_content(): an open space shows its content to everyone, so "can see inside"
-	 * would make every signed-in visitor a member. A member here is signed in and is the space's owner, a
-	 * site admin or an active member (which covers moderators), or holds the plan that gates the space (a
-	 * space with a required_ability, answered through can_view_content() so Pro stays the only place that
-	 * evaluates a plan). A lapsed plan holder who joined earlier stays a member: the plan narrows what they
-	 * can read, not the roster.
+	 * would make every signed-in visitor a member. A member here is signed in and is the space's owner or a
+	 * site admin (always), or otherwise:
+	 *  - on a space that carries a plan gate while Pro is answering it: whoever passes that gate NOW, which
+	 *    is a holder of the plan (joined or not) and never a member whose plan lapsed, the same live rule the
+	 *    space's own posts, roster and leaderboard follow;
+	 *  - on any other space: an active member (which covers moderators).
+	 *
+	 * Pro stays the only place that evaluates a plan: the gate is asked through can_view_content(), and when
+	 * no plan evaluator is registered (Pro absent) a gated space falls back to its roster.
 	 *
 	 * @since 1.3.0
 	 *
@@ -261,10 +265,13 @@ final class SpaceVisibility {
 		if ( null === $space || $viewer_id <= 0 ) {
 			return false;
 		}
-		if ( self::is_privileged( $space, $viewer_id ) ) {
+		if ( (int) ( $space['owner_id'] ?? 0 ) === $viewer_id || user_can( $viewer_id, 'manage_options' ) ) {
 			return true;
 		}
-		return '' !== (string) ( $space['required_ability'] ?? '' ) && self::can_view_content( $space, $viewer_id );
+		if ( '' !== (string) ( $space['required_ability'] ?? '' ) && has_filter( 'buddynext_can_view_space_content' ) ) {
+			return self::can_view_content( $space, $viewer_id );
+		}
+		return ( new SpaceMemberService() )->is_member( (int) ( $space['id'] ?? 0 ), $viewer_id );
 	}
 
 	/**
