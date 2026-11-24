@@ -67,7 +67,7 @@
 	padding: var(--bn-s6);
 	background:
 		radial-gradient(circle at 25% 30%, color-mix(in oklch, var(--bn-accent) 20%, transparent), transparent 55%),
-		radial-gradient(circle at 80% 70%, color-mix(in oklch, oklch(60% 0.20 290) 14%, transparent), transparent 50%),
+		radial-gradient(circle at 80% 70%, color-mix(in oklch, oklch(60% 0.20 calc(var(--bn-hue) + 20)) 14%, transparent), transparent 50%),
 		var(--bn-canvas);
 }
 .bn-ob-canvas::after {

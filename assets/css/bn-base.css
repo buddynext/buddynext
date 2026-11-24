@@ -360,10 +360,14 @@ html:has( .bn-app__main, .bn-app--auth ) { scrollbar-gutter: stable; }
 	--red-bg:      var(--bn-danger-bg);
 	--pink:        oklch(60% 0.20 350);
 
-	/* Auth-page gradient stops */
-	--auth-grad-from: var(--bn-accent);
-	--auth-grad-via:  oklch(50% 0.20 270);
-	--auth-grad-to:   oklch(52% 0.22 295);
+	/* Auth-page gradient stops: three depths of the brand, never fixed hues.
+	   The panel carries white text in light AND dark mode, so these are dark by
+	   design (the @supports block below caps the first stop's luminance exactly
+	   as --bn-accent-solid does, but without flipping light in dark mode).
+	   Browsers without relative colour keep this plain mix toward black. */
+	--auth-grad-from: color-mix(in oklab, var(--bn-accent) 50%, black);
+	--auth-grad-via:  color-mix(in oklab, var(--bn-accent) 38%, black);
+	--auth-grad-to:   color-mix(in oklab, var(--bn-accent) 28%, black);
 
 	/* Spacing */
 	--s1:  var(--bn-s1);
@@ -599,6 +603,17 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		   a blue button on a red-accent site. */
 		--bn-accent-fg: var(--bn-accent-fg-auto);
 		--bn-accent-solid: var(--bn-accent-solid-auto);
+
+		/* Auth panel and default profile cover. The brand scaled in linear sRGB to
+		   a luminance of at most 0.15 (white text then reads at 5.25:1, even on
+		   yellow), then two deeper steps of the same colour. Re-declared here, on
+		   the elements that can set --bn-accent, so each follows its own accent. */
+		--auth-grad-from: color(from var(--bn-accent) srgb-linear
+			calc(r * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b)))
+			calc(g * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b)))
+			calc(b * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b))));
+		--auth-grad-via: color-mix(in oklab, var(--auth-grad-from) 80%, black);
+		--auth-grad-to:  color-mix(in oklab, var(--auth-grad-from) 60%, black);
 	}
 
 	/* Dark mode: the accent is light by design; whichever label contrasts more. */

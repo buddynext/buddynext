@@ -32,7 +32,14 @@ $bn_panel_quote   = buddynext_auth_panel_value( 'buddynext_auth_panel_quote' );
 // be redundant — the panel leads with the quote + community identity instead.
 ?>
 <?php // A cleared image leaves the gradient: no attribute, no url('') the browser would fetch as the page itself. ?>
-<?php $bn_panel_image_url = esc_url( $bn_panel_image ); ?>
+<?php
+// The shipped artwork keeps one URL across releases, and a site stores that URL, so a
+// browser or CDN would keep serving the copy from before an update. Version it.
+if ( str_starts_with( $bn_panel_image, BUDDYNEXT_URL . 'assets/images/' ) ) {
+	$bn_panel_image = add_query_arg( 'ver', BUDDYNEXT_VERSION, $bn_panel_image );
+}
+$bn_panel_image_url = esc_url( $bn_panel_image );
+?>
 <?php if ( '' !== $bn_panel_image_url ) : ?>
 <aside class="bn-auth-aside" data-has-image="1"
 	style="--bn-auth-aside-image: url('<?php echo $bn_panel_image_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped with esc_url() above. ?>');">

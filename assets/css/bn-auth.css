@@ -82,13 +82,17 @@
 	overflow: hidden;
 }
 
-/* Cover photo + a brand-tinted scrim so overlaid text stays legible on any image. */
+/* Cover photo + a brand-tinted scrim so overlaid text stays legible on any image.
+ * The brand gradient is the bottom layer: the shipped artwork is transparent (texture
+ * only) so it shows through and the panel follows the brand colour, while an uploaded
+ * photo is opaque and simply covers it. */
 .bn-auth-aside[data-has-image] {
 	background-image:
 		linear-gradient(165deg, color-mix(in oklab, var(--auth-grad-from) 62%, transparent) 0%, color-mix(in oklab, var(--auth-grad-to) 72%, transparent) 100%),
-		var(--bn-auth-aside-image);
-	background-size: cover, cover;
-	background-position: center, center;
+		var(--bn-auth-aside-image),
+		linear-gradient(150deg, var(--auth-grad-from) 0%, var(--auth-grad-via) 55%, var(--auth-grad-to) 100%);
+	background-size: cover, cover, cover;
+	background-position: center, center, center;
 }
 
 .bn-auth-aside__inner {
@@ -196,7 +200,7 @@
 /* Gradient hero strip (logo + brand) sits above the card body. */
 .bn-auth-hero {
 	background: linear-gradient(135deg, var(--auth-grad-from) 0%, var(--auth-grad-via) 60%, var(--auth-grad-to) 100%);
-	color: var(--bn-accent-fg);
+	color: #fff;
 	padding: var(--bn-s5) var(--bn-s6);
 	display: flex;
 	align-items: center;
