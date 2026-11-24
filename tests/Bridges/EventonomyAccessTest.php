@@ -159,4 +159,64 @@ class EventonomyAccessTest extends \WP_UnitTestCase {
 		do_action( 'evnm_after_update_event', $event, array( 'space_id' => $space ), array() );
 		$this->assertTrue( $this->is_member( $this->outsider, $event ), 'The event changed, so it is asked again.' );
 	}
+
+	/**
+	 * Ask the way Eventonomy does for the right to manage an event.
+	 */
+	private function can_manage( int $user, array $event, string $capability ): bool {
+		return (bool) apply_filters( 'evnm_user_can_manage_event', false, $user, $event, $capability );
+	}
+
+	public function test_a_space_moderator_edits_and_sees_attendees_of_an_event_in_their_space(): void {
+		$space     = $this->space( 'open' );
+		$moderator = self::factory()->user->create();
+		$this->join( $space, $moderator );
+		( new SpaceMemberService() )->change_role( $space, $moderator, 'moderator', $this->owner );
+		$event = array( 'id' => 21, 'author_id' => $this->outsider, 'space_id' => $space );
+
+		$this->assertTrue( $this->can_manage( $moderator, $event, 'edit' ) );
+		$this->assertTrue( $this->can_manage( $moderator, $event, 'manage_rsvps' ) );
+		$this->assertTrue( $this->can_manage( $this->owner, $event, 'edit' ), 'The Space owner can too.' );
+	}
+
+	public function test_a_moderator_never_gets_the_money_or_delete_rights(): void {
+		$space     = $this->space( 'open' );
+		$moderator = self::factory()->user->create();
+		$this->join( $space, $moderator );
+		( new SpaceMemberService() )->change_role( $space, $moderator, 'moderator', $this->owner );
+		$event = array( 'id' => 22, 'author_id' => $this->outsider, 'space_id' => $space );
+
+		$this->assertFalse( $this->can_manage( $moderator, $event, 'manage_orders' ), 'Orders and refunds stay with the event owner and admins.' );
+		$this->assertFalse( $this->can_manage( $moderator, $event, 'delete' ) );
+	}
+
+	public function test_the_right_stops_at_the_home_space_and_needs_the_role(): void {
+		$home      = $this->space( 'open' );
+		$other     = $this->space( 'open' );
+		$moderator = self::factory()->user->create();
+		$this->join( $home, $moderator );
+		( new SpaceMemberService() )->change_role( $home, $moderator, 'moderator', $this->owner );
+		$this->join( $other, $this->member );
+
+		$this->assertFalse( $this->can_manage( $moderator, array( 'id' => 23, 'author_id' => 1, 'space_id' => $other ), 'edit' ), 'Another Space\'s event is not theirs.' );
+		$this->assertFalse( $this->can_manage( $this->member, array( 'id' => 24, 'author_id' => 1, 'space_id' => $other ), 'edit' ), 'A plain member is not a moderator.' );
+		$this->assertFalse( $this->can_manage( $moderator, array( 'id' => 25, 'author_id' => 1, 'space_id' => 0 ), 'edit' ), 'An event with no Space has no Space moderator.' );
+	}
+
+	public function test_demoting_a_moderator_removes_the_right_at_once(): void {
+		$space     = $this->space( 'open' );
+		$moderator = self::factory()->user->create();
+		$this->join( $space, $moderator );
+		$members = new SpaceMemberService();
+		$members->change_role( $space, $moderator, 'moderator', $this->owner );
+		$event = array( 'id' => 26, 'author_id' => 1, 'space_id' => $space );
+		$this->assertTrue( $this->can_manage( $moderator, $event, 'edit' ) );
+
+		$members->change_role( $space, $moderator, 'member', $this->owner );
+		$this->assertFalse( $this->can_manage( $moderator, $event, 'edit' ) );
+	}
+
+	public function test_an_existing_yes_is_never_taken_away(): void {
+		$this->assertTrue( (bool) apply_filters( 'evnm_user_can_manage_event', true, $this->outsider, array( 'id' => 27, 'space_id' => 0 ), 'edit' ) );
+	}
 }

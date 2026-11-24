@@ -8,8 +8,9 @@
  * decides, through SpaceVisibility::has_member_access(), so Space type, roster and (when BuddyNext Pro is
  * active) plan gating are all honoured by the one rule the Space forum already follows.
  *
- * Free owns it because it needs only Space types and membership, so a site without BuddyNext Pro gets
- * correct members-only events too.
+ * It also answers who may manage an event: a moderator or manager of the event's home Space may edit it and
+ * see its attendees. Free owns both because they need only Space types, roles and membership, so a site
+ * without BuddyNext Pro gets correct members-only events too.
  *
  * @package BuddyNext\Bridges
  * @since   1.3.0
@@ -53,6 +54,7 @@ class EventonomyAccess {
 			return;
 		}
 		add_filter( 'evnm_user_is_event_member', array( $this, 'answer' ), 10, 3 );
+		add_filter( 'evnm_user_can_manage_event', array( $this, 'can_manage' ), 10, 4 );
 		add_action( 'evnm_after_update_event', array( $this, 'forget' ), 10, 1 );
 		add_action( 'evnm_after_delete_event', array( $this, 'forget' ), 10, 1 );
 	}
@@ -89,6 +91,34 @@ class EventonomyAccess {
 			self::$memo[ $key ] = SpaceVisibility::has_member_access( ( new SpaceService() )->get( $space_id ), $user_id );
 		}
 		return self::$memo[ $key ];
+	}
+
+	/**
+	 * Whether a Space moderator or manager may manage an event of their Space.
+	 *
+	 * Owner decision: a Space's moderators manage every event in that Space, home Space only, and the right
+	 * goes the moment the role does (it is read live, never kept). It covers editing the event and seeing and
+	 * managing its attendees. Orders and refunds (money) and deleting stay with the event's owner and site
+	 * admins. A yes that Eventonomy already reached is never taken away.
+	 *
+	 * @param mixed $base       Eventonomy's own answer.
+	 * @param mixed $user_id    User id.
+	 * @param mixed $event      Event row.
+	 * @param mixed $capability One of edit, delete, manage_rsvps, manage_orders.
+	 * @return bool
+	 */
+	public function can_manage( $base, $user_id, $event = array(), $capability = 'edit' ): bool {
+		if ( (bool) $base ) {
+			return true;
+		}
+		$user_id  = (int) $user_id;
+		$space_id = is_array( $event ) ? (int) ( $event['space_id'] ?? 0 ) : 0;
+		if ( $user_id <= 0 || $space_id <= 0 || ! in_array( $capability, array( 'edit', 'manage_rsvps' ), true ) || ! function_exists( 'buddynext_can' ) ) {
+			return false;
+		}
+		$context = array( 'space_id' => $space_id );
+		return (bool) buddynext_can( $user_id, 'buddynext-manage-space', $context )
+			|| (bool) buddynext_can( $user_id, 'buddynext-moderate-space', $context );
 	}
 
 	/**
