@@ -9,4 +9,4 @@ P9 includes/Integrations/CompanionInstaller.php  # one-click companion install s
 P9 includes/Outbound/OutboundWebhookService.php  # delivery runs inside the buddynext_webhook_deliver Action Scheduler action (run_delivery), queued by as_enqueue_async_action, never on the request that fired the event
 P9 includes/Feed/BlogPostListener.php   # matches a comment explaining why the fetch is deferred; no request is made on this path
 # P2: asset bundle size.
-P2 tests/e2e/_report                    # Playwright's local HTML report: git-ignored, never committed, never in the zip
+P2 tests/e2e/_report                    # Playwright's HTML report: it exists only in a working tree that has run the e2e suite (git-ignored, never committed, never in the zip), so a clean clone never matches this line
