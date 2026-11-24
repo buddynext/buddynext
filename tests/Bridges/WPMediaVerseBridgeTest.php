@@ -98,6 +98,24 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * MediaVerse's profile button asks whether a request is waiting, so it reads Requested after a reload.
+	 */
+	public function test_a_waiting_follow_request_is_reported_to_mediaverse(): void {
+		$target   = self::factory()->user->create();
+		$follower = self::factory()->user->create();
+
+		$this->assertFalse( $this->bridge->follow_is_requested( false, $follower, $target ), 'Nothing waiting.' );
+		$this->assertTrue( (bool) apply_filters( 'mvs_follow_is_requested', true, $follower, $target ), 'The earlier answer stands.' );
+
+		update_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META, 1 );
+		$this->bridge->can_follow( true, $follower, $target ); // A follow of a private account becomes a request.
+
+		$this->assertTrue( $this->bridge->follow_is_requested( false, $follower, $target ), 'The pending request is reported.' );
+		$this->assertTrue( (bool) apply_filters( 'mvs_follow_is_requested', false, $follower, $target ), 'The bridge answers the filter.' );
+		$this->assertFalse( $this->bridge->follow_is_requested( false, self::factory()->user->create(), $target ), 'Only the member who asked.' );
+	}
+
+	/**
 	 * Cancelling a private account's request from a MediaVerse client removes the pending request.
 	 */
 	public function test_mediaverse_unfollow_withdraws_a_pending_request(): void {

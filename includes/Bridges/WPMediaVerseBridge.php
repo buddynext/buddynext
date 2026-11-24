@@ -277,6 +277,7 @@ class WPMediaVerseBridge {
 		// MediaVerse 2.6.5+ asks before it records a follow, so BuddyNext decides
 		// first and a private account never sees an active follow it must withdraw.
 		add_filter( 'mvs_can_follow', array( $this, 'can_follow' ), 10, 3 );
+		add_filter( 'mvs_follow_is_requested', array( $this, 'follow_is_requested' ), 10, 3 );
 		add_action( 'mvs_user_followed', array( $this, 'mirror_mvs_follow' ), 10, 2 );
 		add_action( 'mvs_user_unfollowed', array( $this, 'mirror_mvs_unfollow' ), 10, 2 );
 		add_action( 'mvs_follow_request_withdrawn', array( $this, 'withdraw_pending_follow' ), 10, 2 );
@@ -2708,6 +2709,28 @@ class WPMediaVerseBridge {
 			return true;
 		}
 		return method_exists( $bn, 'has_pending_request' ) && $bn->has_pending_request( $follower_id, $following_id ) ? 'pending' : false;
+	}
+
+	/**
+	 * Whether the viewer has a follow request waiting on a private account.
+	 *
+	 * MediaVerse's profile button asks this when the page loads, so "Requested" (and the cancel click) survives a
+	 * reload; it knew the state only in the page that sent the request. Answered from the same pending request
+	 * can_follow() reports.
+	 *
+	 * @param bool $requested    Earlier answer.
+	 * @param int  $follower_id  The viewer.
+	 * @param int  $following_id The member whose profile this is.
+	 * @return bool
+	 */
+	public function follow_is_requested( $requested, int $follower_id, int $following_id ): bool {
+		if ( $requested ) {
+			return true;
+		}
+
+		$bn = $this->bn_follows();
+
+		return null !== $bn && method_exists( $bn, 'has_pending_request' ) && $bn->has_pending_request( $follower_id, $following_id );
 	}
 
 	/**
