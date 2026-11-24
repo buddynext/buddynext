@@ -2682,8 +2682,8 @@ class JetonomyBridge {
 	 * BuddyNext mirrors each forum notification into its bell once Jetonomy has declared its types, and its
 	 * own push follows that row under the member's Push switch. Both plugins pushed the same event, so a
 	 * member with both set up got two. BuddyNext's push is the one kept, but only for a member it will really
-	 * reach (a provider is set up, the member has a device registered here and Push is on for them):
-	 * a member who only subscribed in Jetonomy keeps Jetonomy Pro's push.
+	 * reach (Push is on for them and they hold a token this site can send to, which BuddyNext Pro answers through
+	 * buddynext_push_reaches_user): a member who only subscribed in Jetonomy keeps Jetonomy Pro's push.
 	 *
 	 * @since 1.3.0
 	 *
@@ -2694,9 +2694,8 @@ class JetonomyBridge {
 	public function leave_push_to_buddynext( $send, $user_id = 0 ): bool {
 		return (bool) $send && ! (
 			\BuddyNext\Notifications\IntegrationNotificationListener::adopted( 'jetonomy' )
-			&& buddynext_push_available()
 			/**
-			 * Whether BuddyNext's own push will reach this member (Pro answers: a registered device and Push on).
+			 * Whether BuddyNext's own push will reach this member (Pro answers: Push on and a token this site can send to).
 			 *
 			 * @since 1.3.0
 			 *
