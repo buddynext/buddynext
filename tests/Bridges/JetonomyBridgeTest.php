@@ -1924,7 +1924,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The Space decides who can see and join its forum: the forum's own edit route may not say otherwise.
+	 * The Space decides who can see and join its forum: no writer of the forum may say otherwise.
 	 */
 	public function test_a_linked_forum_cannot_be_edited_away_from_its_space(): void {
 		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Follows', 'slug' => 'follows-' . wp_rand( 1000, 9999 ) ) );
@@ -1932,28 +1932,45 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		\Jetonomy\Models\Space::$rows[9101] = array( 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' );
 
 		foreach ( array( 'visibility' => 'private', 'join_policy' => 'approval', 'status' => 'archived' ) as $field => $value ) {
-			$refused = $this->bridge->check_forum_follows_space( null, array(), $this->forum_patch( 9101, array( $field => $value ) ) );
+			$refused = $this->bridge->refuse_forum_drift( true, 9101, array( $field => $value ) );
 			$this->assertWPError( $refused, $field );
 			$this->assertSame( 'bn_forum_follows_space', $refused->get_error_code() );
 			$this->assertSame( 409, $refused->get_error_data()['status'] );
 		}
 
 		// Everything else about a forum is the forum admin's own to edit, and a form that re-sends today's values is fine.
-		$this->assertNull( $this->bridge->check_forum_follows_space( null, array(), $this->forum_patch( 9101, array( 'title' => 'New name', 'description' => 'x' ) ) ) );
-		$this->assertNull( $this->bridge->check_forum_follows_space( null, array(), $this->forum_patch( 9101, array( 'title' => 'T', 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' ) ) ) );
+		$this->assertTrue( $this->bridge->refuse_forum_drift( true, 9101, array( 'title' => 'New name', 'description' => 'x' ) ) );
+		$this->assertTrue( $this->bridge->refuse_forum_drift( true, 9101, array( 'title' => 'T', 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' ) ) );
 
-		// Only an edit of one forum is judged: a read, another route, or a forum with no Space is left alone.
-		$read = new \WP_REST_Request( 'GET', '/jetonomy/v1/spaces/9101' );
-		$read->set_param( 'visibility', 'private' );
-		$this->assertNull( $this->bridge->check_forum_follows_space( null, array(), $read ) );
-		$this->assertNull( $this->bridge->check_forum_follows_space( null, array(), new \WP_REST_Request( 'PATCH', '/jetonomy/v1/spaces/9101/members' ) ) );
-
+		// Another plugin's refusal stands, and a forum that belongs to no Space is its admin's to change.
+		$other = new \WP_Error( 'other', 'Refused elsewhere.' );
+		$this->assertSame( $other, $this->bridge->refuse_forum_drift( $other, 9101, array( 'visibility' => 'private' ) ) );
 		\Jetonomy\Models\Space::$rows[9102] = array( 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' );
-		$this->assertNull( $this->bridge->check_forum_follows_space( null, array(), $this->forum_patch( 9102, array( 'visibility' => 'private' ) ) ), 'A forum that belongs to no Space is its admin\'s to change.' );
+		$this->assertTrue( $this->bridge->refuse_forum_drift( true, 9102, array( 'visibility' => 'private' ) ), 'A forum that belongs to no Space is its admin\'s to change.' );
 
 		\Jetonomy\Models\Space::$rows = array();
 	}
 
+	/**
+	 * Through the real model write: the bridge's own forum write lands, and every other writer is refused with the row
+	 * unchanged.
+	 */
+	public function test_the_bridges_own_forum_writes_pass_the_guard_and_every_other_writer_is_refused(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Own write', 'slug' => 'own-write-' . wp_rand( 1000, 9999 ) ) );
+		update_space_meta( $space_id, 'jetonomy_forum_id', '9103' );
+		\Jetonomy\Models\Space::$rows[9103] = array( 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' );
+		add_filter( 'jetonomy_before_update_space', array( $this->bridge, 'refuse_forum_drift' ), 10, 3 );
+
+		$other = \Jetonomy\Models\Space::update( 9103, array( 'visibility' => 'private' ) );
+		$this->assertWPError( $other, 'Any other writer is refused.' );
+		$this->assertSame( 'public', \Jetonomy\Models\Space::$rows[9103]['visibility'], 'And the forum is unchanged.' );
+
+		$this->assertTrue( JetonomyBridge::write_forum( 9103, array( 'visibility' => 'private' ) ), 'The Space\'s own write goes through.' );
+		$this->assertSame( 'private', \Jetonomy\Models\Space::$rows[9103]['visibility'] );
+		$this->assertWPError( \Jetonomy\Models\Space::update( 9103, array( 'visibility' => 'public' ) ), 'The marker does not outlive the write.' );
+
+		\Jetonomy\Models\Space::$rows = array();
+	}
 	/**
 	 * One push per event: Jetonomy Pro keeps its push unless BuddyNext can really send one
 	 * (the stand-down itself is covered in BuddyNext Pro, where push exists).
@@ -2097,8 +2114,21 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 		 * @param array<string,mixed> $data Columns to write.
 		 * @return void
 		 */
-		public static function update( int $id, array $data ): void {
-			self::$settings[ $id ] = (array) json_decode( (string) ( $data['settings'] ?? '{}' ), true );
+		public static function update( int $id, array $data ) {
+			// Like the real model: ask the filter first, and write nothing when it refuses.
+			$allowed = apply_filters( 'jetonomy_before_update_space', true, $id, $data );
+			if ( is_wp_error( $allowed ) ) {
+				return $allowed;
+			}
+			if ( array_key_exists( 'settings', $data ) ) {
+				self::$settings[ $id ] = (array) json_decode( (string) $data['settings'], true );
+			}
+			foreach ( array( 'visibility', 'join_policy', 'status' ) as $column ) {
+				if ( array_key_exists( $column, $data ) && isset( self::$rows[ $id ] ) ) {
+					self::$rows[ $id ][ $column ] = $data[ $column ];
+				}
+			}
+			return true;
 		}
 	}
 }

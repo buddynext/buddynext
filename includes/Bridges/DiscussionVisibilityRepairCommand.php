@@ -117,7 +117,7 @@ class DiscussionVisibilityRepairCommand {
 				);
 
 				if ( ! $dry_run ) {
-					\Jetonomy\Models\Space::update( $forum_id, array( 'visibility' => $want ) );
+					\BuddyNext\Bridges\JetonomyBridge::write_forum( $forum_id, array( 'visibility' => $want ) );
 				}
 			}
 

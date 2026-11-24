@@ -194,8 +194,9 @@ class JetonomyBridge {
 		add_filter( 'jetonomy_before_create_reply', array( $this, 'check_new_reply' ), 10, 1 );
 		// Jetonomy runs no check when a topic or reply is edited, so the edit routes are checked here.
 		add_filter( 'rest_request_before_callbacks', array( $this, 'check_forum_edit' ), 10, 3 );
-		// A forum linked to a Space is as open as the Space: its own edit route may not say otherwise.
-		add_filter( 'rest_request_before_callbacks', array( $this, 'check_forum_follows_space' ), 10, 3 );
+		// A forum linked to a Space is as open as the Space: no writer of the forum (REST, wp-admin, access rules, WP-CLI,
+		// the BuddyPress and Learnomy integrations) may say otherwise. The Space's own writes go through write_forum().
+		add_filter( 'jetonomy_before_update_space', array( $this, 'refuse_forum_drift' ), 10, 3 );
 		add_action( 'jetonomy_post_publish_transition', array( $this, 'sync_discussion' ), 10, 1 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
@@ -2489,7 +2490,7 @@ class JetonomyBridge {
 			return;
 		}
 
-		\Jetonomy\Models\Space::update(
+		self::write_forum(
 			$forum_id,
 			array(
 				'visibility' => 'hidden',
@@ -2744,38 +2745,58 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Refuse a forum edit that would make a linked forum disagree with its BuddyNext Space.
+	 * True while the bridge itself is writing a forum, so its own sync is never refused by the guard below.
 	 *
-	 * The Space is the authority for who can see and join its forum and whether it is open (visibility,
-	 * join_policy, status): the sync below writes them on every Space change. Jetonomy's own edit
-	 * route (PATCH /spaces/{id}) lets a forum admin set them directly, which made a public Space's
-	 * forum private until the next Space save. Only a value that differs from the forum's current one
-	 * is refused, so a full form save that changes nothing there still goes through; title,
-	 * description and the rest are untouched. The sync itself writes through the model, not this route.
+	 * @var bool
+	 */
+	private static bool $own_write = false;
+
+	/**
+	 * Write a forum's state on behalf of its BuddyNext Space (the sync, closing a forum, the visibility repair).
+	 *
+	 * Marked as the Space's own write so refuse_forum_drift() lets it through.
 	 *
 	 * @since 1.3.0
 	 *
-	 * @param mixed            $response Response so far.
-	 * @param array            $handler  Matched route handler (unused).
-	 * @param \WP_REST_Request $request  The request.
-	 * @return mixed The response, or a WP_Error that refuses the edit.
+	 * @param int                 $forum_id Jetonomy forum id.
+	 * @param array<string,mixed> $fields   Column data.
+	 * @return bool|\WP_Error What Space::update() answered.
 	 */
-	public function check_forum_follows_space( $response, $handler, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- filter signature.
-		if ( ! $request instanceof \WP_REST_Request || 'PATCH' !== $request->get_method() || is_wp_error( $response ) || ! preg_match( '#^/jetonomy/v1/spaces/(\d+)$#', $request->get_route(), $match ) ) {
-			return $response;
+	public static function write_forum( int $forum_id, array $fields ) {
+		self::$own_write = true;
+		try {
+			return \Jetonomy\Models\Space::update( $forum_id, $fields );
+		} finally {
+			self::$own_write = false;
 		}
-		$forum_id = (int) $match[1];
-		if ( $this->space_id_for_forum( $forum_id ) <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {
-			return $response;
+	}
+
+	/**
+	 * Refuse a write that would make a linked forum disagree with its BuddyNext Space.
+	 *
+	 * The Space is the authority for who can see and join its forum and whether it is open (visibility, join_policy,
+	 * status): the sync writes them on every Space change. Jetonomy's Space::update() is the one place every other
+	 * writer passes through (the REST PATCH and DELETE, the wp-admin forms, access rules, WP-CLI, the BuddyPress and
+	 * Learnomy integrations), so a value that differs from the forum's current one is refused here with a 409. A form
+	 * that re-sends today's values, title and description edits, and forums with no Space are untouched.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $proceed  Answer so far (true, or another plugin's WP_Error).
+	 * @param mixed $forum_id Jetonomy forum id.
+	 * @param mixed $data     Column data about to be written.
+	 * @return mixed True to allow, or a WP_Error that refuses the write.
+	 */
+	public function refuse_forum_drift( $proceed, $forum_id, $data ) {
+		if ( true !== $proceed || self::$own_write || ! is_array( $data ) || ! class_exists( '\Jetonomy\Models\Space' ) || $this->space_id_for_forum( (int) $forum_id ) <= 0 ) {
+			return $proceed;
 		}
-		$forum = \Jetonomy\Models\Space::find( $forum_id );
+		$forum = \Jetonomy\Models\Space::find( (int) $forum_id );
 		if ( ! $forum ) {
-			return $response;
+			return $proceed;
 		}
 		foreach ( array( 'visibility', 'join_policy', 'status' ) as $field ) {
-			$asked   = $request->get_param( $field );
-			$current = (string) ( $forum->$field ?? '' );
-			if ( null !== $asked && $current !== (string) $asked ) {
+			if ( array_key_exists( $field, $data ) && (string) $data[ $field ] !== (string) ( $forum->$field ?? '' ) ) {
 				return new \WP_Error(
 					'bn_forum_follows_space',
 					__( 'This forum follows its Space. Change who can see or join it in the Space settings.', 'buddynext' ),
@@ -2783,7 +2804,7 @@ class JetonomyBridge {
 				);
 			}
 		}
-		return $response;
+		return $proceed;
 	}
 
 	/**
@@ -2954,7 +2975,7 @@ class JetonomyBridge {
 			return;
 		}
 
-		\Jetonomy\Models\Space::update( $forum_id, $change );
+		self::write_forum( $forum_id, $change );
 		$this->purge_forum_pages( $forum_id );
 
 		// The search rows were written under the old type. Going private is clamped
