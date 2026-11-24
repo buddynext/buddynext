@@ -89,18 +89,22 @@ class MediaAssets {
 			'bn-media-lightbox',
 			'bnMedia',
 			array(
-				'mvsRest'        => esc_url_raw( rest_url( 'mvs/v1' ) ),
-				'nonce'          => wp_create_nonce( 'wp_rest' ),
-				'userId'         => get_current_user_id(),
+				'mvsRest'          => esc_url_raw( rest_url( 'mvs/v1' ) ),
+				'nonce'            => wp_create_nonce( 'wp_rest' ),
+				'userId'           => get_current_user_id(),
 				// Media reporting is WPMediaVerse's own owner setting (on by default). Ask it, so an
 				// owner who turns it off gets no Report button rather than one that answers 403.
-				'canReport'      => class_exists( '\\WPMediaVerse\\Social\\ReportService' ) && \WPMediaVerse\Social\ReportService::reports_enabled(),
+				'canReport'        => class_exists( '\\WPMediaVerse\\Social\\ReportService' ) && \WPMediaVerse\Social\ReportService::reports_enabled(),
 				// The levels the Edit panel offers. MediaVerse Pro adds them to each media response; MediaVerse
 				// Free alone does not, so its own list (the one its pickers print) is handed over here and the
 				// panel is never left with an empty select. Empty when MediaVerse is not available.
-				'privacyChoices' => self::mediaverse_privacy_choices(),
-				'reactionTypes'  => array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' ),
-				'i18n'           => array(
+				'privacyChoices'   => self::mediaverse_privacy_choices(),
+				// False when the site owner has locked privacy: the Edit panel then offers no choice.
+				'canChoosePrivacy' => \BuddyNext\Bridges\WPMediaVerseBridge::members_may_choose_privacy(),
+				// MediaVerse Pro labels its friends level "Friends Only"; here it is Connections.
+				'connectionsLabel' => __( 'Connections Only', 'buddynext' ),
+				'reactionTypes'    => array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' ),
+				'i18n'             => array(
 					'view'             => __( 'view', 'buddynext' ),
 					'views'            => __( 'views', 'buddynext' ),
 					'favorite'         => __( 'Favorite', 'buddynext' ),
@@ -122,6 +126,11 @@ class MediaAssets {
 					'save'             => __( 'Save', 'buddynext' ),
 					'saved'            => __( 'Saved', 'buddynext' ),
 					'removedFromSaved' => __( 'Removed from saved', 'buddynext' ),
+					// The Edit panel: what Save did, and the privacy line when the owner has locked it.
+					'changesSaved'     => __( 'Changes saved', 'buddynext' ),
+					'changesFailed'    => __( 'Could not save your changes. Try again.', 'buddynext' ),
+					'privacyLocked'    => __( 'The site owner sets who can see media.', 'buddynext' ),
+					'keepCurrent'      => __( 'Keep the current setting', 'buddynext' ),
 					// Moderator "Remove from space" (unlink) confirm + result toasts.
 					'unlinkConfirm'    => __( 'Remove this from the space?', 'buddynext' ),
 					'unlinkBody'       => __( 'The member keeps their own copy.', 'buddynext' ),

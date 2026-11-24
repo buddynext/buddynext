@@ -199,7 +199,9 @@ const albumsStore = store( 'buddynext/media-albums', {
 			// one had it stored by the /me/albums/{id} edit route and reported back
 			// as if in force. The server refuses it too; this just stops asking.
 			const body = { title, description: ctx.createDesc || '' };
-			if ( ( Number( ctx.spaceId ) || 0 ) === 0 ) {
+			// Nor when the site owner has locked it: the form shows no choice then, and the engine
+			// refuses an album edit that changes the level.
+			if ( ( Number( ctx.spaceId ) || 0 ) === 0 && false !== ctx.canChoosePrivacy ) {
 				body.privacy = ctx.createPrivacy || 'public';
 			}
 			try {

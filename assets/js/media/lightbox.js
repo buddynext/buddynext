@@ -1223,11 +1223,19 @@
 
 		var privacy = document.createElement( 'select' );
 		privacy.className = 'bn-lightbox__field-input';
-		// MediaVerse Pro sends the levels with each media item; with MediaVerse Free alone they come from
-		// its own list, handed over in the page config. Never a list kept on this side.
-		var opts = m.privacy_options || cfg.privacyChoices || {};
+		// MediaVerse Pro sends the levels with each media item; with MediaVerse Free alone, or when
+		// Pro sends none, they come from its own list, handed over in the page config. Never a list
+		// kept on this side. The site owner can lock privacy: then there is no choice to offer.
+		var engineOpts = m.privacy_options && Object.keys( m.privacy_options ).length ? m.privacy_options : null;
+		// wp_localize_script sends false as an empty string, so read it by truthiness; a config
+		// without the key (an older cached page) is not a lock.
+		var privacyLocked = ( 'canChoosePrivacy' in cfg ) && ! cfg.canChoosePrivacy;
+		var opts = privacyLocked ? {} : ( engineOpts || cfg.privacyChoices || {} );
 		var privacyTouched = false;
 		privacy.addEventListener( 'change', function () { privacyTouched = true; } );
+		// 'loggedin' is a stored synonym of 'members'.
+		var current_level = 'loggedin' === m.privacy ? 'members' : m.privacy;
+		var levelShown = false;
 		Object.keys( opts ).forEach( function ( k ) {
 			var o = document.createElement( 'option' );
 			var v = opts[ k ];
@@ -1236,9 +1244,21 @@
 			// rather than guessing one shape.
 			o.value = ( v && v.value ) ? v.value : k;
 			o.textContent = ( v && v.label ) ? v.label : String( v );
-			if ( o.value === m.privacy ) { o.selected = true; }
+			// MediaVerse Pro calls its friends level "Friends Only"; on this site that is Connections.
+			if ( engineOpts && 'friends' === o.value && cfg.connectionsLabel ) { o.textContent = cfg.connectionsLabel; }
+			if ( o.value === current_level ) { o.selected = true; levelShown = true; }
 			privacy.appendChild( o );
 		} );
+		// A level this list does not hold (a Space or message level): say so, rather than showing
+		// the first option as if it were the item's setting. Nothing is sent unless the member picks.
+		if ( privacy.options.length > 0 && ! levelShown ) {
+			var keep = document.createElement( 'option' );
+			keep.value = '';
+			keep.disabled = true;
+			keep.selected = true;
+			keep.textContent = I18N.keepCurrent || 'Keep the current setting';
+			privacy.insertBefore( keep, privacy.firstChild );
+		}
 
 		var dl = document.createElement( 'input' );
 		dl.type = 'checkbox';
@@ -1250,6 +1270,11 @@
 		// No levels to offer: no select at all, rather than a blank one that would send nothing.
 		if ( privacy.options.length > 0 ) {
 			host.appendChild( field( __( 'Privacy' ), privacy ) );
+		} else if ( privacyLocked ) {
+			var lockHint = document.createElement( 'p' );
+			lockHint.className = 'bn-lightbox__field-hint';
+			lockHint.textContent = I18N.privacyLocked || 'The site owner sets who can see media.';
+			host.appendChild( lockHint );
 		}
 		host.appendChild( field( __( 'Allow downloads' ), dl ) );
 		// Say what the switch can and cannot do, so an owner does not rely on it as protection.
@@ -1281,7 +1306,11 @@
 					syncTileDownload( parseInt( updated.id, 10 ), false === updated.allow_download );
 				}
 				closeExtraPanel();
-			} ).catch( function () {} );
+				notify( I18N.changesSaved || 'Changes saved', 'success' );
+			} ).catch( function ( res ) {
+				// The panel stays open with what the member typed; say why it did not save.
+				notify( window.buddynextRest.restError( res, I18N.changesFailed || 'Could not save your changes. Try again.' ), 'error' );
+			} );
 		} ) );
 		actions.appendChild( panelBtn( __( 'Cancel' ), 'ghost', closeExtraPanel ) );
 		host.appendChild( actions );

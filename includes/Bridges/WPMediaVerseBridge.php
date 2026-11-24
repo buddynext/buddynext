@@ -305,6 +305,11 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_are_friends', array( $this, 'are_friends' ), 10, 3 );
 		add_filter( 'mvs_friend_ids', array( $this, 'friend_ids' ), 10, 2 );
 
+		// ...so a member can choose it, in BuddyNext's word. MediaVerse offers the level only
+		// where BuddyPress has a friends component, and calls it Friends.
+		add_filter( 'mvs_privacy_choices', array( $this, 'offer_connections_level' ) );
+		add_filter( 'mvs_privacy_labels', array( $this, 'name_connections_level' ) );
+
 		// Followers-only media: BuddyNext's own follow list has the last word. Late,
 		// so a grant another rule already made (a competition entry) is left alone.
 		add_filter( 'mvs_privacy_can_view', array( $this, 'followers_only_needs_a_bn_follow' ), 20, 4 );
@@ -1905,6 +1910,59 @@ class WPMediaVerseBridge {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Offer MediaVerse's friends level, which on a BuddyNext site means connections.
+	 *
+	 * The level is stored, enforced (are_friends) and accepted on save already; only its
+	 * place in the list was missing, because MediaVerse adds it for BuddyPress friends alone.
+	 * A site that has that component keeps its own entry.
+	 *
+	 * @param array<string,string> $choices Privacy slug => label, in display order.
+	 * @return array<string,string>
+	 */
+	public function offer_connections_level( $choices ): array {
+		$choices = (array) $choices;
+		if ( isset( $choices['friends'] ) ) {
+			return $choices;
+		}
+
+		$entry = array( 'friends' => __( 'Connections: people you are connected with', 'buddynext' ) );
+		$at    = array_search( 'followers', array_keys( $choices ), true );
+
+		// Between Followers and Only me, the order of the upload tray.
+		return false === $at
+			? $choices + $entry
+			: array_slice( $choices, 0, $at + 1, true ) + $entry + array_slice( $choices, $at + 1, null, true );
+	}
+
+	/**
+	 * Call MediaVerse's friends level by BuddyNext's word.
+	 *
+	 * @param array<string,string> $labels Privacy slug => label.
+	 * @return array<string,string>
+	 */
+	public function name_connections_level( $labels ): array {
+		$labels            = (array) $labels;
+		$labels['friends'] = __( 'Connections: people you are connected with', 'buddynext' );
+
+		return $labels;
+	}
+
+	/**
+	 * Whether the signed-in member may choose who sees their media.
+	 *
+	 * The site owner can switch this off (MediaVerse Settings > General). MediaVerse then
+	 * applies its default to every upload and refuses a change, so a picker that still
+	 * showed would be a choice that does nothing. True when MediaVerse does not say.
+	 *
+	 * @return bool
+	 */
+	public static function members_may_choose_privacy(): bool {
+		$callback = array( '\\WPMediaVerse\\Services\\PrivacyService', 'user_may_choose_privacy' );
+
+		return ! is_callable( $callback ) || (bool) $callback();
 	}
 
 	/**

@@ -31,6 +31,10 @@ When you upload, you choose the audience for that media:
 - **Connections** - only the people you have connected with.
 - **Only me** - private, visible to you alone.
 
+To change it later, open the photo or video, choose **More actions**, then **Edit**. The **Privacy** list there offers the same audiences (it reads Everyone, Logged-in Members, Followers Only, Connections Only and Only Me, and with MediaVerse Pro adds Specific People). A change that is refused shows a message instead of closing the panel.
+
+If the site owner has turned off **Allow Users to Set Privacy** in MediaVerse's settings, members are not offered a choice: the upload tray, the Edit panel and the album form each say so, and everything takes the site's default privacy.
+
 The choice is enforced everywhere the media is shown. Anything you mark as private stays out of other people's view of your profile entirely - it does not appear greyed out or hidden behind a lock, it simply is not there for anyone but you. When someone visits your profile, the media count and the grid they see reflect only what they are allowed to see.
 
 ### Reporting media, and blocking the member who posted it (1.0.8)

@@ -55,6 +55,9 @@ $bn_mt_ctx = array(
 	'createTitle'        => '',
 	'createDesc'         => '',
 	'createPrivacy'      => 'public',
+	// False when the site owner has locked privacy: the form then sends none, because the
+	// engine refuses a change to an album's level.
+	'canChoosePrivacy'   => \BuddyNext\Bridges\WPMediaVerseBridge::members_may_choose_privacy(),
 	'pickerOpen'         => false,
 	// True while an in-picker upload is in flight — disables the file input and shows
 	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
@@ -251,6 +254,11 @@ $bn_mt_ctx = array(
 					?>
 					<p class="bn-album-privacy-note">
 						<?php esc_html_e( 'Who can see this album is decided by the space. Members who can see the space can see its albums.', 'buddynext' ); ?>
+					</p>
+				<?php elseif ( ! \BuddyNext\Bridges\WPMediaVerseBridge::members_may_choose_privacy() ) : ?>
+					<?php // Locked by the site owner: MediaVerse gives every album the site default and refuses a change. ?>
+					<p class="bn-album-privacy-note">
+						<?php esc_html_e( 'The site owner sets who can see albums.', 'buddynext' ); ?>
 					</p>
 				<?php else : ?>
 					<label class="bn-field">
