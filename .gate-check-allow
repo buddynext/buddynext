@@ -1,0 +1,12 @@
+# gate-check allowlist: one "ID path-fragment  # reason" per line. Every line needs a reason.
+# P9: an external HTTP request in a request path.
+P9 includes/Auth/SocialLogin.php        # OAuth code-for-token exchange and userinfo fetch inside the sign-in callback the member just started; there is nothing to defer to
+P9 includes/Auth/IdTokenVerifier.php    # provider key set (JWKS) fetched only on a cache miss or a rotated key id, during the same sign-in callback, then cached in a transient
+P9 includes/Auth/AuthRestHealth.php     # Site Health check: a guest loopback request to the login route, run from the Site Health screen, never on a member request
+P9 includes/Core/PresetActivation.php   # matches a docblock that explains the old behaviour (wp_remote_post in its text); the code path is in the cron callback
+P9 includes/Feed/PostService.php        # link preview: runs from the queued resolve_link_meta() or from the /link-preview endpoint the member is waiting on, never before a post is saved (see the fetch_og_meta docblock); the other matches in this file are comments
+P9 includes/Integrations/CompanionInstaller.php  # one-click companion install started by the owner in wp-admin: a release lookup and a package probe, never on a member request
+P9 includes/Outbound/OutboundWebhookService.php  # delivery runs inside the buddynext_webhook_deliver Action Scheduler action (run_delivery), queued by as_enqueue_async_action, never on the request that fired the event
+P9 includes/Feed/BlogPostListener.php   # matches a comment explaining why the fetch is deferred; no request is made on this path
+# P2: asset bundle size.
+P2 tests/e2e/_report                    # Playwright's local HTML report: git-ignored, never committed, never in the zip

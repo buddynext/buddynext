@@ -154,7 +154,7 @@ class RegistrationEmailListener {
 			PageRouter::activity_url()
 		);
 
-		$this->mail( (string) $user->user_email, $subject, $body );
+		$this->send_branded( (string) $user->user_email, $subject, $body );
 		update_user_meta( $user_id, 'bn_welcome_sent', '1' );
 	}
 
@@ -197,7 +197,7 @@ class RegistrationEmailListener {
 			$user->display_name,
 			$site
 		);
-		$this->mail( $email, $member_subject, $member_body );
+		$this->send_branded( $email, $member_subject, $member_body );
 
 		// 2) The site admin — prompt a review, in the admin's language.
 		$admin_email = sanitize_email( (string) get_option( 'admin_email' ) );
@@ -217,7 +217,7 @@ class RegistrationEmailListener {
 						$email,
 						admin_url( 'admin.php?page=buddynext-members&tab=invites' )
 					);
-					$this->mail( $admin_email, $admin_subject, $admin_body );
+					$this->send_branded( $admin_email, $admin_subject, $admin_body );
 				}
 			);
 		}
@@ -258,7 +258,7 @@ class RegistrationEmailListener {
 			$site,
 			PageRouter::login_url( '' )
 		);
-		$this->mail( (string) $user->user_email, $subject, $body );
+		$this->send_branded( (string) $user->user_email, $subject, $body );
 
 		// This approval email is the welcome in approval mode — mark the guard so
 		// a verify-then-approve combo never sends a second welcome.
@@ -299,7 +299,7 @@ class RegistrationEmailListener {
 			$user->display_name,
 			$site
 		);
-		$this->mail( (string) $user->user_email, $subject, $body );
+		$this->send_branded( (string) $user->user_email, $subject, $body );
 	}
 
 	/**
@@ -311,7 +311,7 @@ class RegistrationEmailListener {
 	 * @param string $type    bn_email_log type label (default 'registration').
 	 * @return void
 	 */
-	private function mail( string $to, string $subject, string $body, string $type = 'registration' ): void {
+	private function send_branded( string $to, string $subject, string $body, string $type = 'registration' ): void {
 		if ( '' === $to || ! is_email( $to ) ) {
 			return;
 		}

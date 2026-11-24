@@ -1,0 +1,35 @@
+# Development files that are not part of the plugin a customer installs.
+# bin/build-release.sh builds the zip from an allowlist (RUNTIME + OPTIONAL), so this list is not what
+# the build reads: it mirrors the dev-only side for tools that read .distignore (wp dist-archive).
+.git
+.github
+.githooks
+.gitignore
+.a2-emitted-class-baseline.json
+.contract-audit-baseline.json
+.phpunit.result.cache
+.wbcom-i18n-glossary.json
+.wbcom-i18n.json
+AGENTS.md
+CLAUDE.md
+audit
+bin
+dev
+docker
+docs
+node_modules
+test-results
+tests
+vendor
+composer.json
+composer.lock
+package.json
+package-lock.json
+phpcs.xml.dist
+phpstan-baseline.neon
+phpstan-bootstrap.php
+phpstan-stubs.php
+phpstan.neon
+phpunit.xml.dist
+playwright.config.ts
+tsconfig.json
