@@ -67,6 +67,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				content_plain LONGTEXT NULL,
 				is_private TINYINT(1) NOT NULL DEFAULT 0,
 				is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+				parent_id BIGINT UNSIGNED NULL,
 				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
@@ -535,6 +536,55 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 			0,
 			(int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id IN ( 2301, 2302 )" )
 		);
+	}
+
+	/**
+	 * A forum reply to a reply is a reply to that comment on the card, not a flat top-level comment.
+	 * With no mirrored parent (the parent reply is anonymous) it stays top-level.
+	 *
+	 * @return void
+	 */
+	public function test_a_forum_reply_to_a_reply_is_threaded_on_the_card(): void {
+		global $wpdb;
+		$this->seed_jt_space( 27, 'threads' );
+		$this->seed_jt_post( 270, $this->author_id, 'Threaded', 'Body', 'threaded-topic' );
+		$this->publish_jt_post( 270, 27 );
+
+		$comments = new \BuddyNext\Comments\CommentService();
+		$write    = function ( int $reply_id, int $parent_id, array $extra = array() ) use ( $wpdb ): void {
+			$wpdb->insert(
+				$wpdb->prefix . 'jt_replies',
+				array_merge(
+					array(
+						'id'            => $reply_id,
+						'post_id'       => 270,
+						'author_id'     => $this->user_id,
+						'content_plain' => 'Reply ' . $reply_id,
+						'parent_id'     => $parent_id > 0 ? $parent_id : null,
+					),
+					$extra
+				)
+			);
+			do_action( 'jetonomy_reply_publish_transition', $reply_id, 1, '' );
+		};
+
+		$write( 2701, 0 );
+		$write( 2702, 2701 );
+		$write( 2703, 2702 );
+		$write( 2704, 0, array( 'is_anonymous' => 1 ) );
+		$write( 2705, 2704 );
+
+		$top   = $comments->find_by_sync_reply_id( 2701 );
+		$child = $comments->find_by_sync_reply_id( 2702 );
+		$deep  = $comments->find_by_sync_reply_id( 2703 );
+		$orph  = $comments->find_by_sync_reply_id( 2705 );
+
+		$this->assertNotNull( $top );
+		$this->assertEmpty( $top['parent_id'], 'A first-level reply is a top-level comment.' );
+		$this->assertSame( (int) $top['id'], (int) $child['parent_id'], 'A reply to it is its child.' );
+		$this->assertSame( (int) $child['id'], (int) $deep['parent_id'], 'And a reply to that, one level deeper.' );
+		$this->assertNotNull( $orph, 'A reply whose parent was not mirrored is still mirrored.' );
+		$this->assertEmpty( $orph['parent_id'], 'It stays top-level.' );
 	}
 
 	/**

@@ -3635,16 +3635,22 @@ class JetonomyBridge {
 			return;
 		}
 
+		// A comment that answers another comment becomes a reply to that comment's forum reply.
+		$parent_reply = ! empty( $comment['parent_id'] ) ? ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( (int) $comment['parent_id'] ) : 0;
+
 		self::mirror(
-			function () use ( $topic_id, $user_id, $content, $comment_id ) {
-				$reply_id = \Jetonomy\Models\Reply::create(
-					array(
-						'post_id'       => $topic_id,
-						'author_id'     => $user_id,
-						'content'       => wp_kses_post( $content ),
-						'content_plain' => wp_strip_all_tags( $content ),
-					)
+			function () use ( $topic_id, $user_id, $content, $comment_id, $parent_reply ) {
+				$data     = array(
+					'post_id'       => $topic_id,
+					'author_id'     => $user_id,
+					'content'       => wp_kses_post( $content ),
+					'content_plain' => wp_strip_all_tags( $content ),
 				);
+				$reply_id = \Jetonomy\Models\Reply::create( $parent_reply > 0 ? $data + array( 'parent_id' => $parent_reply ) : $data );
+				if ( $parent_reply > 0 && is_wp_error( $reply_id ) ) {
+					// The forum reply it answers is gone or hidden: keep the reply, as a top-level one.
+					$reply_id = \Jetonomy\Models\Reply::create( $data );
+				}
 				if ( ! is_wp_error( $reply_id ) && (int) $reply_id > 0 ) {
 					// Persist the pair on the comment so edit/delete can propagate later
 					// (both directions resolve through bn_comments.sync_reply_id).
@@ -3727,11 +3733,25 @@ class JetonomyBridge {
 			return; // No real author, or the topic has no feed card to mirror onto.
 		}
 
+		// A reply to a reply stays a reply to that comment. The parent is the comment mirrored from the
+		// parent reply; with none (that reply is private, anonymous or gone) it is a top-level comment.
+		$parent_comment = 0;
+		$parent_reply   = (int) ( $reply['parent_id'] ?? 0 );
+		if ( $parent_reply > 0 ) {
+			$parent         = $comments->find_by_sync_reply_id( $parent_reply );
+			$parent_comment = ( null !== $parent && empty( $parent['is_deleted'] ) ) ? (int) $parent['id'] : 0;
+		}
+
 		self::mirror(
-			static function () use ( $comments, $author_id, $card_id, $content, $reply_id, $created_at ) {
+			static function () use ( $comments, $author_id, $card_id, $content, $reply_id, $created_at, $parent_comment ) {
 				// CommentService applies its own permission/verification gate and sanitizes;
 				// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
-				$comment_id = $comments->create( $author_id, 'post', $card_id, $content, null, '' !== $created_at ? $created_at : null );
+				$at         = '' !== $created_at ? $created_at : null;
+				$comment_id = $comments->create( $author_id, 'post', $card_id, $content, $parent_comment ?: null, $at );
+				if ( $parent_comment > 0 && is_wp_error( $comment_id ) && 'reply_too_deep' === $comment_id->get_error_code() ) {
+					// The card caps nesting shallower than the forum: keep the reply, one level up the thread.
+					$comment_id = $comments->create( $author_id, 'post', $card_id, $content, null, $at );
+				}
 				if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
 					// Persist the pair so edit/delete propagate in both directions.
 					$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
