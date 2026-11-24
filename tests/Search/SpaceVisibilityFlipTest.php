@@ -204,6 +204,41 @@ class SpaceVisibilityFlipTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A big space is re-indexed in batches of 200 by post id: the first batch queues the next one after its last post, the
+	 * last batch queues nothing, and every post is handled once.
+	 *
+	 * @return void
+	 */
+	public function test_reindexing_a_space_continues_by_post_id_across_batches(): void {
+		for ( $i = 0; $i < 202; $i++ ) {
+			$this->post_ids[] = $this->indexed_post( 'Post number ' . $i );
+		}
+		sort( $this->post_ids );
+		$this->assertCount( 203, $this->post_ids );
+
+		$queued = array();
+		add_filter(
+			'pre_as_enqueue_async_action',
+			static function ( $pre, $hook, $args ) use ( &$queued ) {
+				if ( 'buddynext_async_reindex_space_posts' === $hook ) {
+					$queued[] = $args;
+					return 1;
+				}
+				return $pre;
+			},
+			10,
+			3
+		);
+		$listener = new \BuddyNext\Search\SearchIndexListener();
+
+		$listener->async_reindex_space_posts( $this->space_id, 0 );
+		$this->assertSame( array( array( $this->space_id, $this->post_ids[199] ) ), $queued, 'The next batch starts after the 200th post.' );
+
+		$listener->async_reindex_space_posts( $this->space_id, $this->post_ids[199] );
+		$this->assertCount( 1, $queued, 'The last batch (3 posts) queues nothing.' );
+	}
+
+	/**
 	 * The ceiling is memoised per request. If nothing invalidates that memo, a
 	 * request that resolved the ceiling BEFORE the type changed writes the old
 	 * visibility afterwards - which is how the clamp can be made to write

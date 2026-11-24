@@ -77,7 +77,8 @@ endif;
 </div>
 
 <?php
-if ( empty( $bn_pd_rows ) ) {
+// An older page with nothing on it (a cursor past the end) still gets the way back to the newest.
+if ( empty( $bn_pd_rows ) && ! $bn_pd_older ) {
 	return;
 }
 

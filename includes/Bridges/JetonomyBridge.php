@@ -3774,9 +3774,11 @@ class JetonomyBridge {
 				// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
 				$at         = '' !== $created_at ? $created_at : null;
 				$comment_id = $comments->create( $author_id, 'post', $card_id, $content, $parent_comment ?: null, $at );
-				if ( $parent_comment > 0 && is_wp_error( $comment_id ) && 'reply_too_deep' === $comment_id->get_error_code() ) {
-					// The card caps nesting shallower than the forum: keep the reply, one level up the thread.
-					$comment_id = $comments->create( $author_id, 'post', $card_id, $content, null, $at );
+				while ( $parent_comment > 0 && is_wp_error( $comment_id ) && 'reply_too_deep' === $comment_id->get_error_code() ) {
+					// The card caps nesting shallower than the forum: keep the reply at the deepest level that fits,
+					// walking up the thread one comment at a time (top-level only when nothing deeper is allowed).
+					$parent_comment = (int) ( $comments->get( $parent_comment )['parent_id'] ?? 0 );
+					$comment_id     = $comments->create( $author_id, 'post', $card_id, $content, $parent_comment ?: null, $at );
 				}
 				if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
 					// Persist the pair so edit/delete propagate in both directions.

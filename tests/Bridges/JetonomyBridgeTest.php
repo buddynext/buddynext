@@ -575,6 +575,36 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The profile Discussions panel: a cursor past the end of the list (nothing on the page) still offers the way back to
+	 * the newest, and an empty first page does not grow a pager.
+	 *
+	 * @return void
+	 */
+	public function test_the_discussions_panel_offers_the_newest_link_on_an_empty_older_page(): void {
+		$render = function ( bool $older ): string {
+			ob_start();
+			buddynext_get_template(
+				'parts/profile/discussions-panel.php',
+				array(
+					'profile_user_id'  => $this->author_id,
+					'discussions'      => array(),
+					'next_cursor'      => '',
+					'is_older_page'    => $older,
+					'discussion_count' => 46,
+					'accepted_answers' => 0,
+					'reputation'       => 0,
+					'trust_level'      => 0,
+					'forum_url'        => '',
+				)
+			);
+			return (string) ob_get_clean();
+		};
+
+		$this->assertStringContainsString( 'Newest discussions', $render( true ), 'Past the end: the way back is offered.' );
+		$this->assertStringNotContainsString( 'Newest discussions', $render( false ), 'The first page has no pager of its own.' );
+	}
+
+	/**
 	 * A forum reply to a reply is a reply to that comment on the card, not a flat top-level comment.
 	 * With no mirrored parent (the parent reply is anonymous) it stays top-level.
 	 *
@@ -621,6 +651,44 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( (int) $child['id'], (int) $deep['parent_id'], 'And a reply to that, one level deeper.' );
 		$this->assertNotNull( $orph, 'A reply whose parent was not mirrored is still mirrored.' );
 		$this->assertEmpty( $orph['parent_id'], 'It stays top-level.' );
+	}
+
+	/**
+	 * A forum thread deeper than the card allows keeps every reply: each lands at the deepest level that fits, never
+	 * dropped and never thrown back to the top.
+	 *
+	 * @return void
+	 */
+	public function test_a_forum_thread_deeper_than_the_card_cap_keeps_every_reply_at_the_deepest_level_that_fits(): void {
+		global $wpdb;
+		$this->seed_jt_space( 28, 'deep-threads' );
+		$this->seed_jt_post( 280, $this->author_id, 'Deep', 'Body', 'deep-topic' );
+		$this->publish_jt_post( 280, 28 );
+		$comments = new \BuddyNext\Comments\CommentService();
+		$cap      = \BuddyNext\Comments\CommentService::MAX_REPLY_DEPTH;
+
+		$parent = 0;
+		for ( $i = 1; $i <= $cap + 3; $i++ ) {
+			$reply_id = 2800 + $i;
+			$wpdb->insert( $wpdb->prefix . 'jt_replies', array( 'id' => $reply_id, 'post_id' => 280, 'author_id' => $this->user_id, 'content_plain' => 'Level ' . $i, 'parent_id' => $parent > 0 ? $parent : null ) );
+			do_action( 'jetonomy_reply_publish_transition', $reply_id, 1, '' );
+			$parent = $reply_id;
+		}
+
+		$depth = static function ( array $comment ) use ( $comments ): int {
+			$levels = 1;
+			while ( ! empty( $comment['parent_id'] ) ) {
+				$comment = $comments->get( (int) $comment['parent_id'] );
+				++$levels;
+			}
+			return $levels;
+		};
+		for ( $i = 1; $i <= $cap + 3; $i++ ) {
+			$mirrored = $comments->find_by_sync_reply_id( 2800 + $i );
+			$this->assertNotNull( $mirrored, "Reply $i is mirrored." );
+			// Levels 1..cap nest one under the other; every reply past that sits at the deepest allowed level.
+			$this->assertSame( min( $i, $cap ), $depth( $mirrored ), "Reply $i sits at the deepest level that fits." );
+		}
 	}
 
 	/**

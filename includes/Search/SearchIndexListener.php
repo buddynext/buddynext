@@ -424,11 +424,14 @@ class SearchIndexListener implements ListenerInterface {
 	 * author accounts and the space ceiling are all re-evaluated by one rule
 	 * rather than a second copy of it living here.
 	 *
+	 * Walks by post id (id > the last one done), not OFFSET: an OFFSET read skips the rows before it on every batch, so
+	 * a space with tens of thousands of posts got slower with each one.
+	 *
 	 * @param int $space_id Space to walk.
-	 * @param int $offset   Batch offset.
+	 * @param int $after_id Last post id already done (0 to start).
 	 * @return void
 	 */
-	public function async_reindex_space_posts( int $space_id, int $offset = 0 ): void {
+	public function async_reindex_space_posts( int $space_id, int $after_id = 0 ): void {
 		global $wpdb;
 
 		if ( $space_id <= 0 ) {
@@ -446,11 +449,12 @@ class SearchIndexListener implements ListenerInterface {
 				   FROM {$wpdb->prefix}bn_posts
 				  WHERE space_id = %d
 				    AND status = 'published'
+				    AND id > %d
 				  ORDER BY id ASC
-				  LIMIT %d OFFSET %d",
+				  LIMIT %d",
 				$space_id,
-				$batch,
-				$offset
+				$after_id,
+				$batch
 			),
 			ARRAY_A
 		);
@@ -465,7 +469,7 @@ class SearchIndexListener implements ListenerInterface {
 
 		// Only queue another pass when this one was full; a short batch is the end.
 		if ( count( $rows ) === $batch ) {
-			$this->dispatch( 'buddynext_async_reindex_space_posts', array( $space_id, $offset + $batch ) );
+			$this->dispatch( 'buddynext_async_reindex_space_posts', array( $space_id, (int) end( $rows )['id'] ) );
 		}
 	}
 
