@@ -506,6 +506,42 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A forum's re-index walks by topic id: the first batch of 200 queues the next one after its last id, and the
+	 * last batch queues nothing, with every topic indexed once.
+	 *
+	 * @return void
+	 */
+	public function test_reindexing_a_forum_continues_by_topic_id_across_batches(): void {
+		global $wpdb;
+		$this->seed_jt_space( 29, 'big-forum' );
+		for ( $topic_id = 2900; $topic_id < 2903 + 200; $topic_id++ ) {
+			$wpdb->insert( $wpdb->prefix . 'jt_posts', array( 'id' => $topic_id, 'space_id' => 29, 'author_id' => $this->author_id, 'slug' => 'big-' . $topic_id, 'title' => 'Big ' . $topic_id, 'content_plain' => 'Body', 'status' => 'publish' ) );
+		}
+		$queued = array();
+		add_filter(
+			'pre_as_enqueue_async_action',
+			static function ( $pre, $hook, $args ) use ( &$queued ) {
+				if ( 'buddynext_async_reindex_forum_discussions' === $hook ) {
+					$queued[] = $args;
+					return 1;
+				}
+				return $pre;
+			},
+			10,
+			3
+		);
+		$indexed = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id BETWEEN 2900 AND 3102" );
+
+		$this->bridge->reindex_forum_discussions( 29, 0 );
+		$this->assertSame( 200, $indexed(), 'The first batch is 200 topics.' );
+		$this->assertSame( array( array( 29, 3099 ) ), $queued, 'The next batch starts after the last topic done.' );
+
+		$this->bridge->reindex_forum_discussions( 29, 3099 );
+		$this->assertSame( 203, $indexed(), 'The rest are done, none twice.' );
+		$this->assertCount( 1, $queued, 'The last batch queues nothing.' );
+	}
+
+	/**
 	 * An anonymous or private reply is not mirrored as a signed feed comment.
 	 *
 	 * @return void

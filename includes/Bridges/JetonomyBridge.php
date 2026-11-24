@@ -2947,20 +2947,23 @@ class JetonomyBridge {
 	/**
 	 * Re-index one forum's published topics in batches of 200.
 	 *
+	 * Walks by topic id (id > the last one done), not OFFSET: an OFFSET read skips the rows before it
+	 * every time, so a forum with tens of thousands of topics got slower with each batch.
+	 *
 	 * @param int $forum_id Jetonomy forum id.
-	 * @param int $offset   Rows already done.
+	 * @param int $after_id Last topic id already done (0 to start).
 	 * @return void
 	 */
-	public function reindex_forum_discussions( int $forum_id, int $offset = 0 ): void {
+	public function reindex_forum_discussions( int $forum_id, int $after_id = 0 ): void {
 		global $wpdb;
 		$batch = 200;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish' ORDER BY id ASC LIMIT %d OFFSET %d",
+				"SELECT id FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish' AND id > %d ORDER BY id ASC LIMIT %d",
 				$forum_id,
-				$batch,
-				$offset
+				$after_id,
+				$batch
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2968,7 +2971,7 @@ class JetonomyBridge {
 			$this->sync_discussion( (int) $id, $forum_id );
 		}
 		if ( count( $ids ) === $batch && function_exists( 'as_enqueue_async_action' ) ) {
-			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_reindex_forum_discussions', array( $forum_id, $offset + $batch ), 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_reindex_forum_discussions', array( $forum_id, (int) end( $ids ) ), 'buddynext' );
 		}
 	}
 
