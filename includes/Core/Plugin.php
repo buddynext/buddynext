@@ -39,6 +39,7 @@ use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\BuddyXBridge;
+use BuddyNext\Bridges\EventonomyAccess;
 use BuddyNext\Bridges\GamificationBridge;
 use BuddyNext\Bridges\JetonomyBridge;
 use BuddyNext\Bridges\MemberBlogBridge;
@@ -847,6 +848,10 @@ class Plugin {
 				( new \BuddyNext\Profile\GamificationKudos() )->register();
 
 				( new JetonomyBridge() )->init();
+
+				// Eventonomy 2.0.0 asks who counts as a member of an event; the event's Space answers (Free: Space
+				// types and roster; plan gating joins in when BuddyNext Pro is active). Inert on an older Eventonomy.
+				( new EventonomyAccess() )->init();
 
 				// WB Member Blog: the member's published WordPress posts as an
 				// Articles profile tab. The FEED half needs no bridge — BlogPostListener

@@ -242,6 +242,32 @@ final class SpaceVisibility {
 	}
 
 	/**
+	 * Whether the viewer counts as a MEMBER of the space, for a feature that is members-only.
+	 *
+	 * Not the same as can_view_content(): an open space shows its content to everyone, so "can see inside"
+	 * would make every signed-in visitor a member. A member here is signed in and is the space's owner, a
+	 * site admin or an active member (which covers moderators), or holds the plan that gates the space (a
+	 * space with a required_ability, answered through can_view_content() so Pro stays the only place that
+	 * evaluates a plan). A lapsed plan holder who joined earlier stays a member: the plan narrows what they
+	 * can read, not the roster.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string, mixed>|null $space     Hydrated space row (SpaceService::get()), or null.
+	 * @param int                       $viewer_id Viewer user ID (0 = logged out).
+	 * @return bool
+	 */
+	public static function has_member_access( ?array $space, int $viewer_id ): bool {
+		if ( null === $space || $viewer_id <= 0 ) {
+			return false;
+		}
+		if ( self::is_privileged( $space, $viewer_id ) ) {
+			return true;
+		}
+		return '' !== (string) ( $space['required_ability'] ?? '' ) && self::can_view_content( $space, $viewer_id );
+	}
+
+	/**
 	 * Whether the viewer is one of the people who may see inside the space:
 	 * the owner, an active member (which covers moderators), or a site admin.
 	 *

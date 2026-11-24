@@ -71,6 +71,8 @@ Beyond the profile Events tab and community-wide surfacing, a space can run its 
 
 **Visibility.** The Events tab itself follows the space's own privacy - a private or secret space's Events tab is visible only to its members. Individual events default to Eventonomy's own "public" visibility when created, though, so an event created in a private space is still publicly visible unless its creator changes that - the space's privacy does not automatically narrow an event's own visibility setting.
 
+**Who counts as a member (Eventonomy 2.0.0 and later).** An event can be set to "Members only, with preview", to "Public, members register", or have a member ticket price. Each of these asks BuddyNext one question: is this person a member of the event? For an event made for a Space, the answer is yes for the Space's owner, its active members (moderators included), a site administrator, and anyone who holds the plan that gates the Space. A signed-in visitor who has not joined an open Space is not a member. For an event with no Space, any signed-in person counts. If the Space has been deleted the event is closed to everyone but its host and site administrators. This part works with BuddyNext Free alone; an Eventonomy older than 2.0.0 does not ask the question, so nothing changes there.
+
 **Requirements.** Needs BuddyNext Pro. Linking an event into more than one space additionally needs Eventonomy 1.7.0 or newer (the release that added it); the Events tab itself, the List/Calendar toggle, and single-space creation work with earlier Eventonomy releases.
 
 ## Good to know
