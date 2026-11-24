@@ -251,13 +251,20 @@ $bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_me
 	// must be too, or a reinstall would re-seed over existing rows).
 	// Member user meta is network-wide and handled once, below.
 	if ( $bn_delete_data ) {
-		// The licence SDK's update cache, named edd_sl_md5( [ slug, key, beta ] ) (libs/edd-sl-sdk
-		// Updater::get_cache_key()). Derived exactly, before the sweep below removes the key it hashes:
-		// other plugins on the same SDK keep their own edd_sl_* rows, so no wildcard. The key, status and
-		// tracking options (buddynext_license*) go with the sweep. With data kept they all stay, and a
-		// reinstall reuses them: the same key, the cached version info until it times out, and the last
-		// licence status until the weekly check refreshes it.
-		delete_option( 'edd_sl_' . md5( (string) wp_json_encode( array( 'buddynext', get_option( 'buddynext_license_key' ), 0 ) ) ) );
+		// The licence SDK's options, named after its slug: the plugin's folder (basename of the entry
+		// file's directory), which is `buddynext` unless a GitHub zip extracted it as `buddynext-main`.
+		// The update cache is edd_sl_md5( [ slug, key, beta ] ) (libs/edd-sl-sdk Updater::get_cache_key()),
+		// derived exactly, before the key it hashes is deleted: other plugins on the same SDK keep their own
+		// edd_sl_* rows, so no wildcard. BuddyNext writes its own key under `buddynext` whatever the folder
+		// is called, so both names are cleared. With data kept they all stay, and a reinstall reuses them:
+		// the same key, the cached version info until it times out, and the last licence status until the
+		// weekly check refreshes it.
+		foreach ( array_unique( array( 'buddynext', basename( __DIR__ ) ) ) as $bn_slug ) {
+			delete_option( 'edd_sl_' . md5( (string) wp_json_encode( array( $bn_slug, get_option( $bn_slug . '_license_key' ), 0 ) ) ) );
+			foreach ( array( '_license_key', '_license', '_license_key_allow_tracking' ) as $bn_licence_suffix ) {
+				delete_option( $bn_slug . $bn_licence_suffix );
+			}
+		}
 		$bn_purge_meta( true );
 	}
 };

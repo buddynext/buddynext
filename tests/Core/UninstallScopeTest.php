@@ -31,6 +31,28 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		include dirname( __DIR__, 2 ) . '/uninstall.php';
 	}
 
+	/**
+	 * Run Free's real uninstall script from a folder with another name, as a GitHub zip leaves it
+	 * (`buddynext-main`): the licence SDK names its options after the folder.
+	 *
+	 * The real Installer class is already loaded, so the copy's own require_once gets an empty stand-in.
+	 *
+	 * @param string $folder Folder name the plugin sits in.
+	 * @return void
+	 */
+	private function uninstall_from_folder( string $folder ): void {
+		$root = trailingslashit( get_temp_dir() ) . 'bn-uninstall-' . wp_generate_password( 8, false ) . '/' . $folder;
+		wp_mkdir_p( $root . '/includes/Core' );
+		copy( dirname( __DIR__, 2 ) . '/uninstall.php', $root . '/uninstall.php' );
+		file_put_contents( $root . '/includes/Core/Installer.php', "<?php\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+			define( 'WP_UNINSTALL_PLUGIN', $folder . '/buddynext.php' );
+		}
+		include $root . '/uninstall.php';
+		unlink( $root . '/uninstall.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+		unlink( $root . '/includes/Core/Installer.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+	}
+
 	public function test_pro_jobs_survive_a_free_uninstall(): void {
 		global $wpdb;
 		delete_option( 'buddynext_delete_data_on_uninstall' );
@@ -119,6 +141,25 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		wp_cache_flush();
 		$this->assertFalse( get_option( $ours ) );
 		$this->assertFalse( get_option( 'buddynext_license_key' ) );
+		$this->assertNotFalse( get_option( 'edd_sl_0123456789abcdef0123456789abcdef' ), 'Another plugin\'s cache is not ours.' );
+	}
+
+	/**
+	 * A GitHub zip extracts as `buddynext-main`, and the licence SDK names its options after the
+	 * folder: its update cache row and key were left behind by an uninstall that assumed `buddynext`.
+	 */
+	public function test_the_opt_in_wipe_clears_the_licence_cache_of_a_renamed_folder(): void {
+		update_option( 'buddynext-main_license_key', 'probe-key' );
+		$ours = 'edd_sl_' . md5( (string) wp_json_encode( array( 'buddynext-main', 'probe-key', 0 ) ) );
+		update_option( $ours, array( 'timeout' => time() + 60 ) );
+		update_option( 'edd_sl_0123456789abcdef0123456789abcdef', array( 'timeout' => time() + 60 ) );
+
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
+		$this->uninstall_from_folder( 'buddynext-main' );
+		wp_cache_flush();
+
+		$this->assertFalse( get_option( $ours ), 'The update cache named after the real folder goes.' );
+		$this->assertFalse( get_option( 'buddynext-main_license_key' ) );
 		$this->assertNotFalse( get_option( 'edd_sl_0123456789abcdef0123456789abcdef' ), 'Another plugin\'s cache is not ours.' );
 	}
 
