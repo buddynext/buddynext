@@ -934,7 +934,7 @@ class AuthController {
 		$gate_shut = is_wp_error( $gate );
 		$refusal   = $gate_shut ? $gate : $error;
 		$code      = (string) $refusal->get_error_code();
-		$allowed = SessionIssuer::reportable_codes();
+		$allowed   = SessionIssuer::reportable_codes();
 
 		// Every code in play must be harmless: a reportable gate must not speak over
 		// something unreportable, such as an IP block, that also refused this sign-in.

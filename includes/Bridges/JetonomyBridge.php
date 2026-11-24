@@ -2799,7 +2799,7 @@ class JetonomyBridge {
 			if ( array_key_exists( $field, $data ) && (string) $data[ $field ] !== (string) ( $forum->$field ?? '' ) ) {
 				return new \WP_Error(
 					'bn_forum_follows_space',
-					__( 'This forum follows its Space. Change who can see or join it in the Space settings.', 'buddynext' ),
+					__( 'This discussion follows its Space. Change who can see or join it in the Space settings.', 'buddynext' ),
 					array( 'status' => 409 )
 				);
 			}

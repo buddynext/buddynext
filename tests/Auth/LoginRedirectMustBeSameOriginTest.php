@@ -8,7 +8,7 @@
  * `POST /buddynext/v1/auth/login`, and the handler returns it as
  * `esc_url_raw( $redirect_to )`. `esc_url_raw()` sanitises characters; it does
  * not restrict the HOST. `assets/js/auth/login-store.js:126` then does
- * `window.location.href = data.redirect_to` — after `complete_login()` has
+ * `window.location.href = data.redirect_to` — after `SessionIssuer::sign_in()` has
  * already set the session cookie.
  *
  * So the member signs in successfully on the real site and lands on the

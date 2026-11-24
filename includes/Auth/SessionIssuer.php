@@ -222,8 +222,10 @@ class SessionIssuer {
 	/**
 	 * Set the auth cookie and fire wp_login. The only place BuddyNext starts a session.
 	 *
-	 * Public for the one caller that has already run the gates and the second factor itself
-	 * (the password sign-in); every other door goes through start() or finish_second_factor().
+	 * WARNING: this does NOT run the approval hold, the blocked-network check or the second factor.
+	 * Public for the one caller that has already run them itself (the password sign-in, after core's
+	 * authenticate chain and its own two-factor branch); every other door must go through start() or
+	 * finish_second_factor(), which replay the gates first.
 	 *
 	 * @param WP_User $user     Member to sign in.
 	 * @param bool    $remember Whether to issue a long-lived cookie.
