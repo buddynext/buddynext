@@ -322,6 +322,31 @@ class SpaceInviteLinkService {
 	}
 
 	/**
+	 * Join a member to the spaces they opened invite links for, once, and say where to send them.
+	 *
+	 * The one place a saved invite list is turned into memberships. It runs at the last step of
+	 * signing up: the end of the welcome wizard, or, when onboarding is off, the moment the account is
+	 * usable (right after registration, or right after the email is verified). The list is single use
+	 * and is cleared whether or not any entry is still valid.
+	 *
+	 * @param int $user_id Member whose saved invites to settle.
+	 * @return int The space opened last among those joined, or 0 when there was nothing to join.
+	 */
+	public function settle_pending( int $user_id ): int {
+		$pending = get_user_meta( $user_id, self::PENDING_KEY, true );
+		if ( ! is_array( $pending ) || empty( $pending ) ) {
+			return 0;
+		}
+
+		delete_user_meta( $user_id, self::PENDING_KEY );
+
+		$joined_ids = $this->join_all_pending( $user_id, $pending );
+
+		// The space they opened last is the one most likely still top of mind.
+		return empty( $joined_ids ) ? 0 : (int) end( $joined_ids );
+	}
+
+	/**
 	 * Join a member to every still-valid space in a pending-invite list.
 	 *
 	 * Called once, when onboarding completes (OnboardingController::pending_invite_redirect()).

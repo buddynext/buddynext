@@ -551,22 +551,9 @@ class OnboardingController {
 	 * @return string
 	 */
 	private function pending_invite_redirect( int $user_id, string $fallback ): string {
-		$pending = get_user_meta( $user_id, SpaceInviteLinkService::PENDING_KEY, true );
-		if ( ! is_array( $pending ) || empty( $pending ) ) {
-			return $fallback;
-		}
+		$space_id = ( new SpaceInviteLinkService() )->settle_pending( $user_id );
 
-		// Single-use: clear it whether or not any entry is still valid.
-		delete_user_meta( $user_id, SpaceInviteLinkService::PENDING_KEY );
-
-		$joined_ids = ( new SpaceInviteLinkService() )->join_all_pending( $user_id, $pending );
-		if ( empty( $joined_ids ) ) {
-			return $fallback;
-		}
-
-		// Land them in the space they opened LAST — the one most likely still top
-		// of mind — while any others joined silently alongside it.
-		return PageRouter::space_url( (int) end( $joined_ids ) );
+		return $space_id > 0 ? PageRouter::space_url( $space_id ) : $fallback;
 	}
 
 	/**

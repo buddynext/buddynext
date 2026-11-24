@@ -51,10 +51,28 @@ class VerificationListener implements ListenerInterface {
 		add_action( 'init', array( $this, 'handle_email_change_verify_request' ) );
 		add_action( 'buddynext_send_verification_email', array( $this, 'send_verification_email' ), 10, 2 );
 		add_action( 'buddynext_email_change_requested', array( $this, 'on_email_change_requested' ), 10, 2 );
+		add_action( 'buddynext_email_verified', array( $this, 'join_invited_spaces' ) );
 
 		// The "full" enforcement level actually gates access. Runs late so the
 		// onboarding gate (priority 5) does not fight it.
 		add_action( 'template_redirect', array( $this, 'maybe_gate_unverified' ), 6 );
+	}
+
+	/**
+	 * Join the spaces a new member opened invite links for, now that their email is verified.
+	 *
+	 * With onboarding on, the welcome wizard does this at its end. With it off, nothing else would,
+	 * so a member who registered from an invite link and had to verify first would never be joined.
+	 *
+	 * @param mixed $user_id The verified member.
+	 * @return void
+	 */
+	public function join_invited_spaces( $user_id ): void {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 || buddynext_service( 'onboarding' )->is_required_for( $user_id ) ) {
+			return;
+		}
+		( new \BuddyNext\Spaces\SpaceInviteLinkService() )->settle_pending( $user_id );
 	}
 
 	/**

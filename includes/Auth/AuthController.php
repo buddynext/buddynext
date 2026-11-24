@@ -1808,10 +1808,17 @@ class AuthController {
 				&& buddynext_service( 'features' )->is_enabled( 'onboarding' );
 
 			// Nothing stands between the new member and the community, so this is
-			// the moment to take them back to the page they signed up from.
+			// the moment to take them back to the page they signed up from, or into
+			// the space whose invite link they came with.
 			$url = $onboarding_on
 				? \BuddyNext\Core\PageRouter::onboarding_url()
 				: self::take_signup_return( $user_id, \BuddyNext\Core\PageRouter::activity_url() );
+			if ( ! $onboarding_on && $user_id > 0 ) {
+				$space_id = ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->settle_pending( $user_id );
+				if ( $space_id > 0 ) {
+					$url = \BuddyNext\Core\PageRouter::space_url( $space_id );
+				}
+			}
 		}
 
 		/**
