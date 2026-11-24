@@ -194,6 +194,8 @@ class JetonomyBridge {
 		add_filter( 'jetonomy_before_create_reply', array( $this, 'check_new_reply' ), 10, 1 );
 		// Jetonomy runs no check when a topic or reply is edited, so the edit routes are checked here.
 		add_filter( 'rest_request_before_callbacks', array( $this, 'check_forum_edit' ), 10, 3 );
+		// A forum linked to a Space is as open as the Space: its own edit route may not say otherwise.
+		add_filter( 'rest_request_before_callbacks', array( $this, 'check_forum_follows_space' ), 10, 3 );
 		add_action( 'jetonomy_post_publish_transition', array( $this, 'sync_discussion' ), 10, 1 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
@@ -2693,6 +2695,48 @@ class JetonomyBridge {
 		}
 		$checked = $this->scan_forum_text( array( 'author_id' => get_current_user_id() ), $text );
 		return is_wp_error( $checked ) ? $checked : $response;
+	}
+
+	/**
+	 * Refuse a forum edit that would make a linked forum disagree with its BuddyNext Space.
+	 *
+	 * The Space is the authority for who can see and join its forum and whether it is open (visibility,
+	 * join_policy, status): the sync below writes them on every Space change. Jetonomy's own edit
+	 * route (PATCH /spaces/{id}) lets a forum admin set them directly, which made a public Space's
+	 * forum private until the next Space save. Only a value that differs from the forum's current one
+	 * is refused, so a full form save that changes nothing there still goes through; title,
+	 * description and the rest are untouched. The sync itself writes through the model, not this route.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed            $response Response so far.
+	 * @param array            $handler  Matched route handler (unused).
+	 * @param \WP_REST_Request $request  The request.
+	 * @return mixed The response, or a WP_Error that refuses the edit.
+	 */
+	public function check_forum_follows_space( $response, $handler, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- filter signature.
+		if ( ! $request instanceof \WP_REST_Request || 'PATCH' !== $request->get_method() || is_wp_error( $response ) || ! preg_match( '#^/jetonomy/v1/spaces/(\d+)$#', $request->get_route(), $match ) ) {
+			return $response;
+		}
+		$forum_id = (int) $match[1];
+		if ( $this->space_id_for_forum( $forum_id ) <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return $response;
+		}
+		$forum = \Jetonomy\Models\Space::find( $forum_id );
+		if ( ! $forum ) {
+			return $response;
+		}
+		foreach ( array( 'visibility', 'join_policy', 'status' ) as $field ) {
+			$asked = $request->get_param( $field );
+			if ( null !== $asked && (string) $asked !== (string) ( $forum->$field ?? '' ) ) {
+				return new \WP_Error(
+					'bn_forum_follows_space',
+					__( 'This forum follows its Space. Change who can see or join it in the Space settings.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
+			}
+		}
+		return $response;
 	}
 
 	/**
