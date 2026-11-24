@@ -55,7 +55,7 @@ When someone opens your link:
 
 A link is a shortcut into a space, not a way around your site's rules:
 
-- **New accounts still complete sign-up.** If your community is invite-only at the site level, or asks new members to verify their email or finish a welcome setup, a space link does not skip any of that. The person completes those steps first, then lands on the space.
+- **New accounts still complete sign-up.** If your community is invite-only at the site level, or asks new members to verify their email or finish a welcome setup, a space link does not skip any of that. The person completes those steps first, then lands on the space. With the welcome setup turned off, they join as soon as sign-up is done, or as soon as their email is verified when you ask for that.
 - **Paid spaces still charge.** If a space requires a membership plan, the link does not waive it. The person still needs the plan to join.
 
 ## After someone joins
