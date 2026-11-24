@@ -1282,7 +1282,20 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function maybe_add_mobile_bar(): void {
-		if ( '' === (string) get_query_var( 'jetonomy_route' ) || ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
+		if ( '' === (string) get_query_var( 'jetonomy_route' ) ) {
+			return;
+		}
+		// The member's saved text size (and colour mode) is applied by this script on every other BuddyNext
+		// page, whether or not the forum shows BuddyNext's bottom bar. A forum page is painted by the theme,
+		// so it follows the theme's colour mode only.
+		add_action(
+			'wp_enqueue_scripts',
+			static function (): void {
+				wp_enqueue_script( 'bn-shell-font-scale' );
+				wp_add_inline_script( 'bn-shell-font-scale', 'window.bnThemeHostOnly=true;', 'before' );
+			}
+		);
+		if ( ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
 			return;
 		}
 		add_filter( 'buddynext_mobile_nav_items', array( $this, 'forum_bar_items' ) );
@@ -1291,10 +1304,6 @@ class JetonomyBridge {
 			static function (): void {
 				wp_enqueue_style( 'bn-base' );
 				wp_enqueue_script( 'bn-mobile-more' );
-				// The member's saved text size (and colour mode) is applied by this script on every other
-				// BuddyNext page. A forum page is painted by the theme, so it follows the theme's colour mode only.
-				wp_enqueue_script( 'bn-shell-font-scale' );
-				wp_add_inline_script( 'bn-shell-font-scale', 'window.bnThemeHostOnly=true;', 'before' );
 			}
 		);
 		add_action(

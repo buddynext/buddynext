@@ -1904,16 +1904,31 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function test_a_forum_page_loads_the_saved_text_size_script_and_other_pages_do_not(): void {
 		global $wp_query;
 		$wp_query = new \WP_Query();
-		wp_dequeue_script( 'bn-shell-font-scale' );
+		$reset    = static function (): void {
+			wp_dequeue_script( 'bn-shell-font-scale' );
+			wp_dequeue_script( 'bn-mobile-more' );
+		};
+		$reset();
 		$this->bridge->maybe_add_mobile_bar();
 		do_action( 'wp_enqueue_scripts' );
 		$this->assertFalse( wp_script_is( 'bn-shell-font-scale', 'enqueued' ), 'Not a forum route: nothing added.' );
 
+		// A forum route with the owner's bottom bar switched off: the text size still applies, the bar's script does not load.
 		set_query_var( 'jetonomy_route', 'space' );
+		update_option( 'buddynext_integration_jetonomy_nav', '0' );
+		$this->bridge->maybe_add_mobile_bar();
+		do_action( 'wp_enqueue_scripts' );
+		$this->assertTrue( wp_script_is( 'bn-shell-font-scale', 'enqueued' ), 'Bar off: the saved text size is still applied.' );
+		$this->assertStringContainsString( 'bnThemeHostOnly', wp_scripts()->get_inline_script_data( 'bn-shell-font-scale', 'before' ) );
+		$this->assertFalse( wp_script_is( 'bn-mobile-more', 'enqueued' ), 'Bar off: no bottom-bar script.' );
+
+		// With the bar on, both.
+		$reset();
+		update_option( 'buddynext_integration_jetonomy_nav', '1' );
 		$this->bridge->maybe_add_mobile_bar();
 		do_action( 'wp_enqueue_scripts' );
 		$this->assertTrue( wp_script_is( 'bn-shell-font-scale', 'enqueued' ) );
-		$this->assertStringContainsString( 'bnThemeHostOnly', wp_scripts()->get_inline_script_data( 'bn-shell-font-scale', 'before' ) );
+		$this->assertTrue( wp_script_is( 'bn-mobile-more', 'enqueued' ), 'Bar on: the bottom-bar script loads too.' );
 	}
 }
 
