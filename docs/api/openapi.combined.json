@@ -11722,6 +11722,41 @@
                 ]
             }
         },
+        "/buddynext/v1/me/cover/position": {
+            "post": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "post_buddynext_v1_me_cover_position",
+                "summary": "POST /buddynext/v1/me/cover/position",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/me/data-export": {
             "get": {
                 "tags": [
@@ -14337,6 +14372,16 @@
                         "required": true,
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "after",
+                        "in": "query",
+                        "required": false,
+                        "description": "Cursor from the previous response's next_cursor; omit for the newest page.",
+                        "schema": {
+                            "type": "string",
+                            "default": ""
                         }
                     }
                 ],
@@ -19304,6 +19349,54 @@
                 ]
             }
         },
+        "/buddynext/v1/spaces/{id}/cover/position": {
+            "post": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "post_buddynext_v1_spaces_id_cover_position",
+                "summary": "POST /buddynext/v1/spaces/{id}/cover/position",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/spaces/{id}/discussion": {
             "get": {
                 "tags": [
@@ -21842,6 +21935,54 @@
                 ],
                 "operationId": "delete_buddynext_v1_users_id_cover",
                 "summary": "DELETE /buddynext/v1/users/{id}/cover",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext/v1/users/{id}/cover/position": {
+            "post": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "post_buddynext_v1_users_id_cover_position",
+                "summary": "POST /buddynext/v1/users/{id}/cover/position",
                 "parameters": [
                     {
                         "name": "id",
@@ -24655,7 +24796,7 @@
                                     },
                                     "pending_url": {
                                         "type": "string",
-                                        "description": "The member's posts waiting for review or scheduled."
+                                        "description": "The member's posts waiting for review."
                                     },
                                     "title_arg": {
                                         "type": "string"
@@ -24665,7 +24806,7 @@
                                     },
                                     "counts": {
                                         "type": "object",
-                                        "description": "The composer counts (Feed\\ArticleProvider::composer_summary()): drafts = draft, articles = publish + private, pending = pending + future.",
+                                        "description": "The composer counts (Feed\\ArticleProvider::composer_summary()): drafts = draft, articles = publish + private, pending = pending (held for review)",
                                         "properties": {
                                             "drafts": {
                                                 "type": "integer"
@@ -26449,6 +26590,9 @@
                                 "type": "boolean"
                             },
                             "bn_privacy_search_indexable": {
+                                "type": "boolean"
+                            },
+                            "bn_privacy_show_online": {
                                 "type": "boolean"
                             },
                             "bn_pro_hide_profile_views": {

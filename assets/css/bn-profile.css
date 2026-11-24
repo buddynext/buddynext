@@ -3454,3 +3454,13 @@ a.bn-space-row:hover .bn-space-name {
 	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 	margin-bottom: var(--bn-s4);
 }
+
+/* Older / newest links under a member's discussions. Wraps on a narrow screen; the
+   buttons keep their own 40px tap height. */
+.bn-jt-pager {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s3);
+	justify-content: flex-end;
+	margin-block-start: var(--bn-s4);
+}

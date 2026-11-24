@@ -566,6 +566,49 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A member with more discussions than a page is read a page at a time by cursor: every topic once, newest first,
+	 * including topics that share a second, and the last page says there is no more.
+	 *
+	 * @return void
+	 */
+	public function test_profile_discussions_page_by_cursor_without_skipping_or_repeating(): void {
+		global $wpdb;
+		$this->seed_jt_space( 26, 'paged-forum' );
+		$stamps = array(
+			260 => '2026-11-01 10:00:00',
+			261 => '2026-11-02 10:00:00',
+			262 => '2026-11-03 10:00:00',
+			263 => '2026-11-03 10:00:00',
+			264 => '2026-11-04 10:00:00',
+		);
+		foreach ( $stamps as $post_id => $at ) {
+			$this->seed_jt_post( $post_id, $this->author_id, 'Topic ' . $post_id, 'Body', 'paged-' . $post_id );
+			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 26, 'created_at' => $at ), array( 'id' => $post_id ) );
+		}
+
+		$seen  = array();
+		$after = '';
+		$pages = 0;
+		do {
+			$next   = '';
+			$rows   = $this->bridge->user_discussions( $this->author_id, 2, $after, $next );
+			$seen   = array_merge( $seen, array_map( static fn( $row ) => (int) $row->id, $rows ) );
+			$after  = $next;
+			$pages += 1;
+		} while ( '' !== $after && $pages < 10 );
+
+		$this->assertSame( array( 264, 263, 262, 261, 260 ), $seen, 'Newest first, each topic once, ties broken by id.' );
+		$this->assertSame( 3, $pages, 'Five topics at two a page is three pages.' );
+
+		$next = 'unchanged';
+		$this->bridge->user_discussions( $this->author_id, 50, '', $next );
+		$this->assertSame( '', $next, 'Everything fits on one page: no cursor.' );
+
+		$bad  = $this->bridge->user_discussions( $this->author_id, 2, "x' OR 1=1 --", $next );
+		$this->assertSame( array( 264, 263 ), array_map( static fn( $row ) => (int) $row->id, $bad ), 'A malformed cursor starts from the newest page.' );
+	}
+
+	/**
 	 * A PERMANENT purge (Post::delete fires jetonomy_after_delete_post) removes the
 	 * card outright — the source discussion is gone for good — and cascades the
 	 * comments members left on it, rather than orphaning them. The card is found by

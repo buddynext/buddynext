@@ -2750,8 +2750,9 @@ class JetonomyBridge {
 			return $response;
 		}
 		foreach ( array( 'visibility', 'join_policy', 'status' ) as $field ) {
-			$asked = $request->get_param( $field );
-			if ( null !== $asked && (string) $asked !== (string) ( $forum->$field ?? '' ) ) {
+			$asked   = $request->get_param( $field );
+			$current = (string) ( $forum->$field ?? '' );
+			if ( null !== $asked && $current !== (string) $asked ) {
 				return new \WP_Error(
 					'bn_forum_follows_space',
 					__( 'This forum follows its Space. Change who can see or join it in the Space settings.', 'buddynext' ),
@@ -4402,9 +4403,15 @@ class JetonomyBridge {
 				'callback'            => array( $this, 'rest_member_discussions' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'id' => array(
+					'id'    => array(
 						'required'          => true,
 						'sanitize_callback' => 'absint',
+					),
+					'after' => array(
+						'description'       => 'Cursor from the previous response\'s next_cursor; omit for the newest page.',
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 				),
 			)
@@ -4440,7 +4447,7 @@ class JetonomyBridge {
 			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		$payload = $this->member_discussion_profile( $user_id, 20 );
+		$payload = $this->member_discussion_profile( $user_id, 20, (string) $request->get_param( 'after' ) );
 
 		$discussions = array_map(
 			static function ( $row ): array {
@@ -4464,6 +4471,7 @@ class JetonomyBridge {
 				'trust_level'      => (int) $payload['trust_level'],
 				'discussion_count' => (int) $payload['discussion_count'],
 				'discussions'      => $discussions,
+				'next_cursor'      => $payload['next_cursor'],
 			),
 			200
 		);
@@ -4942,12 +4950,16 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function render_profile_discussions_panel( int $user_id ): void {
-		$profile = $this->member_discussion_profile( $user_id, 20 );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read-only page cursor, validated against a strict pattern in user_discussions().
+		$after   = isset( $_GET['jt_after'] ) ? sanitize_text_field( wp_unslash( $_GET['jt_after'] ) ) : '';
+		$profile = $this->member_discussion_profile( $user_id, 20, $after );
 		buddynext_get_template(
 			'parts/profile/discussions-panel.php',
 			array(
 				'profile_user_id'  => $user_id,
 				'discussions'      => $profile['discussions'],
+				'next_cursor'      => $profile['next_cursor'],
+				'is_older_page'    => '' !== $after,
 				'discussion_count' => $profile['discussion_count'],
 				'accepted_answers' => $profile['accepted_answers'],
 				'reputation'       => $profile['reputation'],
@@ -5047,59 +5059,71 @@ class JetonomyBridge {
 	 * their space for the name/slug. Powers the profile "Discussions" tab so the
 	 * template never reaches into jt_* tables itself (the bridge owns that access).
 	 *
-	 * @param int $user_id Discussion author ID.
-	 * @param int $limit   Max rows (1-50). Default 20.
+	 * Paged by a keyset cursor, not OFFSET: one query reads a row past the page to know whether
+	 * there is more, so a member with thousands of discussions costs the same per page and no COUNT is run.
+	 *
+	 * @param int    $user_id Discussion author ID.
+	 * @param int    $limit   Max rows (1-50). Default 20.
+	 * @param string $after   Cursor from the previous page ('' = newest).
+	 * @param string $next    Out: cursor for the next (older) page, '' when this is the last.
 	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, space_name, space_slug, url.
 	 */
-	public function user_discussions( int $user_id, int $limit = 20 ): array {
+	public function user_discussions( int $user_id, int $limit = 20, string $after = '', string &$next = '' ): array {
+		$next    = '';
 		$user_id = absint( $user_id );
 		if ( $user_id <= 0 || ! class_exists( 'Jetonomy\Models\Post' ) ) {
 			return array();
 		}
-		$limit = max( 1, min( 50, $limit ) );
+		$limit  = max( 1, min( 50, $limit ) );
+		$cursor = preg_match( '/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\|(\d+)$/', $after, $found ) ? $found : array();
 
-		// The profile panel + REST both request the default page; cache that hot
-		// path (invalidated on the member's post create/delete). Non-default limits
-		// are rare and bypass the cache so they never serve a truncated set.
-		$use_cache = ( 20 === $limit );
+		// The newest page is the hot path (the profile panel and REST): cache it, invalidated on the
+		// member's post create/delete. A later page or a non-default size bypasses the cache so it never
+		// serves a truncated set. The cache holds the extra look-ahead row.
+		$use_cache = ( 20 === $limit && ! $cursor );
 		$cache_key = 'jt_ulist_' . $user_id;
-		if ( $use_cache ) {
-			$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
-			if ( is_array( $cached ) ) {
-				return $cached;
+		$rows      = $use_cache ? wp_cache_get( $cache_key, self::CACHE_GROUP ) : false;
+
+		if ( ! is_array( $rows ) ) {
+			global $wpdb;
+
+			$where = $cursor ? $wpdb->prepare( ' AND (p.created_at < %s OR (p.created_at = %s AND p.id < %d))', $cursor[1], $cursor[1], $cursor[2] ) : '';
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+					        s.title AS space_name, s.slug AS space_slug
+					 FROM {$wpdb->prefix}jt_posts p
+					 INNER JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+					 WHERE p.author_id = %d{$this->profile_listable_where()}{$where}
+					 ORDER BY p.created_at DESC, p.id DESC
+					 LIMIT %d",
+					$user_id,
+					$limit + 1
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+			if ( ! is_array( $rows ) ) {
+				return array();
+			}
+
+			// Resolve each discussion's permalink through the base-slug-aware helper so
+			// the template renders a ready URL and never rebuilds the /s/…/t/… path.
+			foreach ( $rows as $row ) {
+				$row->url = $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug );
+			}
+
+			if ( $use_cache ) {
+				wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 			}
 		}
 
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
-				        s.title AS space_name, s.slug AS space_slug
-				 FROM {$wpdb->prefix}jt_posts p
-				 INNER JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
-				 WHERE p.author_id = %d{$this->profile_listable_where()}
-				 ORDER BY p.created_at DESC
-				 LIMIT %d",
-				$user_id,
-				$limit
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		if ( ! is_array( $rows ) ) {
-			return array();
-		}
-
-		// Resolve each discussion's permalink through the base-slug-aware helper so
-		// the template renders a ready URL and never rebuilds the /s/…/t/… path.
-		foreach ( $rows as $row ) {
-			$row->url = $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug );
-		}
-
-		if ( $use_cache ) {
-			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+		if ( count( $rows ) > $limit ) {
+			$rows = array_slice( $rows, 0, $limit );
+			$last = end( $rows );
+			$next = $last->created_at . '|' . $last->id;
 		}
 
 		return $rows;
@@ -5170,15 +5194,18 @@ class JetonomyBridge {
 	 * Credential-first: accepted answers + reputation/trust are the outcomes worth
 	 * showing; the recent-discussions list is supporting context, not the headline.
 	 *
-	 * @param int $user_id Member being viewed.
-	 * @param int $limit   Max discussion rows (1-50). Default 20.
-	 * @return array{discussions:object[],discussion_count:int,accepted_answers:int,reputation:int,trust_level:int}
+	 * @param int    $user_id Member being viewed.
+	 * @param int    $limit   Max discussion rows (1-50). Default 20.
+	 * @param string $after   Cursor of the page before ('' = newest).
+	 * @return array{discussions:object[],next_cursor:string,discussion_count:int,accepted_answers:int,reputation:int,trust_level:int}
 	 */
-	public function member_discussion_profile( int $user_id, int $limit = 20 ): array {
+	public function member_discussion_profile( int $user_id, int $limit = 20, string $after = '' ): array {
 		$credentials = $this->member_reputation( $user_id );
+		$next        = '';
 
 		return array(
-			'discussions'      => $this->user_discussions( $user_id, $limit ),
+			'discussions'      => $this->user_discussions( $user_id, $limit, $after, $next ),
+			'next_cursor'      => $next,
 			'discussion_count' => $this->discussion_count( $user_id ),
 			'accepted_answers' => $this->accepted_answer_count( $user_id ),
 			'reputation'       => $credentials['reputation'],

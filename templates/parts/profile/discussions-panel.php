@@ -18,6 +18,8 @@
  * @var int      $reputation       Jetonomy reputation score.
  * @var int      $trust_level      Jetonomy trust level (0-4); surfaced via REST, not the strip.
  * @var string   $forum_url        Forum home URL ('' hides the "Open the forum" link).
+ * @var string   $next_cursor      Cursor of the next (older) page, '' on the last page.
+ * @var bool     $is_older_page    True when this is not the newest page (offers a way back).
  */
 
 declare( strict_types=1 );
@@ -30,6 +32,8 @@ $bn_pd_accepted = isset( $accepted_answers ) ? (int) $accepted_answers : 0;
 $bn_pd_rep      = isset( $reputation ) ? (int) $reputation : 0;
 $bn_pd_count    = isset( $discussion_count ) ? (int) $discussion_count : count( $bn_pd_rows );
 $bn_pd_forum    = isset( $forum_url ) ? (string) $forum_url : '';
+$bn_pd_next     = isset( $next_cursor ) ? (string) $next_cursor : '';
+$bn_pd_older    = ! empty( $is_older_page );
 
 // The way into the forum itself, above the empty state and the list alike.
 if ( '' !== $bn_pd_forum ) :
@@ -104,3 +108,17 @@ foreach ( $bn_pd_rows as $bn_pd_disc ) :
 	</a>
 	<?php
 endforeach;
+
+// A member with many discussions is read a page at a time: older pages by cursor, with a way back to the newest.
+if ( '' !== $bn_pd_next || $bn_pd_older ) :
+	?>
+	<nav class="bn-jt-pager" aria-label="<?php esc_attr_e( 'Discussions pages', 'buddynext' ); ?>">
+		<?php if ( $bn_pd_older ) : ?>
+			<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( remove_query_arg( 'jt_after' ) ); ?>"><?php esc_html_e( 'Newest discussions', 'buddynext' ); ?></a>
+		<?php endif; ?>
+		<?php if ( '' !== $bn_pd_next ) : ?>
+			<a class="bn-btn" data-variant="ghost" data-size="sm" rel="next" href="<?php echo esc_url( add_query_arg( 'jt_after', rawurlencode( $bn_pd_next ) ) ); ?>"><?php esc_html_e( 'Older discussions', 'buddynext' ); ?></a>
+		<?php endif; ?>
+	</nav>
+	<?php
+endif;
