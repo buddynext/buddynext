@@ -2744,11 +2744,12 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * True while the bridge itself is writing a forum, so its own sync is never refused by the guard below.
+	 * How many of the bridge's own forum writes are in progress (a counter, so a write inside a write does not clear the
+	 * marker early), so its own sync is never refused by the guard below.
 	 *
-	 * @var bool
+	 * @var int
 	 */
-	private static bool $own_write = false;
+	private static int $own_write = 0;
 
 	/**
 	 * Write a forum's state on behalf of its BuddyNext Space (the sync, closing a forum, the visibility repair).
@@ -2762,11 +2763,11 @@ class JetonomyBridge {
 	 * @return bool|\WP_Error What Space::update() answered.
 	 */
 	public static function write_forum( int $forum_id, array $fields ) {
-		self::$own_write = true;
+		++self::$own_write;
 		try {
 			return \Jetonomy\Models\Space::update( $forum_id, $fields );
 		} finally {
-			self::$own_write = false;
+			--self::$own_write;
 		}
 	}
 
@@ -2787,7 +2788,7 @@ class JetonomyBridge {
 	 * @return mixed True to allow, or a WP_Error that refuses the write.
 	 */
 	public function refuse_forum_drift( $proceed, $forum_id, $data ) {
-		if ( true !== $proceed || self::$own_write || ! is_array( $data ) || ! class_exists( '\Jetonomy\Models\Space' ) || $this->space_id_for_forum( (int) $forum_id ) <= 0 ) {
+		if ( true !== $proceed || self::$own_write > 0 || ! is_array( $data ) || ! class_exists( '\Jetonomy\Models\Space' ) || $this->space_id_for_forum( (int) $forum_id ) <= 0 ) {
 			return $proceed;
 		}
 		$forum = \Jetonomy\Models\Space::find( (int) $forum_id );
