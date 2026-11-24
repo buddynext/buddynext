@@ -1929,13 +1929,22 @@ class WPMediaVerseBridge {
 			return $choices;
 		}
 
-		$entry = array( 'friends' => __( 'Connections: people you are connected with', 'buddynext' ) );
+		$entry = array( 'friends' => self::connections_label() );
 		$at    = array_search( 'followers', array_keys( $choices ), true );
 
 		// Between Followers and Only me, the order of the upload tray.
 		return false === $at
 			? $choices + $entry
 			: array_slice( $choices, 0, $at + 1, true ) + $entry + array_slice( $choices, $at + 1, null, true );
+	}
+
+	/**
+	 * BuddyNext's word for MediaVerse's friends level, in the choice list and the label list alike.
+	 *
+	 * @return string
+	 */
+	private static function connections_label(): string {
+		return __( 'Connections: people you are connected with', 'buddynext' );
 	}
 
 	/**
@@ -1946,7 +1955,7 @@ class WPMediaVerseBridge {
 	 */
 	public function name_connections_level( $labels ): array {
 		$labels            = (array) $labels;
-		$labels['friends'] = __( 'Connections: people you are connected with', 'buddynext' );
+		$labels['friends'] = self::connections_label();
 
 		return $labels;
 	}
