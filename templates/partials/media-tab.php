@@ -11,6 +11,7 @@
  * @var int   $bn_mt_owner_id  Profile owner user id.
  * @var bool  $bn_mt_is_owner  Whether the viewer owns this profile.
  * @var int[] $bn_mt_media_ids Initial media ids for the gallery (server-rendered).
+ * @var array  $bn_mt_pager     more_url / next_url from FeedWindow::links() for the Load more and Older media links.
  *
  * @package BuddyNext
  */
@@ -25,6 +26,7 @@ $bn_mt_is_owner = isset( $bn_mt_is_owner ) ? (bool) $bn_mt_is_owner : false;
 // this file.
 $bn_mt_space_id  = isset( $bn_mt_space_id ) ? (int) $bn_mt_space_id : 0;
 $bn_mt_media_ids = isset( $bn_mt_media_ids ) ? (array) $bn_mt_media_ids : array();
+$bn_mt_pager     = isset( $bn_mt_pager ) && is_array( $bn_mt_pager ) ? $bn_mt_pager : array();
 // Upload controls only for someone the site lets upload (MediaVerse "Who can
 // upload media"); a member who may not upload still manages what they have.
 $bn_mt_can_upload = \BuddyNext\Media\MediaClient::can_upload( get_current_user_id() );
@@ -144,6 +146,15 @@ $bn_mt_ctx = array(
 		if ( ! empty( $bn_mt_media_ids ) ) {
 			echo '<div class="bn-card bn-profile-media-card">';
 			echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', $bn_mt_media_ids ), array( 'user_id' => $bn_mt_owner_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
+			// Load more (the page grows), then Older media from the cursor: the one list pager every feed uses.
+			buddynext_get_template(
+				'parts/feed-load-more.php',
+				array(
+					'more_url'   => (string) ( $bn_mt_pager['more_url'] ?? '' ),
+					'next_url'   => (string) ( $bn_mt_pager['next_url'] ?? '' ),
+					'next_label' => __( 'Older media', 'buddynext' ),
+				)
+			);
 			echo '</div>';
 		} else {
 			?>

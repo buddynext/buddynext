@@ -506,15 +506,22 @@ final class ProfileNav {
 	 * @return void
 	 */
 	private function render_media( NavContext $c ): void {
-		$ids = MediaClient::available()
-			? (array) Galleries::user_media_ids( $c->subject_id, $c->viewer_id, 24, 0 )
+		// Load more grows the page, then Older media continues from an offset, like every other list (FeedWindow). The
+		// engine pages a member's media by offset, so the cursor here is that offset.
+		$window = FeedWindow::read( 24 );
+		$offset = max( 0, (int) $window['cursor'] );
+		$ids    = MediaClient::available()
+			? (array) Galleries::user_media_ids( $c->subject_id, $c->viewer_id, (int) $window['shown'] + 1, $offset )
 			: array();
+		$more   = count( $ids ) > (int) $window['shown'];
+		$ids    = array_slice( $ids, 0, (int) $window['shown'] );
 		buddynext_get_template(
 			'partials/media-tab.php',
 			array(
 				'bn_mt_owner_id'       => $c->subject_id,
 				'bn_mt_is_owner'       => $c->is_self(),
 				'bn_mt_media_ids'      => $ids,
+				'bn_mt_pager'          => FeedWindow::links( $this->tab_url( $c->subject_id, 'media' ), $window, $more ? (string) ( $offset + (int) $window['shown'] ) : null ),
 				'bn_mt_albums_enabled' => buddynext_integration_enabled( 'media', 'nav', 'albums' ),
 			)
 		);

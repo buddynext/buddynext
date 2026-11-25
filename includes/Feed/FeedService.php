@@ -3026,28 +3026,31 @@ class FeedService {
 	}
 
 	/**
-	 * Return a flat, de-duplicated list of media IDs from a space's recent
-	 * published posts, newest post first, capped at $limit. Powers the space
-	 * "Media" gallery without the template touching bn_posts directly.
+	 * The media shared in a Space's posts, one page of posts at a time, newest first.
 	 *
-	 * Scans up to 60 recent media-bearing posts (the source rows can each carry
-	 * several attachments) and flattens their media_ids JSON arrays before
-	 * trimming to $limit unique IDs. For a paginated grid use space_media_rows().
+	 * The page is POSTS (each carries up to a few pictures), read by keyset on (created_at, id), so a Space with
+	 * thousands of posts costs the same on page 2 as on page 1 and there is no total to count (the media sit inside a
+	 * JSON column). `next_cursor` is the cursor after the last post on the page, or null at the end; pass it back for
+	 * the next page. Each picture is then filtered by what THIS viewer may see: a photo whose owner made it private, or
+	 * unlinked it from the Space, still hangs off its post and must not keep showing to everyone.
 	 *
-	 * @param int $space_id  Space ID.
-	 * @param int $viewer_id Viewer user ID (0 = logged out). ANDs the shared
-	 *                       per-post audience clause so a followers/connections
-	 *                       post's media is excluded for a member outside that
-	 *                       audience before the per-item media gate runs (card
-	 *                       10264292078).
-	 * @param int $limit     Max media IDs to return (1-100). Default 24.
-	 * @return array<int,int>
+	 * @since 1.3.0
+	 *
+	 * @param int         $space_id  Space ID.
+	 * @param int         $viewer_id Viewing member (0 = guest).
+	 * @param int         $per_page  Posts per page (1-100). Default 24.
+	 * @param string|null $cursor    Cursor from the previous page; null for the newest.
+	 * @return array{ids: int[], next_cursor: string|null}
 	 */
-	public function space_media_ids( int $space_id, int $viewer_id, int $limit = 24 ): array {
+	public function space_media_page( int $space_id, int $viewer_id, int $per_page = 24, ?string $cursor = null ): array {
+		$empty = array(
+			'ids'         => array(),
+			'next_cursor' => null,
+		);
 		if ( $space_id <= 0 ) {
-			return array();
+			return $empty;
 		}
-		$limit = max( 1, min( 100, $limit ) );
+		$per_page = max( 1, min( 100, $per_page ) );
 
 		global $wpdb;
 		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
@@ -3055,26 +3058,36 @@ class FeedService {
 		// a suspended or viewer-blocked author's media (card 10264292078).
 		$excluded_where                   = $this->excluded_users_where();
 		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
+		$cursor_where                     = $this->cursor_where( $cursor );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$rows = $wpdb->get_col(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT media_ids FROM {$wpdb->prefix}bn_posts
+				"SELECT id, created_at, media_ids FROM {$wpdb->prefix}bn_posts
 				 WHERE space_id = %d AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
 				   AND {$audience_sql}
 				   {$excluded_where}
 				   {$hidden_where}
-				 ORDER BY created_at DESC
-				 LIMIT 60",
-				array_merge( array( $space_id ), $audience_params, $hidden_params )
-			)
+				   {$cursor_where}
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d",
+				array_merge( array( $space_id ), $audience_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			),
+			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
+		$rows = is_array( $rows ) ? $rows : array();
+		$more = count( $rows ) > $per_page;
+		$rows = array_slice( $rows, 0, $per_page );
+		if ( array() === $rows ) {
+			return $empty;
+		}
+
 		$media_ids = array();
-		foreach ( (array) $rows as $json ) {
-			$decoded = json_decode( (string) $json, true );
+		foreach ( $rows as $row ) {
+			$decoded = json_decode( (string) $row['media_ids'], true );
 			if ( ! is_array( $decoded ) ) {
 				continue;
 			}
@@ -3085,35 +3098,34 @@ class FeedService {
 				}
 			}
 		}
-
 		$media_ids = array_values( array_unique( $media_ids ) );
 
-		// The list so far is "media ATTACHED TO this space's posts", which is a
-		// different question from "may THIS viewer see it". A photo whose owner has
-		// since made it private — e.g. by unlinking it from the space in the media
-		// lightbox — still hangs off the post that embedded it, so without a gate
-		// here it keeps showing to everyone and the unlink has no visible effect.
-		// Filter through the engine's own per-viewer check (owner + admins always;
-		// otherwise the item's privacy), so a member sees exactly what they may and
-		// an unlinked/private item drops out for others while its owner still sees
-		// their own. Bounded to $limit, so at most $limit checks, each memoised.
+		// Filter through the engine's own per-viewer check (owner + admins always; otherwise the item's privacy).
+		// Bounded by the page, so at most a page of checks, each memoised.
 		$privacy = MediaClient::privacy();
-		if ( null === $privacy || ! is_callable( array( $privacy, 'can_view' ) ) ) {
-			return array_slice( $media_ids, 0, $limit );
+		if ( null !== $privacy && is_callable( array( $privacy, 'can_view' ) ) ) {
+			$viewer    = get_current_user_id();
+			$media_ids = array_values( array_filter( $media_ids, static fn( int $mid ): bool => (bool) $privacy->can_view( $mid, $viewer ) ) );
 		}
 
-		$viewer  = get_current_user_id();
-		$visible = array();
-		foreach ( $media_ids as $mid ) {
-			if ( ! $privacy->can_view( $mid, $viewer ) ) {
-				continue;
-			}
-			$visible[] = $mid;
-			if ( count( $visible ) >= $limit ) {
-				break;
-			}
-		}
+		return array(
+			'ids'         => $media_ids,
+			'next_cursor' => $more ? $this->encode_cursor( (array) end( $rows ) ) : null,
+		);
+	}
 
-		return $visible;
+	/**
+	 * The newest media shared in a Space, as a flat list of picture ids.
+	 *
+	 * Kept for callers that want one page and no cursor; the Space Media tab reads {@see space_media_page()}.
+	 *
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewing member (0 = guest).
+	 * @param int $limit     Most pictures to return (1-100).
+	 * @return int[]
+	 */
+	public function space_media_ids( int $space_id, int $viewer_id, int $limit = 24 ): array {
+		$limit = max( 1, min( 100, $limit ) );
+		return array_slice( $this->space_media_page( $space_id, $viewer_id, $limit )['ids'], 0, $limit );
 	}
 }
