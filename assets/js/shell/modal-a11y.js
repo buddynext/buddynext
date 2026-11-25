@@ -102,8 +102,6 @@ function activate( backdrop ) {
 		( preferred || panel ).focus();
 	}
 	const release = trapFocus( backdrop );
-	// aria-modal says the page behind is inert: it does not scroll either while a dialog is open.
-	document.body.classList.add( 'bn-modal-open' );
 
 	let released = false;
 	openModals.set( backdrop, {
@@ -113,8 +111,6 @@ function activate( backdrop ) {
 				released = true;
 				release();
 			}
-			// Last dialog closed: the page scrolls again.
-			if ( 0 === openModals.size ) { document.body.classList.remove( 'bn-modal-open' ); }
 			// Return focus to the opener, or to the control that opened its menu
 			// when the opener is a menu item hidden by now.
 			returnFocus( trigger );

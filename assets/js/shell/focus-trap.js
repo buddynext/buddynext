@@ -101,6 +101,9 @@ export function trapFocus( container ) {
 	observer.observe( container, { subtree: true, childList: true, attributes: true, attributeFilter: [ 'disabled' ] } );
 
 	trapStack.push( onKey );
+	// A trapped dialog is modal: the page behind it does not scroll while any trap is open (every dialog and the
+	// lightbox come through here, so one place covers them all).
+	document.body.classList.add( 'bn-modal-open' );
 	container.addEventListener( 'focusin', onFocusIn );
 	document.addEventListener( 'keydown', onKey, true );
 	return function () {
@@ -108,6 +111,7 @@ export function trapFocus( container ) {
 		if ( -1 !== i ) {
 			trapStack.splice( i, 1 );
 		}
+		if ( 0 === trapStack.length ) { document.body.classList.remove( 'bn-modal-open' ); }
 		observer.disconnect();
 		container.removeEventListener( 'focusin', onFocusIn );
 		document.removeEventListener( 'keydown', onKey, true );
