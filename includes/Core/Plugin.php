@@ -853,6 +853,9 @@ class Plugin {
 				// types and roster; plan gating joins in when BuddyNext Pro is active). Inert on an older Eventonomy.
 				( new EventonomyAccess() )->init();
 
+				// Eventonomy 4+ closes a deleted Space's events and cancels a leaving member's registrations when told.
+				( new \BuddyNext\Bridges\EventonomySpaceLifecycle() )->init();
+
 				// WB Member Blog: the member's published WordPress posts as an
 				// Articles profile tab. The FEED half needs no bridge — BlogPostListener
 				// already publishes a typed `article` card on publish — so this adds
