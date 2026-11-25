@@ -248,4 +248,25 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 		wp_set_current_user( $held );
 		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $held ), 'A public community is not walled for anyone.' );
 	}
+
+	public function test_a_member_held_by_an_unverified_email_is_kept_out_of_event_pages_while_private(): void {
+		PrivateCommunity::register();
+		update_option( 'buddynext_email_verify', 1 );
+		update_option( 'buddynext_verify_enforcement', 'full' );
+		update_option( PrivateCommunity::OPTION, 1 );
+		$unverified = self::factory()->user->create();
+		delete_user_meta( $unverified, 'buddynext_email_verified' );
+		wp_update_user( array( 'ID' => $unverified, 'user_registered' => gmdate( 'Y-m-d H:i:s' ) ) );
+
+		wp_set_current_user( $unverified );
+		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', true, $unverified ), 'An unverified email is a hold too.' );
+
+		$verified = self::factory()->user->create();
+		wp_set_current_user( $verified );
+		update_user_meta( $verified, 'buddynext_email_verified', 1 );
+		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $verified ), 'A verified member passes.' );
+
+		delete_option( 'buddynext_email_verify' );
+		delete_option( 'buddynext_verify_enforcement' );
+	}
 }

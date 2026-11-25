@@ -138,9 +138,12 @@ final class RestHoldGate implements ListenerInterface {
 	 * carve-outs are BuddyNext routes, so they cannot apply to a partner namespace
 	 * and are correctly absent here.
 	 *
+	 * Public so every partner wall asks the SAME question (an unverified email, a forced 2FA enrolment, an add-on's
+	 * plan hold, a suspension on a write), never a second copy of it.
+	 *
 	 * @return bool
 	 */
-	private function current_member_is_held(): bool {
+	public function current_member_is_held(): bool {
 		if ( ! is_user_logged_in() ) {
 			return false;
 		}
