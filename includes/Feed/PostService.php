@@ -3976,13 +3976,14 @@ class PostService {
 	 * quoted; scoped to a bounded, indexed `type` so the JSON read never scans the
 	 * whole table.
 	 *
-	 * @param string $type     Post type to scope to (e.g. 'event').
-	 * @param string $meta_key link_meta field name (e.g. 'event_id').
-	 * @param int    $value    Value to match.
+	 * @param string    $type     Post type to scope to (e.g. 'event').
+	 * @param string    $meta_key link_meta field name (e.g. 'event_id').
+	 * @param int|int[] $value Value, or values, to match (many in ONE query, so a bulk delete is not one scan per id).
 	 * @return int Rows removed.
 	 */
-	public function delete_by_link_meta_int( string $type, string $meta_key, int $value ): int {
-		if ( '' === $type || '' === $meta_key ) {
+	public function delete_by_link_meta_int( string $type, string $meta_key, int|array $value ): int {
+		$values = array_values( array_filter( array_map( 'absint', (array) $value ) ) );
+		if ( '' === $type || '' === $meta_key || array() === $values ) {
 			return 0;
 		}
 
@@ -4002,10 +4003,8 @@ class PostService {
 				 WHERE type = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
-				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
-				$type,
-				'$.' . $meta_key,
-				$value
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) IN ( " . implode( ',', array_fill( 0, count( $values ), '%d' ) ) . ' )',
+				array_merge( array( $type, '$.' . $meta_key ), $values )
 			),
 			ARRAY_A
 		);

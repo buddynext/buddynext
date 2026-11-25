@@ -444,6 +444,28 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Delete the cards of SEVERAL partner ids in one lookup (the batch counterpart of remove_by_meta).
+	 *
+	 * For a bulk delete on the partner's side, such as a forum Space purge removing thousands of topics: one query finds
+	 * every card of the ids, where calling remove_by_meta() once per id scans the type's cards once per id.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $type     Card post type (e.g. 'discussion').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'post_id').
+	 * @param int[]  $values   The partner ids whose cards to remove.
+	 * @return int Rows removed.
+	 *
+	 * @api
+	 */
+	public static function remove_by_meta_many( string $type, string $meta_key, array $values ): int {
+		if ( '' === $type || '' === $meta_key || array() === array_filter( array_map( 'absint', $values ) ) ) {
+			return 0;
+		}
+		return ( new PostService() )->delete_by_link_meta_int( $type, $meta_key, $values );
+	}
+
+	/**
 	 * Whether a card of a type already carries this link_meta value, live or withdrawn.
 	 *
 	 * A bridge asks it to keep one card for a group of items, such as the dates of a repeating event.

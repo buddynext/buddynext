@@ -207,6 +207,9 @@ class JetonomyBridge {
 		// from the soft delete above. Mirrors jetonomy_after_delete_reply, which
 		// the reply side already hooks.
 		add_action( 'jetonomy_after_delete_post', array( $this, 'on_post_hard_deleted' ), 10, 1 );
+		// A Space purge removes its topics in bulk, so jetonomy_after_delete_post never fires for them; Jetonomy tells the
+		// host community with this instead, once per purged topic. The ids are gathered and removed in batches.
+		add_action( 'jetonomy_community_notification_removed', array( $this, 'on_purged_object_removed' ), 10, 2 );
 
 		// A card must never link to a discussion the viewer cannot open. Checked as
 		// it renders, because some causes fire no hook: a forum switched private in
@@ -956,6 +959,67 @@ class JetonomyBridge {
 			'facts'   => $facts,
 			'actions' => array(),
 		);
+	}
+
+	/**
+	 * Topic ids a Space purge removed, waiting to have their feed cards and search rows removed.
+	 *
+	 * @var int[]
+	 */
+	private array $purged_topics = array();
+
+	/**
+	 * Purged topics removed per batch.
+	 */
+	private const PURGED_TOPIC_BATCH = 200;
+
+	/**
+	 * A Jetonomy Space purge removed a topic in bulk: queue its card and search row for removal.
+	 *
+	 * Jetonomy fires this once per removed object ('post' for a topic, 'reply'); only topics have a feed card. The ids are
+	 * removed in batches of PURGED_TOPIC_BATCH with one lookup each, and the remainder when the request ends, so purging
+	 * a large Space is not one scan of the discussion cards per topic.
+	 *
+	 * @param string $object_type 'post' or 'reply'.
+	 * @param int    $object_id   Removed object ID.
+	 * @return void
+	 */
+	public function on_purged_object_removed( $object_type, $object_id ): void {
+		if ( 'post' !== $object_type || (int) $object_id <= 0 ) {
+			return;
+		}
+		if ( array() === $this->purged_topics ) {
+			add_action( 'shutdown', array( $this, 'flush_purged_topics' ) );
+		}
+		$this->purged_topics[] = (int) $object_id;
+		if ( count( $this->purged_topics ) >= self::PURGED_TOPIC_BATCH ) {
+			$this->flush_purged_topics();
+		}
+	}
+
+	/**
+	 * Remove the feed cards and search rows of the topics queued by on_purged_object_removed().
+	 *
+	 * @return void
+	 */
+	public function flush_purged_topics(): void {
+		$ids                 = array_values( array_unique( $this->purged_topics ) );
+		$this->purged_topics = array();
+		if ( array() === $ids ) {
+			return;
+		}
+
+		IntegrationActivity::remove_by_meta_many( 'discussion', 'post_id', $ids );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- one placeholder per id.
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id IN (" . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')',
+				$ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**
