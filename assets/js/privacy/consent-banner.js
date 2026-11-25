@@ -33,6 +33,12 @@
 				if ( el.parentNode ) {
 					el.parentNode.removeChild( el );
 				}
+				// The button that held focus is gone: hand focus to the page heading so keyboard users keep their place.
+				var landing = document.querySelector( 'main h1, h1, main' );
+				if ( landing ) {
+					if ( ! landing.hasAttribute( 'tabindex' ) ) { landing.setAttribute( 'tabindex', '-1' ); }
+					landing.focus( { preventScroll: true } );
+				}
 			} );
 		}
 	}

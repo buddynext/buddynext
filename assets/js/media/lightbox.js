@@ -1396,6 +1396,10 @@
 		if ( ! gallery.length ) { return; }
 		index = Math.max( 0, Math.min( startIndex, gallery.length - 1 ) );
 		lastFocus = document.activeElement;
+		// Safari and Firefox on macOS do not focus a button or link on click: remember the tile that was pressed.
+		if ( ( ! lastFocus || lastFocus === document.body ) && window.event && window.event.target && window.event.target.closest ) {
+			lastFocus = window.event.target.closest( 'a, button, [tabindex], [role="button"]' ) || lastFocus;
+		}
 		renderMedia();
 		if ( gallery[ index ].id ) { loadPanel( gallery[ index ].id ); }
 		overlay.hidden = false;

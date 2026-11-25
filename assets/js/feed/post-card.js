@@ -1840,9 +1840,38 @@ store( 'buddynext/post-card', {
 		revealContent() {
 			getContext().showContent = true;
 		},
-		toggleOptionsMenu() {
+		toggleOptionsMenu( event ) {
 			const ctx      = getContext();
 			ctx.optionsOpen = ! ctx.optionsOpen;
+			// Opened from the keyboard (Enter or Space reports no pointer): land on the first item, as a menu does.
+			if ( ctx.optionsOpen && event && 0 === event.detail ) {
+				const wrap = event.currentTarget && event.currentTarget.closest( '.bn-post-card__menu-wrap' );
+				requestAnimationFrame( () => {
+					const first = wrap && wrap.querySelector( '.bn-post-card__options-menu a, .bn-post-card__options-menu button' );
+					if ( first ) { first.focus(); }
+				} );
+			}
+		},
+		/**
+		 * Arrow keys, Home and End move between the menu's items.
+		 *
+		 * @param {KeyboardEvent} event The keydown event on the menu.
+		 */
+		optionsMenuKeys( event ) {
+			const move = { ArrowDown: 1, ArrowUp: -1 };
+			if ( ! ( event.key in move ) && 'Home' !== event.key && 'End' !== event.key ) {
+				return;
+			}
+			const items = Array.prototype.filter.call(
+				event.currentTarget.querySelectorAll( 'a, button' ),
+				( el ) => el.getClientRects().length > 0 && ! el.disabled
+			);
+			if ( ! items.length ) { return; }
+			event.preventDefault();
+			let next = items.indexOf( document.activeElement ) + ( move[ event.key ] || 0 );
+			if ( 'Home' === event.key ) { next = 0; }
+			if ( 'End' === event.key ) { next = items.length - 1; }
+			items[ ( next + items.length ) % items.length ].focus();
 		},
 		/**
 		 * Toggle this card's "who reacted" popover. The panel is SSR-present
@@ -2092,6 +2121,8 @@ store( 'buddynext/post-card', {
 		},
 		* reportPost() {
 			const ctx    = getContext();
+			// The menu that offered Report closes behind the dialog instead of staying open under it.
+			ctx.optionsOpen = false;
 			const result = yield bnReportDialog( {
 				title: t( 'reportPost', 'Report this post' ),
 			} );
@@ -2489,6 +2520,14 @@ store( 'buddynext/post-card', {
 				}
 			};
 
+			// Escape cancels the edit from anywhere in the form, as it does in every other editor.
+			form.addEventListener( 'keydown', ( e ) => {
+				if ( 'Escape' === e.key ) {
+					e.preventDefault();
+					e.stopPropagation();
+					cancelBtn.click();
+				}
+			} );
 			cancelBtn.addEventListener( 'click', () => {
 				// Hiding the preview is only a preview of the consequence — nothing
 				// was saved, so cancelling has to put it back.

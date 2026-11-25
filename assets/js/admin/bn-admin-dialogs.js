@@ -197,7 +197,8 @@
 			function onKey( e ) {
 				if ( e.key === 'Escape' ) {
 					close( false );
-				} else if ( e.key === 'Enter' && satisfied() ) {
+				} else if ( e.key === 'Enter' && satisfied() && ! ( e.target && e.target.closest && e.target.closest( 'button' ) ) ) {
+					// Enter on a button is that button's own press: Enter on Cancel cancels, it never confirms.
 					close( true );
 				}
 			}
@@ -218,7 +219,10 @@
 
 			// Focus the field the member has to act on, not the button they
 			// cannot use yet.
-			setTimeout( function () { ( input || m.okBtn ).focus(); }, 0 );
+			// A destructive or warning confirm with nothing to type opens on Cancel, the safe choice, not on the button that destroys.
+			setTimeout( function () {
+				( input || ( ( 'danger' === opts.tone || 'warn' === opts.tone ) && m.cancelBtn ? m.cancelBtn : m.okBtn ) ).focus();
+			}, 0 );
 		} );
 	}
 

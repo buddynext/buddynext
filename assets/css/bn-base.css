@@ -3083,6 +3083,20 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-btn[data-variant="primary"]:hover { background: color-mix(in oklch, var(--bn-accent-solid) 82%, black); }
 
+/* Dark mode: the light accent used for text and rings is too pale as a button fill (it reads as disabled). The primary
+   button gets a deeper fill with a white label (white on L55 is 4.5:1 or better), the same family as the light theme. */
+[data-bn-theme="dark"] .bn-btn[data-variant="primary"],
+[data-theme="dark"] .bn-btn[data-variant="primary"],
+[data-bx-mode="dark"] .bn-btn[data-variant="primary"] {
+	background: oklch(52% var(--bn-chroma, 0.15) var(--bn-hue));
+	color: oklch(99% 0 0);
+}
+[data-bn-theme="dark"] .bn-btn[data-variant="primary"]:hover,
+[data-theme="dark"] .bn-btn[data-variant="primary"]:hover,
+[data-bx-mode="dark"] .bn-btn[data-variant="primary"]:hover {
+	background: oklch(58% var(--bn-chroma, 0.15) var(--bn-hue));
+}
+
 .bn-btn[data-variant="secondary"] {
 	background: var(--bn-surface);
 	color: var(--bn-ink);

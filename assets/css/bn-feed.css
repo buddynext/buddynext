@@ -4882,3 +4882,10 @@ a.bn-composer__error-retry[hidden] { display: none; }
 		z-index: 100000;
 	}
 }
+
+/* Menu rows are comfortable targets everywhere, not only on a phone. */
+.bn-post-card__options-menu > a,
+.bn-post-card__options-menu > button,
+.bn-post-card__options-menu [role="menuitem"] {
+	min-block-size: 40px;
+}

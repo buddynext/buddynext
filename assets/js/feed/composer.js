@@ -1602,10 +1602,39 @@ const { state } = store( 'buddynext/post-composer', {
 				ctx.submitting     = false;
 			}
 		},
+		/**
+		 * Arrow keys, Home and End move between the "Posting to" choices (the popover is a listbox).
+		 *
+		 * @param {KeyboardEvent} event The keydown event on the list.
+		 */
+		privacyKeys( event ) {
+			const keys = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+			const list = event.currentTarget;
+			if ( ! list || ! ( event.key in keys || 'Home' === event.key || 'End' === event.key ) ) {
+				return;
+			}
+			const opts = Array.prototype.slice.call( list.querySelectorAll( '.bn-composer__privacy-opt' ) );
+			if ( ! opts.length ) {
+				return;
+			}
+			event.preventDefault();
+			const at   = opts.indexOf( document.activeElement );
+			let next   = at + ( keys[ event.key ] || 0 );
+			if ( 'Home' === event.key ) { next = 0; }
+			if ( 'End' === event.key ) { next = opts.length - 1; }
+			opts[ ( next + opts.length ) % opts.length ].focus();
+		},
 		togglePrivacy() {
 			const ctx        = getContext();
 			ctx.privacyOpen  = ! ctx.privacyOpen;
 			if ( ctx.privacyOpen ) {
+				// Keyboard users land on the current choice, as in any listbox.
+				const trigger0 = getElement().ref;
+				requestAnimationFrame( function () {
+					const wrap = trigger0 ? trigger0.closest( '.bn-composer__privacy-wrap' ) : null;
+					const sel  = wrap ? ( wrap.querySelector( '[role="option"][aria-selected="true"] .bn-composer__privacy-opt' ) || wrap.querySelector( '.bn-composer__privacy-opt' ) ) : null;
+					if ( sel && sel.getClientRects().length && document.activeElement === trigger0 ) { sel.focus(); }
+				} );
 				// Keep the popover inside the viewport. The "Posting to" chip's
 				// position shifts with the action-row layout, so a static CSS inset
 				// overflows one edge or the other on mobile — the shared clamp

@@ -685,8 +685,10 @@ if ( $composer_article_summary['pending'] > 0 ) {
 					<ul
 						class="bn-composer__privacy-pop"
 						role="listbox"
+						aria-label="<?php esc_attr_e( 'Who can see this post', 'buddynext' ); ?>"
 						hidden
-						data-wp-bind--hidden="!state.privacyOpen">
+						data-wp-bind--hidden="!state.privacyOpen"
+						data-wp-on--keydown="actions.privacyKeys">
 						<li role="option" data-wp-bind--aria-selected="state.isPrivacyPublic">
 							<button type="button"
 								class="bn-composer__privacy-opt"
