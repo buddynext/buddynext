@@ -1050,6 +1050,7 @@ class IntegrationActivity {
 		// A button that goes where the card's own title already goes adds a second tab stop and nothing else, so it is
 		// never drawn, whoever supplied it. What stays is an action the title cannot do (download, a different page).
 		$title   = trim( (string) ( $live['title'] ?? '' ) );
+		$text    = trim( wp_strip_all_tags( (string) ( $live['text'] ?? '' ) ) );
 		$url     = trim( (string) ( $live['url'] ?? '' ) );
 		$here    = self::same_address_key( '' !== $url ? $url : (string) ( $link['url'] ?? $link_meta['url'] ?? '' ) );
 		$actions = array_values(
