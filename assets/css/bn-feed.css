@@ -1528,6 +1528,16 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	.bn-post-card__action-label { display: none; }
 }
 
+/* A finger is the pointer on a phone: the action row, the reactors count and the composer's privacy chip are at
+   least 40px tall (the portfolio's tap-target size), not the 26-30px their text gives them. */
+@media ( max-width: 640px ) {
+	.bn-post-card__action-btn,
+	.bn-post-card__reactors-trigger,
+	.bn-composer__privacy-chip {
+		min-block-size: 40px;
+	}
+}
+
 .bn-post-card__action-btn svg,
 .bn-post-card__action-btn img {
 	width: 16px;
