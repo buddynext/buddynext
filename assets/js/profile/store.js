@@ -237,13 +237,26 @@ async function openAvatarCropModal( file ) {
 	return new Promise( ( resolve ) => {
 		const url = URL.createObjectURL( file );
 		const img = new Image();
+		const unreadable = () => {
+			URL.revokeObjectURL( url );
+			bnToast( t( 'avatarUnreadable', 'That picture could not be opened. Choose a different JPG, PNG, GIF or WebP file.' ), { tone: 'danger' } );
+			resolve( null );
+		};
+		// A source the browser never finishes decoding must not leave the member waiting on nothing.
+		const giveUp = window.setTimeout( unreadable, 20000 );
 		img.onload = () => {
+			window.clearTimeout( giveUp );
+			// Past ~50 megapixels a canvas copy can run the tab out of memory (the server refuses such files too).
+			if ( img.naturalWidth * img.naturalHeight > 50000000 ) {
+				unreadable();
+				return;
+			}
 			URL.revokeObjectURL( url );
 			renderCropModal( img, resolve );
 		};
 		img.onerror = () => {
-			URL.revokeObjectURL( url );
-			resolve( null );
+			window.clearTimeout( giveUp );
+			unreadable();
 		};
 		img.src = url;
 	} );

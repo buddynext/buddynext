@@ -89,7 +89,7 @@ class GetStartedScreen {
 				<div class="bn-setup-card__actions">
 					<a
 						class="bn-btn"
-						data-variant="secondary"
+						data-variant="primary"
 						data-size="sm"
 						href="<?php echo esc_url( add_query_arg( 'page', 'buddynext-setup', admin_url( 'admin.php' ) ) ); ?>"
 					>

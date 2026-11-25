@@ -92,7 +92,9 @@ final class SetupChecklist {
 		}
 		$screen = get_current_screen();
 		$id     = $screen ? (string) $screen->id : '';
-		if ( 'dashboard' !== $id && ! str_contains( $id, 'buddynext' ) ) {
+		// The reminder belongs where an owner decides things: the WordPress dashboard and BuddyNext Settings. Home carries
+		// its own setup card, and every other BuddyNext screen is a place to work, not to be nagged.
+		if ( 'dashboard' !== $id && ! str_contains( $id, 'buddynext-settings' ) ) {
 			return;
 		}
 		if ( str_contains( $id, 'buddynext-setup' ) || 'toplevel_page_' . self::LANDING_SLUG === $id ) {

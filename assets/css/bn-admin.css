@@ -2097,6 +2097,16 @@ table.bn-table tr:hover td {
 	align-items: center;
 }
 
+/* "Install free" is a real button: it keeps the shared button's fill and label, not the quiet text-link look above. */
+.bn-addon-row__action.bn-btn {
+	color: var(--bn-accent-fg, #fff);
+	padding: var(--bn-a-s1) var(--bn-a-s3);
+}
+.bn-addon-row__action.bn-btn:hover,
+.bn-addon-row__action.bn-btn:focus {
+	color: var(--bn-accent-fg, #fff);
+}
+
 .bn-addon-row__action:hover,
 .bn-addon-row__action:focus {
 	color: var(--bn-a-brand-hover);
@@ -5135,3 +5145,4 @@ code.bn-ep-code {
 .bn-settings-section .bn-ss-body > table.widefat td:first-child a {
 	overflow-wrap: anywhere;
 }
+

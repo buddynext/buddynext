@@ -399,7 +399,10 @@ final class Field {
 			add_settings_error( $this->key, 'invalid_email', sprintf( __( '"%s" is not a valid email address, so the setting was not changed.', 'buddynext' ), $typed ) );
 		}
 
-		return (string) get_option( $this->key, (string) $this->resolve_default() );
+		// Keep the saved value; on a first save there is none (and the default may be empty), so fall back to the site
+		// admin email rather than storing a blank sender.
+		$kept = (string) get_option( $this->key, (string) $this->resolve_default() );
+		return '' !== $kept ? $kept : (string) get_option( 'admin_email', '' );
 	}
 
 	/**

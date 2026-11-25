@@ -1890,6 +1890,7 @@ class AssetService {
 				'i18n' => array(
 					'cropAvatar'                       => __( 'Crop avatar', 'buddynext' ),
 					'avatarNotAnImage'                 => __( 'Choose a JPG, PNG, GIF or WebP picture.', 'buddynext' ),
+					'avatarUnreadable'                 => __( 'That picture could not be opened. Choose a different JPG, PNG, GIF or WebP file.', 'buddynext' ),
 					'positionAvatar'                   => __( 'Position your avatar', 'buddynext' ),
 					'zoom'                             => __( 'Zoom', 'buddynext' ),
 					'cancel'                           => __( 'Cancel', 'buddynext' ),

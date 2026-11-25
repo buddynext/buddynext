@@ -586,7 +586,7 @@ class ToolsTab {
 					// Switching the wipe ON is the one save that asks: the owner reads what goes and
 					// what stays, and types the word, before it is stored. Turning it off never asks.
 					?>
-					<button type="submit" class="bn-btn" data-variant="secondary"
+					<button type="submit" class="bn-btn" data-variant="primary"
 						data-bn-confirm="<?php esc_attr_e( 'Deleting BuddyNext will then permanently remove your members\' community data (profiles, follows, connections, preferences), every space, post, comment and reaction, all BuddyNext settings, and the community pages BuddyNext created. Kept: uploaded files (avatars, covers and post photos) and financial records (invoices and subscriptions).', 'buddynext' ); ?>"
 						data-bn-confirm-title="<?php esc_attr_e( 'Delete all community data on uninstall?', 'buddynext' ); ?>"
 						data-bn-confirm-tone="danger"

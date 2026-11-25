@@ -3549,7 +3549,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<a href="<?php echo esc_url( \BuddyNext\Integrations\CompanionRegistry::activate_url( $bn_basename ) ); ?>"
 							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
 					<?php elseif ( 'not_installed' === $bn_status && $can_install && ! $bn_github ) : ?>
-						<button type="button" class="bn-addon-row__action bn-companion-install" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+						<button type="button" class="bn-btn bn-addon-row__action bn-companion-install" data-variant="primary" data-size="sm" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 							<?php esc_html_e( 'Install free', 'buddynext' ); ?>
 						</button>
 					<?php elseif ( $bn_waits_for_pro && null !== $bn_pro_action ) : ?>
