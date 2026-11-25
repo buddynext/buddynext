@@ -367,4 +367,17 @@ class EventonomyAccessTest extends \WP_UnitTestCase {
 		wp_set_current_user( 0 );
 		$this->assertSame( $data, apply_filters( 'evnm_before_create_rsvp', $data, array() ), 'A guest is Eventonomy\'s question, not this one.' );
 	}
+
+	public function test_a_suspended_member_is_told_about_the_suspension_not_about_setting_up(): void {
+		$member = self::factory()->user->create();
+		buddynext_service( 'moderation' )->suspend( $member, 'test', 0 );
+		wp_set_current_user( $member );
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+
+		$result = apply_filters( 'evnm_before_create_rsvp', array( 'event_id' => 1, 'user_id' => $member ), array() );
+
+		unset( $_SERVER['REQUEST_METHOD'] );
+		$this->assertWPError( $result );
+		$this->assertStringContainsString( 'suspended', $result->get_error_message() );
+	}
 }

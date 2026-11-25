@@ -183,12 +183,13 @@ class EventonomyAccess {
 	 */
 	public function refuse_held( $data, $context = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
 		if ( ! is_wp_error( $data ) && is_user_logged_in() && ( new \BuddyNext\Auth\RestHoldGate() )->current_member_is_held() ) {
-			$hold = \BuddyNext\Auth\MemberHold::get( get_current_user_id() );
-			return new \WP_Error(
-				'buddynext_member_held',
-				'' !== (string) ( $hold['message'] ?? '' ) ? (string) $hold['message'] : __( 'Finish setting up your account before you register for events.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+			$hold    = \BuddyNext\Auth\MemberHold::get( get_current_user_id() );
+			$message = '' !== (string) ( $hold['message'] ?? '' )
+				? (string) $hold['message']
+				: ( buddynext_service( 'moderation' )->is_suspended( get_current_user_id() )
+					? __( 'Your account is suspended, so you cannot register for events right now.', 'buddynext' )
+					: __( 'Finish setting up your account before you register for events.', 'buddynext' ) );
+			return new \WP_Error( 'buddynext_member_held', $message, array( 'status' => 403 ) );
 		}
 		return $data;
 	}
