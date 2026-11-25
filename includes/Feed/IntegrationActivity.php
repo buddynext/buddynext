@@ -902,7 +902,8 @@ class IntegrationActivity {
 			$type = (string) ( $item['type'] ?? '' );
 			$id   = (int) ( $item['id'] ?? 0 );
 			if ( $id > 0 && isset( $types[ $type ] ) && ! isset( self::$live[ $id ] ) ) {
-				$by_type[ $type ][ $id ] = self::link_meta_of( $item );
+				// The member the card is about rides along, so a partner can answer for them without a lookup per card.
+				$by_type[ $type ][ $id ] = self::link_meta_of( $item ) + array( 'user_id' => (int) ( $item['user_id'] ?? 0 ) );
 			}
 		}
 
@@ -918,7 +919,7 @@ class IntegrationActivity {
 			 *
 			 * @param array<int,array>   $answers Post id => { facts, actions }; empty by default.
 			 * @param string             $type    Card post type ('job', 'listing', ...).
-			 * @param array<int,array>   $cards   Post id => the card's stored link meta.
+			 * @param array<int,array>   $cards   Post id => the card's stored link meta, plus `user_id` (the member it is about).
 			 * @param int                $viewer  Current user ID (0 = logged out).
 			 */
 			$answers = (array) apply_filters( 'buddynext_card_live', array(), (string) $type, $cards, $viewer );

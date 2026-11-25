@@ -133,6 +133,8 @@ class GamificationBridge {
 			}
 		);
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
+		// A badge card shows the member's level and the badge's name as they are now, for old cards and new alike.
+		add_filter( 'buddynext_card_live', array( $this, 'live_badge_cards' ), 10, 3 );
 		// A badge card names the level and nothing that changes: the points total describes the member, not the badge,
 		// and goes stale the day after. Cards made before this keep their stored points in the data but never draw them.
 		add_filter( 'buddynext_card_facts', array( $this, 'drop_points_fact' ), 10, 2 );
@@ -733,7 +735,7 @@ class GamificationBridge {
 	/**
 	 * The member's points and level when they shared the badge, as the card's facts.
 	 *
-	 * A snapshot: the totals are the member's at the moment they pressed Share.
+	 * The member's level now; a card also stores it when shared, for the app and for a partner that is off.
 	 *
 	 * @param int $user_id Member.
 	 * @return array<int,array{icon:string,text:string}>
@@ -750,6 +752,51 @@ class GamificationBridge {
 			}
 		}
 		return $facts;
+	}
+
+	/**
+	 * Answer `buddynext_card_live` for badge cards: the level the member holds now and the badge's current name.
+	 *
+	 * A card made when the member held one level otherwise kept saying it after a promotion, and kept a renamed
+	 * badge's old name. One level read and one badge-list read per distinct member on the page (the partner has no
+	 * batch getter; a feed page holds few distinct badge holders).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array> $answers Answers so far.
+	 * @param string           $type    Card post type.
+	 * @param array<int,array> $cards   Post id => stored link meta plus user_id.
+	 * @return array<int,array>
+	 */
+	public function live_badge_cards( array $answers, string $type, array $cards ): array {
+		if ( 'badge' !== $type ) {
+			return $answers;
+		}
+		$facts = array();
+		foreach ( $cards as $post_id => $meta ) {
+			$user_id = (int) ( $meta['user_id'] ?? 0 );
+			if ( $user_id <= 0 ) {
+				continue;
+			}
+			if ( ! isset( $facts[ $user_id ] ) ) {
+				$facts[ $user_id ] = $this->badge_facts( $user_id );
+			}
+			// A level that cannot be read leaves the stored one showing instead of blanking the card.
+			$answer = array();
+			if ( array() !== $facts[ $user_id ] ) {
+				$answer['facts'] = $facts[ $user_id ];
+			}
+			if ( preg_match( '/#badge-([^#?\/]+)$/', (string) ( $meta['url'] ?? '' ), $m ) ) {
+				$def = $this->badge_definition( $user_id, rawurldecode( $m[1] ) );
+				if ( is_array( $def ) && '' !== (string) ( $def['name'] ?? '' ) ) {
+					$answer['title'] = (string) $def['name'];
+				}
+			}
+			if ( array() !== $answer ) {
+				$answers[ (int) $post_id ] = $answer;
+			}
+		}
+		return $answers;
 	}
 
 	/**

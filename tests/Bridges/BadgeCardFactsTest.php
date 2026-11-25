@@ -33,4 +33,14 @@ class BadgeCardFactsTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'Regular' ), array_column( $out, 'text' ) );
 		$this->assertSame( $facts, ( new GamificationBridge() )->drop_points_fact( $facts, 'job' ), 'Other card types are left alone.' );
 	}
+
+	public function test_the_live_answer_is_skipped_for_other_types_and_for_a_card_with_no_member(): void {
+		$bridge = new GamificationBridge();
+		$cards  = array(
+			5 => array( 'url' => 'https://example.test/m/#badge-x' ),
+		);
+
+		$this->assertSame( array(), $bridge->live_badge_cards( array(), 'job', $cards ) );
+		$this->assertSame( array(), $bridge->live_badge_cards( array(), 'badge', $cards ), 'No member id, no answer: the stored card stays.' );
+	}
 }
