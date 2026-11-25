@@ -50,4 +50,23 @@ class FeedItemSeamsTest extends \WP_UnitTestCase {
 		$this->assertNotEmpty( $items, 'The home feed has the post.' );
 		$this->assertSame( 'filled', $items[0]['seam_marker'] ?? null );
 	}
+
+	public function test_the_rest_feed_announces_the_page_once_before_it_fills_the_items(): void {
+		$author = self::factory()->user->create();
+		wp_set_current_user( $author );
+		for ( $i = 0; $i < 3; $i++ ) {
+			buddynext_service( 'post_service' )->create( $author, array( 'type' => 'text', 'content' => "page post $i" ) );
+		}
+		$calls = array();
+		$track = static function ( $items, $viewer ) use ( &$calls ): void {
+			$calls[] = array( count( (array) $items ), (int) $viewer );
+		};
+		add_action( 'buddynext_feed_items_primed', $track, 10, 2 );
+
+		rest_do_request( new \WP_REST_Request( 'GET', '/buddynext/v1/feed/home' ) );
+
+		remove_action( 'buddynext_feed_items_primed', $track, 10 );
+		$this->assertNotEmpty( $calls, 'The REST feed announces its page.' );
+		$this->assertSame( 1, count( array_filter( $calls, static fn( $c ) => $c[0] >= 3 ) ), 'Once for the whole page, not once per item.' );
+	}
 }

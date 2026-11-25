@@ -557,6 +557,9 @@ class FeedController extends BaseRestController {
 
 		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $poll_ids );
 
+		/** This action is documented in includes/Feed/FeedService.php (prime_viewer_state). */
+		do_action( 'buddynext_feed_items_primed', $items, $viewer );
+
 		// Community signals, primed for the page like everything above it. Presence is
 		// one read for every author; the face-stacks are one bounded read for every
 		// post. Resolved per card instead, these are the two cheapest ways to turn a
