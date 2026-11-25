@@ -23,12 +23,12 @@ class SpaceReturnLinkTest extends WP_UnitTestCase {
 	}
 
 	public function test_a_page_on_this_site_is_kept(): void {
-		$_GET['return_to'] = rawurlencode( home_url( '/events/book-night/' ) );
+		$_GET['return_to'] = home_url( '/events/book-night/' );
 		$this->assertSame( home_url( '/events/book-night/' ), SpaceReturnLink::url() );
 	}
 
 	public function test_another_site_and_a_missing_value_give_no_link(): void {
-		$_GET['return_to'] = rawurlencode( 'https://evil.example/phish' );
+		$_GET['return_to'] = 'https://evil.example/phish';
 		$this->assertSame( '', SpaceReturnLink::url() );
 		unset( $_GET['return_to'] );
 		$this->assertSame( '', SpaceReturnLink::url() );

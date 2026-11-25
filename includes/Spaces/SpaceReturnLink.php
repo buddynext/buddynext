@@ -28,8 +28,8 @@ class SpaceReturnLink {
 	 */
 	public static function url(): string {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read-only link, nothing is changed.
-		$raw = isset( $_GET['return_to'] ) ? rawurldecode( (string) wp_unslash( $_GET['return_to'] ) ) : '';
-		return '' === $raw ? '' : (string) wp_validate_redirect( esc_url_raw( $raw ), '' );
+		$raw = isset( $_GET['return_to'] ) ? esc_url_raw( wp_unslash( $_GET['return_to'] ) ) : '';
+		return '' === $raw ? '' : (string) wp_validate_redirect( $raw, '' );
 	}
 
 	/**

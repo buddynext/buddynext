@@ -855,6 +855,8 @@ class Plugin {
 
 				// Eventonomy 4+ closes a deleted Space's events and cancels a leaving member's registrations when told.
 				( new \BuddyNext\Bridges\EventonomySpaceLifecycle() )->init();
+				// The words and button a blocked viewer sees on a Space-members event.
+				( new \BuddyNext\Bridges\EventonomyTeaser() )->init();
 
 				// WB Member Blog: the member's published WordPress posts as an
 				// Articles profile tab. The FEED half needs no bridge — BlogPostListener
