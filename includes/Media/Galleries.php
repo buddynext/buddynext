@@ -135,13 +135,26 @@ class Galleries {
 			if ( $space_id > 0 ) {
 				$out[] = array(
 					'id'       => (int) $album_id,
-					'title'    => (string) get_the_title( (int) $album_id ),
+					'title'    => self::album_title( (int) $album_id ),
 					'space_id' => $space_id,
 				);
 			}
 		}
 
 		return $out;
+	}
+
+	/**
+	 * An album's title as plain text.
+	 *
+	 * get_the_title() texturizes (an apostrophe becomes &#8217;) and the JS prints the value as text, so decode once here:
+	 * every consumer, REST included, then gets the characters the member typed.
+	 *
+	 * @param int $album_id Album post id.
+	 * @return string
+	 */
+	private static function album_title( int $album_id ): string {
+		return html_entity_decode( wp_strip_all_tags( get_the_title( $album_id ) ), ENT_QUOTES, 'UTF-8' );
 	}
 
 	/**
@@ -450,7 +463,7 @@ class Galleries {
 		return array(
 			'id'          => $album_id,
 			'space_id'    => $space_id,
-			'title'       => (string) get_the_title( $album_id ),
+			'title'       => self::album_title( $album_id ),
 			'description' => self::album_description( $album_id ),
 			'privacy'     => $reported,
 			'owner'       => $owner_id,

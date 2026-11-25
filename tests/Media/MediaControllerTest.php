@@ -85,6 +85,25 @@ class MediaControllerTest extends \WP_UnitTestCase {
 		$this->assertFalse( $page( 3 )['has_more'], 'The last page says so.' );
 	}
 
+	/**
+	 * An album title with an apostrophe or a dash reaches the screen as the characters typed, not as HTML entities.
+	 */
+	public function test_space_album_titles_are_plain_text_not_entities(): void {
+		if ( ! post_type_exists( 'mvs_album' ) ) {
+			register_post_type( 'mvs_album', array( 'public' => true ) );
+		}
+		$space = buddynext_service( 'spaces' )->create( $this->member, array( 'name' => 'Title Space', 'slug' => 'title-space-albums', 'type' => 'open' ) );
+		$album = self::factory()->post->create( array( 'post_type' => 'mvs_album', 'post_title' => "Sam's weekend - a <b>trip</b> -- done" ) );
+		update_post_meta( $album, Galleries::SPACE_META, $space );
+
+		$title = Galleries::space_albums( $space, $this->member )[0]['title'];
+
+		$this->assertStringNotContainsString( '&#', $title );
+		$this->assertStringNotContainsString( '<b>', $title );
+		$this->assertStringContainsString( 'Sam', $title );
+		$this->assertStringContainsString( "\u{2019}s weekend", $title, 'The apostrophe is the typographic one, as a character.' );
+	}
+
 	// ── Viewer Delete and tile Remove: one trash route, one rule ───────────────
 
 	/**

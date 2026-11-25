@@ -435,6 +435,7 @@
 }
 
 .bn-album-card__title {
+	min-width: 0;
 	margin-block-start: var(--bn-s1);
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
@@ -631,7 +632,8 @@
 
 @media (max-width: 640px) {
 	.bn-album-grid {
-		grid-template-columns: repeat(2, 1fr);
+		/* minmax(0, ...): a long nowrap title must not stretch its column past the screen. */
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--bn-s3);
 	}
 
