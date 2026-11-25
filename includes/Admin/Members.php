@@ -1858,7 +1858,8 @@ class Members extends AdminPageBase {
 						id="bn-members-search"
 						name="s"
 						class="bn-input"
-						placeholder="<?php esc_attr_e( 'Search by name, email or username...', 'buddynext' ); ?>"
+						placeholder="<?php esc_attr_e( 'Search members…', 'buddynext' ); ?>"
+						title="<?php esc_attr_e( 'Search by name, email or username', 'buddynext' ); ?>"
 						value="<?php echo esc_attr( $search ); ?>">
 					<label for="bn-members-role" class="screen-reader-text"><?php esc_html_e( 'Filter by role', 'buddynext' ); ?></label>
 					<select id="bn-members-role" name="role" class="bn-select">
@@ -1873,7 +1874,7 @@ class Members extends AdminPageBase {
 					<?php if ( array() !== $bn_types ) : ?>
 						<label for="bn-members-type" class="screen-reader-text"><?php esc_html_e( 'Filter by member type', 'buddynext' ); ?></label>
 						<select id="bn-members-type" name="member_type" class="bn-select">
-							<option value=""><?php esc_html_e( 'All member types', 'buddynext' ); ?></option>
+							<option value=""><?php esc_html_e( 'All types', 'buddynext' ); ?></option>
 							<?php foreach ( $bn_types as $bn_type ) : ?>
 								<option value="<?php echo esc_attr( (string) $bn_type['slug'] ); ?>" <?php selected( $type_filter, (string) $bn_type['slug'] ); ?>>
 									<?php echo esc_html( (string) $bn_type['name'] ); ?>
@@ -1883,7 +1884,7 @@ class Members extends AdminPageBase {
 					<?php endif; ?>
 					<label for="bn-members-sort" class="screen-reader-text"><?php esc_html_e( 'Sort members', 'buddynext' ); ?></label>
 					<select id="bn-members-sort" name="sort" class="bn-select">
-						<option value="registered" <?php selected( $bn_sort_now, 'registered' ); ?>><?php esc_html_e( 'Newest members', 'buddynext' ); ?></option>
+						<option value="registered" <?php selected( $bn_sort_now, 'registered' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
 						<option value="name" <?php selected( $bn_sort_now, 'name' ); ?>><?php esc_html_e( 'Name A to Z', 'buddynext' ); ?></option>
 						<option value="active" <?php selected( $bn_sort_now, 'active' ); ?>><?php esc_html_e( 'Recently active', 'buddynext' ); ?></option>
 						<option value="dormant" <?php selected( $bn_sort_now, 'dormant' ); ?>><?php esc_html_e( 'Least recently active', 'buddynext' ); ?></option>

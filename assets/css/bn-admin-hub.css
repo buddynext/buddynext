@@ -604,14 +604,33 @@
    the boxes never butt up against each other. */
 .bn-admin-hub .bn-stat-grid {
 	margin-bottom: var(--bn-s4, 16px);
-	/* Tiles share the row they are on, so a row of three or a lone seventh tile still spans the
-	   full width instead of stopping short and leaving a ragged right edge. */
-	display: flex;
-	flex-wrap: wrap;
+	/* Equal columns, as many as fit: a flex row let one wider tile push a fourth tile onto its own full-width line
+	   (3 + 1), and six tiles read 5 + 1. */
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+	gap: var(--bn-s3, 12px);
 }
 .bn-admin-hub .bn-stat-grid > .bn-stat {
-	flex: 1 1 11rem;
 	min-width: 0;
+}
+
+/* Quantity rules: 5 tiles share one row, 6 and 8 tiles split evenly (3 + 3, 4 + 4) instead of leaving an orphan. */
+@media (min-width: 900px) {
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(5):last-child) {
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+	}
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(6):last-child) {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(8):last-child) {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+}
+@media (min-width: 783px) and (max-width: 899px) {
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(5):last-child),
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(6):last-child) {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
 }
 
 /* ── Mobile — tab strip becomes a horizontal scroller ────────────────── */
