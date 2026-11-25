@@ -582,11 +582,15 @@ class MediaController extends BaseRestController {
 		$per_page = min( 60, max( 1, (int) $request->get_param( 'per_page' ) ) );
 		$offset   = ( $page - 1 ) * $per_page;
 
+		$has_more = false;
+		$albums   = Galleries::user_albums( $owner, $viewer, $per_page, $offset, $has_more );
+
 		return new WP_REST_Response(
 			array(
-				'albums'   => Galleries::user_albums( $owner, $viewer, $per_page, $offset ),
+				'albums'   => $albums,
 				'page'     => $page,
 				'per_page' => $per_page,
+				'has_more' => $has_more,
 			),
 			200
 		);

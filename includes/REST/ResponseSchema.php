@@ -6031,6 +6031,9 @@ final class ResponseSchema {
 				'per_page' => array(
 					'type' => 'integer',
 				),
+				'has_more' => array(
+					'type' => 'boolean',
+				),
 			),
 		);
 	}

@@ -23950,6 +23950,9 @@
                     },
                     "per_page": {
                         "type": "integer"
+                    },
+                    "has_more": {
+                        "type": "boolean"
                     }
                 }
             },

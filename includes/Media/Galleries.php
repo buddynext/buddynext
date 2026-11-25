@@ -306,13 +306,15 @@ class Galleries {
 	 * (album privacy is stored against the album id in the media repo). Album
 	 * counts per user are small, so post-query filtering is acceptable.
 	 *
-	 * @param int $owner_id  Album owner user id.
-	 * @param int $viewer_id Viewer user id (0 = logged out).
-	 * @param int $limit     Max albums.
-	 * @param int $offset    Pagination offset.
+	 * @param int       $owner_id  Album owner user id.
+	 * @param int       $viewer_id Viewer user id (0 = logged out).
+	 * @param int       $limit     Max albums.
+	 * @param int       $offset    Pagination offset.
+	 * @param bool|null $has_more Set to whether another page of albums exists behind this one (counted before the visibility filter).
 	 * @return array<int,array<string,mixed>> Ordered album summaries.
 	 */
-	public static function user_albums( int $owner_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
+	public static function user_albums( int $owner_id, int $viewer_id, int $limit = 24, int $offset = 0, ?bool &$has_more = null ): array {
+		$has_more = false;
 		if ( $owner_id <= 0 || ! post_type_exists( 'mvs_album' ) ) {
 			return array();
 		}
@@ -335,16 +337,22 @@ class Galleries {
 				),
 				'orderby'        => 'date',
 				'order'          => 'DESC',
-				'posts_per_page' => max( 1, $limit ),
+				// One more than the page: whether that row exists is the answer to "is there more", asked of the rows
+				// BEFORE the viewer's visibility filter drops any, so a page that came back short for a visitor
+				// is not mistaken for the last one.
+				'posts_per_page' => max( 1, $limit ) + 1,
 				'offset'         => max( 0, $offset ),
 				'fields'         => 'ids',
 				'no_found_rows'  => true,
 			)
 		);
 
+		$ids      = array_map( 'intval', (array) $query->posts );
+		$has_more = count( $ids ) > max( 1, $limit );
+		$ids      = array_slice( $ids, 0, max( 1, $limit ) );
+
 		$out = array();
-		foreach ( (array) $query->posts as $album_id ) {
-			$album_id = (int) $album_id;
+		foreach ( $ids as $album_id ) {
 			if ( self::can_view_album( $album_id, $viewer_id ) ) {
 				$out[] = self::album_summary( $album_id, $viewer_id );
 			}
