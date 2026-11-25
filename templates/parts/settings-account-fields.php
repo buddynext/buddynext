@@ -296,6 +296,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 				<div class="bn-2fa-qr" data-bn-2fa-qr hidden></div>
 				<p class="bn-2fa-desc"><?php esc_html_e( 'Cannot scan? Enter this setup key by hand instead:', 'buddynext' ); ?></p>
 				<code class="bn-2fa-secret" data-wp-text="context.twofaSecret"></code>
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.copyTwofaSecret"><?php esc_html_e( 'Copy setup key', 'buddynext' ); ?></button>
 				<p class="bn-2fa-desc"><a data-wp-bind--href="context.twofaUri"><?php esc_html_e( 'Or tap here on your phone to add it automatically.', 'buddynext' ); ?></a></p>
 				<div class="bn-ep-field bn-ep-field--full">
 					<label class="bn-ep-label" for="bn-2fa-confirm-code"><?php esc_html_e( 'Enter the 6-digit code to confirm', 'buddynext' ); ?></label>
@@ -316,6 +317,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						<li data-wp-text="context.item"></li>
 					</template>
 				</ul>
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.copyTwofaCodes"><?php esc_html_e( 'Copy backup codes', 'buddynext' ); ?></button>
 				<button type="button" class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="actions.finishTwofa"><?php esc_html_e( 'I have saved my codes', 'buddynext' ); ?></button>
 			</div>
 

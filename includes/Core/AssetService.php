@@ -1890,6 +1890,9 @@ class AssetService {
 				'i18n' => array(
 					'cropAvatar'                       => __( 'Crop avatar', 'buddynext' ),
 					'avatarNotAnImage'                 => __( 'Choose a JPG, PNG, GIF or WebP picture.', 'buddynext' ),
+					'twofaSecretCopied'                => __( 'Setup key copied', 'buddynext' ),
+					'twofaCodesCopied'                 => __( 'Backup codes copied', 'buddynext' ),
+					'couldNotCopyManual'               => __( 'Could not copy. Select the text and copy it yourself.', 'buddynext' ),
 					'avatarUnreadable'                 => __( 'That picture could not be opened. Choose a different JPG, PNG, GIF or WebP file.', 'buddynext' ),
 					'positionAvatar'                   => __( 'Position your avatar', 'buddynext' ),
 					'zoom'                             => __( 'Zoom', 'buddynext' ),

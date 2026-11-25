@@ -5159,6 +5159,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	width: 100%;
 	height: 6px;
 	background: var(--bn-sunken);
+	/* The track edge reaches 3:1 against the page (WCAG 1.4.11), so the meter reads as a meter when empty. */
+	box-shadow: inset 0 0 0 1px var(--bn-line-control);
 	border-radius: var(--bn-r-full);
 	overflow: hidden;
 	position: relative;

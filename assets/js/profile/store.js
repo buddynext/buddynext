@@ -233,6 +233,17 @@ function buildXIcon() {
 /** The control that opened the avatar picker, for the crop dialog to hand focus back to. */
 let avatarOpener = null;
 
+/** Copy text to the clipboard and say so; when the browser refuses, ask for a manual copy. */
+function copyText( text, doneMessage ) {
+	if ( ! text ) { return; }
+	const fail = () => bnToast( t( 'couldNotCopyManual', 'Could not copy. Select the text and copy it yourself.' ), { tone: 'danger' } );
+	if ( navigator.clipboard && navigator.clipboard.writeText ) {
+		navigator.clipboard.writeText( text ).then( () => bnToast( doneMessage, { tone: 'success' } ), fail );
+		return;
+	}
+	fail();
+}
+
 async function openAvatarCropModal( file ) {
 	return new Promise( ( resolve ) => {
 		const url = URL.createObjectURL( file );
@@ -1372,6 +1383,14 @@ const profileStore = store( 'buddynext/profile', {
 		 * from a real <button> so keyboard activation works without extra
 		 * handlers.
 		 */
+		/* Copy the 2FA setup key or the backup codes (one per line). Falls back to a toast that asks for a manual copy. */
+		copyTwofaSecret() {
+			copyText( getContext().twofaSecret || '', t( 'twofaSecretCopied', 'Setup key copied' ) );
+		},
+		copyTwofaCodes() {
+			copyText( ( getContext().twofaBackupCodes || [] ).join( '\n' ), t( 'twofaCodesCopied', 'Backup codes copied' ) );
+		},
+
 		shareProfile( event ) {
 			const trigger = event.target.closest( '[data-share-url]' );
 			if ( ! trigger ) { return; }
