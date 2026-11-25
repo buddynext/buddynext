@@ -851,20 +851,7 @@ class IntegrationActivity {
 		}
 		$html .= '</span>';
 		$html .= '<a class="bn-post-card__bridge-title" href="' . esc_url( $url ) . '">' . esc_html( $title ) . '</a>';
-		if ( array() !== $facts ) {
-			$html .= '<ul class="bn-post-card__bridge-facts">';
-			foreach ( $facts as $fact ) {
-				$html .= '<li>' . ( '' !== $fact['icon'] ? '<span class="bn-post-card__bridge-fact-icon" aria-hidden="true">' . buddynext_get_icon( $fact['icon'] ) . '</span>' : '' ) . '<span>' . esc_html( $fact['text'] ) . '</span></li>';
-			}
-			$html .= '</ul>';
-		}
-		if ( array() !== $actions ) {
-			$html .= '<div class="bn-post-card__bridge-actions">';
-			foreach ( $actions as $i => $action ) {
-				$html .= '<a class="bn-btn" data-size="sm" data-variant="' . ( 0 === $i ? 'primary' : 'secondary' ) . '" href="' . esc_url( $action['url'] ) . '">' . esc_html( $action['label'] ) . '</a>';
-			}
-			$html .= '</div>';
-		}
+		$html .= self::render_parts( $facts, $actions );
 		$html .= '</div>';
 		if ( '' !== $desc ) {
 			$html .= '<p class="bn-post-card__bridge-text">' . esc_html( $desc ) . '</p>';
@@ -897,10 +884,7 @@ class IntegrationActivity {
 	 * @return void
 	 */
 	public static function prime_live( array $items, int $viewer ): void {
-		$types = self::card_types();
-		if ( array() === $types ) {
-			return;
-		}
+		$types = array_flip( self::live_types() );
 
 		$by_type = array();
 		foreach ( $items as $item ) {
@@ -945,7 +929,7 @@ class IntegrationActivity {
 	public static function enrich_item( array $item, int $viewer ): array {
 		unset( $viewer );
 		$type = (string) ( $item['type'] ?? '' );
-		if ( ! isset( self::card_types()[ $type ] ) ) {
+		if ( ! in_array( $type, self::live_types(), true ) ) {
 			return $item;
 		}
 		$resolved     = self::resolve( $type, array(), self::link_meta_of( $item ), (int) ( $item['id'] ?? 0 ) );
@@ -968,6 +952,45 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * The facts line and button row of a card, ready to echo (escaped).
+	 *
+	 * One markup for every card, so the hand-written discussion card and the shared bridge card cannot drift.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array{icon:string,text:string}> $facts   Cleaned facts (see facts()).
+	 * @param array<int,array{label:string,url:string}> $actions Cleaned buttons (see actions()).
+	 * @return string
+	 */
+	public static function render_parts( array $facts, array $actions ): string {
+		$html = '';
+		if ( array() !== $facts ) {
+			$html .= '<ul class="bn-post-card__bridge-facts">';
+			foreach ( $facts as $fact ) {
+				$html .= '<li>' . ( '' !== $fact['icon'] ? '<span class="bn-post-card__bridge-fact-icon" aria-hidden="true">' . buddynext_get_icon( $fact['icon'] ) . '</span>' : '' ) . '<span>' . esc_html( $fact['text'] ) . '</span></li>';
+			}
+			$html .= '</ul>';
+		}
+		if ( array() !== $actions ) {
+			$html .= '<div class="bn-post-card__bridge-actions">';
+			foreach ( $actions as $i => $action ) {
+				$html .= '<a class="bn-btn" data-size="sm" data-variant="' . ( 0 === $i ? 'primary' : 'secondary' ) . '" href="' . esc_url( $action['url'] ) . '">' . esc_html( $action['label'] ) . '</a>';
+			}
+			$html .= '</div>';
+		}
+		return $html;
+	}
+
+	/**
+	 * Card types a bridge can answer live: every registered card type, and the discussion card.
+	 *
+	 * @return string[]
+	 */
+	private static function live_types(): array {
+		return array_merge( array_keys( self::card_types() ), array( 'discussion' ) );
+	}
+
+	/**
 	 * The facts and actions one card shows: the partner's live answer for this page when it gave
 	 * one, else what was stored when the card published, then the site's filters.
 	 *
@@ -977,7 +1000,7 @@ class IntegrationActivity {
 	 * @param int                 $post_id   Post id (0 when unknown).
 	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>}
 	 */
-	private static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
+	public static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
 		$live  = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
 		$facts = ! empty( $live['facts'] ) ? (array) $live['facts'] : (array) ( $link['facts'] ?? $link_meta['facts'] ?? array() );
 

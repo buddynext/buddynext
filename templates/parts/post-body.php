@@ -483,6 +483,11 @@ do_action( 'buddynext_part_post_body_before', $args );
 				<?php if ( '' !== $bn_link_desc ) : ?>
 					<p class="bn-post-card__bridge-text"><?php echo esc_html( $bn_link_desc ); ?></p>
 				<?php endif; ?>
+				<?php
+				// The forum's own numbers and the Open discussion button, the same markup every bridge card uses.
+				$bn_disc_parts = \BuddyNext\Feed\IntegrationActivity::resolve( 'discussion', array(), (array) ( $args['link_meta'] ?? array() ), (int) $args['bn_post_id'] );
+				echo \BuddyNext\Feed\IntegrationActivity::render_parts( $bn_disc_parts['facts'], $bn_disc_parts['actions'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside render_parts().
+				?>
 			</div>
 		</div>
 		<?php endif; ?>
