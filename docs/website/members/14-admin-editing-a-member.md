@@ -52,7 +52,7 @@ Editing follows WordPress's own rules for editing a user, so BuddyNext never let
 
 ## Exporting members
 
-The **Export CSV** button at the top of **BuddyNext > Members > Directory** downloads every member as a CSV file (ID, login, email, display name, registered date and whether the member is suspended). Because members choose their own display names, a cell that starts with `=`, `+`, `-` or `@` is written with a leading single quote so a spreadsheet shows it as plain text and never runs it as a formula. The moderation log export is written the same way.
+The **Export CSV** button at the top of **BuddyNext > Members > Directory** downloads the members you are looking at as a CSV file (ID, login, email, display name, registered date, whether the member is suspended, and member type). It follows the search, role and **member type** you have chosen above the list, so choosing a type and exporting gives you, for example, all your Professionals as a spreadsheet. With no filter it downloads every member. Because members choose their own display names, a cell that starts with `=`, `+`, `-` or `@` is written with a leading single quote so a spreadsheet shows it as plain text and never runs it as a formula. The moderation log export is written the same way.
 
 ## Free vs Pro
 
