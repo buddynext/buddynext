@@ -62,6 +62,6 @@ class JetonomyTopicMarkersTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'Pinned', $html );
 		$this->assertStringContainsString( 'schedule', $html );
 		$this->assertStringContainsString( 'Showing 1 of 45', $html );
-		$this->assertStringContainsString( 'See all in the forum', $html );
+		$this->assertStringContainsString( 'See all discussions', $html );
 	}
 }

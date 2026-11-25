@@ -119,6 +119,7 @@ class IntegrationSearchToggleTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_deindex_type_flushes_the_available_types_cache(): void {
+		$this->with_partner_active( 'job' );
 		$search = new SearchService();
 		$search->index( 'job', 1, 'Senior PHP Engineer', 'We are hiring', 1 );
 
@@ -141,5 +142,26 @@ class IntegrationSearchToggleTest extends WP_UnitTestCase {
 	 */
 	public function test_deindex_type_on_an_empty_type_is_a_no_op(): void {
 		$this->assertSame( 0, ( new SearchService() )->deindex_type( 'nothing_here' ) );
+	}
+
+	/**
+	 * Make a card type look like its partner plugin is active: registered, with a renderer. A type with neither is an
+	 * orphan, and search hides an orphan's rows (the partner is off).
+	 *
+	 * @param string $type Card type.
+	 * @return void
+	 */
+	private function with_partner_active( string $type ): void {
+		add_filter(
+			'buddynext_integration_card_types',
+			static fn( array $types ): array => $types + array(
+				$type => array(
+					'label' => ucfirst( $type ),
+					'icon'  => 'link',
+				),
+			)
+		);
+		add_filter( 'buddynext_render_post_body_' . $type, '__return_empty_string' );
+		wp_cache_flush();
 	}
 }

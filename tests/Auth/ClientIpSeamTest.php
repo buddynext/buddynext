@@ -165,10 +165,14 @@ class ClientIpSeamTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The old duplicate resolver is gone.
+	 * The old resolver is only a deprecated stand-in: it answers with the one real resolver and resolves nothing itself.
 	 */
 	public function test_auth_controller_has_no_second_resolver(): void {
-		$this->assertFalse( method_exists( \BuddyNext\Auth\AuthController::class, 'client_ip' ) );
+		$this->setExpectedDeprecated( 'BuddyNext\Auth\AuthController::client_ip' );
+		$_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+
+		$this->assertSame( \BuddyNext\Moderation\SafeguardService::client_ip(), \BuddyNext\Auth\AuthController::client_ip() );
+		$this->assertStringNotContainsString( 'REMOTE_ADDR', (string) file_get_contents( ( new \ReflectionClass( \BuddyNext\Auth\AuthController::class ) )->getFileName() ), 'AuthController reads no address of its own.' );
 	}
 
 	/**

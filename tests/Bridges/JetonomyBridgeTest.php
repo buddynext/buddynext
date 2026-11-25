@@ -42,6 +42,10 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
 				reply_count INT NOT NULL DEFAULT 0,
 				vote_score INT NOT NULL DEFAULT 0,
+				is_sticky TINYINT(1) NOT NULL DEFAULT 0,
+				is_closed TINYINT(1) NOT NULL DEFAULT 0,
+				is_resolved TINYINT(1) NOT NULL DEFAULT 0,
+				accepted_reply_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)

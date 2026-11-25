@@ -118,10 +118,10 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 		<?php if ( $bn_total > count( $bn_discussions ) && '' !== $bn_forum_url ) : ?>
 			<p class="bn-space-discussions__more">
 				<?php
-				/* translators: 1: topics shown, 2: topics in the forum. */
+				/* translators: 1: topics shown, 2: discussions in the Space. */
 				printf( esc_html__( 'Showing %1$s of %2$s', 'buddynext' ), esc_html( number_format_i18n( count( $bn_discussions ) ) ), esc_html( number_format_i18n( $bn_total ) ) );
 				?>
-				<a href="<?php echo esc_url( $bn_forum_url ); ?>"><?php esc_html_e( 'See all in the forum', 'buddynext' ); ?></a>
+				<a href="<?php echo esc_url( $bn_forum_url ); ?>"><?php esc_html_e( 'See all discussions', 'buddynext' ); ?></a>
 			</p>
 		<?php endif; ?>
 	<?php elseif ( $bn_forum_linked ) : ?>

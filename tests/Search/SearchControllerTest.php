@@ -88,6 +88,10 @@ class SearchControllerTest extends \WP_Test_REST_TestCase {
 	 * @return void
 	 */
 	public function test_typed_search_items_carry_their_link(): void {
+		// A listing card is only searchable while its partner is active (registered, with a renderer).
+		add_filter( 'buddynext_integration_card_types', static fn( array $t ): array => $t + array( 'listing' => array( 'label' => 'Listing', 'icon' => 'map-pin' ) ) );
+		add_filter( 'buddynext_render_post_body_listing', '__return_empty_string' );
+		wp_cache_flush();
 		$this->search_service->index( 'listing', 77, 'Linkterm topic', 'Linkterm body', $this->author_id );
 		$link = static fn( string $url, string $type, int $id ): string => 'listing' === $type ? 'https://example.test/topic/' . $id . '/' : $url;
 		add_filter( 'buddynext_search_item_url', $link, 10, 3 );

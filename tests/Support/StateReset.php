@@ -69,9 +69,27 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\Spaces\SpaceLinkService::class          => array(
 			'system_depth' => 0,
 		),
-		// Spaces an add-on hides from a viewer, remembered for one request.
-		\BuddyNext\Spaces\SpaceVisibility::class           => array(
-			'hidden_memo' => array(),
+		// Event access answers (per viewer and event) are remembered for one request.
+		\BuddyNext\Bridges\EventonomyAccess::class          => array(
+			'ids_memo' => array(),
+			'memo'     => array(),
+		),
+		// Request-scope state of the bridges and services: each is restored to its declared default before every test.
+		\BuddyNext\Bridges\EventonomySpaceLifecycle::class => array(
+			'announced' => array(),
+		),
+		\BuddyNext\Bridges\MemberBlogBridge::class        => array(
+			'held_post'  => null,
+			'write_page' => 0,
+		),
+		\BuddyNext\Feed\ArticleProvider::class            => array(
+			'resolved' => array(),
+		),
+		\BuddyNext\Moderation\SafeguardService::class     => array(
+			'bulk_depth' => 0,
+		),
+		\BuddyNext\Notifications\EmailDefaults::class     => array(
+			'seeds' => array(),
 		),
 		// Modules switched off by a failure last only for the request that failed.
 		\BuddyNext\Addons\ModuleWiring::class              => array(
@@ -152,6 +170,9 @@ final class StateReset implements BeforeTestHook {
 		// later test silently skips the work they guard.
 		\BuddyNext\Bridges\JetonomyBridge::class           => array(
 			'syncing'           => false,
+			'copying_flag'      => false,
+			'mirroring_report'  => false,
+			'own_write'         => 0,
 			'forum_space_memo'  => array(),
 			'dropped_notice'    => array(),
 			'answered_in_space' => array(),
@@ -173,17 +194,23 @@ final class StateReset implements BeforeTestHook {
 			'system_publish' => false,
 			'mirror_depth'   => 0,
 			'search_only'    => false,
+			'live'           => array(),
 		),
 		\BuddyNext\Outbound\WebhookLog::class              => array( 'in_request' => false ),
 		// Per-REQUEST record of spaces unlocked by opening a valid invite link. Must
 		// not survive a test whose invite/space rows rolled back underneath it, or
 		// one test's unlock leaks into another.
-		\BuddyNext\Spaces\SpaceVisibility::class           => array( 'invite_unlocked' => array() ),
+		\BuddyNext\Spaces\SpaceVisibility::class           => array(
+			'invite_unlocked' => array(),
+			// Spaces an add-on hides from a viewer, remembered for one request.
+			'hidden_memo'     => array(),
+		),
 		// Per-REQUEST memo of feed URLs already purged from the page cache. A leftover
 		// entry mutes the next test's purge.
 		\BuddyNext\Core\PageCachePurger::class             => array(
-			'purged'     => array(),
-			'purged_all' => false,
+			'purged'         => array(),
+			'purged_all'     => false,
+			'purged_authors' => array(),
 		),
 		// Per-REQUEST guard: the space whose dead invite link was already reported.
 		// A leftover value mutes the next test's card write.
@@ -198,7 +225,11 @@ final class StateReset implements BeforeTestHook {
 			'has_fulltext'      => null,
 		),
 		\BuddyNext\Feed\ShareService::class                => array( 'shared_memo' => array() ),
-		\BuddyNext\Feed\FeedService::class                 => array( 'excluded_space_ids' => null ),
+		\BuddyNext\Feed\FeedService::class                 => array(
+			'excluded_space_ids' => null,
+			'scan_window'        => 2000,
+			'single_query'       => false,
+		),
 		\BuddyNext\SocialGraph\PrivacyService::class       => array( 'blocks_table_exists' => false ),
 		\BuddyNext\Profile\GamificationAchievements::class => array( 'rank_memo' => array() ),
 		\BuddyNext\Bridges\GamificationBridge::class       => array(
