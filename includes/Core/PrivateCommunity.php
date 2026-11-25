@@ -201,6 +201,12 @@ final class PrivateCommunity {
 			return (bool) $allowed;
 		}
 
+		// A member held out of the community (an unverified email, a plan the community requires) is held out of
+		// a partner's pages too: the private community wall is about who may be inside, not only who is signed in.
+		if ( self::is_enabled() && null !== \BuddyNext\Auth\MemberHold::get( (int) $user_id ) ) {
+			return false;
+		}
+
 		return self::can_access( $allowed );
 	}
 

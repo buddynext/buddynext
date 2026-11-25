@@ -230,4 +230,22 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 		add_filter( 'buddynext_private_community_can_access', '__return_false' );
 		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', true, $member ), 'A membership plugin can still refuse.' );
 	}
+
+	public function test_a_held_member_is_kept_out_of_event_pages_while_the_community_is_private(): void {
+		PrivateCommunity::register();
+		$held   = self::factory()->user->create();
+		$active = self::factory()->user->create();
+		add_filter( 'buddynext_member_hold', static fn( $hold, $uid ) => (int) $uid === $held ? array( 'url' => home_url( '/hold/' ), 'code' => 'x', 'message' => 'x' ) : $hold, 10, 2 );
+
+		update_option( PrivateCommunity::OPTION, 1 );
+		wp_set_current_user( $held );
+		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', true, $held ), 'Held: events stay closed.' );
+		$this->assertFalse( (bool) apply_filters( 'learnomy_content_can_access', true, $held ), 'Held: Learnomy stays closed too.' );
+		wp_set_current_user( $active );
+		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $active ), 'Not held: passes.' );
+
+		delete_option( PrivateCommunity::OPTION );
+		wp_set_current_user( $held );
+		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $held ), 'A public community is not walled for anyone.' );
+	}
 }
