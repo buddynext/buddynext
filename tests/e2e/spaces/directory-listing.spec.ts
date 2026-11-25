@@ -176,7 +176,7 @@ test.describe('spaces / directory listing controls (J-640..J-643)', () => {
         // EFFECT: page 2 is a different space than page 1.
         expect(page2Ids[0]).not.toBe(page1Ids[0]);
         // EFFECT: the two pages are the first two rows of the unpaged listing, in order.
-        const both = await bnApi(page, 'GET', '/spaces?per_page=2&orderby=newest');
+        const both = await bnApi(page, 'GET', '/spaces?per_page=2&orderby=newest&type=open');
         expect(both.status).toBe(200);
         expect(ids(both.data)).toEqual([page1Ids[0], page2Ids[0]]);
     });

@@ -67,6 +67,7 @@ test.describe('admin / menu order and retired page', () => {
 
         // The destination renders a real tab body.
         await page.goto(bulk.headers()['location']);
-        await expect(page.locator('.bn-hub-nav-link[href*="buddynext-automation"]').first()).toBeVisible();
+        // The hub nav folds into a menu on a phone, so the link is in the page but not drawn: assert it is there.
+        await expect(page.locator('.bn-hub-nav-link[href*="buddynext-automation"]').first()).toBeAttached();
     });
 });

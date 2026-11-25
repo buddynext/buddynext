@@ -5146,3 +5146,12 @@ code.bn-ep-code {
 	overflow-wrap: anywhere;
 }
 
+
+/* WordPress gives .tablenav a fixed 30px height, which assumes its controls stay on one line. On a tablet the bulk
+   bar (select, Apply and the extra fields) wraps to two lines and spilled over the table below it, so the Apply
+   button sat under the header row and could not be clicked. Let the bar grow with its content. */
+.bn-admin-hub .tablenav {
+	height: auto;
+	min-height: 30px;
+	display: flow-root;
+}
