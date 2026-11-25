@@ -169,7 +169,7 @@ class NotificationPrefService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT user_id, email_freq FROM {$wpdb->prefix}bn_notification_prefs
+				"SELECT user_id, on_site, email_freq FROM {$wpdb->prefix}bn_notification_prefs
 				 WHERE type = %s AND user_id IN ( {$placeholders} )",
 				array_merge( array( $type ), $user_ids )
 			),
@@ -177,11 +177,28 @@ class NotificationPrefService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		$freq = array();
+		$freq    = array();
+		$default = $this->default_pref( $type );
 		foreach ( (array) $rows as $row ) {
 			$freq[ (int) $row['user_id'] ] = (string) $row['email_freq'];
+			// Fill get_pref()'s cache from this one read: send() asks per member again, and each miss was a query.
+			wp_cache_set(
+				"pref_{$row['user_id']}_{$type}",
+				array(
+					'on_site'    => (bool) $row['on_site'],
+					'email_freq' => $row['email_freq'],
+				),
+				self::CACHE_GROUP,
+				self::CACHE_TTL
+			);
 		}
-		$default = (string) $this->default_pref( $type )['email_freq'];
+		// A member with no stored row has the catalogue default; cache that too, so it is not looked up one by one.
+		foreach ( $user_ids as $uid ) {
+			if ( ! isset( $freq[ $uid ] ) ) {
+				wp_cache_set( "pref_{$uid}_{$type}", $default, self::CACHE_GROUP, self::CACHE_TTL );
+			}
+		}
+		$default = (string) $default['email_freq'];
 
 		// One query primes the bn_channel_prefs reads below.
 		update_meta_cache( 'user', $user_ids );

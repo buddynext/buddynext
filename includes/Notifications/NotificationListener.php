@@ -1863,6 +1863,9 @@ class NotificationListener implements ListenerInterface {
 			'space_name'  => $names['space'],
 		);
 
+		// One query loads every recipient's user object; send_now() reads each one (their address, name and locale).
+		cache_users( array_map( 'intval', $member_ids ) );
+
 		foreach ( $member_ids as $member_id ) {
 			// $defer = false: already an async AS worker, so immediate emails send
 			// inline here rather than spawning one sub-action per recipient.

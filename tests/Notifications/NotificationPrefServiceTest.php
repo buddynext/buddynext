@@ -221,4 +221,20 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( 0, $count, 'A non-catalogue, non-internal type must never reach the table.' );
 	}
+
+	public function test_the_batch_email_check_fills_the_per_member_cache_so_send_does_not_query_each_member(): void {
+		global $wpdb;
+
+		$service = new \BuddyNext\Notifications\NotificationPrefService();
+		$users   = self::factory()->user->create_many( 5 );
+		wp_cache_flush();
+
+		$service->email_wanted_ids( $users, 'bn.space_new_post' );
+
+		$q0 = $wpdb->num_queries;
+		foreach ( $users as $uid ) {
+			$service->get_pref( (int) $uid, 'bn.space_new_post' );
+		}
+		$this->assertSame( 0, $wpdb->num_queries - $q0, 'get_pref() answers from the cache the batch read filled.' );
+	}
 }
