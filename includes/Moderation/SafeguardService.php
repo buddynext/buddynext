@@ -87,8 +87,11 @@ class SafeguardService {
 		 * @param string        $link_url Optional URL attached to the post.
 		 * @param string        $context  'create' or 'edit'. Create-time-only gates (rate limit,
 		 *                                duplicate content, new-member) must not fire on 'edit'.
+		 * @param string        $object_label What is being written: 'post' here; check_content() passes 'comment',
+		 *                                'profile', 'direct message', 'caption' and so on. A rule that counts posts
+		 *                                (a posts-per-hour limit) applies to 'post' only. Since 1.3.0.
 		 */
-		$pro = apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, 'create' );
+		$pro = apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, 'create', 'post' );
 		if ( is_wp_error( $pro ) ) {
 			return $pro;
 		}
@@ -147,7 +150,7 @@ class SafeguardService {
 		}
 
 		/** This filter is documented in includes/Moderation/SafeguardService.php */
-		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, $context );
+		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, $context, $object_label );
 	}
 
 	/**
