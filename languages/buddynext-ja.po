@@ -222,7 +222,7 @@ msgstr "ゴミ箱に移動"
 #: includes/Admin/Spaces.php:1115
 #: includes/Core/AssetService.php:1213
 #: includes/Core/AssetService.php:1588
-#: includes/Core/AssetService.php:1899
+#: includes/Core/AssetService.php:1900
 #: includes/Core/PageRouter.php:2296
 #: templates/notifications/index.php:430
 #: templates/partials/create-space-modal.php:242
@@ -358,7 +358,7 @@ msgstr[0] "%d分前"
 #. translators: %d: number of hours.
 #: bootstrap.php:2291
 #: includes/Core/AssetService.php:1203
-#: includes/Core/AssetService.php:2325
+#: includes/Core/AssetService.php:2327
 #, php-format
 msgid "%dh ago"
 msgid_plural "%dh ago"
@@ -467,7 +467,7 @@ msgstr "フィルター"
 
 #: includes/Admin/ActivityAdmin.php:221
 #: includes/Admin/EmailLog.php:384
-#: includes/Core/AssetService.php:2374
+#: includes/Core/AssetService.php:2376
 #: templates/partials/media-upload-composer.php:161
 #: templates/parts/space-feed-panel.php:248
 msgid "Clear"
@@ -510,9 +510,9 @@ msgstr "一括操作"
 #: includes/Admin/Spaces.php:737
 #: includes/Admin/Spaces.php:893
 #: includes/Core/AssetService.php:1215
-#: includes/Core/AssetService.php:1794
-#: includes/Core/AssetService.php:1840
-#: includes/Core/AssetService.php:2274
+#: includes/Core/AssetService.php:1795
+#: includes/Core/AssetService.php:1841
+#: includes/Core/AssetService.php:2276
 #: includes/Media/MediaAssets.php:146
 #: templates/notifications/index.php:427
 #: templates/partials/media-lightbox.php:160
@@ -532,7 +532,7 @@ msgstr "削除"
 
 #: includes/Admin/ActivityAdmin.php:252
 #: includes/Admin/Settings.php:3699
-#: includes/Core/AssetService.php:2478
+#: includes/Core/AssetService.php:2480
 #: templates/auth/login.php:174
 #: templates/auth/signup.php:518
 #: assets/js/admin/activity-bulk.js:61
@@ -553,7 +553,7 @@ msgstr "復元"
 #: includes/Admin/ModerationQueue.php:357
 #: includes/Admin/Spaces.php:528
 #: includes/Core/AssetService.php:1604
-#: includes/Core/AssetService.php:1900
+#: includes/Core/AssetService.php:1901
 #: templates/parts/filter-strip.php:201
 #: templates/parts/filter-strip.php:206
 msgid "Apply"
@@ -788,10 +788,10 @@ msgstr "ファイル #%d"
 #: includes/Admin/Members/AvatarSettings.php:292
 #: includes/Admin/Members/AvatarSettings.php:353
 #: includes/Admin/Settings.php:3990
-#: includes/Core/AssetService.php:1868
-#: includes/Core/AssetService.php:1967
-#: includes/Core/AssetService.php:2096
-#: includes/Core/AssetService.php:2427
+#: includes/Core/AssetService.php:1869
+#: includes/Core/AssetService.php:1968
+#: includes/Core/AssetService.php:2098
+#: includes/Core/AssetService.php:2429
 #: includes/Media/MediaAssets.php:137
 #: templates/community-admin.php:1061
 #: templates/partials/composer.php:400
@@ -979,7 +979,7 @@ msgstr "投票"
 #: includes/Notifications/NotificationMessageService.php:686
 #: templates/partials/media-lightbox.php:120
 #: templates/partials/space-file-single.php:162
-#: templates/parts/post-actions.php:298
+#: templates/parts/post-actions.php:300
 msgid "Share"
 msgstr "シェア"
 
@@ -1069,7 +1069,7 @@ msgstr "はじめに"
 #: includes/Admin/SetupVideosScreen.php:37
 #: includes/Admin/Spaces.php:539
 #: includes/Admin/Spaces.php:644
-#: includes/Core/AssetService.php:2040
+#: includes/Core/AssetService.php:2042
 #: includes/Core/CoreHubs.php:78
 #: includes/Core/PageRouter.php:1306
 #: includes/Core/PageRouter.php:1386
@@ -1712,7 +1712,7 @@ msgstr "誰かがあなたの投稿をシェアしたとき"
 
 #: includes/Admin/EmailEditor.php:157
 #: includes/Admin/EmailLog.php:192
-#: includes/Core/AssetService.php:1730
+#: includes/Core/AssetService.php:1731
 #: templates/messages/native.php:229
 #: templates/parts/dm-compose-modal.php:38
 #: templates/parts/dm-rail.php:266
@@ -1908,7 +1908,7 @@ msgstr "審査待ちの投稿が却下されたとき"
 
 #: includes/Admin/EmailEditor.php:296
 #: includes/Admin/EmailLog.php:201
-#: includes/Core/AssetService.php:2097
+#: includes/Core/AssetService.php:2099
 #: includes/Moderation/ModerationLogService.php:334
 #: includes/Notifications/NotificationMessageService.php:756
 #: includes/Notifications/NotificationPrefCatalogue.php:416
@@ -2547,7 +2547,7 @@ msgstr "リアクション"
 #: includes/Admin/RolesTab.php:64
 #: includes/Admin/Settings.php:1287
 #: includes/Core/AssetService.php:1361
-#: includes/Core/AssetService.php:2042
+#: includes/Core/AssetService.php:2044
 #: includes/Nav/Providers/ProfileNav.php:113
 #: includes/Nav/Providers/ProfileNav.php:280
 #: templates/directory/members.php:257
@@ -2795,7 +2795,7 @@ msgstr "メンバーは停止されませんでした。もう一度お試しく
 #: includes/Admin/Settings.php:3817
 #: includes/Core/AssetService.php:1206
 #: includes/Core/AssetService.php:1612
-#: includes/Core/AssetService.php:1741
+#: includes/Core/AssetService.php:1742
 #: includes/Messages/MessagesData.php:174
 #: includes/Privacy/PrivacyTools.php:821
 #: includes/Privacy/PrivacyTools.php:879
@@ -2847,7 +2847,7 @@ msgstr[0] "モデレーター"
 #: includes/Admin/Members.php:717
 #: includes/Admin/Members.php:789
 #: includes/Admin/Members/MemberDisplay.php:56
-#: includes/Core/AssetService.php:1740
+#: includes/Core/AssetService.php:1741
 #: includes/Core/PageRouter.php:1383
 #: includes/Messages/MessagesData.php:174
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:535
@@ -2944,7 +2944,7 @@ msgstr "この操作を行う権限がありません。"
 
 #: includes/Admin/Members.php:1776
 #: includes/Admin/ModerationQueue.php:1650
-#: includes/Core/AssetService.php:2129
+#: includes/Core/AssetService.php:2131
 msgid "Member suspended."
 msgstr "メンバーを停止しました。"
 
@@ -3023,7 +3023,7 @@ msgstr "メンバーを停止"
 
 #: includes/Admin/Members.php:1936
 #: includes/Admin/Members.php:2185
-#: includes/Core/AssetService.php:2117
+#: includes/Core/AssetService.php:2119
 msgid "Suspend"
 msgstr "停止"
 
@@ -3050,7 +3050,7 @@ msgstr "すべてのメンバーを選択"
 #: includes/Admin/Members.php:2110
 #: includes/Core/AssetService.php:1373
 #: includes/Core/AssetService.php:1532
-#: includes/Core/AssetService.php:2197
+#: includes/Core/AssetService.php:2199
 #: includes/Privacy/PrivacyTools.php:947
 #: templates/onboarding/index.php:567
 #: templates/parts/search-result-section-spaces.php:181
@@ -3097,7 +3097,7 @@ msgstr "%s のその他の操作"
 #: includes/Admin/Members.php:2178
 #: includes/Admin/Members/MemberEditForm.php:312
 #: includes/Admin/ModerationQueue.php:1510
-#: includes/Core/AssetService.php:2115
+#: includes/Core/AssetService.php:2117
 msgid "Suspend this member?"
 msgstr "このメンバーを停止しますか？"
 
@@ -3138,27 +3138,27 @@ msgid "Are you sure?"
 msgstr "よろしいですか？"
 
 #: includes/Admin/Members.php:2277
-#: includes/Core/AssetService.php:2118
+#: includes/Core/AssetService.php:2120
 msgid "Reason (shown to the member)"
 msgstr "理由（メンバーに表示されます）"
 
 #: includes/Admin/Members.php:2279
-#: includes/Core/AssetService.php:2119
+#: includes/Core/AssetService.php:2121
 msgid "Choose a reason"
 msgstr "理由を選択"
 
 #: includes/Admin/Members.php:2286
-#: includes/Core/AssetService.php:2120
+#: includes/Core/AssetService.php:2122
 msgid "Note (optional, required for Other)"
 msgstr "メモ（任意。「その他」の場合は必須）"
 
 #: includes/Admin/Members.php:2290
-#: includes/Core/AssetService.php:2121
+#: includes/Core/AssetService.php:2123
 msgid "Suspension length"
 msgstr "停止期間"
 
 #: includes/Admin/Members.php:2292
-#: includes/Core/AssetService.php:2125
+#: includes/Core/AssetService.php:2127
 #: templates/parts/space-settings-panel-invite.php:51
 msgid "1 day"
 msgstr "1日"
@@ -3180,12 +3180,12 @@ msgid "90 days"
 msgstr "90日間"
 
 #: includes/Admin/Members.php:2297
-#: includes/Core/AssetService.php:2122
+#: includes/Core/AssetService.php:2124
 msgid "Indefinite (until lifted)"
 msgstr "無期限（解除するまで）"
 
 #: includes/Admin/Members.php:2304
-#: includes/Core/AssetService.php:2126
+#: includes/Core/AssetService.php:2128
 msgid "Hide their posts while suspended"
 msgstr "停止中はこのメンバーの投稿を非表示にする"
 
@@ -3257,7 +3257,7 @@ msgstr "送信されたデータを表示"
 #: includes/Admin/Members/ApprovalManager.php:391
 #: includes/Admin/ModerationQueue.php:472
 #: includes/Admin/ModerationQueue.php:795
-#: includes/Core/AssetService.php:2136
+#: includes/Core/AssetService.php:2138
 #: templates/community-admin.php:1281
 #: templates/parts/profile/people-panel.php:167
 #: templates/spaces/moderation.php:557
@@ -3465,13 +3465,14 @@ msgstr "招待を再送信できませんでした。招待が存在しなくな
 
 #: includes/Admin/Members/InviteManager.php:337
 #: includes/Core/AssetService.php:1636
-#: includes/Core/AssetService.php:2439
+#: includes/Core/AssetService.php:2441
 #: includes/Spaces/SpaceController.php:3220
 msgid "Invitation sent"
 msgstr "招待を送信しました"
 
 #: includes/Admin/Members/InviteManager.php:352
 #: includes/Auth/AuthController.php:1392
+#: includes/Core/AssetService.php:2531
 msgid "Please enter a valid email address."
 msgstr "有効なメールアドレスを入力してください。"
 
@@ -3573,8 +3574,8 @@ msgstr[0] "寄稿者"
 #: includes/Bridges/JetonomyBridge.php:4748
 #: includes/Bridges/MemberBlogRestController.php:73
 #: includes/CommunityAdmin/RoleController.php:102
-#: includes/Feed/FeedController.php:1082
-#: includes/Feed/FeedController.php:1102
+#: includes/Feed/FeedController.php:1084
+#: includes/Feed/FeedController.php:1104
 #: includes/Media/MediaController.php:578
 #: includes/MemberTypes/MemberTypeService.php:503
 #: includes/Outbound/AccessWebhookController.php:359
@@ -4057,7 +4058,7 @@ msgstr "削除されませんでした。確認用の文字列が一致しませ
 #: includes/Admin/Settings.php:1215
 #: includes/Core/AssetService.php:1358
 #: includes/Core/AssetService.php:1538
-#: includes/Core/AssetService.php:2039
+#: includes/Core/AssetService.php:2041
 #: templates/partials/composer.php:680
 #: templates/partials/composer.php:699
 #: templates/partials/explore-card.php:158
@@ -4093,7 +4094,7 @@ msgstr "つながりのみ"
 #: includes/Admin/Members/ProfileFieldsManager.php:1600
 #: includes/Admin/Settings.php:1218
 #: includes/Core/AssetService.php:1362
-#: includes/Core/AssetService.php:2043
+#: includes/Core/AssetService.php:2045
 #: templates/partials/composer.php:750
 #: templates/partials/media-tab.php:295
 #: templates/partials/media-upload-composer.php:153
@@ -4647,17 +4648,17 @@ msgid "Decision"
 msgstr "判定"
 
 #: includes/Admin/ModerationQueue.php:793
-#: includes/Core/AssetService.php:2140
+#: includes/Core/AssetService.php:2142
 msgid "Optional note"
 msgstr "メモ（任意）"
 
 #: includes/Admin/ModerationQueue.php:794
-#: includes/Core/AssetService.php:2141
+#: includes/Core/AssetService.php:2143
 msgid "Note for the member (optional)"
 msgstr "メンバーへのメモ（任意）"
 
 #: includes/Admin/ModerationQueue.php:796
-#: includes/Core/AssetService.php:2143
+#: includes/Core/AssetService.php:2145
 #: templates/community-admin.php:1219
 msgid "Deny"
 msgstr "却下"
@@ -4825,7 +4826,7 @@ msgid "Content warning removed."
 msgstr "コンテンツの警告を削除しました。"
 
 #: includes/Admin/ModerationQueue.php:1649
-#: includes/Core/AssetService.php:2105
+#: includes/Core/AssetService.php:2107
 msgid "Strike issued."
 msgstr "警告を発行しました。"
 
@@ -4974,7 +4975,7 @@ msgstr "メンバーが「いいね」した投稿"
 
 #: includes/Admin/NavManager.php:959
 #: includes/Core/AssetService.php:1360
-#: includes/Core/AssetService.php:2041
+#: includes/Core/AssetService.php:2043
 #: includes/Nav/Providers/ProfileNav.php:94
 #: includes/Nav/Providers/ProfileNav.php:293
 #: templates/blocks/profile-header.php:81
@@ -4992,7 +4993,7 @@ msgstr "このメンバーをフォローしているメンバー"
 #: includes/Admin/NavManager.php:967
 #: includes/Core/AssetService.php:1078
 #: includes/Core/AssetService.php:1427
-#: includes/Core/AssetService.php:2199
+#: includes/Core/AssetService.php:2201
 #: includes/Core/PageRouter.php:2313
 #: includes/Nav/Providers/ProfileNav.php:104
 #: includes/Nav/Providers/ProfileNav.php:305
@@ -5086,7 +5087,7 @@ msgstr "通知バッジ"
 #. translators: %s: member display name.
 #: includes/Admin/NavManager.php:1162
 #: includes/Admin/NavManager.php:2652
-#: includes/Core/AssetService.php:1944
+#: includes/Core/AssetService.php:1945
 #: includes/Core/PageRouter.php:1496
 #: includes/Nav/ShellNavService.php:119
 #: includes/Onboarding/OnboardingService.php:152
@@ -7243,7 +7244,7 @@ msgstr "インストール済み"
 #: includes/Admin/Settings.php:3501
 #: includes/Core/AssetService.php:1105
 #: includes/Core/AssetService.php:1429
-#: includes/Core/AssetService.php:1983
+#: includes/Core/AssetService.php:1984
 #: templates/blocks/connection-button.php:132
 #: templates/partials/connection-button.php:158
 #: templates/parts/member-card.php:524
@@ -7325,7 +7326,7 @@ msgstr "これらの設定は、受信用の POST buddynext/v1/webhook/access �
 
 #: includes/Admin/Settings.php:3698
 #: includes/Admin/Settings.php:3700
-#: includes/Core/AssetService.php:2479
+#: includes/Core/AssetService.php:2481
 #: templates/auth/login.php:173
 #: templates/auth/login.php:176
 #: templates/auth/signup.php:517
@@ -8409,7 +8410,7 @@ msgstr "このサーバーで Apple のクライアントシークレットに�
 #: includes/Auth/ApprovalGuard.php:110
 #: includes/Auth/SocialLogin.php:1426
 #: includes/Bridges/MemberBlogBridge.php:754
-#: includes/Core/AssetService.php:2536
+#: includes/Core/AssetService.php:2541
 msgid "Your account is awaiting administrator approval."
 msgstr "アカウントは管理者の承認待ちです。"
 
@@ -8437,7 +8438,7 @@ msgid "Account not found."
 msgstr "アカウントが見つかりません。"
 
 #: includes/Auth/AuthController.php:613
-#: includes/Core/AssetService.php:2016
+#: includes/Core/AssetService.php:2018
 msgid "Enter your current password."
 msgstr "現在のパスワードを入力してください。"
 
@@ -8446,12 +8447,12 @@ msgid "Current password does not match."
 msgstr "現在のパスワードが一致しません。"
 
 #: includes/Auth/AuthController.php:620
-#: includes/Core/AssetService.php:2017
+#: includes/Core/AssetService.php:2019
 msgid "Enter a new password."
 msgstr "新しいパスワードを入力してください。"
 
 #: includes/Auth/AuthController.php:622
-#: includes/Core/AssetService.php:2018
+#: includes/Core/AssetService.php:2020
 msgid "Use at least 8 characters."
 msgstr "8 文字以上で入力してください。"
 
@@ -8474,7 +8475,7 @@ msgid "An account with that email already exists."
 msgstr "そのメールアドレスのアカウントは、すでに存在します。"
 
 #: includes/Auth/AuthController.php:721
-#: includes/Core/AssetService.php:2000
+#: includes/Core/AssetService.php:2002
 msgid "Check your inbox to confirm."
 msgstr "受信トレイを確認して、承認してください。"
 
@@ -8493,7 +8494,7 @@ msgid "Please enter your email or username and your password."
 msgstr "メールアドレスまたはユーザー名と、パスワードを入力してください。"
 
 #: includes/Auth/AuthController.php:1045
-#: includes/Core/AssetService.php:2500
+#: includes/Core/AssetService.php:2502
 msgid "That email, username or password is not right."
 msgstr "メールアドレス、ユーザー名、またはパスワードが正しくありません。"
 
@@ -8549,7 +8550,7 @@ msgstr "続けるには利用規約に同意してください。"
 #. translators: %s: field label.
 #: includes/Auth/AuthController.php:1440
 #: includes/Auth/AuthController.php:1671
-#: includes/Core/AssetService.php:1962
+#: includes/Core/AssetService.php:1963
 #: includes/Profile/ProfileController.php:1723
 #: includes/Profile/ProfileController.php:1745
 #: includes/Profile/ProfileService.php:1079
@@ -8618,7 +8619,7 @@ msgid "Your email address is already verified."
 msgstr "メールアドレスは既に確認済みです。"
 
 #: includes/Auth/AuthController.php:2147
-#: includes/Core/AssetService.php:2009
+#: includes/Core/AssetService.php:2011
 msgid "Your email address is now marked as verified."
 msgstr "メールアドレスが確認済みとしてマークされました。"
 
@@ -8643,7 +8644,7 @@ msgid "You must be logged in."
 msgstr "ログインが必要です。"
 
 #: includes/Auth/AuthController.php:2350
-#: includes/Feed/FeedController.php:1236
+#: includes/Feed/FeedController.php:1238
 msgid "You do not have permission to do this."
 msgstr "この操作を行う権限がありません。"
 
@@ -9442,8 +9443,8 @@ msgid "The discussion could not be created, so it was not enabled."
 msgstr "ディスカッションを作成できなかったため、有効にできませんでした。"
 
 #: includes/Bridges/JetonomyBridge.php:4609
-#: includes/Feed/FeedController.php:1154
-#: includes/Feed/FeedController.php:1171
+#: includes/Feed/FeedController.php:1156
+#: includes/Feed/FeedController.php:1173
 #: includes/Media/MediaController.php:703
 #: includes/Spaces/SpaceController.php:884
 #: includes/Spaces/SpaceController.php:963
@@ -9689,12 +9690,12 @@ msgid "Jordan Lee"
 msgstr "Jordan Lee"
 
 #: includes/Core/AssetService.php:1059
-#: includes/Core/AssetService.php:2026
-#: includes/Core/AssetService.php:2218
-#: includes/Core/AssetService.php:2502
-#: includes/Core/AssetService.php:2531
-#: includes/Core/AssetService.php:2553
-#: includes/Core/AssetService.php:2571
+#: includes/Core/AssetService.php:2028
+#: includes/Core/AssetService.php:2220
+#: includes/Core/AssetService.php:2504
+#: includes/Core/AssetService.php:2536
+#: includes/Core/AssetService.php:2558
+#: includes/Core/AssetService.php:2576
 #: includes/Core/PageRouter.php:2324
 #: templates/messages/native.php:232
 #: templates/partials/space-file-single.php:118
@@ -9703,7 +9704,7 @@ msgstr "問題が発生しました。もう一度お試しください。"
 
 #: includes/Core/AssetService.php:1077
 #: includes/Core/AssetService.php:1426
-#: includes/Core/AssetService.php:2198
+#: includes/Core/AssetService.php:2200
 #: includes/Core/PageRouter.php:2312
 #: templates/blocks/follow-button.php:52
 #: templates/onboarding/index.php:675
@@ -9718,7 +9719,7 @@ msgstr "フォロー"
 #: includes/Core/AssetService.php:1079
 #: includes/Core/AssetService.php:1430
 #: includes/Core/AssetService.php:1533
-#: includes/Core/AssetService.php:2200
+#: includes/Core/AssetService.php:2202
 #: includes/Core/PageRouter.php:2314
 #: includes/Privacy/PrivacyTools.php:837
 #: templates/blocks/follow-button.php:48
@@ -9749,7 +9750,7 @@ msgstr "フォローリクエストを取り消す"
 #. translators: %s: the member's public handle.
 #: includes/Core/AssetService.php:1084
 #: includes/Core/AssetService.php:1456
-#: includes/Core/AssetService.php:2366
+#: includes/Core/AssetService.php:2368
 #: includes/Core/PageRouter.php:2319
 #, php-format
 msgid "Unfollowed @%s"
@@ -9758,7 +9759,7 @@ msgstr "@%s のフォローを解除しました"
 #. translators: %s: the member's public handle.
 #: includes/Core/AssetService.php:1087
 #: includes/Core/AssetService.php:1435
-#: includes/Core/AssetService.php:2370
+#: includes/Core/AssetService.php:2372
 #: includes/Core/PageRouter.php:2323
 #, php-format
 msgid "Follow request to @%s cancelled"
@@ -9767,7 +9768,7 @@ msgstr "@%s へのフォローリクエストを取り消しました"
 #. translators: %s: the member's public handle.
 #: includes/Core/AssetService.php:1089
 #: includes/Core/AssetService.php:1433
-#: includes/Core/AssetService.php:2368
+#: includes/Core/AssetService.php:2370
 #: includes/Core/PageRouter.php:2321
 #, php-format
 msgid "Follow request sent to @%s"
@@ -9776,7 +9777,7 @@ msgstr "@%s にフォローリクエストを送信しました"
 #. translators: %s: the member's public handle.
 #: includes/Core/AssetService.php:1091
 #: includes/Core/AssetService.php:1459
-#: includes/Core/AssetService.php:2364
+#: includes/Core/AssetService.php:2366
 #: includes/Core/PageRouter.php:2317
 #, php-format
 msgid "Now following @%s"
@@ -9822,7 +9823,7 @@ msgstr "リクエストを辞退できませんでした。もう一度お試し
 #: includes/Admin/AdminHub.php:2047
 #: includes/Core/AssetService.php:1104
 #: includes/Core/AssetService.php:1428
-#: includes/Core/AssetService.php:1950
+#: includes/Core/AssetService.php:1951
 #: templates/blocks/connection-button.php:164
 #: templates/partials/connection-button.php:191
 #: templates/parts/member-card.php:528
@@ -9886,7 +9887,7 @@ msgstr "@%s とのつながりを解除しました"
 
 #: includes/Core/AssetService.php:1121
 #: includes/Core/AssetService.php:1475
-#: includes/Core/AssetService.php:1982
+#: includes/Core/AssetService.php:1983
 msgid "Could not disconnect. Try again."
 msgstr "つながりを解除できませんでした。もう一度お試しください。"
 
@@ -10000,15 +10001,15 @@ msgid " (edited)"
 msgstr " (編集済み)"
 
 #: includes/Core/AssetService.php:1223
-#: includes/Core/AssetService.php:1872
+#: includes/Core/AssetService.php:1873
 msgid "This cannot be undone."
 msgstr "この操作は元に戻せません。"
 
 #: includes/Core/AssetService.php:1224
-#: includes/Core/AssetService.php:1674
 #: includes/Core/AssetService.php:1675
-#: includes/Core/AssetService.php:2284
-#: includes/Core/AssetService.php:2402
+#: includes/Core/AssetService.php:1676
+#: includes/Core/AssetService.php:2286
+#: includes/Core/AssetService.php:2404
 #: assets/js/admin/settings.js:155
 #: assets/js/admin/settings.js:192
 #: assets/js/admin/settings.js:247
@@ -10037,45 +10038,45 @@ msgstr "画像"
 
 #: includes/Core/AssetService.php:1230
 #: templates/parts/comment.php:157
-#: templates/parts/post-actions.php:158
+#: templates/parts/post-actions.php:160
 msgid "Choose reaction"
 msgstr "リアクションを選択"
 
 #: includes/Core/AssetService.php:1158
 #: includes/Core/AssetService.php:1231
 #: includes/Reactions/ReactionService.php:365
-#: templates/parts/post-actions.php:150
-#: templates/parts/post-actions.php:168
+#: templates/parts/post-actions.php:152
+#: templates/parts/post-actions.php:170
 msgid "Like"
 msgstr "いいねする"
 
 #: includes/Core/AssetService.php:1232
 #: includes/Reactions/ReactionService.php:366
-#: templates/parts/post-actions.php:169
+#: templates/parts/post-actions.php:171
 msgid "Love"
 msgstr "大好き"
 
 #: includes/Core/AssetService.php:1233
 #: includes/Reactions/ReactionService.php:367
-#: templates/parts/post-actions.php:170
+#: templates/parts/post-actions.php:172
 msgid "Haha"
 msgstr "笑い"
 
 #: includes/Core/AssetService.php:1234
 #: includes/Reactions/ReactionService.php:368
-#: templates/parts/post-actions.php:171
+#: templates/parts/post-actions.php:173
 msgid "Wow"
 msgstr "すごい"
 
 #: includes/Core/AssetService.php:1235
 #: includes/Reactions/ReactionService.php:369
-#: templates/parts/post-actions.php:172
+#: templates/parts/post-actions.php:174
 msgid "Sad"
 msgstr "悲しい"
 
 #: includes/Core/AssetService.php:1236
 #: includes/Reactions/ReactionService.php:370
-#: templates/parts/post-actions.php:173
+#: templates/parts/post-actions.php:175
 msgid "Angry"
 msgstr "怒り"
 
@@ -10199,8 +10200,8 @@ msgstr "この投稿を通報"
 #: includes/Core/AssetService.php:1268
 #: includes/Core/AssetService.php:1494
 #: includes/Core/AssetService.php:1606
-#: includes/Core/AssetService.php:1653
-#: includes/Core/AssetService.php:1999
+#: includes/Core/AssetService.php:1654
+#: includes/Core/AssetService.php:2001
 msgid "Report submitted. Thanks for keeping the community safe."
 msgstr "通報を受け付けました。コミュニティの安全を守るご協力をありがとうございます。"
 
@@ -10221,8 +10222,8 @@ msgstr "フィードに戻る"
 #: includes/Core/AssetService.php:1272
 #: includes/Core/AssetService.php:1495
 #: includes/Core/AssetService.php:1608
-#: includes/Core/AssetService.php:1654
-#: includes/Core/AssetService.php:1998
+#: includes/Core/AssetService.php:1655
+#: includes/Core/AssetService.php:2000
 msgid "Could not submit report. Try again."
 msgstr "通報を送信できませんでした。もう一度お試しください。"
 
@@ -10429,7 +10430,7 @@ msgid "Link copied"
 msgstr "リンクをコピーしました"
 
 #: includes/Core/AssetService.php:1333
-#: includes/Core/AssetService.php:1986
+#: includes/Core/AssetService.php:1987
 msgid "Could not copy link."
 msgstr "リンクをコピーできませんでした。"
 
@@ -10468,7 +10469,7 @@ msgid "You don’t have permission to post here."
 msgstr "ここに投稿する権限がありません。"
 
 #: includes/Core/AssetService.php:1343
-#: includes/Core/AssetService.php:2552
+#: includes/Core/AssetService.php:2557
 msgid "Verification email sent. Check your inbox."
 msgstr "確認メールを送信しました。受信トレイをご確認ください。"
 
@@ -10700,14 +10701,14 @@ msgid "Message"
 msgstr "メッセージ"
 
 #: includes/Core/AssetService.php:1441
-#: includes/Core/AssetService.php:1922
+#: includes/Core/AssetService.php:1923
 #: templates/parts/member-card.php:240
 #: templates/parts/profile-actions-overflow.php:129
 msgid "Mute"
 msgstr "ミュート"
 
 #: includes/Core/AssetService.php:1442
-#: includes/Core/AssetService.php:1921
+#: includes/Core/AssetService.php:1922
 #: templates/parts/member-card.php:240
 #: templates/parts/notifications-sidecard-muted.php:135
 #: templates/parts/settings-relations.php:65
@@ -10715,8 +10716,8 @@ msgid "Unmute"
 msgstr "ミュート解除"
 
 #: includes/Core/AssetService.php:1443
-#: includes/Core/AssetService.php:1773
-#: includes/Core/AssetService.php:1926
+#: includes/Core/AssetService.php:1774
+#: includes/Core/AssetService.php:1927
 #: includes/Core/PageRouter.php:2328
 #: templates/partials/media-lightbox.php:169
 #: templates/parts/member-card.php:246
@@ -10792,7 +10793,7 @@ msgstr "ミュートの状態を更新できませんでした。もう一度お
 
 #. translators: %s: member display name.
 #: includes/Core/AssetService.php:1489
-#: includes/Core/AssetService.php:1771
+#: includes/Core/AssetService.php:1772
 #: includes/Core/PageRouter.php:2299
 #, php-format
 msgid "Block %s?"
@@ -10805,14 +10806,14 @@ msgstr "このメンバーをブロックしますか？"
 
 #. translators: %s: member display name.
 #: includes/Core/AssetService.php:1492
-#: includes/Core/AssetService.php:1775
-#: includes/Core/AssetService.php:1994
+#: includes/Core/AssetService.php:1776
+#: includes/Core/AssetService.php:1996
 #, php-format
 msgid "%s blocked"
 msgstr "%sをブロックしました"
 
 #: includes/Core/AssetService.php:1493
-#: includes/Core/AssetService.php:1996
+#: includes/Core/AssetService.php:1998
 msgid "Could not block. Try again."
 msgstr "ブロックできませんでした。もう一度お試しください。"
 
@@ -10821,7 +10822,7 @@ msgid "Could not load members. Check your connection and try again."
 msgstr "メンバーを読み込めませんでした。接続を確認して、もう一度お試しください。"
 
 #: includes/Core/AssetService.php:1531
-#: includes/Core/AssetService.php:2196
+#: includes/Core/AssetService.php:2198
 #: templates/onboarding/index.php:567
 #: templates/parts/search-result-section-spaces.php:180
 #: templates/parts/space-directory-card.php:284
@@ -10848,13 +10849,13 @@ msgid "Request pending - click to cancel"
 msgstr "承認待ち - クリックしてキャンセル"
 
 #: includes/Core/AssetService.php:1541
-#: includes/Core/AssetService.php:1737
+#: includes/Core/AssetService.php:1738
 msgid "1 member"
 msgstr "メンバー1人"
 
 #. translators: %d: number of members.
 #: includes/Core/AssetService.php:1543
-#: includes/Core/AssetService.php:1739
+#: includes/Core/AssetService.php:1740
 #, php-format
 msgid "%d members"
 msgstr "メンバー%d人"
@@ -10955,17 +10956,17 @@ msgid "Invitation accepted."
 msgstr "招待を承諾しました。"
 
 #: includes/Core/AssetService.php:1571
-#: includes/Core/AssetService.php:2281
+#: includes/Core/AssetService.php:2283
 msgid "Could not accept the invitation."
 msgstr "招待を承諾できませんでした。"
 
 #: includes/Core/AssetService.php:1572
-#: includes/Core/AssetService.php:2282
+#: includes/Core/AssetService.php:2284
 msgid "Invitation declined."
 msgstr "招待を辞退しました。"
 
 #: includes/Core/AssetService.php:1573
-#: includes/Core/AssetService.php:2283
+#: includes/Core/AssetService.php:2285
 msgid "Could not decline the invitation."
 msgstr "招待を辞退できませんでした。"
 
@@ -10986,17 +10987,17 @@ msgid "Could not decline the request."
 msgstr "リクエストを却下できませんでした。"
 
 #: includes/Core/AssetService.php:1596
-#: includes/Core/AssetService.php:1902
+#: includes/Core/AssetService.php:1903
 msgid "Reposition cover photo"
 msgstr "カバー写真の位置を調整"
 
 #: includes/Core/AssetService.php:1597
-#: includes/Core/AssetService.php:1903
+#: includes/Core/AssetService.php:1904
 msgid "Drag to reposition · scroll or use the slider to zoom"
 msgstr "ドラッグして位置を調整 · スクロールまたはスライダーで拡大縮小"
 
 #: includes/Core/AssetService.php:1603
-#: includes/Core/AssetService.php:1898
+#: includes/Core/AssetService.php:1899
 msgid "Zoom"
 msgstr "拡大縮小"
 
@@ -11005,7 +11006,7 @@ msgid "Report post"
 msgstr "投稿を通報"
 
 #: includes/Core/AssetService.php:1607
-#: includes/Core/AssetService.php:1997
+#: includes/Core/AssetService.php:1999
 msgid "Report this profile"
 msgstr "このプロフィールを通報"
 
@@ -11106,12 +11107,12 @@ msgid "Notification preference saved."
 msgstr "通知設定を保存しました。"
 
 #: includes/Core/AssetService.php:1635
-#: includes/Core/AssetService.php:2438
+#: includes/Core/AssetService.php:2440
 msgid "Enter a username or email address."
 msgstr "ユーザー名またはメールアドレスを入力してください。"
 
 #: includes/Core/AssetService.php:1637
-#: includes/Core/AssetService.php:2440
+#: includes/Core/AssetService.php:2442
 #: includes/Spaces/SpaceController.php:3264
 msgid "Could not send the invitation."
 msgstr "招待を送信できませんでした。"
@@ -11154,566 +11155,566 @@ msgstr "このスペースを退会しますか？"
 msgid "You will stop seeing its posts and can join again later."
 msgstr "このスペースの投稿が表示されなくなります。後から再度参加することもできます。"
 
-#: includes/Core/AssetService.php:1651
-#: includes/Core/AssetService.php:1749
+#: includes/Core/AssetService.php:1652
+#: includes/Core/AssetService.php:1750
 #: templates/messages/native.php:235
 msgid "Leave"
 msgstr "退会"
 
-#: includes/Core/AssetService.php:1652
+#: includes/Core/AssetService.php:1653
 #: templates/parts/space-hero.php:365
 msgid "Report this space"
 msgstr "このスペースを通報"
 
-#: includes/Core/AssetService.php:1659
+#: includes/Core/AssetService.php:1660
 msgid "1 space available"
 msgstr "利用可能なスペースは1件です"
 
 #. translators: %s: number of spaces.
-#: includes/Core/AssetService.php:1661
+#: includes/Core/AssetService.php:1662
 #, php-format
 msgid "%s spaces available"
 msgstr "利用可能なスペース：%s件"
 
-#: includes/Core/AssetService.php:1662
+#: includes/Core/AssetService.php:1663
 msgid "1 result"
 msgstr "1件の結果"
 
 #. translators: %s: number of matching spaces.
-#: includes/Core/AssetService.php:1664
+#: includes/Core/AssetService.php:1665
 #, php-format
 msgid "%s results"
 msgstr "%s件の結果"
 
-#: includes/Core/AssetService.php:1665
+#: includes/Core/AssetService.php:1666
 msgid "Could not upload cover."
 msgstr "カバー画像をアップロードできませんでした。"
 
-#: includes/Core/AssetService.php:1666
-#: includes/Core/AssetService.php:1849
+#: includes/Core/AssetService.php:1667
+#: includes/Core/AssetService.php:1850
 #: templates/partials/media-tab.php:96
 msgid "Cover updated"
 msgstr "カバー画像を更新しました"
 
-#: includes/Core/AssetService.php:1667
+#: includes/Core/AssetService.php:1668
 msgid "Could not remove cover."
 msgstr "カバー画像を削除できませんでした。"
 
-#: includes/Core/AssetService.php:1668
+#: includes/Core/AssetService.php:1669
 msgid "Cover removed."
 msgstr "カバー画像を削除しました。"
 
-#: includes/Core/AssetService.php:1669
+#: includes/Core/AssetService.php:1670
 #: templates/partials/media-tab.php:343
 #: templates/partials/media-upload-composer.php:167
 #: templates/partials/space-files-tab.php:76
 msgid "Uploading…"
 msgstr "アップロード中…"
 
-#: includes/Core/AssetService.php:1670
+#: includes/Core/AssetService.php:1671
 msgid "Could not upload icon."
 msgstr "アイコンをアップロードできませんでした。"
 
-#: includes/Core/AssetService.php:1671
+#: includes/Core/AssetService.php:1672
 msgid "Icon updated."
 msgstr "アイコンを更新しました。"
 
-#: includes/Core/AssetService.php:1672
+#: includes/Core/AssetService.php:1673
 msgid "Could not remove icon."
 msgstr "アイコンを削除できませんでした。"
 
-#: includes/Core/AssetService.php:1673
+#: includes/Core/AssetService.php:1674
 msgid "Icon removed."
 msgstr "アイコンを削除しました。"
 
 #. translators: %d: number of sub-spaces
-#: includes/Core/AssetService.php:1679
+#: includes/Core/AssetService.php:1680
 #, php-format
 msgid "%d sub-space"
 msgstr "%d 個のサブスペース"
 
 #. translators: %d: number of sub-spaces
-#: includes/Core/AssetService.php:1681
+#: includes/Core/AssetService.php:1682
 #, php-format
 msgid "%d sub-spaces"
 msgstr "%d 個のサブスペース"
 
-#: includes/Core/AssetService.php:1682
+#: includes/Core/AssetService.php:1683
 #: templates/spaces/directory.php:751
 msgid "Spaces directory pages"
 msgstr "スペース一覧ページ"
 
-#: includes/Core/AssetService.php:1683
+#: includes/Core/AssetService.php:1684
 msgid "Next ›"
 msgstr "次へ ›"
 
-#: includes/Core/AssetService.php:1687
+#: includes/Core/AssetService.php:1688
 msgid "Could not search spaces. Check your connection and try again."
 msgstr "スペースを検索できませんでした。接続を確認して、もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1688
+#: includes/Core/AssetService.php:1689
 msgid "No top-level spaces you manage match that name."
 msgstr "管理しているトップレベルのスペースに、その名前と一致するものはありません。"
 
-#: includes/Core/AssetService.php:1689
+#: includes/Core/AssetService.php:1690
 msgid "Showing the first matches: keep typing to narrow the list."
 msgstr "最初の一致結果を表示しています。入力を続けると一覧を絞り込めます。"
 
-#: includes/Core/AssetService.php:1692
+#: includes/Core/AssetService.php:1693
 msgid "Could not search discussions. Check your connection and try again."
 msgstr "ディスカッションを検索できませんでした。接続を確認して、もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1694
+#: includes/Core/AssetService.php:1695
 msgid "Unlink this discussion?"
 msgstr "このディスカッションのリンクを解除しますか？"
 
-#: includes/Core/AssetService.php:1695
+#: includes/Core/AssetService.php:1696
 msgid "The discussion and its posts stay where they are, and everyone who is a member of this space stays a member. New discussion posts stop appearing in this space. You can turn Discussion on again later to create or link one."
 msgstr "ディスカッションとその投稿はそのまま残り、このスペースのメンバー全員もメンバーのままです。ただし、新しいディスカッションの投稿はこのスペースに表示されなくなります。後からディスカッションを再度有効にすると、作成またはリンクできます。"
 
-#: includes/Core/AssetService.php:1696
+#: includes/Core/AssetService.php:1697
 #: templates/parts/settings-connected-accounts.php:75
 #: templates/parts/space-settings-panel-integrations.php:217
 msgid "Unlink"
 msgstr "連携を解除"
 
-#: includes/Core/AssetService.php:1697
+#: includes/Core/AssetService.php:1698
 msgid "Discussion unlinked."
 msgstr "ディスカッションのリンクを解除しました。"
 
-#: includes/Core/AssetService.php:1698
+#: includes/Core/AssetService.php:1699
 msgid "Request sent: you’ll be notified when it’s approved."
 msgstr "リクエストを送信しました。承認されると通知されます。"
 
-#: includes/Core/AssetService.php:1728
+#: includes/Core/AssetService.php:1729
 msgid "Could not send. Try again."
 msgstr "送信できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1729
+#: includes/Core/AssetService.php:1730
 #: templates/messages/native.php:230
 #: templates/parts/dm-compose-modal.php:48
 msgid "New group"
 msgstr "新しいグループ"
 
-#: includes/Core/AssetService.php:1731
+#: includes/Core/AssetService.php:1732
 msgid "Search for a person to message."
 msgstr "メッセージを送るメンバーを検索してください。"
 
-#: includes/Core/AssetService.php:1732
+#: includes/Core/AssetService.php:1733
 msgid "No people found."
 msgstr "メンバーが見つかりません。"
 
-#: includes/Core/AssetService.php:1736
+#: includes/Core/AssetService.php:1737
 msgid "Could not search right now. Try again."
 msgstr "現在検索できません。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1742
+#: includes/Core/AssetService.php:1743
 #: includes/Messages/MessagesData.php:175
 #: templates/messages/native.php:240
 #: templates/parts/space-members-body.php:384
 msgid "Make member"
 msgstr "メンバーに変更"
 
-#: includes/Core/AssetService.php:1743
+#: includes/Core/AssetService.php:1744
 #: includes/Messages/MessagesData.php:175
 #: templates/messages/native.php:239
 msgid "Make admin"
 msgstr "管理者に変更"
 
-#: includes/Core/AssetService.php:1744
+#: includes/Core/AssetService.php:1745
 msgid "Group renamed"
 msgstr "グループ名を変更しました"
 
-#: includes/Core/AssetService.php:1745
+#: includes/Core/AssetService.php:1746
 msgid "Something went wrong."
 msgstr "問題が発生しました。"
 
-#: includes/Core/AssetService.php:1746
+#: includes/Core/AssetService.php:1747
 msgid "Could not create the group."
 msgstr "グループを作成できませんでした。"
 
-#: includes/Core/AssetService.php:1747
+#: includes/Core/AssetService.php:1748
 #: templates/messages/native.php:233
 msgid "Leave this group?"
 msgstr "このグループを退会しますか？"
 
-#: includes/Core/AssetService.php:1748
+#: includes/Core/AssetService.php:1749
 #: templates/messages/native.php:234
 msgid "You will stop receiving messages from this conversation."
 msgstr "この会話からのメッセージの受信を停止します。"
 
-#: includes/Core/AssetService.php:1750
+#: includes/Core/AssetService.php:1751
 #: templates/parts/dm-message.php:166
 msgid "Attachment"
 msgstr "添付ファイル"
 
-#: includes/Core/AssetService.php:1751
+#: includes/Core/AssetService.php:1752
 #: templates/parts/dm-message.php:171
 msgid "This attachment is no longer available."
 msgstr "この添付ファイルは利用できなくなりました。"
 
-#: includes/Core/AssetService.php:1752
+#: includes/Core/AssetService.php:1753
 #: includes/Media/MediaRenderer.php:290
 #: templates/parts/dm-message.php:145
 msgid "Play video"
 msgstr "動画を再生"
 
-#: includes/Core/AssetService.php:1755
+#: includes/Core/AssetService.php:1756
 msgid "Could not attach that file. Try a different one."
 msgstr "そのファイルを添付できませんでした。別のファイルをお試しください。"
 
-#: includes/Core/AssetService.php:1756
+#: includes/Core/AssetService.php:1757
 #: templates/parts/dm-info-panel.php:83
 msgid "No photos shared yet."
 msgstr "まだ写真がシェアされていません。"
 
-#: includes/Core/AssetService.php:1757
+#: includes/Core/AssetService.php:1758
 msgid "No photos to share yet."
 msgstr "まだシェアできる写真がありません。"
 
-#: includes/Core/AssetService.php:1758
+#: includes/Core/AssetService.php:1759
 msgid "Close emoji picker"
 msgstr "絵文字パネルを閉じる"
 
-#: includes/Core/AssetService.php:1759
+#: includes/Core/AssetService.php:1760
 msgid "You can no longer message this person."
 msgstr "このメンバーにメッセージを送ることはできなくなりました。"
 
-#: includes/Core/AssetService.php:1760
+#: includes/Core/AssetService.php:1761
 msgid "This person isn’t accepting messages right now."
 msgstr "このメンバーは現在メッセージを受け付けていません。"
 
-#: includes/Core/AssetService.php:1761
+#: includes/Core/AssetService.php:1762
 msgid "This person only accepts messages from people they follow back."
 msgstr "このメンバーは、フォローバックしてくれたメンバーからのメッセージのみ受け付けています。"
 
-#: includes/Core/AssetService.php:1762
+#: includes/Core/AssetService.php:1763
 msgid "You’re sending messages too quickly: please wait a moment."
 msgstr "メッセージの送信が速すぎます。少し時間をおいてから、もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1763
+#: includes/Core/AssetService.php:1764
 msgid "That message is too long to send."
 msgstr "そのメッセージは長すぎて送信できません。"
 
-#: includes/Core/AssetService.php:1764
+#: includes/Core/AssetService.php:1765
 msgid "You can no longer post to this conversation."
 msgstr "この会話に投稿することはできなくなりました。"
 
-#: includes/Core/AssetService.php:1765
+#: includes/Core/AssetService.php:1766
 msgid "Your message couldn’t be sent. Try again."
 msgstr "メッセージを送信できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1766
+#: includes/Core/AssetService.php:1767
 msgid "Report this message"
 msgstr "このメッセージを通報"
 
-#: includes/Core/AssetService.php:1767
+#: includes/Core/AssetService.php:1768
 msgid "Message reported. Our moderators will review it."
 msgstr "メッセージを通報しました。モデレーターが確認します。"
 
-#: includes/Core/AssetService.php:1768
+#: includes/Core/AssetService.php:1769
 msgid "Could not report this message. Try again."
 msgstr "このメッセージを通報できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1769
+#: includes/Core/AssetService.php:1770
 msgid "this member"
 msgstr "このメンバー"
 
-#: includes/Core/AssetService.php:1772
+#: includes/Core/AssetService.php:1773
 msgid "They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile."
 msgstr "このメンバーはあなたにメッセージを送れなくなり、コミュニティ内でお互いの投稿などが表示されなくなります。後からプロフィールページでブロックを解除できます。"
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1777
+#: includes/Core/AssetService.php:1778
 #, php-format
 msgid "Could not block %s. Try again."
 msgstr "%s をブロックできませんでした。もう一度お試しください。"
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1779
+#: includes/Core/AssetService.php:1780
 #, php-format
 msgid "%s unblocked"
 msgstr "%s のブロックを解除しました"
 
 #. translators: %s: member display name.
-#: includes/Core/AssetService.php:1781
+#: includes/Core/AssetService.php:1782
 #, php-format
 msgid "Could not unblock %s. Try again."
 msgstr "%s のブロックを解除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1788
+#: includes/Core/AssetService.php:1789
 msgid "Reported. Our moderators will review it."
 msgstr "通報されました。モデレーターが内容を確認します。"
 
-#: includes/Core/AssetService.php:1789
+#: includes/Core/AssetService.php:1790
 msgid "Could not submit the report. Try again."
 msgstr "通報を送信できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1792
+#: includes/Core/AssetService.php:1793
 msgid "Delete this message?"
 msgstr "このメッセージを削除しますか？"
 
-#: includes/Core/AssetService.php:1793
+#: includes/Core/AssetService.php:1794
 msgid "This removes the message for everyone and leaves a \"message deleted\" note. This cannot be undone."
 msgstr "このメッセージを全員から削除し、「メッセージは削除されました」と表示します。この操作は取り消せません。"
 
-#: includes/Core/AssetService.php:1795
+#: includes/Core/AssetService.php:1796
 msgid "This message was deleted"
 msgstr "このメッセージは削除されました"
 
-#: includes/Core/AssetService.php:1796
+#: includes/Core/AssetService.php:1797
 msgid "You can only delete your own messages."
 msgstr "自分のメッセージのみ削除できます。"
 
-#: includes/Core/AssetService.php:1797
+#: includes/Core/AssetService.php:1798
 msgid "Could not delete the message. Try again."
 msgstr "メッセージを削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1798
+#: includes/Core/AssetService.php:1799
 msgid "Unsend this message?"
 msgstr "このメッセージを送信取り消しますか？"
 
-#: includes/Core/AssetService.php:1799
+#: includes/Core/AssetService.php:1800
 msgid "This removes the message for everyone, with no trace. Unsend only works for a short time after sending."
 msgstr "このメッセージを全員から痕跡なく削除します。送信取り消しは送信後しばらくの間のみ可能です。"
 
-#: includes/Core/AssetService.php:1800
+#: includes/Core/AssetService.php:1801
 msgid "Unsend"
 msgstr "送信取り消し"
 
-#: includes/Core/AssetService.php:1801
+#: includes/Core/AssetService.php:1802
 msgid "The time to unsend this message has passed. You can still delete it."
 msgstr "このメッセージを送信取り消しできる時間を過ぎています。削除することはできます。"
 
-#: includes/Core/AssetService.php:1802
+#: includes/Core/AssetService.php:1803
 msgid "You can only unsend your own messages."
 msgstr "自分のメッセージのみ送信取り消しできます。"
 
-#: includes/Core/AssetService.php:1803
+#: includes/Core/AssetService.php:1804
 msgid "Could not unsend the message. Try again."
 msgstr "メッセージの送信を取り消せませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1807
+#: includes/Core/AssetService.php:1808
 msgid "Could not delete this conversation. Try again."
 msgstr "この会話を削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1825
+#: includes/Core/AssetService.php:1826
 msgid "Could not load this album."
 msgstr "このアルバムを読み込めませんでした。"
 
-#: includes/Core/AssetService.php:1826
+#: includes/Core/AssetService.php:1827
 msgid "Could not load your media."
 msgstr "メディアを読み込めませんでした。"
 
-#: includes/Core/AssetService.php:1827
+#: includes/Core/AssetService.php:1828
 msgid "Something went wrong. Check your connection and try again."
 msgstr "問題が発生しました。接続を確認して、もう一度お試しください。"
 
 #: includes/Bridges/JetonomyBridge.php:3709
-#: includes/Core/AssetService.php:1828
+#: includes/Core/AssetService.php:1829
 #: includes/Integrations/CompanionGithubUi.php:123
 #: includes/PWA/PwaService.php:398
 #: templates/notifications/index.php:471
 msgid "Try again"
 msgstr "再試行"
 
-#: includes/Core/AssetService.php:1829
+#: includes/Core/AssetService.php:1830
 msgid "Could not save the new order. Your photos were put back."
 msgstr "新しい順序を保存できませんでした。写真は元の位置に戻されました。"
 
-#: includes/Core/AssetService.php:1833
+#: includes/Core/AssetService.php:1834
 #: templates/partials/media-tab.php:86
 msgid "Album created"
 msgstr "アルバムを作成しました"
 
-#: includes/Core/AssetService.php:1834
+#: includes/Core/AssetService.php:1835
 #: templates/partials/media-tab.php:87
 msgid "Album updated"
 msgstr "アルバムを更新しました"
 
-#: includes/Core/AssetService.php:1835
+#: includes/Core/AssetService.php:1836
 #: templates/partials/media-tab.php:93
 msgid "Album deleted"
 msgstr "アルバムを削除しました"
 
-#: includes/Core/AssetService.php:1836
+#: includes/Core/AssetService.php:1837
 #: templates/partials/media-tab.php:88
 msgid "Could not save the album."
 msgstr "アルバムを保存できませんでした。"
 
-#: includes/Core/AssetService.php:1837
+#: includes/Core/AssetService.php:1838
 #: templates/partials/media-tab.php:94
 msgid "Could not delete the album."
 msgstr "アルバムを削除できませんでした。"
 
-#: includes/Core/AssetService.php:1838
+#: includes/Core/AssetService.php:1839
 #: templates/partials/media-tab.php:90
 msgid "Delete this album?"
 msgstr "このアルバムを削除しますか？"
 
-#: includes/Core/AssetService.php:1839
+#: includes/Core/AssetService.php:1840
 #: templates/partials/media-tab.php:91
 msgid "The photos stay in your media."
 msgstr "写真はメディアに残ります。"
 
-#: includes/Core/AssetService.php:1841
+#: includes/Core/AssetService.php:1842
 #: templates/partials/media-tab.php:103
 msgid "This album is empty."
 msgstr "このアルバムは空です。"
 
-#: includes/Core/AssetService.php:1842
+#: includes/Core/AssetService.php:1843
 #: templates/partials/media-tab.php:98
 msgid "Added to album"
 msgstr "アルバムに追加しました"
 
-#: includes/Core/AssetService.php:1843
+#: includes/Core/AssetService.php:1844
 #: templates/partials/media-tab.php:99
 msgid "Could not add media."
 msgstr "メディアを追加できませんでした。"
 
-#: includes/Core/AssetService.php:1844
+#: includes/Core/AssetService.php:1845
 #: templates/partials/media-tab.php:104
 msgid "Remove from album"
 msgstr "アルバムから削除"
 
-#: includes/Core/AssetService.php:1845
+#: includes/Core/AssetService.php:1846
 #: templates/partials/media-tab.php:105
 msgid "Remove this from the album?"
 msgstr "このメディアをアルバムから削除しますか？"
 
-#: includes/Core/AssetService.php:1846
+#: includes/Core/AssetService.php:1847
 #: templates/partials/media-tab.php:106
 msgid "Removed from album"
 msgstr "アルバムから削除しました"
 
-#: includes/Core/AssetService.php:1847
-#: includes/Core/AssetService.php:1870
+#: includes/Core/AssetService.php:1848
+#: includes/Core/AssetService.php:1871
 #: templates/partials/media-tab.php:107
 #: templates/partials/media-upload-composer.php:69
 msgid "Could not remove."
 msgstr "削除できませんでした。"
 
-#: includes/Core/AssetService.php:1848
+#: includes/Core/AssetService.php:1849
 #: templates/partials/media-tab.php:95
 msgid "Set as cover"
 msgstr "カバーに設定"
 
-#: includes/Core/AssetService.php:1850
+#: includes/Core/AssetService.php:1851
 #: templates/partials/media-tab.php:97
 msgid "Could not set the cover."
 msgstr "カバーを設定できませんでした。"
 
-#: includes/Core/AssetService.php:1851
+#: includes/Core/AssetService.php:1852
 #: templates/partials/media-tab.php:100
 msgid "Could not upload that file."
 msgstr "そのファイルはアップロードできませんでした。"
 
 #. translators: 1: file number, 2: files being uploaded.
-#: includes/Core/AssetService.php:1853
+#: includes/Core/AssetService.php:1854
 #, php-format
 msgid "File %1$d of %2$d"
 msgstr "%2$d 件中 %1$d 件目のファイル"
 
-#: includes/Core/AssetService.php:1854
+#: includes/Core/AssetService.php:1855
 #: templates/partials/media-tab.php:101
 msgid "Uploaded and selected. Choose Add to put it in the album."
 msgstr "アップロードして選択しました。「追加」を選択するとアルバムに入ります。"
 
-#: includes/Core/AssetService.php:1855
+#: includes/Core/AssetService.php:1856
 #: templates/partials/media-tab.php:102
 msgid "Uploaded and selected. Choose Add to put them in the album."
 msgstr "アップロードして選択しました。「追加」を選択するとアルバムに入ります。"
 
-#: includes/Core/AssetService.php:1856
+#: includes/Core/AssetService.php:1857
 msgid "Uploaded and shared to your feed. Choose Add to also put it in the album."
 msgstr "フィードに アップロードして共有しました。「追加」を選ぶと、アルバムにも追加されます。"
 
-#: includes/Core/AssetService.php:1857
+#: includes/Core/AssetService.php:1858
 msgid "Uploaded and shared to your feed. Choose Add to also put them in the album."
 msgstr "フィードに アップロードして共有しました。「追加」を選ぶと、アルバムにもそれらを追加します。"
 
-#: includes/Core/AssetService.php:1867
+#: includes/Core/AssetService.php:1868
 #: templates/partials/media-tab.php:169
 #: templates/partials/media-upload-composer.php:61
 msgid "No media uploaded yet."
 msgstr "まだメディアはアップロードされていません。"
 
-#: includes/Core/AssetService.php:1869
+#: includes/Core/AssetService.php:1870
 #: templates/partials/media-upload-composer.php:68
 msgid "Media removed"
 msgstr "メディアを削除しました"
 
-#: includes/Core/AssetService.php:1871
+#: includes/Core/AssetService.php:1872
 #: templates/partials/media-upload-composer.php:63
 msgid "Remove this media?"
 msgstr "このメディアを削除しますか?"
 
 #. translators: %s: comma-separated list of space album names.
 #. translators: %s: comma-separated space album titles.
-#: includes/Core/AssetService.php:1874
+#: includes/Core/AssetService.php:1875
 #: includes/Media/MediaAssets.php:145
 #: templates/partials/media-upload-composer.php:67
 #, php-format
 msgid "It will also be removed from these space albums: %s"
 msgstr "このメディアは、次のスペースのアルバムからも削除されます:%s"
 
-#: includes/Core/AssetService.php:1891
+#: includes/Core/AssetService.php:1892
 msgid "Crop avatar"
 msgstr "アバターを切り抜く"
 
-#: includes/Core/AssetService.php:1897
+#: includes/Core/AssetService.php:1898
 msgid "Position your avatar"
 msgstr "アバターの位置を調整"
 
-#: includes/Core/AssetService.php:1901
+#: includes/Core/AssetService.php:1902
 msgid "Could not process the image. Try a different file."
 msgstr "画像を処理できませんでした。別のファイルをお試しください。"
 
-#: includes/Core/AssetService.php:1910
+#: includes/Core/AssetService.php:1911
 msgid "This field"
 msgstr "この項目"
 
-#: includes/Core/AssetService.php:1911
+#: includes/Core/AssetService.php:1912
 msgid "Avatar could not be saved"
 msgstr "アバターを保存できませんでした"
 
-#: includes/Core/AssetService.php:1912
+#: includes/Core/AssetService.php:1913
 msgid "Cover could not be saved"
 msgstr "カバー画像を保存できませんでした"
 
-#: includes/Core/AssetService.php:1913
+#: includes/Core/AssetService.php:1914
 msgid "Photo updated."
 msgstr "写真を更新しました。"
 
-#: includes/Core/AssetService.php:1914
+#: includes/Core/AssetService.php:1915
 msgid "Profile saved"
 msgstr "プロフィールを保存しました"
 
-#: includes/Core/AssetService.php:1915
+#: includes/Core/AssetService.php:1916
 msgid "Some fields need attention"
 msgstr "一部の項目に確認が必要です"
 
-#: includes/Core/AssetService.php:1916
+#: includes/Core/AssetService.php:1917
 msgid "Could not save. Try again."
 msgstr "保存できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1920
+#: includes/Core/AssetService.php:1921
 #: includes/Profile/FieldType.php:1712
 #: templates/parts/profile/about-panel.php:170
 msgid "Present"
 msgstr "現在"
 
-#: includes/Core/AssetService.php:1923
+#: includes/Core/AssetService.php:1924
 #: templates/parts/settings-relations.php:61
 msgid "Unrestrict"
 msgstr "制限を解除"
 
-#: includes/Core/AssetService.php:1924
+#: includes/Core/AssetService.php:1925
 #: templates/parts/profile-actions-overflow.php:135
 msgid "Restrict"
 msgstr "制限する"
 
-#: includes/Core/AssetService.php:1925
+#: includes/Core/AssetService.php:1926
 #: templates/messages/native.php:333
 #: templates/messages/native.php:448
 #: templates/parts/settings-relations.php:57
@@ -11721,752 +11722,752 @@ msgid "Unblock"
 msgstr "ブロックを解除"
 
 #. translators: %d: number of remaining two-factor backup codes (singular).
-#: includes/Core/AssetService.php:1928
+#: includes/Core/AssetService.php:1929
 #, php-format
 msgid "%d backup code left."
 msgstr "残りのバックアップコードは %d 件です。"
 
 #. translators: %d: number of remaining two-factor backup codes (plural).
-#: includes/Core/AssetService.php:1930
+#: includes/Core/AssetService.php:1931
 #, php-format
 msgid "%d backup codes left."
 msgstr "残りのバックアップコードは %d 件です。"
 
-#: includes/Core/AssetService.php:1931
+#: includes/Core/AssetService.php:1932
 msgid "Your data export has downloaded."
 msgstr "データのエクスポートをダウンロードしました。"
 
-#: includes/Core/AssetService.php:1932
+#: includes/Core/AssetService.php:1933
 msgid "Could not export your data. Try again."
 msgstr "データをエクスポートできませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1933
+#: includes/Core/AssetService.php:1934
 msgid "Delete your account?"
 msgstr "アカウントを削除しますか?"
 
-#: includes/Core/AssetService.php:1934
+#: includes/Core/AssetService.php:1935
 msgid "This permanently deletes your account and removes your data. This cannot be undone."
 msgstr "アカウントとデータが完全に削除されます。この操作は元に戻せません。"
 
-#: includes/Core/AssetService.php:1935
+#: includes/Core/AssetService.php:1936
 #: templates/parts/settings-privacy-fields.php:211
 #: templates/parts/settings-privacy-fields.php:218
 msgid "Delete my account"
 msgstr "アカウントを削除"
 
-#: includes/Core/AssetService.php:1940
+#: includes/Core/AssetService.php:1941
 msgid "Your password"
 msgstr "パスワード"
 
-#: includes/Core/AssetService.php:1941
+#: includes/Core/AssetService.php:1942
 msgid "Enter your password to confirm."
 msgstr "確認のためパスワードを入力してください。"
 
-#: includes/Core/AssetService.php:1942
+#: includes/Core/AssetService.php:1943
 msgid "Could not delete your account."
 msgstr "アカウントを削除できませんでした。"
 
-#: includes/Core/AssetService.php:1943
+#: includes/Core/AssetService.php:1944
 msgid "Could not delete your account. Try again."
 msgstr "アカウントを削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1945
+#: includes/Core/AssetService.php:1946
 msgid "Profile link copied"
 msgstr "プロフィールのリンクをコピーしました"
 
-#: includes/Core/AssetService.php:1946
+#: includes/Core/AssetService.php:1947
 msgid "Could not copy. Long-press the URL."
 msgstr "コピーできませんでした。URLを長押ししてください。"
 
 #. translators: %s: profile URL.
-#: includes/Core/AssetService.php:1948
+#: includes/Core/AssetService.php:1949
 #, php-format
 msgid "Copy this link: %s"
 msgstr "このリンクをコピー:%s"
 
-#: includes/Core/AssetService.php:1949
+#: includes/Core/AssetService.php:1950
 msgid "Account unlinked"
 msgstr "アカウントの連携を解除しました"
 
-#: includes/Core/AssetService.php:1951
+#: includes/Core/AssetService.php:1952
 msgid "Could not unlink. Try again."
 msgstr "連携を解除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1952
+#: includes/Core/AssetService.php:1953
 msgid "Member type updated"
 msgstr "メンバータイプを更新しました"
 
-#: includes/Core/AssetService.php:1953
+#: includes/Core/AssetService.php:1954
 msgid "Could not update member type"
 msgstr "メンバータイプを更新できませんでした"
 
-#: includes/Core/AssetService.php:1958
+#: includes/Core/AssetService.php:1959
 msgid "Preference saved"
 msgstr "設定を保存しました"
 
-#: includes/Core/AssetService.php:1959
+#: includes/Core/AssetService.php:1960
 #: includes/Profile/ProfileController.php:1536
 msgid "Display name is required."
 msgstr "表示名は必須です。"
 
-#: includes/Core/AssetService.php:1960
+#: includes/Core/AssetService.php:1961
 #: includes/Profile/ProfileController.php:1569
 msgid "Enter a valid URL (https://example.com)."
 msgstr "有効なURLを入力してください(https://example.com)。"
 
-#: includes/Core/AssetService.php:1963
+#: includes/Core/AssetService.php:1964
 msgid "Avatar ready: click Save changes to keep it"
 msgstr "アバターの準備ができました。保持するには「変更を保存」をクリックしてください"
 
-#: includes/Core/AssetService.php:1964
+#: includes/Core/AssetService.php:1965
 msgid "Could not prepare image. Try again."
 msgstr "画像を準備できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1965
+#: includes/Core/AssetService.php:1966
 msgid "Remove profile photo?"
 msgstr "プロフィール写真を削除しますか？"
 
-#: includes/Core/AssetService.php:1966
+#: includes/Core/AssetService.php:1967
 msgid "Your photo will be replaced with your initials. You can upload a new one any time."
 msgstr "写真はイニシャルに置き換えられます。いつでも新しい写真をアップロードできます。"
 
-#: includes/Core/AssetService.php:1968
+#: includes/Core/AssetService.php:1969
 msgid "Profile photo removed"
 msgstr "プロフィール写真を削除しました"
 
-#: includes/Core/AssetService.php:1969
+#: includes/Core/AssetService.php:1970
 msgid "Could not remove your photo. Try again."
 msgstr "写真を削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1970
+#: includes/Core/AssetService.php:1971
 msgid "Cover ready: click Save changes to keep it"
 msgstr "カバー画像の準備ができました。保持するには「変更を保存」をクリックしてください"
 
-#: includes/Core/AssetService.php:1971
+#: includes/Core/AssetService.php:1972
 msgid "Followed"
 msgstr "フォローしました"
 
-#: includes/Core/AssetService.php:1972
+#: includes/Core/AssetService.php:1973
 msgid "Could not follow. Try again."
 msgstr "フォローできませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1973
+#: includes/Core/AssetService.php:1974
 msgid "Unfollowed"
 msgstr "フォローを解除しました"
 
-#: includes/Core/AssetService.php:1974
+#: includes/Core/AssetService.php:1975
 msgid "Could not unfollow. Try again."
 msgstr "フォローを解除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:1975
+#: includes/Core/AssetService.php:1976
 #: includes/Core/PageRouter.php:2354
 msgid "Add a personal message to your connection request, or send it without one."
 msgstr "つながりリクエストにメッセージを添えることも、添えずに送ることもできます。"
 
-#: includes/Core/AssetService.php:1976
+#: includes/Core/AssetService.php:1977
 msgid "Connection request sent"
 msgstr "つながりリクエストを送信しました"
 
-#: includes/Core/AssetService.php:1977
+#: includes/Core/AssetService.php:1978
 msgid "Could not send request"
 msgstr "リクエストを送信できませんでした"
 
-#: includes/Core/AssetService.php:1978
+#: includes/Core/AssetService.php:1979
 msgid "Request withdrawn"
 msgstr "リクエストを取り消しました"
 
-#: includes/Core/AssetService.php:1984
+#: includes/Core/AssetService.php:1985
 msgid "Request declined"
 msgstr "リクエストを辞退しました"
 
-#: includes/Core/AssetService.php:1985
+#: includes/Core/AssetService.php:1986
 msgid "Disconnected"
 msgstr "未接続"
 
-#: includes/Core/AssetService.php:1987
+#: includes/Core/AssetService.php:1988
 msgid "Unmuted"
 msgstr "ミュートを解除しました"
 
-#: includes/Core/AssetService.php:1988
+#: includes/Core/AssetService.php:1989
 #: templates/parts/settings-relations.php:44
 #: templates/parts/settings-relations.php:102
 msgid "Muted"
 msgstr "ミュート中"
 
-#: includes/Core/AssetService.php:1989
+#: includes/Core/AssetService.php:1990
 msgid "Could not update mute state"
 msgstr "ミュート状態を更新できませんでした"
 
-#: includes/Core/AssetService.php:1990
+#: includes/Core/AssetService.php:1992
 msgid "No longer restricted"
 msgstr "制限を解除しました"
 
-#: includes/Core/AssetService.php:1991
+#: includes/Core/AssetService.php:1993
 msgid "Restricted. They can still see your profile, but their comments are hidden from others."
 msgstr "制限中です。相手はプロフィールを閲覧できますが、そのメンバーのコメントは他のユーザーに表示されません。"
 
-#: includes/Core/AssetService.php:1992
+#: includes/Core/AssetService.php:1994
 msgid "Could not update restrict state"
 msgstr "制限状態を更新できませんでした"
 
-#: includes/Core/AssetService.php:1995
+#: includes/Core/AssetService.php:1997
 msgid "Member blocked"
 msgstr "メンバーをブロックしました"
 
-#: includes/Core/AssetService.php:2001
+#: includes/Core/AssetService.php:2003
 msgid "Could not send verification email. Try again."
 msgstr "確認メールを送信できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2008
+#: includes/Core/AssetService.php:2010
 msgid "Could not verify. Try again."
 msgstr "確認できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2010
+#: includes/Core/AssetService.php:2012
 msgid "Too short"
 msgstr "短すぎます"
-
-#: includes/Core/AssetService.php:2011
-#: includes/Core/AssetService.php:2474
-#: includes/Core/AssetService.php:2522
-msgid "Weak"
-msgstr "弱い"
-
-#: includes/Core/AssetService.php:2012
-#: includes/Core/AssetService.php:2475
-#: includes/Core/AssetService.php:2523
-msgid "Fair"
-msgstr "普通"
 
 #: includes/Core/AssetService.php:2013
 #: includes/Core/AssetService.php:2476
 #: includes/Core/AssetService.php:2524
-msgid "Good"
-msgstr "良い"
+msgid "Weak"
+msgstr "弱い"
 
 #: includes/Core/AssetService.php:2014
 #: includes/Core/AssetService.php:2477
 #: includes/Core/AssetService.php:2525
+msgid "Fair"
+msgstr "普通"
+
+#: includes/Core/AssetService.php:2015
+#: includes/Core/AssetService.php:2478
+#: includes/Core/AssetService.php:2526
+msgid "Good"
+msgstr "良い"
+
+#: includes/Core/AssetService.php:2016
+#: includes/Core/AssetService.php:2479
+#: includes/Core/AssetService.php:2527
 msgid "Strong"
 msgstr "強い"
 
-#: includes/Core/AssetService.php:2015
+#: includes/Core/AssetService.php:2017
 msgid "Excellent"
 msgstr "非常に強い"
 
-#: includes/Core/AssetService.php:2019
+#: includes/Core/AssetService.php:2021
 msgid "Passwords do not match."
 msgstr "パスワードが一致しません。"
 
-#: includes/Core/AssetService.php:2020
+#: includes/Core/AssetService.php:2022
 msgid "Password updated"
 msgstr "パスワードを更新しました"
 
-#: includes/Core/AssetService.php:2021
+#: includes/Core/AssetService.php:2023
 msgid "Could not change password. Try again."
 msgstr "パスワードを変更できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2022
+#: includes/Core/AssetService.php:2024
 msgid "Signed out of every other session"
 msgstr "他のすべてのセッションからログアウトしました"
 
-#: includes/Core/AssetService.php:2023
+#: includes/Core/AssetService.php:2025
 msgid "Could not sign out everywhere. Try again."
 msgstr "すべてのセッションからログアウトできませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2024
+#: includes/Core/AssetService.php:2026
 msgid "Could not start setup. Try again."
 msgstr "設定を開始できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2025
+#: includes/Core/AssetService.php:2027
 msgid "That code did not match."
 msgstr "入力されたコードが一致しません。"
 
-#: includes/Core/AssetService.php:2027
+#: includes/Core/AssetService.php:2029
 #: templates/parts/settings-account-fields.php:326
 msgid "Two-factor authentication is on."
 msgstr "二要素認証が有効です。"
 
-#: includes/Core/AssetService.php:2028
+#: includes/Core/AssetService.php:2030
 msgid "QR code for your authenticator app"
 msgstr "認証アプリ用のQRコード"
 
-#: includes/Core/AssetService.php:2029
+#: includes/Core/AssetService.php:2031
 msgid "Enter your password."
 msgstr "パスワードを入力してください。"
 
-#: includes/Core/AssetService.php:2030
+#: includes/Core/AssetService.php:2032
 msgid "Could not regenerate codes."
 msgstr "コードを再生成できませんでした。"
 
-#: includes/Core/AssetService.php:2031
+#: includes/Core/AssetService.php:2033
 msgid "Two-factor authentication is off."
 msgstr "二要素認証が無効です。"
 
-#: includes/Core/AssetService.php:2032
+#: includes/Core/AssetService.php:2034
 msgid "Could not turn off two-factor."
 msgstr "二要素認証を無効にできませんでした。"
 
-#: includes/Core/AssetService.php:2033
+#: includes/Core/AssetService.php:2035
 msgid "Unblocked"
 msgstr "ブロックを解除しました"
 
-#: includes/Core/AssetService.php:2034
+#: includes/Core/AssetService.php:2036
 msgid "Could not unblock"
 msgstr "ブロックを解除できませんでした。"
 
-#: includes/Core/AssetService.php:2038
+#: includes/Core/AssetService.php:2040
 #: templates/profile/edit.php:269
 msgid "Who can see this field"
 msgstr "このフィールドを表示できるユーザー"
 
-#: includes/Core/AssetService.php:2048
+#: includes/Core/AssetService.php:2050
 msgid "Remove cover photo?"
 msgstr "カバー写真を削除しますか？"
 
-#: includes/Core/AssetService.php:2049
+#: includes/Core/AssetService.php:2051
 msgid "Your cover photo will be cleared. You can upload a new one any time."
 msgstr "カバー写真が削除されます。いつでも新しい写真をアップロードできます。"
 
-#: includes/Core/AssetService.php:2050
+#: includes/Core/AssetService.php:2052
 msgid "Cover photo removed"
 msgstr "カバー写真を削除しました"
 
-#: includes/Core/AssetService.php:2051
+#: includes/Core/AssetService.php:2053
 msgid "Could not remove your cover. Try again."
 msgstr "カバー写真を削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2052
+#: includes/Core/AssetService.php:2054
 msgid "Follow request sent"
 msgstr "フォローリクエストを送信しました"
 
-#: includes/Core/AssetService.php:2053
+#: includes/Core/AssetService.php:2055
 msgid "Follow request withdrawn"
 msgstr "フォローリクエストを取り消しました"
 
-#: includes/Core/AssetService.php:2070
+#: includes/Core/AssetService.php:2072
 msgid "Member role updated."
 msgstr "メンバーの役割を更新しました。"
 
-#: includes/Core/AssetService.php:2071
+#: includes/Core/AssetService.php:2073
 msgid "Could not update the role. Try again."
 msgstr "役割を更新できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2080
+#: includes/Core/AssetService.php:2082
 msgid "Could not dismiss the report. Try again."
 msgstr "通報を取り消せませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2081
+#: includes/Core/AssetService.php:2083
 msgid "Content policy reminder"
 msgstr "コンテンツポリシーに関するお知らせ"
 
-#: includes/Core/AssetService.php:2082
+#: includes/Core/AssetService.php:2084
 msgid "Warn this member?"
 msgstr "このメンバーに警告しますか？"
 
-#: includes/Core/AssetService.php:2083
+#: includes/Core/AssetService.php:2085
 msgid "They are notified and can read this message on their Account status page."
 msgstr "メンバーに通知され、アカウントステータスのページでこのメッセージを確認できます。"
 
-#: includes/Core/AssetService.php:2084
+#: includes/Core/AssetService.php:2086
 msgid "Send warning"
 msgstr "警告を送信"
 
-#: includes/Core/AssetService.php:2085
+#: includes/Core/AssetService.php:2087
 msgid "Issue a strike?"
 msgstr "警告を発行しますか？"
 
-#: includes/Core/AssetService.php:2086
+#: includes/Core/AssetService.php:2088
 msgid "They can read this reason on their Account status page. Strikes add up toward automatic suspension."
 msgstr "メンバーはアカウントの状態ページでこの理由を確認できます。警告が累積すると、自動停止の対象になります。"
 
-#: includes/Core/AssetService.php:2087
+#: includes/Core/AssetService.php:2089
 msgid "Issue strike"
 msgstr "警告を発行"
 
-#: includes/Core/AssetService.php:2088
+#: includes/Core/AssetService.php:2090
 msgid "Add a reason. The member will see it."
 msgstr "理由を入力してください。メンバーに表示されます。"
 
-#: includes/Core/AssetService.php:2089
+#: includes/Core/AssetService.php:2091
 msgid "Space rule violation"
 msgstr "スペースのルール違反"
 
-#: includes/Core/AssetService.php:2090
+#: includes/Core/AssetService.php:2092
 msgid "Strike issued for reported content"
 msgstr "通報されたコンテンツに対して警告を発行しました"
 
-#: includes/Core/AssetService.php:2091
+#: includes/Core/AssetService.php:2093
 msgid "Content warning applied"
 msgstr "コンテンツ警告を適用しました"
 
-#: includes/Core/AssetService.php:2092
+#: includes/Core/AssetService.php:2094
 msgid "Content warning cleared"
 msgstr "コンテンツ警告を解除しました"
 
-#: includes/Core/AssetService.php:2093
+#: includes/Core/AssetService.php:2095
 msgid "Could not update the content warning. Try again."
 msgstr "コンテンツ警告を更新できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2094
+#: includes/Core/AssetService.php:2096
 #: templates/spaces/moderation.php:418
 msgid "Remove this content?"
 msgstr "このコンテンツを削除しますか？"
 
-#: includes/Core/AssetService.php:2095
+#: includes/Core/AssetService.php:2097
 msgid "The reported item will be taken down from public view and the report marked resolved."
 msgstr "通報された項目は公開表示から削除され、通報は解決済みとしてマークされます。"
 
-#: includes/Core/AssetService.php:2098
+#: includes/Core/AssetService.php:2100
 msgid "Could not remove the content. Try again."
 msgstr "コンテンツを削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2099
+#: includes/Core/AssetService.php:2101
 #: includes/Moderation/ModerationLogService.php:333
 #: includes/Notifications/NotificationMessageService.php:796
 msgid "Report resolved"
 msgstr "通報を解決しました"
 
-#: includes/Core/AssetService.php:2100
+#: includes/Core/AssetService.php:2102
 msgid "Could not resolve the report. Try again."
 msgstr "通報を解決できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2101
+#: includes/Core/AssetService.php:2103
 #: includes/Moderation/ModerationLogService.php:332
 #: includes/Notifications/NotificationMessageService.php:826
 msgid "Report escalated"
 msgstr "通報を上位の管理者に引き継ぎました"
 
-#: includes/Core/AssetService.php:2102
+#: includes/Core/AssetService.php:2104
 msgid "Could not escalate the report. Try again."
 msgstr "通報を引き継げませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2103
-#: includes/Core/AssetService.php:2152
+#: includes/Core/AssetService.php:2105
+#: includes/Core/AssetService.php:2154
 msgid "Warning sent."
 msgstr "警告を送信しました。"
 
-#: includes/Core/AssetService.php:2104
-#: includes/Core/AssetService.php:2153
+#: includes/Core/AssetService.php:2106
+#: includes/Core/AssetService.php:2155
 msgid "Could not warn the member."
 msgstr "メンバーに警告できませんでした。"
 
-#: includes/Core/AssetService.php:2106
+#: includes/Core/AssetService.php:2108
 msgid "Could not issue a strike."
 msgstr "警告を発行できませんでした。"
 
-#: includes/Core/AssetService.php:2110
+#: includes/Core/AssetService.php:2112
 #: includes/Moderation/ModerationLogService.php:320
 msgid "Strike reversed"
 msgstr "警告を取り消しました"
 
-#: includes/Core/AssetService.php:2111
+#: includes/Core/AssetService.php:2113
 #: includes/Moderation/ModerationService.php:1495
 msgid "Could not reverse the strike. Try again."
 msgstr "警告を取り消せませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2112
+#: includes/Core/AssetService.php:2114
 msgid "This member has no active strikes."
 msgstr "このメンバーには有効な警告がありません。"
 
 #. translators: %d: number of active strikes.
-#: includes/Core/AssetService.php:2114
+#: includes/Core/AssetService.php:2116
 #, php-format
 msgid "Reverse the most recent strike (%d active)"
 msgstr "最新の警告を取り消す(有効な警告 %d 件)"
 
-#: includes/Core/AssetService.php:2116
+#: includes/Core/AssetService.php:2118
 msgid "They lose posting access, and see the reason you choose on their account page and in the suspension email."
 msgstr "投稿できなくなります。選択した理由は、アカウントページと利用停止のメールに表示されます。"
 
 #. translators: %d: number of days.
-#: includes/Core/AssetService.php:2124
+#: includes/Core/AssetService.php:2126
 #, php-format
 msgid "%d days"
 msgstr "%d 日間"
 
-#: includes/Core/AssetService.php:2127
+#: includes/Core/AssetService.php:2129
 #: assets/js/admin/members.js:132
 msgid "Choose a reason. The member will see it."
 msgstr "理由を選択してください。理由はメンバーに表示されます。"
 
-#: includes/Core/AssetService.php:2128
+#: includes/Core/AssetService.php:2130
 #: assets/js/admin/members.js:135
 msgid "Add a note to explain the reason when you choose Other."
 msgstr "「その他」を選択した場合は、理由を説明するメモを追加してください。"
 
-#: includes/Core/AssetService.php:2130
+#: includes/Core/AssetService.php:2132
 msgid "Could not suspend the member."
 msgstr "メンバーを利用停止にできませんでした。"
 
-#: includes/Core/AssetService.php:2131
+#: includes/Core/AssetService.php:2133
 msgid "Describe why you are appealing (at least 10 characters)."
 msgstr "異議申し立ての理由を入力してください(10 文字以上)。"
 
-#: includes/Core/AssetService.php:2132
+#: includes/Core/AssetService.php:2134
 msgid "Your appeal has been submitted."
 msgstr "異議申し立てを送信しました。"
 
-#: includes/Core/AssetService.php:2133
+#: includes/Core/AssetService.php:2135
 msgid "Could not submit your appeal. Try again."
 msgstr "異議申し立てを送信できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2134
+#: includes/Core/AssetService.php:2136
 msgid "Approve this appeal?"
 msgstr "この異議申し立てを承認しますか?"
 
-#: includes/Core/AssetService.php:2135
+#: includes/Core/AssetService.php:2137
 msgid "The member’s suspension will be lifted and they will be notified."
 msgstr "メンバーの利用停止を解除し、その旨をメンバーに通知します。"
 
-#: includes/Core/AssetService.php:2137
+#: includes/Core/AssetService.php:2139
 msgid "Appeal approved: suspension lifted."
 msgstr "異議申し立てを承認し、利用停止を解除しました。"
 
-#: includes/Core/AssetService.php:2138
+#: includes/Core/AssetService.php:2140
 msgid "Could not approve the appeal. Try again."
 msgstr "異議申し立てを承認できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2139
+#: includes/Core/AssetService.php:2141
 msgid "Deny this appeal?"
 msgstr "この異議申し立てを却下しますか?"
 
-#: includes/Core/AssetService.php:2142
+#: includes/Core/AssetService.php:2144
 msgid "The suspension stays in place. The member will be notified of the decision."
 msgstr "利用停止はそのまま継続されます。決定内容はメンバーに通知されます。"
 
-#: includes/Core/AssetService.php:2144
+#: includes/Core/AssetService.php:2146
 #: includes/Moderation/ModerationLogService.php:339
 msgid "Appeal denied"
 msgstr "異議申し立てを却下しました"
 
-#: includes/Core/AssetService.php:2145
+#: includes/Core/AssetService.php:2147
 msgid "Could not deny the appeal. Try again."
 msgstr "異議申し立てを却下できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2146
+#: includes/Core/AssetService.php:2148
 #: templates/spaces/moderation.php:463
 msgid "Remove this member from the space?"
 msgstr "このメンバーをスペースから削除しますか?"
 
-#: includes/Core/AssetService.php:2147
-#: includes/Core/AssetService.php:2426
+#: includes/Core/AssetService.php:2149
+#: includes/Core/AssetService.php:2428
 msgid "They will lose access to this space immediately."
 msgstr "このメンバーは直ちにこのスペースにアクセスできなくなります。"
 
-#: includes/Core/AssetService.php:2154
+#: includes/Core/AssetService.php:2156
 msgid "Could not remove the member from this space. Try again."
 msgstr "このスペースからメンバーを削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2155
+#: includes/Core/AssetService.php:2157
 msgid "Could not approve the join request. Try again."
 msgstr "参加リクエストを承認できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2156
+#: includes/Core/AssetService.php:2158
 msgid "Could not decline the join request. Try again."
 msgstr "参加リクエストを拒否できませんでした。もう一度お試しください。"
 
 #. translators: 1: current step number, 2: total step count
-#: includes/Core/AssetService.php:2184
+#: includes/Core/AssetService.php:2186
 #, php-format
 msgid "Step %1$s of %2$s"
 msgstr "%2$s 件中 %1$s 番目のステップ"
 
-#: includes/Core/AssetService.php:2185
+#: includes/Core/AssetService.php:2187
 msgid "Display name must be at least 2 characters."
 msgstr "表示名は2文字以上で入力してください。"
 
-#: includes/Core/AssetService.php:2186
+#: includes/Core/AssetService.php:2188
 #: templates/auth/signup.php:446
 #: templates/onboarding/index.php:862
 msgid "Your name"
 msgstr "お名前"
 
-#: includes/Core/AssetService.php:2187
+#: includes/Core/AssetService.php:2189
 msgid "@username"
 msgstr "@ユーザー名"
 
-#: includes/Core/AssetService.php:2188
+#: includes/Core/AssetService.php:2190
 #: templates/onboarding/index.php:870
 msgid "Add a short bio so people know what you're into."
 msgstr "自己紹介を短く入力すると、他のメンバーがあなたの興味を知ることができます。"
 
-#: includes/Core/AssetService.php:2189
+#: includes/Core/AssetService.php:2191
 msgid "Checking…"
 msgstr "確認中…"
 
-#: includes/Core/AssetService.php:2190
+#: includes/Core/AssetService.php:2192
 msgid "Available"
 msgstr "利用可能"
 
-#: includes/Core/AssetService.php:1918
-#: includes/Core/AssetService.php:2193
+#: includes/Core/AssetService.php:1919
+#: includes/Core/AssetService.php:2195
 msgid "Taken"
 msgstr "使用済み"
 
-#: includes/Core/AssetService.php:2202
+#: includes/Core/AssetService.php:2204
 msgid "Skipped. You can fill in your profile any time."
 msgstr "スキップしました。プロフィールはいつでも入力できます。"
 
-#: includes/Core/AssetService.php:2203
+#: includes/Core/AssetService.php:2205
 msgid "Joined the space."
 msgstr "スペースに参加しました。"
 
-#: includes/Core/AssetService.php:2204
+#: includes/Core/AssetService.php:2206
 msgid "Left the space."
 msgstr "スペースから退出しました。"
 
-#: includes/Core/AssetService.php:2205
+#: includes/Core/AssetService.php:2207
 msgid "Could not update space. Try again."
 msgstr "スペースを更新できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2206
+#: includes/Core/AssetService.php:2208
 msgid "Following."
 msgstr "フォロー中。"
 
-#: includes/Core/AssetService.php:2207
+#: includes/Core/AssetService.php:2209
 msgid "Unfollowed."
 msgstr "フォローを解除しました。"
 
-#: includes/Core/AssetService.php:2208
+#: includes/Core/AssetService.php:2210
 msgid "Could not update follow. Try again."
 msgstr "フォローを更新できませんでした。もう一度お試しください。"
 
 #. translators: %s: maximum upload size in megabytes.
-#: includes/Core/AssetService.php:2210
+#: includes/Core/AssetService.php:2212
 #, php-format
 msgid "Image too large. Max %sMB."
 msgstr "画像のサイズが大きすぎます。最大 %sMB までです。"
 
 #. translators: 1: maximum megapixels, 2: maximum pixels on a single side
-#: includes/Core/AssetService.php:2212
+#: includes/Core/AssetService.php:2214
 #, php-format
 msgid "That image is too large to process (over %1$s megapixels or %2$s pixels on a side). Please choose a smaller photo."
 msgstr "この画像は処理するには大きすぎます(最大 %1$s メガピクセル、または辺の長さ %2$s ピクセルを超えています)。より小さい写真を選んでください。"
 
-#: includes/Core/AssetService.php:2213
+#: includes/Core/AssetService.php:2215
 msgid "Could not upload photo. Try again."
 msgstr "写真をアップロードできませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2214
+#: includes/Core/AssetService.php:2216
 msgid "Profile photo updated."
 msgstr "プロフィール写真を更新しました。"
 
-#: includes/Core/AssetService.php:2215
+#: includes/Core/AssetService.php:2217
 msgid "You are all set. Welcome aboard!"
 msgstr "準備が整いました。ようこそ!"
 
-#: includes/Core/AssetService.php:2216
+#: includes/Core/AssetService.php:2218
 msgid "Could not finish onboarding. Try again."
 msgstr "初期設定を完了できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2217
+#: includes/Core/AssetService.php:2219
 msgid "Could not save your interests. Try again."
 msgstr "興味・関心を保存できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2223
+#: includes/Core/AssetService.php:2225
 msgid "Your profile could not be saved. Please check your details and try again."
 msgstr "プロフィールを保存できませんでした。入力内容を確認して、もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2225
+#: includes/Core/AssetService.php:2227
 msgid "Your notification settings could not be saved. Try again."
 msgstr "通知設定を保存できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2268
+#: includes/Core/AssetService.php:2270
 msgid "Could not mark all as read."
 msgstr "すべての通知を既読にできませんでした。"
 
 #. translators: %d: number of selected notifications.
-#: includes/Core/AssetService.php:2270
+#: includes/Core/AssetService.php:2272
 #, php-format
 msgid "%d selected"
 msgstr "%d件選択中"
 
-#: includes/Core/AssetService.php:2271
+#: includes/Core/AssetService.php:2273
 msgid "Delete notifications"
 msgstr "通知を削除"
 
 #. translators: %d: number of selected notifications.
-#: includes/Core/AssetService.php:2273
+#: includes/Core/AssetService.php:2275
 #, php-format
 msgid "%d selected notifications will be deleted. This cannot be undone."
 msgstr "選択した%d件の通知を削除します。この操作は元に戻せません。"
 
 #. translators: %d: number of notifications deleted.
-#: includes/Core/AssetService.php:2276
+#: includes/Core/AssetService.php:2278
 #, php-format
 msgid "%d notifications deleted."
 msgstr "%d件の通知を削除しました。"
 
-#: includes/Core/AssetService.php:2277
+#: includes/Core/AssetService.php:2279
 msgid "Could not delete the notifications. Try again."
 msgstr "通知を削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2278
+#: includes/Core/AssetService.php:2280
 msgid "Could not mark this notification as read."
 msgstr "この通知を既読にできませんでした。"
 
-#: includes/Core/AssetService.php:2279
+#: includes/Core/AssetService.php:2281
 msgid "Could not dismiss. Try again."
 msgstr "閉じられませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2280
+#: includes/Core/AssetService.php:2282
 msgid "Invitation accepted: you have joined the space."
 msgstr "招待を承諾しました。スペースに参加しました。"
 
 #. translators: %s is the formatted number of unread notifications (e.g. "12" or "99+").
-#: includes/Core/AssetService.php:2294
+#: includes/Core/AssetService.php:2296
 #: templates/parts/notifications-hero.php:96
 #, php-format
 msgid "%s unread"
 msgstr "未読 %s 件"
 
-#: includes/Core/AssetService.php:2297
+#: includes/Core/AssetService.php:2299
 msgid "Could not update those requests."
 msgstr "これらのリクエストを更新できませんでした。"
 
 #. translators: 1: number handled, 2: number no longer pending.
-#: includes/Core/AssetService.php:2299
+#: includes/Core/AssetService.php:2301
 #, php-format
 msgid "%1$d handled, %2$d no longer pending."
 msgstr "%1$d 件を処理し、%2$d 件は保留中ではなくなりました。"
 
 #. translators: %d: number of members approved.
-#: includes/Core/AssetService.php:2301
+#: includes/Core/AssetService.php:2303
 #, php-format
 msgid "%d members approved."
 msgstr "%d 人のメンバーを承認しました。"
 
 #. translators: %d: number of requests declined.
-#: includes/Core/AssetService.php:2303
+#: includes/Core/AssetService.php:2305
 #, php-format
 msgid "%d requests declined."
 msgstr "%d 件のリクエストを辞退しました。"
 
-#: includes/Core/AssetService.php:2319
+#: includes/Core/AssetService.php:2321
 msgid "Just now"
 msgstr "たった今"
 
 #. translators: %d: number of seconds
-#: includes/Core/AssetService.php:2321
+#: includes/Core/AssetService.php:2323
 #, php-format
 msgid "%ds ago"
 msgstr "%d 秒前"
 
 #. translators: %d: number of minutes
-#: includes/Core/AssetService.php:2323
+#: includes/Core/AssetService.php:2325
 #, php-format
 msgid "%d min ago"
 msgstr "%d 分前"
 
-#: includes/Core/AssetService.php:1905
-#: includes/Core/AssetService.php:2326
+#: includes/Core/AssetService.php:1906
+#: includes/Core/AssetService.php:2328
 #: templates/parts/profile-edit-save-bar.php:37
 #: templates/settings/notifications.php:549
 msgid "Saving..."
 msgstr "保存しています..."
 
 #: includes/Admin/AdminHub.php:824
-#: includes/Core/AssetService.php:2327
+#: includes/Core/AssetService.php:2329
 #: templates/parts/profile-edit-save-bar.php:80
 #: templates/settings/notifications.php:544
 #: templates/spaces/settings.php:1102
@@ -12474,216 +12475,216 @@ msgid "Unsaved changes"
 msgstr "未保存の変更があります"
 
 #. translators: %s: relative time the prefs were last saved (e.g. "2 min ago")
-#: includes/Core/AssetService.php:2329
+#: includes/Core/AssetService.php:2331
 #, php-format
 msgid "Saved %s"
 msgstr "%s に保存しました"
 
-#: includes/Core/AssetService.php:2330
+#: includes/Core/AssetService.php:2332
 msgid "Space preference saved."
 msgstr "スペースの設定を保存しました。"
 
-#: includes/Core/AssetService.php:2331
+#: includes/Core/AssetService.php:2333
 msgid "Could not save space preference."
 msgstr "スペースの設定を保存できませんでした。"
 
-#: includes/Core/AssetService.php:2332
+#: includes/Core/AssetService.php:2334
 msgid "Could not save preferences."
 msgstr "設定を保存できませんでした。"
 
-#: includes/Core/AssetService.php:2333
+#: includes/Core/AssetService.php:2335
 msgid "Preferences saved."
 msgstr "設定を保存しました。"
 
-#: includes/Core/AssetService.php:2336
+#: includes/Core/AssetService.php:2338
 msgid "You will no longer receive newsletters or announcements."
 msgstr "ニュースレターとお知らせは配信されなくなります。"
 
-#: includes/Core/AssetService.php:2337
+#: includes/Core/AssetService.php:2339
 msgid "You will receive newsletters and announcements again."
 msgstr "ニュースレターとお知らせの配信を再開します。"
 
-#: includes/Core/AssetService.php:2338
+#: includes/Core/AssetService.php:2340
 msgid "Could not update your broadcast email preference."
 msgstr "一斉配信メールの設定を更新できませんでした。"
 
-#: includes/Core/AssetService.php:2339
+#: includes/Core/AssetService.php:2341
 msgid "Email preference saved."
 msgstr "メールの設定を保存しました。"
 
-#: includes/Core/AssetService.php:2340
+#: includes/Core/AssetService.php:2342
 msgid "Could not save your email preference."
 msgstr "メールの設定を保存できませんでした。"
 
-#: includes/Core/AssetService.php:2357
+#: includes/Core/AssetService.php:2359
 msgid "Please name this search first."
 msgstr "先にこの検索に名前を付けてください。"
 
-#: includes/Core/AssetService.php:2358
+#: includes/Core/AssetService.php:2360
 msgid "Search saved."
 msgstr "検索を保存しました。"
 
-#: includes/Core/AssetService.php:2359
+#: includes/Core/AssetService.php:2361
 msgid "Saving searches is not available right now."
 msgstr "現在、検索の保存は利用できません。"
 
-#: includes/Core/AssetService.php:2360
+#: includes/Core/AssetService.php:2362
 msgid "Could not save this search. Try again."
 msgstr "この検索を保存できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2372
+#: includes/Core/AssetService.php:2374
 msgid "Recent searches"
 msgstr "最近の検索"
 
-#: includes/Core/AssetService.php:2373
+#: includes/Core/AssetService.php:2375
 msgid "Recent:"
 msgstr "最近:"
 
-#: includes/Core/AssetService.php:2375
+#: includes/Core/AssetService.php:2377
 msgid "Search suggestions"
 msgstr "検索候補"
 
-#: includes/Core/AssetService.php:2397
+#: includes/Core/AssetService.php:2399
 msgid "Could not update follow state. Try again."
 msgstr "フォローの状態を更新できませんでした。もう一度お試しください。"
 
 #. translators: %s: hashtag slug (without the leading #)
-#: includes/Core/AssetService.php:2399
+#: includes/Core/AssetService.php:2401
 #, php-format
 msgid "Unfollowed #%s"
 msgstr "#%s のフォローを解除しました"
 
 #. translators: %s: hashtag slug (without the leading #)
-#: includes/Core/AssetService.php:2401
+#: includes/Core/AssetService.php:2403
 #, php-format
 msgid "Following #%s"
 msgstr "#%s をフォロー中"
 
-#: includes/Core/AssetService.php:2419
+#: includes/Core/AssetService.php:2421
 msgid "Remove this member?"
 msgstr "このメンバーを削除しますか？"
 
-#: includes/Core/AssetService.php:2428
+#: includes/Core/AssetService.php:2430
 msgid "Could not remove member. Try again."
 msgstr "メンバーを削除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2429
+#: includes/Core/AssetService.php:2431
 msgid "Could not update role. Try again."
 msgstr "役割を更新できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2430
+#: includes/Core/AssetService.php:2432
 msgid "Ban this member?"
 msgstr "このメンバーをブロックしますか？"
 
-#: includes/Core/AssetService.php:2431
+#: includes/Core/AssetService.php:2433
 msgid "They will be removed and blocked from rejoining this space."
 msgstr "このメンバーはスペースから削除され、再び参加できなくなります。"
 
-#: includes/Core/AssetService.php:2432
+#: includes/Core/AssetService.php:2434
 #: templates/parts/space-settings-panel-members.php:201
 msgid "Ban"
 msgstr "ブロック"
 
-#: includes/Core/AssetService.php:2433
+#: includes/Core/AssetService.php:2435
 msgid "Could not ban member. Try again."
 msgstr "メンバーをブロックできませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2434
+#: includes/Core/AssetService.php:2436
 msgid "Unban this member?"
 msgstr "このメンバーのブロックを解除しますか？"
 
-#: includes/Core/AssetService.php:2435
+#: includes/Core/AssetService.php:2437
 msgid "They will be able to request or join this space again."
 msgstr "このメンバーは再びこのスペースに参加申請したり、参加したりできるようになります。"
 
-#: includes/Core/AssetService.php:2436
-#: templates/parts/space-settings-panel-members.php:251
+#: includes/Core/AssetService.php:2438
+#: templates/parts/space-settings-panel-members.php:257
 msgid "Unban"
 msgstr "ブロック解除"
 
-#: includes/Core/AssetService.php:2437
+#: includes/Core/AssetService.php:2439
 msgid "Could not unban member. Try again."
 msgstr "メンバーのブロックを解除できませんでした。もう一度お試しください。"
 
-#: includes/Core/AssetService.php:2456
+#: includes/Core/AssetService.php:2458
 msgid "Fields saved"
 msgstr "フィールドを保存しました"
 
-#: includes/Core/AssetService.php:2457
+#: includes/Core/AssetService.php:2459
 msgid "Could not save the fields. Try again."
 msgstr "フィールドを保存できませんでした。もう一度お試しください。"
 
 #. translators: %s: masked email address the code was sent to
-#: includes/Core/AssetService.php:2497
+#: includes/Core/AssetService.php:2499
 #, php-format
 msgid "Code sent to %s"
 msgstr "%s にコードを送信しました"
 
-#: includes/Core/AssetService.php:2498
+#: includes/Core/AssetService.php:2500
 msgid "Code sent: check your email"
 msgstr "コードを送信しました。メールをご確認ください"
 
-#: includes/Core/AssetService.php:2499
+#: includes/Core/AssetService.php:2501
 msgid "Enter your email and password to sign in."
 msgstr "ログインするには、メールアドレスとパスワードを入力してください。"
 
-#: includes/Core/AssetService.php:2501
+#: includes/Core/AssetService.php:2503
 msgid "Signed in."
 msgstr "ログインしました。"
 
-#: includes/Core/AssetService.php:2503
+#: includes/Core/AssetService.php:2505
 msgid "That code was not correct."
 msgstr "コードが正しくありません。"
 
-#: includes/Core/AssetService.php:2504
+#: includes/Core/AssetService.php:2506
 msgid "If your session is still valid, a code is on its way."
 msgstr "セッションがまだ有効な場合は、コードが送信されます。"
 
-#: includes/Core/AssetService.php:2505
+#: includes/Core/AssetService.php:2507
 msgid "Could not send the code. Try your authenticator app."
 msgstr "コードを送信できませんでした。認証アプリをご利用ください。"
 
-#: includes/Core/AssetService.php:2526
+#: includes/Core/AssetService.php:2528
 msgid "Please fill in your email and password."
 msgstr "メールアドレスとパスワードを入力してください。"
 
-#: includes/Core/AssetService.php:2527
+#: includes/Core/AssetService.php:2532
 msgid "Please agree to the Terms of Service and Privacy Policy to continue."
 msgstr "続行するには、利用規約とプライバシーポリシーに同意してください。"
 
-#: includes/Core/AssetService.php:2528
+#: includes/Core/AssetService.php:2533
 msgid "Please answer the verification question."
 msgstr "確認の質問にお答えください。"
 
-#: includes/Core/AssetService.php:2529
+#: includes/Core/AssetService.php:2534
 msgid "Could not create your account."
 msgstr "アカウントを作成できませんでした。"
 
-#: includes/Core/AssetService.php:2530
+#: includes/Core/AssetService.php:2535
 msgid "Account created. Welcome aboard!"
 msgstr "アカウントを作成しました。ようこそ！"
 
-#: includes/Core/AssetService.php:2535
+#: includes/Core/AssetService.php:2540
 msgid "Please choose a username."
 msgstr "ユーザー名を選択してください。"
 
-#: includes/Core/AssetService.php:2569
+#: includes/Core/AssetService.php:2574
 msgid "Please enter your email or username."
 msgstr "メールアドレスまたはユーザー名を入力してください。"
 
-#: includes/Core/AssetService.php:2570
+#: includes/Core/AssetService.php:2575
 msgid "If an account matches, a reset link is on its way."
 msgstr "一致するアカウントがあれば、パスワード再設定用のリンクが送信されます。"
 
-#: includes/Core/AssetService.php:2572
+#: includes/Core/AssetService.php:2577
 msgid "Please choose a new password."
 msgstr "新しいパスワードを選択してください。"
 
-#: includes/Core/AssetService.php:2573
+#: includes/Core/AssetService.php:2578
 msgid "Could not reset your password."
 msgstr "パスワードを再設定できませんでした。"
 
-#: includes/Core/AssetService.php:2574
+#: includes/Core/AssetService.php:2579
 msgid "Password updated. Please sign in."
 msgstr "パスワードを更新しました。ログインしてください。"
 
@@ -13372,16 +13373,16 @@ msgstr "探索フィードはメンバーのみ利用できます。"
 msgid "Community Member"
 msgstr "コミュニティメンバー"
 
-#: includes/Feed/FeedController.php:1177
+#: includes/Feed/FeedController.php:1179
 msgid "This space is members only. Join to view its posts."
 msgstr "このスペースはメンバー専用です。投稿を表示するには参加してください。"
 
-#: includes/Feed/FeedController.php:1200
+#: includes/Feed/FeedController.php:1202
 msgid "Announcements are disabled."
 msgstr "お知らせは無効になっています。"
 
-#: includes/Feed/FeedController.php:1211
-#: includes/Feed/FeedController.php:1248
+#: includes/Feed/FeedController.php:1213
+#: includes/Feed/FeedController.php:1250
 msgid "Announcement not found."
 msgstr "お知らせが見つかりません。"
 
@@ -14574,7 +14575,7 @@ msgstr "このようなメールの受信を停止する"
 msgid "© %1$s %2$s. All rights reserved."
 msgstr "© %1$s %2$s. 無断転載を禁じます。"
 
-#: includes/Notifications/EmailSender.php:923
+#: includes/Notifications/EmailSender.php:934
 #: includes/Notifications/NotificationMessageService.php:1178
 #: includes/Notifications/NotificationMessageService.php:1196
 #: includes/Notifications/NotificationMessageService.php:1305
@@ -15016,7 +15017,7 @@ msgstr "リアクション"
 
 #: includes/Notifications/NotificationMessageService.php:676
 #: includes/Privacy/PrivacyTools.php:1295
-#: templates/parts/post-actions.php:271
+#: templates/parts/post-actions.php:273
 msgid "Comment"
 msgstr "コメント"
 
@@ -18457,7 +18458,7 @@ msgstr "名（任意）"
 
 #: templates/community-admin.php:718
 #: templates/parts/space-hero.php:488
-#: templates/parts/space-settings-panel-members.php:280
+#: templates/parts/space-settings-panel-members.php:286
 msgid "Send invite"
 msgstr "招待を送信"
 
@@ -20072,7 +20073,7 @@ msgid "WhatsApp"
 msgstr "WhatsApp"
 
 #: templates/partials/share-modal.php:107
-#: templates/parts/post-actions.php:290
+#: templates/parts/post-actions.php:292
 msgid "Share post"
 msgstr "投稿をシェア"
 
@@ -21188,13 +21189,13 @@ msgid "React to post"
 msgstr "投稿にリアクションする"
 
 #. translators: %d: comment count
-#: templates/parts/post-actions.php:264
+#: templates/parts/post-actions.php:266
 #, php-format
 msgid "%d comment"
 msgid_plural "%d comments"
 msgstr[0] "コメント %d 件"
 
-#: templates/parts/post-actions.php:310
+#: templates/parts/post-actions.php:312
 msgid "Bookmark post"
 msgstr "投稿をブックマークする"
 
@@ -21318,7 +21319,9 @@ msgid "Suspended (no end date)."
 msgstr "停止中です（終了日は未定）。"
 
 #. translators: %s: moderator-supplied reason.
+#. translators: %s: the reason a moderator gave for the ban.
 #: templates/parts/profile-account-status.php:69
+#: templates/parts/space-settings-panel-members.php:241
 #, php-format
 msgid "Reason: %s"
 msgstr "理由：%s"
@@ -22180,7 +22183,7 @@ msgstr "参加中のスペース"
 
 #: templates/parts/sidebar-profile-member-of.php:48
 #: templates/parts/space-members-body.php:203
-#: templates/parts/space-settings-panel-members.php:240
+#: templates/parts/space-settings-panel-members.php:246
 msgid "Banned"
 msgstr "利用停止中"
 
@@ -22453,8 +22456,8 @@ msgstr "このスペースに招待するメンバーの@ハンドルまたは�
 
 #: templates/parts/space-hero.php:459
 #: templates/parts/space-hero.php:466
-#: templates/parts/space-settings-panel-members.php:269
-#: templates/parts/space-settings-panel-members.php:276
+#: templates/parts/space-settings-panel-members.php:275
+#: templates/parts/space-settings-panel-members.php:282
 msgid "@handle or email address"
 msgstr "@ハンドルまたはメールアドレス"
 
@@ -23021,11 +23024,11 @@ msgstr "ブロックされたメンバー"
 msgid "Members blocked from rejoining this space. Unban to let them request or join again."
 msgstr "このスペースへの再参加がブロックされているメンバーです。ブロックを解除すると、再度参加リクエストや参加ができるようになります。"
 
-#: templates/parts/space-settings-panel-members.php:262
+#: templates/parts/space-settings-panel-members.php:268
 msgid "Invite member"
 msgstr "メンバーを招待"
 
-#: templates/parts/space-settings-panel-members.php:264
+#: templates/parts/space-settings-panel-members.php:270
 msgid "Enter a member's @handle or an email address to invite them."
 msgstr "メンバーを招待するには、メンバーの @ハンドル またはメールアドレスを入力してください。"
 
@@ -26238,6 +26241,7 @@ msgstr ""
 
 #: includes/Core/AssetService.php:1085
 #: includes/Core/AssetService.php:1457
+#: includes/Core/AssetService.php:1991
 msgid "Undo"
 msgstr ""
 
@@ -26301,29 +26305,29 @@ msgid "%s awaiting approval"
 msgstr ""
 
 #: includes/Core/AssetService.php:1598
-#: includes/Core/AssetService.php:1904
+#: includes/Core/AssetService.php:1905
 msgid "Cover framing. Use the arrow keys to move the picture, plus and minus to zoom."
 msgstr ""
 
 #: includes/Core/AssetService.php:1599
-#: includes/Core/AssetService.php:1906
+#: includes/Core/AssetService.php:1907
 #: templates/parts/profile-edit-hero.php:136
 #: templates/parts/space-settings-panel-general.php:208
 msgid "Reposition"
 msgstr ""
 
 #: includes/Core/AssetService.php:1600
-#: includes/Core/AssetService.php:1907
+#: includes/Core/AssetService.php:1908
 msgid "Could not save the position. Try again."
 msgstr ""
 
 #: includes/Core/AssetService.php:1601
-#: includes/Core/AssetService.php:1908
+#: includes/Core/AssetService.php:1909
 msgid "Cover position saved."
 msgstr ""
 
 #: includes/Core/AssetService.php:1602
-#: includes/Core/AssetService.php:1909
+#: includes/Core/AssetService.php:1910
 msgid "Position ready: click Save changes to keep it"
 msgstr ""
 
@@ -26335,128 +26339,128 @@ msgstr ""
 msgid "You will lose access to its posts, and you will have to ask to join again and be approved."
 msgstr ""
 
-#: includes/Core/AssetService.php:1693
+#: includes/Core/AssetService.php:1694
 msgid "No discussions found. Leave this empty to create a new one."
 msgstr ""
 
-#: includes/Core/AssetService.php:1782
+#: includes/Core/AssetService.php:1783
 msgid "Report this member"
 msgstr ""
 
-#: includes/Core/AssetService.php:1783
+#: includes/Core/AssetService.php:1784
 msgid "Already sent."
 msgstr ""
 
-#: includes/Core/AssetService.php:1784
+#: includes/Core/AssetService.php:1785
 msgid "Conversation muted"
 msgstr ""
 
-#: includes/Core/AssetService.php:1785
+#: includes/Core/AssetService.php:1786
 msgid "Conversation unmuted"
 msgstr ""
 
-#: includes/Core/AssetService.php:1786
+#: includes/Core/AssetService.php:1787
 msgid "Could not update this conversation. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1787
+#: includes/Core/AssetService.php:1788
 msgid "Could not save your reaction. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1892
+#: includes/Core/AssetService.php:1893
 msgid "Choose a JPG, PNG, GIF or WebP picture."
 msgstr ""
 
-#: includes/Core/AssetService.php:1893
+#: includes/Core/AssetService.php:1894
 msgid "Setup key copied"
 msgstr ""
 
-#: includes/Core/AssetService.php:1894
+#: includes/Core/AssetService.php:1895
 msgid "Backup codes copied"
 msgstr ""
 
-#: includes/Core/AssetService.php:1895
+#: includes/Core/AssetService.php:1896
 msgid "Could not copy. Select the text and copy it yourself."
 msgstr ""
 
-#: includes/Core/AssetService.php:1896
+#: includes/Core/AssetService.php:1897
 msgid "That picture could not be opened. Choose a different JPG, PNG, GIF or WebP file."
 msgstr ""
 
-#: includes/Core/AssetService.php:1917
-#: includes/Core/AssetService.php:2194
+#: includes/Core/AssetService.php:1918
+#: includes/Core/AssetService.php:2196
 msgid "Reserved"
 msgstr ""
 
-#: includes/Core/AssetService.php:1919
-#: includes/Core/AssetService.php:2195
+#: includes/Core/AssetService.php:1920
+#: includes/Core/AssetService.php:2197
 #: templates/parts/settings-account-fields.php:109
 msgid "Not available"
 msgstr ""
 
 #. translators: %s: member type name
-#: includes/Core/AssetService.php:1955
+#: includes/Core/AssetService.php:1956
 #, php-format
 msgid "Choose %s?"
 msgstr ""
 
-#: includes/Core/AssetService.php:1956
+#: includes/Core/AssetService.php:1957
 msgid "You can only pick this once. After that, only an admin can change it."
 msgstr ""
 
-#: includes/Core/AssetService.php:1957
+#: includes/Core/AssetService.php:1958
 msgid "Choose"
 msgstr ""
 
-#: includes/Core/AssetService.php:1979
+#: includes/Core/AssetService.php:1980
 msgid "Could not withdraw the request. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1980
+#: includes/Core/AssetService.php:1981
 msgid "Could not accept the request. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1981
+#: includes/Core/AssetService.php:1982
 msgid "Could not decline the request. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2201
+#: includes/Core/AssetService.php:2203
 msgid "Follow request sent."
 msgstr ""
 
-#: includes/Core/AssetService.php:2224
+#: includes/Core/AssetService.php:2226
 msgid "That username is not available. Please choose another."
 msgstr ""
 
-#: includes/Core/AssetService.php:2361
+#: includes/Core/AssetService.php:2363
 msgid "Could not delete this saved search. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2362
+#: includes/Core/AssetService.php:2364
 msgid "Could not update this follow. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2371
+#: includes/Core/AssetService.php:2373
 msgid "Could not update your membership. Try again."
-msgstr ""
-
-#. translators: %s: the member's name.
-#: includes/Core/AssetService.php:2421
-#, php-format
-msgid "Remove %s from this space?"
 msgstr ""
 
 #. translators: %s: the member's name.
 #: includes/Core/AssetService.php:2423
 #, php-format
+msgid "Remove %s from this space?"
+msgstr ""
+
+#. translators: %s: the member's name.
+#: includes/Core/AssetService.php:2425
+#, php-format
 msgid "Ban %s from this space?"
 msgstr ""
 
-#: includes/Core/AssetService.php:2424
+#: includes/Core/AssetService.php:2426
 msgid "Reason (optional, kept in the moderation log)"
 msgstr ""
 
-#: includes/Core/AssetService.php:2425
+#: includes/Core/AssetService.php:2427
 msgid "Reason for the ban"
 msgstr ""
 
@@ -27533,7 +27537,7 @@ msgstr ""
 msgid "Badges and levels you earn will appear here."
 msgstr ""
 
-#: templates/parts/post-actions.php:318
+#: templates/parts/post-actions.php:320
 msgid "Bookmark"
 msgstr ""
 
@@ -27749,3 +27753,15 @@ msgstr ""
 msgid "Delete %d space with its posts and member list? This cannot be undone."
 msgid_plural "Delete %d spaces with their posts and member lists? This cannot be undone."
 msgstr[0] ""
+
+#: includes/Core/AssetService.php:1651
+msgid "You will also lose your moderator role here, and it is not restored if you join again."
+msgstr ""
+
+#: includes/Core/AssetService.php:2529
+msgid "Please enter a password."
+msgstr ""
+
+#: includes/Core/AssetService.php:2530
+msgid "Please enter your email address."
+msgstr ""

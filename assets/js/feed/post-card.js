@@ -1558,6 +1558,9 @@ store( 'buddynext/post-card', {
 				return n === 1 ? t( 'oneVote', '1 vote' ) : fmt( t( 'manyVotes', '%d votes' ), n );
 			} catch ( _e ) { return fmt( t( 'manyVotes', '%d votes' ), 0 ); }
 		},
+		get reactPressed() {
+			try { return !! getContext().reactionType; } catch ( _e ) { return false; }
+		},
 		get reactBtnClass() {
 			try {
 				return getContext().reactionType

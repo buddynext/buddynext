@@ -122,8 +122,10 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			type="button"
 			class="bn-post-card__action-btn bn-post-card__action-btn--react"
 			aria-label="<?php esc_attr_e( 'React to post', 'buddynext' ); ?>"
+			aria-pressed="<?php echo ! empty( $args['user_reaction'] ) ? 'true' : 'false'; ?>"
 			data-wp-on--click="actions.toggleReactionPicker"
 			data-wp-bind--class="state.reactBtnClass"
+			data-wp-bind--aria-pressed="state.reactPressed"
 		>
 			<span data-wp-bind--class="state.reactionIconClass" data-wp-style--background-image="state.reactionIconUrl" aria-hidden="true">
 				<?php
