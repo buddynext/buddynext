@@ -165,6 +165,7 @@ class Members extends AdminPageBase {
 	 *   'orderby'  string User field to order by. Default 'registered'.
 	 *   'order'    string 'ASC' | 'DESC'. Default 'DESC'.
 	 *   'role'     string WP role slug to filter by. Default '' (all roles).
+	 *   'member_type' string Member type slug to filter by. Default '' (all types).
 	 *
 	 * @param array<string, mixed> $args Query arguments.
 	 * @return array{ members: array<int, array<string, mixed>>, total: int, pages: int }
@@ -246,7 +247,10 @@ class Members extends AdminPageBase {
 			add_action( 'pre_user_query', $presence_sort );
 		}
 
-		$user_query = new \WP_User_Query( $query_args );
+		$type_slug  = sanitize_key( (string) ( $args['member_type'] ?? '' ) );
+		$user_query = '' !== $type_slug
+			? buddynext_service( 'member_types' )->within_type( $type_slug, static fn() => new \WP_User_Query( $query_args ) )
+			: new \WP_User_Query( $query_args );
 
 		if ( null !== $presence_sort ) {
 			remove_action( 'pre_user_query', $presence_sort );
@@ -289,9 +293,12 @@ class Members extends AdminPageBase {
 			}
 		}
 
+		$type_names = buddynext_service( 'member_types' )->names_for_users( $result_ids );
+
 		$members = array();
 		foreach ( $user_query->get_results() as $user ) {
 			$members[] = array(
+				'member_types'     => $type_names[ (int) $user->ID ] ?? array(),
 				'id'               => $user->ID,
 				'login'            => $user->user_login,
 				// The mentionable handle is user_nicename, NOT user_login: mentions
@@ -1424,6 +1431,19 @@ class Members extends AdminPageBase {
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="bn_export_members">
 			<?php wp_nonce_field( 'bn_export_members' ); ?>
+			<?php
+			// The export follows what the owner is looking at: the same search, role and member type.
+			// phpcs:disable WordPress.Security.NonceVerification.Recommended
+			foreach ( array( 's', 'role', 'member_type' ) as $bn_key ) :
+				$bn_val = sanitize_text_field( wp_unslash( $_GET[ $bn_key ] ?? '' ) );
+				if ( '' !== $bn_val ) :
+					?>
+					<input type="hidden" name="<?php echo esc_attr( $bn_key ); ?>" value="<?php echo esc_attr( $bn_val ); ?>">
+					<?php
+				endif;
+			endforeach;
+			// phpcs:enable WordPress.Security.NonceVerification.Recommended
+			?>
 			<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
 				<?php esc_html_e( 'Export CSV', 'buddynext' ); ?>
 			</button>
@@ -1657,6 +1677,8 @@ class Members extends AdminPageBase {
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$role_filter = sanitize_key( wp_unslash( $_GET['role'] ?? '' ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$type_filter = sanitize_key( wp_unslash( $_GET['member_type'] ?? '' ) );
 
 		// Sort: default newest-joined; ?orderby=display_name lists the roster
 		// alphabetically (C5 — sortability parity with Spaces:Directory), and
@@ -1702,14 +1724,15 @@ class Members extends AdminPageBase {
 
 		$data    = $this->list_members(
 			array(
-				'page'    => $page,
-				'search'  => $search,
-				'status'  => $status,
-				'role'    => $role_filter,
-				'orderby' => $bn_orderby,
+				'page'        => $page,
+				'search'      => $search,
+				'status'      => $status,
+				'role'        => $role_filter,
+				'member_type' => $type_filter,
+				'orderby'     => $bn_orderby,
 				// A-Z reads ascending; last_active honours the toggle so an owner
 				// can flip to dormant-first; joined stays newest-first.
-				'order'   => 'display_name' === $bn_orderby ? 'ASC' : ( 'last_active' === $bn_orderby ? $bn_order : 'DESC' ),
+				'order'       => 'display_name' === $bn_orderby ? 'ASC' : ( 'last_active' === $bn_orderby ? $bn_order : 'DESC' ),
 			)
 		);
 		$total   = $data['total'];
@@ -1763,6 +1786,7 @@ class Members extends AdminPageBase {
 		$base      = admin_url( 'admin.php?page=buddynext-members' );
 		$s_all     = '' !== $search ? add_query_arg( 's', rawurlencode( $search ), $base ) : $base;
 		$s_role    = '' !== $role_filter ? add_query_arg( 'role', $role_filter, $s_all ) : $s_all;
+		$s_role    = '' !== $type_filter ? add_query_arg( 'member_type', $type_filter, $s_role ) : $s_role;
 		$tab_links = array(
 			'all'       => array(
 				'url'   => $s_role,
@@ -1845,6 +1869,18 @@ class Members extends AdminPageBase {
 							</option>
 						<?php endforeach; ?>
 					</select>
+					<?php $bn_types = buddynext_service( 'member_types' )->get_all(); ?>
+					<?php if ( array() !== $bn_types ) : ?>
+						<label for="bn-members-type" class="screen-reader-text"><?php esc_html_e( 'Filter by member type', 'buddynext' ); ?></label>
+						<select id="bn-members-type" name="member_type" class="bn-select">
+							<option value=""><?php esc_html_e( 'All member types', 'buddynext' ); ?></option>
+							<?php foreach ( $bn_types as $bn_type ) : ?>
+								<option value="<?php echo esc_attr( (string) $bn_type['slug'] ); ?>" <?php selected( $type_filter, (string) $bn_type['slug'] ); ?>>
+									<?php echo esc_html( (string) $bn_type['name'] ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					<?php endif; ?>
 					<label for="bn-members-sort" class="screen-reader-text"><?php esc_html_e( 'Sort members', 'buddynext' ); ?></label>
 					<select id="bn-members-sort" name="sort" class="bn-select">
 						<option value="registered" <?php selected( $bn_sort_now, 'registered' ); ?>><?php esc_html_e( 'Newest members', 'buddynext' ); ?></option>
@@ -1908,6 +1944,7 @@ class Members extends AdminPageBase {
 								?>
 								" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
 								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
+								<th scope="col" class="bn-col-secondary"><?php esc_html_e( 'Member type', 'buddynext' ); ?></th>
 								<th scope="col" class="bn-col-secondary"><?php esc_html_e( 'Community role', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
 								<th scope="col" class="bn-col-muted bn-col-secondary"><a href="<?php echo esc_url( remove_query_arg( array( 'orderby', 'sort' ) ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
@@ -1981,6 +2018,14 @@ class Members extends AdminPageBase {
 											// (see .bn-col-secondary in bn-admin.css); hidden everywhere else.
 											?>
 											<div class="bn-member-sub">
+												<?php if ( array() !== $member['member_types'] ) : ?>
+													<span>
+														<?php
+														/* translators: %s: the member's type, for example "Professional". */
+														echo esc_html( sprintf( __( 'Type: %s', 'buddynext' ), implode( ', ', $member['member_types'] ) ) );
+														?>
+													</span>
+												<?php endif; ?>
 												<span>
 													<?php
 													/* translators: %s: date the member joined. */
@@ -2026,6 +2071,9 @@ class Members extends AdminPageBase {
 									 */
 									self::render_community_role_badge( $bn_comm_role );
 									?>
+								</td>
+								<td class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Member type', 'buddynext' ); ?>">
+									<?php echo array() === $member['member_types'] ? '&mdash;' : esc_html( implode( ', ', $member['member_types'] ) ); ?>
 								</td>
 								<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 									<?php if ( $member['suspended'] ) : ?>
@@ -2133,19 +2181,20 @@ class Members extends AdminPageBase {
 				(int) $pages,
 				(int) $total,
 				self::DEFAULT_PER_PAGE,
-				static function ( int $p ) use ( $search, $status, $role_filter, $bn_orderby, $bn_order ): string {
+				static function ( int $p ) use ( $search, $status, $role_filter, $type_filter, $bn_orderby, $bn_order ): string {
 					return add_query_arg(
 						array_filter(
 							array(
-								'page'    => 'buddynext-members',
-								'paged'   => $p > 1 ? $p : false,
-								's'       => '' !== $search ? $search : false,
-								'status'  => 'all' !== $status ? $status : false,
-								'role'    => '' !== $role_filter ? $role_filter : false,
-								'orderby' => 'registered' !== $bn_orderby ? $bn_orderby : false,
+								'page'        => 'buddynext-members',
+								'paged'       => $p > 1 ? $p : false,
+								's'           => '' !== $search ? $search : false,
+								'status'      => 'all' !== $status ? $status : false,
+								'role'        => '' !== $role_filter ? $role_filter : false,
+								'member_type' => '' !== $type_filter ? $type_filter : false,
+								'orderby'     => 'registered' !== $bn_orderby ? $bn_orderby : false,
 								// Carry the direction too, or paging a dormant-first list
 								// silently flips it back to most-recent on page 2.
-								'order'   => 'DESC' !== $bn_order ? $bn_order : false,
+								'order'       => 'DESC' !== $bn_order ? $bn_order : false,
 							)
 						),
 						admin_url( 'admin.php' )
