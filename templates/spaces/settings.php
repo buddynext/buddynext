@@ -292,6 +292,22 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			}
 		}
 
+		// Location rides the general panel but is a registered field (meta, public, searchable), so it saves through
+		// the registry, which trims it, enforces its owner-only writable_by and re-indexes the Space for search.
+		if ( 'error' !== $save_notice && isset( $_POST['space_location'] ) ) {
+			$bn_location_result = $bn_field_registry->save_for_space(
+				$space_id,
+				array( 'location' => sanitize_text_field( wp_unslash( (string) $_POST['space_location'] ) ) ),
+				$bn_actor_id
+			);
+			if ( empty( $bn_location_result['errors'] ) ) {
+				$bn_wrote_something = true;
+			} else {
+				$save_notice           = 'error';
+				$bn_save_error_message = (string) reset( $bn_location_result['errors'] );
+			}
+		}
+
 		// "Space opens on" rides the general panel but is a registered field, so it
 		// saves through the registry, which sanitises the tab id, enforces its
 		// owner-only writable_by and rejects a value outside the registered tab set.

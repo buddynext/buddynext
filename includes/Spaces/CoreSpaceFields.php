@@ -13,7 +13,7 @@ namespace BuddyNext\Spaces;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Registers the eight built-in space options as core space fields.
+ * Registers the built-in space options as core space fields.
  *
  * These were historically per-space wp_options (bn_space_{id}_*), which
  * autoloaded and bypassed any developer API. They are now first-class space
@@ -34,7 +34,7 @@ final class CoreSpaceFields {
 	}
 
 	/**
-	 * Register the eight built-in fields.
+	 * Register the built-in fields.
 	 *
 	 * @param SpaceFieldRegistry $registry The field registry.
 	 * @return void
@@ -57,6 +57,26 @@ final class CoreSpaceFields {
 				'sort_order'  => 5,
 				'visibility'  => 'members',
 				'writable_by' => 'owner',
+				'core'        => true,
+			)
+		);
+
+		// Where the Space is, in the owner's own words ("Bollington, Cheshire, UK"). Plain text, optional, public, and
+		// folded into the Space search index, so a member who searches for a place finds the Spaces there. It is a
+		// search aid, not a directory: there are no place archives and no extra index.
+		$registry->register(
+			'location',
+			array(
+				'label'       => __( 'Location', 'buddynext' ),
+				'description' => __( 'Optional. Members can find this Space by searching for a place.', 'buddynext' ),
+				'type'        => 'text',
+				'default'     => '',
+				'section'     => 'general',
+				'sort_order'  => 8,
+				'visibility'  => 'public',
+				'searchable'  => true,
+				'writable_by' => 'owner',
+				// Core: it has its own input on the General settings panel, and its own line on the About tab.
 				'core'        => true,
 			)
 		);

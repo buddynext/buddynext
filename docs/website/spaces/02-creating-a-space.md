@@ -54,7 +54,7 @@ Both replace the previous image when re-uploaded. With a cover already set, **Re
 
 ### Editing a space
 
-The owner (and site admins) edit a space from its own settings screen. Settings are grouped into panels: General, Privacy, Permissions, Members, Moderation, Integrations, Notifications and a Danger zone, plus an Invite link tab and, when other plugins add space fields, a Custom fields tab. From here you can rename the space, change its description and house rules, set a brand colour, choose which tab the space opens on, change its type, move it to a different category or parent space, swap the avatar or cover, set who can post and who can invite, add the space's own banned words, switch the Discussion, Media, Files, Leaderboard and Articles tabs on, and reach the ownership transfer and delete actions. Moderators can open the screen too, but they can only change the moderation settings (join approval, banned words and the new-member notification default). The rest is owner-only.
+The owner (and site admins) edit a space from its own settings screen. Settings are grouped into panels: General, Privacy, Permissions, Members, Moderation, Integrations, Notifications and a Danger zone, plus an Invite link tab and, when other plugins add space fields, a Custom fields tab. From here you can rename the space, change its description, **location** and house rules, set a brand colour, choose which tab the space opens on, change its type, move it to a different category or parent space, swap the avatar or cover, set who can post and who can invite, add the space's own banned words, switch the Discussion, Media, Files, Leaderboard and Articles tabs on, and reach the ownership transfer and delete actions. Moderators can open the screen too, but they can only change the moderation settings (join approval, banned words and the new-member notification default). The rest is owner-only.
 
 A save bar sits at the bottom of every tab that has a settings form, so **Save** is always within reach, even before you change anything. **Cancel** and **Unsaved changes** appear only after an edit. The Members, Invite link and Danger zone tabs have no form and no save bar. The space icon's **Upload** and **Remove** buttons sit side by side beside the preview.
 
@@ -123,6 +123,8 @@ By default a space opens on its Feed. You can change the starting tab - the tab 
 **Site owner (all spaces).** A space opens on the first tab in your **Settings > Navigation > Space Tabs** order that the visitor can see. Move **About** to the top of that list and every space opens on About; the tab bar and the landing tab always agree. There is no separate switch - the Navigation order is the site-wide default.
 
 **Space owner (one space).** In a space's **Settings > General**, the **"Space opens on"** control lets the owner pick a different starting tab for that space alone. The choices are the tabs that space has turned on, including tabs added by add-ons. Leave it on **Site default** to follow the site-wide order. Links to a specific tab or post (for example a shared `/spaces/{slug}/members/` URL or a post permalink) are never affected.
+
+The optional **Location** (for example "Bollington, Cheshire, UK") is plain text shown on the About tab and matched by the Space search, so a member who searches for a place finds the Spaces there. There are no place pages and no distance search; it is a search aid.
 
 A non-member who opens a private space always lands on **About** - its description, rules and the Join button - rather than a locked Feed.
 

@@ -256,6 +256,21 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 	</div>
 
 	<div class="bn-space-settings__field">
+		<label for="space_location"><?php esc_html_e( 'Location', 'buddynext' ); ?></label>
+		<input
+			type="text"
+			id="space_location"
+			name="space_location"
+			class="bn-input"
+			maxlength="100"
+			placeholder="<?php esc_attr_e( 'Bollington, Cheshire, UK', 'buddynext' ); ?>"
+			value="<?php echo esc_attr( (string) buddynext_get_space_field( (int) ( $bn_space->id ?? 0 ), 'location' ) ); ?>"
+			<?php disabled( ! $args['is_space_owner'] ); ?>
+		>
+		<p class="bn-space-settings__hint"><?php esc_html_e( 'Optional. Members can find this Space by searching for a place.', 'buddynext' ); ?></p>
+	</div>
+
+	<div class="bn-space-settings__field">
 		<label for="space_rules"><?php esc_html_e( 'House rules', 'buddynext' ); ?></label>
 		<textarea
 			id="space_rules"
