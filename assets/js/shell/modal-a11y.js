@@ -83,7 +83,9 @@ function activate( backdrop ) {
 		return;
 	}
 
-	const trigger = backdrop.contains( document.activeElement ) ? lastOutside : document.activeElement;
+	const active  = document.activeElement;
+	// <body> as the active element (WebKit after a button click) names nobody: fall back to the pressed control.
+	const trigger = backdrop.contains( active ) || ! active || active === document.body ? lastOutside : active;
 	const panel   = panelOf( backdrop );
 
 	// Focus synchronously — not in requestAnimationFrame. We are only called from
@@ -223,6 +225,15 @@ function boot() {
 	document.addEventListener( 'focusin', function ( ev ) {
 		if ( ev.target.closest && ! ev.target.closest( SELECTOR ) ) {
 			lastOutside = ev.target;
+		}
+	}, true );
+
+	// WebKit (Safari, every iOS browser) does not focus a button on click, so no focusin names the opener of a
+	// dialog that a button click opens. The press itself does.
+	document.addEventListener( 'pointerdown', function ( ev ) {
+		const hit = ev.target && ev.target.closest ? ev.target.closest( 'button, a[href], [role="button"], [tabindex]' ) : null;
+		if ( hit && ! hit.closest( SELECTOR ) ) {
+			lastOutside = hit;
 		}
 	}, true );
 

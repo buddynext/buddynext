@@ -151,7 +151,14 @@
 		opts = opts || {};
 		return new Promise( function ( resolve ) {
 			var m = createModal( opts );
+			// WebKit does not focus a button on click, so activeElement is <body>: the click being dispatched names the opener.
 			var lastActive = document.activeElement;
+			if ( ! lastActive || lastActive === document.body ) {
+				var openerEvent = window.event;
+				lastActive = openerEvent && openerEvent.target && openerEvent.target.closest
+					? openerEvent.target.closest( 'button, a[href], [role="button"], input, select, textarea, [tabindex]' )
+					: null;
+			}
 
 			// Tab stays inside the dialog (aria-modal promises it). The shared trap is
 			// set by the modal-a11y module on BuddyNext screens; off-hub screens that

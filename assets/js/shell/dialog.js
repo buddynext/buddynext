@@ -16,7 +16,7 @@
  * setters. No innerHTML is used on translated or user-controlled text.
  */
 
-import { trapFocus, returnFocus } from '@buddynext/focus-trap';
+import { trapFocus, returnFocus, dialogOpener } from '@buddynext/focus-trap';
 
 export { trapFocus };
 
@@ -172,7 +172,7 @@ export function bnConfirm( opts, legacyOpts ) {
 	const cfg = Object.assign( { tone: 'danger', size: 'sm' }, opts || {} );
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame   = buildModalFrame( cfg );
 
 		const releaseTrap = trapFocus( frame.panel );
@@ -320,7 +320,7 @@ export function bnPrompt( opts ) {
 	cfg.extraNode = field;
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame   = buildModalFrame( cfg );
 
 		const releaseTrap = trapFocus( frame.panel );
@@ -496,7 +496,7 @@ export function bnReportDialog( opts ) {
 	cfg.extraNode = wrap;
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame   = buildModalFrame( cfg );
 		const releaseTrap = trapFocus( frame.panel );
 
@@ -643,7 +643,7 @@ export function bnSuspendDialog( opts ) {
 	cfg.extraNode = wrap;
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame = buildModalFrame( cfg );
 		const releaseTrap = trapFocus( frame.panel );
 
@@ -745,7 +745,7 @@ export function bnConnectNoteDialog( opts ) {
 	cfg.extraNode = wrap;
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame   = buildModalFrame( cfg );
 		const releaseTrap = trapFocus( frame.panel );
 

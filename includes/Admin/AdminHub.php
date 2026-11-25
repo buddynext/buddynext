@@ -1047,15 +1047,15 @@ class AdminHub {
 	 *
 	 * Back-compat: passing a capability string as the 5th arg still works.
 	 *
-	 * @param string                                                                                                                                                     $section Section key.
-	 * @param string                                                                                                                                                     $slug    Tab slug — URL `?tab=` value.
-	 * @param string                                                                                                                                                     $label   Visible tab label (already translated).
-	 * @param callable                                                                                                                                                   $render  Render callback for the tab body.
-	 *                     `legacy_page` names the standalone `?page=` slug this tab replaced. Declaring
-	 *                     it makes AdminHub forward that slug here — see redirect_legacy_pages() for why
-	 *                     that is a live flow fix and not just bookmark hygiene.
+	 * @param string                                                                                                                                                                                                                       $section Section key.
+	 * @param string                                                                                                                                                                                                                       $slug    Tab slug — URL `?tab=` value.
+	 * @param string                                                                                                                                                                                                                       $label   Visible tab label (already translated).
+	 * @param callable                                                                                                                                                                                                                     $render  Render callback for the tab body.
+	 *                                                                                       `legacy_page` names the standalone `?page=` slug this tab replaced. Declaring
+	 *                                                                                       it makes AdminHub forward that slug here — see redirect_legacy_pages() for why
+	 *                                                                                       that is a live flow fix and not just bookmark hygiene.
 	 *
-	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string,subtitle?:string,action?:string,legacy_page?:string}|string|null $args    Extension args, or capability string.
+	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string,subtitle?:string,action?:string,legacy_page?:string,subtab_titles?:array<string,array{title:string,subtitle?:string}>}|string|null $args    Extension args, or capability string.
 	 * @return void
 	 */
 	public static function register_tab( string $section, string $slug, string $label, callable $render, array|string|null $args = null ): void {
@@ -1094,24 +1094,27 @@ class AdminHub {
 		}
 
 		self::$tabs[ $section ][ $slug ] = array(
-			'label'     => $label,
-			'render'    => $render,
-			'cap'       => isset( $args['cap'] ) ? (string) $args['cap'] : 'manage_options',
-			'position'  => isset( $args['position'] ) ? (int) $args['position'] : 50,
-			'layout'    => isset( $args['layout'] ) && 'wide' === $args['layout'] ? 'wide' : 'sidebar',
-			'badge'     => isset( $args['badge'] ) && is_callable( $args['badge'] ) ? $args['badge'] : null,
-			'icon'      => isset( $args['icon'] ) ? (string) $args['icon'] : self::default_icon_for( $slug ),
-			'group'     => isset( $args['group'] ) ? (string) $args['group'] : '',
-			'nav_group' => isset( $args['nav_group'] ) ? (string) $args['nav_group'] : '',
-			'order'     => count( self::$tabs[ $section ] ?? array() ),
-			'subtitle'  => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
-			'action'    => isset( $args['action'] ) ? (string) $args['action'] : '',
+			'label'         => $label,
+			'render'        => $render,
+			'cap'           => isset( $args['cap'] ) ? (string) $args['cap'] : 'manage_options',
+			'position'      => isset( $args['position'] ) ? (int) $args['position'] : 50,
+			'layout'        => isset( $args['layout'] ) && 'wide' === $args['layout'] ? 'wide' : 'sidebar',
+			'badge'         => isset( $args['badge'] ) && is_callable( $args['badge'] ) ? $args['badge'] : null,
+			'icon'          => isset( $args['icon'] ) ? (string) $args['icon'] : self::default_icon_for( $slug ),
+			'group'         => isset( $args['group'] ) ? (string) $args['group'] : '',
+			'nav_group'     => isset( $args['nav_group'] ) ? (string) $args['nav_group'] : '',
+			'order'         => count( self::$tabs[ $section ] ?? array() ),
+			'subtitle'      => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
+			'action'        => isset( $args['action'] ) ? (string) $args['action'] : '',
 			// Nested tab slugs this tab's own page consumes via the SAME ?tab= var
 			// (e.g. Members: invites, profile-fields). They are not hub tabs, so the
 			// misroute guard in render_section() would otherwise flag them as broken
 			// links; declaring them here tells the router the slug is valid and which
 			// hub tab owns it (card 10264294727).
-			'subtabs'   => isset( $args['subtabs'] ) && is_array( $args['subtabs'] ) ? array_map( 'sanitize_key', $args['subtabs'] ) : array(),
+			'subtabs'       => isset( $args['subtabs'] ) && is_array( $args['subtabs'] ) ? array_map( 'sanitize_key', $args['subtabs'] ) : array(),
+			// Heading and one-line description per nested tab, [ slug => [ 'title' => ..., 'subtitle' => ... ] ], so the
+			// page's h1 names the panel being shown instead of repeating the tab's own name on every nested panel.
+			'subtab_titles' => isset( $args['subtab_titles'] ) && is_array( $args['subtab_titles'] ) ? $args['subtab_titles'] : array(),
 		);
 
 		// Claim the old standalone page slug, if this tab replaced one.
@@ -1841,6 +1844,12 @@ class AdminHub {
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
 		// Home does not repeat its name as a visible title: the top bar and the rail already say it.
+		// A nested panel names itself (h1 and description) when its owning tab says how.
+		$bn_nested = sanitize_key( wp_unslash( (string) ( $_GET['tab'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( '' !== $bn_nested && isset( $active['subtab_titles'][ $bn_nested ]['title'] ) ) {
+			$active['label']    = (string) $active['subtab_titles'][ $bn_nested ]['title'];
+			$active['subtitle'] = (string) ( $active['subtab_titles'][ $bn_nested ]['subtitle'] ?? $active['subtitle'] );
+		}
 		$this->render_header( (string) $active['label'], 'get-started' === $section_key && 'home' === $active_slug );
 		$this->render_subhead( $active );
 		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );

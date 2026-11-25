@@ -72,12 +72,34 @@ class Members extends AdminPageBase {
 			__( 'Members directory', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array(
-				'subtitle' => __( 'Manage your community members', 'buddynext' ),
-				'action'   => $this->build_export_action(),
+				'subtitle'      => __( 'Manage your community members', 'buddynext' ),
+				'action'        => $this->build_export_action(),
 				// Nested tabs this page renders off the same ?tab= var (see
 				// render_page()). Declared so the hub router treats them as valid links
 				// to this tab, not misroutes (card 10264294727).
-				'subtabs'  => self::SUBTABS,
+				'subtabs'       => self::SUBTABS,
+				'subtab_titles' => array(
+					'profile-fields'  => array(
+						'title'    => __( 'Profile fields', 'buddynext' ),
+						'subtitle' => __( 'The fields members fill in on their profile', 'buddynext' ),
+					),
+					'avatar-settings' => array(
+						'title'    => __( 'Avatar and cover', 'buddynext' ),
+						'subtitle' => __( 'Profile pictures and cover images', 'buddynext' ),
+					),
+					'member-types'    => array(
+						'title'    => __( 'Member types', 'buddynext' ),
+						'subtitle' => __( 'Group members by what they do in your community', 'buddynext' ),
+					),
+					'invites'         => array(
+						'title'    => __( 'Invites', 'buddynext' ),
+						'subtitle' => __( 'Invite people to join, one by one or in bulk', 'buddynext' ),
+					),
+					'pending'         => array(
+						'title'    => __( 'Pending approval', 'buddynext' ),
+						'subtitle' => __( 'New accounts waiting for an administrator', 'buddynext' ),
+					),
+				),
 			)
 		);
 

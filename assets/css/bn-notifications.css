@@ -198,6 +198,9 @@
 
 .bn-notif-row__body {
 	min-width: 0;
+	/* Top-aligned with the avatar (also top-aligned): a one-line row has both on its first line, a tall row keeps
+	   the avatar level with the first line of text instead of a row-centred body. */
+	align-self: start;
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);

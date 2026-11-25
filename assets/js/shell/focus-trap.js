@@ -62,20 +62,20 @@ export function trapFocus( container ) {
 		if ( ! focusables.length ) {
 			return;
 		}
-		const first  = focusables[ 0 ];
-		const last   = focusables[ focusables.length - 1 ];
 		const active = document.activeElement;
-		// Focus on something that is not one of the stops - the panel itself, where a
-		// modal parks focus when it opens, or <body> after a button disabled itself -
-		// wraps to the matching end instead of letting the browser leave the dialog.
-		const inList = focusables.indexOf( active ) !== -1;
-		if ( ev.shiftKey && ( active === first || ! inList ) ) {
-			ev.preventDefault();
-			last.focus();
-		} else if ( ! ev.shiftKey && ( active === last || ! inList ) ) {
-			ev.preventDefault();
-			first.focus();
+		const at     = focusables.indexOf( active );
+		// Every Tab is walked here, not only the ones at the ends: WebKit (Safari, every iOS browser) does not Tab
+		// onto buttons by default, so leaving the middle to the browser sent focus from Cancel to <body> and never to
+		// the confirm button. Focus on something that is not one of the stops - the panel itself, where a modal parks
+		// focus when it opens, or <body> after a button disabled itself - enters at the matching end.
+		let next;
+		if ( -1 === at ) {
+			next = ev.shiftKey ? focusables.length - 1 : 0;
+		} else {
+			next = ( at + ( ev.shiftKey ? -1 : 1 ) + focusables.length ) % focusables.length;
 		}
+		ev.preventDefault();
+		focusables[ next ].focus();
 	}
 
 	// Focus lost while the trap is open: a busy button coming back enabled gets it
@@ -112,6 +112,27 @@ export function trapFocus( container ) {
 		container.removeEventListener( 'focusin', onFocusIn );
 		document.removeEventListener( 'keydown', onKey, true );
 	};
+}
+
+/**
+ * The control that opened a dialog, for returning focus to it on close.
+ *
+ * document.activeElement is the answer everywhere except WebKit (Safari, every iOS browser), which does not focus a
+ * button on click, so it reports <body> and the trap had nowhere to send focus back to. The click that is being
+ * dispatched right now names the opener instead.
+ *
+ * @return {HTMLElement|null} The opener, or null when nothing identifies one.
+ */
+export function dialogOpener() {
+	const active = document.activeElement;
+	if ( active && active !== document.body ) {
+		return active;
+	}
+	const ev = window.event;
+	const hit = ev && ev.target && 'function' === typeof ev.target.closest
+		? ev.target.closest( 'button, a[href], [role="button"], input, select, textarea, [tabindex]' )
+		: null;
+	return hit || null;
 }
 
 /** Real Tab stops, as trapFocus counts them. */
