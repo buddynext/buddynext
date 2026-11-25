@@ -269,6 +269,7 @@ class BridgeCardLiveTest extends \WP_UnitTestCase {
 				foreach ( array_keys( $cards ) as $id ) {
 					$answers[ $id ] = array(
 						'title'   => 'Better title',
+						'text'    => 'Better text',
 						'url'     => 'https://example.test/course/1/',
 						'actions' => array(
 							array(
@@ -309,6 +310,7 @@ class BridgeCardLiveTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'Better title', $html );
 		$this->assertStringNotContainsString( 'Old title', $html );
+		$this->assertStringContainsString( 'Better text', $html );
 		$this->assertStringContainsString( 'href="https://example.test/course/1/"', $html );
 		$this->assertStringContainsString( '>View certificate<', $html, 'Different from the title now, so it stays.' );
 	}

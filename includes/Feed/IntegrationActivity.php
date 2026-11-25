@@ -840,6 +840,9 @@ class IntegrationActivity {
 		if ( '' !== $resolved['url'] ) {
 			$url = $resolved['url'];
 		}
+		if ( '' !== $resolved['text'] ) {
+			$desc = $resolved['text'];
+		}
 
 		$html = '<div class="' . esc_attr( $classes ) . '">';
 
@@ -1006,7 +1009,7 @@ class IntegrationActivity {
 	 * @param array<string,mixed> $link      The card's link preview.
 	 * @param array<string,mixed> $link_meta The card's stored link meta.
 	 * @param int                 $post_id   Post id (0 when unknown).
-	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>,title:string,url:string} A live answer may also name a better title and the address the title should open; '' = keep the stored ones.
+	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>,title:string,text:string,url:string} A live answer may also name a better title, the short text under it and the address the title opens; '' = keep the stored ones.
 	 */
 	public static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
 		$live  = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
@@ -1060,6 +1063,7 @@ class IntegrationActivity {
 			'facts'   => $facts,
 			'actions' => $actions,
 			'title'   => $title,
+			'text'    => $text,
 			'url'     => esc_url_raw( $url, array( 'http', 'https' ) ),
 		);
 	}
