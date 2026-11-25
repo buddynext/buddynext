@@ -513,6 +513,27 @@ class SearchService {
 	}
 
 	/**
+	 * Index object types whose partner plugin is switched off.
+	 *
+	 * A discussion, event, listing, job or course row left in the index would open on
+	 * a page that no longer exists, so the same orphan check the feed uses hides them
+	 * at read time. The rows stay in the index and come back when the partner does.
+	 *
+	 * @return string[] Sanitized object_type slugs.
+	 */
+	public static function orphaned_object_types(): array {
+		$core = array( 'post', 'user', 'member', 'space', 'hashtag', 'media' );
+		$out  = array();
+		foreach ( \BuddyNext\Feed\PostService::allowed_types() as $type ) {
+			$type = sanitize_key( (string) $type );
+			if ( '' !== $type && ! in_array( $type, $core, true ) && \BuddyNext\Feed\PostService::is_orphaned_card( $type ) ) {
+				$out[] = $type;
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * List the distinct object types currently present in the search index.
 	 *
 	 * Mirrors the discovery grouped_search() uses so callers (e.g. the web
@@ -536,11 +557,14 @@ class SearchService {
 		}
 
 		return array_values(
-			array_filter(
-				array_map(
-					static fn( $t ): string => sanitize_key( (string) $t ),
-					(array) $types
-				)
+			array_diff(
+				array_filter(
+					array_map(
+						static fn( $t ): string => sanitize_key( (string) $t ),
+						(array) $types
+					)
+				),
+				self::orphaned_object_types()
 			)
 		);
 	}
@@ -929,6 +953,13 @@ class SearchService {
 		if ( '' !== $type ) {
 			$type_where  = ' AND si.object_type = %s';
 			$type_params = array( self::normalize_object_type( $type ) );
+		}
+
+		// A switched-off partner's rows never reach a result list (see orphaned_object_types()).
+		$orphans = self::orphaned_object_types();
+		if ( $orphans ) {
+			$type_where .= ' AND si.object_type NOT IN (' . implode( ',', array_fill( 0, count( $orphans ), '%s' ) ) . ')';
+			$type_params = array_merge( $type_params, $orphans );
 		}
 
 		$block_where  = '';
