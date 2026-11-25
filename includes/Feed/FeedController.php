@@ -977,11 +977,13 @@ class FeedController extends BaseRestController {
 			$filter = 'for-you';
 		}
 
-		// A Space page counts that Space's own posts, and only for a viewer who may see the Space.
+		// A Space page counts that Space's own posts, and only for a viewer who may READ its content (the rule the
+		// Space feed itself uses). Seeing the Space's shell is not enough: a private Space answers the same empty
+		// count to a non-member, a banned member and a secret-Space probe, so nothing leaks about its activity.
 		$space_id = (int) $request->get_param( 'space_id' );
 		if ( $space_id > 0 ) {
 			$space = buddynext_service( 'spaces' )->get( $space_id );
-			if ( ! is_array( $space ) || ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space, $user_id ) ) {
+			if ( ! is_array( $space ) || ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $user_id ) ) {
 				return new WP_REST_Response( array( 'count' => 0, 'newest_id' => $after_id ), 200 );
 			}
 			return new WP_REST_Response( $this->feed_service()->space_feed_new_count( $user_id, $space_id, $after_id ), 200 );
