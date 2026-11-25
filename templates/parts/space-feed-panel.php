@@ -155,6 +155,15 @@ printf(
 );
 ?>
 
+<?php
+// A member a moderator removed from this space is told so, rather than left with a feed and no way in.
+if ( $bn_viewer_id > 0 && ! $bn_is_archived && buddynext_service( 'space_members' )->is_banned_from_space( $bn_space_id, $bn_viewer_id ) ) :
+	?>
+	<div class="bn-notice bn-notice--error" role="status">
+		<span><?php esc_html_e( 'You were removed from this space by a moderator, so you can read it but not post or join.', 'buddynext' ); ?></span>
+	</div>
+<?php endif; ?>
+
 <?php if ( $bn_is_archived ) : ?>
 	<?php
 	/*
