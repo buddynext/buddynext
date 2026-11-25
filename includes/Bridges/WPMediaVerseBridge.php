@@ -3912,12 +3912,75 @@ class WPMediaVerseBridge {
 		// Reference, not embed: the card links OUT to the document; BuddyNext
 		// never renders its bytes. Build the preview fresh, per viewer.
 		$args['link_preview'] = array(
-			'url'   => $url,
-			'title' => $title,
-			'desc'  => $size > 0 ? size_format( $size ) : '',
+			'url'     => $url,
+			'title'   => $title,
+			'desc'    => '',
+			'facts'   => self::document_facts( $doc, $size ),
+			'actions' => array(
+				array(
+					'label' => __( 'Open document', 'buddynext' ),
+					'url'   => $url,
+				),
+			),
 		);
 
 		return IntegrationActivity::render_bridge_card( $args );
+	}
+
+	/**
+	 * The kind, size and age of a document, for its feed card.
+	 *
+	 * The viewer's own read of the document, so nothing here is stored on the card.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string,mixed> $doc  MediaVerse document (mime_type, doc_type, created_at_gmt).
+	 * @param int                 $size File size in bytes.
+	 * @return array<int,array{icon:string,text:string}>
+	 */
+	public static function document_facts( array $doc, int $size ): array {
+		$mime  = (string) ( $doc['mime_type'] ?? '' );
+		$kinds = array(
+			'application/pdf'    => 'PDF',
+			'text/plain'         => 'Text',
+			'text/csv'           => 'CSV',
+			'application/zip'    => 'ZIP',
+			'application/msword' => 'Word',
+		);
+		$kind  = $kinds[ $mime ] ?? '';
+		if ( '' === $kind ) {
+			if ( false !== strpos( $mime, 'wordprocessingml' ) ) {
+				$kind = 'Word';
+			} elseif ( false !== strpos( $mime, 'spreadsheetml' ) || false !== strpos( $mime, 'ms-excel' ) ) {
+				$kind = 'Excel';
+			} elseif ( false !== strpos( $mime, 'presentationml' ) || false !== strpos( $mime, 'ms-powerpoint' ) ) {
+				$kind = 'PowerPoint';
+			} else {
+				$kind = (string) ( $doc['doc_type'] ?? '' );
+			}
+		}
+
+		$added = '';
+		$gmt   = (string) ( $doc['created_at_gmt'] ?? '' );
+		if ( '' !== $gmt && function_exists( 'buddynext_time_ago' ) ) {
+			/* translators: %s: how long ago, e.g. "2 days ago". */
+			$added = sprintf( __( 'Added %s', 'buddynext' ), buddynext_time_ago( $gmt ) );
+		}
+
+		return array(
+			array(
+				'icon' => 'file-text',
+				'text' => ucfirst( $kind ),
+			),
+			array(
+				'icon' => 'download',
+				'text' => $size > 0 ? size_format( $size ) : '',
+			),
+			array(
+				'icon' => 'clock',
+				'text' => $added,
+			),
+		);
 	}
 
 	/**

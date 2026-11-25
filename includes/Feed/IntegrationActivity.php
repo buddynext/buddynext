@@ -1018,7 +1018,7 @@ class IntegrationActivity {
 		 */
 		$facts = self::facts( (array) apply_filters( 'buddynext_card_facts', $facts, $type, $link_meta ) );
 
-		$actions = ! empty( $live['actions'] ) ? (array) $live['actions'] : (array) ( $link_meta['actions'] ?? array() );
+		$actions = ! empty( $live['actions'] ) ? (array) $live['actions'] : (array) ( $link['actions'] ?? $link_meta['actions'] ?? array() );
 
 		/**
 		 * Filter the buttons of a bridge card: the main one and an optional secondary.
