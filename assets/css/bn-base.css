@@ -5489,3 +5489,55 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-guest-banner .bn-btn[data-variant="ghost"]:hover { color: var(--bn-ink); border-color: var(--bn-line-control); }
 .bn-guest-banner .bn-btn[data-variant="ghost"] { background: transparent; }
 .bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: var(--bn-sunken); }
+
+
+/* ── Text that does not fit its field ends in an ellipsis, never a hard cut ─────────────────────────────────────
+   A placeholder or a selected option wider than its field (a long Explore search hint on a phone, a long privacy
+   choice) is clipped mid-word by default. Ellipsis shows that there is more, and the full text is the field's label. */
+.bn-input,
+.bn-select,
+.bn-app select,
+.bn-app input[type="search"],
+.bn-app input[type="text"],
+.bn-app input[type="email"] {
+	text-overflow: ellipsis;
+}
+.bn-input::placeholder,
+.bn-app input::placeholder {
+	text-overflow: ellipsis;
+}
+
+/* ── Phone tap targets: a finger needs 40px ───────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	/* Element-qualified so these win over the component rules that set the 28-32px sizes and load after this file. */
+	button.bn-composer__draft-discard,
+	a.bn-btn.bn-sh-side-mod__msg {
+		inline-size: 40px;
+		block-size: 40px;
+	}
+	.bn-media-subnav__tab,
+	.bn-files__tool-btn,
+	.bn-files-link__submit,
+	.bn-search-recent__clear,
+	.gam-nudge__action {
+		min-block-size: 40px;
+	}
+	/* A switch keeps its look; its touch area grows past the track without changing the layout. */
+	.bn-toggle {
+		position: relative;
+	}
+	.bn-toggle::after {
+		content: "";
+		position: absolute;
+		inset: -9px -4px;
+	}
+	.bn-search-aside__card label,
+	.bn-prefs-toggle {
+		display: inline-flex;
+		align-items: center;
+		min-block-size: 40px;
+	}
+	.bn-search-aside__card label {
+		display: flex;
+	}
+}

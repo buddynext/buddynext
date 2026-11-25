@@ -164,6 +164,11 @@
 	flex: 0 0 auto;
 }
 
+/* "Top 10" needs more than the sliver the flex column gave it. */
+.bn-lb-filters__select .bn-select {
+	min-inline-size: 7rem;
+}
+
 .bn-lb-filters__select-label {
 	font-size: var(--bn-text-2xs);
 	font-weight: var(--bn-fw-semibold);

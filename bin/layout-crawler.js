@@ -149,6 +149,9 @@ const IN_PAGE = (opts) => {
       const b = e.getBoundingClientRect();
       const box = e.matches('input[type="checkbox"], input[type="radio"]') && e.closest('label') ? e.closest('label').getBoundingClientRect() : b;
       if (Math.min(box.width, box.height) >= 40 - 0.5) return;
+      // A switch can keep its look and grow only its touch area with an absolutely placed ::after.
+      const after = getComputedStyle(e, '::after');
+      if (after.content !== 'none' && after.position === 'absolute' && parseFloat(after.width) >= 40 - 0.5 && parseFloat(after.height) >= 40 - 0.5) return;
       const k = pathOf(e) + ' ' + Math.round(box.width) + 'x' + Math.round(box.height);
       if (seen[k]) { seen[k].n++; return; }
       seen[k] = { n: 1 };
@@ -163,6 +166,8 @@ const IN_PAGE = (opts) => {
   all.filter((e) => e.matches('input[placeholder]:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select')).forEach((e) => {
     const cs = getComputedStyle(e);
     const inner = e.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - (e.tagName === 'SELECT' ? 22 : 0);
+    // text-overflow: ellipsis is the sanctioned way for a field to be shorter than its text: it shows there is more.
+    if (cs.textOverflow === 'ellipsis') return;
     if (e.tagName === 'SELECT') {
       const o = e.options[e.selectedIndex];
       if (o && textW(e, o.text) > inner + 1) push('clipped-text', e, '"' + o.text.slice(0, 30) + '" ' + Math.round(textW(e, o.text)) + ' > ' + Math.round(inner));
@@ -191,7 +196,10 @@ const IN_PAGE = (opts) => {
     // last item that was stretched to the full row.
     const last = kids[kids.length - 1].getBoundingClientRect().width;
     const first = kids[0].getBoundingClientRect().width;
-    if (counts.length >= 2 && counts[counts.length - 1] === 1 && (counts[0] >= 3 || last > first * 1.5) && !orphaned.has(c)) { orphaned.add(c); push('orphan', c, counts.join(' + ')); }
+    // In a CSS grid a lone last cell is just an odd count (10 events in 3 columns); only a flex row's lone item, or a
+    // stretched one, is an orphan.
+    const isGrid = cs.display.indexOf('grid') > -1;
+    if (counts.length >= 2 && counts[counts.length - 1] === 1 && (isGrid ? last > first * 1.5 : counts[0] >= 3) && !orphaned.has(c)) { orphaned.add(c); push('orphan', c, counts.join(' + ')); }
   });
 
   // button-height: same size, same row, different heights
