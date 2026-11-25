@@ -373,10 +373,17 @@ class IntegrationActivity {
 		$service = new PostService();
 		$service->adopt_legacy_link_cards( $type, $link_url );
 
+		$stored = $service->get_link_meta( $type, $link_url );
+		// A caller that names the picture owns it: normalise_link_meta() prefers `thumbnail`, so the stored one would
+		// otherwise win over a replaced picture, and an empty value (the picture was removed) could never clear it.
+		if ( array_key_exists( 'image', $meta ) || array_key_exists( 'thumbnail', $meta ) ) {
+			unset( $stored['image'], $stored['thumbnail'] );
+		}
+
 		return $service->update_link_meta(
 			$type,
 			$link_url,
-			self::normalise_link_meta( array_merge( $service->get_link_meta( $type, $link_url ), $meta ) )
+			self::normalise_link_meta( array_merge( $stored, $meta ) )
 		);
 	}
 
