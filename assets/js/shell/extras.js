@@ -377,7 +377,11 @@
 	} );
 
 	document.addEventListener( 'keydown', function ( e ) {
-		var inInput = e.target.closest && e.target.closest( 'input,textarea,[contenteditable]' );
+		// A bare-key shortcut must never fire while the member is working in a form. Text fields were already skipped,
+		// but focus on a button INSIDE a form (an editor's Save draft or Add Heading) is still part of that work: n or
+		// g then f there navigated away and took an unsaved article with it. A control that is not a field but is
+		// inside a form, a select, and anything marked data-bn-no-shortcuts are skipped too. Ctrl/Cmd+K is unaffected.
+		var inInput = e.target.closest && e.target.closest( 'input,textarea,select,form,[contenteditable],[role="textbox"],[data-bn-no-shortcuts]' );
 
 		if ( ( e.metaKey || e.ctrlKey ) && e.key === 'k' ) {
 			e.preventDefault();
