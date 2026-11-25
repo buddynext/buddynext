@@ -229,7 +229,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Settings API success notice — options.php redirects back here with
 		// ?settings-updated=true after a save; surface the confirmation.
 		if ( isset( $_GET['settings-updated'] ) && 'true' === sanitize_text_field( wp_unslash( $_GET['settings-updated'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
+			// A refused value is reported by its own notice; a green "Settings saved." beside it would say the opposite.
+			$bn_refused = array_filter(
+				get_settings_errors(),
+				static fn( array $e ): bool => 'error' === $e['type'] && ! in_array( $e['setting'], array( 'general', 'buddynext_messages' ), true )
+			);
+			if ( array() === $bn_refused ) {
+				add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
+			}
 			// Sanitizers report under their own option key and options.php carries those across
 			// the redirect, but only core's Settings screens print them; surface them here too.
 			foreach ( get_settings_errors() as $bn_error ) {
