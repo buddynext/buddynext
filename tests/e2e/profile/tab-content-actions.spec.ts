@@ -272,9 +272,8 @@ test.describe('profile / A3 tab content (effect-based)', () => {
                 ).toHaveCount(0);
 
                 // ...and hitting the URL directly never exposes the queued post
-                // (gated, not broken: the profile still renders).
+                // (gated: a tab the viewer cannot have is a not-found page with a way back, so nothing about it is revealed).
                 await page.goto(scheduledUrl(A_LOGIN));
-                await expect(page.locator(HERO).first()).toBeVisible();
                 await expect(
                     page.locator(TAB_CONTENT).getByText(content),
                     'a viewer must never see the owner\'s scheduled post'
