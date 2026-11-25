@@ -398,6 +398,12 @@ const signupStore = store( 'buddynext/auth-signup', {
 				revealFirstError( regForm );
 				return;
 			}
+			// A malformed address is named as such here instead of travelling to the server (which says the same).
+			if ( ! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( ( c.email || '' ).trim() ) ) {
+				c.error = t( 'invalidEmail', 'Please enter a valid email address.' );
+				revealFirstError( regForm );
+				return;
+			}
 			if ( c.askUsername && ! ( c.userLogin || '' ).trim() ) {
 				c.error = t( 'fillUsername', 'Please choose a username.' );
 				revealFirstError( regForm );

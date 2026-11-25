@@ -2526,6 +2526,7 @@ class AssetService {
 					'fillRequired'     => __( 'Please fill in your email and password.', 'buddynext' ),
 					'fillPassword'     => __( 'Please enter a password.', 'buddynext' ),
 					'fillEmail'        => __( 'Please enter your email address.', 'buddynext' ),
+					'invalidEmail'     => __( 'Please enter a valid email address.', 'buddynext' ),
 					'agreeTerms'       => __( 'Please agree to the Terms of Service and Privacy Policy to continue.', 'buddynext' ),
 					'answerChallenge'  => __( 'Please answer the verification question.', 'buddynext' ),
 					'createFailed'     => __( 'Could not create your account.', 'buddynext' ),
