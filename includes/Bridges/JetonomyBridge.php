@@ -213,6 +213,8 @@ class JetonomyBridge {
 		// Jetonomy, or a card published before post_id was stamped (2026-09-19) whose
 		// discussion was later deleted. See verify_discussion_card().
 		add_filter( 'buddynext_discussion_card_url', array( $this, 'verify_discussion_card' ), 10, 2 );
+		// A discussion card shows its replies, votes, state and tags as the forum has them now, loaded once per page.
+		add_filter( 'buddynext_card_live', array( $this, 'live_discussion_cards' ), 10, 3 );
 
 		// Forum email choices live in BuddyNext's notification settings: one switch per
 		// forum type plus Jetonomy's own fields (Pro's digest), saved to Jetonomy.
@@ -846,6 +848,120 @@ class JetonomyBridge {
 				error_log( 'BuddyNext: card for imported topic ' . $post_id . ' failed: ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			}
 		}
+	}
+
+	/**
+	 * Answer `buddynext_card_live` for discussion cards: one read of the topics and one of their tags for the whole page.
+	 *
+	 * Older cards carry the topic id only from 2026-09-19; a card without it keeps what it stored.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array> $answers Answers so far.
+	 * @param string           $type    Card post type.
+	 * @param array<int,array> $cards   Post id => stored link meta.
+	 * @return array<int,array>
+	 */
+	public function live_discussion_cards( array $answers, string $type, array $cards ): array {
+		if ( 'discussion' !== $type ) {
+			return $answers;
+		}
+
+		$topic_ids = array();
+		foreach ( $cards as $post_id => $meta ) {
+			$topic = (int) ( $meta['post_id'] ?? 0 );
+			if ( $topic > 0 ) {
+				$topic_ids[ (int) $post_id ] = $topic;
+			}
+		}
+		if ( array() === $topic_ids ) {
+			return $answers;
+		}
+
+		global $wpdb;
+		$unique = array_values( array_unique( $topic_ids ) );
+		$in     = implode( ',', array_fill( 0, count( $unique ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- one bounded read per page; placeholders are built from the id count.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT id, is_resolved, is_closed, vote_score, reply_count, accepted_reply_id FROM {$wpdb->prefix}jt_posts WHERE id IN ({$in})", $unique ),
+			OBJECT_K
+		);
+		$tags = $wpdb->get_results(
+			$wpdb->prepare( "SELECT pt.post_id, t.name FROM {$wpdb->prefix}jt_post_tags pt INNER JOIN {$wpdb->prefix}jt_tags t ON t.id = pt.tag_id WHERE pt.post_id IN ({$in}) ORDER BY t.name ASC", $unique ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		$names = array();
+		foreach ( (array) $tags as $tag ) {
+			$names[ (int) $tag['post_id'] ][] = (string) $tag['name'];
+		}
+
+		foreach ( $topic_ids as $post_id => $topic ) {
+			if ( ! isset( $rows[ $topic ] ) ) {
+				continue;
+			}
+			$answers[ $post_id ] = self::discussion_card( (array) $rows[ $topic ], $names[ $topic ] ?? array(), (string) ( $cards[ $post_id ]['url'] ?? '' ) );
+		}
+
+		return $answers;
+	}
+
+	/**
+	 * The facts and button of one discussion card.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string,mixed> $topic jt_posts columns (reply_count, vote_score, is_resolved, is_closed, accepted_reply_id).
+	 * @param string[]            $tags  The topic's tag names.
+	 * @param string              $url   The discussion address.
+	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>}
+	 */
+	public static function discussion_card( array $topic, array $tags, string $url ): array {
+		$replies = max( 0, (int) ( $topic['reply_count'] ?? 0 ) );
+		$votes   = (int) ( $topic['vote_score'] ?? 0 );
+		$facts   = array(
+			array(
+				'icon' => 'message-circle',
+				/* translators: %d: number of replies. */
+				'text' => sprintf( _n( '%d reply', '%d replies', $replies, 'buddynext' ), $replies ),
+			),
+		);
+		if ( 0 !== $votes ) {
+			$facts[] = array(
+				'icon' => 'arrow-up',
+				/* translators: %d: vote score. */
+				'text' => sprintf( _n( '%d vote', '%d votes', abs( $votes ), 'buddynext' ), $votes ),
+			);
+		}
+		if ( ! empty( $topic['is_resolved'] ) || ! empty( $topic['accepted_reply_id'] ) ) {
+			$facts[] = array(
+				'icon' => 'check-circle',
+				'text' => __( 'Solved', 'buddynext' ),
+			);
+		} elseif ( ! empty( $topic['is_closed'] ) ) {
+			$facts[] = array(
+				'icon' => 'lock',
+				'text' => __( 'Closed', 'buddynext' ),
+			);
+		}
+		if ( array() !== $tags ) {
+			$facts[] = array(
+				'icon' => 'tag',
+				'text' => implode( ', ', array_slice( $tags, 0, 2 ) ),
+			);
+		}
+
+		return array(
+			'facts'   => $facts,
+			'actions' => '' === $url ? array() : array(
+				array(
+					'label' => __( 'Open discussion', 'buddynext' ),
+					'url'   => $url,
+				),
+			),
+		);
 	}
 
 	/**
