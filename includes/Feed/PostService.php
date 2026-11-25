@@ -3340,6 +3340,41 @@ class PostService {
 	}
 
 	/**
+	 * Whether a card of a type already carries this link_meta value, in any live or withdrawn state.
+	 *
+	 * A bridge asks it to keep one card for a group of items (the dates of a repeating event). Withdrawn cards
+	 * count, so a date that was cancelled does not make the next date publish a second card.
+	 *
+	 * @param string $type     Post type marker (e.g. 'event').
+	 * @param string $meta_key link_meta field name (e.g. 'series_id').
+	 * @param int    $value    Value to match.
+	 * @return bool
+	 */
+	public function has_link_meta_card( string $type, string $meta_key, int $value ): bool {
+		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return null !== $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s AND status IN ( 'published', 'draft' )
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d
+				 LIMIT 1",
+				$type,
+				'$.' . $meta_key,
+				$value
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
 	 * Rewrite the text, link and snapshot of the card of a type whose link_meta
 	 * id matches (one card per link, so at most one), keeping everything else (id, author, dates, status, space,
 	 * counts). Used through IntegrationActivity::rewrite_by_meta().

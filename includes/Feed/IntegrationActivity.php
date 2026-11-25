@@ -437,6 +437,22 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Whether a card of a type already carries this link_meta value, live or withdrawn.
+	 *
+	 * A bridge asks it to keep one card for a group of items, such as the dates of a repeating event.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field (e.g. 'series_id').
+	 * @param int    $value    The value to look for.
+	 * @return bool
+	 *
+	 * @api
+	 */
+	public static function has_card_by_meta( string $type, string $meta_key, int $value ): bool {
+		return ( new PostService() )->has_link_meta_card( $type, $meta_key, $value );
+	}
+
+	/**
 	 * Withdraw EVERY card a partner entity stamped with an id (the reversible
 	 * counterpart of remove_by_meta): flip each from 'published' to 'draft', hidden
 	 * from every feed but preserved, so a later restore_by_meta() brings the whole set
