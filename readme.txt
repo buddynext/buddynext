@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.9
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,6 +72,37 @@ Yes. Network Activate it (BuddyNext first, then Pro). One community runs on the 
 Direct messaging and media are powered by the MediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.3.0 - November 2026 =
+
+Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 events respect Spaces and plans, and the feed, Space delete and big-Space delivery stay fast at scale. Lockstep with BuddyNext Pro 1.3.0 - install and test both together.
+
+* New      - Cards from Jetonomy, MediaVerse, WB Gamification and other partner plugins show live facts and up to two buttons, loaded once per page: discussions with replies, votes, Solved or Closed and tags, badges with points, level and progress, and documents with type, size and age.
+* New      - A Space's Discussions tab shows Pinned, Solved and Closed and up to two tags on each topic, pinned topics first, and links to the whole forum.
+* New      - Eventonomy 2.0 events follow your Spaces: members-only and Space-members levels, a preview with the right button for people who may not open an event, and event cards only for the people who can see them.
+* New      - A member held out of the community cannot register for or buy an event, and event pages stay closed while the community is private.
+* New      - A Space can have an optional Location that Space search matches and the About tab shows.
+* New      - The Space Media tab, the profile Media tab, albums and album pictures page with Load more so a large library is fully reachable.
+* New      - The Members list and CSV export can be filtered by member type, and the export follows the Active or Suspended tab.
+* New      - Forum topics created by an import get their feed cards afterwards, at their own dates, in chunks.
+* Improve  - Posting in a big Space delivers to its members in fixed-size batches, so one post no longer costs a query per member.
+* Improve  - Deleting a forum Space removes its topics' feed cards and search rows.
+* Improve  - The For you feed stays fast for members with many connections or interests.
+* Improve  - Typed confirmation is required before the uninstall data wipe is switched on, and a settings import cannot switch it on.
+* Improve  - Add-ons can name their own Features tab groups.
+* Fix      - A guest no longer learns of private pictures over REST, and a suspended member's Media tab shows nothing.
+* Fix      - Partner cards use one square thumbnail at every width and fall back to text when a picture fails.
+* Fix      - Search no longer lists a switched-off partner's rows, and they return when the partner does.
+* Fix      - The albums grid on a phone no longer scrolls sideways when a title is long, and album titles show apostrophes and dashes as typed.
+* Fix      - Keyboard shortcuts do nothing while focus is in a form or a dialog.
+* Fix      - Outlined buttons, form fields, chips, switches and muted text meet WCAG contrast in light and dark mode.
+* Fix      - Emails are built in the recipient's language, and times are correct in every timezone.
+* Fix      - A new member who signs up from a Space's invite link joins that Space when onboarding is off.
+* Fix      - Forum joins, leaves and roles stay in step with the Space, and a forum linked to a Space cannot be edited away from it.
+* Fix      - Background jobs that continue in chunks no longer queue the same next chunk twice, and the 1.3.0 upgrade clears duplicate jobs older versions left queued.
+* Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
+* Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.
+* Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0 and Eventonomy 2.0.0. Install BuddyNext Pro 1.3.0 together with this release.
 
 = 1.2.9 - November 2026 =
 
