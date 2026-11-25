@@ -54,6 +54,13 @@ class EventonomyAccess {
 	private static array $memo = array();
 
 	/**
+	 * The Space ids a viewer may list, kept for the request.
+	 *
+	 * @var array<string, int[]>
+	 */
+	private static array $ids_memo = array();
+
+	/**
 	 * Register the answers when the installed Eventonomy has the 2.0.0 hook contract.
 	 *
 	 * An older Eventonomy has none of these hooks and never asks, so nothing is registered for it.
@@ -68,9 +75,15 @@ class EventonomyAccess {
 		add_filter( 'evnm_visibility_levels', array( $this, 'add_space_level' ), 10, 2 );
 		add_filter( 'evnm_visibility_hints', array( $this, 'add_space_hint' ) );
 		add_filter( 'evnm_event_can_view', array( $this, 'can_view' ), 10, 4 );
+		add_filter( 'evnm_visible_levels_for_viewer', array( $this, 'visible_levels' ), 10, 2 );
+		add_filter( 'evnm_visible_space_ids_for_viewer', array( $this, 'visible_space_ids' ), 10, 2 );
 		add_filter( 'evnm_user_can_manage_event', array( $this, 'can_manage' ), 10, 4 );
 		add_action( 'evnm_after_update_event', array( $this, 'forget' ), 10, 1 );
 		add_action( 'evnm_after_delete_event', array( $this, 'forget' ), 10, 1 );
+		// A person who joins or leaves a Space changes which Spaces' events they may list, in this same request too.
+		foreach ( array( 'buddynext_space_member_joined', 'buddynext_space_member_left', 'buddynext_space_member_removed' ) as $bn_hook ) {
+			add_action( $bn_hook, array( $this, 'forget' ), 10, 0 );
+		}
 	}
 
 	/**
@@ -117,7 +130,7 @@ class EventonomyAccess {
 	 * @return array<string, string>
 	 */
 	public function add_space_hint( $hints ): array {
-		$hints                       = (array) $hints;
+		$hints                      = (array) $hints;
 		$hints[ self::SPACE_LEVEL ] = __( 'Only members of this event\'s Space see the whole event. Everyone else sees the title, date, city and cover, and a way to join.', 'buddynext' );
 		return $hints;
 	}
@@ -151,6 +164,55 @@ class EventonomyAccess {
 			self::$memo[ $key ] = SpaceVisibility::has_member_access( ( new SpaceService() )->get( $space_id ), $user_id );
 		}
 		return self::$memo[ $key ];
+	}
+
+	/**
+	 * Add the Space members level to the levels an active member's event lists may show.
+	 *
+	 * Which Spaces' events appear is narrowed by visible_space_ids(); a guest and a person who is not an active
+	 * member never get the level.
+	 *
+	 * @param mixed $levels Level slugs the viewer may list.
+	 * @param mixed $uid    Viewer (0 = guest).
+	 * @return array<int,string>
+	 */
+	public function visible_levels( $levels, $uid ): array {
+		$levels = array_values( (array) $levels );
+		if ( (int) $uid > 0 && $this->is_active_member( (int) $uid, 0 ) ) {
+			$levels[] = self::SPACE_LEVEL;
+		}
+		return $levels;
+	}
+
+	/**
+	 * The Spaces whose members-only events this viewer may see in a list: the Spaces they belong to and may open.
+	 *
+	 * One indexed read of the viewer's active memberships, cut to Eventonomy's 500, once per request. A Space that
+	 * needs a plan is kept only while the plan is valid, so a list never shows what the event page then refuses.
+	 * Admins are not narrowed (Eventonomy already lets managers see every level).
+	 *
+	 * @param mixed $space_ids Eventonomy's default (null = every Space).
+	 * @param mixed $uid       Viewer (0 = guest).
+	 * @return mixed
+	 */
+	public function visible_space_ids( $space_ids, $uid ) {
+		$uid = (int) $uid;
+		if ( $uid <= 0 ) {
+			return array();
+		}
+		$key = 'spaces:' . $uid;
+		if ( ! isset( self::$ids_memo[ $key ] ) ) {
+			$service = new SpaceService();
+			$ids     = array();
+			foreach ( array_slice( ( new \BuddyNext\Spaces\SpaceMemberService() )->spaces_for_user( $uid ), 0, 500 ) as $space_id ) {
+				$space = $service->get( (int) $space_id );
+				if ( is_array( $space ) && ( '' === (string) ( $space['required_ability'] ?? '' ) || SpaceVisibility::has_member_access( $space, $uid ) ) ) {
+					$ids[] = (int) $space_id;
+				}
+			}
+			self::$ids_memo[ $key ] = $ids;
+		}
+		return self::$ids_memo[ $key ];
 	}
 
 	/**
@@ -189,7 +251,8 @@ class EventonomyAccess {
 	 */
 	public function forget( $event = null ): void {
 		unset( $event );
-		self::$memo = array();
+		self::$memo     = array();
+		self::$ids_memo = array();
 	}
 
 	/**

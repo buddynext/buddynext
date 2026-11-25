@@ -188,6 +188,52 @@ class EventonomyAccessTest extends \WP_UnitTestCase {
 		$this->assertFalse( $this->can_view( $this->outsider, $event ) );
 	}
 
+	public function test_a_members_event_lists_include_only_the_spaces_the_member_can_open(): void {
+		$mine   = $this->space( 'open' );
+		$other  = $this->space( 'open' );
+		$gated  = $this->space( 'open', 'tier:gold' );
+		$this->join( $mine, $this->member );
+		$this->join( $gated, $this->member );
+		$gate = static fn() => false; // The plan has lapsed.
+		add_filter( 'buddynext_can_view_space_content', $gate );
+
+		$this->assertContains( 'space', $this->access->visible_levels( array( 'public' ), $this->member ) );
+		$ids = $this->access->visible_space_ids( null, $this->member );
+		$this->assertSame( array( $mine ), $ids, 'Not the Space they are not in, and not the one whose plan lapsed.' );
+		$this->assertNotContains( $other, $ids );
+		remove_filter( 'buddynext_can_view_space_content', $gate );
+	}
+
+	public function test_a_guest_and_a_held_member_list_no_space_events(): void {
+		$space = $this->space( 'open' );
+		$this->join( $space, $this->member );
+		$member = $this->member;
+		add_filter( 'buddynext_member_hold', static fn( $h, $uid ) => (int) $uid === $member ? array( 'url' => home_url( '/hold/' ) ) : $h, 10, 2 );
+
+		$this->assertNotContains( 'space', $this->access->visible_levels( array( 'public' ), 0 ) );
+		$this->assertSame( array(), $this->access->visible_space_ids( null, 0 ) );
+		$this->assertNotContains( 'space', $this->access->visible_levels( array( 'public' ), $this->member ) );
+	}
+
+	public function test_joining_a_space_updates_the_list_in_the_same_request(): void {
+		$space = $this->space( 'open' );
+		$this->assertSame( array(), $this->access->visible_space_ids( null, $this->member ) );
+
+		$this->join( $space, $this->member );
+
+		$this->assertSame( array( $space ), $this->access->visible_space_ids( null, $this->member ) );
+	}
+
+	public function test_a_member_who_joins_sees_the_event_at_once(): void {
+		$space = $this->space( 'private' );
+		$event = array( 'id' => 34, 'author_id' => $this->owner, 'space_id' => $space );
+		$this->assertFalse( $this->can_view( $this->outsider, $event ) );
+
+		$this->join( $space, $this->outsider );
+
+		$this->assertTrue( $this->can_view( $this->outsider, $event ), 'Joining clears the remembered answer.' );
+	}
+
 	public function test_a_space_that_is_gone_or_missing_closes_the_event(): void {
 		$this->assertFalse( $this->can_view( $this->member, array( 'id' => 28, 'author_id' => 1, 'space_id' => 987654321 ) ), 'Space deleted.' );
 		$this->assertFalse( $this->can_view( $this->member, array( 'id' => 29, 'author_id' => 1, 'space_id' => 0 ) ), 'No Space at all.' );
@@ -221,7 +267,19 @@ class EventonomyAccessTest extends \WP_UnitTestCase {
 		$event = array( 'id' => 33, 'author_id' => $this->owner, 'space_id' => $space );
 		$this->assertFalse( $this->can_view( $this->outsider, $event ) );
 
-		$this->join( $space, $this->outsider );
+		// A row written without the join hooks, so nothing tells the answer to be asked again.
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id'  => $space,
+				'user_id'   => $this->outsider,
+				'role'      => 'member',
+				'status'    => 'active',
+				'joined_at' => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+		wp_cache_flush();
 		$this->assertFalse( $this->can_view( $this->outsider, $event ), 'Same request: the first answer stands.' );
 
 		do_action( 'evnm_after_update_event', $event, array( 'space_id' => $space ), array() );
