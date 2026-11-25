@@ -1191,6 +1191,12 @@ function initEmojiPicker() {
 		p.setAttribute( 'role', 'group' );
 		p.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
 		p.hidden = true;
+		// On a phone the picker is a sheet along the bottom: a visible Close ends it (hidden on desktop by CSS).
+		const closeBtn = document.createElement( 'button' );
+		closeBtn.type = 'button';
+		closeBtn.className = 'bn-emoji-popover__close';
+		closeBtn.textContent = t( 'close', 'Close' );
+		p.appendChild( closeBtn );
 		Object.keys( BN_EMOJI_MAP ).forEach( ( slug ) => {
 			const btn = document.createElement( 'button' );
 			btn.type = 'button';
@@ -1225,6 +1231,11 @@ function initEmojiPicker() {
 	};
 
 	document.addEventListener( 'click', ( e ) => {
+		if ( e.target.closest( '.bn-emoji-popover__close' ) ) {
+			e.preventDefault();
+			closePanel( true );
+			return;
+		}
 		const option = e.target.closest( '.bn-emoji-popover__option' );
 		if ( option && panel && ! panel.hidden && activeTrigger ) {
 			e.preventDefault();

@@ -1224,6 +1224,7 @@ class AssetService {
 					'networkError'              => __( 'Network error. Try again.', 'buddynext' ),
 					'emoji'                     => __( 'Emoji', 'buddynext' ),
 					'insertEmoji'               => __( 'Insert emoji', 'buddynext' ),
+					'close' => __( 'Close', 'buddynext' ),
 					'image'                     => __( 'image', 'buddynext' ),
 					'react'                     => __( 'React', 'buddynext' ),
 					'chooseReaction'            => __( 'Choose reaction', 'buddynext' ),

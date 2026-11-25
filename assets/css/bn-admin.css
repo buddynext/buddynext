@@ -5088,21 +5088,25 @@ code.bn-ep-code {
 @media (max-width: 782px) {
 	/* On a phone the long first column is narrower and the row buttons wrap, so the table fits the card (it scrolls only
 	   when a row still cannot fit). */
-	.bn-settings-section .bn-ss-body > table.widefat {
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat {
 		display: table;
 		table-layout: fixed;
 		width: 100%;
 	}
-	.bn-settings-section .bn-ss-body > table.widefat th,
-	.bn-settings-section .bn-ss-body > table.widefat td {
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th,
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat td {
 		min-width: 0;
-		overflow-wrap: anywhere;
+		overflow-wrap: break-word;
 		padding-inline: var(--bn-a-s2, 8px);
 	}
-	.bn-settings-section .bn-ss-body > table.widefat th:last-child {
-		width: 34%;
+	/* Column widths by role: the text columns keep enough room for a whole word, the last column holds the buttons. */
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th:first-child {
+		width: 30%;
 	}
-	.bn-settings-section .bn-ss-body > table.widefat td:last-child .bn-row-actions {
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th:last-child {
+		width: 32%;
+	}
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat td:last-child .bn-row-actions {
 		flex-wrap: wrap;
 		max-inline-size: none;
 	}
@@ -5114,7 +5118,18 @@ code.bn-ep-code {
 	}
 }
 
-/* A long unbroken string in the first cell (a URL) wraps instead of widening the column. */
+/* (The phone rules above repeat .widefat so they outrank the hub's block-scroller rule for plain tables.) */
+
+/* A long unbroken string in any text cell (a URL in a note or a detail) wraps at the cell's cap instead of stretching
+   the table past its card. `anywhere` lets the column shrink below the URL's length; while the columns have room the
+   table sizes them to their words, so ordinary text is not split (a phone uses break-word in a fixed layout, above).
+   The last column holds the buttons and is left alone. */
+.bn-settings-section .bn-ss-body > table.widefat td:not(:last-child),
+.bn-settings-section .bn-ss-body > form > table.widefat td:not(:last-child),
+.bn-settings-section > table.widefat td:not(:last-child) {
+	overflow-wrap: anywhere;
+	max-inline-size: 22rem;
+}
 .bn-settings-section .bn-ss-body > table.widefat td:first-child strong,
 .bn-settings-section .bn-ss-body > table.widefat td:first-child .description,
 .bn-settings-section .bn-ss-body > table.widefat td:first-child a {

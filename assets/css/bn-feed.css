@@ -4872,8 +4872,22 @@ a.bn-composer__error-retry[hidden] { display: none; }
 
 /* On a phone the emoji picker is a sheet along the bottom of the screen: it never runs past an edge or sits over the
    Post button and the privacy chip of the composer that opened it. */
+.bn-emoji-popover__close { display: none; }
 @media (max-width: 640px) {
+	.bn-emoji-popover__close {
+		display: block;
+		grid-column: 1 / -1;
+		min-block-size: 40px;
+		border: 0;
+		border-radius: var(--bn-r-md);
+		background: var(--bn-sunken);
+		color: var(--bn-ink-2);
+		font: inherit;
+		font-weight: var(--bn-fw-semibold);
+	}
 	.bn-emoji-popover {
+		/* A short screen keeps the composer's Post button in view above the sheet. */
+		max-height: min(260px, 45vh);
 		position: fixed !important;
 		inset: auto 8px calc(8px + env(safe-area-inset-bottom, 0px)) 8px !important;
 		width: auto !important;

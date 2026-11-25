@@ -660,6 +660,13 @@
 	font-size: var(--bn-text-sm);
 }
 .bn-ob-error[hidden] { display: none; }
+.bn-ob-avatar__spinner[hidden] { display: none; }
+.bn-ob-noscript {
+	max-width: 520px;
+	margin: var(--bn-s3) auto 0;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
 
 /* ── Empty state (fallback when a step has no data) ──────────────────── */
 

@@ -302,7 +302,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						<?php else : ?>
 							<?php echo esc_html( $initials ); ?>
 						<?php endif; ?>
-						<span class="bn-ob-avatar__spinner" aria-hidden="true"
+						<span class="bn-ob-avatar__spinner" aria-hidden="true" hidden
 							data-wp-bind--hidden="!context.avatarUploading"></span>
 					</button>
 					<input type="file"
@@ -830,9 +830,12 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		do_action( 'buddynext_onboarding_render_extra_steps', $steps, $step_pos, $ob_user_id, $saved_step );
 		?>
 
-		<div class="bn-ob-error" role="alert" aria-live="polite"
+		<div class="bn-ob-error" role="alert" aria-live="polite" hidden
 			data-wp-bind--hidden="!state.error"
 			data-wp-text="state.error"></div>
+		<noscript>
+			<p class="bn-ob-noscript"><?php esc_html_e( 'JavaScript is needed to move between the steps. Turn it on in your browser to finish setting up.', 'buddynext' ); ?></p>
+		</noscript>
 
 		</div><!-- /.bn-ob-form-body -->
 
