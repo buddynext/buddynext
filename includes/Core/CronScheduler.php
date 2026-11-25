@@ -130,6 +130,7 @@ class CronScheduler {
 	 *   buddynext_async_space_post_fanout / _announcement_fanout  In-app notification
 	 *                                      records for a post already published.
 	 *   buddynext_mvs_media_activity       The feed post for an upload already made.
+	 *   buddynext_jetonomy_import_cards    The feed cards of forum topics an import already created.
 	 * The webhook retry (buddynext_webhook_retry_single) is a WP-Cron single event, so
 	 * neither cancel_pending() nor the requeue sees it; it is not on this list.
 	 *
@@ -162,6 +163,7 @@ class CronScheduler {
 		'buddynext_async_space_post_fanout',
 		'buddynext_async_announcement_fanout',
 		'buddynext_mvs_media_activity',
+		'buddynext_jetonomy_import_cards',
 	);
 
 	/**

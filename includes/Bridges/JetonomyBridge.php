@@ -198,6 +198,10 @@ class JetonomyBridge {
 		// the BuddyPress and Learnomy integrations) may say otherwise. The Space's own writes go through write_forum().
 		add_filter( 'jetonomy_before_update_space', array( $this, 'refuse_forum_drift' ), 10, 3 );
 		add_action( 'jetonomy_post_publish_transition', array( $this, 'sync_discussion' ), 10, 1 );
+		// An import writes topics without the create events (so it stays quiet and fast) and says what it made once
+		// per batch; the topics get their cards, at their own dates, from that.
+		add_action( 'jetonomy_import_batch_imported', array( $this, 'on_import_batch' ), 10, 3 );
+		add_action( self::IMPORT_CARDS_HOOK, array( $this, 'import_cards_chunk' ), 10, 1 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
 		// from the soft delete above. Mirrors jetonomy_after_delete_reply, which
@@ -796,6 +800,50 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * A forum import created a batch of topics: queue their cards, a chunk at a time.
+	 *
+	 * Nothing happens for replies, for an older Jetonomy (the action never fires) or with the feed integration off.
+	 * With Action Scheduler each chunk of 100 is its own job, so a failing chunk leaves the later ones queued; without
+	 * it (local, tests) the chunks run now.
+	 *
+	 * @param mixed $source Importer id (unused).
+	 * @param mixed $type   'topic' or 'reply'.
+	 * @param mixed $ids    Ids the batch created.
+	 * @return void
+	 */
+	public function on_import_batch( $source, $type, $ids ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		if ( 'topic' !== (string) $type || ! buddynext_integration_enabled( 'jetonomy', 'feed' ) ) {
+			return;
+		}
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', (array) $ids ) ) ) );
+		foreach ( array_chunk( $ids, self::IMPORT_CHUNK ) as $chunk ) {
+			if ( ! \BuddyNext\Core\CronScheduler::enqueue_once( self::IMPORT_CARDS_HOOK, array( $chunk ) ) ) {
+				$this->import_cards_chunk( $chunk );
+			}
+		}
+	}
+
+	/**
+	 * Give a chunk of imported topics their cards.
+	 *
+	 * The same method every topic goes through (sync_discussion): the topic's own date, the card placement rule, no
+	 * notice to the Space, and one card per topic whatever happens (a chunk delivered twice, two workers, a resume
+	 * after a crash all refresh the card that is there). One topic failing does not stop the rest of the chunk.
+	 *
+	 * @param mixed $ids Topic ids.
+	 * @return void
+	 */
+	public function import_cards_chunk( $ids ): void {
+		foreach ( array_map( 'intval', (array) $ids ) as $post_id ) {
+			try {
+				$this->sync_discussion( $post_id );
+			} catch ( \Throwable $e ) {
+				error_log( 'BuddyNext: card for imported topic ' . $post_id . ' failed: ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			}
+		}
+	}
+
+	/**
 	 * Permanently remove a discussion's BuddyNext surfaces when the jt_posts row is
 	 * PURGED (not trashed).
 	 *
@@ -931,6 +979,16 @@ class JetonomyBridge {
 	 * Background job that reconciles anonymous and private forum content.
 	 */
 	public const REPAIR_ANONYMOUS_HOOK = 'buddynext_jetonomy_repair_anonymous';
+
+	/**
+	 * Action Scheduler job that gives a chunk of imported topics their feed cards.
+	 */
+	public const IMPORT_CARDS_HOOK = 'buddynext_jetonomy_import_cards';
+
+	/**
+	 * Imported topics per chunk. Each chunk is its own job, so one that fails never stops the others.
+	 */
+	private const IMPORT_CHUNK = 100;
 
 	/**
 	 * Ask for the anonymous-content check: once a day after a clean run, and
