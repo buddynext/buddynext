@@ -2252,6 +2252,14 @@ table.bn-table tr:hover td {
 	gap: 8px;
 	margin-top: auto;
 	padding-top: 4px;
+	/* One height for every card's action row, whether it holds a button and a link or a link alone, so the links of
+	   neighbouring cards sit on one line. */
+	min-block-size: 44px;
+}
+
+/* Three recommended themes sit in one row, not two and an orphan. */
+.bn-companion-grid--themes {
+	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
 }
 
 /* Status badge - companion variant */

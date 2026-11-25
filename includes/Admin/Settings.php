@@ -3620,7 +3620,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			</div>
 		</div>
 
-		<div class="bn-companion-grid">
+		<div class="bn-companion-grid bn-companion-grid--themes">
 			<?php foreach ( $bn_themes as $bn_t ) : ?>
 			<div class="bn-companion-card" data-status="<?php echo $bn_t['active'] ? 'active' : 'not_installed'; ?>">
 				<div class="bn-companion-card__head">
@@ -3636,7 +3636,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 				<div class="bn-companion-card__actions">
 					<?php if ( ! $bn_t['active'] && ! empty( $bn_t['install'] ) && $can_install ) : ?>
-						<a href="<?php echo esc_url( (string) $bn_t['install'] ); ?>" class="bn-addon-row__action"><?php esc_html_e( 'Install free', 'buddynext' ); ?></a>
+						<a href="<?php echo esc_url( (string) $bn_t['install'] ); ?>" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Install free', 'buddynext' ); ?></a>
 					<?php endif; ?>
 					<a href="<?php echo esc_url( (string) $bn_t['store'] ); ?>" class="bn-addon-row__action bn-addon-row__action--ghost" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Learn more', 'buddynext' ); ?></a>
 				</div>

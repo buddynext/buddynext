@@ -407,13 +407,7 @@ class Spaces extends AdminPageBase {
 					<?php endforeach; ?>
 				</ol>
 				<p class="bn-featured-picker__empty" data-bn-featured-empty <?php echo empty( $bn_featured_rows ) ? '' : 'hidden'; ?>>
-					<?php
-					printf(
-						/* translators: %d: maximum number of featured spaces. */
-						esc_html__( 'Feature up to %d spaces to guide new members. Search below, or use the “…” menu on any space in the list.', 'buddynext' ),
-						(int) $bn_featured_limit
-					);
-					?>
+					<?php esc_html_e( 'Nothing is featured yet. Search below, or use the “…” menu on any space in the list.', 'buddynext' ); ?>
 				</p>
 				<div class="bn-featured-picker__add">
 					<label class="screen-reader-text" for="bn-featured-search"><?php esc_html_e( 'Add a space by name', 'buddynext' ); ?></label>
