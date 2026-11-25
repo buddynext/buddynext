@@ -643,6 +643,17 @@ class FeedController extends BaseRestController {
 			// this a photo post carries only `media_ids` (bare ints) and the app has nothing
 			// to load. `media_ids` is kept for back-compat; `media` is the render source.
 			$item['media'] = self::resolve_media( $item['media_ids'] ?? null );
+
+			/**
+			 * Last word on one enriched feed item, so a bridge can fill a partner's card from the partner itself
+			 * (an event card carries the event as it is now) and every client reads the same shape.
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param array $item   The enriched item.
+			 * @param int   $viewer Current user ID (0 = logged out).
+			 */
+			$item = (array) apply_filters( 'buddynext_feed_item_enriched', $item, $viewer );
 		}
 		unset( $item );
 

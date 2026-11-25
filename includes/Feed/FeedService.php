@@ -2762,6 +2762,18 @@ class FeedService {
 		// before the viewer check below.
 		$this->prime_media( $items );
 
+		/**
+		 * Fires for every page of feed items about to render, guests included, so a bridge whose cards draw from
+		 * their source plugin (an event card from Eventonomy) can load the whole page in one call instead of
+		 * one call per card.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array $items  Hydrated feed rows about to render.
+		 * @param int   $viewer Current user ID (0 = logged out).
+		 */
+		do_action( 'buddynext_feed_items_primed', $items, $viewer );
+
 		if ( $viewer <= 0 || empty( $items ) ) {
 			return;
 		}
