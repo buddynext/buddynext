@@ -258,4 +258,58 @@ class BridgeCardLiveTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( '>Download<', $html );
 		$this->assertSame( 1, substr_count( $html, 'data-variant="primary"' ), 'The one action left is the main one.' );
 	}
+
+	/**
+	 * A live answer may name a better title and the right destination; a button to the old address then survives.
+	 */
+	public function test_a_live_title_and_address_replace_the_stored_ones(): void {
+		add_filter(
+			'buddynext_card_live',
+			static function ( array $answers, string $type, array $cards ): array {
+				foreach ( array_keys( $cards ) as $id ) {
+					$answers[ $id ] = array(
+						'title'   => 'Better title',
+						'url'     => 'https://example.test/course/1/',
+						'actions' => array(
+							array(
+								'label' => 'View certificate',
+								'url'   => 'https://example.test/verify/abc/',
+							),
+						),
+					);
+				}
+				return $answers;
+			},
+			10,
+			3
+		);
+		$stored = array( 'url' => 'https://example.test/verify/abc/' );
+		IntegrationActivity::prime_live(
+			array(
+				array(
+					'id'        => 40,
+					'type'      => 'widget',
+					'link_meta' => $stored,
+				),
+			),
+			0
+		);
+
+		$html = IntegrationActivity::render_bridge_card(
+			array(
+				'bn_post_id'   => 40,
+				'bn_post_type' => 'widget',
+				'link_preview' => array(
+					'url'   => 'https://example.test/verify/abc/',
+					'title' => 'Old title',
+				),
+				'link_meta'    => $stored,
+			)
+		);
+
+		$this->assertStringContainsString( 'Better title', $html );
+		$this->assertStringNotContainsString( 'Old title', $html );
+		$this->assertStringContainsString( 'href="https://example.test/course/1/"', $html );
+		$this->assertStringContainsString( '>View certificate<', $html, 'Different from the title now, so it stays.' );
+	}
 }

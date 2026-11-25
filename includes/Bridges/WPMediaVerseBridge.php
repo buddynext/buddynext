@@ -3931,7 +3931,7 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * The kind, size and age of a document, for its feed card.
+	 * The kind and size of a document, for its feed card. How long ago it was added is already under the author's name.
 	 *
 	 * The viewer's own read of the document, so nothing here is stored on the card.
 	 *
@@ -3963,13 +3963,6 @@ class WPMediaVerseBridge {
 			}
 		}
 
-		$added = '';
-		$gmt   = (string) ( $doc['created_at_gmt'] ?? '' );
-		if ( '' !== $gmt && function_exists( 'buddynext_time_ago' ) ) {
-			/* translators: %s: how long ago, e.g. "2 days ago". */
-			$added = sprintf( __( 'Added %s', 'buddynext' ), buddynext_time_ago( $gmt ) );
-		}
-
 		return array(
 			array(
 				'icon' => 'file-text',
@@ -3978,10 +3971,6 @@ class WPMediaVerseBridge {
 			array(
 				'icon' => 'download',
 				'text' => $size > 0 ? size_format( $size ) : '',
-			),
-			array(
-				'icon' => 'clock',
-				'text' => $added,
 			),
 		);
 	}

@@ -1,6 +1,6 @@
 <?php
 /**
- * A document card says what kind of file it is, how big, and how old.
+ * A document card says what kind of file it is and how big.
  *
  * @package BuddyNext\Tests\Bridges
  */

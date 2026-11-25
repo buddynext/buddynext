@@ -133,6 +133,9 @@ class GamificationBridge {
 			}
 		);
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
+		// A badge card names the level and nothing that changes: the points total describes the member, not the badge,
+		// and goes stale the day after. Cards made before this keep their stored points in the data but never draw them.
+		add_filter( 'buddynext_card_facts', array( $this, 'drop_points_fact' ), 10, 2 );
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 
@@ -737,17 +740,6 @@ class GamificationBridge {
 	 */
 	private function badge_facts( int $user_id ): array {
 		$facts = array();
-		if ( function_exists( 'wb_gam_get_user_points' ) ) {
-			$points = (int) wb_gam_get_user_points( $user_id );
-			if ( $points > 0 ) {
-				/* translators: %s: the member's point total when they shared the badge. */
-				$label   = _n( '%s point', '%s points', $points, 'buddynext' );
-				$facts[] = array(
-					'icon' => 'zap',
-					'text' => sprintf( $label, number_format_i18n( $points ) ),
-				);
-			}
-		}
 		if ( function_exists( 'wb_gam_get_user_level' ) ) {
 			$level = wb_gam_get_user_level( $user_id );
 			if ( is_array( $level ) && '' !== trim( (string) ( $level['name'] ?? '' ) ) ) {
@@ -758,6 +750,22 @@ class GamificationBridge {
 			}
 		}
 		return $facts;
+	}
+
+	/**
+	 * Leave the points total off a badge card, including the cards that stored one.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array{icon:string,text:string}> $facts The card's facts.
+	 * @param string                                    $type  Card post type.
+	 * @return array<int,array{icon:string,text:string}>
+	 */
+	public function drop_points_fact( array $facts, string $type ): array {
+		if ( 'badge' !== $type ) {
+			return $facts;
+		}
+		return array_values( array_filter( $facts, static fn( $fact ): bool => ! ( is_array( $fact ) && 'zap' === ( $fact['icon'] ?? '' ) ) ) );
 	}
 
 	/**

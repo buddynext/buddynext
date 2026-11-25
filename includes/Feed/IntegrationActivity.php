@@ -832,6 +832,14 @@ class IntegrationActivity {
 		$resolved  = self::resolve( $type, $link, $link_meta, (int) ( $args['bn_post_id'] ?? 0 ) );
 		$facts     = $resolved['facts'];
 		$actions   = $resolved['actions'];
+		// A partner may know a better title (a candidate's headline) or the right destination (the course, not its
+		// certificate) than what was stored when the card was made.
+		if ( '' !== $resolved['title'] ) {
+			$title = $resolved['title'];
+		}
+		if ( '' !== $resolved['url'] ) {
+			$url = $resolved['url'];
+		}
 
 		$html = '<div class="' . esc_attr( $classes ) . '">';
 
@@ -998,7 +1006,7 @@ class IntegrationActivity {
 	 * @param array<string,mixed> $link      The card's link preview.
 	 * @param array<string,mixed> $link_meta The card's stored link meta.
 	 * @param int                 $post_id   Post id (0 when unknown).
-	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>}
+	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>,title:string,url:string} A live answer may also name a better title and the address the title should open; '' = keep the stored ones.
 	 */
 	public static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
 		$live  = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
@@ -1038,7 +1046,9 @@ class IntegrationActivity {
 
 		// A button that goes where the card's own title already goes adds a second tab stop and nothing else, so it is
 		// never drawn, whoever supplied it. What stays is an action the title cannot do (download, a different page).
-		$here    = self::same_address_key( (string) ( $link['url'] ?? $link_meta['url'] ?? '' ) );
+		$title   = trim( (string) ( $live['title'] ?? '' ) );
+		$url     = trim( (string) ( $live['url'] ?? '' ) );
+		$here    = self::same_address_key( '' !== $url ? $url : (string) ( $link['url'] ?? $link_meta['url'] ?? '' ) );
 		$actions = array_values(
 			array_filter(
 				$actions,
@@ -1049,6 +1059,8 @@ class IntegrationActivity {
 		return array(
 			'facts'   => $facts,
 			'actions' => $actions,
+			'title'   => $title,
+			'url'     => esc_url_raw( $url, array( 'http', 'https' ) ),
 		);
 	}
 

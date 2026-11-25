@@ -1231,12 +1231,16 @@
 	grid-template-areas: "cover head" "text text";
 }
 
+/* One cover rule for every partner card: a square thumbnail at the side, cropped from the centre, at every
+   width. A box that stretched to the text made the crop differ from card to card and a full-width photo on
+   a phone made a card with an image twice as tall as the same card without one. */
 .bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
 	grid-area: cover;
 	position: relative;
 	inline-size: auto;
-	min-block-size: 64px;
-	align-self: stretch;
+	aspect-ratio: 1;
+	min-block-size: 0;
+	align-self: start;
 }
 
 .bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover img {
@@ -1306,15 +1310,10 @@
 }
 
 @media (max-width: 640px) {
-	/* On a phone the picture goes on top, full width, as it always has. */
+	/* On a phone the thumbnail stays at the side, smaller, so a card with a picture is the same height as one without. */
 	.bn-post-card__bridge-card--grid.has-cover {
-		grid-template-columns: minmax(0, 1fr);
-		grid-template-areas: "cover" "head" "text";
-	}
-
-	.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
-		aspect-ratio: 16 / 9;
-		min-block-size: 0;
+		grid-template-columns: 64px minmax(0, 1fr);
+		grid-template-areas: "cover head" "text text";
 	}
 
 	.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover {

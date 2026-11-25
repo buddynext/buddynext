@@ -2817,3 +2817,28 @@ store( 'buddynext/post-card', {
 		},
 	},
 } );
+
+/*
+ * A partner card whose picture fails to load (deleted file, blocked host, hotlink refused) falls back to the layout
+ * it has with no picture, so the feed never shows an empty grey square. An error does not bubble, so it is caught
+ * on the way down, once for the whole page.
+ */
+document.addEventListener(
+	'error',
+	( event ) => {
+		const img = event.target;
+		if ( ! ( img instanceof HTMLImageElement ) ) {
+			return;
+		}
+		const cover = img.closest( '.bn-post-card__bridge-cover' );
+		if ( ! cover ) {
+			return;
+		}
+		const card = cover.closest( '.bn-post-card__bridge-card' );
+		cover.remove();
+		if ( card ) {
+			card.classList.remove( 'has-cover' );
+		}
+	},
+	true
+);
