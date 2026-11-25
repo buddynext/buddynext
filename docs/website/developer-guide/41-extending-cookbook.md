@@ -120,7 +120,9 @@ This is the seam the Pro Moderation Rules engine attaches its keyword blocklists
 
 > **Runnable, tested snippet:** a copy-paste, live-verified version is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `hooks/block-content-at-submit.php` (both a content rule and a create-time cooldown, with the `is_wp_error` passthrough). Drop it in `wp-content/mu-plugins/` and it works as-is.
 
-The filter takes **five** arguments. The fifth, `$context`, is `'create'` or `'edit'`, and it is the one you have to think about: if your rule counts an author's recent activity (a rate limit, flood control, a cooldown), it must skip `'edit'`. An edit is not a new post, and re-asking the question there locks an author who has hit your cap out of editing the posts they already published. Content rules - banned words, links, ML scoring - should keep running on edits, or editing becomes a way to smuggle content past you.
+The filter takes five arguments, and six from 1.3.0. The fifth, `$context`, is `'create'` or `'edit'`, and it is the one you have to think about: if your rule counts an author's recent activity (a rate limit, flood control, a cooldown), it must skip `'edit'`. An edit is not a new post, and re-asking the question there locks an author who has hit your cap out of editing the posts they already published. Content rules - banned words, links, ML scoring - should keep running on edits, or editing becomes a way to smuggle content past you.
+
+A sixth argument, `$object_label` (since 1.3.0), says what is being written: `'post'` from `check()`, and `'comment'`, `'profile'`, `'direct message'`, `'caption'` and so on from `check_content()`. A rule that counts posts must run for `'post'` only, or a member at the cap cannot save their own profile or comment. Register for six arguments to receive it.
 
 ```php
 add_filter(
