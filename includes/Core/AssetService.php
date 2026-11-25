@@ -2407,6 +2407,10 @@ class AssetService {
 			array(
 				'i18n' => array(
 					'removeMemberTitle'  => __( 'Remove this member?', 'buddynext' ),
+					/* translators: %s: the member's name. */
+					'removeNamedTitle'   => __( 'Remove %s from this space?', 'buddynext' ),
+					/* translators: %s: the member's name. */
+					'banNamedTitle'      => __( 'Ban %s from this space?', 'buddynext' ),
 					'removeMemberBody'   => __( 'They will lose access to this space immediately.', 'buddynext' ),
 					'remove'             => __( 'Remove', 'buddynext' ),
 					'removeMemberFailed' => __( 'Could not remove member. Try again.', 'buddynext' ),

@@ -282,6 +282,7 @@ buddynext_get_template(
 				data-variant="ghost"
 				data-size="md"
 				data-bn-modal-close
+				data-bn-initial-focus
 			><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 			<button
 				type="button"

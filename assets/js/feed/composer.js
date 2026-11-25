@@ -1751,6 +1751,26 @@ const { state } = store( 'buddynext/post-composer', {
 		 *
 		 * @param {MouseEvent} event The document click event.
 		 */
+		/**
+		 * Escape closes the "Posting to" popover and hands focus back to its chip.
+		 *
+		 * @param {KeyboardEvent} event The document keydown event.
+		 */
+		closePrivacyOnEscape( event ) {
+			if ( ! event || 'Escape' !== event.key ) {
+				return;
+			}
+			const ctx = getContext();
+			if ( ! ctx || ! ctx.privacyOpen ) {
+				return;
+			}
+			ctx.privacyOpen = false;
+			const ref  = getElement()?.ref || null;
+			const chip = ref ? ref.querySelector( '.bn-composer__privacy-chip' ) : null;
+			if ( chip ) {
+				chip.focus();
+			}
+		},
 		closePrivacyOnOutside( event ) {
 			const ctx = getContext();
 			if ( ! ctx || ! ctx.privacyOpen ) {

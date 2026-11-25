@@ -1979,9 +1979,14 @@ store( 'buddynext/post-card', {
 		},
 		* deletePost() {
 			const ctx = getContext();
+			// The menu that offered Delete closes behind the dialog, and the dialog says which post it is about.
+			ctx.optionsOpen = false;
+			const postEl = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
+			const bodyEl = postEl ? postEl.querySelector( '.bn-post-card__body, .bn-post-card__text, .bn-post-card__content' ) : null;
+			const snippet = bodyEl ? ( bodyEl.textContent || '' ).replace( /\s+/g, ' ' ).trim().slice( 0, 90 ) : '';
 			const ok = yield bnConfirm( {
 				title: t( 'deletePostTitle', 'Delete this post?' ),
-				body: t( 'cannotBeUndone', 'This cannot be undone.' ),
+				body: ( snippet ? '\u201C' + snippet + ( snippet.length >= 90 ? '\u2026' : '' ) + '\u201D ' : '' ) + t( 'cannotBeUndone', 'This cannot be undone.' ),
 				confirmLabel: t( 'delete', 'Delete' ),
 				tone: 'danger',
 			} );

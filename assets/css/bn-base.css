@@ -5531,6 +5531,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		position: absolute;
 		inset: -9px -4px;
 	}
+	button.bn-ob-avatar-row__cta,
+	button.bn-composer__schedule-clear,
+	.bn-post-card__menu-item,
+	.bn-md-card__menu-item {
+		min-block-size: 40px;
+	}
+	button.bn-composer__schedule-clear {
+		min-inline-size: 40px;
+	}
 	.bn-search-aside__card label,
 	.bn-prefs-toggle {
 		display: inline-flex;
@@ -5540,4 +5549,10 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	.bn-search-aside__card label {
 		display: flex;
 	}
+}
+
+
+/* A dialog is open: the page behind it does not scroll. */
+body.bn-modal-open {
+	overflow: hidden;
 }

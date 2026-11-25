@@ -250,6 +250,7 @@ if ( $composer_article_summary['pending'] > 0 ) {
 	data-wp-interactive="buddynext/post-composer"
 	data-wp-init="callbacks.restoreDraft"
 	data-wp-on-document--click="actions.closePrivacyOnOutside"
+	data-wp-on-document--keydown="actions.closePrivacyOnEscape"
 	data-wp-context='
 	<?php
 	echo esc_attr(
