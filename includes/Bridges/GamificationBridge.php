@@ -758,8 +758,10 @@ class GamificationBridge {
 	 * Answer `buddynext_card_live` for badge cards: the level the member holds now and the badge's current name.
 	 *
 	 * A card made when the member held one level otherwise kept saying it after a promotion, and kept a renamed
-	 * badge's old name. One level read and one badge-list read per distinct member on the page (the partner has no
-	 * batch getter; a feed page holds few distinct badge holders).
+	 * badge's old name. One read for the whole page, not one per member: every member's level name comes from the
+	 * partner's own cached `wb_gam_level_name` user meta, primed for all of them in one query (the same field the
+	 * partner's member lists read, kept current by its own engine), and a badge's name from its definition, memoised
+	 * per distinct badge.
 	 *
 	 * @since 1.3.0
 	 *
@@ -769,29 +771,51 @@ class GamificationBridge {
 	 * @return array<int,array>
 	 */
 	public function live_badge_cards( array $answers, string $type, array $cards ): array {
-		if ( 'badge' !== $type ) {
+		if ( 'badge' !== $type || ! class_exists( 'WBGam\\Engine\\BadgeEngine' ) ) {
 			return $answers;
 		}
-		$facts = array();
+
+		$user_ids = array();
+		foreach ( $cards as $meta ) {
+			$user_id = (int) ( $meta['user_id'] ?? 0 );
+			if ( $user_id > 0 ) {
+				$user_ids[ $user_id ] = $user_id;
+			}
+		}
+		if ( array() === $user_ids ) {
+			return $answers;
+		}
+		update_meta_cache( 'user', array_values( $user_ids ) );
+
 		foreach ( $cards as $post_id => $meta ) {
 			$user_id = (int) ( $meta['user_id'] ?? 0 );
 			if ( $user_id <= 0 ) {
 				continue;
 			}
-			if ( ! isset( $facts[ $user_id ] ) ) {
-				$facts[ $user_id ] = $this->badge_facts( $user_id );
-			}
-			// A level that cannot be read leaves the stored one showing instead of blanking the card.
 			$answer = array();
-			if ( array() !== $facts[ $user_id ] ) {
-				$answer['facts'] = $facts[ $user_id ];
+
+			// A level that cannot be read leaves the stored one showing instead of blanking the card.
+			$level = trim( (string) get_user_meta( $user_id, 'wb_gam_level_name', true ) );
+			if ( '' !== $level ) {
+				$answer['facts'] = array(
+					array(
+						'icon' => 'award',
+						'text' => $level,
+					),
+				);
 			}
+
 			if ( preg_match( '/#badge-([^#?\/]+)$/', (string) ( $meta['url'] ?? '' ), $m ) ) {
-				$def = $this->badge_definition( $user_id, rawurldecode( $m[1] ) );
+				$badge_id = rawurldecode( $m[1] );
+				if ( ! array_key_exists( $badge_id, self::$badge_defs_memo ) ) {
+					self::$badge_defs_memo[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
+				}
+				$def = self::$badge_defs_memo[ $badge_id ];
 				if ( is_array( $def ) && '' !== (string) ( $def['name'] ?? '' ) ) {
 					$answer['title'] = (string) $def['name'];
 				}
 			}
+
 			if ( array() !== $answer ) {
 				$answers[ (int) $post_id ] = $answer;
 			}
