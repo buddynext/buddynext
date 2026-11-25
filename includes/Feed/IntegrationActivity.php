@@ -827,22 +827,11 @@ class IntegrationActivity {
 			$classes .= ' has-cover';
 		}
 
-		// What a member needs to judge the card without opening it, written by the partner
-		// plugin when it published (see facts()). A site can change the list.
+		// What a member needs to judge the card without opening it, and what they can do from it.
 		$link_meta = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
-		/**
-		 * Filter the facts line of a bridge card (company, place, type, rating, length ...).
-		 *
-		 * Each fact is `array( 'icon' => icon slug, 'text' => string )`. The list is cut to four
-		 * and empty facts are dropped after this filter, so a site may add, remove or reword.
-		 *
-		 * @since 1.3.0
-		 *
-		 * @param array<int,array{icon:string,text:string}> $facts     The partner's facts.
-		 * @param string                                    $type      Card post type ('job', 'listing', ...).
-		 * @param array<string,mixed>                       $link_meta The card's stored link meta.
-		 */
-		$facts = self::facts( (array) apply_filters( 'buddynext_card_facts', (array) ( $link['facts'] ?? $link_meta['facts'] ?? array() ), $type, $link_meta ) );
+		$resolved  = self::resolve( $type, $link, $link_meta, (int) ( $args['bn_post_id'] ?? 0 ) );
+		$facts     = $resolved['facts'];
+		$actions   = $resolved['actions'];
 
 		$html = '<div class="' . esc_attr( $classes ) . '">';
 
@@ -869,6 +858,13 @@ class IntegrationActivity {
 			}
 			$html .= '</ul>';
 		}
+		if ( array() !== $actions ) {
+			$html .= '<div class="bn-post-card__bridge-actions">';
+			foreach ( $actions as $i => $action ) {
+				$html .= '<a class="bn-btn" data-size="sm" data-variant="' . ( 0 === $i ? 'primary' : 'secondary' ) . '" href="' . esc_url( $action['url'] ) . '">' . esc_html( $action['label'] ) . '</a>';
+			}
+			$html .= '</div>';
+		}
 		$html .= '</div>';
 		if ( '' !== $desc ) {
 			$html .= '<p class="bn-post-card__bridge-text">' . esc_html( $desc ) . '</p>';
@@ -876,6 +872,181 @@ class IntegrationActivity {
 		$html .= '</div>';
 
 		return $html;
+	}
+
+	/**
+	 * Live values for the cards on this page, by post id: array{facts, actions}.
+	 *
+	 * @var array<int,array{facts:array<int,mixed>,actions:array<int,mixed>}>
+	 */
+	private static array $live = array();
+
+	/**
+	 * Load the live facts and actions of a whole page of partner cards, one call per card type.
+	 *
+	 * A card's facts are written when it publishes, so a value that changes afterwards (spots left,
+	 * solved, open now) would go stale, and a card made before a bridge learned a fact would never
+	 * show it. A bridge answers `buddynext_card_live` for its type from its own plugin's data; an old
+	 * card and a new one are answered the same way. Nothing is asked for a type with no card on the
+	 * page, and a bridge whose plugin is off or too old answers nothing, so the stored facts stand.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array $items  Hydrated feed rows about to render.
+	 * @param int   $viewer Current user ID (0 = logged out).
+	 * @return void
+	 */
+	public static function prime_live( array $items, int $viewer ): void {
+		$types = self::card_types();
+		if ( array() === $types ) {
+			return;
+		}
+
+		$by_type = array();
+		foreach ( $items as $item ) {
+			$type = (string) ( $item['type'] ?? '' );
+			$id   = (int) ( $item['id'] ?? 0 );
+			if ( $id > 0 && isset( $types[ $type ] ) && ! isset( self::$live[ $id ] ) ) {
+				$by_type[ $type ][ $id ] = self::link_meta_of( $item );
+			}
+		}
+
+		foreach ( $by_type as $type => $cards ) {
+			/**
+			 * Live facts and actions for the partner cards of one type on this page.
+			 *
+			 * Return `array( post_id => array( 'facts' => array( array( 'icon' => ..., 'text' => ... ) ), 'actions' => array( array( 'label' => ..., 'url' => ... ) ) ) )`
+			 * for the ids you can answer. Load them in ONE call, not one per card. The first action is
+			 * the card's main button, the second is secondary, and no more than two are shown.
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param array<int,array>   $answers Post id => { facts, actions }; empty by default.
+			 * @param string             $type    Card post type ('job', 'listing', ...).
+			 * @param array<int,array>   $cards   Post id => the card's stored link meta.
+			 * @param int                $viewer  Current user ID (0 = logged out).
+			 */
+			$answers = (array) apply_filters( 'buddynext_card_live', array(), (string) $type, $cards, $viewer );
+			foreach ( $cards as $id => $unused ) {
+				self::$live[ (int) $id ] = isset( $answers[ $id ] ) && is_array( $answers[ $id ] ) ? $answers[ $id ] : array();
+			}
+		}
+	}
+
+	/**
+	 * Put the card's facts and actions on a REST feed item, so the app reads what the page shows.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array $item   The enriched item.
+	 * @param int   $viewer Current user ID (0 = logged out).
+	 * @return array
+	 */
+	public static function enrich_item( array $item, int $viewer ): array {
+		unset( $viewer );
+		$type = (string) ( $item['type'] ?? '' );
+		if ( ! isset( self::card_types()[ $type ] ) ) {
+			return $item;
+		}
+		$resolved     = self::resolve( $type, array(), self::link_meta_of( $item ), (int) ( $item['id'] ?? 0 ) );
+		$item['card'] = $resolved;
+		return $item;
+	}
+
+	/**
+	 * A feed row's stored link meta as an array (the column is JSON until a hydrate decodes it).
+	 *
+	 * @param array $item Feed row.
+	 * @return array<string,mixed>
+	 */
+	private static function link_meta_of( array $item ): array {
+		$meta = $item['link_meta'] ?? array();
+		if ( is_string( $meta ) ) {
+			$meta = json_decode( $meta, true );
+		}
+		return is_array( $meta ) ? $meta : array();
+	}
+
+	/**
+	 * The facts and actions one card shows: the partner's live answer for this page when it gave
+	 * one, else what was stored when the card published, then the site's filters.
+	 *
+	 * @param string              $type      Card post type.
+	 * @param array<string,mixed> $link      The card's link preview.
+	 * @param array<string,mixed> $link_meta The card's stored link meta.
+	 * @param int                 $post_id   Post id (0 when unknown).
+	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>}
+	 */
+	private static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
+		$live  = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
+		$facts = ! empty( $live['facts'] ) ? (array) $live['facts'] : (array) ( $link['facts'] ?? $link_meta['facts'] ?? array() );
+
+		/**
+		 * Filter the facts line of a bridge card (company, place, type, rating, length ...).
+		 *
+		 * Each fact is `array( 'icon' => icon slug, 'text' => string )`. The list is cut to four
+		 * and empty facts are dropped after this filter, so a site may add, remove or reword.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array<int,array{icon:string,text:string}> $facts     The partner's facts.
+		 * @param string                                    $type      Card post type ('job', 'listing', ...).
+		 * @param array<string,mixed>                       $link_meta The card's stored link meta.
+		 */
+		$facts = self::facts( (array) apply_filters( 'buddynext_card_facts', $facts, $type, $link_meta ) );
+
+		$actions = ! empty( $live['actions'] ) ? (array) $live['actions'] : (array) ( $link_meta['actions'] ?? array() );
+
+		/**
+		 * Filter the buttons of a bridge card: the main one and an optional secondary.
+		 *
+		 * Each is `array( 'label' => string, 'url' => string )`. At most two are shown and a link to
+		 * another site is allowed. The footer (React, Comment, Share, Save) and the three-dot menu are
+		 * not touched by this: a card only adds what is specific to its type.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array<int,array{label:string,url:string}> $actions   The partner's buttons.
+		 * @param string                                    $type      Card post type.
+		 * @param array<string,mixed>                       $link_meta The card's stored link meta.
+		 * @param int                                       $post_id   Post id.
+		 */
+		$actions = self::actions( (array) apply_filters( 'buddynext_card_actions', $actions, $type, $link_meta, $post_id ) );
+
+		return array(
+			'facts'   => $facts,
+			'actions' => $actions,
+		);
+	}
+
+	/**
+	 * The buttons of a bridge card, cleaned: a short label, a real address, no more than two.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,mixed> $actions Raw buttons.
+	 * @return array<int,array{label:string,url:string}>
+	 */
+	public static function actions( array $actions ): array {
+		$out = array();
+		foreach ( $actions as $action ) {
+			if ( ! is_array( $action ) ) {
+				continue;
+			}
+			$label = trim( wp_strip_all_tags( (string) ( $action['label'] ?? '' ) ) );
+			$url   = esc_url_raw( (string) ( $action['url'] ?? '' ), array( 'http', 'https' ) );
+			if ( '' === $label || '' === $url ) {
+				continue;
+			}
+			$out[] = array(
+				'label' => mb_substr( $label, 0, 30 ),
+				'url'   => $url,
+			);
+			if ( count( $out ) >= 2 ) {
+				break;
+			}
+		}
+		return $out;
 	}
 
 	/**

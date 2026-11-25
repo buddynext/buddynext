@@ -43,6 +43,10 @@ class FeedListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function register(): void {
+		// One live read per card type for the whole page, on the web feed and on REST alike.
+		add_action( 'buddynext_feed_items_primed', array( IntegrationActivity::class, 'prime_live' ), 5, 2 );
+		add_filter( 'buddynext_feed_item_enriched', array( IntegrationActivity::class, 'enrich_item' ), 20, 2 );
+
 		add_action( 'buddynext_post_created', array( $this, 'bust_writer' ), 10, 2 );
 		add_action( 'buddynext_post_deleted', array( $this, 'bust_writer' ), 10, 2 );
 

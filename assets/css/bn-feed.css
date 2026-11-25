@@ -1287,6 +1287,13 @@
 	white-space: nowrap;
 }
 
+.bn-post-card__bridge-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s3);
+}
+
 .bn-post-card__bridge-fact-icon {
 	display: inline-flex;
 	flex: none;
