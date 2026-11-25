@@ -880,7 +880,7 @@ function toastOptions( message, opts ) {
 	const tone  = cfg.tone || cfg.type || 'info';
 	const status = toastStatus( tone );
 	let action  = null;
-	if ( cfg.action && cfg.action.href && cfg.action.label ) {
+	if ( cfg.action && ( cfg.action.href || 'function' === typeof cfg.action.onClick ) && cfg.action.label ) {
 		action = cfg.action;
 	} else if ( cfg.href ) {
 		action = { href: cfg.href, label: cfg.linkLabel || si( 'view', 'View' ) };
@@ -940,13 +940,23 @@ function paintToast( toast, o, dismiss ) {
 	// says why and ships the appeal URL, and a toast that can only say "Try again" is worse
 	// than useless because retrying can never succeed.
 	if ( o.action ) {
-		const link = document.createElement( 'a' );
+		// A toast with an onClick is an Undo: a real button that runs the callback and dismisses the toast.
+		const isUndo = 'function' === typeof o.action.onClick;
+		const link = document.createElement( isUndo ? 'button' : 'a' );
 		link.className = 'bn-toast__action';
-		link.href = o.action.href;
+		if ( isUndo ) {
+			link.type = 'button';
+		} else {
+			link.href = o.action.href;
+		}
 		link.textContent = o.action.label;
 		// A click on the toast dismisses it; let the link navigate instead of being swallowed.
 		link.addEventListener( 'click', function ( e ) {
 			e.stopPropagation();
+			if ( isUndo ) {
+				o.action.onClick();
+				dismiss();
+			}
 		} );
 		// Under the text on a two-line toast: beside it, the unwrappable link took the
 		// width and squeezed a sentence into a column of single words.

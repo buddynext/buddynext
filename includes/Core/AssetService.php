@@ -1082,6 +1082,7 @@ class AssetService {
 					'ariaCancelRequest'       => __( 'Cancel follow request', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
 					'toastUnfollowed'         => __( 'Unfollowed @%s', 'buddynext' ),
+					'undo'                    => __( 'Undo', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
 					'toastRequestCancelled'   => __( 'Follow request to @%s cancelled', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
@@ -1452,6 +1453,7 @@ class AssetService {
 					'memberFallback'                => __( 'member', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
 					'toastUnfollowed'               => __( 'Unfollowed @%s', 'buddynext' ),
+					'undo'                          => __( 'Undo', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
 					'toastNowFollowing'             => __( 'Now following @%s', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
@@ -1643,6 +1645,8 @@ class AssetService {
 					'confirm'                         => __( 'Confirm', 'buddynext' ),
 					'leaveSpaceTitle'                 => __( 'Leave this space?', 'buddynext' ),
 					'leaveSpaceConfirm'               => __( 'You will stop seeing its posts and can join again later.', 'buddynext' ),
+					'leaveSpaceInviteOnly' => __( 'You will lose access to its posts, and you will need a new invitation to come back.', 'buddynext' ),
+					'leaveSpaceRequestOnly' => __( 'You will lose access to its posts, and you will have to ask to join again and be approved.', 'buddynext' ),
 					'leaveSpaceOk'                    => __( 'Leave', 'buddynext' ),
 					'reportSpaceTitle'                => __( 'Report this space', 'buddynext' ),
 					'toastReportSubmitted'            => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
@@ -2412,6 +2416,8 @@ class AssetService {
 					'removeNamedTitle'   => __( 'Remove %s from this space?', 'buddynext' ),
 					/* translators: %s: the member's name. */
 					'banNamedTitle'      => __( 'Ban %s from this space?', 'buddynext' ),
+					'banReasonPlaceholder' => __( 'Reason (optional, kept in the moderation log)', 'buddynext' ),
+					'banReasonLabel' => __( 'Reason for the ban', 'buddynext' ),
 					'removeMemberBody'   => __( 'They will lose access to this space immediately.', 'buddynext' ),
 					'remove'             => __( 'Remove', 'buddynext' ),
 					'removeMemberFailed' => __( 'Could not remove member. Try again.', 'buddynext' ),

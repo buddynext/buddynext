@@ -1,6 +1,6 @@
 /* BuddyNext — Space Members Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnConfirm, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnPrompt, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
 import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -139,18 +139,22 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 			const btn = event.target.closest( '[data-user-id]' );
 			if ( ! btn || ! ctx.restNonce || ! ctx.spaceId ) { return; }
 			ctx.menuOpen = false;
-			const ok = yield bnConfirm( {
+			// The reason is optional and is kept with the ban (the moderation log and the member's removed notice read it).
+			const reason = yield bnPrompt( {
 				title: memberNameOf( btn ) ? fmt( t( 'banNamedTitle', 'Ban %s from this space?' ), memberNameOf( btn ) ) : t( 'banMemberTitle', 'Ban this member?' ),
 				body: t( 'banMemberBody', 'They will be removed and blocked from rejoining this space.' ),
+				placeholder: t( 'banReasonPlaceholder', 'Reason (optional, kept in the moderation log)' ),
+				inputLabel: t( 'banReasonLabel', 'Reason for the ban' ),
+				maxLength: 500,
 				confirmLabel: t( 'ban', 'Ban' ),
 				tone: 'danger',
 			} );
-			if ( ! ok ) { return; }
+			if ( null === reason ) { return; }
 			try {
 				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/bans', {
 					method: 'POST',
 					nonce: ctx.restNonce,
-					body: { user_id: parseInt( btn.dataset.userId, 10 ) },
+					body: { user_id: parseInt( btn.dataset.userId, 10 ), reason },
 					toastOnError: false,
 				} );
 				if ( res.ok ) {

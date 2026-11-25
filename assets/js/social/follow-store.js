@@ -161,7 +161,19 @@ const followButtonStore = store( 'buddynext/follow-button', {
 				else if ( wasPending )   { msg = fmt( t( 'toastRequestCancelled', 'Follow request to @%s cancelled' ), target ); }
 				else if ( requested )    { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), target ); }
 				else                     { msg = fmt( t( 'toastNowFollowing', 'Now following @%s' ), target ); }
-				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success' } );
+				// Unfollowing is instant, so the toast carries Undo (follow again) instead of a confirm step.
+				const undo = wasFollowing ? {
+					label: t( 'undo', 'Undo' ),
+					onClick: async () => {
+						const back = await restFetch( '/users/' + userId + '/follow', { method: 'POST', base: shared().restUrl || undefined, nonce: ctxNonce( ctx ), toastOnError: false } );
+						if ( back.ok ) {
+							const waiting = !! ( back.data && back.data.pending );
+							ctx.isPending   = waiting;
+							ctx.isFollowing = ! waiting;
+						}
+					},
+				} : null;
+				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success', action: undo, timeout: undo ? 6000 : undefined } );
 				if ( ctx.isFollowing ) { reloadIfLockedProfile( button ); }
 			} catch ( e ) {
 				// Roll back.

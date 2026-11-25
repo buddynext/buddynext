@@ -683,7 +683,12 @@ async function delegatedMute( card, btn, cfg ) {
 			method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
 		} );
 		if ( ! res.ok ) { throw res; }
-		bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), { tone: 'success' } );
+		// Muting or unmuting is instant, so the toast carries Undo: the same action again.
+		bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), {
+			tone: 'success',
+			timeout: 6000,
+			action: { label: t( 'undo', 'Undo' ), onClick: () => delegatedMute( card, btn, cfg ) },
+		} );
 	} catch ( e ) {
 		card.dataset.muted = was ? '1' : '0';
 		btn.textContent = was ? t( 'unmute', 'Unmute' ) : t( 'mute', 'Mute' );

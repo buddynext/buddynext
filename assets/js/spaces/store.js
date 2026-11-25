@@ -1193,9 +1193,17 @@ var storeInstance = store( 'buddynext/spaces', {
 			// dispatch here, so a mis-tap is guarded on every one of them by
 			// construction — no data-bn-confirm attribute to add (or, on the hero,
 			// to break) route by route (card 10294398101 item 1).
+			// A space the member cannot simply rejoin (request or invite only) says so before they are locked out.
+			var joinScope  = btn && btn.closest( '[data-join-method]' );
+			var joinMethod = joinScope ? joinScope.dataset.joinMethod : 'join';
+			var lockedOut  = 'request' === joinMethod || 'invite' === joinMethod;
 			var confirmed = await bnConfirmDialog( {
 				title:   t( 'leaveSpaceTitle', 'Leave this space?' ),
-				message: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ),
+				message: lockedOut
+					? ( 'invite' === joinMethod
+						? t( 'leaveSpaceInviteOnly', 'You will lose access to its posts, and you will need a new invitation to come back.' )
+						: t( 'leaveSpaceRequestOnly', 'You will lose access to its posts, and you will have to ask to join again and be approved.' ) )
+					: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ),
 				ok:      t( 'leaveSpaceOk', 'Leave' ),
 				cancel:  t( 'cancel', 'Cancel' ),
 				// Leaving is reversible (the member can join again), so it is not a danger dialog.
