@@ -1297,6 +1297,27 @@
 	margin-block-start: var(--bn-s3);
 }
 
+/* A card with buttons keeps them at the end of the title row, level with the title, so the picture and the text
+   column end together instead of the buttons hanging below the picture. The buttons drop under the text on a phone. */
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	column-gap: var(--bn-s3);
+	align-items: start;
+}
+
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) > * {
+	grid-column: 1;
+}
+
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) > .bn-post-card__bridge-actions {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+	align-self: center;
+	justify-content: flex-end;
+	margin-block-start: 0;
+}
+
 .bn-post-card__bridge-fact-icon {
 	display: inline-flex;
 	flex: none;
@@ -1309,6 +1330,15 @@
 }
 
 @media (max-width: 640px) {
+	.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) {
+		display: block;
+	}
+
+	.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) > .bn-post-card__bridge-actions {
+		margin-block-start: var(--bn-s3);
+		justify-content: flex-start;
+	}
+
 	/* On a phone the thumbnail stays at the side, smaller, so a card with a picture is the same height as one without. */
 	.bn-post-card__bridge-card--grid.has-cover {
 		grid-template-columns: 64px minmax(0, 1fr);
