@@ -827,7 +827,7 @@ const { state } = store( 'buddynext/post-composer', {
 			// Captured now, in the action's scope: the native change handler below
 			// runs outside it, where getContext() is not available.
 			const composerCtx = getContext();
-			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const composerEl = document.querySelector( '.bn-composer[data-wp-interactive="buddynext/post-composer"]' );
 			const fileInput  = document.querySelector( '.bn-composer__file-input' );
 			if ( ! fileInput || ! composerEl ) {
 				return;
@@ -1127,7 +1127,7 @@ const { state } = store( 'buddynext/post-composer', {
 		 * to the wrong audience. One document per post.
 		 */
 		pickDocument() {
-			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const composerEl = document.querySelector( '.bn-composer[data-wp-interactive="buddynext/post-composer"]' );
 			const docInput   = document.querySelector( '.bn-composer__doc-input' );
 			if ( ! docInput || ! composerEl ) {
 				return;

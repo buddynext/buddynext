@@ -155,7 +155,7 @@ test.describe('spaces / directory listing controls (J-640..J-643)', () => {
     });
 
     test('J-643 pagination returns disjoint pages', async ({ authenticatedPage: page }) => {
-        const p1 = await bnApi(page, 'GET', '/spaces?paginate=1&per_page=1&page=1&orderby=newest');
+        const p1 = await bnApi(page, 'GET', '/spaces?paginate=1&per_page=1&page=1&orderby=newest&type=open');
         expect(p1.status, `page 1 failed: ${JSON.stringify(p1.data)}`).toBe(200);
         const meta1 = p1.data as { items?: Row[]; total_pages?: number; page?: number };
         test.skip(
@@ -166,7 +166,7 @@ test.describe('spaces / directory listing controls (J-640..J-643)', () => {
         const page1Ids = ids(p1.data);
         expect(page1Ids.length).toBe(1);
 
-        const p2 = await bnApi(page, 'GET', '/spaces?paginate=1&per_page=1&page=2&orderby=newest');
+        const p2 = await bnApi(page, 'GET', '/spaces?paginate=1&per_page=1&page=2&orderby=newest&type=open');
         expect(p2.status).toBe(200);
         const meta2 = p2.data as { page?: number };
         expect(meta2.page).toBe(2);

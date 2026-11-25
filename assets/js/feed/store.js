@@ -1024,7 +1024,7 @@ function initRealtimeNewPostsPill() {
 
 	// REST root + nonce come from the always-present composer context; the feed
 	// page on /activity renders the composer for every logged-in member.
-	const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+	const composerEl = document.querySelector( '.bn-composer[data-wp-interactive="buddynext/post-composer"]' );
 	bnPill.restUrl   = '';
 	bnPill.restNonce = '';
 	if ( composerEl ) {
@@ -1083,7 +1083,7 @@ function initRealtimeNewPostsPill() {
 			if ( ! id ) { return; }
 			// Skip the viewer's own posts — they're shown immediately
 			// by the composer's local insertion logic.
-			const composer = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const composer = document.querySelector( '.bn-composer[data-wp-interactive="buddynext/post-composer"]' );
 			let viewerId = 0;
 			if ( composer ) {
 				try { viewerId = parseInt( JSON.parse( composer.dataset.wpContext || '{}' ).userId, 10 ); } catch ( _e ) {}
