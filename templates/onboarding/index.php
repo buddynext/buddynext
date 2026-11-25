@@ -265,6 +265,11 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			<?php endforeach; ?>
 		</nav>
 
+		<?php
+		// The step shown first is known on the server, so every other step ships `hidden`: a script that is slow or blocked
+		// leaves one step on screen instead of the whole wizard stacked. The store keeps the attribute in step afterwards.
+		$bn_ob_hidden = static fn( int $position ): string => (int) $saved_step === $position ? '' : 'hidden';
+		?>
 		<div class="bn-ob-form-body">
 
 		<!-- ── Step 1: Profile ── -->
@@ -272,6 +277,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-1"
 			data-step="1"
 			aria-labelledby="bn-ob-step-1-title"
+			<?php echo esc_attr( $bn_ob_hidden( 1 ) ); ?>
 			data-wp-bind--hidden="!state.isStep1"
 		>
 
@@ -439,6 +445,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
 			data-step="<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
 			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['interests'] ); ?>-title"
+			<?php echo esc_attr( $bn_ob_hidden( (int) $step_pos['interests'] ) ); ?>
 			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
 		>
 
@@ -504,6 +511,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
 			data-step="<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
 			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>-title"
+			<?php echo esc_attr( $bn_ob_hidden( (int) $step_pos['spaces'] ) ); ?>
 			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
 		>
 
@@ -601,6 +609,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
 			data-step="<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
 			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>-title"
+			<?php echo esc_attr( $bn_ob_hidden( (int) $step_pos['people'] ) ); ?>
 			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
 		>
 
@@ -707,6 +716,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
 			data-step="<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
 			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>-title"
+			<?php echo esc_attr( $bn_ob_hidden( (int) $step_pos['notifications'] ) ); ?>
 			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
 		>
 
@@ -815,8 +825,9 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		 * @param array<int,array{key:string,label:string,icon:string}> $steps      Steps keyed 1..N.
 		 * @param array<string,int>                                     $step_pos   Step key => 1-based position.
 		 * @param int                                                   $ob_user_id Member being onboarded.
+		 * @param int                                                   $saved_step The step shown first (1-based): every other step ships `hidden`.
 		 */
-		do_action( 'buddynext_onboarding_render_extra_steps', $steps, $step_pos, $ob_user_id );
+		do_action( 'buddynext_onboarding_render_extra_steps', $steps, $step_pos, $ob_user_id, $saved_step );
 		?>
 
 		<div class="bn-ob-error" role="alert" aria-live="polite"

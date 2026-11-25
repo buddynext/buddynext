@@ -104,7 +104,7 @@ class EmailSender {
 	 *
 	 * @var string[]
 	 */
-	private const MODERATION_NOTICE_TYPES = array( 'bn.strike_issued', 'bn.strike_warning', 'bn.member_suspended', 'bn.appeal_resolved' );
+	private const MODERATION_NOTICE_TYPES = array( 'bn.strike_issued', 'bn.strike_warning', 'bn.user_warned', 'bn.member_suspended', 'bn.user_unsuspended', 'bn.appeal_resolved' );
 
 	/**
 	 * Constructor.

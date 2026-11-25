@@ -1156,17 +1156,35 @@ function initEmojiPicker() {
 	let panel = null;
 	let activeTrigger = null;
 
-	const closePanel = () => {
+	const COLUMNS = 8;
+
+	const closePanel = ( restoreFocus ) => {
+		const trigger = activeTrigger;
+		const hadFocus = panel && panel.contains( document.activeElement );
 		if ( panel ) { panel.hidden = true; }
-		if ( activeTrigger ) { activeTrigger.setAttribute( 'aria-expanded', 'false' ); }
+		if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
 		activeTrigger = null;
+		// Focus that was inside the picker goes back to the control that opened it, never to <body>.
+		if ( ( true === restoreFocus || hadFocus ) && trigger && document.contains( trigger ) && 'function' === typeof trigger.focus ) {
+			trigger.focus();
+		}
+	};
+
+	/** The picker's emoji buttons, in order. */
+	const options = () => ( panel ? Array.prototype.slice.call( panel.querySelectorAll( '.bn-emoji-popover__option' ) ) : [] );
+
+	/** Roving focus: exactly one option is a Tab stop, the one that has focus. */
+	const focusOption = ( list, i ) => {
+		const n = Math.max( 0, Math.min( list.length - 1, i ) );
+		list.forEach( ( b, k ) => { b.tabIndex = k === n ? 0 : -1; } );
+		list[ n ].focus();
 	};
 
 	const buildPanel = () => {
 		const base = bnEmojiAssetBase();
 		const p = document.createElement( 'div' );
 		p.className = 'bn-emoji-popover';
-		p.setAttribute( 'role', 'menu' );
+		p.setAttribute( 'role', 'group' );
 		p.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
 		p.hidden = true;
 		Object.keys( BN_EMOJI_MAP ).forEach( ( slug ) => {
@@ -1174,6 +1192,7 @@ function initEmojiPicker() {
 			btn.type = 'button';
 			btn.className = 'bn-emoji-popover__option';
 			btn.dataset.emojiChar = BN_EMOJI_MAP[ slug ];
+			btn.tabIndex = -1; // Roving focus: the picker is one Tab stop, the arrow keys move inside it.
 			btn.setAttribute( 'aria-label', slug );
 			btn.title = slug;
 			if ( base ) {
@@ -1211,7 +1230,11 @@ function initEmojiPicker() {
 			// Facebook, X and LinkedIn); outside-click, Escape and the trigger toggle
 			// still dismiss it. Refocus the field so the caret stays where the next
 			// pick or keystroke lands. (Card 10258511674.)
-			if ( emojiTarget && typeof emojiTarget.focus === 'function' ) {
+			// A keyboard pick (detail 0) stays on the emoji so the next one is an arrow key away; a pointer pick returns to
+			// the field so typing carries on.
+			if ( 0 === e.detail ) {
+				option.focus();
+			} else if ( emojiTarget && typeof emojiTarget.focus === 'function' ) {
 				emojiTarget.focus();
 			}
 			return;
@@ -1263,10 +1286,29 @@ function initEmojiPicker() {
 
 		panel.style.top  = ( window.scrollY + top ) + 'px';
 		panel.style.left = ( window.scrollX + left ) + 'px';
+		// Opened from the keyboard: focus goes into the picker (the pointer keeps it in the field).
+		if ( 0 === e.detail ) { focusOption( options(), 0 ); }
 	} );
 
 	document.addEventListener( 'keydown', ( e ) => {
-		if ( e.key === 'Escape' ) { closePanel(); }
+		if ( e.key === 'Escape' ) { closePanel( true ); return; }
+		if ( ! panel || panel.hidden || ! panel.contains( document.activeElement ) ) { return; }
+		const list = options();
+		const at   = list.indexOf( document.activeElement );
+		const jump = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: COLUMNS, ArrowUp: -COLUMNS }[ e.key ];
+		if ( undefined !== jump ) {
+			e.preventDefault();
+			focusOption( list, at + jump );
+		} else if ( 'Home' === e.key ) {
+			e.preventDefault();
+			focusOption( list, 0 );
+		} else if ( 'End' === e.key ) {
+			e.preventDefault();
+			focusOption( list, list.length - 1 );
+		} else if ( 'Tab' === e.key ) {
+			// Leaving the picker with Tab closes it and carries on from its trigger.
+			closePanel( true );
+		}
 	} );
 	window.addEventListener( 'resize', closePanel );
 	window.addEventListener( 'scroll', closePanel, true );

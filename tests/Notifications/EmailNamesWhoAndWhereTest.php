@@ -78,6 +78,17 @@ class EmailNamesWhoAndWhereTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'See your account status', $mail, 'The way to the account page stays.' );
 	}
 
+	public function test_every_moderation_notice_drops_the_unsubscribe_link_and_ordinary_mail_keeps_it(): void {
+		foreach ( array( 'bn.strike_issued', 'bn.strike_warning', 'bn.user_warned', 'bn.member_suspended', 'bn.user_unsuspended', 'bn.appeal_resolved' ) as $type ) {
+			$mail = $this->send( $this->member( 'Quinn Reader' ), $type, array( 'reason' => 'Spam', 'expires_at' => 'further notice', 'decision' => 'approved' ) );
+			$this->assertStringNotContainsString( 'Stop emails like this', $mail, $type . ' carries no generic footer.' );
+			$this->assertStringNotContainsString( 'Unsubscribe', $mail, $type . ' carries no unsubscribe link.' );
+		}
+
+		$mail = $this->send( $this->member( 'Quinn Reader' ), 'bn.new_follower', array( 'sender_id' => $this->member( 'Mara Okafor' ) ) );
+		$this->assertMatchesRegularExpression( '/Unsubscribe|Stop emails like this/', $mail, 'Ordinary notifications keep their way to stop them.' );
+	}
+
 	public function test_new_message_names_the_sender(): void {
 		// A DM email needs WPMediaVerse, absent here; the accepted test above proves
 		// {{actor_name}} is filled from sender_id, so check the default names it.

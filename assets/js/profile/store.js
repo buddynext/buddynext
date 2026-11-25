@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnMarkReported, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnMarkReported, bnReportDialog, bnResolveConnectNote, bnReloadWithToast, trapFocus, dialogOpener } from '@buddynext/shell-dialog';
 import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 import { foldAccents } from '@buddynext/slug';
@@ -230,6 +230,9 @@ function buildXIcon() {
 
    No external library: pure Canvas API + pointer events.
    ---------------------------------------------------------------- */
+/** The control that opened the avatar picker, for the crop dialog to hand focus back to. */
+let avatarOpener = null;
+
 async function openAvatarCropModal( file ) {
 	return new Promise( ( resolve ) => {
 		const url = URL.createObjectURL( file );
@@ -249,6 +252,10 @@ async function openAvatarCropModal( file ) {
 function renderCropModal( img, resolve ) {
 	const SIZE   = 360; // canvas square side
 	const OUTPUT = 512; // exported JPEG side
+
+	// Where focus goes back on close: the control that opened the picker (remembered at the click, since the file
+	// chooser runs between the click and here).
+	const opener = avatarOpener || document.activeElement;
 
 	const overlay = document.createElement( 'div' );
 	overlay.className = 'bn-avatar-crop-overlay';
@@ -272,6 +279,19 @@ function renderCropModal( img, resolve ) {
 	canvas.width  = SIZE;
 	canvas.height = SIZE;
 	canvas.className = 'bn-avatar-crop-canvas';
+	// Keyboard framing: the arrow keys move the picture under the mask, as dragging does.
+	canvas.tabIndex = 0;
+	canvas.setAttribute( 'role', 'img' );
+	canvas.setAttribute( 'aria-label', t( 'cropAvatarCanvas', 'Avatar preview. Use the arrow keys to move the picture.' ) );
+	canvas.addEventListener( 'keydown', ( e ) => {
+		const step = e.shiftKey ? 30 : 10;
+		const move = { ArrowLeft: [ step, 0 ], ArrowRight: [ -step, 0 ], ArrowUp: [ 0, step ], ArrowDown: [ 0, -step ] }[ e.key ];
+		if ( ! move ) { return; }
+		e.preventDefault();
+		tx += move[ 0 ];
+		ty += move[ 1 ];
+		draw();
+	} );
 	stage.appendChild( canvas );
 	panel.appendChild( stage );
 
@@ -392,9 +412,13 @@ function renderCropModal( img, resolve ) {
 	actions.appendChild( apply );
 	panel.appendChild( actions );
 
+	// Tab stays inside the dialog (aria-modal promises it) and the focus goes back where it came from.
+	let releaseTrap = null;
 	const cleanup = ( value ) => {
+		if ( releaseTrap ) { releaseTrap(); releaseTrap = null; }
 		overlay.remove();
 		document.removeEventListener( 'keydown', onKey );
+		if ( opener && 'function' === typeof opener.focus && document.contains( opener ) ) { opener.focus(); }
 		resolve( value );
 	};
 
@@ -446,13 +470,17 @@ function renderCropModal( img, resolve ) {
 
 	const onKey = ( e ) => {
 		if ( e.key === 'Escape' ) { cleanup( null ); }
-		if ( e.key === 'Enter'  ) { apply.click(); }
+		// Enter applies from the picture or the slider; on Cancel it is Cancel's own press.
+		if ( e.key === 'Enter' && ! ( e.target && e.target.closest && e.target.closest( 'button' ) ) ) { apply.click(); }
 	};
 	document.addEventListener( 'keydown', onKey );
 
 	overlay.appendChild( panel );
 	document.body.appendChild( overlay );
 	draw();
+	// Focus goes in (the first control, the zoom slider) and Tab is held inside until the dialog closes.
+	releaseTrap = trapFocus( overlay );
+	slider.focus();
 }
 
 
@@ -1872,11 +1900,15 @@ const profileStore = store( 'buddynext/profile', {
 			if ( el ) { el.click(); }
 		},
 		triggerAvatarUpload() {
+			avatarOpener = dialogOpener();
 			var el = document.getElementById( 'bn-ep-avatar-file' );
 			if ( el ) { el.click(); }
 		},
 
 		async handleAvatarFileChange( event ) {
+			// Picking a file is not an edit yet: only Apply stages one and marks the form dirty, so opening the cropper and
+			// cancelling leaves no "unsaved changes" behind.
+			if ( event && 'function' === typeof event.stopPropagation ) { event.stopPropagation(); }
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
 

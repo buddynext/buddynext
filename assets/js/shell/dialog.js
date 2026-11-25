@@ -18,7 +18,7 @@
 
 import { trapFocus, returnFocus, dialogOpener } from '@buddynext/focus-trap';
 
-export { trapFocus };
+export { trapFocus, dialogOpener };
 
 /**
  * Read a shell-level translated string from window.bnShellData.i18n, falling
