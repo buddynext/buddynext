@@ -1273,7 +1273,8 @@ function initEmojiPicker() {
 		const margin = 8;
 
 		// Horizontal: prefer trigger-aligned, clamp into [margin, right edge].
-		const maxLeft = Math.max( margin, window.innerWidth - pr.width - margin );
+		const viewW   = document.documentElement.clientWidth || window.innerWidth; // without the scrollbar
+		const maxLeft = Math.max( margin, viewW - pr.width - margin );
 		const left    = Math.min( Math.max( r.left, margin ), maxLeft );
 
 		// Vertical: flip above the trigger when it does not fit below. A popover is

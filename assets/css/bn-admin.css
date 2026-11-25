@@ -5080,3 +5080,43 @@ code.bn-ep-code {
 .bn-admin-hub select.bn-pf-vis-field {
 	min-width: 120px;
 }
+
+
+/* Reports, Moderation Log and the other plain list tables at phone width: WordPress only stacks a list table that opts
+   in to its mobile markup, so these keep their columns, and the card scrolls sideways instead of hiding the Actions
+   column behind its rounded corners. */
+@media (max-width: 782px) {
+	/* On a phone the long first column is narrower and the row buttons wrap, so the table fits the card (it scrolls only
+	   when a row still cannot fit). */
+	.bn-settings-section .bn-ss-body > table.widefat {
+		display: table;
+		table-layout: fixed;
+		width: 100%;
+	}
+	.bn-settings-section .bn-ss-body > table.widefat th,
+	.bn-settings-section .bn-ss-body > table.widefat td {
+		min-width: 0;
+		overflow-wrap: anywhere;
+		padding-inline: var(--bn-a-s2, 8px);
+	}
+	.bn-settings-section .bn-ss-body > table.widefat th:last-child {
+		width: 34%;
+	}
+	.bn-settings-section .bn-ss-body > table.widefat td:last-child .bn-row-actions {
+		flex-wrap: wrap;
+		max-inline-size: none;
+	}
+	.bn-settings-section .bn-ss-body:has(> table.widefat),
+	.bn-settings-section .bn-ss-body:has(> form > table.widefat),
+	.bn-settings-section:has(> table.widefat),
+	.bn-settings-section:has(> form > table.widefat) {
+		overflow-x: auto;
+	}
+}
+
+/* A long unbroken string in the first cell (a URL) wraps instead of widening the column. */
+.bn-settings-section .bn-ss-body > table.widefat td:first-child strong,
+.bn-settings-section .bn-ss-body > table.widefat td:first-child .description,
+.bn-settings-section .bn-ss-body > table.widefat td:first-child a {
+	overflow-wrap: anywhere;
+}

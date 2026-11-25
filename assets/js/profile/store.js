@@ -1911,6 +1911,12 @@ const profileStore = store( 'buddynext/profile', {
 			if ( event && 'function' === typeof event.stopPropagation ) { event.stopPropagation(); }
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
+			// Only a picture can be cropped: say so instead of ignoring the pick.
+			if ( ! /^image\/(jpeg|png|gif|webp)$/.test( file.type ) ) {
+				bnToast( t( 'avatarNotAnImage', 'Choose a JPG, PNG, GIF or WebP picture.' ), { tone: 'danger' } );
+				event.target.value = '';
+				return;
+			}
 
 			// Capture the Interactivity context BEFORE any await — getContext()
 			// only resolves synchronously within the action's initial scope, so

@@ -243,6 +243,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 	<input
 		type="file"
 		id="bn-ep-avatar-file"
+		data-bn-autosave
 		accept="image/jpeg,image/png,image/gif,image/webp"
 		class="bn-ep-file-hidden"
 		tabindex="-1"
