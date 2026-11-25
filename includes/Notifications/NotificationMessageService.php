@@ -47,6 +47,14 @@ class NotificationMessageService {
 	private array $post_space = array();
 
 	/**
+	 * Post type per post id (primed for a page of notifications, or read on demand), so a Space notice can say
+	 * what kind of post it is.
+	 *
+	 * @var array<int,string>
+	 */
+	private array $post_type = array();
+
+	/**
 	 * Compose the full presentation payload for a single notification row.
 	 *
 	 * Accepts an associative array with keys: id, type, recipient_id, sender_id,
@@ -313,6 +321,14 @@ class NotificationMessageService {
 				$space_name = $space_id > 0
 					? $this->resolve_space_name( $space_id )
 					: $this->resolve_space_for_post( $object_id );
+				if ( 'event' === $this->post_type_of( $object_id ) ) {
+					return sprintf(
+						/* translators: 1: actor display name, 2: space name. */
+						__( '%1$s scheduled an event in %2$s.', 'buddynext' ),
+						$actor_name,
+						$space_name
+					);
+				}
 				return sprintf(
 					/* translators: 1: actor display name, 2: space name. */
 					__( '%1$s posted in %2$s.', 'buddynext' ),
@@ -1199,6 +1215,7 @@ class NotificationMessageService {
 	private function prime_space_names( array $rows ): void {
 		$space_ids = array();
 		$post_ids  = array();
+		$type_ids  = array();
 		foreach ( $rows as $row ) {
 			$type      = (string) ( $row['type'] ?? '' );
 			$object_id = (int) ( $row['object_id'] ?? 0 );
@@ -1209,6 +1226,7 @@ class NotificationMessageService {
 				$space_ids[] = $object_id;
 				continue;
 			}
+			$type_ids[] = $object_id;
 			$data_space = (int) ( $this->normalise_data( $row['data'] ?? null )['space_id'] ?? 0 );
 			if ( $data_space > 0 ) {
 				$space_ids[] = $data_space;
@@ -1219,17 +1237,23 @@ class NotificationMessageService {
 
 		global $wpdb;
 		$post_ids = array_values( array_unique( $post_ids ) );
-		if ( $post_ids ) {
-			$in = implode( ', ', array_fill( 0, count( $post_ids ), '%d' ) );
-			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders from array_fill( %d ), every id bound; a per-page lookup.
-			$found = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE id IN ( {$in} )", ...$post_ids ), ARRAY_A );
-			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$type_ids = array_values( array_diff( array_unique( $type_ids ), array_keys( $this->post_type ) ) );
+		$lookup   = array_values( array_unique( array_merge( $post_ids, $type_ids ) ) );
+		if ( $lookup ) {
+			$in = implode( ', ', array_fill( 0, count( $lookup ), '%d' ) );
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders from array_fill( %d ), every id bound; one lookup for the whole page (space and type together).
+			$found = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, space_id, type FROM {$wpdb->prefix}bn_posts WHERE id IN ( {$in} )", ...$lookup ), ARRAY_A );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 			foreach ( $post_ids as $post_id ) {
 				$this->post_space[ $post_id ] = 0;
 			}
 			foreach ( $found as $post_row ) {
-				$this->post_space[ (int) $post_row['id'] ] = (int) $post_row['space_id'];
-				$space_ids[]                               = (int) $post_row['space_id'];
+				$row_id                     = (int) $post_row['id'];
+				$this->post_type[ $row_id ] = (string) $post_row['type'];
+				if ( in_array( $row_id, $post_ids, true ) ) {
+					$this->post_space[ $row_id ] = (int) $post_row['space_id'];
+					$space_ids[]                 = (int) $post_row['space_id'];
+				}
 			}
 		}
 
@@ -1251,6 +1275,24 @@ class NotificationMessageService {
 				wp_cache_set( 'name_' . (int) $name_row['id'], (string) $name_row['name'], self::CACHE_GROUP, self::CACHE_TTL );
 			}
 		}
+	}
+
+	/**
+	 * The type of a post ('event', 'text', ...), from the page's primed lookup or one read.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	private function post_type_of( int $post_id ): string {
+		if ( $post_id <= 0 ) {
+			return '';
+		}
+		if ( ! isset( $this->post_type[ $post_id ] ) ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$this->post_type[ $post_id ] = (string) $wpdb->get_var( $wpdb->prepare( "SELECT type FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1", $post_id ) );
+		}
+		return $this->post_type[ $post_id ];
 	}
 
 	/**

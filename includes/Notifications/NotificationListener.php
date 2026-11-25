@@ -1421,6 +1421,29 @@ class NotificationListener implements ListenerInterface {
 			);
 		}
 
+		/**
+		 * Filter who a new post or card in a Space may notify, for one page of the roster.
+		 *
+		 * Runs once per page (a few hundred ids), not once per member, so an add-on can answer "may this person
+		 * open it?" for the page in one pass. BuddyNext Pro uses it to leave out a member whose plan on a plan-gated
+		 * Space has ended: they are still on the roster but cannot open the post, so they are not told about it.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int[] $candidates User ids about to be notified (this page).
+		 * @param int   $post_id    The post or card.
+		 * @param int   $space_id   The Space.
+		 */
+		$candidates = array_values( array_map( 'intval', (array) apply_filters( 'buddynext_space_post_recipients', $candidates, $post_id, $space_id ) ) );
+		if ( empty( $candidates ) ) {
+			return array(
+				'count'        => $fetched_count,
+				'last_user_id' => $last_user_id,
+				'recipients'   => array(),
+				'bell_off'     => array(),
+			);
+		}
+
 		// Block/mute/restrict suppression — one batched, type-aware query.
 		$blocked = $this->blocked_member_ids( $candidates, $author_id );
 		if ( ! empty( $blocked ) ) {
