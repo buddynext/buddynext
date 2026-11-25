@@ -2370,7 +2370,20 @@ const profileStore = store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw res; }
-				bnToast( wasMuted ? t( 'unmuted', 'Unmuted' ) : t( 'muted', 'Muted' ), { tone: 'success' } );
+				// Instant, so the toast carries Undo: the opposite request, and the button label follows.
+				bnToast( wasMuted ? t( 'unmuted', 'Unmuted' ) : t( 'muted', 'Muted' ), {
+					tone: 'success',
+					timeout: 6000,
+					action: {
+						label: t( 'undo', 'Undo' ),
+						onClick: async function () {
+							var back = await restFetch( '/users/' + ctx.profileUserId + '/mute', {
+								method: wasMuted ? 'POST' : 'DELETE', nonce: ctx.restNonce, toastOnError: false,
+							} );
+							if ( back.ok ) { ctx.isMuted = wasMuted; }
+						},
+					},
+				} );
 			} catch ( e ) {
 				ctx.isMuted = wasMuted;
 				toastRestError( e, t( 'muteFailed', 'Could not update mute state' ) );

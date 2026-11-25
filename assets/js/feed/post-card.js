@@ -2526,6 +2526,9 @@ store( 'buddynext/post-card', {
 					e.preventDefault();
 					e.stopPropagation();
 					cancelBtn.click();
+					// The form is gone: hand focus to the post's "..." button it was opened from.
+					const menuBtn = card.querySelector( 'button.bn-post-card__menu' );
+					if ( menuBtn ) { menuBtn.focus(); }
 				}
 			} );
 			cancelBtn.addEventListener( 'click', () => {

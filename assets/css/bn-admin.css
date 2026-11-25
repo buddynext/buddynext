@@ -5139,10 +5139,14 @@ code.bn-ep-code {
    the table past its card. `anywhere` lets the column shrink below the URL's length; while the columns have room the
    table sizes them to their words, so ordinary text is not split (a phone uses break-word in a fixed layout, above).
    The last column holds the buttons and is left alone. */
+.bn-settings-section .bn-ss-body > table.widefat td,
+.bn-settings-section .bn-ss-body > form > table.widefat td,
+.bn-settings-section > table.widefat td {
+	overflow-wrap: anywhere;
+}
 .bn-settings-section .bn-ss-body > table.widefat td:not(:last-child),
 .bn-settings-section .bn-ss-body > form > table.widefat td:not(:last-child),
 .bn-settings-section > table.widefat td:not(:last-child) {
-	overflow-wrap: anywhere;
 	max-inline-size: 22rem;
 }
 .bn-settings-section .bn-ss-body > table.widefat td:first-child strong,

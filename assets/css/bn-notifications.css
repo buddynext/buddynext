@@ -507,7 +507,9 @@
 		align-items: center;
 		row-gap: var(--bn-s1);
 	}
-	.bn-notif-row__text { grid-area: text; }
+	/* Room for the unread dot in the corner, so the text never runs under it. */
+	.bn-notif-row__text { grid-area: text; padding-inline-end: var(--bn-s5); }
+	.bn-notif-row__actions .bn-btn { padding-inline: var(--bn-s2); }
 	.bn-notif-row__meta { grid-area: meta; }
 	.bn-notif-row__actions {
 		grid-area: actions;

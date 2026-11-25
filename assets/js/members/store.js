@@ -1254,7 +1254,19 @@ const membersStore = store( 'buddynext/members', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw res; }
-				bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), { tone: 'success' } );
+				bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), {
+					tone: 'success',
+					timeout: 6000,
+					action: {
+						label: t( 'undo', 'Undo' ),
+						onClick: async () => {
+							const back = await restFetch( '/users/' + ctx.userId + '/mute', {
+								method: was ? 'POST' : 'DELETE', base: ctx.restUrl || undefined, nonce: restNonce( ctx ), toastOnError: false,
+							} );
+							if ( back.ok ) { ctx.isMuted = was; }
+						},
+					},
+				} );
 			} catch ( e ) {
 				ctx.isMuted = was;
 				toastRestError( e, t( 'toastCouldNotUpdateMute', 'Could not update mute state. Try again.' ) );

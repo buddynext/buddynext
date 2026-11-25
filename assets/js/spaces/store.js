@@ -1197,13 +1197,16 @@ var storeInstance = store( 'buddynext/spaces', {
 			var joinScope  = btn && btn.closest( '[data-join-method]' );
 			var joinMethod = joinScope ? joinScope.dataset.joinMethod : 'join';
 			var lockedOut  = 'request' === joinMethod || 'invite' === joinMethod;
+			// A moderator who leaves comes back as an ordinary member, so the confirm says so.
+			var viewerRole = joinScope ? ( joinScope.dataset.bnViewerRole || '' ) : '';
+			var loseRole   = 'moderator' === viewerRole ? ' ' + t( 'leaveSpaceLoseRole', 'You will also lose your moderator role here, and it is not restored if you join again.' ) : '';
 			var confirmed = await bnConfirmDialog( {
 				title:   t( 'leaveSpaceTitle', 'Leave this space?' ),
-				message: lockedOut
+				message: ( lockedOut
 					? ( 'invite' === joinMethod
 						? t( 'leaveSpaceInviteOnly', 'You will lose access to its posts, and you will need a new invitation to come back.' )
 						: t( 'leaveSpaceRequestOnly', 'You will lose access to its posts, and you will have to ask to join again and be approved.' ) )
-					: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ),
+					: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ) ) + loseRole,
 				ok:      t( 'leaveSpaceOk', 'Leave' ),
 				cancel:  t( 'cancel', 'Cancel' ),
 				// Leaving is reversible (the member can join again), so it is not a danger dialog.
