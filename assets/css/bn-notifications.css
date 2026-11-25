@@ -130,6 +130,8 @@
 .bn-notif-row__avatar-wrap {
 	position: relative;
 	flex-shrink: 0;
+	/* The avatar sits on the first line of the text, not in the middle of a row that is as tall as its action buttons. */
+	align-self: start;
 	width: 28px;
 	height: 28px;
 }
