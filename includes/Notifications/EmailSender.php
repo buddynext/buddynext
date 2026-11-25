@@ -811,37 +811,48 @@ class EmailSender {
 				. esc_html( $preheader ) . '</div>'
 			: '';
 
-		// The mail carries its own language and direction (an Arabic site's mail reads right to left), and says it is
-		// drawn for a light background so a dark-mode client does not invert it into unreadable colours.
+		// The mail carries its own language and direction (an Arabic site's mail reads right to left), and declares both
+		// colour schemes (the dark rules are in the style block below).
 		$mail_lang = esc_attr( str_replace( '_', '-', determine_locale() ) );
 		$mail_dir  = is_rtl() ? 'rtl' : 'ltr';
 
 		return '<!DOCTYPE html><html lang="' . $mail_lang . '" dir="' . $mail_dir . '"><head><meta charset="utf-8">'
 			. '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
-			. '<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">'
+			. '<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">'
+			// Dark mode: a client that honours prefers-color-scheme gets a dark card; the inline colours stay the
+			// light-safe fallback for every client that does not (Outlook, older Gmail), so the mail never inverts badly.
+			. '<style>@media (prefers-color-scheme: dark){'
+			. '.bn-mail-bg{background:#111827 !important;}'
+			. '.bn-mail-card{background:#1f2937 !important;}'
+			. '.bn-mail-head{background:#1f2937 !important;border-color:#374151 !important;}'
+			. '.bn-mail-body{color:#e5e7eb !important;}'
+			. '.bn-mail-body p,.bn-mail-body li,.bn-mail-body td{color:#e5e7eb !important;}'
+			. '.bn-mail-foot{color:#9ca3af !important;border-color:#374151 !important;}'
+			. '.bn-mail-foot a{color:#9ca3af !important;}'
+			. '}</style>'
 			. '<title>' . esc_html( $subject ) . '</title></head>'
-			. '<body style="margin:0;padding:0;background:#f3f4f6;'
+			. '<body class="bn-mail-bg" style="margin:0;padding:0;background:#f3f4f6;'
 			. '-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">'
 			. $preheader_html
-			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 12px;">'
+			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bn-mail-bg" style="background:#f3f4f6;padding:24px 12px;">'
 			. '<tr><td align="center">'
 			// Fluid up to 600px so a phone shows the whole card; Outlook, which ignores
 			// max-width, gets the fixed 600px ghost table instead.
 			. '<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0"><tr><td><![endif]-->'
-			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bn-mail-card" '
 			. 'style="width:100%;max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;'
 			. 'box-shadow:0 1px 3px rgba(0,0,0,0.08);border-top:3px solid ' . $brand_esc . ';">'
 			// Header — light background so any logo (light, dark, or transparent)
 			// reads well; a thin brand-colour strip on the card top keeps a touch
 			// of branding without a heavy coloured block behind the logo.
-			. '<tr><td style="background:#ffffff;padding:24px 32px;border-bottom:1px solid #e5e7eb;">'
+			. '<tr><td class="bn-mail-head" style="background:#ffffff;padding:24px 32px;border-bottom:1px solid #e5e7eb;">'
 			. $header_inner . '</td></tr>'
 			// Body.
-			. '<tr><td style="padding:28px 32px;color:#1f2937;font-size:15px;line-height:1.6;">'
+			. '<tr><td class="bn-mail-body" style="padding:28px 32px;color:#1f2937;font-size:15px;line-height:1.6;">'
 			. $body
 			. '</td></tr>'
 			// Footer.
-			. '<tr><td style="padding:20px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">'
+			. '<tr><td class="bn-mail-foot" style="padding:20px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">'
 			. $footer_html
 			. '</td></tr>'
 			. '</table><!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>';
