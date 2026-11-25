@@ -172,7 +172,7 @@ class GetStartedScreen {
 				foreach ( SetupChecklist::theme_links() as $i => $link ) {
 					printf(
 						'<a class="bn-btn %1$s" href="%2$s"%3$s>%4$s</a>',
-						0 === $i ? 'bn-btn-primary' : 'bn-btn-secondary',
+						'bn-btn-secondary',
 						esc_url( $link['url'] ),
 						! empty( $link['external'] ) ? ' target="_blank" rel="noopener"' : '',
 						esc_html( $link['label'] )

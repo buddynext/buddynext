@@ -91,7 +91,7 @@ class DemoAdmin {
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="bn_demo_seed">
 						<?php wp_nonce_field( 'bn_demo_seed' ); ?>
-						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Install demo data', 'buddynext' ); ?></button>
+						<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Install demo data', 'buddynext' ); ?></button>
 					</form>
 					<p class="bn-av-section-desc" style="margin-top:8px;">
 						<?php esc_html_e( 'Tip: the same engine is available on the command line via', 'buddynext' ); ?>
@@ -155,7 +155,7 @@ class DemoAdmin {
 					<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
 					<input type="hidden" name="bn_demo_origin" value="get-started">
 					<?php wp_nonce_field( $action ); ?>
-					<button type="submit" class="bn-btn" data-variant="<?php echo $seeded ? 'danger' : 'primary'; ?>"><?php echo esc_html( $label ); ?></button>
+					<button type="submit" class="bn-btn" data-variant="<?php echo $seeded ? 'danger' : 'secondary'; ?>"><?php echo esc_html( $label ); ?></button>
 				</form>
 			</div>
 		</div>
@@ -230,7 +230,7 @@ class DemoAdmin {
 					<h2 class="bn-setup-card__title"><?php echo esc_html( $title ); ?></h2>
 					<p class="bn-setup-card__sub"><?php echo esc_html( $sub ); ?></p>
 				</div>
-				<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $wizard ); ?>"><?php echo esc_html( $label ); ?></a>
+				<a class="bn-btn" data-variant="secondary" href="<?php echo esc_url( $wizard ); ?>"><?php echo esc_html( $label ); ?></a>
 			</div>
 			<?php
 			if ( 'idle' === $status ) {
@@ -284,16 +284,16 @@ class DemoAdmin {
 				<?php if ( $one_click || $blocked ) : ?>
 					<div class="bn-demo-installer__action" data-bn-gh-action>
 						<?php if ( $one_click ) : ?>
-							<button type="button" class="bn-btn" data-variant="primary" data-bn-gh-go>
+							<button type="button" class="bn-btn" data-variant="secondary" data-bn-gh-go>
 								<span class="bn-gh-spinner" aria-hidden="true"></span>
 								<span data-bn-gh-label><?php echo esc_html( $installed ? __( 'Activate the installer', 'buddynext' ) : __( 'Install and set up a demo', 'buddynext' ) ); ?></span>
 							</button>
 						<?php endif; ?>
 					</div>
 				<?php elseif ( $installed && current_user_can( 'activate_plugins' ) ) : ?>
-					<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( CompanionRegistry::activate_url( (string) CompanionRegistry::tools()[ self::INSTALLER ]['free']['basename'] ) ); ?>"><?php esc_html_e( 'Activate the installer', 'buddynext' ); ?></a>
+					<a class="bn-btn" data-variant="secondary" href="<?php echo esc_url( CompanionRegistry::activate_url( (string) CompanionRegistry::tools()[ self::INSTALLER ]['free']['basename'] ) ); ?>"><?php esc_html_e( 'Activate the installer', 'buddynext' ); ?></a>
 				<?php elseif ( ! $installed ) : ?>
-					<a class="bn-btn" data-variant="primary" href="https://github.com/buddynext/wbcom-demo-installer/releases/latest" target="_blank" rel="noopener"><?php esc_html_e( 'Get the installer', 'buddynext' ); ?></a>
+					<a class="bn-btn" data-variant="secondary" href="https://github.com/buddynext/wbcom-demo-installer/releases/latest" target="_blank" rel="noopener"><?php esc_html_e( 'Get the installer', 'buddynext' ); ?></a>
 				<?php endif; ?>
 			</div>
 			<?php
@@ -346,7 +346,7 @@ class DemoAdmin {
 						<p class="bn-demo-tile__ready" data-state="<?php echo esc_attr( (string) ( $bn_demo['state'] ?? '' ) ); ?>"><?php echo esc_html( $ready ); ?></p>
 					<?php endif; ?>
 					<div class="bn-demo-tile__actions">
-						<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( (string) ( $bn_demo['url'] ?? $wizard ) ); ?>"><?php esc_html_e( 'Set up this demo', 'buddynext' ); ?></a>
+						<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( (string) ( $bn_demo['url'] ?? $wizard ) ); ?>"><?php esc_html_e( 'Set up this demo', 'buddynext' ); ?></a>
 						<?php if ( '' !== $film_i ) : ?>
 							<a class="bn-demo-tile__film" href="<?php echo esc_url( 'https://www.youtube.com/watch?v=' . rawurlencode( $film_i ) ); ?>" target="_blank" rel="noopener noreferrer">
 								<?php

@@ -5102,6 +5102,11 @@ code.bn-ep-code {
 		display: table;
 		table-layout: fixed;
 		width: 100%;
+		/* Narrower than this the columns hold a word or two each and break mid-word; the card scrolls sideways instead. */
+		min-width: 34rem;
+	}
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat:has(th:nth-child(6)) {
+		min-width: 46rem;
 	}
 	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th,
 	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat td {
@@ -5111,10 +5116,10 @@ code.bn-ep-code {
 	}
 	/* Column widths by role: the text columns keep enough room for a whole word, the last column holds the buttons. */
 	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th:first-child {
-		width: 30%;
+		width: 24%;
 	}
 	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th:last-child {
-		width: 32%;
+		width: 28%;
 	}
 	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat td:last-child .bn-row-actions {
 		flex-wrap: wrap;
@@ -5154,4 +5159,15 @@ code.bn-ep-code {
 	height: auto;
 	min-height: 30px;
 	display: flow-root;
+}
+
+/* One control height in the bulk bar: the select, Apply and the other buttons are all 40px. */
+.bn-admin-hub .tablenav .bulkactions select,
+.bn-admin-hub .tablenav .bulkactions .bn-btn,
+.bn-admin-hub .tablenav .bulkactions .button,
+.bn-admin-hub form.bn-bulk-bar select,
+.bn-admin-hub form.bn-bulk-bar .bn-btn {
+	box-sizing: border-box;
+	block-size: 40px;
+	min-block-size: 40px;
 }

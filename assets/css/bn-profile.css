@@ -3464,3 +3464,8 @@ a.bn-space-row:hover .bn-space-name {
 	justify-content: flex-end;
 	margin-block-start: var(--bn-s4);
 }
+
+/* The 2FA stage is a column: its buttons size to their label instead of stretching across the card. */
+.bn-2fa-stage > .bn-btn {
+	align-self: flex-start;
+}
