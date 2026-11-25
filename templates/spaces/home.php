@@ -222,6 +222,22 @@ if ( ! $bn_active_renderable ) {
 		</div>
 	<?php endif; ?>
 
+	<?php
+	// A member who came here from another page to join (an event preview, a gated page) gets a way back.
+	$bn_return_url = $is_member ? \BuddyNext\Spaces\SpaceReturnLink::url() : '';
+	if ( '' !== $bn_return_url ) :
+		list( $bn_return_line, $bn_return_label ) = \BuddyNext\Spaces\SpaceReturnLink::words();
+		?>
+		<div class="bn-card bn-sh-invite" role="status">
+			<div class="bn-sh-invite__text">
+				<span><?php echo esc_html( $bn_return_line ); ?></span>
+			</div>
+			<div class="bn-sh-invite__actions">
+				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_return_url ); ?>"><?php echo esc_html( $bn_return_label ); ?></a>
+			</div>
+		</div>
+	<?php endif; ?>
+
 	<!-- Tab body -->
 	<div class="bn-sh-body">
 		<?php
