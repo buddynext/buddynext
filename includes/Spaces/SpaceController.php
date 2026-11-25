@@ -2357,9 +2357,18 @@ class SpaceController extends BaseRestController {
 			$repo->prefetch( array_values( array_unique( $all_ids ) ) );
 		}
 
+		// A picture the viewer may not see is left out whole: the descriptor of a private one still carries its title,
+		// permalink and date with only the file address blank, which told a guest that it exists. Same per-picture
+		// check the web Media tab makes (FeedService::space_media_page).
+		$privacy = \BuddyNext\Media\MediaClient::privacy();
+		$can_see = static fn( int $mid ): bool => null === $privacy || ! is_callable( array( $privacy, 'can_view' ) ) || (bool) $privacy->can_view( $mid, $viewer_id );
+
 		$items = array();
 		foreach ( $rows as $row ) {
 			foreach ( $row['media_ids'] as $media_id ) {
+				if ( ! $can_see( (int) $media_id ) ) {
+					continue;
+				}
 				$descriptor = \BuddyNext\Media\MediaUrlResolver::descriptor( $media_id );
 
 				// Null means deleted, or not visible to THIS viewer — the engine

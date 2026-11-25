@@ -236,7 +236,7 @@ class Galleries {
 	 */
 	public static function user_media_ids( int $owner_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
 		$repo = MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'query_by_author' ) ) {
+		if ( ! $repo || ! method_exists( $repo, 'query_by_author' ) || self::owner_hidden( $owner_id ) ) {
 			return array();
 		}
 
@@ -266,6 +266,17 @@ class Galleries {
 	}
 
 	/**
+	 * Whether a member's media is withheld: a suspended member's profile shows nothing of them to anyone but a site
+	 * admin (ProfileService::get_profile), so the Media tab and its count follow the same rule.
+	 *
+	 * @param int $owner_id Member whose media is asked for.
+	 * @return bool
+	 */
+	private static function owner_hidden( int $owner_id ): bool {
+		return buddynext_service( 'moderation' )->is_suspended( $owner_id ) && ! current_user_can( 'manage_options' );
+	}
+
+	/**
 	 * Count of media owned by a user that the viewer may see.
 	 *
 	 * MediaVerse's own viewer-aware count, given the same arguments as the grid
@@ -280,7 +291,7 @@ class Galleries {
 	 */
 	public static function user_media_count( int $owner_id, int $viewer_id ): int {
 		$repo = MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'count_visible_by_author' ) ) {
+		if ( ! $repo || ! method_exists( $repo, 'count_visible_by_author' ) || self::owner_hidden( $owner_id ) ) {
 			return 0;
 		}
 
