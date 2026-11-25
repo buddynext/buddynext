@@ -34,6 +34,9 @@ $bn_mt_can_upload = \BuddyNext\Media\MediaClient::can_upload( get_current_user_i
 // (Media -> Albums sub-tab). Default on. When off, only the flat Media gallery shows.
 $bn_mt_albums_enabled = ! isset( $bn_mt_albums_enabled ) || (bool) $bn_mt_albums_enabled;
 
+// Whether members may pick an album's privacy, asked once for the context and the form below.
+$bn_mt_may_choose = \BuddyNext\Bridges\WPMediaVerseBridge::members_may_choose_privacy();
+
 $bn_mt_ctx = array(
 	'restNonce'          => wp_create_nonce( 'wp_rest' ),
 	'ownerId'            => $bn_mt_owner_id,
@@ -62,7 +65,7 @@ $bn_mt_ctx = array(
 	'createPrivacy'      => 'public',
 	// False when the site owner has locked privacy: the form then sends none, because the
 	// engine refuses a change to an album's level.
-	'canChoosePrivacy'   => \BuddyNext\Bridges\WPMediaVerseBridge::members_may_choose_privacy(),
+	'canChoosePrivacy'   => $bn_mt_may_choose,
 	'pickerOpen'         => false,
 	// True while an in-picker upload is in flight — disables the file input and shows
 	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
@@ -278,7 +281,7 @@ $bn_mt_ctx = array(
 					<p class="bn-album-privacy-note">
 						<?php esc_html_e( 'Who can see this album is decided by the space. Members who can see the space can see its albums.', 'buddynext' ); ?>
 					</p>
-				<?php elseif ( ! \BuddyNext\Bridges\WPMediaVerseBridge::members_may_choose_privacy() ) : ?>
+				<?php elseif ( ! $bn_mt_may_choose ) : ?>
 					<?php // Locked by the site owner: MediaVerse gives every album the site default and refuses a change. ?>
 					<p class="bn-album-privacy-note">
 						<?php esc_html_e( 'The site owner sets who can see albums.', 'buddynext' ); ?>

@@ -1373,19 +1373,18 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-reply-card__tag {
 	display: inline-flex;
 	align-items: center;
+	background: var(--bn-sunken);
 	padding: 0 var(--bn-s2);
 	border-radius: var(--bn-r-full);
 	font-size: var(--bn-text-xs);
 	line-height: 20px;
 }
 .bn-reply-card__mark {
-	background: var(--bn-sunken);
 	color: var(--bn-ink);
 	font-weight: var(--bn-fw-semibold);
 	border: 1px solid var(--bn-line-control);
 }
 .bn-reply-card__tag {
-	background: var(--bn-sunken);
 	color: var(--bn-ink-2);
 }
 

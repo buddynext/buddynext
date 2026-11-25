@@ -805,15 +805,9 @@ class GamificationBridge {
 				);
 			}
 
-			if ( preg_match( '/#badge-([^#?\/]+)$/', (string) ( $meta['url'] ?? '' ), $m ) ) {
-				$badge_id = rawurldecode( $m[1] );
-				if ( ! array_key_exists( $badge_id, self::$badge_defs_memo ) ) {
-					self::$badge_defs_memo[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
-				}
-				$def = self::$badge_defs_memo[ $badge_id ];
-				if ( is_array( $def ) && '' !== (string) ( $def['name'] ?? '' ) ) {
-					$answer['title'] = (string) $def['name'];
-				}
+			$def = self::badge_def_for_url( (string) ( $meta['url'] ?? '' ) );
+			if ( is_array( $def ) && '' !== (string) ( $def['name'] ?? '' ) ) {
+				$answer['title'] = (string) $def['name'];
 			}
 
 			if ( array() !== $answer ) {
@@ -893,6 +887,23 @@ class GamificationBridge {
 	}
 
 	/**
+	 * The badge definition a card's `#badge-<id>` address names, memoised per badge for the request.
+	 *
+	 * @param string $url Card address.
+	 * @return array<string,mixed>|null The definition, or null when the address names no badge or it no longer exists.
+	 */
+	private static function badge_def_for_url( string $url ): ?array {
+		if ( ! class_exists( 'WBGam\\Engine\\BadgeEngine' ) || ! preg_match( '/#badge-([^#?\/]+)$/', $url, $m ) ) {
+			return null;
+		}
+		$badge_id = rawurldecode( $m[1] );
+		if ( ! array_key_exists( $badge_id, self::$badge_defs_memo ) ) {
+			self::$badge_defs_memo[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
+		}
+		return self::$badge_defs_memo[ $badge_id ];
+	}
+
+	/**
 	 * Fill a badge card's artwork and description from the badge itself when the
 	 * card was stored without them (every card shared before 1.2.6).
 	 *
@@ -912,14 +923,7 @@ class GamificationBridge {
 		if ( ( '' !== $image && '' !== $desc ) || ! class_exists( 'WBGam\Engine\BadgeEngine' ) ) {
 			return $meta;
 		}
-		if ( ! preg_match( '/#badge-([^#?\/]+)$/', (string) ( $meta['url'] ?? '' ), $m ) ) {
-			return $meta;
-		}
-		$badge_id = rawurldecode( $m[1] );
-		if ( ! array_key_exists( $badge_id, self::$badge_defs_memo ) ) {
-			self::$badge_defs_memo[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
-		}
-		$def = self::$badge_defs_memo[ $badge_id ];
+		$def = self::badge_def_for_url( (string) ( $meta['url'] ?? '' ) );
 		if ( ! is_array( $def ) ) {
 			return $meta;
 		}

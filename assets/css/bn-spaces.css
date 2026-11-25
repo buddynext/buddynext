@@ -1236,10 +1236,10 @@ a.bn-sh-statpill:focus-visible {
 .bn-sh-about__location {
 	display: flex;
 	align-items: center;
-	gap: var(--bn-s2, 0.5rem);
-	margin: 0 0 var(--bn-s4, 1rem);
-	color: var(--bn-text-2, #4b5563);
-	font-size: var(--bn-text-sm, 0.9rem);
+	gap: var(--bn-s2);
+	margin: 0 0 var(--bn-s4);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
 }
 
 .bn-sh-about__location-text {

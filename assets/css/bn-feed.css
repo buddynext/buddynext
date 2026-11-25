@@ -1239,7 +1239,6 @@
 	position: relative;
 	inline-size: auto;
 	aspect-ratio: 1;
-	min-block-size: 0;
 	align-self: start;
 }
 
@@ -1313,7 +1312,6 @@
 	/* On a phone the thumbnail stays at the side, smaller, so a card with a picture is the same height as one without. */
 	.bn-post-card__bridge-card--grid.has-cover {
 		grid-template-columns: 64px minmax(0, 1fr);
-		grid-template-areas: "cover head" "text text";
 	}
 
 	.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover {

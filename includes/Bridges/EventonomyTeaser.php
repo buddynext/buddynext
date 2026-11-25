@@ -80,12 +80,16 @@ class EventonomyTeaser {
 			'heading' => sprintf( __( 'This event is for %s members', 'buddynext' ), $name ),
 		);
 
+		// The words for joining an open Space: the same for a guest and a signed-in member, only the way in differs.
+		$join = $base + array(
+			/* translators: %s: Space name. */
+			'message'   => sprintf( __( 'Join %s to see the full details and take a place.', 'buddynext' ), $name ),
+			/* translators: %s: Space name. */
+			'cta_label' => sprintf( __( 'Join %s', 'buddynext' ), $name ),
+		);
+
 		if ( $user_id <= 0 ) {
-			return $base + array(
-				/* translators: %s: Space name. */
-				'message'         => sprintf( __( 'Join %s to see the full details and take a place.', 'buddynext' ), $name ),
-				/* translators: %s: Space name. */
-				'cta_label'       => sprintf( __( 'Join %s', 'buddynext' ), $name ),
+			return $join + array(
 				'cta_url'         => PageRouter::signup_url( $link ),
 				'secondary_label' => __( 'Log in', 'buddynext' ),
 				'secondary_url'   => PageRouter::login_url( $link ),
@@ -128,12 +132,6 @@ class EventonomyTeaser {
 			);
 		}
 
-		return $base + array(
-			/* translators: %s: Space name. */
-			'message'   => sprintf( __( 'Join %s to see the full details and take a place.', 'buddynext' ), $name ),
-			/* translators: %s: Space name. */
-			'cta_label' => sprintf( __( 'Join %s', 'buddynext' ), $name ),
-			'cta_url'   => $space_url,
-		);
+		return $join + array( 'cta_url' => $space_url );
 	}
 }

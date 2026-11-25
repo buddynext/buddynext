@@ -132,9 +132,8 @@ async function fetchAlbums( ctx, page = 1 ) {
 		ctx.albums = page > 1 ? ctx.albums.concat( list.map( toCard ) ) : list.map( toCard );
 		ctx.hasAlbums = ctx.albums.length > 0;
 		ctx.albumsPage = page;
-		// The server says whether another page exists. A page the viewer may see only part of comes back short and is not
-		// the last, so the length is only the fallback for an older response without the flag.
-		ctx.albumsHasMore = res.ok && res.data && typeof res.data.has_more === 'boolean' ? res.data.has_more : list.length >= ALBUM_PAGE;
+		// The server says whether another page exists: a page the viewer may see only part of comes back short and is not the last.
+		ctx.albumsHasMore = !! ( res.ok && res.data && res.data.has_more );
 	} catch ( e ) {
 		if ( page === 1 ) {
 			ctx.albums = [];

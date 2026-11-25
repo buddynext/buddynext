@@ -890,22 +890,16 @@ class JetonomyBridge {
 			$wpdb->prepare( "SELECT id, is_resolved, is_closed, vote_score, reply_count, accepted_reply_id FROM {$wpdb->prefix}jt_posts WHERE id IN ({$in})", $unique ),
 			OBJECT_K
 		);
-		$tags = $wpdb->get_results(
-			$wpdb->prepare( "SELECT pt.post_id, t.name FROM {$wpdb->prefix}jt_post_tags pt INNER JOIN {$wpdb->prefix}jt_tags t ON t.id = pt.tag_id WHERE pt.post_id IN ({$in}) ORDER BY t.name ASC", $unique ),
-			ARRAY_A
-		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
-		$names = array();
-		foreach ( (array) $tags as $tag ) {
-			$names[ (int) $tag['post_id'] ][] = (string) $tag['name'];
-		}
+		// The tags come from the same helper the Space Discussions list uses: one read, the first two names.
+		$rows = $this->with_tags( (array) $rows );
 
 		foreach ( $topic_ids as $post_id => $topic ) {
 			if ( ! isset( $rows[ $topic ] ) ) {
 				continue;
 			}
-			$answers[ $post_id ] = self::discussion_card( (array) $rows[ $topic ], $names[ $topic ] ?? array() );
+			$answers[ $post_id ] = self::discussion_card( (array) $rows[ $topic ], $rows[ $topic ]->tags );
 		}
 
 		return $answers;
@@ -937,12 +931,13 @@ class JetonomyBridge {
 				'text' => sprintf( _n( '%d vote', '%d votes', abs( $votes ), 'buddynext' ), $votes ),
 			);
 		}
-		if ( ! empty( $topic['is_resolved'] ) || ! empty( $topic['accepted_reply_id'] ) ) {
+		$state = self::topic_state( (object) $topic );
+		if ( 'solved' === $state ) {
 			$facts[] = array(
 				'icon' => 'check-circle',
 				'text' => __( 'Solved', 'buddynext' ),
 			);
-		} elseif ( ! empty( $topic['is_closed'] ) ) {
+		} elseif ( 'closed' === $state ) {
 			$facts[] = array(
 				'icon' => 'lock',
 				'text' => __( 'Closed', 'buddynext' ),
@@ -5827,12 +5822,29 @@ class JetonomyBridge {
 		if ( ! empty( $topic->is_sticky ) ) {
 			$out[] = __( 'Pinned', 'buddynext' );
 		}
-		if ( ! empty( $topic->is_resolved ) || ! empty( $topic->accepted_reply_id ) ) {
+		$state = self::topic_state( $topic );
+		if ( 'solved' === $state ) {
 			$out[] = __( 'Solved', 'buddynext' );
-		} elseif ( ! empty( $topic->is_closed ) ) {
+		} elseif ( 'closed' === $state ) {
 			$out[] = __( 'Closed', 'buddynext' );
 		}
 		return $out;
+	}
+
+	/**
+	 * Whether a topic reads as solved, closed or neither: Solved wins when it has an accepted reply or is marked resolved.
+	 * The one rule the forum list and the feed card share, so they cannot disagree.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param object $topic jt_posts columns (is_resolved, accepted_reply_id, is_closed).
+	 * @return string 'solved', 'closed' or ''.
+	 */
+	private static function topic_state( object $topic ): string {
+		if ( ! empty( $topic->is_resolved ) || ! empty( $topic->accepted_reply_id ) ) {
+			return 'solved';
+		}
+		return ! empty( $topic->is_closed ) ? 'closed' : '';
 	}
 
 	/**

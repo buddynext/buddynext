@@ -2834,11 +2834,8 @@ document.addEventListener(
 		if ( ! cover ) {
 			return;
 		}
-		const card = cover.closest( '.bn-post-card__bridge-card' );
+		cover.closest( '.bn-post-card__bridge-card' )?.classList.remove( 'has-cover' );
 		cover.remove();
-		if ( card ) {
-			card.classList.remove( 'has-cover' );
-		}
 	},
 	true
 );

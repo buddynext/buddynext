@@ -536,7 +536,6 @@
 
 	.bn-members-filter {
 		flex-direction: column;
-		flex-wrap: nowrap;
 		align-items: stretch;
 	}
 
