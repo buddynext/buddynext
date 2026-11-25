@@ -974,3 +974,12 @@ body.bn-hub-auth .bn-auth-page {
 	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
+
+
+/* The Show / Hide password control is a finger target on a phone. */
+@media (max-width: 640px) {
+	button.bn-auth-pw__toggle {
+		min-block-size: 40px;
+		min-inline-size: 40px;
+	}
+}
