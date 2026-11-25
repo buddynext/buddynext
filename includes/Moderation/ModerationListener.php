@@ -227,12 +227,12 @@ class ModerationListener implements ListenerInterface {
 		}
 
 		// Member-facing values for {{reason}} / {{expires_at}}: a real reason or a plain
-		// fallback, and a site-formatted date (the hook passes UTC) or "until lifted".
+		// fallback, and a site-formatted date (the hook passes UTC) or "further notice" (the template reads "Suspended until: ...").
 		$bn_reason     = \BuddyNext\Moderation\ModerationService::member_facing_reason( $reason );
 		$reason        = '' !== $bn_reason ? $bn_reason : __( 'No reason was recorded. Contact the site team if you think this is a mistake.', 'buddynext' );
 		$expires_label = null !== $expires_at && '' !== $expires_at
 			? buddynext_date_local( $expires_at )
-			: __( 'until the suspension is lifted', 'buddynext' );
+			: __( 'further notice', 'buddynext' );
 
 		// reason + expires_at are passed as top-level scalars so EmailSender::
 		// render() exposes them as {{reason}} / {{expires_at}} tokens for any

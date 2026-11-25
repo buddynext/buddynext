@@ -67,6 +67,17 @@ class EmailNamesWhoAndWhereTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'View their profile', $mail );
 	}
 
+	public function test_a_suspension_notice_reads_properly_and_offers_no_unsubscribe(): void {
+		$mail = $this->send( $this->member( 'Quinn Reader' ), 'bn.member_suspended', array( 'reason' => 'Spam', 'expires_at' => __( 'further notice', 'buddynext' ) ) );
+
+		$this->assertStringContainsString( 'Suspended until:', $mail );
+		$this->assertStringContainsString( 'further notice', $mail );
+		$this->assertStringNotContainsString( 'until the suspension is lifted', $mail );
+		$this->assertStringNotContainsString( 'Unsubscribe', $mail, 'A moderation notice carries no unsubscribe link.' );
+		$this->assertStringNotContainsString( 'Stop emails like this', $mail, 'Nor the generic footer.' );
+		$this->assertStringContainsString( 'See your account status', $mail, 'The way to the account page stays.' );
+	}
+
 	public function test_new_message_names_the_sender(): void {
 		// A DM email needs WPMediaVerse, absent here; the accepted test above proves
 		// {{actor_name}} is filled from sender_id, so check the default names it.

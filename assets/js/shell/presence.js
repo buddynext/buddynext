@@ -19,6 +19,7 @@ const STORAGE_KEY = 'bnPresencePingAt';
 const MIN_GAP_MS = 4 * 60 * 1000;
 
 let lastPingAt = 0;
+let stopped = false;
 
 /**
  * POST /me/presence/heartbeat when the tab is visible and the gap has passed.
@@ -29,7 +30,7 @@ let lastPingAt = 0;
  * @return {void}
  */
 function ping() {
-	if ( 'visible' !== document.visibilityState ) {
+	if ( stopped || 'visible' !== document.visibilityState ) {
 		return;
 	}
 	let last = lastPingAt;
@@ -48,11 +49,18 @@ function ping() {
 	} catch ( e ) {
 		// Storage blocked: the in-memory timestamp still throttles this page.
 	}
-	// Fire and forget: presence is best effort and never surfaces an error.
+	// Fire and forget: presence is best effort and never surfaces an error, not even the hold notice (a
+	// suspended member is told on the page they act on, not by a background ping on every load).
 	restFetch( '/me/presence/heartbeat', {
 		method: 'POST',
 		keepalive: true,
 		toastOnError: false,
+		silent: true,
+	} ).then( function ( result ) {
+		// A refused member cannot be present: stop asking for the rest of this document.
+		if ( result && ( result.suspended || 403 === result.status ) ) {
+			stopped = true;
+		}
 	} );
 }
 

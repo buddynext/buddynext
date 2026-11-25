@@ -1034,9 +1034,16 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-toast__text {
 	display: flex;
 	flex-direction: column;
+	flex: 1 1 auto;
 	gap: var(--bn-s1);
 	min-width: 0;
 	overflow-wrap: anywhere;
+}
+/* A toast with a link beside its words is a message, not a pill: the large radius, the words take the room and the
+   link wraps instead of squeezing the text into a one-word column. */
+.bn-toast:has(.bn-toast__action) {
+	align-items: flex-start;
+	border-radius: var(--bn-r-lg);
 }
 .bn-toast__body {
 	font-weight: var(--bn-fw-normal);
@@ -1085,7 +1092,6 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	color: inherit;
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: underline;
-	white-space: nowrap;
 }
 .bn-toast__action { align-self: center; }
 /* On a two-line toast the action sits under the text, aligned with it. */

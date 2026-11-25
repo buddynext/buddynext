@@ -98,6 +98,15 @@ class EmailSender {
 	private const COMPOSED_EMAIL_TYPES = array( 'bn.broadcast', 'bn.drip_step' );
 
 	/**
+	 * Moderation notices to a member about their own account (a strike, a suspension, an appeal's outcome). They
+	 * carry no unsubscribe link: a footer offering to stop a suspension notice reads as a joke, and the member's
+	 * notification settings still decide whether the mail is sent.
+	 *
+	 * @var string[]
+	 */
+	private const MODERATION_NOTICE_TYPES = array( 'bn.strike_issued', 'bn.strike_warning', 'bn.member_suspended', 'bn.appeal_resolved' );
+
+	/**
 	 * Constructor.
 	 *
 	 * @param NotificationPrefService   $pref_service Notification preference service.
@@ -342,6 +351,11 @@ class EmailSender {
 		$subject_src = $has_inline ? $inline_subject : (string) $template->subject;
 		$body_src    = $has_inline ? $inline_body : (string) $template->body_html;
 
+		// The seeded moderation templates end in an unsubscribe paragraph; drop it from the notices that must not offer one.
+		if ( in_array( $notification_type, self::MODERATION_NOTICE_TYPES, true ) ) {
+			$body_src = (string) preg_replace( '#<p>\s*<a href="\{\{unsubscribe_url\}\}"[^>]*>[^<]*</a>\s*</p>#i', '', $body_src );
+		}
+
 		$subject = $this->render( $subject_src, $user_id, $data );
 		$body    = $this->render( $body_src, $user_id, $data );
 
@@ -351,6 +365,7 @@ class EmailSender {
 		if ( false === strpos( $body_src, '{{unsubscribe_url}}' )
 			&& ! in_array( $notification_type, $this->transactional_types(), true )
 			&& ! in_array( $notification_type, self::COMPOSED_EMAIL_TYPES, true )
+			&& ! in_array( $notification_type, self::MODERATION_NOTICE_TYPES, true )
 		) {
 			$body .= '<p style="margin:24px 0 0;font-size:12px;color:#6b7280;">'
 				. sprintf(

@@ -347,11 +347,16 @@
  * off-screen and made non-interactive so real users never see or tab into it.
  */
 .bn-auth-hp {
+	/* Clipped to nothing in place: pushing it 9999px off with `left` made the page 10,000px wide in a right-to-left
+	   locale. */
 	position: absolute;
-	left: -9999px;
-	width: 1px;
-	height: 1px;
+	inline-size: 1px;
+	block-size: 1px;
+	margin: -1px;
+	padding: 0;
 	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 /* Link-styled button (e.g. "Email me a code instead" on the 2FA step). */

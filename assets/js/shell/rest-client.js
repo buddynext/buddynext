@@ -401,8 +401,9 @@ export function toastRestError( res, fallback ) {
  * Perform a REST request.
  *
  * @param {string} path Path relative to the namespace base (or absolute URL).
- * @param {Object} [opts] fetch-like options plus { base, nonce, toastOnError,
- *                        onUploadProgress( loaded, total ) }.
+ * @param {Object} [opts] fetch-like options plus { base, nonce, toastOnError, silent,
+ *                        onUploadProgress( loaded, total ) }. silent: show no toast at all, not even the
+ *                        hold notice (a background call the member did not make).
  * @return {Promise<{ok:boolean,status:number,data:*,error?:string}>} Result.
  */
 export async function restFetch( path, opts ) {
@@ -418,6 +419,8 @@ export async function restFetch( path, opts ) {
 		const info = ( result.data && result.data.data ) || {};
 		if ( info.appeal_url ) {
 			result.suspended = true;
+		}
+		if ( info.appeal_url && ! opts.silent ) {
 			bnToast(
 				( result.data && result.data.message ) || 'Your account is on hold.',
 				{
@@ -428,7 +431,7 @@ export async function restFetch( path, opts ) {
 					},
 				}
 			);
-		} else if ( opts.toastOnError !== false ) {
+		} else if ( ! info.appeal_url && ! opts.silent && opts.toastOnError !== false ) {
 			bnToast( restError( result ), { tone: 'danger' } );
 		}
 	}
