@@ -24,6 +24,7 @@
  * @var array    $empty_state   parts/empty-state.php arguments for a linked forum with no threads, by what this viewer may do.
  * @var bool     $can_provision Whether the viewer may provision (create) the forum — gates the empty-state CTA.
  * @var bool     $can_post      Whether the viewer may start a discussion — gates the header "Start a discussion" button.
+ * @var int      $total         Published topics in the forum, for the "Showing N of M" line (0 = not known).
  */
 
 declare( strict_types=1 );
@@ -38,6 +39,7 @@ $bn_provision     = isset( $provision_url ) ? (string) $provision_url : '';
 $bn_empty_state   = isset( $empty_state ) && is_array( $empty_state ) ? $empty_state : array();
 $bn_can_provision = isset( $can_provision ) ? (bool) $can_provision : false;
 $bn_can_post      = isset( $can_post ) ? (bool) $can_post : false;
+$bn_total         = isset( $total ) ? (int) $total : 0;
 
 // Thread permalinks derive from the forum URL (which already carries the
 // Jetonomy space slug), never the BN space slug — the two can differ.
@@ -84,6 +86,21 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 						<span class="bn-reply-card__time"><?php echo esc_html( \BuddyNext\Core\Dates::relative( (string) $bn_disc->created_at ) ); ?></span>
 					</div>
 					<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( (string) $bn_disc->title ); ?></div>
+					<?php
+					// Pinned, Solved or Closed, then up to two tags: what a member needs to judge the topic before opening it.
+					$bn_sdp_marks = \BuddyNext\Bridges\JetonomyBridge::topic_markers( $bn_disc );
+					$bn_sdp_tags  = isset( $bn_disc->tags ) && is_array( $bn_disc->tags ) ? $bn_disc->tags : array();
+					if ( $bn_sdp_marks || $bn_sdp_tags ) :
+						?>
+						<div class="bn-reply-card__marks">
+							<?php foreach ( $bn_sdp_marks as $bn_sdp_mark ) : ?>
+								<span class="bn-reply-card__mark"><?php echo esc_html( $bn_sdp_mark ); ?></span>
+							<?php endforeach; ?>
+							<?php foreach ( $bn_sdp_tags as $bn_sdp_tag ) : ?>
+								<span class="bn-reply-card__tag"><?php echo esc_html( (string) $bn_sdp_tag ); ?></span>
+							<?php endforeach; ?>
+						</div>
+					<?php endif; ?>
 					<div class="bn-reply-card__context">
 						<?php
 						$bn_sdp_rc = (int) ( $bn_disc->reply_count ?? 0 );
@@ -98,6 +115,15 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 				</a>
 			<?php endforeach; ?>
 		</div>
+		<?php if ( $bn_total > count( $bn_discussions ) && '' !== $bn_forum_url ) : ?>
+			<p class="bn-space-discussions__more">
+				<?php
+				/* translators: 1: topics shown, 2: topics in the forum. */
+				printf( esc_html__( 'Showing %1$s of %2$s', 'buddynext' ), esc_html( number_format_i18n( count( $bn_discussions ) ) ), esc_html( number_format_i18n( $bn_total ) ) );
+				?>
+				<a href="<?php echo esc_url( $bn_forum_url ); ?>"><?php esc_html_e( 'See all in the forum', 'buddynext' ); ?></a>
+			</p>
+		<?php endif; ?>
 	<?php elseif ( $bn_forum_linked ) : ?>
 		<?php
 		// Forum exists but has no published threads yet.

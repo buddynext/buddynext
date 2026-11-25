@@ -5091,6 +5091,7 @@ class JetonomyBridge {
 			array(
 				'space'         => $space,
 				'discussions'   => $this->space_discussions( $space_id, 20 ),
+				'total'         => $this->space_discussion_count( $space_id ),
 				'forum_url'     => (string) $forum_ctx['forum_url'],
 				'forum_linked'  => (bool) $forum_ctx['linked'],
 				'provision_url' => (string) $forum_ctx['provision_url'],
@@ -5600,6 +5601,7 @@ class JetonomyBridge {
 		$own = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+				        p.is_sticky, p.is_closed, p.is_resolved, p.accepted_reply_id,
 				        p.author_id, u.display_name AS author_name, u.user_login AS author_login{$this->anonymous_column( 'p' )}
 				 FROM {$wpdb->prefix}jt_posts p
 				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
@@ -5616,7 +5618,7 @@ class JetonomyBridge {
 			return $this->without_blocked( $rows, $viewer_id );
 		}
 
-		$rows = array_merge( $rows, $own );
+		$rows = array_merge( $rows, $this->with_tags( $own ) );
 		usort( $rows, static fn( $a, $b ): int => strcmp( (string) $b->created_at, (string) $a->created_at ) );
 
 		return $this->without_blocked( array_slice( $rows, 0, $limit ), $viewer_id );
@@ -5678,11 +5680,12 @@ class JetonomyBridge {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+				        p.is_sticky, p.is_closed, p.is_resolved, p.accepted_reply_id,
 				        p.author_id, u.display_name AS author_name, u.user_login AS author_login{$this->anonymous_column( 'p' )}
 				 FROM {$wpdb->prefix}jt_posts p
 				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
 				 WHERE p.space_id = %d AND p.status = 'publish' AND p.is_private = 0
-				 ORDER BY p.created_at DESC
+				 ORDER BY p.is_sticky DESC, p.created_at DESC
 				 LIMIT %d",
 				$forum_id,
 				$limit
@@ -5708,11 +5711,64 @@ class JetonomyBridge {
 			}
 		}
 
+		$rows = $this->with_tags( $rows );
+
 		if ( $use_cache ) {
 			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * Put each topic's first two tag names on its row, in one read for the whole list.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,object> $rows Topic rows (id).
+	 * @return array<int,object> The same rows, each with `tags` (string[]).
+	 */
+	private function with_tags( array $rows ): array {
+		$ids = array_values( array_filter( array_map( static fn( $row ): int => (int) ( $row->id ?? 0 ), $rows ) ) );
+		if ( array() === $ids ) {
+			return $rows;
+		}
+
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- one bounded read per list; placeholders are built from the id count.
+		$found = $wpdb->get_results( $wpdb->prepare( "SELECT pt.post_id, t.name FROM {$wpdb->prefix}jt_post_tags pt INNER JOIN {$wpdb->prefix}jt_tags t ON t.id = pt.tag_id WHERE pt.post_id IN ({$in}) ORDER BY t.name ASC", $ids ), ARRAY_A );
+
+		$names = array();
+		foreach ( (array) $found as $tag ) {
+			$names[ (int) $tag['post_id'] ][] = (string) $tag['name'];
+		}
+		foreach ( $rows as $row ) {
+			$row->tags = array_slice( $names[ (int) $row->id ] ?? array(), 0, 2 );
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * The state words a topic row carries in its list, in a fixed order: Pinned, then Solved or Closed.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param object $topic jt_posts columns (is_sticky, is_resolved, accepted_reply_id, is_closed).
+	 * @return string[]
+	 */
+	public static function topic_markers( object $topic ): array {
+		$out = array();
+		if ( ! empty( $topic->is_sticky ) ) {
+			$out[] = __( 'Pinned', 'buddynext' );
+		}
+		if ( ! empty( $topic->is_resolved ) || ! empty( $topic->accepted_reply_id ) ) {
+			$out[] = __( 'Solved', 'buddynext' );
+		} elseif ( ! empty( $topic->is_closed ) ) {
+			$out[] = __( 'Closed', 'buddynext' );
+		}
+		return $out;
 	}
 
 	/**

@@ -1352,12 +1352,52 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	grid-template-areas:
 		"avatar meta"
 		"avatar content"
+		"avatar marks"
 		"avatar context";
 	column-gap: var(--bn-s3);
 }
 .bn-reply-card--avatar .bn-reply-card__meta { grid-area: meta; }
 .bn-reply-card--avatar .bn-reply-card__content { grid-area: content; }
 .bn-reply-card--avatar .bn-reply-card__context { grid-area: context; }
+.bn-reply-card--avatar .bn-reply-card__marks { grid-area: marks; }
+
+/* A topic's state (Pinned, Solved, Closed) and up to two tags, between its title and its counts. State is words, not
+   colour alone; tags are quieter. */
+.bn-reply-card__marks {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s1) var(--bn-s2);
+	margin-block-start: var(--bn-s1);
+}
+.bn-reply-card__mark,
+.bn-reply-card__tag {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	font-size: var(--bn-text-xs);
+	line-height: 20px;
+}
+.bn-reply-card__mark {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
+	border: 1px solid var(--bn-line-control);
+}
+.bn-reply-card__tag {
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+}
+
+.bn-space-discussions__more {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	margin: var(--bn-s3) 0 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
 .bn-reply-card__avatar {
 	grid-area: avatar;
 	align-self: start;
