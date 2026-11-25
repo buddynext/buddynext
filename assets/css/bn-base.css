@@ -899,7 +899,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	   Without popover support the fixed position and --bn-z-toast still apply. */
 	position: fixed;
 	inset: auto;
-	bottom: var(--bn-s6);
+	/* Clears the cookie notice while it shows (--bn-cookie-h is published by consent-banner.js). */
+	bottom: calc(var(--bn-s6) + var(--bn-cookie-h, 0px));
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: var(--bn-z-toast);
@@ -945,17 +946,17 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
    the tap, so after a refused save the member could not press Save again until
    the toast left. The toast sits above the bar on every width. */
 body:has(.bn-ep-save-bar) .bn-toast-container {
-	bottom: calc(var(--bn-save-bar-h) + var(--bn-s4));
+	bottom: calc(var(--bn-save-bar-h) + var(--bn-s4) + var(--bn-cookie-h, 0px));
 }
 
 @media (max-width: 768px) {
 	body:has(.bn-mobile-nav) .bn-toast-container,
 	body:has(.bn-mobile-nav) .bn-unsub-notice {
-		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4) + var(--bn-cookie-h, 0px));
 	}
 
 	body:has(.bn-mobile-nav):has(.bn-ep-save-bar) .bn-toast-container {
-		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-save-bar-h) + var(--bn-s4));
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-save-bar-h) + var(--bn-s4) + var(--bn-cookie-h, 0px));
 	}
 
 	body:has(.bn-mobile-nav) .bn-cookie-consent {

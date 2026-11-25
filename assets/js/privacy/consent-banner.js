@@ -26,6 +26,11 @@
 			return;
 		}
 		el.hidden = false;
+		// Publish the notice's height so a toast raised while it shows sits above it, not on top of it.
+		var root = document.documentElement;
+		var publish = function () { root.style.setProperty( '--bn-cookie-h', ( el.getBoundingClientRect().height + 16 ) + 'px' ); };
+		publish();
+		window.addEventListener( 'resize', publish );
 		var btn = el.querySelector( '[data-bn-cookie-accept]' );
 		if ( btn ) {
 			btn.addEventListener( 'click', function () {
@@ -33,6 +38,8 @@
 				if ( el.parentNode ) {
 					el.parentNode.removeChild( el );
 				}
+				window.removeEventListener( 'resize', publish );
+				root.style.removeProperty( '--bn-cookie-h' );
 				// The button that held focus is gone: hand focus to the page heading so keyboard users keep their place.
 				var landing = document.querySelector( 'main h1, h1, main' );
 				if ( landing ) {

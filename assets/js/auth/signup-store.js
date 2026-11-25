@@ -388,8 +388,13 @@ const signupStore = store( 'buddynext/auth-signup', {
 			// set: `userLogin` stayed empty, every submit was refused with "Please fill
 			// in your email, username, and password" — naming a field that was not
 			// there — and web signup was impossible on a DEFAULT install.
-			if ( ! ( c.email || '' ).trim() || ! ( c.password || '' ) ) {
-				c.error = t( 'fillRequired', 'Please fill in your email and password.' );
+			const noEmail    = ! ( c.email || '' ).trim();
+			const noPassword = ! ( c.password || '' );
+			if ( noEmail || noPassword ) {
+				// Name the field that is missing; the two-field sentence is only for when both are.
+				c.error = ! noEmail
+					? t( 'fillPassword', 'Please enter a password.' )
+					: ( ! noPassword ? t( 'fillEmail', 'Please enter your email address.' ) : t( 'fillRequired', 'Please fill in your email and password.' ) );
 				revealFirstError( regForm );
 				return;
 			}
