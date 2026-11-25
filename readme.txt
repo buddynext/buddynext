@@ -91,6 +91,11 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Improve  - Typed confirmation is required before the uninstall data wipe is switched on, and a settings import cannot switch it on.
 * Improve  - Add-ons can name their own Features tab groups.
 * Fix      - A guest no longer learns of private pictures over REST, and a suspended member's Media tab shows nothing.
+* Fix      - The avatar cropper and the emoji picker work from the keyboard: focus moves in, Tab stays inside, the arrow keys move, and focus returns to the control that opened them.
+* Fix      - Dialogs hold Tab correctly in Safari and on iPad, and a mistyped email setting is refused with a message instead of being emptied under "Settings saved".
+* Fix      - A suspended member no longer gets an error toast on every page, and the Arabic sign-up page no longer scrolls sideways.
+* Fix      - Buttons, switches and filter rows are 40px tall on a phone, and text longer than its field ends in an ellipsis.
+* Fix      - Onboarding shows one step even while its script is still loading, and moderation emails carry no unsubscribe link.
 * Fix      - Partner cards use one square thumbnail at every width and fall back to text when a picture fails.
 * Fix      - Search no longer lists a switched-off partner's rows, and they return when the partner does.
 * Fix      - The albums grid on a phone no longer scrolls sideways when a title is long, and album titles show apostrophes and dashes as typed.

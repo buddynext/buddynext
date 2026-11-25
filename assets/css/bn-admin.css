@@ -5065,3 +5065,18 @@ code.bn-ep-code {
 	.bn-bulk-cb, .bn-table__cb input[type="checkbox"] { inline-size: 22px; block-size: 22px; }
 	.bn-config-btn, .bn-drag-row__handle, .bn-email-editor__token { min-inline-size: 40px; min-block-size: 40px; }
 }
+
+
+/* Text longer than its field (a long select choice, a long placeholder) ends in an ellipsis in wp-admin too. */
+.bn-admin-hub select,
+.bn-admin-hub input[type="text"],
+.bn-admin-hub input[type="search"],
+.bn-admin-hub input[type="email"],
+.bn-admin-hub input[type="url"],
+.bn-admin-hub input::placeholder {
+	text-overflow: ellipsis;
+}
+/* The visibility select in a Profile Fields row keeps room for its word once the row is open. */
+.bn-admin-hub select.bn-pf-vis-field {
+	min-width: 120px;
+}
