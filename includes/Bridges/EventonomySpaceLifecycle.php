@@ -6,7 +6,9 @@
  * Eventonomy decides what that means for its events:
  *  - a Space is deleted: Eventonomy closes the events that were homed in it, quietly;
  *  - a member leaves, is removed or is banned: Eventonomy cancels that member's registrations to the Space-members
- *    events homed in that Space (public events and events of other Spaces are never touched).
+ *    events homed in that Space (public events and events of other Spaces are never touched);
+ *  - an event is made inside a private or secret Space without a chosen level: it starts at Space members, so a
+ *    private community's event is not public by accident. An open Space keeps Eventonomy's own default.
  *
  * Free owns it because it is protection: without it a member who left a Space could still hold a place at that
  * Space's members-only events. It stores nothing.
@@ -51,6 +53,28 @@ class EventonomySpaceLifecycle {
 		add_action( 'buddynext_space_deleted', array( $this, 'space_removed' ), 10, 1 );
 		add_action( 'buddynext_space_member_left', array( $this, 'member_gone' ), 10, 2 );
 		add_action( 'buddynext_space_member_removed', array( $this, 'member_gone' ), 10, 2 );
+		add_filter( 'evnm_new_event_default_visibility', array( $this, 'default_visibility' ), 10, 2 );
+	}
+
+	/**
+	 * The level a new event gets when its maker chose none.
+	 *
+	 * An explicit choice never reaches this filter. An event in a private or secret Space starts at Space members;
+	 * an open Space, a missing Space and an event with no Space keep the default Eventonomy gave.
+	 *
+	 * @param mixed $visibility Eventonomy's default.
+	 * @param mixed $input      The create input; carries space_id when a Space was chosen.
+	 * @return mixed
+	 */
+	public function default_visibility( $visibility, $input = array() ) {
+		$space_id = is_array( $input ) ? (int) ( $input['space_id'] ?? 0 ) : 0;
+		$space    = $space_id > 0 ? ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ) : null;
+		if ( ! is_array( $space ) ) {
+			return $visibility;
+		}
+		$config = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->get( (string) ( $space['type'] ?? 'open' ) );
+
+		return 'public' === (string) ( $config['visibility'] ?? 'public' ) ? $visibility : EventonomyAccess::SPACE_LEVEL;
 	}
 
 	/**

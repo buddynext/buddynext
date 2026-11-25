@@ -101,4 +101,22 @@ class EventonomySpaceLifecycleTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( array( $member, $space ) ), self::$cancelled );
 	}
+
+	public function test_a_new_event_in_a_private_or_secret_space_starts_at_space_members(): void {
+		$this->stub_eventonomy( 4 );
+		$owner = self::factory()->user->create();
+		foreach ( array( 'private', 'secret' ) as $type ) {
+			$id = (int) ( new SpaceService() )->create( $owner, array( 'name' => "Def $type", 'slug' => "def-$type-" . strtolower( wp_generate_password( 6, false, false ) ), 'type' => $type ) );
+			$this->assertSame( 'space', apply_filters( 'evnm_new_event_default_visibility', 'public', array( 'space_id' => $id ), array() ), $type );
+		}
+	}
+
+	public function test_an_open_space_a_missing_space_and_no_space_keep_the_default(): void {
+		$this->stub_eventonomy( 4 );
+		list( $space ) = $this->space_with_member();
+
+		$this->assertSame( 'public', apply_filters( 'evnm_new_event_default_visibility', 'public', array( 'space_id' => $space ), array() ) );
+		$this->assertSame( 'public', apply_filters( 'evnm_new_event_default_visibility', 'public', array( 'space_id' => 999999 ), array() ) );
+		$this->assertSame( 'public', apply_filters( 'evnm_new_event_default_visibility', 'public', array(), array() ) );
+	}
 }
