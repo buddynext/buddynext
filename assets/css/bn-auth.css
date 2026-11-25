@@ -341,6 +341,27 @@
 	min-height: 0;
 }
 
+/* The form-level message (login, sign-up, 2FA, reset, held) is one alert component: a tinted box with an edge, the
+   same box in every auth step, with a gap above the first label so it never sits on it. */
+.bn-auth-field__msg[role="alert"] {
+	margin-block: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-danger);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger-text, var(--bn-ink));
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-normal);
+}
+.bn-auth-field__msg[role="alert"][hidden],
+.bn-auth-field__msg[role="alert"]:empty { display: none; }
+.bn-auth-field__msg[role="alert"][data-tone="success"] {
+	border-inline-start-color: var(--bn-success);
+	background: var(--bn-success-bg);
+	color: var(--bn-ink);
+}
+
 /*
  * Honeypot — taken out of the visual + a11y tree without display:none or
  * [hidden] (which well-behaved bots skip). Kept in the layout flow but pushed

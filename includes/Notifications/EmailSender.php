@@ -811,8 +811,14 @@ class EmailSender {
 				. esc_html( $preheader ) . '</div>'
 			: '';
 
-		return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+		// The mail carries its own language and direction (an Arabic site's mail reads right to left), and says it is
+		// drawn for a light background so a dark-mode client does not invert it into unreadable colours.
+		$mail_lang = esc_attr( str_replace( '_', '-', determine_locale() ) );
+		$mail_dir  = is_rtl() ? 'rtl' : 'ltr';
+
+		return '<!DOCTYPE html><html lang="' . $mail_lang . '" dir="' . $mail_dir . '"><head><meta charset="utf-8">'
 			. '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+			. '<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">'
 			. '<title>' . esc_html( $subject ) . '</title></head>'
 			. '<body style="margin:0;padding:0;background:#f3f4f6;'
 			. '-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">'
