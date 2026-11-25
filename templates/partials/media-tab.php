@@ -45,6 +45,9 @@ $bn_mt_ctx = array(
 	'albums'             => array(),
 	'hasAlbums'          => false,
 	'albumsLoaded'       => false,
+	'albumsPage'         => 1,
+	'albumsHasMore'      => false,
+	'albumsLoadingMore'  => false,
 	'albumOpen'          => false,
 	'activeAlbumId'      => 0,
 	'activeAlbumTitle'   => '',
@@ -199,6 +202,12 @@ $bn_mt_ctx = array(
 				</template>
 			</div>
 
+			<div class="bn-album-more" data-wp-bind--hidden="!context.albumsHasMore">
+				<button type="button" class="bn-btn" data-variant="secondary" data-wp-on--click="actions.loadMoreAlbums" data-wp-bind--disabled="context.albumsLoadingMore">
+					<?php esc_html_e( 'Load more albums', 'buddynext' ); ?>
+				</button>
+			</div>
+
 			<div class="bn-empty-state" data-wp-bind--hidden="state.hasAlbums">
 				<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'folder' ); ?></div>
 				<div class="bn-empty-title"><?php esc_html_e( 'No albums yet.', 'buddynext' ); ?></div>
@@ -228,6 +237,9 @@ $bn_mt_ctx = array(
 				<?php endif; ?>
 			</div>
 			<div class="bn-album-detail__grid" data-bn-album-grid></div>
+			<div class="bn-album-more" data-bn-album-more-wrap hidden>
+				<button type="button" class="bn-btn" data-variant="secondary" data-bn-album-more><?php esc_html_e( 'Load more photos', 'buddynext' ); ?></button>
+			</div>
 		</div>
 	</div>
 

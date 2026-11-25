@@ -702,3 +702,14 @@
 		opacity: 1;
 	}
 }
+
+/* Load more under an album list or an open album. */
+.bn-album-more {
+	display: flex;
+	justify-content: center;
+	margin-block-start: var(--bn-s4);
+}
+
+.bn-album-more[hidden] {
+	display: none;
+}
