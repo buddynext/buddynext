@@ -1155,7 +1155,7 @@ class AssetService {
 				'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $viewer_id ),
 				'mediaMaxMB'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( $viewer_id ),
 				'mediaMaxCount'     => \BuddyNext\Feed\PostService::max_media_per_post(),
-				'reactDefaultLabel' => __( 'React', 'buddynext' ),
+				'reactDefaultLabel' => __( 'Like', 'buddynext' ),
 			)
 		);
 

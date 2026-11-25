@@ -852,6 +852,7 @@ const BN_PILL_CAP = 99;
 // Per-page state for the pill. Re-seeded on every (re-)init so the once-bound
 // document listeners always read the freshly-swapped feed / watermark / nonce.
 const bnPill = {
+	spaceId:   0, // non-zero on a Space page: the poll counts that Space's own posts.
 	feed:      null,
 	pill:      null,
 	pendingIds: new Set(),
@@ -919,7 +920,7 @@ const BN_PILL_INLINE_MAX = 20;
  */
 async function bnPillShowNew() {
 	const feed = bnPill.feed;
-	if ( ! feed || bnPill.baseWatermark <= 0 || bnPill.pendingIds.size > BN_PILL_INLINE_MAX ) {
+	if ( ! feed || bnPill.spaceId || bnPill.baseWatermark <= 0 || bnPill.pendingIds.size > BN_PILL_INLINE_MAX ) {
 		window.location.reload();
 		return;
 	}
@@ -954,7 +955,7 @@ async function bnPillPoll() {
 	if ( ! bnPill.enabled || document.hidden || ! bnPill.restUrl ) { return; }
 	try {
 		const url = bnPill.restUrl + '/feed/new-count?after_id=' + encodeURIComponent( bnPill.watermark ) +
-			'&filter=' + encodeURIComponent( bnPill.filter );
+			'&filter=' + encodeURIComponent( bnPill.filter ) + ( bnPill.spaceId ? '&space_id=' + encodeURIComponent( bnPill.spaceId ) : '' );
 		const res = await restFetch( url, { nonce: bnPill.restNonce || '', toastOnError: false } );
 		if ( ! res.ok ) { return; }
 		const json = res.data;
@@ -1005,7 +1006,7 @@ function bnPillSchedule() {
    so a client navigation never stacks a second poll chain or listener.
    ---------------------------------------------------------------- */
 function initRealtimeNewPostsPill() {
-	const feed = document.querySelector( '.bn-feed-list, .bn-explore-grid' );
+	const feed = document.querySelector( '.bn-feed-list, .bn-explore-grid, .bn-space-feed-panel[data-bn-space-pill] .bn-sh-feed' );
 	// Skip explore — it ranks by engagement, not chrono; a "new post"
 	// at the top makes no sense there.
 	if ( ! feed || feed.classList.contains( 'bn-explore-grid' ) ) {
@@ -1050,7 +1051,10 @@ function initRealtimeNewPostsPill() {
 	//
 	// The DOM scan stays as the fallback for any surface that renders the feed
 	// without the attribute; it is only ever wrong in the direction above.
-	const bnStack    = document.querySelector( '.bn-feed-stack' );
+	// A Space page counts that Space's own posts: its panel carries the watermark, the cadence and the Space id.
+	const bnSpacePanel = feed.closest( '.bn-space-feed-panel[data-bn-space-pill]' );
+	bnPill.spaceId     = bnSpacePanel ? parseInt( bnSpacePanel.dataset.spaceId || '', 10 ) || 0 : 0;
+	const bnStack    = bnSpacePanel || document.querySelector( '.bn-feed-stack' );
 	const bnSeeded   = bnStack ? parseInt( bnStack.dataset.bnWatermark || '', 10 ) : NaN;
 	bnPill.watermark = Number.isNaN( bnSeeded ) ? 0 : bnSeeded;
 	if ( Number.isNaN( bnSeeded ) ) {

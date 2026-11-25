@@ -4889,3 +4889,15 @@ a.bn-composer__error-retry[hidden] { display: none; }
 .bn-post-card__options-menu [role="menuitem"] {
 	min-block-size: 40px;
 }
+
+/* Phone: the author name, the time link and the "See all" links are real targets (40px), not text-height lines. */
+@media (max-width: 640px) {
+	.bn-post-card__author-name,
+	.bn-post-card__time-link,
+	.bn-sidebar-see-all,
+	.bn-rail__spaces-all {
+		display: inline-flex;
+		align-items: center;
+		min-block-size: 40px;
+	}
+}

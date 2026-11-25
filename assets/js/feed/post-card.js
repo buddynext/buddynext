@@ -244,7 +244,7 @@ function mirrorReaction( card, postId, d ) {
 	card.ctx.reactionType  = type;
 	card.ctx.reactionLabel = type
 		? ( option?.getAttribute( 'title' ) || option?.getAttribute( 'aria-label' ) || type )
-		: ( viewer().reactDefaultLabel || 'React' );
+		: ( viewer().reactDefaultLabel || 'Like' );
 	updateReactionSummary( card.el, d.body || {} );
 }
 
@@ -1508,8 +1508,8 @@ store( 'buddynext/post-card', {
 		get reactionLabel() {
 			try {
 				const ctx = getContext();
-				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'react', 'React' );
-			} catch ( _e ) { return t( 'react', 'React' ); }
+				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'react', 'Like' );
+			} catch ( _e ) { return t( 'react', 'Like' ); }
 		},
 		get pollOptionPctText() {
 			try {

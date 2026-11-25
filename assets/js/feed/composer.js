@@ -15,7 +15,7 @@
  */
 
 import { store, getContext, getElement, withScope } from '@wordpress/interactivity';
-import { bnToast } from '@buddynext/shell-dialog';
+import { bnToast, bnReloadWithToast } from '@buddynext/shell-dialog';
 import { restError, restFetch , toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '@buddynext/upload-core';
@@ -1546,7 +1546,9 @@ const { state } = store( 'buddynext/post-composer', {
 						}
 					}
 					ctx.addToStory = false;
-					if ( window.bnToast ) {
+					let postedMsg  = '';
+					let postedTone = 'success';
+					{
 						let msg = t( 'postPublished', 'Post published' );
 						if ( isPending ) {
 							msg = t( 'postSubmittedForReview', 'Your post was submitted for review.' );
@@ -1557,7 +1559,8 @@ const { state } = store( 'buddynext/post-composer', {
 								? t( 'storyAddFailed', 'Your post is up. It could not be added to your story.' )
 								: t( 'postedToStory', 'Posted and added to your story.' );
 						}
-						window.bnToast( msg, storyIds.length && storyFailed && ! isPending && ! isScheduled ? 'info' : 'success' );
+						postedMsg  = msg;
+						postedTone = storyIds.length && storyFailed && ! isPending && ! isScheduled ? 'info' : 'success';
 					}
 
 					// Live post → prepend the server-rendered card in place (no
@@ -1566,10 +1569,14 @@ const { state } = store( 'buddynext/post-composer', {
 					// this page), fall back to a reload so the new state still shows.
 					if ( isPending || isScheduled ) {
 						ctx.submitting = false;
+						bnToast( postedMsg, { tone: postedTone } );
 					} else if ( prependFeedCard( created.html ) ) {
 						ctx.submitting = false;
+						bnToast( postedMsg, { tone: postedTone } );
 					} else {
-						setTimeout( function () { window.location.reload(); }, 500 );
+						// A server-drawn card cannot be hydrated in place, so the page reloads to show it; the
+						// toast is parked across the reload so the member still sees the confirmation.
+						bnReloadWithToast( postedMsg, { tone: postedTone } );
 					}
 					return;
 				}

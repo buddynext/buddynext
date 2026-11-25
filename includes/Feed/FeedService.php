@@ -1158,6 +1158,79 @@ class FeedService {
 	}
 
 	/**
+	 * The newest published post id in one Space (any author), the starting point of its "new posts" pill.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int Newest post id, or 0 when the Space has none.
+	 */
+	public function space_feed_watermark( int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COALESCE(MAX(id), 0) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published'", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$space_id
+			)
+		);
+	}
+
+	/**
+	 * The newest published post id in one Space, and how many newer than $after_id exist.
+	 *
+	 * Feeds the "N new posts" pill on a Space page. The caller has already checked the viewer may see the Space.
+	 * Counts a bounded window (NEW_COUNT_CAP + 1 rows) on the space_feed index, like the home feed does.
+	 *
+	 * @param int $user_id  Viewing user ID.
+	 * @param int $space_id Space ID.
+	 * @param int $after_id Count posts with an id above this one; 0 returns only the newest id.
+	 * @return array{count:int,newest_id:int}
+	 */
+	public function space_feed_new_count( int $user_id, int $space_id, int $after_id ): array {
+		global $wpdb;
+
+		$cache_key = "space_new_count_{$user_id}_{$space_id}_{$after_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$excluded_where                   = $this->excluded_users_where();
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT COUNT(*) AS new_count, COALESCE(MAX(id), %d) AS newest_id
+				 FROM (
+				     SELECT id
+				     FROM {$wpdb->prefix}bn_posts
+				     WHERE space_id = %d
+				       AND status = 'published'
+				       AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				       AND id > %d
+				       AND user_id <> %d
+				       {$excluded_where}
+				       {$hidden_where}
+				     ORDER BY id DESC
+				     LIMIT %d
+				 ) AS bounded", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				...array_merge( array( $after_id, $space_id, $after_id, $user_id ), $hidden_params, array( self::NEW_COUNT_CAP + 1 ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+
+		$result = array(
+			'count'     => isset( $row['new_count'] ) ? (int) $row['new_count'] : 0,
+			'newest_id' => isset( $row['newest_id'] ) ? (int) $row['newest_id'] : $after_id,
+		);
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::NEW_COUNT_TTL );
+
+		return $result;
+	}
+
+	/**
 	 * Count home-feed posts newer than a client-known id (Free new-posts pill).
 	 *
 	 * Powers the 60s poll behind the `/activity` "N new posts" pill. Counts only

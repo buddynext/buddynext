@@ -166,6 +166,11 @@ class FeedController extends BaseRestController {
 						'enum'              => FeedService::HOME_FILTERS,
 						'sanitize_callback' => 'sanitize_key',
 					),
+					'space_id' => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'sanitize_callback' => 'absint',
+					),
 				),
 			)
 		);
@@ -970,6 +975,16 @@ class FeedController extends BaseRestController {
 		$filter   = (string) ( $request->get_param( 'filter' ) ?? 'for-you' );
 		if ( ! in_array( $filter, FeedService::HOME_FILTERS, true ) ) {
 			$filter = 'for-you';
+		}
+
+		// A Space page counts that Space's own posts, and only for a viewer who may see the Space.
+		$space_id = (int) $request->get_param( 'space_id' );
+		if ( $space_id > 0 ) {
+			$space = buddynext_service( 'spaces' )->get( $space_id );
+			if ( ! is_array( $space ) || ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space, $user_id ) ) {
+				return new WP_REST_Response( array( 'count' => 0, 'newest_id' => $after_id ), 200 );
+			}
+			return new WP_REST_Response( $this->feed_service()->space_feed_new_count( $user_id, $space_id, $after_id ), 200 );
 		}
 
 		$result = $this->feed_service()->home_feed_new_count( $user_id, $after_id, $filter );
