@@ -227,4 +227,35 @@ class BridgeCardLiveTest extends \WP_UnitTestCase {
 		);
 		$this->assertArrayNotHasKey( 'card', $plain );
 	}
+
+	/**
+	 * A button that goes where the title goes is never drawn; one that goes elsewhere is.
+	 */
+	public function test_a_button_to_the_titles_own_address_is_dropped(): void {
+		$html = IntegrationActivity::render_bridge_card(
+			array(
+				'bn_post_id'   => 30,
+				'bn_post_type' => 'widget',
+				'link_preview' => array(
+					'url'   => 'https://example.test/w/30/#anchor',
+					'title' => 'Widget',
+				),
+				'link_meta'    => array(
+					'actions' => array(
+						array(
+							'label' => 'Open',
+							'url'   => 'https://example.test/w/30',
+						),
+						array(
+							'label' => 'Download',
+							'url'   => 'https://example.test/w/30/file',
+						),
+					),
+				),
+			)
+		);
+		$this->assertStringNotContainsString( '>Open<', $html );
+		$this->assertStringContainsString( '>Download<', $html );
+		$this->assertSame( 1, substr_count( $html, 'data-variant="primary"' ), 'The one action left is the main one.' );
+	}
 }

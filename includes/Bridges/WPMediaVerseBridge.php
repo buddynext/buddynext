@@ -3883,7 +3883,8 @@ class WPMediaVerseBridge {
 			return self::render_document_unavailable();
 		}
 		// A cookie-auth GET needs a nonce (same as the Files tab download links).
-		$url = add_query_arg( '_wpnonce', wp_create_nonce( 'wp_rest' ), $link );
+		$download = add_query_arg( '_wpnonce', wp_create_nonce( 'wp_rest' ), $link );
+		$url      = $download;
 
 		// A space post whose space shows this viewer its Files tab opens the
 		// file's page there (preview + Download). Anywhere else the tab is not
@@ -3916,10 +3917,12 @@ class WPMediaVerseBridge {
 			'title'   => $title,
 			'desc'    => '',
 			'facts'   => self::document_facts( $doc, $size ),
+			// The title opens the file page; Download is the one thing it cannot do. When the title already
+			// downloads, the card drops the button (see IntegrationActivity::resolve()).
 			'actions' => array(
 				array(
-					'label' => __( 'Open document', 'buddynext' ),
-					'url'   => $url,
+					'label' => __( 'Download', 'buddynext' ),
+					'url'   => $download,
 				),
 			),
 		);

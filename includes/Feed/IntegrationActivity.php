@@ -1036,10 +1036,30 @@ class IntegrationActivity {
 		 */
 		$actions = self::actions( (array) apply_filters( 'buddynext_card_actions', $actions, $type, $link_meta, $post_id ) );
 
+		// A button that goes where the card's own title already goes adds a second tab stop and nothing else, so it is
+		// never drawn, whoever supplied it. What stays is an action the title cannot do (download, a different page).
+		$here    = self::same_address_key( (string) ( $link['url'] ?? $link_meta['url'] ?? '' ) );
+		$actions = array_values(
+			array_filter(
+				$actions,
+				static fn( array $action ): bool => '' === $here || self::same_address_key( $action['url'] ) !== $here
+			)
+		);
+
 		return array(
 			'facts'   => $facts,
 			'actions' => $actions,
 		);
+	}
+
+	/**
+	 * An address reduced to what decides whether two links go to the same place: no fragment, no trailing slash.
+	 *
+	 * @param string $url Address.
+	 * @return string
+	 */
+	private static function same_address_key( string $url ): string {
+		return untrailingslashit( (string) strtok( $url, '#' ) );
 	}
 
 	/**

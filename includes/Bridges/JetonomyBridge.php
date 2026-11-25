@@ -902,23 +902,22 @@ class JetonomyBridge {
 			if ( ! isset( $rows[ $topic ] ) ) {
 				continue;
 			}
-			$answers[ $post_id ] = self::discussion_card( (array) $rows[ $topic ], $names[ $topic ] ?? array(), (string) ( $cards[ $post_id ]['url'] ?? '' ) );
+			$answers[ $post_id ] = self::discussion_card( (array) $rows[ $topic ], $names[ $topic ] ?? array() );
 		}
 
 		return $answers;
 	}
 
 	/**
-	 * The facts and button of one discussion card.
+	 * The facts of one discussion card. The title is the way in, so there is no button.
 	 *
 	 * @since 1.3.0
 	 *
 	 * @param array<string,mixed> $topic jt_posts columns (reply_count, vote_score, is_resolved, is_closed, accepted_reply_id).
 	 * @param string[]            $tags  The topic's tag names.
-	 * @param string              $url   The discussion address.
 	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>}
 	 */
-	public static function discussion_card( array $topic, array $tags, string $url ): array {
+	public static function discussion_card( array $topic, array $tags ): array {
 		$replies = max( 0, (int) ( $topic['reply_count'] ?? 0 ) );
 		$votes   = (int) ( $topic['vote_score'] ?? 0 );
 		$facts   = array(
@@ -955,12 +954,7 @@ class JetonomyBridge {
 
 		return array(
 			'facts'   => $facts,
-			'actions' => '' === $url ? array() : array(
-				array(
-					'label' => __( 'Open discussion', 'buddynext' ),
-					'url'   => $url,
-				),
-			),
+			'actions' => array(),
 		);
 	}
 

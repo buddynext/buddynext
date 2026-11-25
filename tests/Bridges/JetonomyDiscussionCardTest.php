@@ -25,12 +25,11 @@ class JetonomyDiscussionCardTest extends \WP_UnitTestCase {
 				'is_resolved'       => 1,
 				'accepted_reply_id' => 9,
 			),
-			array( 'gear', 'shoes', 'beginner' ),
-			'https://example.test/t/1/'
+			array( 'gear', 'shoes', 'beginner' )
 		);
 		$text = array_column( $card['facts'], 'text' );
 		$this->assertSame( array( '14 replies', '18 votes', 'Solved', 'gear, shoes' ), $text );
-		$this->assertSame( 'Open discussion', $card['actions'][0]['label'] );
+		$this->assertSame( array(), $card['actions'], 'The title is the way in: no button.' );
 	}
 
 	public function test_closed_unanswered_topic_shows_no_zero_votes(): void {
@@ -40,11 +39,9 @@ class JetonomyDiscussionCardTest extends \WP_UnitTestCase {
 				'vote_score'  => 0,
 				'is_closed'   => 1,
 			),
-			array(),
-			''
+			array()
 		);
 		$this->assertSame( array( '0 replies', 'Closed' ), array_column( $card['facts'], 'text' ) );
-		$this->assertSame( array(), $card['actions'] );
 	}
 
 	public function test_other_card_types_and_cards_without_a_topic_id_are_left_alone(): void {
