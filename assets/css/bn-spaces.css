@@ -1242,6 +1242,11 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-sm, 0.9rem);
 }
 
+.bn-sh-about__location-text {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
 .bn-sh-about__location svg {
 	flex: 0 0 auto;
 	width: 1rem;

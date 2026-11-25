@@ -61,4 +61,16 @@ class SpaceLocationFieldTest extends \WP_UnitTestCase {
 		$this->assertNotEmpty( $result['errors'] );
 		$this->assertSame( '', (string) buddynext_get_space_field( $this->space, 'location' ) );
 	}
+
+	public function test_a_location_longer_than_100_characters_is_refused_on_every_write_path(): void {
+		$registry = SpaceFieldRegistry::instance();
+
+		$too_long = $registry->save_for_space( $this->space, array( 'location' => str_repeat( 'a', 101 ) ), $this->owner );
+		$this->assertNotEmpty( $too_long['errors'] );
+		$this->assertSame( '', (string) buddynext_get_space_field( $this->space, 'location' ) );
+
+		$exact = $registry->save_for_space( $this->space, array( 'location' => str_repeat( 'a', 100 ) ), $this->owner );
+		$this->assertEmpty( $exact['errors'] );
+		$this->assertSame( 100, strlen( (string) buddynext_get_space_field( $this->space, 'location' ) ) );
+	}
 }
