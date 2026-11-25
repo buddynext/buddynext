@@ -76,6 +76,10 @@ class EventonomyAccess {
 		add_filter( 'evnm_visibility_hints', array( $this, 'add_space_hint' ) );
 		add_filter( 'evnm_event_can_view', array( $this, 'can_view' ), 10, 4 );
 		add_filter( 'evnm_visible_levels_for_viewer', array( $this, 'visible_levels' ), 10, 2 );
+		// Someone BuddyNext holds out of the community (an unverified email, a plan hold, a suspension) cannot register
+		// or buy through Eventonomy either, whether or not the community is private.
+		add_filter( 'evnm_before_create_rsvp', array( $this, 'refuse_held' ), 10, 2 );
+		add_filter( 'evnm_before_create_order', array( $this, 'refuse_held' ), 10, 2 );
 		add_filter( 'evnm_visible_space_ids_for_viewer', array( $this, 'visible_space_ids' ), 10, 2 );
 		add_filter( 'evnm_user_can_manage_event', array( $this, 'can_manage' ), 10, 4 );
 		add_action( 'evnm_after_update_event', array( $this, 'forget' ), 10, 1 );
@@ -164,6 +168,29 @@ class EventonomyAccess {
 			self::$memo[ $key ] = SpaceVisibility::has_member_access( ( new SpaceService() )->get( $space_id ), $user_id );
 		}
 		return self::$memo[ $key ];
+	}
+
+	/**
+	 * Refuse a registration or an order from someone the community holds out, before anything is written.
+	 *
+	 * The person acting is judged, not the person the seat is for, so an organizer can still add an attendee. The
+	 * hold is the one BuddyNext applies everywhere (RestHoldGate::current_member_is_held): an unverified email, a
+	 * forced 2FA enrolment, an add-on's plan hold, and a suspension on a write. Administrators are never held.
+	 *
+	 * @param mixed $data    The prepared registration or order (returned untouched when nobody is held).
+	 * @param mixed $context Caller context (unused).
+	 * @return mixed The data, or a 403 WP_Error.
+	 */
+	public function refuse_held( $data, $context = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		if ( ! is_wp_error( $data ) && is_user_logged_in() && ( new \BuddyNext\Auth\RestHoldGate() )->current_member_is_held() ) {
+			$hold = \BuddyNext\Auth\MemberHold::get( get_current_user_id() );
+			return new \WP_Error(
+				'buddynext_member_held',
+				'' !== (string) ( $hold['message'] ?? '' ) ? (string) $hold['message'] : __( 'Finish setting up your account before you register for events.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+		return $data;
 	}
 
 	/**

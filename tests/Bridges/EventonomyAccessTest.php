@@ -345,4 +345,26 @@ class EventonomyAccessTest extends \WP_UnitTestCase {
 	public function test_an_existing_yes_is_never_taken_away(): void {
 		$this->assertTrue( (bool) apply_filters( 'evnm_user_can_manage_event', true, $this->outsider, array( 'id' => 27, 'space_id' => 0 ), 'edit' ) );
 	}
+
+	public function test_someone_the_community_holds_out_cannot_register_or_order(): void {
+		$held = $this->member;
+		add_filter( 'buddynext_member_hold', static fn( $hold, $uid ) => (int) $uid === $held ? array( 'url' => home_url( '/hold/' ), 'code' => 'x', 'message' => 'Renew your plan first.' ) : $hold, 10, 2 );
+		$data = array( 'event_id' => 1, 'user_id' => $held );
+
+		wp_set_current_user( $held );
+		foreach ( array( 'evnm_before_create_rsvp', 'evnm_before_create_order' ) as $hook ) {
+			$result = apply_filters( $hook, $data, array() );
+			$this->assertWPError( $result, $hook );
+			$this->assertSame( 403, $result->get_error_data()['status'] );
+			$this->assertSame( 'Renew your plan first.', $result->get_error_message() );
+		}
+
+		wp_set_current_user( $this->outsider );
+		$this->assertSame( $data, apply_filters( 'evnm_before_create_rsvp', $data, array() ), 'Not held: untouched.' );
+
+		wp_set_current_user( 1 );
+		$this->assertSame( $data, apply_filters( 'evnm_before_create_order', $data, array() ), 'An administrator is never held.' );
+		wp_set_current_user( 0 );
+		$this->assertSame( $data, apply_filters( 'evnm_before_create_rsvp', $data, array() ), 'A guest is Eventonomy\'s question, not this one.' );
+	}
 }
