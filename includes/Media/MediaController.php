@@ -628,11 +628,16 @@ class MediaController extends BaseRestController {
 		// Galleries::space_albums() gates on the space itself and returns an
 		// empty list to anyone who cannot see it, so a secret space's albums are
 		// indistinguishable from a space with none.
+		// One extra row says whether another page exists, so a viewer who is shown fewer albums than a page still pages on.
+		$albums   = Galleries::space_albums( $space_id, $viewer, $per_page + 1, $offset );
+		$has_more = count( $albums ) > $per_page;
+
 		return new WP_REST_Response(
 			array(
-				'albums'   => Galleries::space_albums( $space_id, $viewer, $per_page, $offset ),
+				'albums'   => $has_more ? array_slice( $albums, 0, $per_page ) : $albums,
 				'page'     => $page,
 				'per_page' => $per_page,
+				'has_more' => $has_more,
 			),
 			200
 		);

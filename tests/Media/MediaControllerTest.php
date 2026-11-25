@@ -56,6 +56,35 @@ class MediaControllerTest extends \WP_UnitTestCase {
 		$this->member     = self::factory()->user->create();
 	}
 
+	/**
+	 * The Space albums route says whether another page exists, so the Load more button reaches every album.
+	 */
+	public function test_space_albums_report_whether_another_page_exists(): void {
+		if ( ! post_type_exists( 'mvs_album' ) ) {
+			register_post_type( 'mvs_album', array( 'public' => true ) ); // The engine owns this type; the route only reads it.
+		}
+		$space = buddynext_service( 'spaces' )->create( $this->member, array( 'name' => 'Album Space', 'slug' => 'album-space-paging', 'type' => 'open' ) );
+		for ( $i = 0; $i < 5; $i++ ) {
+			$album = self::factory()->post->create( array( 'post_type' => 'mvs_album', 'post_title' => 'A' . $i ) );
+			update_post_meta( $album, Galleries::SPACE_META, $space );
+		}
+		wp_set_current_user( $this->member );
+
+		$page = function ( int $n ) use ( $space ): array {
+			$request = new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $space . '/albums' );
+			$request->set_param( 'id', $space );
+			$request->set_param( 'page', $n );
+			$request->set_param( 'per_page', 2 );
+			return $this->controller->list_space_albums( $request )->get_data();
+		};
+
+		$this->assertCount( 2, $page( 1 )['albums'] );
+		$this->assertTrue( $page( 1 )['has_more'], 'Five albums, two a page: more follow page 1.' );
+		$this->assertTrue( $page( 2 )['has_more'] );
+		$this->assertCount( 1, $page( 3 )['albums'] );
+		$this->assertFalse( $page( 3 )['has_more'], 'The last page says so.' );
+	}
+
 	// ── Viewer Delete and tile Remove: one trash route, one rule ───────────────
 
 	/**
