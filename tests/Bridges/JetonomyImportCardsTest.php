@@ -92,4 +92,24 @@ class JetonomyImportCardsTest extends \WP_UnitTestCase {
 		$this->assertNotFalse( has_action( 'jetonomy_import_batch_imported' ) );
 		$this->assertContains( JetonomyBridge::IMPORT_CARDS_HOOK, CronScheduler::DEACTIVATION_KEEP );
 	}
+
+	public function test_a_topic_that_already_has_a_card_is_not_synced_again(): void {
+		\BuddyNext\Core\Installer::run();
+		$member = self::factory()->user->create();
+		\BuddyNext\Feed\IntegrationActivity::publish( $member, 'x', 'https://example.test/d1/', 'D1', 'discussion', '', 0, array( 'post_id' => 7001 ) );
+		$synced = array();
+		$bridge = new class( $synced ) extends JetonomyBridge {
+			public function __construct( array &$synced ) {
+				$this->synced = &$synced;
+			}
+			public array $synced = array();
+			public function sync_discussion( int $post_id, int $space_id = 0 ): void {
+				$this->synced[] = $post_id;
+			}
+		};
+
+		$bridge->import_cards_chunk( array( 7001, 7002 ) );
+
+		$this->assertSame( array( 7002 ), $synced, 'Only the topic without a card is synced.' );
+	}
 }

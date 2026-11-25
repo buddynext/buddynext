@@ -827,14 +827,19 @@ class JetonomyBridge {
 	 * Give a chunk of imported topics their cards.
 	 *
 	 * The same method every topic goes through (sync_discussion): the topic's own date, the card placement rule, no
-	 * notice to the Space, and one card per topic whatever happens (a chunk delivered twice, two workers, a resume
-	 * after a crash all refresh the card that is there). One topic failing does not stop the rest of the chunk.
+	 * notice to the Space, and one card per topic whatever happens. A topic that already has a card is skipped, so a
+	 * chunk delivered twice or a resume after a crash costs one cheap lookup per topic, not a second sync. One topic
+	 * failing does not stop the rest of the chunk.
 	 *
 	 * @param mixed $ids Topic ids.
 	 * @return void
 	 */
 	public function import_cards_chunk( $ids ): void {
 		foreach ( array_map( 'intval', (array) $ids ) as $post_id ) {
+			// A topic that already has a card (made when it was created, or by an earlier delivery) is left alone.
+			if ( $post_id <= 0 || IntegrationActivity::has_card_by_meta( 'discussion', 'post_id', $post_id ) ) {
+				continue;
+			}
 			try {
 				$this->sync_discussion( $post_id );
 			} catch ( \Throwable $e ) {
