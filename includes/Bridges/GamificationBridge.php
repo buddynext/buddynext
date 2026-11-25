@@ -133,6 +133,8 @@ class GamificationBridge {
 			}
 		);
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
+		// A badge card shows the member's points and level now, and how far the next level is, once per author on a page.
+		add_filter( 'buddynext_card_live', array( $this, 'live_badge_cards' ), 10, 3 );
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 
@@ -758,6 +760,74 @@ class GamificationBridge {
 			}
 		}
 		return $facts;
+	}
+
+	/**
+	 * Answer `buddynext_card_live` for badge cards: points, level and the distance to the next level, and a See badges button.
+	 *
+	 * Read once per author on the page, not once per card.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array> $answers Answers so far.
+	 * @param string           $type    Card post type.
+	 * @param array<int,array> $cards   Post id => stored link meta, plus `user_id`.
+	 * @return array<int,array>
+	 */
+	public function live_badge_cards( array $answers, string $type, array $cards ): array {
+		if ( 'badge' !== $type ) {
+			return $answers;
+		}
+
+		$facts = array();
+		foreach ( $cards as $post_id => $meta ) {
+			$user_id = (int) ( $meta['user_id'] ?? 0 );
+			if ( $user_id <= 0 ) {
+				continue;
+			}
+			if ( ! isset( $facts[ $user_id ] ) ) {
+				$facts[ $user_id ] = $this->badge_facts( $user_id );
+			}
+			$answers[ $post_id ] = self::badge_card( $facts[ $user_id ], $user_id, (string) ( $meta['url'] ?? '' ) );
+		}
+
+		return $answers;
+	}
+
+	/**
+	 * The facts and button of one badge card, with the distance to the next level.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array{icon:string,text:string}> $facts   Points and level facts.
+	 * @param int                                       $user_id Member.
+	 * @param string                                    $url     Where the badge is shown (the member's Achievements).
+	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>}
+	 */
+	public static function badge_card( array $facts, int $user_id, string $url ): array {
+		$next = array( '\\WBGam\\Engine\\LevelEngine', 'get_next_level_for_points' );
+		if ( is_callable( $next ) && function_exists( 'wb_gam_get_user_points' ) ) {
+			$points = (int) wb_gam_get_user_points( $user_id );
+			$level  = call_user_func( $next, $points );
+			$away   = is_array( $level ) ? (int) ( $level['min_points'] ?? 0 ) - $points : 0;
+			if ( $away > 0 ) {
+				$facts[] = array(
+					'icon' => 'arrow-up',
+					/* translators: 1: points still needed, 2: the next level's name. */
+					'text' => sprintf( __( '%1$s points to %2$s', 'buddynext' ), number_format_i18n( $away ), (string) ( $level['name'] ?? '' ) ),
+				);
+			}
+		}
+
+		return array(
+			'facts'   => $facts,
+			'actions' => '' === $url ? array() : array(
+				array(
+					'label' => __( 'See badges', 'buddynext' ),
+					'url'   => $url,
+				),
+			),
+		);
 	}
 
 	/**
