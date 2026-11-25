@@ -55,6 +55,7 @@ class MemberExport {
 				'search'      => sanitize_text_field( wp_unslash( $_POST['s'] ?? '' ) ),
 				'role'        => sanitize_key( wp_unslash( $_POST['role'] ?? '' ) ),
 				'member_type' => sanitize_key( wp_unslash( $_POST['member_type'] ?? '' ) ),
+				'status'      => sanitize_key( wp_unslash( $_POST['status'] ?? '' ) ),
 			)
 		);
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
@@ -68,13 +69,13 @@ class MemberExport {
 	 * sites. Suspension status is pre-fetched in a single query per batch so
 	 * there are no per-row DB round-trips.
 	 *
-	 * Follows the filter the owner had on screen: search, WordPress role and member type.
+	 * Follows the filter the owner had on screen: search, WordPress role, member type and the Active or Suspended tab.
 	 *
 	 * Columns: ID, Login, Email, Display Name, Registered, Suspended, Member type. Rows go
 	 * through Core\Csv::row(), which defuses member-controlled cells such as a
 	 * display name of `=HYPERLINK(...)`.
 	 *
-	 * @param array{search?:string,role?:string,member_type?:string} $filters Active list filters.
+	 * @param array{search?:string,role?:string,member_type?:string,status?:string} $filters Active list filters.
 	 * @return void
 	 */
 	public function export_members_csv( array $filters = array() ): void {
@@ -125,6 +126,17 @@ class MemberExport {
 		}
 		if ( '' !== (string) ( $filters['role'] ?? '' ) ) {
 			$query_args['role'] = $filters['role'];
+		}
+		// The Active and Suspended tabs: suspended lists only the suspended, active lists everyone else.
+		$status = (string) ( $filters['status'] ?? '' );
+		if ( 'suspended' === $status ) {
+			if ( array() === $suspended_ids ) {
+				fclose( $output ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				return;
+			}
+			$query_args['include'] = array_keys( $suspended_ids );
+		} elseif ( 'active' === $status && array() !== $suspended_ids ) {
+			$query_args['exclude'] = array_keys( $suspended_ids );
 		}
 		$type_slug = (string) ( $filters['member_type'] ?? '' );
 		$types     = buddynext_service( 'member_types' );

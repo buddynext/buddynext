@@ -1432,9 +1432,9 @@ class Members extends AdminPageBase {
 			<input type="hidden" name="action" value="bn_export_members">
 			<?php wp_nonce_field( 'bn_export_members' ); ?>
 			<?php
-			// The export follows what the owner is looking at: the same search, role and member type.
+			// The export follows what the owner is looking at: the same search, role, member type and Active or Suspended tab.
 			// phpcs:disable WordPress.Security.NonceVerification.Recommended
-			foreach ( array( 's', 'role', 'member_type' ) as $bn_key ) :
+			foreach ( array( 's', 'role', 'member_type', 'status' ) as $bn_key ) :
 				$bn_val = sanitize_text_field( wp_unslash( $_GET[ $bn_key ] ?? '' ) );
 				if ( '' !== $bn_val ) :
 					?>

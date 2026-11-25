@@ -87,4 +87,20 @@ class MembersTypeFilterTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'Plain Person', $csv );
 		$this->assertMatchesRegularExpression( '/Pro Person.*QA Professional/', $csv );
 	}
+
+	public function test_the_export_follows_the_active_and_suspended_tabs(): void {
+		( new \BuddyNext\Moderation\ModerationService() )->suspend( $this->fan_user, 'test', 0 );
+
+		ob_start();
+		( new MemberExport() )->export_members_csv( array( 'status' => 'suspended' ) );
+		$suspended = (string) ob_get_clean();
+		ob_start();
+		( new MemberExport() )->export_members_csv( array( 'status' => 'active' ) );
+		$active = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'Fan Person', $suspended );
+		$this->assertStringNotContainsString( 'Pro Person', $suspended );
+		$this->assertStringNotContainsString( 'Fan Person', $active );
+		$this->assertStringContainsString( 'Pro Person', $active );
+	}
 }
