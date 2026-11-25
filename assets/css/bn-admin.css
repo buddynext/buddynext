@@ -4022,6 +4022,29 @@ td .bn-btn[data-variant="danger"]:focus-visible {
 	table-layout: auto;
 }
 
+/* The first column of these tables holds the long text (a report's details, a log line) and its full-sentence width
+   was the column's max-content, so it took nearly the whole table and squeezed Reason, Reporter, When and Actions
+   (a Reports table grew to 1182px in a 793px card, Actions off the edge). Capping it makes the text wrap and leaves
+   the room to the columns that carry the controls. */
+.bn-settings-section .bn-ss-body > table.widefat td:first-child,
+.bn-settings-section .bn-ss-body > form > table.widefat td:first-child,
+.bn-settings-section > table.widefat td:first-child {
+	max-inline-size: 16rem;
+}
+
+/* A short value such as '2 days ago' stays on one line. */
+.bn-admin-hub .widefat td.bn-nowrap {
+	white-space: nowrap;
+}
+
+/* The buttons of a row wrap onto a second line instead of making the Actions column the widest one. */
+.bn-settings-section .bn-ss-body > table.widefat td:last-child .bn-row-actions,
+.bn-settings-section .bn-ss-body > form > table.widefat td:last-child .bn-row-actions,
+.bn-settings-section > table.widefat td:last-child .bn-row-actions {
+	flex-wrap: wrap;
+	max-inline-size: 15rem;
+}
+
 } /* min-width: 783px */
 
 /* Below 782px WordPress core stacks a .wp-list-table into labelled rows - the

@@ -597,7 +597,7 @@ class ModerationQueue {
 				}
 				?>
 			</td>
-			<td><?php echo esc_html( $this->ago( (string) ( $report['created_at'] ?? '' ) ) ); ?></td>
+			<td class="bn-nowrap"><?php echo esc_html( $this->ago( (string) ( $report['created_at'] ?? '' ) ) ); ?></td>
 			<td>
 				<div class="bn-row-actions">
 					<?php
