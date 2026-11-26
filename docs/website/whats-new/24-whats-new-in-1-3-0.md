@@ -36,6 +36,9 @@ This release makes your partner plugins show up in the community as live cards, 
 
 ## Fixes
 
+- A suspended member who has not finished onboarding reaches the account status page to read the reason and appeal.
+- Nobody can suspend the site owner's account. Administrators can still suspend other administrators.
+- A member banned from a Space before Discussions was switched on cannot post in the new forum.
 - A guest no longer learns of private pictures over REST, and a suspended member's Media tab shows nothing.
 - The albums grid on a phone no longer scrolls sideways when a title is long, and album titles show apostrophes and dashes as typed.
 - Outlined buttons, form fields, chips, switches and muted text meet WCAG contrast in light and dark mode.

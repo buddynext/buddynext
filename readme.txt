@@ -95,6 +95,9 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Improve  - Mail has a dark theme in clients that support it, and declares its language and direction.
 * Improve  - The post confirmation survives the page reload, the reaction button reads Like until you react, and the save button reads Bookmark.
 * Improve  - Admin Home, Tools and Add-ons each have one main button, and phone tables keep readable columns inside a sideways scroll.
+* Fix      - A suspended member who has not finished onboarding reaches the account status page to read the reason and appeal.
+* Fix      - Nobody can suspend the site owner's account; administrators can still suspend other administrators.
+* Fix      - A member banned from a Space before Discussions was switched on cannot post in the new forum.
 * Fix      - A guest no longer learns of private pictures over REST, and a suspended member's Media tab shows nothing.
 * Fix      - The avatar cropper and the emoji picker work from the keyboard: focus moves in, Tab stays inside, the arrow keys move, and focus returns to the control that opened them.
 * Fix      - Dialogs hold Tab correctly in Safari and on iPad, and a mistyped email setting is refused with a message instead of being emptied under "Settings saved".

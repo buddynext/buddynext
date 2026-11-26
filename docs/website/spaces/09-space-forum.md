@@ -88,3 +88,7 @@ The Space Forum integration is part of BuddyNext itself - it ships in the free p
 - [Jetonomy](../integrations/03-jetonomy.md) - the companion plugin that powers the forum
 - [Activity Feed](../community/01-activity-feed.md) - where new discussions can surface as cards
 - [Search](../community/12-search.md) - how discussions join community-wide search
+
+## Banned members and the forum
+
+A member banned from the Space is also kept out of its forum. That holds for bans made before **Discussions** was switched on: when the forum is created or linked, the Space's existing bans carry into it, so a banned member cannot post or reply there. Lifting the Space ban lifts the forum ban too.

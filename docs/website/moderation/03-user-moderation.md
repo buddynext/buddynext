@@ -34,6 +34,8 @@ Each action below is a deliberate step a moderator or admin takes against a memb
 
 A suspension always needs a reason. Every suspend screen (the moderation queue in Community Admin and in wp-admin, Members, and bulk suspend) asks you to pick one - Spam or scams, Harassment or abuse, Hate speech, Impersonation, Off-topic or disruptive, or Other - and add an optional note (required for Other, up to 300 characters). The same dialog sets the length (Indefinite, 1 day, 7 days, 30 days or 90 days) and whether their posts are hidden. The member sees the reason and the end date on their account status page and in the suspension email, and can appeal from there. Developers can change the list with the `buddynext_suspension_reasons` filter.
 
+Nobody can suspend the site owner's account (the user whose email is the **Administration Email Address** under **Settings > General**). Administrators can still suspend other administrators, and nobody can suspend themselves.
+
 ## How strike thresholds escalate
 
 Strikes are the engine that turns repeat offenses into automatic consequences. Each time you issue a strike, BuddyNext counts the member's active (non-reversed) strikes and applies the strongest threshold that has been reached:
