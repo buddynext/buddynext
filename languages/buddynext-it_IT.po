@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.3.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-11-26T06:06:48+00:00\n"
+"POT-Creation-Date: 2026-11-26T06:53:47+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -1163,7 +1163,7 @@ msgstr ""
 
 #: includes/Admin/AdminHub.php:1932
 #: includes/Admin/IntegrationControlsAdmin.php:181
-#: includes/Bridges/JetonomyBridge.php:5965 includes/Core/PageRouter.php:1479
+#: includes/Bridges/JetonomyBridge.php:5992 includes/Core/PageRouter.php:1479
 #: includes/Core/Plugin.php:972 includes/Core/SurfaceMeta.php:134
 #: includes/Header/HeaderUserSection.php:110 templates/blocks/search-bar.php:45
 #: templates/community-admin.php:446 templates/partials/space-files-tab.php:252
@@ -1178,7 +1178,7 @@ msgid "Docs"
 msgstr "Documentazione"
 
 #: includes/Admin/AdminHub.php:2043 includes/Admin/GetStartedScreen.php:38
-#: includes/Bridges/JetonomyBridge.php:5960
+#: includes/Bridges/JetonomyBridge.php:5987
 msgid "Home"
 msgstr "Home"
 
@@ -4052,8 +4052,8 @@ msgstr[1] "Collaboratori"
 
 #: includes/Admin/Members/MemberEditForm.php:73
 #: includes/Auth/AuthController.php:2370
-#: includes/Bridges/JetonomyBridge.php:4736
-#: includes/Bridges/JetonomyBridge.php:4752
+#: includes/Bridges/JetonomyBridge.php:4763
+#: includes/Bridges/JetonomyBridge.php:4779
 #: includes/Bridges/MemberBlogRestController.php:73
 #: includes/CommunityAdmin/RoleController.php:102
 #: includes/Feed/FeedController.php:1090 includes/Feed/FeedController.php:1110
@@ -6230,9 +6230,9 @@ msgid "The member's own media library."
 msgstr ""
 
 #: includes/Admin/NavManager.php:2528 includes/Bridges/JetonomyBridge.php:1476
-#: includes/Bridges/JetonomyBridge.php:4926
-#: includes/Bridges/JetonomyBridge.php:4951
-#: includes/Bridges/JetonomyBridge.php:4999 includes/Core/Plugin.php:1004
+#: includes/Bridges/JetonomyBridge.php:4953
+#: includes/Bridges/JetonomyBridge.php:4978
+#: includes/Bridges/JetonomyBridge.php:5026 includes/Core/Plugin.php:1004
 #: includes/Notifications/IntegrationNotificationListener.php:616
 #: templates/feed/explore.php:132
 #: templates/parts/profile/discussions-panel.php:75
@@ -6264,7 +6264,7 @@ msgstr "Eventi"
 msgid "Events the member is hosting or attending."
 msgstr ""
 
-#: includes/Admin/NavManager.php:2531 includes/Bridges/JetonomyBridge.php:5970
+#: includes/Admin/NavManager.php:2531 includes/Bridges/JetonomyBridge.php:5997
 #: includes/Core/PageRouter.php:1347 includes/Core/Plugin.php:981
 #: includes/Nav/Providers/SpaceNav.php:279
 #: includes/Profile/GamificationAchievements.php:200
@@ -10717,7 +10717,7 @@ msgid "This verification link is no longer valid. Request a new one."
 msgstr "Questo link di verifica non è più valido. Richiedine uno nuovo."
 
 #: includes/Auth/AuthController.php:2333
-#: includes/Bridges/JetonomyBridge.php:4605
+#: includes/Bridges/JetonomyBridge.php:4632
 #: includes/Hashtags/HashtagController.php:281
 #: includes/Moderation/ModerationController.php:1533
 #: includes/Moderation/ModerationController.php:1559
@@ -11838,7 +11838,7 @@ msgid "Join %s"
 msgstr ""
 
 #: includes/Bridges/EventonomyTeaser.php:94
-#: includes/Bridges/JetonomyBridge.php:5230
+#: includes/Bridges/JetonomyBridge.php:5257
 #: includes/Shortcodes/ShortcodeService.php:389
 #: templates/partials/media-lightbox.php:201
 #: templates/partials/mobile-nav.php:133 templates/parts/guest-cta.php:40
@@ -11898,7 +11898,7 @@ msgid "earned the %s badge"
 msgstr "ha guadagnato il badge %s"
 
 #: includes/Bridges/JetonomyBridge.php:777
-#: includes/Bridges/JetonomyBridge.php:3138
+#: includes/Bridges/JetonomyBridge.php:3163
 msgid "started a discussion"
 msgstr "ha avviato una discussione"
 
@@ -11925,125 +11925,125 @@ msgstr[0] "%d voto"
 msgstr[1] "%d voti"
 
 #: includes/Bridges/JetonomyBridge.php:938
-#: includes/Bridges/JetonomyBridge.php:5834
+#: includes/Bridges/JetonomyBridge.php:5861
 msgid "Solved"
 msgstr ""
 
 #: includes/Bridges/JetonomyBridge.php:943
-#: includes/Bridges/JetonomyBridge.php:5836
+#: includes/Bridges/JetonomyBridge.php:5863
 #: includes/Onboarding/SetupWizard.php:978
 msgid "Closed"
 msgstr "Chiusa"
 
-#: includes/Bridges/JetonomyBridge.php:2289
-#: includes/Spaces/SpaceMemberService.php:2814
+#: includes/Bridges/JetonomyBridge.php:2313
+#: includes/Spaces/SpaceMemberService.php:2845
 msgid "This member cannot join this space, so the request stays pending."
 msgstr ""
 "Questo membro non può iscriversi a questo spazio, quindi la richiesta resta "
 "in attesa."
 
-#: includes/Bridges/JetonomyBridge.php:2290
+#: includes/Bridges/JetonomyBridge.php:2314
 msgid "You cannot join this discussion right now."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:2409
+#: includes/Bridges/JetonomyBridge.php:2433
 msgid ""
 "That discussion already belongs to another space. Pick a different one, or "
 "start a new discussion."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:2428
+#: includes/Bridges/JetonomyBridge.php:2453
 msgid "The discussion could not be created, so it was not enabled."
 msgstr ""
 "Non è stato possibile creare la discussione, quindi non è stata attivata."
 
-#: includes/Bridges/JetonomyBridge.php:3000
+#: includes/Bridges/JetonomyBridge.php:3025
 msgid "Discussions are not available right now."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3038
+#: includes/Bridges/JetonomyBridge.php:3063
 msgid ""
 "This discussion follows its Space. Change who can see or join it in the "
 "Space settings."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3080
+#: includes/Bridges/JetonomyBridge.php:3105
 msgid ""
 "This cannot be posted because it contains content that is not allowed in "
 "this community."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3699
+#: includes/Bridges/JetonomyBridge.php:3726
 msgid "That link has expired, so no discussion was created."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3700
+#: includes/Bridges/JetonomyBridge.php:3727
 msgid "The discussion could not be created."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3701
+#: includes/Bridges/JetonomyBridge.php:3728
 msgid ""
 "Only the space owner or a moderator can start its discussions, once the "
 "owner has turned Discussion on."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3713 includes/Core/AssetService.php:1829
+#: includes/Bridges/JetonomyBridge.php:3740 includes/Core/AssetService.php:1829
 #: includes/Integrations/CompanionGithubUi.php:123
 #: includes/PWA/PwaService.php:398 templates/notifications/index.php:471
 msgid "Try again"
 msgstr "Riprova"
 
-#: includes/Bridges/JetonomyBridge.php:3741
+#: includes/Bridges/JetonomyBridge.php:3768
 msgid "This space has no Discussions tab yet."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3742
+#: includes/Bridges/JetonomyBridge.php:3769
 msgid "Turn on Discussions"
 msgstr ""
 
 #. translators: %s: space name.
-#: includes/Bridges/JetonomyBridge.php:3789
+#: includes/Bridges/JetonomyBridge.php:3816
 #, php-format
 msgid "Back to %s"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3880
+#: includes/Bridges/JetonomyBridge.php:3907
 msgid ""
 "This comment is also a reply in Discussions, and you can no longer post "
 "there."
 msgstr ""
 
 #. translators: %s: the reason the member picked in the Discussions report form.
-#: includes/Bridges/JetonomyBridge.php:4220
+#: includes/Bridges/JetonomyBridge.php:4247
 #, php-format
 msgid "Reported in Discussions as: %s"
 msgstr ""
 
 #. translators: 1: discussion id, 2: forum name.
-#: includes/Bridges/JetonomyBridge.php:4365
+#: includes/Bridges/JetonomyBridge.php:4392
 #, php-format
 msgid "Discussion #%1$d in %2$s"
 msgstr ""
 
 #. translators: %d: discussion id.
-#: includes/Bridges/JetonomyBridge.php:4367
+#: includes/Bridges/JetonomyBridge.php:4394
 #, php-format
 msgid "Discussion #%d"
 msgstr ""
 
 #. translators: 1: reply id, 2: forum name.
-#: includes/Bridges/JetonomyBridge.php:4372
+#: includes/Bridges/JetonomyBridge.php:4399
 #, php-format
 msgid "Discussion reply #%1$d in %2$s"
 msgstr ""
 
 #. translators: %d: reply id.
-#: includes/Bridges/JetonomyBridge.php:4374
+#: includes/Bridges/JetonomyBridge.php:4401
 #, php-format
 msgid "Discussion reply #%d"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:4613
+#: includes/Bridges/JetonomyBridge.php:4640
 #: includes/Feed/FeedController.php:1162 includes/Feed/FeedController.php:1179
 #: includes/Media/MediaController.php:703
 #: includes/Spaces/SpaceController.php:884
@@ -12079,74 +12079,74 @@ msgstr ""
 msgid "Space not found."
 msgstr "Spazio non trovato."
 
-#: includes/Bridges/JetonomyBridge.php:4826
+#: includes/Bridges/JetonomyBridge.php:4853
 msgid "Only the space owner can change its discussion."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:4827
+#: includes/Bridges/JetonomyBridge.php:4854
 msgid "Discussions are turned off on this site."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:4978
+#: includes/Bridges/JetonomyBridge.php:5005
 msgid "Jetonomy"
 msgstr "Jetonomy"
 
-#: includes/Bridges/JetonomyBridge.php:4994
+#: includes/Bridges/JetonomyBridge.php:5021
 msgid "Forum notifications in the BuddyNext bell"
 msgstr "Notifiche del forum nella campanella di BuddyNext"
 
-#: includes/Bridges/JetonomyBridge.php:4996
+#: includes/Bridges/JetonomyBridge.php:5023
 msgid "Removing a deleted Space's forum with its topics"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5187 templates/feed/explore.php:272
+#: includes/Bridges/JetonomyBridge.php:5214 templates/feed/explore.php:272
 msgid "No discussions yet"
 msgstr "Nessuna discussione ancora"
 
-#: includes/Bridges/JetonomyBridge.php:5188
+#: includes/Bridges/JetonomyBridge.php:5215
 msgid "Discussions will appear here once they start."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5196
+#: includes/Bridges/JetonomyBridge.php:5223
 msgid "Be the first to start a conversation in this space."
 msgstr "Sii il primo ad avviare una conversazione in questo spazio."
 
-#: includes/Bridges/JetonomyBridge.php:5198
+#: includes/Bridges/JetonomyBridge.php:5225
 #: templates/parts/space-discussions-panel.php:58
 msgid "Start a discussion"
 msgstr "Avvia una discussione"
 
-#: includes/Bridges/JetonomyBridge.php:5209
+#: includes/Bridges/JetonomyBridge.php:5236
 msgid "You can start a discussion once your join request is approved."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5228
+#: includes/Bridges/JetonomyBridge.php:5255
 msgid "Log in to start a discussion in this space."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5240
+#: includes/Bridges/JetonomyBridge.php:5267
 msgid "Join this space to start a discussion."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5241
+#: includes/Bridges/JetonomyBridge.php:5268
 msgid "Request to join this space to start a discussion."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5243
+#: includes/Bridges/JetonomyBridge.php:5270
 msgid "Join to start a discussion"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5243 includes/Core/AssetService.php:1534
+#: includes/Bridges/JetonomyBridge.php:5270 includes/Core/AssetService.php:1534
 #: templates/parts/space-directory-card.php:294
 #: templates/parts/space-hero.php:352
 msgid "Request to join"
 msgstr "Richiesta di adesione"
 
-#: includes/Bridges/JetonomyBridge.php:5772
+#: includes/Bridges/JetonomyBridge.php:5799
 msgid "Anonymous"
 msgstr "Anonimo"
 
-#: includes/Bridges/JetonomyBridge.php:5830 includes/Core/AssetService.php:1220
+#: includes/Bridges/JetonomyBridge.php:5857 includes/Core/AssetService.php:1220
 #: templates/partials/post-card.php:663 templates/parts/comment.php:124
 #: templates/parts/dm-rail-item.php:171 templates/parts/dm-rail.php:199
 msgid "Pinned"
@@ -12206,7 +12206,7 @@ msgstr "Il tuo account è sospeso, quindi al momento non puoi pubblicare."
 
 #: includes/Bridges/MemberBlogBridge.php:749
 #: includes/Core/AssetService.php:1346
-#: includes/Moderation/ModerationService.php:2765
+#: includes/Moderation/ModerationService.php:2779
 #: templates/partials/composer.php:107 templates/partials/composer.php:347
 #: templates/profile/edit.php:66
 msgid "Review your account status"
@@ -17884,8 +17884,8 @@ msgstr "Non puoi avvisare questo membro."
 
 #: includes/Moderation/ModerationController.php:1628
 #: includes/Moderation/ModerationController.php:1662
-#: includes/Moderation/ModerationService.php:4092
-#: includes/Moderation/ModerationService.php:4314
+#: includes/Moderation/ModerationService.php:4106
+#: includes/Moderation/ModerationService.php:4328
 msgid "Invalid user ID."
 msgstr "ID utente non valido."
 
@@ -18051,7 +18051,7 @@ msgid "You do not have permission to remove content."
 msgstr "Non hai l'autorizzazione per rimuovere il contenuto."
 
 #: includes/Moderation/ModerationService.php:1043
-#: includes/Moderation/ModerationService.php:3665
+#: includes/Moderation/ModerationService.php:3679
 msgid "Report not found."
 msgstr "Rapporto non trovato."
 
@@ -18142,12 +18142,16 @@ msgstr "Non hai il permesso di sospendere i membri."
 msgid "You cannot suspend your own account."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2427
-#: includes/Moderation/ModerationService.php:4099
+#: includes/Moderation/ModerationService.php:2371
+msgid "The site owner's account cannot be suspended."
+msgstr ""
+
+#: includes/Moderation/ModerationService.php:2441
+#: includes/Moderation/ModerationService.php:4113
 msgid "Choose a reason for the suspension. The member will see it."
 msgstr "Scegli un motivo per la sospensione. Il membro lo vedrà."
 
-#: includes/Moderation/ModerationService.php:2440
+#: includes/Moderation/ModerationService.php:2454
 msgid ""
 "Only a community or site admin can suspend a member indefinitely. Set a "
 "duration to suspend as a moderator."
@@ -18155,71 +18159,71 @@ msgstr ""
 "Solo un amministratore della community o del sito può sospendere un membro a "
 "tempo indeterminato. Come moderatore, imposta una durata per la sospensione."
 
-#: includes/Moderation/ModerationService.php:2543
+#: includes/Moderation/ModerationService.php:2557
 msgid "You do not have permission to lift suspensions."
 msgstr "Non hai l'autorizzazione per rimuovere le sospensioni."
 
-#: includes/Moderation/ModerationService.php:2585
+#: includes/Moderation/ModerationService.php:2599
 msgid "That member is not currently suspended."
 msgstr "Questo membro non è attualmente sospeso."
 
-#: includes/Moderation/ModerationService.php:2620
-#: includes/Moderation/ModerationService.php:2659
+#: includes/Moderation/ModerationService.php:2634
+#: includes/Moderation/ModerationService.php:2673
 #: includes/Onboarding/SetupWizard.php:452
 msgid "Insufficient permissions."
 msgstr "Autorizzazioni insufficienti."
 
-#: includes/Moderation/ModerationService.php:3385
+#: includes/Moderation/ModerationService.php:3399
 msgid "No matching suspension found."
 msgstr "Nessuna sospensione corrispondente trovata."
 
-#: includes/Moderation/ModerationService.php:3405
-#: includes/Moderation/ModerationService.php:4351
+#: includes/Moderation/ModerationService.php:3419
+#: includes/Moderation/ModerationService.php:4365
 msgid "You have already appealed this. A moderator will review it."
 msgstr "Hai già presentato ricorso. Un moderatore lo esaminerà."
 
-#: includes/Moderation/ModerationService.php:3479
+#: includes/Moderation/ModerationService.php:3493
 msgid "You do not have permission to resolve appeals."
 msgstr "Non hai l'autorizzazione per risolvere gli appelli."
 
-#: includes/Moderation/ModerationService.php:3483
+#: includes/Moderation/ModerationService.php:3497
 msgid "Decision must be \"approved\" or \"denied\"."
 msgstr "La decisione deve essere \"approved\" o \"denied\"."
 
-#: includes/Moderation/ModerationService.php:3506
+#: includes/Moderation/ModerationService.php:3520
 msgid "That appeal no longer exists."
 msgstr "Quell'appello non esiste più."
 
-#: includes/Moderation/ModerationService.php:3515
+#: includes/Moderation/ModerationService.php:3529
 msgid "That appeal has already been resolved."
 msgstr "Questo ricorso è già stato risolto."
 
-#: includes/Moderation/ModerationService.php:3635
+#: includes/Moderation/ModerationService.php:3649
 msgid "You do not have permission to action reports."
 msgstr "Non hai l'autorizzazione per operare sui rapporti."
 
-#: includes/Moderation/ModerationService.php:3719
+#: includes/Moderation/ModerationService.php:3733
 msgid "Database error updating report status."
 msgstr "Errore del database durante l'aggiornamento dello stato del rapporto."
 
-#: includes/Moderation/ModerationService.php:3731
+#: includes/Moderation/ModerationService.php:3745
 msgid "This report was already escalated or actioned by another moderator."
 msgstr ""
 "Questa segnalazione è già stata inoltrata o gestita da un altro moderatore."
 
-#: includes/Moderation/ModerationService.php:3732
+#: includes/Moderation/ModerationService.php:3746
 msgid "This report was already actioned by another moderator."
 msgstr "Questo rapporto è stato già gestito da un altro moderatore."
 
-#: includes/Moderation/ModerationService.php:4145
+#: includes/Moderation/ModerationService.php:4159
 msgid "Could not save the suspension. Please try again."
 msgstr "Impossibile salvare la sospensione. Riprova."
 
-#: includes/Moderation/ModerationService.php:4324
+#: includes/Moderation/ModerationService.php:4338
 msgid "You do not have an active suspension to appeal."
 msgstr "Non hai una sospensione attiva per presentare ricorso."
 
-#: includes/Moderation/ModerationService.php:4371
+#: includes/Moderation/ModerationService.php:4385
 msgid "Could not send your appeal. Please try again."
 msgstr "Impossibile inviare il tuo ricorso. Riprova."
 
@@ -21936,7 +21940,7 @@ msgstr ""
 msgid "You do not have permission to unban members from this space."
 msgstr "Non hai il permesso di sbannare i membri da questo space."
 
-#: includes/Spaces/SpaceMemberService.php:2815
+#: includes/Spaces/SpaceMemberService.php:2846
 msgid "You cannot join this space."
 msgstr "Non puoi unirti a questo space."
 
