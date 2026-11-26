@@ -138,4 +138,9 @@ class SpaceBansListTest extends \WP_UnitTestCase {
 		$this->assertSame( 'cannot_ban_self', $result->get_error_code() );
 		$this->assertSame( array(), $this->service->get_space_bans( 8 ) );
 	}
+
+	public function test_a_member_cannot_remove_themselves(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->assertFalse( $this->service->remove( 9, $admin, $admin ) );
+	}
 }

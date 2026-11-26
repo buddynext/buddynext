@@ -19,7 +19,8 @@ namespace BuddyNext\Tests\Theme;
 class ControlEdgeContrastTest extends \WP_UnitTestCase {
 
 	/**
-	 * The body of the first rule whose selector list ends with $selector.
+	 * The bodies of every rule whose selector list ends with $selector, joined (a later rule for the same selector,
+	 * such as a phone tap-target size, must not hide the rule that draws the edge).
 	 *
 	 * @param string $css      Stylesheet.
 	 * @param string $selector Exact selector text before the opening brace.
@@ -27,8 +28,8 @@ class ControlEdgeContrastTest extends \WP_UnitTestCase {
 	 */
 	private function rule( string $css, string $selector ): string {
 		$this->assertMatchesRegularExpression( '/' . preg_quote( $selector, '/' ) . '\s*\{([^}]*)\}/', $css, $selector );
-		preg_match( '/' . preg_quote( $selector, '/' ) . '\s*\{([^}]*)\}/', $css, $m );
-		return $m[1];
+		preg_match_all( '/' . preg_quote( $selector, '/' ) . '\s*\{([^}]*)\}/', $css, $m );
+		return implode( "\n", $m[1] );
 	}
 
 	/**
