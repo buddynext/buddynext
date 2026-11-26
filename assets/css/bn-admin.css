@@ -1599,6 +1599,12 @@ select.bn-text-input {
 html:has(.bn-save-bar) {
 	scroll-padding-bottom: calc(var(--bn-a-s10) * 2 + var(--bn-a-s2));
 }
+/* On a phone the bar stacks its text over its buttons and is taller, so it needs more room. */
+@media (max-width: 782px) {
+	html:has(.bn-save-bar) {
+		scroll-padding-bottom: calc(var(--bn-a-s10) * 3 + var(--bn-a-s4));
+	}
+}
 
 /* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface
    now renders the shared .bn-stat-grid > .bn-stat tiles (bn-base.css). */
@@ -5130,6 +5136,20 @@ code.bn-ep-code {
 	.bn-settings-section:has(> table.widefat),
 	.bn-settings-section:has(> form > table.widefat) {
 		overflow-x: auto;
+	}
+	/* A header never splits mid-word on a phone: the table scrolls instead. */
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th {
+		overflow-wrap: normal;
+		hyphens: manual;
+		letter-spacing: 0;
+	}
+	/* A shadow on the edge that has more table behind it, so a clipped Actions column is a visible cue to scroll. */
+	.bn-settings-section .bn-ss-body:has(> table.widefat) {
+		background:
+			linear-gradient(to right, var(--bn-surface, #fff) 30%, transparent) left center / 24px 100% no-repeat local,
+			linear-gradient(to left, var(--bn-surface, #fff) 30%, transparent) right center / 24px 100% no-repeat local,
+			radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.22), transparent) left center / 10px 100% no-repeat scroll,
+			radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.22), transparent) right center / 10px 100% no-repeat scroll;
 	}
 }
 

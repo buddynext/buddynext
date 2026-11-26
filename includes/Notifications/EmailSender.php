@@ -793,7 +793,7 @@ class EmailSender {
 		$footer_html   = '' !== $custom_footer
 			? nl2br( esc_html( $custom_footer ) )
 			: esc_html( sprintf( /* translators: 1: year, 2: site name. */ __( '© %1$s %2$s. All rights reserved.', 'buddynext' ), $year, $site_name ) );
-		$footer_html  .= '<br><a href="' . $site_url . '" style="color:#6b7280;">' . $site_url . '</a>';
+		$footer_html  .= '<br><a href="' . $site_url . '" style="color:#6b7280;"><bdi dir="ltr">' . $site_url . '</bdi></a>';
 
 		/**
 		 * Filter the email footer block.
@@ -829,6 +829,7 @@ class EmailSender {
 			. '.bn-mail-body p,.bn-mail-body li,.bn-mail-body td{color:#e5e7eb !important;}'
 			. '.bn-mail-foot{color:#9ca3af !important;border-color:#374151 !important;}'
 			. '.bn-mail-foot a{color:#9ca3af !important;}'
+			. '.bn-mail-head a,.bn-mail-body a:not([style*="display:inline-block"]){color:#8ab4f8 !important;}'
 			. '}</style>'
 			. '<title>' . esc_html( $subject ) . '</title></head>'
 			. '<body class="bn-mail-bg" style="margin:0;padding:0;background:#f3f4f6;'
