@@ -77,7 +77,7 @@ Direct messaging and media are powered by the MediaVerse companion plugin. Buddy
 
 Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 events respect Spaces and plans, and the feed, Space delete and big-Space delivery stay fast at scale. Lockstep with BuddyNext Pro 1.3.0 - install and test both together.
 
-* New      - Cards from Jetonomy, MediaVerse, WB Gamification and other partner plugins show live facts and up to two buttons, loaded once per page: discussions with replies, votes, Solved or Closed and tags, badges with points, level and progress, and documents with type, size and age.
+* New      - Cards from Jetonomy, MediaVerse, WB Gamification and other partner plugins show live facts and up to two buttons, loaded once per page: discussions with replies, votes, Solved or Closed and tags, badges with their level and current name, and documents with type and size.
 * New      - A Space's Discussions tab shows Pinned, Solved and Closed and up to two tags on each topic, pinned topics first, and links to the whole forum.
 * New      - Eventonomy 2.0 events follow your Spaces: members-only and Space-members levels, a preview with the right button for people who may not open an event, and event cards only for the people who can see them.
 * New      - A member held out of the community cannot register for or buy an event, and event pages stay closed while the community is private.
@@ -94,7 +94,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Improve  - Add-ons can name their own Features tab groups.
 * Improve  - Mail has a dark theme in clients that support it, and declares its language and direction.
 * Improve  - The post confirmation survives the page reload, the reaction button reads Like until you react, and the save button reads Bookmark.
-* Improve  - Mark all read clears notifications in place, admin Save stays off until a setting changes, and Insights adds a second row with engagement per post.
+* Improve  - Mark all read clears notifications in place, and admin Save stays off until a setting changes.
 * Improve  - The profile visibility setting explains that the Members directory still lists the member.
 * Improve  - Admin Home, Tools and Add-ons each have one main button, and phone tables keep readable columns inside a sideways scroll.
 * Fix      - A suspended member who has not finished onboarding reaches the account status page to read the reason and appeal.
