@@ -22,7 +22,7 @@ You can also follow from a member card - the compact profile tile that appears i
 
 ### Unfollow a member
 
-Select the Following button on the member's profile or card. It flips back to Follow, and their activity stops getting extra weight in your feed. Unfollowing is silent - the other member is not notified.
+Select the Following button on the member's profile or card. It flips back to Follow, and their activity stops getting extra weight in your feed. Unfollowing is silent - the other member is not notified. There is no confirmation step; instead, the message that confirms the unfollow carries an **Undo** button for a few seconds, which follows them again.
 
 ### Followers and following lists
 

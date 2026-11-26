@@ -110,6 +110,7 @@ This is the screen to visit when you want a companion's data without its menu cl
 
 ## Good to know
 
+- **Partner cards show live facts.** A card from a partner plugin in the feed shows a short facts line and up to two buttons as they are now, not as they were when the card was posted: a discussion's replies, votes, Solved or Closed and up to two tags; a badge's current name and the member's current level; a document's file type and size with a **Download** button; a video or audio clip's length. The first button is the main action. A button that only repeats the card's title link is left out. A card shows one square thumbnail at most, at every screen width, and falls back to text only when its picture fails to load.
 - An integration does nothing until its companion is present. BuddyNext loads zero integration code for a companion that is not installed, so unused integrations never affect performance.
 - The catalog is extensible. Pro and third-party plugins can add their own entries, so the set of integrations you see can grow beyond the built-in list above.
 - Running BuddyPress or BuddyBoss alongside BuddyNext is not supported. Treat them as a migration source only.

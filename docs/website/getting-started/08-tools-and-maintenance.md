@@ -59,7 +59,7 @@ A brand-new community has nothing in it, which makes it hard to judge what a rea
 
 - **Repair counters** recomputes the cached counts that can drift after an import or a manual database change: space members, follow counts, connection counts, post reactions and comments, and poll votes. It is safe to run at any time and may take a moment on large communities.
 - **Caches** has a **Flush BuddyNext cache** button. Use it after changing a setting if a stale value persists.
-- **Export / Import settings** downloads every BuddyNext setting as a JSON file and restores it on another site, for example from staging to production. Only BuddyNext settings are touched.
+- **Export / Import settings** downloads every BuddyNext setting as a JSON file and restores it on another site, for example from staging to production. Only BuddyNext settings are touched. The file never carries version markers, setup state, the community page assignments or the uninstall data-removal choice, so an import cannot roll back the other site's updates, point its pages at pages it does not have, or switch data removal on.
 
 ## Plugin isolation
 

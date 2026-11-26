@@ -81,6 +81,12 @@ Open **Settings > License** to activate your Pro key, see its status, and deacti
 
 If you deactivate BuddyNext Pro while BuddyNext stays active, Pro's own background jobs (analytics retention, membership reconcile and AI moderation checks) are removed so they do not fail without it.
 
+Deleting BuddyNext Pro from the Plugins screen keeps your brand settings, feature flags and Pro data, so a reinstall restores the site as it was. They are removed only when **Delete all BuddyNext data when the plugin is uninstalled** is on (BuddyNext's **Data on uninstall** setting, on its Tools screen). Pro follows the same choice as BuddyNext.
+
+## Keep BuddyNext and Pro on matching versions
+
+BuddyNext Pro needs a BuddyNext (Free) at least as new as itself. If BuddyNext is older, Pro stands down instead of breaking the site: Pro features pause, and administrators who can update plugins see "BuddyNext Pro needs a newer build of BuddyNext than the one installed. Update BuddyNext and Pro features will return." with the installed and needed versions. Update BuddyNext and Pro comes back on its own. Install both updates together.
+
 ## What stays the same
 
 Everything in Free keeps working exactly as before. Pro adds features on top and never removes one you already use. Members do not lose access to anything, and your license key is only ever used to keep you on the latest version - it does not switch features on or off.

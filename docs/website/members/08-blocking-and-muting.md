@@ -36,7 +36,7 @@ Because blocking is a strong, hard-to-miss change, BuddyNext asks you to confirm
 
 ### Mute
 
-Muting is the quiet option. When you mute someone, their content stops appearing for you, but nothing is cut off on their end and they are not told. There is no confirmation step - mute and unmute are a single tap. Use it when you simply want a quieter feed without making a statement.
+Muting is the quiet option. When you mute someone, their content stops appearing for you, but nothing is cut off on their end and they are not told. There is no confirmation step - mute and unmute are a single tap, and the message that confirms it carries an **Undo** button in case you tapped by mistake. Use it when you simply want a quieter feed without making a statement.
 
 ### Restrict
 
@@ -71,7 +71,7 @@ What an owner should know:
 - **Block prevents following.** A blocked person cannot start following you, and blocking removes the path for an existing follow.
 - **Mute and restrict are silent.** The other person is not notified when you mute or restrict them.
 - **Upgrading is safe.** If you mute someone and later block them, the relationship is upgraded cleanly rather than duplicated, so you never end up with conflicting states.
-- **Undo lives in one place.** Use the blocked / muted / restricted list in your profile settings to reverse any of the three - you do not have to find the person's profile again.
+- **One list to undo them all.** Right after a mute, the confirmation message has an **Undo** button. Later, use the blocked / muted / restricted list in your profile settings to reverse any of the three - you do not have to find the person's profile again.
 
 ## Free vs Pro
 

@@ -37,7 +37,8 @@ Community Insights covers the essentials every owner needs and is part of the fr
 
 ## What changed in 1.3.0
 
-- The Insights stat rows are one height, and Engagement rate reads as reactions and comments **per post**.
+- The Insights stat rows are one height.
+- With BuddyNext Pro, the analytics shown below the free summary read **Engagement rate** as reactions and comments **per post** (for example "1.4 per post").
 
 ## Related
 

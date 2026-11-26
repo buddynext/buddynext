@@ -4,7 +4,7 @@ Hashtags turn any word a member types with a leading `#` into a clickable, share
 
 ![BuddyNext search results grouped by type, including posts that share a hashtag topic](../images/search.webp)
 
-![A hashtag feed page - the tag header with a Follow button, post/contributor counts, the tagged posts, and an About panel](../images/hashtag-feed.webp)
+![A hashtag feed page - the tag header with a Follow button, post/contributor counts, the tagged posts](../images/hashtag-feed.webp)
 
 ![Platform - Features admin tab where the hashtags feature is enabled](../images/admin-features.webp)
 

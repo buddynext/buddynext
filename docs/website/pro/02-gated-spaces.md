@@ -37,7 +37,7 @@ The All gated spaces perk is the all-access pass. A plan that grants it lets its
 
 ### What a blocked member sees
 
-When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The upgrade button needs a payment gateway switched on; without one the member sees "Membership purchase is not configured yet. Please check back soon." instead. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button points to the call-to-action link you set. With no link set, it goes to the plan's own page when one plan is on offer, Unlisted plans included, or to your pricing page when several listed plans are. A hidden Unlisted plan is not named or linked while a listed plan opens the same space. When none of the space's plans can be bought, only a listed all-access plan can stand in; otherwise there is no button. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
+When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. Unless you set a CTA URL, the upgrade button needs a payment gateway switched on; without one the member sees "Membership purchase is not configured yet. Please check back soon." instead. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button points to the call-to-action link you set. With no link set, it goes to the plan's own page when one plan is on offer, Unlisted plans included, or to your pricing page when several listed plans are. A hidden Unlisted plan is not named or linked while a listed plan opens the same space. When none of the space's plans can be bought, only a listed all-access plan can stand in; otherwise there is no button. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
 
 
 ### Where a gated space shows up
@@ -45,7 +45,9 @@ When a logged-in member who lacks access opens a gated space, BuddyNext shows th
 A space that needs a plan keeps its content and its member list to people the plan admits, everywhere, not only on the space page:
 
 - **Member list.** The space's member list (the Members page, the app and the leaderboard) is shown only to people who may read the space. A guest or a member without the plan gets a "not allowed" answer.
-- **Feeds.** Posts from a gated space do not appear in the site-wide activity feed, Explore or the hashtag feeds for people who have not joined it. A member who joined it and still holds the plan sees them in their own feed. If the plan lapses, the member stays on the member list but the space's posts leave their feed and the space page shows the paywall, until they renew.
+- **Feeds.** Posts from a gated space do not appear in the site-wide activity feed, Explore or the hashtag feeds for people who have not joined it. A member who joined it and still holds the plan sees them in their own feed. If the plan lapses, the member stays on the member list but the space's posts leave their feed and the space page shows the paywall, until they renew. New posts in the space do not notify them either.
+- **Events (with Eventonomy 2.0).** An event open only to the space's members shows a preview to someone without the plan. The preview uses the space's own wording: "This event is for (space name) members", your paywall description, and your paywall button. With no CTA URL set, the button is **See membership plans** when the site can sell a plan, and there is no button when it cannot. A member whose plan lapsed sees "Your membership has ended" with **Renew membership**. A secret space shows no preview.
+- **The way back.** A member who goes from the space or an event to buy a plan gets a **Continue where you left off** button on the purchase confirmation, which returns them to that page.
 - **Search.** A member who holds the plan but has not joined still finds the space's posts through search.
 
 ## Setting it up (for owners)
@@ -93,7 +95,7 @@ Below the global defaults, the Paywall tab lists every gated space with the plan
 - The gate works everywhere. Once a space is gated, the join check runs on the website and in any connected app alike. A blocked member is never added, even from an app.
 - Access can come from a plan or the all-access perk. A member gets in if they are on the plan the space requires, or if their active plan grants the All gated spaces perk.
 - Losing the subscription re-locks the space. When a subscription expires or is revoked, access is removed and the member can no longer enter the gated space.
-- The paywall handles half-finished setups gracefully. When no gateway price is linked to the required plan, the button uses your CTA URL. When neither a price nor a URL is set, the prompt shows a friendly "not configured" notice rather than failing - so a partial setup never breaks the page.
+- The paywall handles half-finished setups gracefully. A CTA URL you set always gets a button. With no CTA URL, the button appears only when a payment gateway is switched on and a plan that opens the space can be bought. Otherwise the prompt says "Membership purchase is not configured yet. Please check back soon." rather than failing - so a partial setup never breaks the page.
 - No badge yet. Because gated spaces are not marked in directories, tell members which spaces are premium in your space description or pricing copy until a visible badge ships.
 
 ## Free vs Pro
@@ -105,7 +107,9 @@ Within Pro, both linking a space to a plan and the paywall prompt are managed fr
 ## What changed in 1.3.0
 
 - A guest or a free member who opens a plan-gated space sees the plan prompt and a button to the pricing page (a guest also sees Log in).
-- The prompt and its pricing button need a payment gateway switched on. Without one, a guest or free member sees "Membership purchase is not configured yet. Please check back soon." and no button.
+- The prompt and its pricing button need a payment gateway switched on. Without one, a guest or free member sees "Membership purchase is not configured yet. Please check back soon." and no button (unless you set a CTA URL).
+- A post in the space does not notify a member whose plan has ended.
+- An event preview for a plan-gated space uses the space's membership wording, and a buyer gets a way back to the page they came from.
 
 ## Related
 
