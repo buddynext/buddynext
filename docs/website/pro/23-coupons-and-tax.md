@@ -4,7 +4,7 @@ BuddyNext Pro lets you run discount codes and apply a flat tax to membership pur
 
 ![The Monetization section, where coupons have their own tab and tax settings sit with the payment gateways](../images/admin-coupons.webp)
 
-![The member-facing pricing page where a plan's price, discount, and tax lead into checkout](../images/membership-pricing.webp)
+![The member-facing pricing page; a coupon's discount and any tax show on the order summary at checkout](../images/membership-pricing.webp)
 
 > **Before you start:** Coupons and tax come with BuddyNext Pro. You need Pro active and the Monetization layer turned on (Platform → Features, "Memberships & monetization"). Both are configured in the Monetization section, but on two different tabs: coupons have their own **Coupons** tab, and tax settings live on the **Payment Gateways** tab. Neither is on Paywall, which is about the upgrade prompt.
 

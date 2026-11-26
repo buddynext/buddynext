@@ -4,7 +4,7 @@ Explore is the community's discovery deck - a stream of public activity from acr
 
 ![The BuddyNext Explore feed showing public activity from across the whole community](../images/explore.webp)
 
-![The Public explore feed toggle, under the General tab's Discovery section, where the site owner decides whether guests can browse Explore](../images/admin-features.webp)
+![The Public explore feed toggle, under the General tab's Discovery section, where the site owner decides whether guests can browse Explore](../images/admin-general.webp)
 
 ## Why use it
 
