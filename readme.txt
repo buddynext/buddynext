@@ -98,7 +98,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Improve  - The profile visibility setting explains that the Members directory still lists the member.
 * Improve  - Admin Home, Tools and Add-ons each have one main button, and phone tables keep readable columns inside a sideways scroll.
 * Fix      - A suspended member who has not finished onboarding reaches the account status page to read the reason and appeal.
-* Fix      - A suspended member earns no gamification points, badges or levels while suspended; points earned before stay.
+* Fix      - A suspended member earns no gamification points, badges or levels and is left off the leaderboard while suspended; points earned before stay.
 * Fix      - Nobody can suspend the site owner's account; administrators can still suspend other administrators.
 * Fix      - A member banned from a Space before Discussions was switched on cannot post in the new forum.
 * Fix      - A plan-gated Space's forum is private, and wp buddynext repair-discussion-visibility fixes forums linked before this release.

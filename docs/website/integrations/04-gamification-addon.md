@@ -81,7 +81,7 @@ A space can have its own **Leaderboard** tab, ranking only that space's members.
 
 ## Good to know
 
-- A suspended member earns no points while suspended, so no badge, level or points toast follows. Points earned before the suspension stay, and earning resumes when the suspension ends.
+- A suspended member earns no points while suspended, so no badge, level or points toast follows. They are also left off the leaderboard while suspended (with WB Gamification 1.6.9 or later). Points earned before the suspension stay, and earning and the leaderboard place return when the suspension ends.
 - **Inert when WB Gamification is not active.** Without the companion plugin, the integration does nothing - no Achievements tab, no leaderboard link, no badge feed activity. BuddyNext checks for WB Gamification before wiring anything in, so there is no error or empty surface on a site that does not run it.
 - **The Achievements tab is data-gated.** It only appears for members who have earned a badge or any points. New members never see an empty Achievements tab.
 - **Shared credential badges post to the feed; participation badges do not.** The member chooses to share. This keeps real milestones visible without flooding the feed with routine awards.
