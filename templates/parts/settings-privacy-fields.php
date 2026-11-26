@@ -133,7 +133,7 @@ $bn_search_hint        = $bn_profiles_indexable
 // set (the partial reads that as the toggle variant) and an optional disabled
 // flag (index 7).
 $privacy_rows = array(
-	array( 'select', 'bn_privacy_profile_visibility', __( 'Who can see my profile', 'buddynext' ), $privacy_profile_visibility, 'bn-ep-privacy-visibility', '', $privacy_visibility_options ),
+	array( 'select', 'bn_privacy_profile_visibility', __( 'Who can see my profile', 'buddynext' ), $privacy_profile_visibility, 'bn-ep-privacy-visibility', __( 'Controls who can open your profile page. Your name and photo can still appear in the Members directory, in search and on posts you share. Use Private account to limit your posts.', 'buddynext' ), $privacy_visibility_options ),
 	array( 'select', 'bn_privacy_who_can_follow', __( 'Who can follow me', 'buddynext' ), $privacy_who_can_follow, 'bn-ep-privacy-follow', '', $privacy_follow_options ),
 	array( 'select', 'bn_privacy_who_can_connect', __( 'Who can send me connection requests', 'buddynext' ), $privacy_who_can_connect, 'bn-ep-privacy-connect', '', $privacy_connect_options ),
 	array( 'select', 'bn_privacy_mention', __( 'Who can notify me with an @mention', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', __( 'Choose whose @mentions in posts and comments send you a notification. Anyone can still type your name, and it still links to your profile.', 'buddynext' ), $privacy_audiences ),
