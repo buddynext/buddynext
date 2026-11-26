@@ -317,7 +317,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				</div>
 
 				<div class="bn-pf-handle">
-					@<?php echo esc_html( '' !== $bn_pf_slug ? $bn_pf_slug : 'user-' . $bn_pf_uid ); ?>
+					<bdi dir="ltr">@<?php echo esc_html( '' !== $bn_pf_slug ? $bn_pf_slug : 'user-' . $bn_pf_uid ); ?></bdi>
 					<?php if ( $bn_pf_pronouns ) : ?>
 						<span class="bn-pf-pronouns">(<?php echo esc_html( $bn_pf_pronouns ); ?>)</span>
 					<?php endif; ?>

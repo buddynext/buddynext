@@ -315,7 +315,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 			<?php endif; ?>
 		</h3>
 
-		<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_handle ); ?></p>
+		<p class="bn-md-card__handle"><bdi dir="ltr">@<?php echo esc_html( $bn_member_handle ); ?></bdi></p>
 
 		<?php
 		// Profession/headline tagline — the single most identifying line on a

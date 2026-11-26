@@ -161,7 +161,7 @@ do_action( 'buddynext_part_post_byline_before', $args );
 
 		<div class="bn-post-card__meta">
 			<?php if ( '' !== (string) $args['username'] ) : ?>
-				<a class="bn-post-card__handle" href="<?php echo esc_url( (string) $args['profile_link'] ); ?>">@<?php echo esc_html( (string) $args['username'] ); ?></a>
+				<a class="bn-post-card__handle" href="<?php echo esc_url( (string) $args['profile_link'] ); ?>"><bdi dir="ltr">@<?php echo esc_html( (string) $args['username'] ); ?></bdi></a>
 				<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 			<?php endif; ?>
 

@@ -123,7 +123,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 					</a>
 					<div class="bn-follow-requests__id">
 						<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $bn_pp_req->display_name ); ?></a>
-						<span class="bn-follow-requests__handle">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ) ); ?></span>
+						<span class="bn-follow-requests__handle"><bdi dir="ltr">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ) ); ?></bdi></span>
 						<?php
 						$bn_pp_headline = (string) ( $bn_pp_identity[ $bn_pp_rid ]['headline'] ?? '' );
 						if ( '' !== $bn_pp_headline ) :

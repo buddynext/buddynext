@@ -224,7 +224,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 				</span>
 			</div>
 			<div class="bn-ep-hero-handle">
-				<span class="bn-badge" data-tone="accent">@<?php echo esc_html( $bn_ep_login ); ?></span>
+				<span class="bn-badge" data-tone="accent"><bdi dir="ltr">@<?php echo esc_html( $bn_ep_login ); ?></bdi></span>
 			</div>
 		</div>
 	</div>

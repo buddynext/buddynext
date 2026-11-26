@@ -648,7 +648,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 										<?php if ( $sug_headline ) : ?>
 											<?php echo esc_html( $sug_headline ); ?>
 										<?php else : ?>
-											@<?php echo esc_html( $sug_handle ); ?>
+											<bdi dir="ltr">@<?php echo esc_html( $sug_handle ); ?></bdi>
 											·
 											<?php
 											echo esc_html(

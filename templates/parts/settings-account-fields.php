@@ -129,7 +129,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 				/* translators: Label before the member's @mention name, e.g. "Mentioned as @alex". */
 				esc_html_e( 'Mentioned as', 'buddynext' );
 				?>
-				<span class="bn-ep-slug-handle__name" data-wp-text="state.slugHandlePreview">@<?php echo esc_html( $profile_slug ); ?></span>
+				<span class="bn-ep-slug-handle__name" data-wp-text="state.slugHandlePreview"><bdi dir="ltr">@<?php echo esc_html( $profile_slug ); ?></bdi></span>
 			</p>
 		</div>
 		<?php endif; ?>

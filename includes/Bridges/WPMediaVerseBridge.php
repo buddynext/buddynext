@@ -3927,7 +3927,13 @@ class WPMediaVerseBridge {
 			),
 		);
 
-		return IntegrationActivity::render_bridge_card( $args );
+		// What the author typed with the file is shown above its card, as it is on the post's own page.
+		$caption      = trim( (string) ( $args['post_content'] ?? '' ) );
+		$caption_html = '' !== $caption
+			? '<div class="bn-post-card__content">' . wp_kses_post( nl2br( buddynext_format_content( $caption ) ) ) . '</div>'
+			: '';
+
+		return $caption_html . IntegrationActivity::render_bridge_card( $args );
 	}
 
 	/**

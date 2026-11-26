@@ -263,6 +263,16 @@ const notificationsStore = store( 'buddynext/notifications', {
 				pulses.forEach( function ( el ) { el.hidden = true; } );
 				var rows = document.querySelectorAll( '.bn-notif-row--unread' );
 				rows.forEach( function ( el ) { el.classList.remove( 'bn-notif-row--unread' ); } );
+				// The per-row "Mark as read" buttons have nothing left to do.
+				document.querySelectorAll( '[data-wp-on--click="actions.markReadOnly"]' ).forEach( function ( el ) { el.remove(); } );
+				// The "this week" tile: everything counted that week is read now.
+				var weekAll  = document.querySelector( '[data-bn-week-notifs]' );
+				var weekRead = document.querySelector( '[data-bn-week-read]' );
+				if ( weekAll && weekRead ) {
+					weekRead.textContent = weekAll.textContent;
+					var weekLabel = document.querySelector( '[data-bn-week-read-label]' );
+					if ( weekLabel ) { weekLabel.textContent = weekLabel.textContent.replace( /\(\s*[\d.,]+\s*%\s*\)/, '(100%)' ); }
+				}
 			} catch ( _e ) {
 				// Rollback.
 				ctx.unreadCount = previous;

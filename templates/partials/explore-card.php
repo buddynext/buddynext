@@ -105,7 +105,7 @@ if ( 'member' === $bn_kind ) {
 				<?php endif; ?>
 			</span>
 			<span class="ec-member-name"><?php echo esc_html( $bn_name ); ?></span>
-			<span class="ec-member-handle">@<?php echo esc_html( $bn_login ); ?></span>
+			<span class="ec-member-handle"><bdi dir="ltr">@<?php echo esc_html( $bn_login ); ?></bdi></span>
 			<span class="ec-member-meta">
 				<?php
 				if ( '' !== $bn_tag ) {

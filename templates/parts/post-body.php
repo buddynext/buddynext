@@ -523,7 +523,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 						<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-name"><?php echo esc_html( $orig_name ); ?></a>
 						<span class="bn-post-card__shared-sub">
 							<?php if ( $orig_username ) : ?>
-								<span class="bn-post-card__shared-username">@<?php echo esc_html( $orig_username ); ?></span>
+								<span class="bn-post-card__shared-username"><bdi dir="ltr">@<?php echo esc_html( $orig_username ); ?></bdi></span>
 								<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 							<?php endif; ?>
 							<span class="bn-post-card__shared-time"><?php echo esc_html( $orig_time ); ?></span>

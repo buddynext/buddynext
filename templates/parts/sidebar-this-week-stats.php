@@ -127,8 +127,8 @@ do_action( 'buddynext_part_sidebar_this_week_stats_before', $args );
 		</div>
 
 		<div class="bn-stat">
-			<div class="bn-stat__value"><?php echo esc_html( $bn_format( $bn_notifs_read_7d ) ); ?></div>
-			<div class="bn-stat__label">
+			<div class="bn-stat__value" data-bn-week-read="<?php echo esc_attr( (string) $bn_notifs_read_7d ); ?>"><?php echo esc_html( $bn_format( $bn_notifs_read_7d ) ); ?></div>
+			<div class="bn-stat__label" data-bn-week-read-label>
 				<?php
 				// The rate qualifies the label ("read (46%)"); the delta slot is for a
 				// real week-over-week trend, as on the notifications tile.
