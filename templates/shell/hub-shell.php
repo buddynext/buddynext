@@ -112,6 +112,9 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 		<div class="bn-app__region"<?php echo $bn_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
 		<<?php echo esc_attr( $bn_main_tag ); ?> class="bn-app__main" id="bn-main-content" tabindex="-1">
 			<?php
+			buddynext_get_template( 'parts/suspended-banner.php' );
+			?>
+			<?php
 			// Render a menu assigned to the "BuddyNext Community Nav" location. The
 			// location was registered (Plugin::register_nav_menus) but no template
 			// ever output it, so an assigned menu was invisible. Show it as a

@@ -162,16 +162,6 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	data-bn-new-poll-ms="<?php echo esc_attr( (string) $bn_new_pill_ms ); ?>"
 	data-bn-watermark="<?php echo esc_attr( (string) $bn_feed_watermark ); ?>">
 
-	<?php
-	// A suspended member can read but not act: say so at the top of the feed, with the way to the reason and the
-	// appeal, instead of leaving every post button to fail on its own.
-	if ( $current_user_id > 0 && buddynext_service( 'moderation' )->is_suspended( $current_user_id ) ) :
-		?>
-		<div class="bn-notice bn-notice--error" role="status">
-			<span><?php esc_html_e( 'Your account is suspended. You can read the community, but you cannot post or react until it is lifted.', 'buddynext' ); ?></span>
-			<a class="bn-notice__cta" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::account_status_url() ); ?>"><?php esc_html_e( 'See why and appeal', 'buddynext' ); ?></a>
-		</div>
-	<?php endif; ?>
 
 	<!-- Post composer -->
 	<?php

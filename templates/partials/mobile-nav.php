@@ -97,7 +97,8 @@ if ( ! isset( $bn_unread_notifs ) ) {
 			'url'   => $bn_nav_urls['feed'] . '?compose=1',
 			'icon'  => 'plus',
 			'label' => __( 'Create post', 'buddynext' ),
-			'show'  => $bn_nav_current_user > 0,
+			// A suspended member cannot post, so the bar does not offer to.
+			'show'  => $bn_nav_current_user > 0 && ! buddynext_service( 'moderation' )->is_suspended( $bn_nav_current_user ),
 			'type'  => 'create',
 		),
 		array(
