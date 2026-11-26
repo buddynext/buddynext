@@ -2362,6 +2362,20 @@ class ModerationService {
 			);
 		}
 
+		// Nobody suspends the account that owns the site (the user behind Settings > General > Administration
+		// Email Address): it would lock the owner out of their own community. Admins can still suspend other admins.
+		$owner = get_user_by( 'email', (string) get_option( 'admin_email' ) );
+		if ( $owner && (int) $owner->ID === $user_id ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'The site owner\'s account cannot be suspended.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'site_owner',
+				)
+			);
+		}
+
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
 		if ( null !== $outranked ) {
 			$outranked->add_data(
