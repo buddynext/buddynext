@@ -239,7 +239,7 @@ class GamificationBridge {
 
 		// ...and does not appear on the leaderboard while suspended (owner decision 2026-11-26). Inside
 		// wb-gamification's leaderboard SQL, so ranks and page counts stay right. Inert on a wb-gamification
-		// without this filter (added in 1.6.9).
+		// without this filter (added in 1.7.0).
 		add_filter( 'wb_gam_leaderboard_exclusion_sql', array( $this, 'leaderboard_skips_suspended' ), 10, 2 );
 		// The board is cached and snapshotted; refresh it so a suspension or its lifting shows at once.
 		add_action( 'buddynext_user_suspended', array( __CLASS__, 'refresh_leaderboard' ) );
@@ -247,15 +247,16 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Drop wb-gamification's cached boards (public since its 1.6.9; no-op on older versions).
+	 * Drop wb-gamification's cached boards (public since its 1.7.0; no-op on older versions).
 	 *
 	 * @since 1.3.0
 	 *
 	 * @return void
 	 */
 	public static function refresh_leaderboard(): void {
-		if ( is_callable( array( 'WBGam\\Engine\\LeaderboardEngine', 'invalidate_cache' ) ) ) {
-			\WBGam\Engine\LeaderboardEngine::invalidate_cache();
+		$invalidate = array( 'WBGam\\Engine\\LeaderboardEngine', 'invalidate_cache' );
+		if ( is_callable( $invalidate ) ) {
+			call_user_func( $invalidate );
 		}
 	}
 
