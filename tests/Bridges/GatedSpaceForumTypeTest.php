@@ -69,4 +69,16 @@ class GatedSpaceForumTypeTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'JetonomyBridge::forum_type_for(', $source );
 		$this->assertStringNotContainsString( 'discussion_visibility_for( (string) $space->type )', $source );
 	}
+
+	/**
+	 * Writing a forum with Jetonomy off or too old to have the model answers with an error, never a fatal.
+	 *
+	 * @return void
+	 */
+	public function test_write_forum_without_jetonomy_is_an_error_not_a_fatal(): void {
+		if ( class_exists( '\\Jetonomy\\Models\\Space' ) ) {
+			$this->markTestSkipped( 'Jetonomy is loaded in this run.' );
+		}
+		$this->assertWPError( JetonomyBridge::write_forum( 1, array( 'visibility' => 'private' ) ) );
+	}
 }

@@ -236,10 +236,12 @@ $bn_sspm_ctx = (string) wp_json_encode(
 							<p class="bn-space-settings__member-name"><?php echo esc_html( $bn_ban_member->display_name ); ?></p>
 							<p class="bn-space-settings__member-meta"><bdi dir="ltr">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $bn_ban_member->user_id ) ); ?></bdi></p>
 							<?php if ( '' !== trim( (string) ( $bn_ban_member->reason ?? '' ) ) ) : ?>
-								<p class="bn-space-settings__member-meta"><?php
+								<p class="bn-space-settings__member-meta">
+								<?php
 								/* translators: %s: the reason a moderator gave for the ban. */
 								echo esc_html( sprintf( __( 'Reason: %s', 'buddynext' ), (string) $bn_ban_member->reason ) );
-								?></p>
+								?>
+								</p>
 							<?php endif; ?>
 						</div>
 

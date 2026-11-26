@@ -984,7 +984,13 @@ class FeedController extends BaseRestController {
 		if ( $space_id > 0 ) {
 			$space = buddynext_service( 'spaces' )->get( $space_id );
 			if ( ! is_array( $space ) || ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $user_id ) ) {
-				return new WP_REST_Response( array( 'count' => 0, 'newest_id' => $after_id ), 200 );
+				return new WP_REST_Response(
+					array(
+						'count'     => 0,
+						'newest_id' => $after_id,
+					),
+					200
+				);
 			}
 			return new WP_REST_Response( $this->feed_service()->space_feed_new_count( $user_id, $space_id, $after_id ), 200 );
 		}

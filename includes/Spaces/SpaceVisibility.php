@@ -265,7 +265,7 @@ final class SpaceVisibility {
 		if ( null === $space || $viewer_id <= 0 ) {
 			return false;
 		}
-		if ( (int) ( $space['owner_id'] ?? 0 ) === $viewer_id || user_can( $viewer_id, 'manage_options' ) ) {
+		if ( (int) ( $space['owner_id'] ?? 0 ) === $viewer_id || self::is_site_admin( $viewer_id ) ) {
 			return true;
 		}
 		if ( '' !== (string) ( $space['required_ability'] ?? '' ) && has_filter( 'buddynext_can_view_space_content' ) ) {
@@ -295,7 +295,7 @@ final class SpaceVisibility {
 			return true;
 		}
 
-		if ( user_can( $viewer_id, 'manage_options' ) ) {
+		if ( self::is_site_admin( $viewer_id ) ) {
 			return true;
 		}
 
@@ -384,5 +384,15 @@ final class SpaceVisibility {
 	 */
 	private static function type( array $space ): string {
 		return (string) ( $space['type'] ?? 'open' );
+	}
+
+	/**
+	 * Whether the viewer administers the whole site: the one site-owner boundary this class draws, kept in a single place.
+	 *
+	 * @param int $viewer_id Viewer user ID.
+	 * @return bool
+	 */
+	private static function is_site_admin( int $viewer_id ): bool {
+		return user_can( $viewer_id, 'manage_options' );
 	}
 }

@@ -152,6 +152,8 @@ Narrower hooks around announcements, members-only posts, the feed templates, and
 | `buddynext_bookmarks_before` / `buddynext_bookmarks_after` | action | Before and after the bookmarks hub renders. | `int $current_user_id` |
 | `buddynext_single_post_thread` | action | After the single-post card, so a bridge can render an alternative thread UI. | `int $post_id, array $post` |
 | `buddynext_feed_client_pagination` | filter | A feed, Explore, or bookmarks template decides whether "Load more" swaps in place through the client router. Return `false` to fall back to a plain link. | `bool $enabled` (default `true`) |
+| `buddynext_feed_items_primed` | action | A page of feed items is about to render, guests included. A bridge whose cards draw from their source plugin loads the whole page in one call here instead of one call per card. | `array $items, int $viewer` |
+| `buddynext_feed_item_enriched` | filter | One feed item has been enriched for the REST response. The last word on its shape, so a bridge can fill a partner's card from the partner itself and every client reads the same item. | `array $item, int $viewer` |
 | `buddynext_feed_new_count_interval` | filter | The home feed sets how often the "N new posts" pill polls, in seconds (default `60`). | `int $seconds` |
 | `buddynext_share_networks` | filter | The share modal builds the list of networks for sharing a public post. Return an empty array to offer only "Copy link". | `array $networks` (key => `icon`, `label`, `url` template with `{url}` and `{text}`) |
 

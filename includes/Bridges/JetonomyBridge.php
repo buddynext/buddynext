@@ -2995,6 +2995,10 @@ class JetonomyBridge {
 	 * @return bool|\WP_Error What Space::update() answered.
 	 */
 	public static function write_forum( int $forum_id, array $fields ) {
+		// Jetonomy off or too old to have the model: nothing to write, and never a fatal.
+		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return new \WP_Error( 'bn_forum_unavailable', __( 'Discussions are not available right now.', 'buddynext' ) );
+		}
 		++self::$own_write;
 		try {
 			return \Jetonomy\Models\Space::update( $forum_id, $fields );
@@ -3028,7 +3032,7 @@ class JetonomyBridge {
 			return $proceed;
 		}
 		foreach ( array( 'visibility', 'join_policy', 'status' ) as $field ) {
-			if ( array_key_exists( $field, $data ) && (string) $data[ $field ] !== (string) ( $forum->$field ?? '' ) ) {
+			if ( array_key_exists( $field, $data ) && (string) ( $forum->$field ?? '' ) !== (string) $data[ $field ] ) {
 				return new \WP_Error(
 					'bn_forum_follows_space',
 					__( 'This discussion follows its Space. Change who can see or join it in the Space settings.', 'buddynext' ),
@@ -5795,8 +5799,11 @@ class JetonomyBridge {
 
 		global $wpdb;
 		$in = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- one bounded read per list; placeholders are built from the id count.
-		$found = $wpdb->get_results( $wpdb->prepare( "SELECT pt.post_id, t.name FROM {$wpdb->prefix}jt_post_tags pt INNER JOIN {$wpdb->prefix}jt_tags t ON t.id = pt.tag_id WHERE pt.post_id IN ({$in}) ORDER BY t.name ASC", $ids ), ARRAY_A );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// One bounded read per list; the query holds only integer placeholders.
+		$query = "SELECT pt.post_id, t.name FROM {$wpdb->prefix}jt_post_tags pt INNER JOIN {$wpdb->prefix}jt_tags t ON t.id = pt.tag_id WHERE pt.post_id IN ({$in}) ORDER BY t.name ASC";
+		$found = $wpdb->get_results( $wpdb->prepare( $query, $ids ), ARRAY_A );
+		// phpcs:enable
 
 		$names = array();
 		foreach ( (array) $found as $tag ) {

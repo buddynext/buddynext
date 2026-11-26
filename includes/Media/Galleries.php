@@ -65,7 +65,7 @@ class Galleries {
 			return false;
 		}
 
-		if ( current_user_can( 'manage_options' ) ) {
+		if ( self::is_site_admin() ) {
 			return true;
 		}
 
@@ -147,7 +147,7 @@ class Galleries {
 	/**
 	 * An album's title as plain text.
 	 *
-	 * get_the_title() texturizes (an apostrophe becomes &#8217;) and the JS prints the value as text, so decode once here:
+	 * WordPress's get_the_title() texturizes (an apostrophe becomes &#8217;) and the JS prints the value as text, so decode once here:
 	 * every consumer, REST included, then gets the characters the member typed.
 	 *
 	 * @param int $album_id Album post id.
@@ -286,7 +286,7 @@ class Galleries {
 	 * @return bool
 	 */
 	private static function owner_hidden( int $owner_id ): bool {
-		return buddynext_service( 'moderation' )->is_suspended( $owner_id ) && ! current_user_can( 'manage_options' );
+		return buddynext_service( 'moderation' )->is_suspended( $owner_id ) && ! self::is_site_admin();
 	}
 
 	/**
@@ -595,5 +595,14 @@ class Galleries {
 		// moderate_mvs_media is registered by WPMediaVerse (MediaCapabilities); this
 		// media bridge reuses that plugin's capability rather than minting its own.
 		return $viewer_id > 0 && user_can( $viewer_id, 'moderate_mvs_media' ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- capability owned by the WPMediaVerse companion plugin.
+	}
+
+	/**
+	 * Whether the current user administers the whole site: the one site-owner boundary this class draws, kept in a single place.
+	 *
+	 * @return bool
+	 */
+	private static function is_site_admin(): bool {
+		return current_user_can( 'manage_options' );
 	}
 }
