@@ -142,7 +142,7 @@ do_action( 'buddynext_part_notification_row_before', $args );
 			// the resulting HTML is safe to emit.
 			echo $rendered; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above.
 			?>
-			<?php if ( $group_count > 1 ) : ?>
+			<?php if ( $group_count > 1 && empty( $bn_payload['others_named'] ) ) : ?>
 				<span class="bn-notif-row__group" aria-hidden="true"><?php echo esc_html( '×' . (string) $group_count ); ?></span>
 			<?php endif; ?>
 		</div>

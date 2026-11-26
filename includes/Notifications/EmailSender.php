@@ -98,6 +98,15 @@ class EmailSender {
 	private const COMPOSED_EMAIL_TYPES = array( 'bn.broadcast', 'bn.drip_step' );
 
 	/**
+	 * Moderation notices to a member about their own account (a strike, a suspension, an appeal's outcome). They
+	 * carry no unsubscribe link: a footer offering to stop a suspension notice reads as a joke, and the member's
+	 * notification settings still decide whether the mail is sent.
+	 *
+	 * @var string[]
+	 */
+	private const MODERATION_NOTICE_TYPES = array( 'bn.strike_issued', 'bn.strike_warning', 'bn.user_warned', 'bn.member_suspended', 'bn.user_unsuspended', 'bn.appeal_resolved' );
+
+	/**
 	 * Constructor.
 	 *
 	 * @param NotificationPrefService   $pref_service Notification preference service.
@@ -235,6 +244,51 @@ class EmailSender {
 	 * @return bool True when the email was handed off to wp_mail(), false otherwise.
 	 */
 	public function send_now( int $user_id, string $notification_type, array $data, bool $is_retry = false ): bool {
+		// Render in the recipient's language: their own profile locale when set, else the
+		// site's. Every __() below (the unsubscribe line, the brand wrapper) and every
+		// unedited template field (EmailDefaults::localise) then reads in that language.
+		return self::in_recipient_locale( $user_id, fn() => $this->send_in_locale( $user_id, $notification_type, $data, $is_retry ) );
+	}
+
+	/**
+	 * Build (and send) an email in the recipient's language.
+	 *
+	 * The one seam every BuddyNext email goes through: a member's own profile locale
+	 * when they have one, else the site's, never the language of whoever triggered the
+	 * send (an admin approving, a member inviting). Every __() inside $build and every
+	 * unedited template field passed through EmailDefaults::localise() then reads in
+	 * that language.
+	 *
+	 * @param int|string $recipient Member id, or an email address (a member's address uses
+	 *                              their locale; anyone else, such as an invitee, gets the site's).
+	 * @param callable   $build     Builds and sends the email; its return value is passed back.
+	 * @return mixed
+	 */
+	public static function in_recipient_locale( int|string $recipient, callable $build ): mixed {
+		if ( is_string( $recipient ) ) {
+			$user      = '' !== $recipient ? get_user_by( 'email', $recipient ) : false;
+			$recipient = $user ? (int) $user->ID : 0;
+		}
+		$switched = $recipient > 0 ? switch_to_user_locale( $recipient ) : switch_to_locale( get_locale() );
+		try {
+			return $build();
+		} finally {
+			if ( $switched ) {
+				restore_previous_locale();
+			}
+		}
+	}
+
+	/**
+	 * Body of send_now(), run inside the recipient's locale.
+	 *
+	 * @param int                  $user_id           Recipient user ID.
+	 * @param string               $notification_type Notification type slug.
+	 * @param array<string, mixed> $data              Notification data.
+	 * @param bool                 $is_retry          Whether this is the single retry.
+	 * @return bool
+	 */
+	private function send_in_locale( int $user_id, string $notification_type, array $data, bool $is_retry ): bool {
 		// The email was queued while its actor existed. If that member has since
 		// been deleted (account erased, demo cleanup) the subject would render
 		// with no name, so there is nothing left to tell the recipient about.
@@ -275,6 +329,9 @@ class EmailSender {
 		}
 
 		$template = $this->get_template( $notification_type );
+		if ( null !== $template && ! $has_inline ) {
+			$template = EmailDefaults::localise( $notification_type, $template );
+		}
 
 		if ( null === $template && ! $has_inline ) {
 			return false;
@@ -294,6 +351,11 @@ class EmailSender {
 		$subject_src = $has_inline ? $inline_subject : (string) $template->subject;
 		$body_src    = $has_inline ? $inline_body : (string) $template->body_html;
 
+		// The seeded moderation templates end in an unsubscribe paragraph; drop it from the notices that must not offer one.
+		if ( in_array( $notification_type, self::MODERATION_NOTICE_TYPES, true ) ) {
+			$body_src = (string) preg_replace( '#<p>\s*<a href="\{\{unsubscribe_url\}\}"[^>]*>[^<]*</a>\s*</p>#i', '', $body_src );
+		}
+
 		$subject = $this->render( $subject_src, $user_id, $data );
 		$body    = $this->render( $body_src, $user_id, $data );
 
@@ -303,6 +365,7 @@ class EmailSender {
 		if ( false === strpos( $body_src, '{{unsubscribe_url}}' )
 			&& ! in_array( $notification_type, $this->transactional_types(), true )
 			&& ! in_array( $notification_type, self::COMPOSED_EMAIL_TYPES, true )
+			&& ! in_array( $notification_type, self::MODERATION_NOTICE_TYPES, true )
 		) {
 			$body .= '<p style="margin:24px 0 0;font-size:12px;color:#6b7280;">'
 				. sprintf(
@@ -659,6 +722,30 @@ class EmailSender {
 	}
 
 	/**
+	 * Draw a paragraph that holds nothing but a link as the brand button.
+	 *
+	 * A mail's one main action ("View comment", "Accept invite") is written as its own paragraph with a plain
+	 * link; here it becomes the same button the password reset mail has. Links that already carry a style, links
+	 * to unsubscribe, and links sitting inside running text are left alone.
+	 *
+	 * @param string $body      Body HTML.
+	 * @param string $brand_esc Escaped brand colour.
+	 * @return string
+	 */
+	private static function buttonize_main_action( string $body, string $brand_esc ): string {
+		return (string) preg_replace_callback(
+			'#<p>\s*<a (href="[^"]+")(?:\s+(?:target|rel)="[^"]*")*\s*>([^<]{2,60})</a>\s*</p>#i',
+			static function ( array $m ) use ( $brand_esc ): string {
+				if ( false !== stripos( $m[1], 'unsubscribe' ) || false !== stripos( $m[2], 'unsubscribe' ) ) {
+					return $m[0];
+				}
+				return '<p><a ' . $m[1] . ' style="display:inline-block;background:' . $brand_esc . ';color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">' . $m[2] . '</a></p>';
+			},
+			$body
+		);
+	}
+
+	/**
 	 * Wrap a rendered body in the single, canonical branded email shell.
 	 *
 	 * THE one wrapper every BuddyNext email passes through — notifications,
@@ -703,6 +790,9 @@ class EmailSender {
 		$brand_esc = esc_attr( $brand );
 		$year      = esc_html( gmdate( 'Y' ) );
 
+		// A paragraph that is only a link is the mail's one main action: draw it as the brand button.
+		$body = self::buttonize_main_action( $body, $brand_esc );
+
 		// Header: the Appearance logo when set (Settings → Appearance), else the
 		// site name as a text wordmark. Both link home.
 		$logo_url = (string) get_option( 'buddynext_logo_url', '' );
@@ -730,7 +820,7 @@ class EmailSender {
 		$footer_html   = '' !== $custom_footer
 			? nl2br( esc_html( $custom_footer ) )
 			: esc_html( sprintf( /* translators: 1: year, 2: site name. */ __( '© %1$s %2$s. All rights reserved.', 'buddynext' ), $year, $site_name ) );
-		$footer_html  .= '<br><a href="' . $site_url . '" style="color:#6b7280;">' . $site_url . '</a>';
+		$footer_html  .= '<br><a href="' . $site_url . '" style="color:#6b7280;"><bdi dir="ltr">' . $site_url . '</bdi></a>';
 
 		/**
 		 * Filter the email footer block.
@@ -748,31 +838,49 @@ class EmailSender {
 				. esc_html( $preheader ) . '</div>'
 			: '';
 
-		return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+		// The mail carries its own language and direction (an Arabic site's mail reads right to left), and declares both
+		// colour schemes (the dark rules are in the style block below).
+		$mail_lang = esc_attr( str_replace( '_', '-', determine_locale() ) );
+		$mail_dir  = is_rtl() ? 'rtl' : 'ltr';
+
+		return '<!DOCTYPE html><html lang="' . $mail_lang . '" dir="' . $mail_dir . '"><head><meta charset="utf-8">'
 			. '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+			. '<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">'
+			// Dark mode: a client that honours prefers-color-scheme gets a dark card; the inline colours stay the
+			// light-safe fallback for every client that does not (Outlook, older Gmail), so the mail never inverts badly.
+			. '<style>@media (prefers-color-scheme: dark){'
+			. '.bn-mail-bg{background:#111827 !important;}'
+			. '.bn-mail-card{background:#1f2937 !important;}'
+			. '.bn-mail-head{background:#1f2937 !important;border-color:#374151 !important;}'
+			. '.bn-mail-body{color:#e5e7eb !important;}'
+			. '.bn-mail-body p,.bn-mail-body li,.bn-mail-body td{color:#e5e7eb !important;}'
+			. '.bn-mail-foot{color:#9ca3af !important;border-color:#374151 !important;}'
+			. '.bn-mail-foot a{color:#9ca3af !important;}'
+			. '.bn-mail-head a,.bn-mail-body a:not([style*="display:inline-block"]){color:#8ab4f8 !important;}'
+			. '}</style>'
 			. '<title>' . esc_html( $subject ) . '</title></head>'
-			. '<body style="margin:0;padding:0;background:#f3f4f6;'
+			. '<body class="bn-mail-bg" style="margin:0;padding:0;background:#f3f4f6;'
 			. '-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">'
 			. $preheader_html
-			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 12px;">'
+			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bn-mail-bg" style="background:#f3f4f6;padding:24px 12px;">'
 			. '<tr><td align="center">'
 			// Fluid up to 600px so a phone shows the whole card; Outlook, which ignores
 			// max-width, gets the fixed 600px ghost table instead.
 			. '<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0"><tr><td><![endif]-->'
-			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bn-mail-card" '
 			. 'style="width:100%;max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;'
 			. 'box-shadow:0 1px 3px rgba(0,0,0,0.08);border-top:3px solid ' . $brand_esc . ';">'
 			// Header — light background so any logo (light, dark, or transparent)
 			// reads well; a thin brand-colour strip on the card top keeps a touch
 			// of branding without a heavy coloured block behind the logo.
-			. '<tr><td style="background:#ffffff;padding:24px 32px;border-bottom:1px solid #e5e7eb;">'
+			. '<tr><td class="bn-mail-head" style="background:#ffffff;padding:24px 32px;border-bottom:1px solid #e5e7eb;">'
 			. $header_inner . '</td></tr>'
 			// Body.
-			. '<tr><td style="padding:28px 32px;color:#1f2937;font-size:15px;line-height:1.6;">'
+			. '<tr><td class="bn-mail-body" style="padding:28px 32px;color:#1f2937;font-size:15px;line-height:1.6;">'
 			. $body
 			. '</td></tr>'
 			// Footer.
-			. '<tr><td style="padding:20px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">'
+			. '<tr><td class="bn-mail-foot" style="padding:20px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">'
 			. $footer_html
 			. '</td></tr>'
 			. '</table><!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>';

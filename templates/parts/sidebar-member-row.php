@@ -44,7 +44,7 @@ if ( $row_user_id <= 0 ) {
 	return;
 }
 
-$row_initial = '' !== $row_name ? mb_strtoupper( mb_substr( $row_name, 0, 1 ) ) : '?';
+$row_initial = '' !== $row_name ? \BuddyNext\Support\Text::upper( mb_substr( $row_name, 0, 1 ) ) : '?';
 ?>
 <li class="bn-member-row">
 	<a class="bn-member-row__link" href="<?php echo esc_url( $row_url ); ?>">

@@ -351,9 +351,9 @@
 .bn-post-card__menu-item:hover,
 .bn-post-card__menu-item:focus { background: var(--bn-sunken); color: var(--bn-ink); }
 .bn-post-card__menu-item:focus-visible { outline: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--bn-accent); }
-.bn-post-card__menu-item--danger { color: var(--bn-danger); }
+.bn-post-card__menu-item--danger { color: var(--bn-danger-text); }
 .bn-post-card__menu-item--danger:hover,
-.bn-post-card__menu-item--danger:focus { background: var(--bn-danger-bg); color: var(--bn-danger); }
+.bn-post-card__menu-item--danger:focus { background: var(--bn-danger-bg); color: var(--bn-danger-text); }
 
 /* Follow inside the overflow menu is the MOBILE stand-in for the inline pill,
 	which is hidden under 640px. Hidden by default so the two never show at once;
@@ -540,9 +540,10 @@
 	   characters per line on both the feed and the permalink. Every typographic
 	   reference puts comfortable reading at 45-75 (Bringhurst, ~66 optimal);
 	   past that the eye loses the line return on the way back, which readers
-	   experience as tiring rather than notice as a fault. Facebook, LinkedIn and
-	   X all sit inside the band because their feed columns are narrower than
-	   ours -- we get there by limiting the text instead of rebuilding the layout.
+	   experience as tiring rather than notice as a fault. X sits near 70;
+	   Facebook and LinkedIn run longer (roughly 80-95) because they fill their
+	   columns edge to edge, so the reason here is reading comfort, not matching
+	   them. We get there by limiting the text instead of rebuilding the layout.
 
 	   ch units track the actual font, so this holds if a theme changes the face
 	   or the owner changes the size. Only the text is constrained: media, polls
@@ -552,8 +553,11 @@
 	   The value is 58 and not 66, because `ch` is the advance width of the "0"
 	   glyph and proportional text averages narrower than that -- 68ch measured
 	   as 79 real characters here, still outside the band. 58ch lands inside it.
-	   Any change to this number should be re-measured rather than reasoned. */
-	max-width: 58ch;
+	   Any change to this number should be re-measured rather than reasoned.
+
+	   A site that prefers full-width text sets --bn-post-measure: none (or any
+	   length) on :root or .bn-app; the default stays 58ch. */
+	max-width: var(--bn-post-measure, 58ch);
 }
 
 /* ── Long-post preview ──────────────────────────────────────────────────────
@@ -916,96 +920,160 @@
 }
 
 /* Bridge cards: media, discussion, job. */
-/* ── Article card (site tracking) ───────────────────────────────────────────
-   A member publishing a post is first-class community content on a platform
-   people came to for blogging, so it gets a real card - cover, headline,
-   excerpt - rather than the compact bridge row used for partner links. The
-   whole card is one anchor, so the entire surface is the tap target. */
-.bn-post-card__article {
-	display: block;
+/* ── Article card ──────────────────────────────────────────────────────────
+   One component (templates/parts/article-card.php) for every surface that lists
+   articles: the feed and the Space Blog tab use the 16:9 `cover` variant, the
+   profile Articles tab the square `row` variant. Lives here because the feed,
+   profile and spaces hubs all load bn-feed.css.
+   Images are hard-cropped sizes (ArticleImage) shown with object-fit: cover in a
+   fixed-ratio box, so a tall or wide upload never changes the card's shape. A
+   card without an image has no media node: it is shorter and its text starts
+   at the same edge. Titles and intros stop at two lines; long words break. */
+.bn-article-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	min-width: 0;
+}
+
+.bn-post-card .bn-article-card {
 	margin-block-start: var(--bn-s3);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md);
+}
+
+.bn-article-card__media {
+	display: block;
 	overflow: hidden;
-	background: var(--bn-surface);
-	text-decoration: none;
-	color: inherit;
-	transition: border-color var(--bn-dur, 0.14s) var(--bn-ease, ease);
-}
-
-.bn-post-card__article:hover,
-.bn-post-card__article:focus-visible {
-	border-color: var(--bn-accent);
-}
-
-.bn-post-card__article-cover {
-	display: block;
-	aspect-ratio: 16 / 9;
-	/* Capped, like the oembed box above. At a desktop column width a pure 16/9
-	   cover is ~415px - 46% of the viewport - so the headline and excerpt, the
-	   things that make the article worth opening, get pushed under the fold by
-	   its own picture. object-fit crops rather than squashes. */
-	max-height: 20rem;
+	border-radius: var(--bn-r-md);
 	background: var(--bn-sunken);
+	line-height: 0;
 }
 
-.bn-post-card__article-cover img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
+.bn-article-card[data-variant="cover"] .bn-article-card__media {
+	aspect-ratio: 16 / 9;
+}
+
+.bn-article-card__media img {
 	display: block;
+	inline-size: 100%;
+	block-size: 100%;
+	max-inline-size: none;
+	object-fit: cover;
 }
 
-.bn-post-card__article-body {
+.bn-article-card__body {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s1);
-	padding: var(--bn-s3) var(--bn-s4) var(--bn-s4);
+	min-width: 0;
 }
 
-.bn-post-card__article-kicker {
+.bn-article-card__kicker {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s1);
-	color: var(--bn-ink-3);
+	color: var(--bn-accent-text);
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
 	text-transform: uppercase;
-	letter-spacing: var(--bn-ls-wide, 0.04em);
+	letter-spacing: var(--bn-ls-wide);
 }
 
-.bn-post-card__article-kicker svg {
-	width: 14px;
-	height: 14px;
+.bn-article-card__kicker svg {
+	inline-size: 1em;
+	block-size: 1em;
 }
 
-.bn-post-card__article-title {
+.bn-article-card__title {
+	margin: 0;
 	font-family: var(--bn-font-display);
 	font-size: var(--bn-text-md);
 	font-weight: var(--bn-fw-bold);
 	line-height: var(--bn-leading-snug);
 	color: var(--bn-ink);
-	/* Two lines maximum: a long headline must not push the excerpt and the
-	   post's own actions off the fold. */
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
 }
 
-.bn-post-card__article-excerpt {
+.bn-article-card__title,
+.bn-article-card__excerpt {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+}
+
+.bn-article-card__title a,
+.bn-article-card__title a:visited {
+	color: inherit;
+	text-decoration: none;
+}
+
+.bn-article-card__title a:hover,
+.bn-article-card__title a:focus-visible {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.bn-article-card__meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-article-card__excerpt {
+	margin: 0;
 	color: var(--bn-ink-2);
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-body);
-	display: -webkit-box;
-	-webkit-line-clamp: 3;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
 }
 
-.bn-post-card__article-meta {
-	color: var(--bn-ink-3);
-	font-size: var(--bn-text-xs);
+.bn-article-card__read,
+.bn-article-card__read:visited {
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	min-block-size: var(--bn-tap);
+	color: var(--bn-accent-text);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+}
+
+.bn-article-card__read:hover,
+.bn-article-card__read:focus-visible {
+	color: var(--bn-accent-text);
+	text-decoration: underline;
+}
+
+.bn-article-card__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s2);
+}
+
+/* Row: a square tile beside the text; the whole row is the text when there is
+   no image, so every row's text still starts at the card's own edge. */
+.bn-article-card[data-variant="row"] {
+	display: grid;
+	grid-template-columns: calc(var(--bn-s16) + var(--bn-s8)) minmax(0, 1fr);
+	align-items: start;
+	gap: var(--bn-s4);
+	padding: var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+}
+
+.bn-article-card[data-variant="row"][data-image="none"] {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.bn-article-card[data-variant="row"] .bn-article-card__media {
+	aspect-ratio: 1;
 }
 
 @media (max-width: 640px) {
@@ -1018,7 +1086,9 @@
 		line-clamp: 6;
 	}
 
-	.bn-post-card__article-body {
+	.bn-article-card[data-variant="row"] {
+		grid-template-columns: calc(var(--bn-s16) + var(--bn-s2)) minmax(0, 1fr);
+		gap: var(--bn-s3);
 		padding: var(--bn-s3);
 	}
 }
@@ -1082,12 +1152,12 @@
 	display: block;
 }
 
-/* The verb ("posted a new job", "completed a course"). Quiet by design - it is
-   context for the title, not the headline. */
-.bn-post-card__bridge-lead {
-	margin: 0 0 var(--bn-s1);
+/* What the member did ("added a new listing"), after their name in the header.
+   Quiet by design: the name stays the headline. */
+.bn-post-card__action {
 	color: var(--bn-ink-3);
 	font-size: var(--bn-text-sm);
+	overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {
@@ -1122,6 +1192,166 @@
 }
 .bn-post-card__bridge-card--badge.has-cover {
 	flex-wrap: nowrap;
+}
+
+/* Bridge card with a facts line (the renderer's own markup): the type icon, or the cover
+   picture, sits beside the title and facts; the description runs full width underneath.
+   The picture stretches to the height of the title and facts, so it leaves no empty strip
+   whatever its shape. Legacy markup that does not carry --grid keeps the flex rules above. */
+.bn-post-card__bridge-card--grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-areas: "head" "text";
+	column-gap: var(--bn-s3);
+	row-gap: var(--bn-s2);
+	align-items: start;
+}
+
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content { grid-area: head; min-inline-size: 0; }
+
+/* The type icon is part of the label row, so the title, facts and description keep the full width. */
+.bn-post-card__bridge-kind {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-post-card__bridge-card--grid.has-cover .bn-post-card__bridge-icon {
+	display: none;
+}
+
+.bn-post-card__bridge-kind .bn-post-card__bridge-icon svg {
+	inline-size: 14px;
+	block-size: 14px;
+}
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-text { grid-area: text; margin: 0; }
+
+.bn-post-card__bridge-card--grid.has-cover {
+	grid-template-columns: 96px minmax(0, 1fr);
+	grid-template-areas: "cover head" "text text";
+}
+
+/* One cover rule for every partner card: a square thumbnail at the side, cropped from the centre, at every
+   width. A box that stretched to the text made the crop differ from card to card and a full-width photo on
+   a phone made a card with an image twice as tall as the same card without one. */
+.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
+	grid-area: cover;
+	position: relative;
+	inline-size: auto;
+	aspect-ratio: 1;
+	align-self: start;
+}
+
+.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover img {
+	position: absolute;
+	inset: 0;
+}
+
+/* A badge's emblem keeps its round plate beside the title and text. */
+.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover {
+	grid-template-columns: 72px minmax(0, 1fr);
+	grid-template-areas: "cover head" "cover text";
+}
+
+.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
+	align-self: start;
+}
+
+.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover img {
+	position: static;
+}
+
+.bn-post-card__bridge-facts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px var(--bn-s4);
+	max-block-size: 40px;
+	margin: var(--bn-s2) 0 0;
+	padding: 0;
+	overflow: hidden;
+	list-style: none;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-xs);
+	line-height: 18px;
+}
+
+.bn-post-card__bridge-facts li {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	min-inline-size: 0;
+	max-inline-size: 100%;
+}
+
+.bn-post-card__bridge-facts li > span:last-child {
+	min-inline-size: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-post-card__bridge-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s3);
+}
+
+/* A card with buttons keeps them at the end of the title row, level with the title, so the picture and the text
+   column end together instead of the buttons hanging below the picture. The buttons drop under the text on a phone. */
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	column-gap: var(--bn-s3);
+	align-items: start;
+}
+
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) > * {
+	grid-column: 1;
+}
+
+.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) > .bn-post-card__bridge-actions {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+	align-self: center;
+	justify-content: flex-end;
+	margin-block-start: 0;
+}
+
+.bn-post-card__bridge-fact-icon {
+	display: inline-flex;
+	flex: none;
+	color: var(--bn-ink-3);
+}
+
+.bn-post-card__bridge-fact-icon svg {
+	inline-size: 14px;
+	block-size: 14px;
+}
+
+@media (max-width: 640px) {
+	.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) {
+		display: block;
+	}
+
+	.bn-post-card__bridge-card--grid > .bn-post-card__bridge-content:has( > .bn-post-card__bridge-actions ) > .bn-post-card__bridge-actions {
+		margin-block-start: var(--bn-s3);
+		justify-content: flex-start;
+	}
+
+	/* On a phone the thumbnail stays at the side, smaller, so a card with a picture is the same height as one without. */
+	.bn-post-card__bridge-card--grid.has-cover {
+		grid-template-columns: 64px minmax(0, 1fr);
+	}
+
+	.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover {
+		grid-template-columns: 72px minmax(0, 1fr);
+		grid-template-areas: "cover head" "cover text";
+	}
+
+	.bn-post-card__bridge-card--badge.bn-post-card__bridge-card--grid.has-cover > .bn-post-card__bridge-cover {
+		aspect-ratio: 1;
+	}
 }
 
 /* Event activity card — date pill + title + date/time + location. Mirrors the
@@ -1298,6 +1528,16 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	.bn-post-card__action-label { display: none; }
 }
 
+/* A finger is the pointer on a phone: the action row, the reactors count and the composer's privacy chip are at
+   least 40px tall (the portfolio's tap-target size), not the 26-30px their text gives them. */
+@media ( max-width: 640px ) {
+	.bn-post-card__action-btn,
+	.bn-post-card__reactors-trigger,
+	.bn-composer__privacy-chip {
+		min-block-size: 40px;
+	}
+}
+
 .bn-post-card__action-btn svg,
 .bn-post-card__action-btn img {
 	width: 16px;
@@ -1357,7 +1597,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-post-card__emoji-picker {
 	position: absolute;
 	inset-block-end: calc(100% + 8px);
-	inset-inline-start: 50%;
+	left: 50%; /* physical: pairs with the physical translateX, so RTL centres too */
 	transform: translateX(-50%);
 	display: flex;
 	gap: var(--bn-s1);
@@ -1516,7 +1756,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	text-decoration: none;
 	color: inherit;
 }
-.bn-sbar-row--link:hover .bn-sbar-row__name { color: var(--bn-brand); }
+.bn-sbar-row--link:hover .bn-sbar-row__name { color: var(--bn-accent-text); }
 
 /* ── Empty state ────────────────────────────────────────────────────────────── */
 .bn-feed-empty {
@@ -1627,9 +1867,9 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 }
 
 .bn-feed-page-btn.current {
-	background: var(--bn-brand);
-	border-color: var(--bn-brand);
-	color: var(--text-on-brand);
+	background: var(--bn-accent-solid);
+	border-color: var(--bn-accent-solid);
+	color: var(--bn-accent-fg);
 	font-weight: var(--fw-bold);
 }
 
@@ -1991,7 +2231,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-comment__reply-input {
 	flex: 1;
 	min-width: 0;
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s2) var(--bn-s3);
 	font-size: var(--bn-text-sm);
@@ -2344,7 +2584,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	resize: vertical;
 	min-height: calc(var(--bn-tap, 40px) * 2);
 	padding: var(--bn-s2) var(--bn-s3);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink);
@@ -2397,8 +2637,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-post-card__edit-schedule-input {
 	flex: 1 1 auto;
 	min-width: 0;
-	background: var(--bg-subtle);
-	border: 1px solid var(--border);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s2) var(--bn-s3);
 	font-family: var(--font-body);
@@ -2818,12 +3058,160 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	align-items: flex-start;
 }
 
+/* Post / Article tabs (partials/composer.php + composer-article.php). The
+	switch is the card; the post composer inside it drops its own frame so the
+	two panels share one surface. */
+.bn-composer-switch {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s3) var(--bn-s5) var(--bn-s3);
+}
+.bn-composer-switch .bn-composer {
+	background: none;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+}
+/* Both panels share one grid cell, so the card is always as tall as the taller panel and the
+	feed below never jumps when the tabs switch. The panel not shown is hidden from sight, the Tab
+	order and assistive tech (visibility), not removed from the layout. */
+.bn-composer-switch {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+}
+.bn-composer-switch__head {
+	grid-row: 1;
+}
+.bn-composer-switch__panel {
+	grid-row: 2;
+	grid-column: 1;
+}
+/* The base stylesheet forces [hidden] to display:none !important; this one selector must keep its box. */
+.bn-composer-switch__panel[hidden] {
+	display: block !important;
+	visibility: hidden;
+	pointer-events: none;
+}
+.bn-composer-switch__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s1) var(--bn-s4);
+	margin-block-end: var(--bn-s3);
+}
+.bn-composer-switch__head[hidden] {
+	display: none;
+}
+/* On Post the links keep their box (hidden from sight, the Tab order and assistive tech), so the
+	tab row is as tall on both tabs even when the links wrap, and the feed never jumps. */
+.bn-composer-switch__links[hidden] {
+	display: flex !important;
+	visibility: hidden;
+	pointer-events: none;
+}
+.bn-composer-switch__tabs {
+	display: inline-flex;
+	gap: var(--bn-s1);
+	padding: var(--bn-s1);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+}
+.bn-composer-switch__tab {
+	min-block-size: 44px;
+	min-inline-size: 44px;
+	padding-block: var(--bn-s2);
+	padding-inline: var(--bn-s4);
+	border: 0;
+	border-radius: var(--bn-r-sm);
+	background: transparent;
+	color: var(--bn-ink-2);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	cursor: pointer;
+}
+.bn-composer-switch__tab:hover {
+	color: var(--bn-ink);
+	background: transparent;
+}
+.bn-composer-switch__tab[aria-selected="true"] {
+	background: var(--bn-surface);
+	color: var(--bn-accent-text);
+	box-shadow: 0 0 0 1px var(--bn-line-control);
+}
+.bn-composer-switch__tab:focus-visible {
+	outline: 2px solid transparent;
+	box-shadow: var(--bn-ring);
+}
+.bn-composer-article__lede {
+	margin: 0 0 var(--bn-s3);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-body);
+}
+.bn-composer-article__row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+.bn-composer-article__title.bn-input {
+	flex: 1 1 auto;
+	min-inline-size: 0;
+	block-size: 44px;
+}
+.bn-composer-article__start {
+	flex: none;
+	min-block-size: 44px;
+}
+.bn-composer-switch__links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s4);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.bn-composer-switch__link {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-block-size: 44px;
+	color: var(--bn-accent-text);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+}
+.bn-composer-switch__link:hover,
+.bn-composer-switch__link:visited {
+	color: var(--bn-accent-text);
+}
+.bn-composer-switch__link:hover {
+	text-decoration: underline;
+}
+.bn-composer-switch__link:focus-visible {
+	outline: 2px solid transparent;
+	border-radius: var(--bn-r-sm);
+	box-shadow: var(--bn-ring);
+}
+.bn-composer-switch__count {
+	padding-inline: var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent-50);
+	color: var(--bn-accent-text);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	line-height: var(--bn-leading-normal);
+}
+
 .bn-composer__avatar {
 	width: 36px;
 	height: 36px;
 	border-radius: 50%;
-	background: var(--brand);
-	color: var(--text-on-brand);
+	background: var(--bn-accent-solid);
+	color: var(--bn-accent-fg);
 	font-size: var(--text-sm);
 	font-weight: 700;
 	display: flex;
@@ -2854,7 +3242,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	   left edge — matches the composer's --s4 visual rhythm. */
 	padding: 6px var(--bn-s4);
 	line-height: 1.5;
-	outline: none;
 	/* Auto-grow: JS (feed/store.js autoResizeTextarea) sets height to the
 	   content's scrollHeight on input; box-sizing keeps that math correct, the
 	   min holds a ~2-row floor, and the max caps growth so a long draft scrolls
@@ -2865,7 +3252,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	overflow-y: auto;
 }
 .bn-composer__prompt::placeholder { color: var(--text-3); }
-.bn-composer__prompt:focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
+.bn-composer__prompt:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: var(--bn-ring); border-radius: var(--bn-r-md); }
 
 /*
  * Char counter — populated by JS into a template-owned slot
@@ -3154,10 +3541,15 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 /* Realtime "new posts" pill — appears above the feed when Pro Soketi
    delivers post.new events from other users. Click reloads the feed.
    Position: sticky so it stays visible as the user scrolls within the
-   list. */
+   list. It sticks below the host theme's header, not at the viewport edge:
+   Reign, BuddyX and most block themes pin their header, and a fixed 8px put
+   the pill underneath it. --bn-shell-chrome is the measured height of
+   everything above the shell (theme header + admin bar), published on #bn-app
+   by shell/extras.js fitShell(); before it is measured the pill falls back to
+   the viewport edge. */
 .bn-feed-new-pill {
 	position: sticky;
-	top: 8px;
+	top: calc(var(--bn-shell-chrome, 0px) + var(--bn-s2));
 	z-index: 10;
 	display: block;
 	margin: 0 auto var(--bn-s3);
@@ -3606,6 +3998,16 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 
 @media (max-width: 640px) {
 	.bn-composer__link-thumb { width: 72px; }
+
+	/* Post / Article: the tabs share the row, the article footer stacks and
+		Start writing / Continue writing go full width. */
+	.bn-composer-switch { padding: var(--bn-s3); }
+	/* The two links wrap under the tabs on a phone: show them in both modes so the card keeps one height
+		and there is no blank band, whichever tab is selected. */
+	.bn-composer-switch__links[hidden] { display: flex !important; visibility: visible; pointer-events: auto; }
+	.bn-composer-switch__head { gap: 0; }
+	.bn-composer-switch__tabs { display: flex; inline-size: 100%; }
+	.bn-composer-switch__tab { flex: 1 1 0; }
 }
 
 /* Emoji insert picker — popover of bundled glyph buttons, appended to
@@ -3690,7 +4092,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-composer__poll-option {
 	width: 100%;
 	background: var(--bg-subtle);
-	border: 1px solid var(--border);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s2) var(--bn-s3);
 	font-family: var(--font-body);
@@ -3729,8 +4131,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	   before the control becomes too narrow to read the value it holds. */
 	flex: 1 1 11rem;
 	min-width: 0;
-	background: var(--bg-subtle);
-	border: 1px solid var(--border);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s2) var(--bn-s3);
 	font-family: var(--font-body);
@@ -3757,7 +4159,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 [data-theme="dark"] .bn-composer__privacy,
 [data-bx-mode="dark"] .bn-composer__privacy {
 	background: var(--bg-subtle);
-	border-color: var(--border);
+	border-color: var(--bn-line-control);
 	color: var(--text-2);
 }
 
@@ -3765,7 +4167,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 [data-theme="dark"] .bn-composer__poll-option,
 [data-bx-mode="dark"] .bn-composer__poll-option {
 	background: var(--bg-subtle);
-	border-color: var(--border);
+	border-color: var(--bn-line-control);
 	color: var(--text-1);
 }
 
@@ -3777,7 +4179,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	align-items: center;
 	gap: 6px;
 	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-full, 999px);
 	color: var(--bn-ink-3);
 	font-family: var(--bn-font-ui);
@@ -3913,9 +4315,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-body);
 }
-/* Styled here rather than with .bn-btn--secondary: that modifier is defined in
-   bn-profile.css, which the feed does not enqueue, so the link rendered as bare
-   text. .bn-btn (bn-base.css) supplies the shape; the surface is set locally. */
+/* .bn-btn (bn-base.css) supplies the shape; the surface is set locally. */
 .bn-composer__blocked-action {
 	flex: 0 0 auto;
 	background: var(--bn-surface);
@@ -3965,7 +4365,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	width: 100%;
 	padding: var(--bn-s2) var(--bn-s3);
 	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font: inherit;
@@ -4046,7 +4446,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	width: 100%;
 	min-height: 72px;
 	padding: var(--bn-s3);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink);
@@ -4072,7 +4472,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 .bn-share-modal__net {
 	display: inline-flex; align-items: center; gap: var(--bn-s1);
 	min-height: 36px; padding-block: var(--bn-s1); padding-inline: var(--bn-s3);
-	border: 1px solid var(--bn-line); border-radius: var(--bn-r-full, 999px);
+	border: 1px solid var(--bn-line-control); border-radius: var(--bn-r-full, 999px);
 	background: var(--bn-surface); color: var(--bn-ink);
 	font: inherit; font-size: var(--bn-text-sm); text-decoration: none; cursor: pointer;
 }
@@ -4466,5 +4866,52 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	.bn-post-card__members-lock-cta {
 		width: 100%;
 		text-align: center;
+	}
+}
+
+
+/* On a phone the emoji picker is a sheet along the bottom of the screen: it never runs past an edge or sits over the
+   Post button and the privacy chip of the composer that opened it. */
+.bn-emoji-popover__close { display: none; }
+@media (max-width: 640px) {
+	.bn-emoji-popover__close {
+		display: block;
+		grid-column: 1 / -1;
+		min-block-size: 40px;
+		border: 0;
+		border-radius: var(--bn-r-md);
+		background: var(--bn-sunken);
+		color: var(--bn-ink-2);
+		font: inherit;
+		font-weight: var(--bn-fw-semibold);
+	}
+	.bn-emoji-popover {
+		/* A short screen keeps the composer's Post button in view above the sheet. */
+		max-height: min(260px, 45vh);
+		position: fixed !important;
+		inset: auto 8px calc(8px + env(safe-area-inset-bottom, 0px)) 8px !important;
+		width: auto !important;
+		max-width: none !important;
+		justify-content: center;
+		z-index: 100000;
+	}
+}
+
+/* Menu rows are comfortable targets everywhere, not only on a phone. */
+.bn-post-card__options-menu > a,
+.bn-post-card__options-menu > button,
+.bn-post-card__options-menu [role="menuitem"] {
+	min-block-size: 40px;
+}
+
+/* Phone: the author name, the time link and the "See all" links are real targets (40px), not text-height lines. */
+@media (max-width: 640px) {
+	.bn-post-card__author-name,
+	.bn-post-card__time-link,
+	.bn-sidebar-see-all,
+	.bn-rail__spaces-all {
+		display: inline-flex;
+		align-items: center;
+		min-block-size: 40px;
 	}
 }

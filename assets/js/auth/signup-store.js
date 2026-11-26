@@ -7,7 +7,7 @@
  * included) instead of a generic banner.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { refusedBeforeBuddyNext, restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -133,8 +133,8 @@ function collectExtraFields( form, body ) {
  * challenge). A custom profile field has no slot, so its message ("Company is
  * required.") used to be dropped and the member saw only a generic banner with no
  * idea which field was wrong. This writes the message under the field, marks the
- * control invalid for assistive tech, focuses the first one, and clears each
- * message as soon as the member edits that field.
+ * control invalid for assistive tech (revealFirstError() then focuses the first
+ * one), and clears each message as soon as the member edits that field.
  *
  * @param {HTMLFormElement|null} form   The submitted form.
  * @param {Object}               fields Server `fields` map (name => message).
@@ -157,7 +157,6 @@ function showFieldErrors( form, fields ) {
 	if ( ! fields || ! Object.keys( fields ).length ) { return false; }
 
 	let allPlaced = true;
-	let first = null;
 
 	Object.keys( fields || {} ).forEach( function ( key ) {
 		if ( BUILT_IN_ERROR_KEYS.indexOf( key ) !== -1 ) { return; }
@@ -184,15 +183,61 @@ function showFieldErrors( form, fields ) {
 			el.addEventListener( 'input', clearFieldError, { once: true } );
 			el.addEventListener( 'change', clearFieldError, { once: true } );
 		} );
-
-		if ( ! first ) { first = control; }
 	} );
 
-	if ( first && typeof first.focus === 'function' ) {
-		first.focus();
-	}
-
 	return allPlaced;
+}
+
+/**
+ * Bring the first error into view and give it focus.
+ *
+ * A long sign-up form is submitted from the bottom of the page, while the
+ * form-level banner sits at the top and a field message can be anywhere in
+ * between. The message rendered off-screen and focus stayed on the button, so
+ * pressing it looked like nothing happened. After the store has rendered, this
+ * focuses the first invalid control in page order (its message is tied to it by
+ * aria-describedby) or, when the refusal belongs to no field, the banner itself,
+ * and centres it so a sticky theme header cannot cover it.
+ *
+ * @param {Element|null} form The submitted form.
+ */
+function revealFirstError( form ) {
+	const scope = form && form.closest ? ( form.closest( '[data-wp-interactive]' ) || form ) : null;
+	if ( ! scope ) { return; }
+	window.requestAnimationFrame( function () {
+		const candidates = scope.querySelectorAll( '[aria-invalid="true"], .bn-auth-field__msg' );
+		let target = null;
+		for ( let i = 0; i < candidates.length; i++ ) {
+			const el = candidates[ i ];
+			if ( el.hidden || ! el.getClientRects().length ) { continue; }
+			if ( el.classList.contains( 'bn-auth-field__msg' ) && ! el.textContent.trim() ) { continue; }
+			target = el;
+			break;
+		}
+		if ( ! target ) { return; }
+		// A message: focus the control it describes when there is one in the same
+		// field. A form-level banner ("fill in your email and password") names no
+		// one field, so focus the first empty required field it is about; only
+		// when there is none does the banner itself take focus.
+		if ( target.classList.contains( 'bn-auth-field__msg' ) ) {
+			const field   = target.closest( '.bn-auth-field' );
+			let control   = field && field.querySelector( 'input:not([type="hidden"]), select, textarea' );
+			if ( ! control && form.querySelectorAll ) {
+				control = Array.prototype.find.call(
+					form.querySelectorAll( 'input[required], select[required], textarea[required]' ),
+					function ( el ) { return ! el.disabled && el.getClientRects().length && '' === String( el.value ).trim(); }
+				) || null;
+			}
+			if ( control ) {
+				target = control;
+			} else if ( ! target.hasAttribute( 'tabindex' ) ) {
+				target.setAttribute( 'tabindex', '-1' );
+			}
+		}
+		const reduce = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+		target.focus( { preventScroll: true } );
+		target.scrollIntoView( { block: 'center', behavior: reduce ? 'auto' : 'smooth' } );
+	} );
 }
 
 function clearFieldError( event ) {
@@ -343,22 +388,37 @@ const signupStore = store( 'buddynext/auth-signup', {
 			// set: `userLogin` stayed empty, every submit was refused with "Please fill
 			// in your email, username, and password" — naming a field that was not
 			// there — and web signup was impossible on a DEFAULT install.
-			if ( ! ( c.email || '' ).trim() || ! ( c.password || '' ) ) {
-				c.error = t( 'fillRequired', 'Please fill in your email and password.' );
+			const noEmail    = ! ( c.email || '' ).trim();
+			const noPassword = ! ( c.password || '' );
+			if ( noEmail || noPassword ) {
+				// Name the field that is missing; the two-field sentence is only for when both are.
+				c.error = ! noEmail
+					? t( 'fillPassword', 'Please enter a password.' )
+					: ( ! noPassword ? t( 'fillEmail', 'Please enter your email address.' ) : t( 'fillRequired', 'Please fill in your email and password.' ) );
+				revealFirstError( regForm );
+				return;
+			}
+			// A malformed address is named as such here instead of travelling to the server (which says the same).
+			if ( ! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test( ( c.email || '' ).trim() ) ) {
+				c.error = t( 'invalidEmail', 'Please enter a valid email address.' );
+				revealFirstError( regForm );
 				return;
 			}
 			if ( c.askUsername && ! ( c.userLogin || '' ).trim() ) {
 				c.error = t( 'fillUsername', 'Please choose a username.' );
+				revealFirstError( regForm );
 				return;
 			}
 			// Only when the form asked: with no readable terms page there is no
 			// checkbox, and the server does not require consent either.
 			if ( c.termsRequired && ! c.termsAgreed ) {
 				c.error = t( 'agreeTerms', 'Please agree to the Terms of Service and Privacy Policy to continue.' );
+				revealFirstError( regForm );
 				return;
 			}
 			if ( c.challengeEnabled && ! ( c.challengeAnswer || '' ).trim() ) {
 				c.error = t( 'answerChallenge', 'Please answer the verification question.' );
+				revealFirstError( regForm );
 				return;
 			}
 			c.submitting = true;
@@ -409,6 +469,15 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// and logged in. Only an explicit success:false on an OK response —
 				// or a non-OK status — is a failure.
 				if ( ! r.ok || ( data && ! data.success ) ) {
+					// Blocked by the site's security settings, not refused by BuddyNext:
+					// say so (the template offers WordPress's own sign-up when the owner
+					// allows it) instead of showing the blocker's text.
+					if ( refusedBeforeBuddyNext( r ) ) {
+						c.blocked = true;
+						c.error = c.blockedMessage || t( 'createFailed', 'Could not create your account.' );
+						c.submitting = false;
+						return;
+					}
 					const fields = data && data.data && data.data.fields ? data.data.fields : null;
 					if ( fields ) {
 						c.fieldErrors = fields;
@@ -419,6 +488,7 @@ const signupStore = store( 'buddynext/auth-signup', {
 						? ''
 						: ( ( data && data.message ) || t( 'createFailed', 'Could not create your account.' ) );
 					c.submitting = false;
+					revealFirstError( regForm );
 					return;
 				}
 
@@ -439,6 +509,7 @@ const signupStore = store( 'buddynext/auth-signup', {
 			} catch ( _e ) {
 				c.error = t( 'genericError', 'Something went wrong. Try again.' );
 				c.submitting = false;
+				revealFirstError( regForm );
 			}
 		},
 
@@ -479,6 +550,15 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// Same contract as submit(): an OK response with an unparseable body
 				// (proxy stripped the JSON content-type) is a success, not a failure.
 				if ( ! r.ok || ( data && ! data.success ) ) {
+					// Blocked by the site's security settings, not refused by BuddyNext:
+					// say so (the template offers WordPress's own sign-up when the owner
+					// allows it) instead of showing the blocker's text.
+					if ( refusedBeforeBuddyNext( r ) ) {
+						c.blocked = true;
+						c.error = c.blockedMessage || t( 'createFailed', 'Could not create your account.' );
+						c.submitting = false;
+						return;
+					}
 					const fields = data && data.data && data.data.fields ? data.data.fields : null;
 					if ( fields ) {
 						c.fieldErrors = fields;
@@ -489,6 +569,7 @@ const signupStore = store( 'buddynext/auth-signup', {
 						? ''
 						: ( ( data && data.message ) || t( 'createFailed', 'Could not create your account.' ) );
 					c.submitting = false;
+					revealFirstError( regForm );
 					return;
 				}
 
@@ -505,6 +586,7 @@ const signupStore = store( 'buddynext/auth-signup', {
 			} catch ( _e ) {
 				c.error = t( 'genericError', 'Something went wrong. Try again.' );
 				c.submitting = false;
+				revealFirstError( regForm );
 			}
 		},
 	},

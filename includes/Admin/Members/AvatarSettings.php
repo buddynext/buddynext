@@ -295,6 +295,7 @@ class AvatarSettings {
 						</div>
 						<input type="text" id="bn_default_avatar_url" name="bn_default_avatar_url"
 							value="<?php echo esc_attr( $current_url ); ?>"
+							aria-label="<?php esc_attr_e( 'Default avatar image URL', 'buddynext' ); ?>"
 							placeholder="<?php esc_attr_e( 'Or paste an image URL...', 'buddynext' ); ?>">
 					</div>
 				</div>
@@ -355,6 +356,7 @@ class AvatarSettings {
 						</div>
 						<input type="text" id="bn_default_cover_url" name="bn_default_cover_url"
 							value="<?php echo esc_attr( $current_url ); ?>"
+							aria-label="<?php esc_attr_e( 'Default cover image URL', 'buddynext' ); ?>"
 							placeholder="<?php esc_attr_e( 'Or paste an image URL...', 'buddynext' ); ?>">
 					</div>
 				</div>

@@ -107,9 +107,14 @@
 	min-inline-size: 40px;
 }
 
+/* The unselected option keeps a 3:1 edge too (.bn-btn[data-variant] sets it transparent). */
+.bn-btn.bn-md-filters__view-btn {
+	border-color: var(--bn-line-control);
+}
+
 .bn-md-filters__view-btn[aria-pressed="true"] {
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
-	border-color: color-mix(in oklch, var(--bn-accent) 40%, var(--bn-surface));
+	border-color: var(--bn-accent-text);
 	color: var(--bn-accent-text);
 }
 
@@ -697,6 +702,9 @@
 .bn-md-strip {
 	display: flex;
 	flex-direction: column;
+	/* .bn-filter-strip wraps; in a column that makes each line as wide as its widest
+	   item, so the tab row overflowed the strip at 320. One column, no wrap. */
+	flex-wrap: nowrap;
 	gap: var(--bn-s3);
 	/* Stretch (not the inherited align-items:center from .bn-filter-strip) so
 		the relation tabs sit left-aligned and the filter toolbar spans full
@@ -715,6 +723,16 @@
 	max-inline-size: none;
 	margin-inline: 0;
 }
+
+/* At 320 with a classic 15px scrollbar the three relation tabs ran 12px past
+   the strip and the last one sat under the edge fade. Tighter side padding on
+   the smallest phones lets them fit; the tab height is unchanged. */
+@media (max-width: 360px) {
+	.bn-md-strip .bn-tabs .bn-tab {
+		padding-inline: var(--bn-s2);
+	}
+}
+
 /* Controls size by flex, not the 100%-wide .bn-input/.bn-select default, so
 	they sit inline instead of each taking a full row. */
 .bn-md-strip__form .bn-select { inline-size: auto; }
@@ -1016,7 +1034,7 @@
 	/* Translucent chip so the icon stays legible over any cover gradient. */
 	background: color-mix(in oklab, var(--bn-surface) 78%, transparent);
 	backdrop-filter: blur(4px);
-	border: 1px solid color-mix(in oklab, var(--bn-ink) 8%, transparent);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-full, 999px);
 	color: var(--bn-ink-2);
 	cursor: pointer;
@@ -1088,7 +1106,7 @@
 .bn-md-card__menu-pop .bn-md-card__menu-item--danger,
 .bn-md-card__menu-pop .bn-md-card__menu-item--danger:hover,
 .bn-md-card__menu-pop .bn-md-card__menu-item--danger:focus-visible {
-	color: var(--bn-danger);
+	color: var(--bn-danger-text);
 }
 
 /* List view: the translucent chip (tuned for legibility over a cover gradient)

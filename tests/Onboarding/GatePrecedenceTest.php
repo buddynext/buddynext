@@ -163,6 +163,24 @@ class GatePrecedenceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A suspended member who has not finished onboarding is not sent to the wizard (it refuses them), so the
+	 * account-status page, where they read the reason and appeal, stays reachable.
+	 *
+	 * @return void
+	 */
+	public function test_a_suspended_member_is_not_sent_to_the_wizard(): void {
+		update_option( 'buddynext_2fa_required', 'none' );
+		$this->assertTrue( $this->onboarding_would_redirect(), 'Fixture is wrong: the member should be held by onboarding.' );
+
+		$this->assertTrue( true === buddynext_service( 'moderation' )->suspend( $this->user_id, 'test', 7 ) );
+
+		$this->assertFalse(
+			$this->onboarding_would_redirect(),
+			'A suspended member was redirected to the onboarding wizard and can never reach the appeal page.'
+		);
+	}
+
+	/**
 	 * Would the onboarding gate redirect this member right now?
 	 *
 	 * Asks the gate's own decision rather than driving a request: the filter it

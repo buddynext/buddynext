@@ -599,8 +599,12 @@ final class SpaceFieldRegistry {
 			);
 		}
 
-		$saved = array();
+		$saved   = array();
+		$changed = array();
 		foreach ( $validated as $key => $entry ) {
+			if ( (string) get_space_meta( $space_id, $key, true ) !== (string) $entry['value'] ) {
+				$changed[] = (string) $key;
+			}
 			update_space_meta( $space_id, $key, $entry['value'] );
 			$saved[ $key ] = FieldType::rest_value( $entry['field'], $entry['value'] );
 		}
@@ -614,8 +618,9 @@ final class SpaceFieldRegistry {
 			 *
 			 * @param int                 $space_id Space ID.
 			 * @param array<string,mixed> $saved    Map of saved field key => REST value.
+			 * @param string[]            $changed  Keys whose stored value actually differs from before (since 1.3.0).
 			 */
-			do_action( 'buddynext_space_fields_saved', $space_id, $saved );
+			do_action( 'buddynext_space_fields_saved', $space_id, $saved, $changed );
 		}
 
 		// When a searchable + public field changed, re-index the space so its value

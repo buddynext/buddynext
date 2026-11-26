@@ -210,8 +210,9 @@ class ProfileTextCapTest extends WP_UnitTestCase {
 				)
 			)
 		);
-		$this->assertStringNotContainsString(
-			'maxlength',
+		// Owner-made fields carry the default ceiling (1.3.0); before, they had none.
+		$this->assertStringContainsString(
+			'maxlength="' . FieldType::DEFAULT_TEXT_CAPS['text'] . '"',
 			FieldType::render_input(
 				array(
 					'field_key' => 'qafix_other',
@@ -220,6 +221,56 @@ class ProfileTextCapTest extends WP_UnitTestCase {
 				'',
 				'qafix_other'
 			)
+		);
+	}
+
+	/**
+	 * Owner-made text and paragraph fields have a default ceiling on REST and in the form.
+	 *
+	 * Before 1.3.0 they had none, so one paste filled the search mirror without limit.
+	 *
+	 * @return void
+	 */
+	public function test_custom_text_fields_have_a_default_ceiling(): void {
+		$profiles = buddynext_service( 'profiles' );
+		foreach ( array( 'qa_company' => 'text', 'qa_story' => 'textarea' ) as $key => $type ) {
+			$profiles->create_field(
+				array(
+					'group_name' => 'qa_caps',
+					'field_key'  => $key,
+					'label'      => $key,
+					'type'       => $type,
+				)
+			);
+		}
+
+		$res = $this->put(
+			array(
+				'qa_company' => str_repeat( 'c', 256 ),
+				'qa_story'   => str_repeat( 's', 5001 ),
+			)
+		);
+		$this->assertSame( 422, $res->get_status() );
+		$this->assertArrayHasKey( 'qa_company', $res->get_data()['errors'] );
+		$this->assertArrayHasKey( 'qa_story', $res->get_data()['errors'] );
+		$this->assertSame( '', $this->stored( 'qa_company' ) );
+
+		$res = $this->put(
+			array(
+				'qa_company' => str_repeat( 'c', 255 ),
+				'qa_story'   => str_repeat( 's', 5000 ),
+			)
+		);
+		$this->assertSame( 200, $res->get_status() );
+		$this->assertSame( 255, strlen( $this->stored( 'qa_company' ) ) );
+
+		$this->assertStringContainsString(
+			'maxlength="255"',
+			FieldType::render_input( array( 'field_key' => 'qa_company', 'type' => 'text' ), '', 'qa_company' )
+		);
+		$this->assertStringContainsString(
+			'maxlength="5000"',
+			FieldType::render_input( array( 'field_key' => 'qa_story', 'type' => 'textarea' ), '', 'qa_story' )
 		);
 	}
 }

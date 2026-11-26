@@ -40,10 +40,10 @@ class RelocatedTabRedirectTest extends WP_UnitTestCase {
 		'automation',
 		'monetization',
 		'campaigns',
-		'realtime',
-		'platform',
 		'integration-settings',
 		'settings',
+		'platform',
+		'realtime',
 		'upgrade',
 	);
 

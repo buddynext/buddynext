@@ -99,6 +99,12 @@ final class SpaceVisibility {
 			return false;
 		}
 
+		// A Space being deleted in the background is gone for everyone, the invite
+		// link and its owner included: its pages must never open half empty.
+		if ( SpaceService::is_deleting( (int) ( $space['id'] ?? 0 ) ) ) {
+			return false;
+		}
+
 		// A valid invite link opened this request unlocks the space's home page
 		// (header + About + Join) for any type, including hidden ones — the owner
 		// chose to share it. Content/roster gates are unchanged.
@@ -236,6 +242,39 @@ final class SpaceVisibility {
 	}
 
 	/**
+	 * Whether the viewer counts as a MEMBER of the space, for a feature that is members-only.
+	 *
+	 * Not the same as can_view_content(): an open space shows its content to everyone, so "can see inside"
+	 * would make every signed-in visitor a member. A member here is signed in and is the space's owner or a
+	 * site admin (always), or otherwise:
+	 *  - on a space that carries a plan gate while Pro is answering it: whoever passes that gate NOW, which
+	 *    is a holder of the plan (joined or not) and never a member whose plan lapsed, the same live rule the
+	 *    space's own posts, roster and leaderboard follow;
+	 *  - on any other space: an active member (which covers moderators).
+	 *
+	 * Pro stays the only place that evaluates a plan: the gate is asked through can_view_content(), and when
+	 * no plan evaluator is registered (Pro absent) a gated space falls back to its roster.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string, mixed>|null $space     Hydrated space row (SpaceService::get()), or null.
+	 * @param int                       $viewer_id Viewer user ID (0 = logged out).
+	 * @return bool
+	 */
+	public static function has_member_access( ?array $space, int $viewer_id ): bool {
+		if ( null === $space || $viewer_id <= 0 ) {
+			return false;
+		}
+		if ( (int) ( $space['owner_id'] ?? 0 ) === $viewer_id || self::is_site_admin( $viewer_id ) ) {
+			return true;
+		}
+		if ( '' !== (string) ( $space['required_ability'] ?? '' ) && has_filter( 'buddynext_can_view_space_content' ) ) {
+			return self::can_view_content( $space, $viewer_id );
+		}
+		return ( new SpaceMemberService() )->is_member( (int) ( $space['id'] ?? 0 ), $viewer_id );
+	}
+
+	/**
 	 * Whether the viewer is one of the people who may see inside the space:
 	 * the owner, an active member (which covers moderators), or a site admin.
 	 *
@@ -256,12 +295,84 @@ final class SpaceVisibility {
 			return true;
 		}
 
-		if ( user_can( $viewer_id, 'manage_options' ) ) {
+		if ( self::is_site_admin( $viewer_id ) ) {
 			return true;
 		}
 
 		// Indexed, object-cached single-row lookup — safe on a 100k-member space.
 		return ( new SpaceMemberService() )->is_member( (int) ( $space['id'] ?? 0 ), $viewer_id );
+	}
+
+	/**
+	 * SQL subquery of the Space ids whose posts anyone may read: open Spaces that carry no plan or
+	 * ability gate.
+	 *
+	 * The site feed, Explore and the hashtag feeds all show an open Space's posts to everyone. A
+	 * Space gated by a plan (its required_ability, kept in step with the plan rows by Pro) is
+	 * members-only in practice, so its posts are left out here; a member who joined it still sees
+	 * them through the joined-Spaces branch of the feed.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string A subquery selecting `id`, ready to put inside `space_id IN ( ... )`.
+	 */
+	public static function public_open_spaces_sql(): string {
+		global $wpdb;
+
+		return "SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND ( required_ability IS NULL OR required_ability = '' )";
+	}
+
+	/**
+	 * Per-request memo of viewer_hidden_space_ids(), keyed by viewer.
+	 *
+	 * @var array<int, int[]>
+	 */
+	private static array $hidden_memo = array();
+
+	/**
+	 * Spaces a viewer belongs to but may not read posts from in feeds (for example a
+	 * plan-gated Space whose plan lapsed). Pro fills it; Free hides nothing.
+	 *
+	 * @param int $user_id Viewer.
+	 * @return int[]
+	 */
+	public static function viewer_hidden_space_ids( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		if ( ! isset( self::$hidden_memo[ $user_id ] ) ) {
+			/**
+			 * Filter the Spaces left out of one viewer's feeds although they are a member.
+			 *
+			 * Pro adds the plan-gated Spaces the viewer joined but is no longer entitled to.
+			 * Applied by every feed read path (home, profile, hashtag, announcements) through
+			 * SpaceVisibility::member_spaces_sql(). Only add ids; keep the answer cheap.
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param int[] $space_ids Space ids to hide (default: none).
+			 * @param int   $user_id   The viewer.
+			 */
+			$ids                           = apply_filters( 'buddynext_feed_hidden_space_ids', array(), $user_id );
+			self::$hidden_memo[ $user_id ] = array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
+		}
+		return self::$hidden_memo[ $user_id ];
+	}
+
+	/**
+	 * Subquery of the Spaces whose posts a viewer reads as a member, for `space_id IN ( ... )`.
+	 *
+	 * The one membership rule for feed reads: active membership, minus the Spaces
+	 * viewer_hidden_space_ids() hides. Carries ONE %d placeholder: bind the viewer id.
+	 *
+	 * @param int $viewer_id Viewer (the hidden list is resolved for them now).
+	 * @return string
+	 */
+	public static function member_spaces_sql( int $viewer_id ): string {
+		global $wpdb;
+		$hidden = self::viewer_hidden_space_ids( $viewer_id );
+		return "SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'"
+			. ( array() === $hidden ? '' : ' AND space_id NOT IN ( ' . implode( ',', $hidden ) . ' )' );
 	}
 
 	/**
@@ -273,5 +384,15 @@ final class SpaceVisibility {
 	 */
 	private static function type( array $space ): string {
 		return (string) ( $space['type'] ?? 'open' );
+	}
+
+	/**
+	 * Whether the viewer administers the whole site: the one site-owner boundary this class draws, kept in a single place.
+	 *
+	 * @param int $viewer_id Viewer user ID.
+	 * @return bool
+	 */
+	private static function is_site_admin( int $viewer_id ): bool {
+		return user_can( $viewer_id, 'manage_options' );
 	}
 }

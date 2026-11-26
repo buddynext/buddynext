@@ -126,7 +126,10 @@ function adjustUnreadTabBadges( ctx, delta, type ) {
 		return;
 	}
 	var filters = [ 'all', 'unread' ];
-	var typeKey = ( type && ctx.tabOfType && ctx.tabOfType[ type ] ) || '';
+	var typeKey =
+		( type && ctx.tabOfType && ctx.tabOfType[ type ] ) ||
+		( type && ctx.tabOfSource && ctx.tabOfSource[ String( type ).split( '.' )[ 0 ] ] ) ||
+		'';
 	if ( typeKey ) {
 		filters.push( typeKey );
 	}
@@ -260,6 +263,16 @@ const notificationsStore = store( 'buddynext/notifications', {
 				pulses.forEach( function ( el ) { el.hidden = true; } );
 				var rows = document.querySelectorAll( '.bn-notif-row--unread' );
 				rows.forEach( function ( el ) { el.classList.remove( 'bn-notif-row--unread' ); } );
+				// The per-row "Mark as read" buttons have nothing left to do.
+				document.querySelectorAll( '[data-wp-on--click="actions.markReadOnly"]' ).forEach( function ( el ) { el.remove(); } );
+				// The "this week" tile: everything counted that week is read now.
+				var weekAll  = document.querySelector( '[data-bn-week-notifs]' );
+				var weekRead = document.querySelector( '[data-bn-week-read]' );
+				if ( weekAll && weekRead ) {
+					weekRead.textContent = weekAll.textContent;
+					var weekLabel = document.querySelector( '[data-bn-week-read-label]' );
+					if ( weekLabel ) { weekLabel.textContent = weekLabel.textContent.replace( /\(\s*[\d.,]+\s*%\s*\)/, '(100%)' ); }
+				}
 			} catch ( _e ) {
 				// Rollback.
 				ctx.unreadCount = previous;
@@ -749,23 +762,22 @@ I18N = ( notificationsStore.state && notificationsStore.state.i18n ) || {};
 
 /**
  * Recount the day group labels whenever the rows under them change.
+ *
+ * Runs on every client navigation as well as the first load: a member who lands
+ * on Notifications from another page gets a freshly swapped list, and a watcher
+ * bound only once at load is attached to nothing there. A list already watched is
+ * skipped, so a repeat run never stacks a second observer on the same DOM.
  */
 function watchNotifGroups() {
-	var groups = document.querySelectorAll( '.bn-notif-group' );
-	if ( ! groups.length || typeof MutationObserver === 'undefined' ) { return; }
+	if ( typeof MutationObserver === 'undefined' ) { return; }
 	var observer = new MutationObserver( syncGroupUnreadLabels );
-	groups.forEach( function ( group ) {
-		var list = group.querySelector( '.bn-notif-list' );
-		if ( list ) {
-			observer.observe( list, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
-		}
+	document.querySelectorAll( '.bn-notif-group .bn-notif-list' ).forEach( function ( list ) {
+		if ( list.dataset.bnNotifWatched ) { return; }
+		list.dataset.bnNotifWatched = '1';
+		observer.observe( list, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
 	} );
 }
-if ( document.readyState === 'loading' ) {
-	document.addEventListener( 'DOMContentLoaded', watchNotifGroups );
-} else {
-	watchNotifGroups();
-}
+onNavReady( watchNotifGroups );
 
 /**
  * Background unread-count polling.

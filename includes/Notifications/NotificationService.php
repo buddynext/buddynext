@@ -49,6 +49,37 @@ class NotificationService {
 		'message'  => array( 'bn.new_message' ),
 	);
 
+	/**
+	 * Inbox tabs that hold one integration's rows. A contract row's type is
+	 * `{source}.{slug}` and the slugs are the plugin's own, so these tabs match
+	 * on the source prefix instead of a fixed type list. A tab is offered only
+	 * while its plugin has adopted the contract (see inbox_filters()).
+	 */
+	public const SOURCE_TABS = array(
+		'jobs'         => 'career_board',
+		'achievements' => 'wb_gamification',
+	);
+
+	/**
+	 * The inbox tab a notification type belongs to, or '' for All only.
+	 *
+	 * @param string $type Notification type.
+	 * @return string
+	 */
+	public static function tab_of_type( string $type ): string {
+		foreach ( self::TAB_TYPES as $tab => $types ) {
+			if ( in_array( $type, $types, true ) ) {
+				return $tab;
+			}
+		}
+		foreach ( self::SOURCE_TABS as $tab => $source ) {
+			if ( str_starts_with( $type, $source . '.' ) ) {
+				return $tab;
+			}
+		}
+		return '';
+	}
+
 
 	/**
 	 * Cache group.
@@ -567,13 +598,15 @@ class NotificationService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$recipient_id = (int) $wpdb->get_var(
+		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE id = %d",
+				"SELECT recipient_id, type, object_type, object_id, is_read, data FROM {$wpdb->prefix}bn_notifications WHERE id = %d",
 				$notif_id
-			)
+			),
+			ARRAY_A
 		);
 
+		$recipient_id = (int) ( $row['recipient_id'] ?? 0 );
 		if ( 0 === $recipient_id || $recipient_id !== $user_id ) {
 			return new WP_Error(
 				'forbidden',
@@ -593,7 +626,66 @@ class NotificationService {
 
 		$this->forget_counts( $user_id );
 
+		if ( 0 === (int) $row['is_read'] ) {
+			self::mark_forum_rows_read( $user_id, $row );
+		}
+
 		return true;
+	}
+
+	/**
+	 * One read state: a forum row read in this inbox is read in Jetonomy's own
+	 * notifications list too.
+	 *
+	 * The Jetonomy rows behind the bell row are its contract `notification_id`, every
+	 * reply kept in a grouped row's items, and any row of the same type about the same
+	 * object (votes, join requests, merged into one bell row). One SELECT, then one
+	 * Notification::mark_read_for_user(), which fires no hook, so Jetonomy never echoes
+	 * the read back here (its own read hook, jetonomy_community_notification_read,
+	 * fires only from mark_read_for_object(), deliberately not called). A grouped row
+	 * keeps at most 50 items (GroupedItems::CAP): replies beyond that stay unread in
+	 * Jetonomy. Un-reading here does not un-read there; Jetonomy has no API for it.
+	 *
+	 * @param int                 $user_id The member who read it (the recipient).
+	 * @param array<string,mixed> $row     The bell row: type, object_type, object_id, data.
+	 * @return void
+	 */
+	private static function mark_forum_rows_read( int $user_id, array $row ): void {
+		$type = (string) $row['type'];
+		if ( ! str_starts_with( $type, 'jetonomy.' ) || ! class_exists( '\Jetonomy\Models\Notification' ) || ! function_exists( '\Jetonomy\table' ) ) {
+			return;
+		}
+
+		$data      = (array) json_decode( (string) $row['data'], true );
+		$ids       = array( (int) ( $data['notification_id'] ?? 0 ) );
+		$reply_ids = array();
+		foreach ( (array) ( $data['items'] ?? array() ) as $item ) {
+			if ( is_array( $item ) && 'reply' === (string) ( $item['t'] ?? '' ) && (int) ( $item['i'] ?? 0 ) > 0 ) {
+				$reply_ids[] = (int) $item['i'];
+			}
+		}
+
+		$where  = array();
+		$params = array( $user_id );
+		$object = (string) $row['object_type'];
+		if ( (int) $row['object_id'] > 0 && str_starts_with( $object, 'jetonomy_' ) ) {
+			$where[] = '( type = %s AND object_type = %s AND object_id = %d )';
+			array_push( $params, substr( $type, 9 ), substr( $object, 9 ), (int) $row['object_id'] );
+		}
+		if ( $reply_ids ) {
+			$where[] = "( object_type = 'reply' AND object_id IN (" . implode( ',', array_fill( 0, count( $reply_ids ), '%d' ) ) . ') )';
+			$params  = array_merge( $params, $reply_ids );
+		}
+
+		if ( $where ) {
+			global $wpdb;
+			// Jetonomy's table name and fixed fragments; every value is a placeholder.
+			$sql = 'SELECT id FROM ' . \Jetonomy\table( 'notifications' ) . ' WHERE user_id = %d AND is_read = 0 AND ( ' . implode( ' OR ', $where ) . ' )';
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			$ids = array_merge( $ids, array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( $sql, $params ) ) ) );
+		}
+
+		\Jetonomy\Models\Notification::mark_read_for_user( $user_id, $ids );
 	}
 
 	/**
@@ -784,6 +876,12 @@ class NotificationService {
 		update_user_meta( $user_id, self::LAST_SEEN_META, current_time( 'mysql', true ) );
 
 		$this->forget_counts( $user_id );
+
+		// One read state: the forum rows this inbox shows are read in Jetonomy's own
+		// list too. Its mark_all_read() fires no hook, so nothing echoes back here.
+		if ( IntegrationNotificationListener::adopted( 'jetonomy' ) && class_exists( '\Jetonomy\Models\Notification' ) ) {
+			\Jetonomy\Models\Notification::mark_all_read( $user_id );
+		}
 	}
 
 	/**
@@ -929,7 +1027,7 @@ class NotificationService {
 			return null;
 		}
 
-		if ( ctype_digit( $since ) ) {
+		if ( \BuddyNext\Support\Text::is_digits( $since ) ) {
 			return gmdate( 'Y-m-d H:i:s', (int) $since );
 		}
 
@@ -1233,6 +1331,11 @@ class NotificationService {
 		if ( function_exists( 'buddynext_feature_enabled' ) && ! buddynext_feature_enabled( 'reactions' ) ) {
 			$filters = array_values( array_diff( $filters, array( 'reaction' ) ) );
 		}
+		foreach ( self::SOURCE_TABS as $tab => $source ) {
+			if ( IntegrationNotificationListener::adopted( $source ) ) {
+				$filters[] = $tab;
+			}
+		}
 		return $filters;
 	}
 
@@ -1256,15 +1359,14 @@ class NotificationService {
 		$filter = in_array( $filter, self::inbox_filters(), true ) ? $filter : 'all';
 		$page   = max( 1, $page );
 		$offset = ( $page - 1 ) * self::INBOX_PER_PAGE;
-		$types  = self::TAB_TYPES[ $filter ] ?? array();
 		$items  = array();
 
-		if ( ! empty( $types ) ) {
+		if ( ! in_array( $filter, array( 'all', 'unread' ), true ) ) {
 			$listed  = $this->list_for_user( $user_id, null, 200, 'all', 0 );
 			$matched = array_values(
 				array_filter(
 					$listed['items'] ?? array(),
-					static fn( array $item ): bool => in_array( (string) ( $item['type'] ?? '' ), $types, true )
+					static fn( array $item ): bool => self::tab_of_type( (string) ( $item['type'] ?? '' ) ) === $filter
 				)
 			);
 			$total   = count( $matched );
@@ -1326,10 +1428,13 @@ class NotificationService {
 	public function unread_counts_by_tab( int $user_id ): array {
 		$by_type = $this->unread_counts_by_type( $user_id );
 		$tabs    = array( 'unread' => array_sum( array_map( 'intval', $by_type ) ) );
-		foreach ( self::TAB_TYPES as $tab => $types ) {
+		foreach ( array_merge( array_keys( self::TAB_TYPES ), array_keys( self::SOURCE_TABS ) ) as $tab ) {
 			$tabs[ $tab ] = 0;
-			foreach ( $types as $type ) {
-				$tabs[ $tab ] += (int) ( $by_type[ $type ] ?? 0 );
+		}
+		foreach ( $by_type as $type => $count ) {
+			$tab = self::tab_of_type( (string) $type );
+			if ( '' !== $tab ) {
+				$tabs[ $tab ] += (int) $count;
 			}
 		}
 		return $tabs;

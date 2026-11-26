@@ -95,7 +95,7 @@ while IFS= read -r file; do
 
 	# Any sanctioned invalidation mechanism (standard §4b).
 	has_delete="$(printf '%s' "$code" | grep -cE "wp_cache_delete\(")"
-	has_version="$(printf '%s' "$code" | grep -cE "\{\\\$(gen|ver|version)\w*\}|_version\(|generation")"
+	has_version="$(printf '%s' "$code" | grep -cE "\{\\\$(gen|ver|version)\w*\}|_version\(|generation|last_changed\(")"
 	has_flushgroup="$(printf '%s' "$code" | grep -cE "wp_cache_flush_group\(")"
 
 	# DELEGATED invalidation. A service may hand its busting to a collaborator rather
@@ -119,6 +119,17 @@ while IFS= read -r file; do
 		# namespaced by definition. What is not allowed is a group that does not start with the
 		# prefix at all — like the 'bn_media' MediaRenderer used to use.
 		echo "  BAD GROUP        $rel — '$group' must be '${WANT_PREFIX%_}' or '${WANT_PREFIX}<domain>'"
+		FAIL=1
+	fi
+
+	# A hand-rolled version counter goes backwards: seeded to a constant (or 0), it
+	# lands back on an old number after its key is evicted or expires, and the payload
+	# cached under that number is served again. Families of cached reads take their
+	# salt from CacheService::last_changed() / set_last_changed() instead.
+	hand_counter="$(printf '%s' "$code" | grep -cE "wp_cache_set\([^;]*(_ver|ver_|version|VERSION|gen_|generation)[^;]*\+ *1|wp_cache_set\([^;]*wp_cache_get\([^;]*\+ *1|wp_cache_incr\([^;]*(_ver|ver_|version|VERSION|gen_|generation)")"
+	if [[ "$hand_counter" -gt 0 ]]; then
+		echo "  HAND COUNTER     $rel - a cache version counter can go backwards after an eviction."
+		echo "                   Use CacheService::last_changed() / set_last_changed()."
 		FAIL=1
 	fi
 

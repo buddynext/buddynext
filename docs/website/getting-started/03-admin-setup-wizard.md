@@ -71,7 +71,7 @@ After setup, every choice has a permanent home in the admin:
 | Private community switch | Members > Privacy & Data |
 | Profile field groups | Members > Directory > Profile Fields |
 | Space categories | Spaces > Directory, Categories sub-tab |
-| Page slugs | Settings > Pages & URLs |
+| Page slugs | Settings > Pages & URLs (renaming a slug later redirects the old address; see [Rename Members and Spaces](../recipes/08-rename-members-and-spaces.md)) |
 | Companion plugins | Platform > Add-ons, and the WordPress Plugins screen |
 
 For the full map of the admin and where each of those sections lives, see the Admin Overview.

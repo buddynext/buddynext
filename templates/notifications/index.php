@@ -294,7 +294,10 @@ $initial_context = wp_json_encode(
 			'follow'   => $follow_unread,
 			'space'    => $space_unread,
 			'message'  => $message_unread,
-		),
+		) + array_intersect_key( $tab_unread, NotificationService::SOURCE_TABS ),
+		// Integration tabs match on the type's source prefix ("career_board."),
+		// so JS gets the prefix map rather than a type list it cannot know.
+		'tabOfSource'   => array_flip( NotificationService::SOURCE_TABS ),
 		// Type -> tab, from the one server map, so a mark-read or delete moves
 		// the right tab badge without a second copy of the map in JS.
 		'tabOfType'     => array_merge(
@@ -367,6 +370,16 @@ $initial_context = wp_json_encode(
 			'count' => $message_unread,
 		),
 	);
+	// One tab per integration whose notifications land here (Jobs,
+	// Achievements), labelled with the integration's own section name.
+	$bn_sources = \BuddyNext\Notifications\IntegrationNotificationListener::sources();
+	foreach ( NotificationService::SOURCE_TABS as $bn_tab_key => $bn_source ) {
+		$notif_tabs[] = array(
+			'key'   => $bn_tab_key,
+			'label' => (string) ( $bn_sources[ $bn_source ]['label'] ?? $bn_tab_key ),
+			'count' => (int) ( $tab_unread[ $bn_tab_key ] ?? 0 ),
+		);
+	}
 	// A tab exists only for a filter the page accepts (Messages drops out while
 	// messaging is off), so the bar never offers a filter that falls back to All.
 	$notif_tabs = array_values( array_filter( $notif_tabs, static fn( array $t ): bool => in_array( (string) $t['key'], $allowed_filters, true ) ) );

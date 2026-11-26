@@ -298,7 +298,8 @@ if ( ! class_exists( 'Member_Blog_Compat' ) ) {
 	 * actually loaded — it is NOT loaded on a BuddyNext profile page, which is why
 	 * MemberBlogBridge falls back to the plugin's configured dashboard page.
 	 */
-	class Member_Blog_Compat { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- Partner plugin's own class name.
+	class Member_Blog_Compat {
+ // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- Partner plugin's own class name.
 
 		/**
 		 * Front-end dashboard URL for a member.
@@ -341,6 +342,20 @@ if ( ! class_exists( 'Member_Blog_Compat' ) ) {
 // Stubbed rather than baselined so the signatures stay visible and honest: if
 // Jetonomy changes either method, the mismatch surfaces here instead of hiding
 // behind a suppressed error.
+// Jetonomy's cache facade: the bridge clears the sidebar list it keeps for five minutes
+// when a forum is hidden or removed (called behind is_callable()).
+if ( ! class_exists( '\Jetonomy\Cache' ) ) {
+	// phpcs:disable
+	eval(
+		'namespace Jetonomy;
+		class Cache {
+			/** @param string[] $keys */
+			public static function delete_many( array $keys ): void {}
+		}'
+	);
+	// phpcs:enable
+}
+
 if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 	// phpcs:disable
 	eval(
@@ -365,6 +380,14 @@ if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 			public static function find( $id ) { return null; }
 
 			/**
+			 * Fetch one discussion by slug (cached by Jetonomy).
+			 *
+			 * @param string $slug Discussion slug.
+			 * @return object|null
+			 */
+			public static function find_by_slug( string $slug ): ?object { return null; }
+
+			/**
 			 * Update a discussion.
 			 *
 			 * @param int                 $id   Discussion id.
@@ -382,6 +405,14 @@ if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 			 * @return int
 			 */
 			public static function create( $data, $author_id = 0 ) { return 0; }
+
+			/**
+			 * Remove a discussion and, from Jetonomy 2.0.3, its topics in batches.
+			 *
+			 * @param int $id Discussion id.
+			 * @return bool|\\WP_Error
+			 */
+			public static function delete( $id ) { return false; }
 		}'
 	);
 	// phpcs:enable

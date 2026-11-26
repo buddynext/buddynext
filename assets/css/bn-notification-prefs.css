@@ -116,7 +116,7 @@
 	margin: 0;
 	border: none;
 	border-radius: var(--bn-r-full);
-	background: var(--bn-line-strong);
+	background: var(--bn-line-control);
 	cursor: pointer;
 	transition: background var(--bn-dur) var(--bn-ease);
 }
@@ -586,6 +586,11 @@
 	margin-block-start: var(--bn-s4);
 }
 
+/* The forum's own fields (its digest) sit under the email switches. */
+.bn-partner-prefs__fields {
+	margin-block-start: var(--bn-s4);
+}
+
 .bn-partner-prefs fieldset {
 	margin: 0;
 	padding: 0;
@@ -624,4 +629,16 @@
 .bn-partner-prefs .jt-notif-choice:hover,
 .bn-partner-prefs .jt-notif-choice:focus-within {
 	background: var(--bn-sunken);
+}
+
+/* "Email: see Forum email" is a link to the Forum email card, so it looks like one; the plain
+   "In-app only" label beside other rows stays muted. */
+a.bn-prefs-row__no-email {
+	color: var(--bn-accent-600, var(--bn-accent));
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+a.bn-prefs-row__no-email:hover,
+a.bn-prefs-row__no-email:focus-visible {
+	color: var(--bn-accent-700, var(--bn-accent));
 }

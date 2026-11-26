@@ -115,6 +115,12 @@ Pro adds outbound email that goes beyond per-event transactional mail:
 
 Broadcast and drip emails use the same branded wrapper and sender identity as the free transactional emails, so everything you send stays visually consistent. See Email Digests for how batched activity emails work in both Free and Pro.
 
+## What changed in 1.3.0
+
+- A link that sits alone in its own paragraph, such as View comment, Accept invite or See your account status, is drawn as the brand button. A link inside a sentence stays an inline text link. The new follower, connection request and connection accepted emails keep "View their profile." and "View the request." as inline links. To make one a button, move the link into its own paragraph in the template body.
+- Mail declares its language and direction, has a dark theme for mail apps that support it (links stay readable), and shows the footer address left to right in right-to-left languages.
+- Moderation notices, such as a suspension, have no Unsubscribe link.
+
 ## Related
 
 - [Notification Preferences](03-notification-preferences.md) - how members choose which emails they get

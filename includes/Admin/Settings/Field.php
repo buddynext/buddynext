@@ -313,6 +313,15 @@ final class Field {
 	 * @return callable|string
 	 */
 	private function type_sanitizer() {
+		// An email that is not an email is refused with a message and the stored value kept, never emptied under a
+		// green "Settings saved.".
+		if ( 'email' === $this->type || 'sanitize_email' === $this->sanitize ) {
+			$field = $this;
+			return static function ( $value ) use ( $field ) {
+				return $field->sanitize_email_value( $value );
+			};
+		}
+
 		if ( null !== $this->sanitize ) {
 			return $this->sanitize;
 		}
@@ -368,6 +377,32 @@ final class Field {
 
 		$saved = (string) get_option( $this->key, (string) $this->resolve_default() );
 		return in_array( $saved, $allowed, true ) ? $saved : (string) $this->resolve_default();
+	}
+
+	/**
+	 * Sanitize an email setting: empty stays empty (the field's own "use the default" answer), a valid address is
+	 * kept, anything else is refused with a notice and the stored value is kept.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_email_value( $value ): string {
+		$typed = trim( (string) $value );
+		$email = sanitize_email( $typed );
+		if ( '' === $typed || is_email( $email ) ) {
+			return $email;
+		}
+
+		$codes = wp_list_pluck( get_settings_errors( $this->key ), 'code' );
+		if ( ! in_array( 'invalid_email', $codes, true ) ) {
+			/* translators: %s: the text that was typed. */
+			add_settings_error( $this->key, 'invalid_email', sprintf( __( '"%s" is not a valid email address, so the setting was not changed.', 'buddynext' ), $typed ) );
+		}
+
+		// Keep the saved value; on a first save there is none (and the default may be empty), so fall back to the site
+		// admin email rather than storing a blank sender.
+		$kept = (string) get_option( $this->key, (string) $this->resolve_default() );
+		return '' !== $kept ? $kept : (string) get_option( 'admin_email', '' );
 	}
 
 	/**

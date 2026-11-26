@@ -16,6 +16,10 @@
  * setters. No innerHTML is used on translated or user-controlled text.
  */
 
+import { trapFocus, returnFocus, dialogOpener } from '@buddynext/focus-trap';
+
+export { trapFocus, dialogOpener };
+
 /**
  * Read a shell-level translated string from window.bnShellData.i18n, falling
  * back to the English literal when the dictionary (or key) is absent.
@@ -140,110 +144,8 @@ function buildModalFrame( opts ) {
 	return { backdrop, panel, confirmBtn, cancelBtn, closeBtn, titleId };
 }
 
-/** Open traps, innermost last. Only the top one handles Tab. */
-const trapStack = [];
-
-/**
- * Focus-trap helper. Keeps Tab cycling inside the modal until it closes.
- *
- * Tab is handled at document level for the topmost trap, not on the container:
- * when a focused button disables itself while its request runs (the Share
- * dialog's "Create share link", every busy-bound submit) the browser drops focus
- * to <body>, and a container-only listener never saw the next Tab, so focus
- * walked through the page behind the open dialog. While focus is lost the trap
- * also returns it: to that button once it is enabled again, or to the dialog
- * panel when the focused control was removed.
- *
- * @param {HTMLElement} container The modal panel.
- * @return {() => void} Cleanup function — call to release the trap.
- */
-export function trapFocus( container ) {
-	let lastInside = null;
-
-	function lost() {
-		const active = document.activeElement;
-		return ! active || active === document.body || ! document.contains( active );
-	}
-
-	function onFocusIn( ev ) {
-		if ( container.contains( ev.target ) ) {
-			lastInside = ev.target;
-		}
-	}
-
-	function onKey( ev ) {
-		if ( ev.key !== 'Tab' || trapStack[ trapStack.length - 1 ] !== onKey ) {
-			return;
-		}
-		// Only controls that are actually rendered count. A dialog can hold controls
-		// that stay hidden until a state changes (the Share dialog's link row appears
-		// only after a link is created); counting those made an invisible element the
-		// "last" stop, so the wrap never fired and Tab walked out of the dialog.
-		// Only real Tab stops count: a button with tabindex="-1" (the lightbox
-		// backdrop) or an SVG <use href> icon matched the query but Tab never lands
-		// on it, so it became "first" and Shift+Tab walked out past the real first.
-		const focusables = Array.prototype.filter.call(
-			container.querySelectorAll(
-				'button:not([disabled]), a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-			),
-			function ( el ) {
-				return el.tabIndex >= 0 && el.getClientRects().length > 0;
-			}
-		);
-		if ( ! focusables.length ) {
-			return;
-		}
-		const first  = focusables[ 0 ];
-		const last   = focusables[ focusables.length - 1 ];
-		const active = document.activeElement;
-		// Focus on something that is not one of the stops - the panel itself, where a
-		// modal parks focus when it opens, or <body> after a button disabled itself -
-		// wraps to the matching end instead of letting the browser leave the dialog.
-		const inList = focusables.indexOf( active ) !== -1;
-		if ( ev.shiftKey && ( active === first || ! inList ) ) {
-			ev.preventDefault();
-			last.focus();
-		} else if ( ! ev.shiftKey && ( active === last || ! inList ) ) {
-			ev.preventDefault();
-			first.focus();
-		}
-	}
-
-	// Focus lost while the trap is open: a busy button coming back enabled gets it
-	// back; a control that was removed (a "Remove" row) hands it to the dialog
-	// panel, so a screen reader stays inside the dialog instead of the page.
-	const observer = new MutationObserver( function () {
-		if ( ! lastInside || ! lost() ) {
-			return;
-		}
-		if ( ! container.contains( lastInside ) ) {
-			const panel = container.matches( '[role="dialog"],[role="alertdialog"]' )
-				? container
-				: container.querySelector( '[role="dialog"],[role="alertdialog"]' ) || container;
-			if ( ! panel.hasAttribute( 'tabindex' ) ) {
-				panel.setAttribute( 'tabindex', '-1' );
-			}
-			lastInside = null;
-			panel.focus();
-		} else if ( ! lastInside.disabled && lastInside.getClientRects().length ) {
-			lastInside.focus();
-		}
-	} );
-	observer.observe( container, { subtree: true, childList: true, attributes: true, attributeFilter: [ 'disabled' ] } );
-
-	trapStack.push( onKey );
-	container.addEventListener( 'focusin', onFocusIn );
-	document.addEventListener( 'keydown', onKey, true );
-	return function () {
-		const i = trapStack.indexOf( onKey );
-		if ( -1 !== i ) {
-			trapStack.splice( i, 1 );
-		}
-		observer.disconnect();
-		container.removeEventListener( 'focusin', onFocusIn );
-		document.removeEventListener( 'keydown', onKey, true );
-	};
-}
+// trapFocus lives in focus-trap.js (side-effect free, so wp-admin can load it
+// without this module's window.bnConfirm/bnToast). Re-exported for importers.
 
 /**
  * Present a confirm dialog. Resolves true on confirm, false on cancel
@@ -270,7 +172,7 @@ export function bnConfirm( opts, legacyOpts ) {
 	const cfg = Object.assign( { tone: 'danger', size: 'sm' }, opts || {} );
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame   = buildModalFrame( cfg );
 
 		const releaseTrap = trapFocus( frame.panel );
@@ -279,9 +181,7 @@ export function bnConfirm( opts, legacyOpts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 
@@ -420,7 +320,7 @@ export function bnPrompt( opts ) {
 	cfg.extraNode = field;
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame   = buildModalFrame( cfg );
 
 		const releaseTrap = trapFocus( frame.panel );
@@ -429,9 +329,7 @@ export function bnPrompt( opts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 
@@ -598,7 +496,7 @@ export function bnReportDialog( opts ) {
 	cfg.extraNode = wrap;
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame   = buildModalFrame( cfg );
 		const releaseTrap = trapFocus( frame.panel );
 
@@ -606,9 +504,7 @@ export function bnReportDialog( opts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 		function onEscape( ev ) {
@@ -747,7 +643,7 @@ export function bnSuspendDialog( opts ) {
 	cfg.extraNode = wrap;
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame = buildModalFrame( cfg );
 		const releaseTrap = trapFocus( frame.panel );
 
@@ -755,9 +651,7 @@ export function bnSuspendDialog( opts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 		function onEscape( ev ) {
@@ -851,7 +745,7 @@ export function bnConnectNoteDialog( opts ) {
 	cfg.extraNode = wrap;
 
 	return new Promise( function ( resolve ) {
-		const trigger = document.activeElement;
+		const trigger = dialogOpener();
 		const frame   = buildModalFrame( cfg );
 		const releaseTrap = trapFocus( frame.panel );
 
@@ -859,9 +753,7 @@ export function bnConnectNoteDialog( opts ) {
 			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
-			if ( trigger && typeof trigger.focus === 'function' ) {
-				trigger.focus();
-			}
+			returnFocus( trigger );
 			resolve( result );
 		}
 		function onEscape( ev ) {
@@ -988,7 +880,7 @@ function toastOptions( message, opts ) {
 	const tone  = cfg.tone || cfg.type || 'info';
 	const status = toastStatus( tone );
 	let action  = null;
-	if ( cfg.action && cfg.action.href && cfg.action.label ) {
+	if ( cfg.action && ( cfg.action.href || 'function' === typeof cfg.action.onClick ) && cfg.action.label ) {
 		action = cfg.action;
 	} else if ( cfg.href ) {
 		action = { href: cfg.href, label: cfg.linkLabel || si( 'view', 'View' ) };
@@ -1048,13 +940,23 @@ function paintToast( toast, o, dismiss ) {
 	// says why and ships the appeal URL, and a toast that can only say "Try again" is worse
 	// than useless because retrying can never succeed.
 	if ( o.action ) {
-		const link = document.createElement( 'a' );
+		// A toast with an onClick is an Undo: a real button that runs the callback and dismisses the toast.
+		const isUndo = 'function' === typeof o.action.onClick;
+		const link = document.createElement( isUndo ? 'button' : 'a' );
 		link.className = 'bn-toast__action';
-		link.href = o.action.href;
+		if ( isUndo ) {
+			link.type = 'button';
+		} else {
+			link.href = o.action.href;
+		}
 		link.textContent = o.action.label;
 		// A click on the toast dismisses it; let the link navigate instead of being swallowed.
 		link.addEventListener( 'click', function ( e ) {
 			e.stopPropagation();
+			if ( isUndo ) {
+				o.action.onClick();
+				dismiss();
+			}
 		} );
 		// Under the text on a two-line toast: beside it, the unwrappable link took the
 		// width and squeezed a sentence into a column of single words.

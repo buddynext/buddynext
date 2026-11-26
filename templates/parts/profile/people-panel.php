@@ -66,7 +66,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 	// row's context inherits from it, so a row's accept/decline decrements the
 	// shared count and the section hides itself when the last row is handled.
 	?>
-	<section class="bn-follow-requests" data-wp-interactive="<?php echo esc_attr( $bn_pp_store ); ?>" data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'pending' => count( $bn_pp_pending ) ) ) ); ?>' data-wp-bind--hidden="state.sectionHidden" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
+	<section id="bn-requests" class="bn-follow-requests" data-wp-interactive="<?php echo esc_attr( $bn_pp_store ); ?>" data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'pending' => count( $bn_pp_pending ) ) ) ); ?>' data-wp-bind--hidden="state.sectionHidden" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
 		<header class="bn-follow-requests__head">
 			<h3 class="bn-follow-requests__title">
 				<?php
@@ -123,7 +123,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 					</a>
 					<div class="bn-follow-requests__id">
 						<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $bn_pp_req->display_name ); ?></a>
-						<span class="bn-follow-requests__handle">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ) ); ?></span>
+						<span class="bn-follow-requests__handle"><bdi dir="ltr">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ) ); ?></bdi></span>
 						<?php
 						$bn_pp_headline = (string) ( $bn_pp_identity[ $bn_pp_rid ]['headline'] ?? '' );
 						if ( '' !== $bn_pp_headline ) :

@@ -59,7 +59,13 @@ class Galleries {
 			return false;
 		}
 
-		if ( current_user_can( 'manage_options' ) ) {
+		// The Space's own rule first: who-can-post and the archive state apply to an
+		// album as they do to a post, for a site admin too when it is archived.
+		if ( ! \BuddyNext\Spaces\SpacePostGuard::can_contribute( $space_id, $viewer_id ) ) {
+			return false;
+		}
+
+		if ( self::is_site_admin() ) {
 			return true;
 		}
 
@@ -129,13 +135,26 @@ class Galleries {
 			if ( $space_id > 0 ) {
 				$out[] = array(
 					'id'       => (int) $album_id,
-					'title'    => (string) get_the_title( (int) $album_id ),
+					'title'    => self::album_title( (int) $album_id ),
 					'space_id' => $space_id,
 				);
 			}
 		}
 
 		return $out;
+	}
+
+	/**
+	 * An album's title as plain text.
+	 *
+	 * WordPress's get_the_title() texturizes (an apostrophe becomes &#8217;) and the JS prints the value as text, so decode once here:
+	 * every consumer, REST included, then gets the characters the member typed.
+	 *
+	 * @param int $album_id Album post id.
+	 * @return string
+	 */
+	private static function album_title( int $album_id ): string {
+		return html_entity_decode( wp_strip_all_tags( get_the_title( $album_id ) ), ENT_QUOTES, 'UTF-8' );
 	}
 
 	/**
@@ -230,7 +249,7 @@ class Galleries {
 	 */
 	public static function user_media_ids( int $owner_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
 		$repo = MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'query_by_author' ) ) {
+		if ( ! $repo || ! method_exists( $repo, 'query_by_author' ) || self::owner_hidden( $owner_id ) ) {
 			return array();
 		}
 
@@ -260,6 +279,17 @@ class Galleries {
 	}
 
 	/**
+	 * Whether a member's media is withheld: a suspended member's profile shows nothing of them to anyone but a site
+	 * admin (ProfileService::get_profile), so the Media tab and its count follow the same rule.
+	 *
+	 * @param int $owner_id Member whose media is asked for.
+	 * @return bool
+	 */
+	private static function owner_hidden( int $owner_id ): bool {
+		return buddynext_service( 'moderation' )->is_suspended( $owner_id ) && ! self::is_site_admin();
+	}
+
+	/**
 	 * Count of media owned by a user that the viewer may see.
 	 *
 	 * MediaVerse's own viewer-aware count, given the same arguments as the grid
@@ -274,7 +304,7 @@ class Galleries {
 	 */
 	public static function user_media_count( int $owner_id, int $viewer_id ): int {
 		$repo = MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'count_visible_by_author' ) ) {
+		if ( ! $repo || ! method_exists( $repo, 'count_visible_by_author' ) || self::owner_hidden( $owner_id ) ) {
 			return 0;
 		}
 
@@ -289,13 +319,15 @@ class Galleries {
 	 * (album privacy is stored against the album id in the media repo). Album
 	 * counts per user are small, so post-query filtering is acceptable.
 	 *
-	 * @param int $owner_id  Album owner user id.
-	 * @param int $viewer_id Viewer user id (0 = logged out).
-	 * @param int $limit     Max albums.
-	 * @param int $offset    Pagination offset.
+	 * @param int       $owner_id  Album owner user id.
+	 * @param int       $viewer_id Viewer user id (0 = logged out).
+	 * @param int       $limit     Max albums.
+	 * @param int       $offset    Pagination offset.
+	 * @param bool|null $has_more Set to whether another page of albums exists behind this one (counted before the visibility filter).
 	 * @return array<int,array<string,mixed>> Ordered album summaries.
 	 */
-	public static function user_albums( int $owner_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
+	public static function user_albums( int $owner_id, int $viewer_id, int $limit = 24, int $offset = 0, ?bool &$has_more = null ): array {
+		$has_more = false;
 		if ( $owner_id <= 0 || ! post_type_exists( 'mvs_album' ) ) {
 			return array();
 		}
@@ -318,16 +350,22 @@ class Galleries {
 				),
 				'orderby'        => 'date',
 				'order'          => 'DESC',
-				'posts_per_page' => max( 1, $limit ),
+				// One more than the page: whether that row exists is the answer to "is there more", asked of the rows
+				// BEFORE the viewer's visibility filter drops any, so a page that came back short for a visitor
+				// is not mistaken for the last one.
+				'posts_per_page' => max( 1, $limit ) + 1,
 				'offset'         => max( 0, $offset ),
 				'fields'         => 'ids',
 				'no_found_rows'  => true,
 			)
 		);
 
+		$ids      = array_map( 'intval', (array) $query->posts );
+		$has_more = count( $ids ) > max( 1, $limit );
+		$ids      = array_slice( $ids, 0, max( 1, $limit ) );
+
 		$out = array();
-		foreach ( (array) $query->posts as $album_id ) {
-			$album_id = (int) $album_id;
+		foreach ( $ids as $album_id ) {
 			if ( self::can_view_album( $album_id, $viewer_id ) ) {
 				$out[] = self::album_summary( $album_id, $viewer_id );
 			}
@@ -425,7 +463,7 @@ class Galleries {
 		return array(
 			'id'          => $album_id,
 			'space_id'    => $space_id,
-			'title'       => (string) get_the_title( $album_id ),
+			'title'       => self::album_title( $album_id ),
 			'description' => self::album_description( $album_id ),
 			'privacy'     => $reported,
 			'owner'       => $owner_id,
@@ -557,5 +595,14 @@ class Galleries {
 		// moderate_mvs_media is registered by WPMediaVerse (MediaCapabilities); this
 		// media bridge reuses that plugin's capability rather than minting its own.
 		return $viewer_id > 0 && user_can( $viewer_id, 'moderate_mvs_media' ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- capability owned by the WPMediaVerse companion plugin.
+	}
+
+	/**
+	 * Whether the current user administers the whole site: the one site-owner boundary this class draws, kept in a single place.
+	 *
+	 * @return bool
+	 */
+	private static function is_site_admin(): bool {
+		return current_user_can( 'manage_options' );
 	}
 }

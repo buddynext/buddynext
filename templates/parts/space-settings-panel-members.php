@@ -146,7 +146,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 
 						<div class="bn-space-settings__member-info">
 							<p class="bn-space-settings__member-name"><?php echo esc_html( $bn_member->display_name ); ?></p>
-							<p class="bn-space-settings__member-meta">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $bn_member->user_id ) ); ?></p>
+							<p class="bn-space-settings__member-meta"><bdi dir="ltr">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $bn_member->user_id ) ); ?></bdi></p>
 						</div>
 
 						<span class="bn-badge" data-tone="<?php echo esc_attr( $role_tone ); ?>"><?php echo esc_html( $role_label ); ?></span>
@@ -234,7 +234,15 @@ $bn_sspm_ctx = (string) wp_json_encode(
 
 						<div class="bn-space-settings__member-info">
 							<p class="bn-space-settings__member-name"><?php echo esc_html( $bn_ban_member->display_name ); ?></p>
-							<p class="bn-space-settings__member-meta">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $bn_ban_member->user_id ) ); ?></p>
+							<p class="bn-space-settings__member-meta"><bdi dir="ltr">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $bn_ban_member->user_id ) ); ?></bdi></p>
+							<?php if ( '' !== trim( (string) ( $bn_ban_member->reason ?? '' ) ) ) : ?>
+								<p class="bn-space-settings__member-meta">
+								<?php
+								/* translators: %s: the reason a moderator gave for the ban. */
+								echo esc_html( sprintf( __( 'Reason: %s', 'buddynext' ), (string) $bn_ban_member->reason ) );
+								?>
+								</p>
+							<?php endif; ?>
 						</div>
 
 						<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Banned', 'buddynext' ); ?></span>

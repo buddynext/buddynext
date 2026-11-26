@@ -24,7 +24,8 @@ The events, calendars, and RSVPs live in Eventonomy, which owns the event experi
 Creating and managing events - the event form, dates, the calendar, and the RSVP itself - is handled by Eventonomy. Members use Eventonomy's own screens for those actions. BuddyNext surfaces the activity in the community:
 
 - **A new event appears in the feed.** When a member publishes an event, BuddyNext posts a premium event card to the feed - with the event's cover image, a date chip, and an RSVP - linking out to the event's Eventonomy page. It is a real event card, not a plain link box.
-- **RSVPs show in the feed.** When a member RSVPs "going", BuddyNext posts an "is attending" activity, so others can see who is going. Only a "going" RSVP posts; the card is retracted automatically if the member later cancels.
+- **Events made for a Space.** An event made for an open Space also appears in that Space's own feed, and in the main feed according to the Space's "Share activity to the main feed" setting. An event made for a private or secret Space keeps its card in the main feed only, because the event is public, and the Space lists it on its Events tab. An event linked to several Spaces has one card, in the earliest-linked open Space; the others list it on their Events tab.
+- **RSVPs are not announced.** A "going" RSVP does not post an "is attending" card to the feed, so nobody is announced to the whole site by accident. The RSVP still shows in the event's attendee list, and the organiser is told. An "is attending" card left from an earlier version is retracted when the member cancels.
 - **Events are searchable in the community.** Each published event is added to community search, so a member searching for a topic finds upcoming events alongside people, spaces, and posts.
 - **A member's events show on their profile.** BuddyNext adds an Events tab to the member's profile, split into Organizing and Going (both public) plus Maybe, which only the member sees on their own profile (and Interested, with Eventonomy Pro). Logged-in members also get an **Events** link in the left navigation, in the personal group, that opens their own Events tab. An **Upcoming events** card can also appear in the feed's right sidebar.
 - **Event notifications land in one place.** Eventonomy's notifications (an RSVP confirmation, a reminder, an event change) appear in the BuddyNext bell as an Events source, so a member has a single bell for everything across the community. Members can switch each type in their notification settings under **Events**.
@@ -47,7 +48,7 @@ Eventonomy gets a card named **Events** on the **Integration Settings** screen, 
 | Setting | What it does | Default |
 |---|---|---|
 | Navigation | Whether the Events link, the profile Events tab and the space Events tab appear. Turning it off only hides these; Eventonomy notifications still reach the bell. | On |
-| Feed | Whether a published event and a "going" RSVP post a feed activity. | On |
+| Feed | Whether a published event posts a feed activity. | On |
 | Search | Whether published events are found in community search. Switching it off also removes the events already in the search index. | On |
 
 The event experience itself - who can create events, RSVP rules, calendar display - is configured in Eventonomy, not here. These switches only decide where the results show up inside your community.
@@ -69,6 +70,12 @@ Beyond the profile Events tab and community-wide surfacing, a space can run its 
 **Removing an event from a space (unlink, not delete).** A space owner, moderator, or site admin can remove any event from their space's List view. This only detaches the event from that space - it is never deleted and stays fully intact everywhere else it appears: its own Eventonomy page, the organizer's profile, and any other space it is linked to.
 
 **Visibility.** The Events tab itself follows the space's own privacy - a private or secret space's Events tab is visible only to its members. Individual events default to Eventonomy's own "public" visibility when created, though, so an event created in a private space is still publicly visible unless its creator changes that - the space's privacy does not automatically narrow an event's own visibility setting.
+
+**Who can open an event (Eventonomy 2.0.0 and later).** An event has a level, and BuddyNext answers who counts as a member for two of them.
+- **Members only.** Any active community member can open it. Someone whose account is held for approval, who is suspended, or whom the host blocked sees the preview instead. The Space the event sits in plays no part. "Public, members register" and a member ticket price use the same answer.
+- **Space members.** Only members of the event's Space. That is the Space's owner and site administrators, its active members and moderators, and, for a Space gated by a plan, whoever holds that plan now: a holder who has not joined counts, a member whose plan has lapsed does not, the same live rule as the Space's own posts. If the Space has been deleted or the event unlinked from it, the event closes to everyone except its host and administrators. The level is offered in the event editor once the event has a Space.
+
+Space owners and moderators can edit and manage the attendees of their Space's events; orders, refunds and deleting stay with the event's host and site administrators. This part works with BuddyNext Free alone. An Eventonomy older than 2.0.0 does not ask these questions, so nothing changes there.
 
 **Requirements.** Needs BuddyNext Pro. Linking an event into more than one space additionally needs Eventonomy 1.7.0 or newer (the release that added it); the Events tab itself, the List/Calendar toggle, and single-space creation work with earlier Eventonomy releases.
 

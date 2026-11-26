@@ -13,6 +13,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Core\CacheService;
 use WP_Error;
 
 /**
@@ -41,30 +42,35 @@ class ShareService {
 	 *                      WP_Error('already_shared') on duplicate.
 	 */
 	public function share( int $user_id, int $post_id, string $content = '', ?string $created_at = null ): int|WP_Error {
-		if ( ! buddynext_feature_enabled( 'shares' ) ) {
-			return new WP_Error(
-				'shares_disabled',
-				__( 'Sharing is disabled on this community.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		$off = buddynext_feature_refusal( 'shares', 'shares_disabled', __( 'Sharing is disabled on this community.', 'buddynext' ) );
+		if ( $off ) {
+			return $off;
 		}
 
 		global $wpdb;
 
-		// If the target is itself a reshare, amplify the ORIGINAL post instead
-		// (flatten the chain). "Sharing a share" shares the root — matching what
-		// members expect and avoiding share-of-a-share nesting. All downstream
-		// logic (duplicate check, privacy inheritance, share_count, feed card)
-		// then operates on the original post.
+		// Sharing a share shares its ORIGINAL (see root_post_id()). Every check
+		// below, and the card, is about that original.
+		$post_id = $this->root_post_id( $post_id );
+
+		// Backstop for callers that skip the REST gate (ShareController asks the
+		// full engagement question on the original first): only a published
+		// original can be shared. A removed, held or deleted original reached
+		// through an older share card is refused here too.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$root_post_id = (int) $wpdb->get_var(
+		$original = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT shared_post_id FROM {$wpdb->prefix}bn_posts WHERE id = %d AND type = 'share' LIMIT 1",
+				"SELECT status, privacy FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
 				$post_id
-			)
+			),
+			ARRAY_A
 		);
-		if ( $root_post_id > 0 ) {
-			$post_id = $root_post_id;
+		if ( ! is_array( $original ) || empty( PostService::STATUSES[ (string) $original['status'] ]['readable'] ) ) {
+			return new WP_Error(
+				'post_not_found',
+				__( 'Post not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
 		}
 
 		$existing = $wpdb->get_var(
@@ -144,14 +150,8 @@ class ShareService {
 
 		// Publish a feed post so the share card appears in the home feed.
 		// Inherit the original post's privacy so visibility rules are respected.
-		$original_privacy = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT privacy FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
-				$post_id
-			)
-		);
-		$privacy          = in_array( $original_privacy, PostService::valid_privacy_values(), true )
-			? $original_privacy
+		$privacy = in_array( $original['privacy'], PostService::valid_privacy_values(), true )
+			? (string) $original['privacy']
 			: 'public';
 
 		$card = array(
@@ -209,6 +209,31 @@ class ShareService {
 	}
 
 	/**
+	 * The post a share of `$post_id` actually shares.
+	 *
+	 * A share card is never shared as such: sharing one amplifies its ORIGINAL
+	 * (flatten the chain), which is what members expect and avoids share-of-a-share
+	 * nesting. Callers that gate a share (visibility, status, space ban) must ask
+	 * about this id, not the card that was clicked.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $post_id Post or share card id.
+	 * @return int The original post id, or `$post_id` when it is not a share card.
+	 */
+	public function root_post_id( int $post_id ): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one indexed primary-key read.
+		$root = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT shared_post_id FROM {$wpdb->prefix}bn_posts WHERE id = %d AND type = 'share' LIMIT 1",
+				$post_id
+			)
+		);
+		return $root > 0 ? $root : $post_id;
+	}
+
+	/**
 	 * Remove a user's share of a post.
 	 *
 	 * Decrements the share_count (floor 0) on the original post and deletes the
@@ -220,15 +245,19 @@ class ShareService {
 	public function unshare( int $user_id, int $post_id ): void {
 		global $wpdb;
 
+		// Read the share id first: buddynext_post_shared carried it, so the matching
+		// unshare event must too. UNIQUE user_post means one row at most.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$deleted = $wpdb->delete(
-			$wpdb->prefix . 'bn_shares',
-			array(
-				'user_id' => $user_id,
-				'post_id' => $post_id,
-			),
-			array( '%d', '%d' )
+		$share_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_shares WHERE user_id = %d AND post_id = %d",
+				$user_id,
+				$post_id
+			)
 		);
+		$deleted  = $share_id > 0
+			? $wpdb->delete( $wpdb->prefix . 'bn_shares', array( 'id' => $share_id ), array( '%d' ) )
+			: 0;
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( $deleted ) {
@@ -250,6 +279,23 @@ class ShareService {
 		);
 		foreach ( array_map( 'intval', (array) $repost_ids ) as $repost_id ) {
 			( new PostService() )->delete( $repost_id, $user_id );
+		}
+
+		if ( $deleted ) {
+			/**
+			 * Fires once when a member's share of a post is really removed: by
+			 * un-sharing, or by deleting the repost card. Not fired when there was
+			 * no share to remove, so the nested call from PostService::delete()
+			 * never fires it twice. The counterpart of buddynext_post_shared, with
+			 * the same arguments.
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param int $share_id         Removed bn_shares row ID.
+			 * @param int $original_post_id Original post that was shared.
+			 * @param int $user_id          User whose share was removed.
+			 */
+			do_action( 'buddynext_post_unshared', $share_id, $post_id, $user_id );
 		}
 	}
 
@@ -356,7 +402,7 @@ class ShareService {
 		// Two queries (rows + COUNT) on the profile Reshares tab. Cached per member and
 		// per page, and busted whenever that member shares or unshares — the only two
 		// things that can change the answer.
-		$cache_key = 'shares_v' . self::shares_version( $user_id ) . "_{$user_id}_{$per_page}_{$page}";
+		$cache_key = 'shares_v' . CacheService::last_changed( self::CACHE_GROUP, "shares:{$user_id}" ) . "_{$user_id}_{$per_page}_{$page}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -409,23 +455,6 @@ class ShareService {
 	}
 
 	/**
-	 * Version of one member's cached reshare pages.
-	 *
-	 * @param int $user_id Member.
-	 * @return int
-	 */
-	private static function shares_version( int $user_id ): int {
-		$version = wp_cache_get( "shares_ver_{$user_id}", self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( "shares_ver_{$user_id}", $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
 	 * Invalidate every cached reshare page for one member.
 	 *
 	 * A version bump, because the list is cached per page AND per page size: a share
@@ -437,7 +466,7 @@ class ShareService {
 	 */
 	private static function flush_shares( int $user_id ): void {
 		if ( $user_id > 0 ) {
-			wp_cache_set( "shares_ver_{$user_id}", self::shares_version( $user_id ) + 1, self::CACHE_GROUP );
+			CacheService::set_last_changed( self::CACHE_GROUP, "shares:{$user_id}" );
 		}
 	}
 }

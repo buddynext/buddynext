@@ -11,6 +11,7 @@
  * @var int   $bn_mt_owner_id  Profile owner user id.
  * @var bool  $bn_mt_is_owner  Whether the viewer owns this profile.
  * @var int[] $bn_mt_media_ids Initial media ids for the gallery (server-rendered).
+ * @var array  $bn_mt_pager     more_url / next_url from FeedWindow::links() for the Load more and Older media links.
  *
  * @package BuddyNext
  */
@@ -25,12 +26,16 @@ $bn_mt_is_owner = isset( $bn_mt_is_owner ) ? (bool) $bn_mt_is_owner : false;
 // this file.
 $bn_mt_space_id  = isset( $bn_mt_space_id ) ? (int) $bn_mt_space_id : 0;
 $bn_mt_media_ids = isset( $bn_mt_media_ids ) ? (array) $bn_mt_media_ids : array();
+$bn_mt_pager     = isset( $bn_mt_pager ) && is_array( $bn_mt_pager ) ? $bn_mt_pager : array();
 // Upload controls only for someone the site lets upload (MediaVerse "Who can
 // upload media"); a member who may not upload still manages what they have.
 $bn_mt_can_upload = \BuddyNext\Media\MediaClient::can_upload( get_current_user_id() );
 // Owner control: the Albums sub-view can be hidden via BuddyNext -> Integrations
 // (Media -> Albums sub-tab). Default on. When off, only the flat Media gallery shows.
 $bn_mt_albums_enabled = ! isset( $bn_mt_albums_enabled ) || (bool) $bn_mt_albums_enabled;
+
+// Whether members may pick an album's privacy, asked once for the context and the form below.
+$bn_mt_may_choose = \BuddyNext\Bridges\WPMediaVerseBridge::members_may_choose_privacy();
 
 $bn_mt_ctx = array(
 	'restNonce'          => wp_create_nonce( 'wp_rest' ),
@@ -43,6 +48,9 @@ $bn_mt_ctx = array(
 	'albums'             => array(),
 	'hasAlbums'          => false,
 	'albumsLoaded'       => false,
+	'albumsPage'         => 1,
+	'albumsHasMore'      => false,
+	'albumsLoadingMore'  => false,
 	'albumOpen'          => false,
 	'activeAlbumId'      => 0,
 	'activeAlbumTitle'   => '',
@@ -55,6 +63,9 @@ $bn_mt_ctx = array(
 	'createTitle'        => '',
 	'createDesc'         => '',
 	'createPrivacy'      => 'public',
+	// False when the site owner has locked privacy: the form then sends none, because the
+	// engine refuses a change to an album's level.
+	'canChoosePrivacy'   => $bn_mt_may_choose,
 	'pickerOpen'         => false,
 	// True while an in-picker upload is in flight — disables the file input and shows
 	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
@@ -141,6 +152,15 @@ $bn_mt_ctx = array(
 		if ( ! empty( $bn_mt_media_ids ) ) {
 			echo '<div class="bn-card bn-profile-media-card">';
 			echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', $bn_mt_media_ids ), array( 'user_id' => $bn_mt_owner_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
+			// Load more (the page grows), then Older media from the cursor: the one list pager every feed uses.
+			buddynext_get_template(
+				'parts/feed-load-more.php',
+				array(
+					'more_url'   => (string) ( $bn_mt_pager['more_url'] ?? '' ),
+					'next_url'   => (string) ( $bn_mt_pager['next_url'] ?? '' ),
+					'next_label' => __( 'Older media', 'buddynext' ),
+				)
+			);
 			echo '</div>';
 		} else {
 			?>
@@ -185,6 +205,12 @@ $bn_mt_ctx = array(
 				</template>
 			</div>
 
+			<div class="bn-album-more" data-wp-bind--hidden="!context.albumsHasMore">
+				<button type="button" class="bn-btn" data-variant="secondary" data-wp-on--click="actions.loadMoreAlbums" data-wp-bind--disabled="context.albumsLoadingMore">
+					<?php esc_html_e( 'Load more albums', 'buddynext' ); ?>
+				</button>
+			</div>
+
 			<div class="bn-empty-state" data-wp-bind--hidden="state.hasAlbums">
 				<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'folder' ); ?></div>
 				<div class="bn-empty-title"><?php esc_html_e( 'No albums yet.', 'buddynext' ); ?></div>
@@ -214,6 +240,9 @@ $bn_mt_ctx = array(
 				<?php endif; ?>
 			</div>
 			<div class="bn-album-detail__grid" data-bn-album-grid></div>
+			<div class="bn-album-more" data-bn-album-more-wrap hidden>
+				<button type="button" class="bn-btn" data-variant="secondary" data-bn-album-more><?php esc_html_e( 'Load more photos', 'buddynext' ); ?></button>
+			</div>
 		</div>
 	</div>
 
@@ -251,6 +280,11 @@ $bn_mt_ctx = array(
 					?>
 					<p class="bn-album-privacy-note">
 						<?php esc_html_e( 'Who can see this album is decided by the space. Members who can see the space can see its albums.', 'buddynext' ); ?>
+					</p>
+				<?php elseif ( ! $bn_mt_may_choose ) : ?>
+					<?php // Locked by the site owner: MediaVerse gives every album the site default and refuses a change. ?>
+					<p class="bn-album-privacy-note">
+						<?php esc_html_e( 'The site owner sets who can see albums.', 'buddynext' ); ?>
 					</p>
 				<?php else : ?>
 					<label class="bn-field">

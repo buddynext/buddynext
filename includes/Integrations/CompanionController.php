@@ -4,11 +4,13 @@
  *
  * Route (under buddynext/v1):
  *   POST /companions/install — install + activate a catalog companion.
+ *   GET  /companions/status  - its current state (active | inactive | not_installed).
  *
  * Security: permission_callback requires the `install_plugins` capability (the
  * same gate WordPress puts on plugin installs); WP verifies the wp_rest nonce on
  * the cookie-authenticated request. Only registry slugs are accepted, and the
- * actual download host is locked to wbcomdesigns.com inside the installer.
+ * actual download host is locked inside the installer (wbcomdesigns.com, or
+ * https github.com for the free site tools).
  *
  * @package BuddyNext\Integrations
  */
@@ -47,6 +49,45 @@ class CompanionController extends BaseRestController {
 					),
 				),
 			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/companions/status',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'status' ),
+				// Read-only, and DISALLOW_FILE_MODS removes install_plugins: an admin on a
+				// locked host still checks again after installing by hand.
+				'permission_callback' => static fn(): bool => current_user_can( 'activate_plugins' ),
+				'args'                => array(
+					'slug' => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Re-read a companion's installed/active state, for "Check again" after a manual upload.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function status( WP_REST_Request $request ) {
+		$slug = (string) $request->get_param( 'slug' );
+		if ( null === CompanionRegistry::get( $slug ) ) {
+			return new WP_Error( 'buddynext_unknown_companion', __( 'Unknown integration.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		return new WP_REST_Response(
+			array(
+				'slug'   => $slug,
+				'status' => CompanionRegistry::status( $slug ),
+			),
+			200
 		);
 	}
 

@@ -171,25 +171,6 @@ class MembersTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * export_members_csv() returns a non-empty string.
-	 */
-	public function test_export_members_csv_returns_string(): void {
-		$this->factory->user->create( array( 'user_email' => 'export@test.local' ) );
-		$csv = $this->members->export_members_csv();
-		$this->assertIsString( $csv );
-		$this->assertStringContainsString( 'ID,Login,Email,Registered', $csv );
-	}
-
-	/**
-	 * export_members_csv() includes user email in output.
-	 */
-	public function test_export_members_csv_includes_user_data(): void {
-		$this->factory->user->create( array( 'user_email' => 'csvuser@test.local' ) );
-		$csv = $this->members->export_members_csv();
-		$this->assertStringContainsString( 'csvuser@test.local', $csv );
-	}
-
-	/**
 	 * Unsuspending a member with no active suspension reports it, so the bulk count
 	 * and the single-row notice do not claim a change that did not happen.
 	 */

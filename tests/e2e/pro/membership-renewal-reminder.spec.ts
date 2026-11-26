@@ -103,6 +103,8 @@ test.describe('pro / renewal reminder sweep warns a member', () => {
                 `   $fired = compact( 'sub_id', 'user_id', 'tier_id', 'access_until', 'days_left' );` +
                 ` }, 10, 5 );` +
                 ` \\BuddyNextPro\\Membership\\RenewalReminderService::run_sweep();` +
+                // The sweep only picks who is due and queues batch jobs of 25; the batch worker is remind_one() per row.
+                ` \\BuddyNextPro\\Membership\\RenewalReminderService::remind_one( ${subId} );` +
                 ` echo wp_json_encode( $fired );`,
         ]);
 

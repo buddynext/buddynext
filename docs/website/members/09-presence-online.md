@@ -17,14 +17,19 @@ Where presence shows up:
 - **Member cards anywhere they appear**, including sidebar widgets such as an online-members list.
 - **The messaging rail**, so you can see at a glance whether the person you are chatting with is around.
 
-A member counts as online when they have been active within the last five minutes. Past that window they are no longer shown as online; they simply drop back to a regular listing rather than being flagged as active right now.
+A member counts as online when they have been active within the last 10 minutes. Past that window they are no longer shown as online; they simply drop back to a regular listing rather than being flagged as active right now. A developer can change the window with the `buddynext_presence_online_window` filter (see the [hooks reference](../developer-guide/28-hooks-members-profiles-social.md)).
 
+### How presence stays current
 
-### How presence stays current (the heartbeat)
+BuddyNext records that you are active at three moments, and only at those moments:
 
-Presence is kept fresh by a lightweight heartbeat. Every time you load a page in the community while logged in, BuddyNext refreshes your "last active" time. To avoid doing unnecessary work, it only records that update at most once a minute per member, which is well inside the five-minute online window - so an active member never flickers offline, and a busy browsing session does not slow the site down. The community app receives the same heartbeat, so presence stays accurate whether someone is on the website or in an app.
+- **When a page loads.** Every full page view in the community while you are logged in refreshes your "last active" time.
+- **When you move around without a reload.** BuddyNext swaps pages in the browser as you navigate, and each move refreshes it.
+- **When you come back to a tab.** Return to a tab you left in the background and it refreshes again.
 
-This runs without JavaScript. Even on a plain page view, your presence is refreshed, so the online indicators are reliable for everyone.
+There is no background polling and no WordPress Heartbeat. A tab that is hidden or idle sends nothing. A tab sends at most one presence request every four minutes, and the server writes at most one update per member per minute, so a busy browsing session does not slow the site down. A member who reads one long thread stays online through the 10-minute window.
+
+Because the browser sends the update itself, presence also works on sites that use a page cache: a cached page skips the server-side refresh, but the browser's own request still reaches the site. The community app uses the same request, so presence stays accurate on the website and in an app.
 
 ## Setting it up (for owners)
 
@@ -34,15 +39,20 @@ There is currently no per-member privacy control to hide your online status. Pre
 
 ## Good to know
 
-- **Active means the last five minutes.** Anyone active inside that window shows as online; after it, they quietly stop showing as online.
+- **Active means the last 10 minutes.** Anyone active inside that window shows as online; after it, they quietly stop showing as online.
 - **Presence is passive.** Members do not toggle themselves online or off - it follows real activity.
-- **No flicker for active members.** The once-a-minute refresh sits comfortably inside the five-minute window, so someone who is genuinely around stays shown as online.
-- **An empty online list is normal.** On a quiet site at a quiet hour, the **Online only** view can legitimately be empty - that means no one has been active in the last few minutes, not that something is broken.
+- **No flicker for active members.** A refresh at least every four minutes sits well inside the 10-minute window, so someone who is genuinely around stays shown as online.
+- **Visitors do not see who is online.** Logged-out visitors get no online dots, and the **Online only** switch is not shown to them. A shared `?online=1` link simply shows them the normal directory.
+- **An empty online list is normal.** On a quiet site at a quiet hour, the **Online only** view can legitimately be empty - that means no one has been active in the last few minutes, not that something is broken. If members are posting but the online list stays empty, see the Site Health check below.
 - **No admin toggle and no member opt-out.** Presence is on by default and does not have a built-in privacy switch.
+
+### Site Health check
+
+Open **Tools > Site Health**. If members posted in the last hour but nobody was recorded as online, BuddyNext lists "BuddyNext is not recording who is online". The usual cause is a page cache that serves saved pages to signed-in members, or a security rule that blocks the BuddyNext REST API. Ask your host to skip page caching for signed-in visitors and to allow requests to `/wp-json/buddynext/v1/`. Posts made only from a mobile app can also trigger it, because an app does not open site pages. See [Performance and Cache](../troubleshooting/04-performance-and-cache.md).
 
 ## Free vs Pro
 
-Everything described here - the online indicators, the "active recently" window, the automatic heartbeat, and the **Online only** directory view - works in free BuddyNext over standard polling. Pro can upgrade the transport underneath to push real-time updates over a live connection, but it uses the same presence signal, so the indicators and behavior members see are the same. Presence never breaks or disappears without Pro; Pro only makes the updates feel more instant.
+Everything described here - the online indicators, the "active recently" window, the automatic refresh, and the **Online only** directory view - works in free BuddyNext with no background polling. Pro can upgrade the transport underneath to push real-time updates over a live connection, but it uses the same presence signal, so the indicators and behavior members see are the same. Presence never breaks or disappears without Pro; Pro only makes the updates feel more instant.
 
 ## Related
 

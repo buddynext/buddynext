@@ -77,10 +77,12 @@ async function checkCard(page: Page, card: Locator, id: number): Promise<void> {
     };
     await pick();
     await expect.poll(() => reacted(page, id), { timeout: 8_000 }).toBe(true);
-    await expect(reactBtn).not.toHaveText(/^\s*React\s*$/, { timeout: 8_000 });
+    // The button keeps its "Like" label and says it is pressed (a first tap does not rename it).
+    await expect(reactBtn).toHaveAttribute('aria-pressed', 'true', { timeout: 8_000 });
     await pick();
     await expect.poll(() => reacted(page, id), { timeout: 8_000 }).toBe(false);
-    await expect(reactBtn).toHaveText(/^\s*React\s*$/, { timeout: 8_000 });
+    await expect(reactBtn).toHaveAttribute('aria-pressed', 'false', { timeout: 8_000 });
+    await expect(reactBtn).toHaveText(/^\s*Like\s*$/, { timeout: 8_000 });
 
     // 2. Menu: opens, Escape closes, focus returns to its button.
     const menuBtn = card.locator('button.bn-post-card__menu').first();

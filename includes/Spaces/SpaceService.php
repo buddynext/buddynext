@@ -16,6 +16,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Spaces;
 
+use BuddyNext\Core\CacheService;
 use WP_Error;
 
 /**
@@ -29,14 +30,30 @@ class SpaceService {
 	private const CACHE_GROUP = 'buddynext_spaces';
 
 	/**
+	 * Action Scheduler hook of the background Space-deletion chain.
+	 *
+	 * @since 1.3.1
+	 */
+	public const DELETE_HOOK = 'buddynext_space_delete_chunk';
+
+	/**
+	 * Space meta that marks a Space hidden and being deleted in the background.
+	 *
+	 * @since 1.3.1
+	 */
+	public const DELETING_META = '_bn_deleting';
+
+	/**
+	 * Posts one deletion job removes by default.
+	 *
+	 * @since 1.3.1
+	 */
+	public const DELETE_CHUNK = 100;
+
+	/**
 	 * Cache TTL in seconds (10 minutes).
 	 */
 	private const CACHE_TTL = 600;
-
-	/**
-	 * Version counter for every cached spaces-directory listing.
-	 */
-	private const LIST_VERSION_KEY = 'spaces_list_version';
 
 	/**
 	 * Slugs reserved for spaces-hub routes — a member must never create a space
@@ -620,6 +637,38 @@ class SpaceService {
 	}
 
 	/**
+	 * Load many spaces into get()'s cache in one query.
+	 *
+	 * A page of feed posts hydrates each post's space through get(), one query per
+	 * space on a cold cache. Callers that are about to do that hand the ids here.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int[] $space_ids Space IDs.
+	 * @return void
+	 */
+	public function prime( array $space_ids ): void {
+		$missing = array();
+		foreach ( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) as $space_id ) {
+			if ( false === wp_cache_get( "space_{$space_id}", self::CACHE_GROUP ) ) {
+				$missing[] = $space_id;
+			}
+		}
+		if ( ! $missing ) {
+			return;
+		}
+
+		global $wpdb;
+		$placeholders = implode( ', ', array_fill( 0, count( $missing ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders from array_fill( %d ), every id bound; cached below.
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_spaces WHERE id IN ( {$placeholders} )", ...$missing ), ARRAY_A );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		foreach ( $this->hydrate_all( $rows ) as $space ) {
+			wp_cache_set( 'space_' . (int) $space['id'], $space, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+	}
+
+	/**
 	 * Update a space.
 	 *
 	 * Only the owner (or a user with manage_options) may update a space.
@@ -775,9 +824,10 @@ class SpaceService {
 		 * @param int   $space_id Space ID.
 		 * @param int   $user_id  User who updated the space.
 		 * @param array $data     Fields that were updated.
+		 * @param string $previous_type The space's type before this save ('' if unknown), so a listener can tell a real type change from a save that repeats the same type.
 		 */
 		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
-		do_action( 'buddynext_space_updated', $space_id, $user_id, $fields );
+		do_action( 'buddynext_space_updated', $space_id, $user_id, $fields, (string) ( $space['type'] ?? '' ) );
 
 		return true;
 	}
@@ -826,6 +876,12 @@ class SpaceService {
 		if ( ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to archive this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
+		// A space being deleted in the background is archived by that process; it must
+		// not be brought back half emptied. Deleting it again finishes the job.
+		if ( ! $archived && self::is_deleting( $space_id ) ) {
+			return new WP_Error( 'space_deleting', __( 'This space is being deleted. Delete it again to finish.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
 		if ( ! empty( $space['is_archived'] ) === $archived ) {
 			return true; // Already in the requested state.
 		}
@@ -1399,6 +1455,202 @@ class SpaceService {
 			}
 		}
 
+		// A big Space cannot be torn down in one request: its posts alone would loop
+		// past a host's time limit and leave it half deleted. Past one chunk of posts
+		// the Space is hidden at once and a chain of Action Scheduler jobs removes the
+		// rest, a chunk at a time. A Space that fits in one chunk is deleted right here
+		// exactly as before, so a small community never waits on a queue.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) );
+		if ( $post_total > self::delete_chunk() && function_exists( 'as_enqueue_async_action' ) ) {
+			$this->hide_for_deletion( $space_id, $space, $user_id );
+			$this->queue_delete_chunk( $space_id, $user_id );
+
+			return true;
+		}
+
+		return $this->purge_space( $space_id, $user_id, $space );
+	}
+
+	/**
+	 * How many posts a Space holds, for the delete confirmation. One indexed COUNT.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int
+	 */
+	public function post_count( int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) );
+	}
+
+	/**
+	 * Posts removed per Action Scheduler job when a big Space is deleted.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @return int At least 1.
+	 */
+	public static function delete_chunk(): int {
+		/**
+		 * Filters how many posts one Space-deletion job removes.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param int $size Posts per job. Default 100.
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_space_delete_chunk_size', self::DELETE_CHUNK ) );
+	}
+
+	/**
+	 * Whether a Space is on its way out: hidden at once, removed in the background.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	public static function is_deleting( int $space_id ): bool {
+		return $space_id > 0 && '' !== (string) get_metadata( 'bn_space', $space_id, self::DELETING_META, true );
+	}
+
+	/**
+	 * Take a Space out of every listing and page the moment its deletion is accepted.
+	 *
+	 * Archived stops new writes and drops it from the directory, search and
+	 * suggestions; the deleting marker makes SpaceVisibility refuse every view.
+	 *
+	 * @param int                  $space_id Space ID.
+	 * @param array<string, mixed> $space    Hydrated space.
+	 * @param int                  $user_id  Member who asked for the deletion.
+	 * @return void
+	 */
+	private function hide_for_deletion( int $space_id, array $space, int $user_id ): void {
+		global $wpdb;
+
+		update_metadata( 'bn_space', $space_id, self::DELETING_META, $user_id );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_spaces',
+			array(
+				'is_archived' => 1,
+				'archived_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => $space_id ),
+			array( '%d', '%s' ),
+			array( '%d' )
+		);
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		self::flush_space_lists();
+		if ( ! empty( $space['slug'] ) ) {
+			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
+		}
+		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
+
+		/**
+		 * Fires when a big Space is hidden and queued for background deletion.
+		 *
+		 * The deleted action still fires, once, when the last job finishes.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param int $space_id Space ID.
+		 * @param int $user_id  Member who asked for the deletion.
+		 */
+		do_action( 'buddynext_space_delete_queued', $space_id, $user_id );
+	}
+
+	/**
+	 * Queue the next deletion job for a Space, once.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  Member who asked for the deletion.
+	 * @return void
+	 */
+	private function queue_delete_chunk( int $space_id, int $user_id ): void {
+		// Pending only: the running job queuing its successor does not count.
+		\BuddyNext\Core\CronScheduler::enqueue_once( self::DELETE_HOOK, array( $space_id, $user_id ) );
+	}
+
+	/**
+	 * Action Scheduler entry point: remove one chunk of a hidden Space, then finish it.
+	 *
+	 * The next job is queued BEFORE this chunk's work, so a job that dies halfway
+	 * (a killed PHP process, a lock timeout) never ends the chain: the next one
+	 * picks up whatever posts are left. Every chunk reads what is still there, so
+	 * a repeat or an overlap removes nothing twice. A Space that is gone, or was
+	 * never marked for deletion, is left alone.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param mixed $space_id Space ID.
+	 * @param mixed $user_id  Member who asked for the deletion.
+	 * @return void
+	 */
+	public function run_delete_chunk( $space_id = 0, $user_id = 0 ): void {
+		$space_id = (int) $space_id;
+		$user_id  = (int) $user_id;
+		$space    = $space_id > 0 ? $this->get( $space_id ) : null;
+		if ( null === $space || ! self::is_deleting( $space_id ) ) {
+			return;
+		}
+
+		$this->queue_delete_chunk( $space_id, $user_id );
+
+		global $wpdb;
+		$count  = fn(): int => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$before = $count();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_ids = array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE space_id = %d ORDER BY id ASC LIMIT %d", $space_id, self::delete_chunk() ) ) );
+
+		$post_service = buddynext_service( 'post_service' );
+		foreach ( $post_ids as $post_id ) {
+			$post_service->delete( $post_id, $user_id );
+		}
+
+		// Finish when no post is left, or when this chunk removed none (a post that
+		// refuses deletion): finish the Space anyway rather than queue for ever.
+		$left = $count();
+		if ( 0 === $left || $left >= $before ) {
+			$this->purge_space( $space_id, $user_id, $space );
+		}
+	}
+
+	/**
+	 * Remove a Space's posts, members, bans, reports, notifications, meta and images,
+	 * then the Space itself, and fire the deletion hooks.
+	 *
+	 * The teardown delete() always did, kept in one place so the one-request path and
+	 * the last background job run the same code.
+	 *
+	 * @param int                  $space_id Space ID.
+	 * @param int                  $user_id  Member who asked for the deletion.
+	 * @param array<string, mixed> $space    Hydrated space.
+	 * @return true
+	 */
+	private function purge_space( int $space_id, int $user_id, array $space ): bool {
+		global $wpdb;
+
+		/**
+		 * Fires just before a space is torn down, while its links and settings still exist.
+		 *
+		 * The deleted and purge actions fire after the space's meta is gone, so an
+		 * integration that needs what the space was linked to (the Jetonomy forum, a
+		 * course) reads it here. A big space also fires this, and again at the end of
+		 * its background deletion, so a listener must be safe to run twice.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param int $space_id Space about to be removed.
+		 * @param int $user_id  Member who asked for the deletion.
+		 */
+		do_action( 'buddynext_space_deleting', $space_id, $user_id );
+
 		// Capture every user whose membership / ban cache must be flushed once the
 		// space and its rows are gone — the bulk deletes below fire no per-user
 		// hooks, so cached role / status / ban entries would otherwise survive the
@@ -1810,7 +2062,7 @@ class SpaceService {
 	 * @return array{x:float,y:float,zoom:float}
 	 */
 	public static function cover_focal( int $space_id ): array {
-		$focal = (array) get_space_meta( $space_id, 'buddynext_cover_focal', true );
+		$focal = (array) get_space_meta( $space_id, \BuddyNext\Profile\CoverFocal::META_KEY, true );
 		return array(
 			'x'    => isset( $focal['x'] ) ? max( 0.0, min( 100.0, (float) $focal['x'] ) ) : 50.0,
 			'y'    => isset( $focal['y'] ) ? max( 0.0, min( 100.0, (float) $focal['y'] ) ) : 50.0,
@@ -1861,13 +2113,21 @@ class SpaceService {
 	}
 
 	/**
-	 * Hydrate a list of rows, loading their cover framing first in one query.
+	 * Hydrate a list of rows, loading every row's space meta first in one query.
+	 *
+	 * Every row, not only those with a cover: hydrate() runs the
+	 * buddynext_prepare_space filter, and add-ons answer it from space meta (Pro's
+	 * plan gate reads it per space). Priming only the covered rows left one meta
+	 * query per uncovered space on every directory page, warm cache or not.
 	 *
 	 * @param array<int, array<string,mixed>|object> $rows bn_spaces rows.
 	 * @return array<int, array<string,mixed>>
 	 */
 	private function hydrate_all( array $rows ): array {
-		self::prime_cover_focal( $rows );
+		$ids = array_values( array_filter( array_map( static fn( $row ): int => (int) ( ( (array) $row )['id'] ?? 0 ), $rows ) ) );
+		if ( $ids ) {
+			update_meta_cache( 'bn_space', $ids );
+		}
 		return array_map( array( $this, 'hydrate' ), $rows );
 	}
 
@@ -2067,23 +2327,7 @@ class SpaceService {
 	 * @return string
 	 */
 	private static function list_cache_key( string $kind, array $scope ): string {
-		return 'spaces_' . $kind . '_v' . self::list_version() . '_' . md5( (string) wp_json_encode( $scope ) );
-	}
-
-	/**
-	 * Current version of the spaces-directory listings.
-	 *
-	 * @return int
-	 */
-	private static function list_version(): int {
-		$version = wp_cache_get( self::LIST_VERSION_KEY, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( self::LIST_VERSION_KEY, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
+		return 'spaces_' . $kind . '_v' . CacheService::last_changed( self::CACHE_GROUP, 'space_lists' ) . '_' . md5( (string) wp_json_encode( $scope ) );
 	}
 
 	/**
@@ -2101,7 +2345,22 @@ class SpaceService {
 	 * @return void
 	 */
 	public static function flush_space_lists(): void {
-		wp_cache_set( self::LIST_VERSION_KEY, self::list_version() + 1, self::CACHE_GROUP );
+		CacheService::set_last_changed( self::CACHE_GROUP, 'space_lists' );
+	}
+
+	/**
+	 * The current salt of every cached spaces listing.
+	 *
+	 * Lets a cache that is derived from the spaces table (the category counts in
+	 * SpaceCategoryService) retire with the listings, on the same writes, without
+	 * knowing this service's cache group.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string
+	 */
+	public static function lists_salt(): string {
+		return CacheService::last_changed( self::CACHE_GROUP, 'space_lists' );
 	}
 
 	/**
@@ -2668,7 +2927,7 @@ class SpaceService {
 		// It reuses the spaces LIST version, so every write that already invalidates the
 		// directory (create, update, archive, delete, ownership, member count) invalidates
 		// the sub-space rails too — which is correct, because a sub-space IS a space.
-		$cache_key = 'subspaces_v' . self::list_version() . '_' . md5( (string) wp_json_encode( array( $where_sql, $params ) ) );
+		$cache_key = 'subspaces_v' . CacheService::last_changed( self::CACHE_GROUP, 'space_lists' ) . '_' . md5( (string) wp_json_encode( array( $where_sql, $params ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -3232,20 +3491,19 @@ class SpaceService {
 	/**
 	 * Categories offered as filters on the spaces directory and the Explore browse card.
 	 *
-	 * Visible categories only, and none the owner limited to subspaces: the
-	 * directory lists main spaces, so such a chip would always show nothing.
+	 * The member-facing category set (SpaceCategoryService::get_for_members(), the
+	 * one the onboarding interests use): visible categories only, none the owner
+	 * limited to subspaces (the directory lists main spaces), and none whose
+	 * spaces are all hidden. A secret-only category used to sit in the chip row
+	 * for guests and members alike, led to "No spaces match", and told everyone
+	 * those secret spaces exist. An empty category stays: the owner just made it.
 	 * Label lookups keep using categories_with_counts(), which returns them all.
 	 *
 	 * @param int $limit Max categories; 0 = no limit.
 	 * @return array<int, array<string, mixed>> Hydrated category rows + space_count.
 	 */
 	public function directory_categories( int $limit = 0 ): array {
-		$rows = array_values(
-			array_filter(
-				$this->categories_with_counts( 0, true ),
-				static fn( array $c ): bool => 'sub' !== ( $c['level'] ?? 'both' )
-			)
-		);
+		$rows = ( new SpaceCategoryService() )->get_for_members();
 		return $limit > 0 ? array_slice( $rows, 0, $limit ) : $rows;
 	}
 

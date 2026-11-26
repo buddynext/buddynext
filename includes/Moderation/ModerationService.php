@@ -62,6 +62,15 @@ class ModerationService {
 	);
 
 	/**
+	 * Object types whose reports mirror a report another plugin owns.
+	 *
+	 * Only these may be closed by close_mirrored_reports(), which skips the
+	 * moderator check because the other plugin already decided. BuddyNext's own
+	 * content (posts, comments, messages, members, spaces) is never on this list.
+	 */
+	private const MIRRORED_TYPES = array( 'media', 'jetonomy_topic', 'jetonomy_reply' );
+
+	/**
 	 * Memoised, filtered report-reason list (per request).
 	 *
 	 * @var string[]|null
@@ -335,6 +344,12 @@ class ModerationService {
 				$comment = $comments->get( $object_id );
 				return null !== $comment ? (int) $comment['user_id'] : 0;
 			}
+		}
+
+		// A type an integration owns (media, forum topics): the same author seam the
+		// queue and the takedown notice use. Documented in ModerationListener.
+		if ( in_array( $object_type, self::MIRRORED_TYPES, true ) ) {
+			return (int) apply_filters( 'buddynext_removed_content_author', 0, $object_type, $object_id );
 		}
 
 		return 0;
@@ -903,6 +918,62 @@ class ModerationService {
 	}
 
 	/**
+	 * Id of one still-open report on an object, or 0 when none is open.
+	 *
+	 * Resolving or dismissing any one clears every open report on the same object,
+	 * so a caller that only knows the object needs just this one id.
+	 *
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object id.
+	 * @return int
+	 */
+	public function open_report_id_for( string $object_type, int $object_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_reports WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated') ORDER BY id ASC LIMIT 1",
+				sanitize_key( $object_type ),
+				$object_id
+			)
+		);
+	}
+
+	/**
+	 * Close the open reports on an object another plugin moderates, because that
+	 * plugin already acted on its own copy.
+	 *
+	 * A MediaVerse or Jetonomy moderator is not always a BuddyNext moderator, and
+	 * cron or an automated rule acts as nobody, so the moderator check is skipped
+	 * here. That is safe only because the decision was taken elsewhere: the
+	 * method refuses every type but the mirrored ones (MIRRORED_TYPES), so it can
+	 * never close a report on BuddyNext's own content. No REST route reaches it.
+	 * The usual mod-log row and reporter notice are written.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $object_type A mirrored object type.
+	 * @param int    $object_id   Reported object id.
+	 * @param string $status      resolved | dismissed.
+	 * @param int    $actor_id    Who acted in the other plugin (0 = system).
+	 * @return bool|WP_Error True when reports were closed, false when none were open.
+	 */
+	public function close_mirrored_reports( string $object_type, int $object_id, string $status, int $actor_id = 0 ): bool|WP_Error {
+		$object_type = sanitize_key( $object_type );
+		if ( ! in_array( $object_type, self::MIRRORED_TYPES, true ) || ! in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
+			return new WP_Error( 'invalid_object_type', __( 'That is not something you can act on.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		$report_id = $this->open_report_id_for( $object_type, $object_id );
+		if ( $report_id <= 0 ) {
+			return false;
+		}
+
+		return $this->set_status( $report_id, $actor_id, $status, null, array(), true );
+	}
+
+	/**
 	 * Escalate a report for senior review.
 	 *
 	 * @param int      $report_id   Report to escalate.
@@ -1223,6 +1294,35 @@ class ModerationService {
 	}
 
 	/**
+	 * Refusal for a sanction against the account that owns the site, or null.
+	 *
+	 * The site owner is the user behind Settings > General > Administration Email Address. Suspending them (by
+	 * hand, by strikes reaching a threshold, or by an automated rule) would lock the owner out of their own
+	 * community. Every sanction path asks this one rule; administrators can still sanction other administrators.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $user_id Target member.
+	 * @param string $message Message for the refusal.
+	 * @return WP_Error|null
+	 */
+	public static function site_owner_refusal( int $user_id, string $message ): ?WP_Error {
+		$owner = get_user_by( 'email', (string) get_option( 'admin_email' ) );
+		if ( ! $owner || (int) $owner->ID !== $user_id ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'forbidden',
+			$message,
+			array(
+				'status' => 403,
+				'reason' => 'site_owner',
+			)
+		);
+	}
+
+	/**
 	 * Issue a formal strike against a user.
 	 *
 	 * @param int    $user_id   User receiving the strike.
@@ -1233,6 +1333,23 @@ class ModerationService {
 	public function issue_strike( int $user_id, int $actor_id, string $reason = '' ): int|WP_Error {
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/issue-strike' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// Nobody strikes themselves: enough of them would suspend the account issuing them.
+		if ( $actor_id === $user_id ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot give yourself a strike.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'self',
+				)
+			);
+		}
+
+		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be given a strike.', 'buddynext' ) );
+		if ( null !== $owner_refusal ) {
+			return $owner_refusal;
 		}
 
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
@@ -1802,6 +1919,11 @@ class ModerationService {
 				$offender_ids[ $idx ] = $obj_id;
 			} elseif ( isset( $authors[ $type ][ $obj_id ] ) ) {
 				$offender_ids[ $idx ] = (int) $authors[ $type ][ $obj_id ];
+			} elseif ( $obj_id > 0 && ! isset( $by_type[ $type ] ) ) {
+				// A type an extension owns (MediaVerse media): ask the same seam the
+				// takedown notice uses (ModerationListener). Documented there. One
+				// call per such row on a page-sized queue; no batch seam needed yet.
+				$offender_ids[ $idx ] = (int) apply_filters( 'buddynext_removed_content_author', 0, $type, $obj_id );
 			} else {
 				$offender_ids[ $idx ] = 0;
 			}
@@ -2229,6 +2351,84 @@ class ModerationService {
 	}
 
 	/**
+	 * Why this actor may not suspend this member, or null when they may.
+	 *
+	 * The one answer behind the suspend guard and every place that offers a
+	 * Suspend control, so a button is never shown for a suspension the service
+	 * would refuse. The error data carries a `reason` key (`permission`, `self`,
+	 * `network_admin`, `outranked`) a screen can turn into its own wording.
+	 *
+	 * Actor 0 is the automated-rule system actor and is never refused here.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $user_id  Member to suspend.
+	 * @param int $actor_id Person suspending (0 = system).
+	 * @return WP_Error|null
+	 */
+	public function suspend_refusal( int $user_id, int $actor_id ): ?WP_Error {
+		// The site owner is refused whoever acts, the system actor (0) of an automated rule included.
+		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be suspended.', 'buddynext' ) );
+		if ( null !== $owner_refusal ) {
+			return $owner_refusal;
+		}
+
+		if ( $actor_id <= 0 ) {
+			return null;
+		}
+
+		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You do not have permission to suspend members.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'permission',
+				)
+			);
+		}
+
+		// Nobody suspends themselves: it has no purpose and locks the person out of
+		// the screen they would lift it from.
+		if ( $actor_id === $user_id ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot suspend your own account.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'self',
+				)
+			);
+		}
+
+		// On a network a site administrator ranks equal to a super admin on this
+		// site, but WordPress keeps the network owner out of their reach.
+		if ( is_multisite() && is_super_admin( $user_id ) && ! is_super_admin( $actor_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot take moderation action against someone with more authority than you.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'network_admin',
+				)
+			);
+		}
+
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			$outranked->add_data(
+				array(
+					'status' => 403,
+					'reason' => 'outranked',
+				)
+			);
+			return $outranked;
+		}
+
+		return null;
+	}
+
+	/**
 	 * Suspend a user.
 	 *
 	 * Creates a row in bn_user_suspensions. A user may have multiple historical
@@ -2264,13 +2464,9 @@ class ModerationService {
 		// path resolves it from get_current_user_id() (ModerationController:1266,
 		// behind require_admin) or from the admin queue's own actor. A 0 can only be
 		// passed by server code.
-		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-
-		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
-		if ( null !== $outranked ) {
-			return $outranked;
+		$refusal = $this->suspend_refusal( $user_id, $actor_id );
+		if ( null !== $refusal ) {
+			return $refusal;
 		}
 
 		// A person suspending someone must say why: the member is shown this text on
@@ -2294,7 +2490,10 @@ class ModerationService {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only a community or site admin can suspend a member indefinitely. Set a duration to suspend as a moderator.', 'buddynext' ),
-				array( 'status' => 403 )
+				array(
+					'status' => 403,
+					'reason' => 'indefinite',
+				)
 			);
 		}
 
@@ -2394,6 +2593,23 @@ class ModerationService {
 	public function unsuspend_user( int $user_id, int $actor_id ): bool|WP_Error {
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// The same rank rule as suspend: a moderator cannot lift a suspension on
+		// someone above them, nor undo one that someone above them issued. Equal
+		// ranks may, and a system suspension (suspended_by 0) outranks no one.
+		$roles     = new \BuddyNext\Core\RoleService();
+		$active    = $this->get_active_suspension( $user_id );
+		$outranked = $roles->outranked_error( $user_id, $actor_id )
+			?? ( null !== $active ? $roles->outranked_error( (int) $active['suspended_by'], $actor_id ) : null );
+		if ( null !== $outranked ) {
+			$outranked->add_data(
+				array(
+					'status' => 403,
+					'reason' => 'outranked',
+				)
+			);
+			return $outranked;
 		}
 
 		global $wpdb;
@@ -2811,7 +3027,7 @@ class ModerationService {
 	 * is the dropped hide_posts predicate.
 	 *
 	 * (The member directory itself emits the same gate as NOT EXISTS clauses instead
-	 * — MemberDirectoryService::directory_exclusion_subqueries() — because a NOT IN
+	 * MemberDirectoryService::exclusion_clauses(), because a NOT IN
 	 * subquery can't be reopened alongside its self-joined mutual-connection
 	 * subquery on MySQL 5.7; the gate is identical, only the SQL shape differs.)
 	 *
@@ -3461,10 +3677,13 @@ class ModerationService {
 	 *                                slug). null SUPPRESSES the row — used only by an
 	 *                                internal cascade whose parent action is already
 	 *                                audited. space_id is always taken from the report.
+	 * @param bool       $mirrored    True only from close_mirrored_reports(): another
+	 *                                plugin already decided, so the authority check
+	 *                                is skipped.
 	 * @return true|WP_Error
 	 */
-	private function set_status( int $report_id, int $actor_id, string $status, ?int $resolved_by = null, ?array $audit = array() ): bool|WP_Error {
-		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
+	private function set_status( int $report_id, int $actor_id, string $status, ?int $resolved_by = null, ?array $audit = array(), bool $mirrored = false ): bool|WP_Error {
+		if ( ! $mirrored && ! $this->can_action_report( $actor_id, $report_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to action reports.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -3569,6 +3788,23 @@ class ModerationService {
 
 		if ( $escalating ) {
 			$this->notify_escalation( $recorded_actor, (string) $target['object_type'], (int) $target['object_id'] );
+		}
+
+		if ( in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
+			/**
+			 * Fires when every open report on one object is resolved or dismissed.
+			 *
+			 * An integration that keeps its own copy of the report closes it here, so a
+			 * moderator never finds the same report open in two places.
+			 *
+			 * @since 1.3.1
+			 *
+			 * @param string $object_type Reported object type.
+			 * @param int    $object_id   Reported object id.
+			 * @param string $status      resolved | dismissed.
+			 * @param int    $actor_id    Moderator recorded on the reports.
+			 */
+			do_action( 'buddynext_reports_actioned', (string) $target['object_type'], (int) $target['object_id'], $status, $recorded_actor );
 		}
 
 		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a
@@ -3906,6 +4142,13 @@ class ModerationService {
 	public function suspend( int $user_id, string $reason, int $duration_days, bool $hide_content = false, int $suspended_by = 0 ): bool|WP_Error {
 		if ( $user_id <= 0 ) {
 			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+
+		// The shared write every suspension path ends in (by hand, strike thresholds, automated rules), so the
+		// site-owner rule holds for all of them, including the system actor (0).
+		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be suspended.', 'buddynext' ) );
+		if ( null !== $owner_refusal ) {
+			return $owner_refusal;
 		}
 
 		// Same rule as suspend_user(): a person must give the member a reason.

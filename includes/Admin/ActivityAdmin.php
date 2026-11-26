@@ -242,7 +242,7 @@ class ActivityAdmin implements ListenerInterface {
 					<p class="bn-empty__sub"><?php esc_html_e( 'Try a different search, type, status or date range.', 'buddynext' ); ?></p>
 				</div>
 			<?php else : ?>
-				<form id="bn-activity-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
+				<form id="bn-activity-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar bn-admin-hub__form-bare">
 					<input type="hidden" name="action" value="bn_activity_bulk">
 					<?php wp_nonce_field( 'bn_activity_bulk' ); ?>
 					<label for="bn-activity-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
@@ -263,9 +263,9 @@ class ActivityAdmin implements ListenerInterface {
 							<th scope="col" class="column-primary"><?php esc_html_e( 'Author', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Content', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
-							<th scope="col" data-align="center"><?php esc_html_e( 'Engagement', 'buddynext' ); ?></th>
+							<th scope="col" data-align="center" class="bn-col-secondary"><?php esc_html_e( 'Engagement', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
-							<th scope="col" class="bn-col-muted"><?php esc_html_e( 'Posted', 'buddynext' ); ?></th>
+							<th scope="col" class="bn-col-muted bn-col-secondary"><?php esc_html_e( 'Posted', 'buddynext' ); ?></th>
 							<th scope="col" data-align="end"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
 					</thead>
@@ -294,6 +294,21 @@ class ActivityAdmin implements ListenerInterface {
 											<?php if ( $author ) : ?>
 												<span class="bn-col-muted">@<?php echo esc_html( $author->user_login ); ?></span>
 											<?php endif; ?>
+											<?php // Shown only where the Engagement and Posted columns are hidden to fit the card. ?>
+											<span class="bn-member-sub">
+												<span><?php echo esc_html( $this->ago( (string) $row['created_at'] ) ); ?></span>
+												<span>
+													<?php
+													printf(
+														/* translators: 1: reaction count, 2: comment count, 3: share count. */
+														esc_html__( '%1$s reactions, %2$s comments, %3$s shares', 'buddynext' ),
+														esc_html( number_format_i18n( (int) $row['reaction_count'] ) ),
+														esc_html( number_format_i18n( (int) $row['comment_count'] ) ),
+														esc_html( number_format_i18n( (int) $row['share_count'] ) )
+													);
+													?>
+												</span>
+											</span>
 										</span>
 										<button type="button" class="toggle-row">
 											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
@@ -308,7 +323,7 @@ class ActivityAdmin implements ListenerInterface {
 								<td data-colname="<?php esc_attr_e( 'Space', 'buddynext' ); ?>">
 									<?php echo $sid > 0 && isset( $space_names[ $sid ] ) ? esc_html( $space_names[ $sid ] ) : '<span class="bn-col-muted">—</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- literal dash only. ?>
 								</td>
-								<td data-align="center" data-colname="<?php esc_attr_e( 'Engagement', 'buddynext' ); ?>">
+								<td data-align="center" class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Engagement', 'buddynext' ); ?>">
 									<span class="bn-col-muted" title="<?php esc_attr_e( 'Reactions · Comments · Shares', 'buddynext' ); ?>">
 										<?php echo esc_html( number_format_i18n( (int) $row['reaction_count'] ) ); ?> ·
 										<?php echo esc_html( number_format_i18n( (int) $row['comment_count'] ) ); ?> ·
@@ -318,7 +333,7 @@ class ActivityAdmin implements ListenerInterface {
 								<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 									<span class="bn-badge" data-tone="<?php echo esc_attr( $this->status_tone( (string) $row['status'] ) ); ?>"><?php echo esc_html( $this->status_label( (string) $row['status'] ) ); ?></span>
 								</td>
-								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Posted', 'buddynext' ); ?>">
+								<td class="bn-col-muted bn-col-secondary" data-colname="<?php esc_attr_e( 'Posted', 'buddynext' ); ?>">
 									<time datetime="<?php echo esc_attr( (string) $row['created_at'] ); ?>" title="<?php echo esc_attr( (string) $row['created_at'] ); ?>">
 										<?php echo esc_html( $this->ago( (string) $row['created_at'] ) ); ?>
 									</time>
@@ -468,7 +483,7 @@ class ActivityAdmin implements ListenerInterface {
 							<?php endif; ?>
 							<span class="bn-activity-edit__media-title"><?php echo esc_html( $title ); ?></span>
 							<label class="bn-check-row">
-								<input type="checkbox" name="remove_media[]" value="<?php echo esc_attr( (string) $media_id ); ?>">
+								<input type="checkbox" name="remove_media[]" value="<?php echo esc_attr( (string) $media_id ); ?>" aria-label="<?php /* translators: %s: title of the attached file. */ echo esc_attr( sprintf( __( 'Remove %s', 'buddynext' ), $title ) ); ?>">
 								<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 							</label>
 						</li>
@@ -795,14 +810,7 @@ class ActivityAdmin implements ListenerInterface {
 	 * @return string
 	 */
 	private function ago( string $created_at ): string {
-		$ts = strtotime( $created_at . ' UTC' );
-		if ( ! $ts ) {
-			return $created_at;
-		}
-		return sprintf(
-			/* translators: %s: human-readable time difference, e.g. "3 hours". */
-			__( '%s ago', 'buddynext' ),
-			human_time_diff( $ts, time() )
-		);
+		$label = \BuddyNext\Core\Dates::relative( $created_at );
+		return '' !== $label ? $label : $created_at;
 	}
 }

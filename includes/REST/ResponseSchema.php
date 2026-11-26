@@ -97,7 +97,7 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
-				'path'     => '/comments/(?P<id>[\\d]+)',
+				'path'     => '/comments/{id}',
 				'resource' => 'comment',
 				'shape'    => 'item',
 			),
@@ -195,6 +195,12 @@ final class ResponseSchema {
 				'method'   => 'GET',
 				'path'     => '/app/config',
 				'resource' => 'app_config',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/companions/status',
+				'resource' => 'companion_status',
 				'shape'    => 'item',
 			),
 			array(
@@ -988,12 +994,37 @@ final class ResponseSchema {
 								'type'   => array( 'string', 'null' ),
 								'format' => 'uri',
 							),
+							'cover_image'  => self::article_image(),
+							'thumb_image'  => self::article_image(),
 							'status'       => array( 'type' => 'string' ),
 							'status_label' => array( 'type' => 'string' ),
 							'edit_url'     => array( 'type' => 'string' ),
 						),
 					),
 				),
+			),
+		);
+	}
+
+	/**
+	 * An article image: a hard-cropped size (ArticleImage) or null for a text-only card.
+	 *
+	 * Width and height are null for an external image whose size is unknown.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function article_image(): array {
+		return array(
+			'type'       => array( 'object', 'null' ),
+			'properties' => array(
+				'url'    => array(
+					'type'   => 'string',
+					'format' => 'uri',
+				),
+				'width'  => array( 'type' => array( 'integer', 'null' ) ),
+				'height' => array( 'type' => array( 'integer', 'null' ) ),
 			),
 		);
 	}
@@ -1223,7 +1254,15 @@ final class ResponseSchema {
 					'type'   => array( 'string', 'null' ),
 					'format' => 'uri',
 				),
-				'link_meta'            => array( 'type' => array( 'object', 'null' ) ),
+				// Shape varies by post type; the article image fields are typed because
+				// an article card (type 'article') always carries them.
+				'link_meta'            => array(
+					'type'       => array( 'object', 'null' ),
+					'properties' => array(
+						'cover_image' => self::article_image() + array( 'x-bn-conditional' => true ),
+						'thumb_image' => self::article_image() + array( 'x-bn-conditional' => true ),
+					),
+				),
 				'poll_options'         => self::poll_options(),
 				'privacy'              => array( 'type' => 'string' ),
 				'reaction_count'       => array( 'type' => 'integer' ),
@@ -1244,6 +1283,9 @@ final class ResponseSchema {
 					'type'             => 'object',
 					'x-bn-conditional' => true,
 				),
+				// True when the card's partner plugin is gone (PostService::is_orphaned_card):
+				// the body and link are blanked and link_meta.title holds the neutral title.
+				'card_unavailable'     => array( 'type' => 'boolean' ),
 				// Whether the share sheet may offer the link (PostService::is_publicly_shareable).
 				'shareable'            => array( 'type' => 'boolean' ),
 				'status'               => array( 'type' => 'string' ),
@@ -1386,6 +1428,7 @@ final class ResponseSchema {
 				'like_count'        => array( 'type' => 'integer' ),
 				'viewer_liked'      => array( 'type' => 'boolean' ),
 				'viewer_reaction'   => array( 'type' => array( 'string', 'null' ) ),
+				'viewer_reported'   => array( 'type' => 'boolean' ),
 				'can_edit'          => array( 'type' => 'boolean' ),
 				'can_delete'        => array( 'type' => 'boolean' ),
 				'can_pin'           => array( 'type' => 'boolean' ),
@@ -1775,6 +1818,26 @@ final class ResponseSchema {
 	}
 
 	/**
+	 * Whether an add-on plugin is installed and active (GET /companions/status).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function companion_status(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'companion-status',
+			'type'       => 'object',
+			'properties' => array(
+				'slug'   => array( 'type' => 'string' ),
+				'status' => array(
+					'type' => 'string',
+					'enum' => array( 'active', 'inactive', 'not_installed', 'unknown' ),
+				),
+			),
+		);
+	}
+
+	/**
 	 * The mobile app bootstrap config (GET /app/config). Nested groups are opaque
 	 * config maps (not resources), declared as objects.
 	 *
@@ -1828,6 +1891,34 @@ final class ResponseSchema {
 								'properties' => array(
 									'slug'  => array( 'type' => 'string' ),
 									'label' => array( 'type' => 'string' ),
+								),
+							),
+						),
+						'article_provider'    => array(
+							'description' => 'Where the viewer writes an article (Feed\\ArticleProvider::for_user()) with the composer counts; null when they cannot write (guest, suspended, pending approval, or a role the provider refuses).',
+							'type'        => array( 'object', 'null' ),
+							'properties'  => array(
+								'key'             => array( 'type' => 'string' ),
+								'label'           => array( 'type' => 'string' ),
+								'icon'            => array( 'type' => 'string' ),
+								'can_write'       => array( 'type' => 'boolean' ),
+								'new_url'         => array( 'type' => 'string' ),
+								'drafts_url'      => array( 'type' => 'string' ),
+								'my_articles_url' => array( 'type' => 'string' ),
+								'pending_url'     => array(
+									'description' => 'The member\'s posts waiting for review.',
+									'type'        => 'string',
+								),
+								'title_arg'       => array( 'type' => 'string' ),
+								'supports_space'  => array( 'type' => 'boolean' ),
+								'counts'          => array(
+									'description' => 'The composer counts (Feed\\ArticleProvider::composer_summary()): drafts = draft, articles = publish + private, pending = pending (held for review)',
+									'type'        => 'object',
+									'properties'  => array(
+										'drafts'   => array( 'type' => 'integer' ),
+										'articles' => array( 'type' => 'integer' ),
+										'pending'  => array( 'type' => 'integer' ),
+									),
 								),
 							),
 						),
@@ -2296,6 +2387,9 @@ final class ResponseSchema {
 				'members_only_cta'     => array(
 					'type'             => 'object',
 					'x-bn-conditional' => true,
+				),
+				'card_unavailable'     => array(
+					'type' => 'boolean',
 				),
 				'shareable'            => array(
 					'type' => 'boolean',
@@ -4740,6 +4834,7 @@ final class ResponseSchema {
 						'bn_account_private'            => array( 'type' => 'boolean' ),
 						'bn_privacy_show_in_directory'  => array( 'type' => 'boolean' ),
 						'bn_privacy_search_indexable'   => array( 'type' => 'boolean' ),
+						'bn_privacy_show_online'        => array( 'type' => 'boolean' ),
 						'bn_pro_hide_profile_views'     => array( 'type' => 'boolean' ),
 					),
 				),
@@ -4937,28 +5032,37 @@ final class ResponseSchema {
 					'items' => array(
 						'type'       => 'object',
 						'properties' => array(
-							'key'       => array(
+							'key'           => array(
 								'type' => 'string',
 							),
-							'label'     => array(
+							'label'         => array(
 								'type' => 'string',
 							),
-							'icon'      => array(
+							'icon'          => array(
 								'type' => 'string',
 							),
-							'count'     => array(
+							'count'         => array(
 								'type' => 'integer',
 							),
-							'cta'       => array(
+							'cta'           => array(
 								'type' => array(
 									'array',
 									'object',
 								),
 							),
-							'owner_cta' => array(
+							'owner_cta'     => array(
 								'type' => 'object',
 							),
-							'items'     => array(
+							'owner_primary' => array(
+								'type' => array(
+									'array',
+									'object',
+								),
+							),
+							'owner_empty'   => array(
+								'type' => 'string',
+							),
+							'items'         => array(
 								'type' => 'array',
 							),
 						),
@@ -5280,6 +5384,14 @@ final class ResponseSchema {
 				'available' => array(
 					'type' => 'boolean',
 				),
+				'reason'    => array(
+					'type'        => 'string',
+					'description' => 'Why the slug is not available: handle_reserved, handle_taken or a handle_* validation code. Empty when available.',
+				),
+				'message'   => array(
+					'type'        => 'string',
+					'description' => 'The refusal in words for the member. Empty when available.',
+				),
 			),
 		);
 	}
@@ -5454,6 +5566,9 @@ final class ResponseSchema {
 					'type' => 'string',
 				),
 				'registered_at'           => array(
+					'type' => 'string',
+				),
+				'headline'                => array(
 					'type' => 'string',
 				),
 				'bio'                     => array(
@@ -5915,6 +6030,9 @@ final class ResponseSchema {
 				),
 				'per_page' => array(
 					'type' => 'integer',
+				),
+				'has_more' => array(
+					'type' => 'boolean',
 				),
 			),
 		);

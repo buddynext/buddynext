@@ -1274,7 +1274,7 @@ class SocialLogin {
 			array(
 				'source' => RegistrationPolicy::SOURCE_SOCIAL,
 				'email'  => (string) $profile['email'],
-				'ip'     => AuthController::client_ip(),
+				'ip'     => \BuddyNext\Moderation\SafeguardService::client_ip(),
 			)
 		);
 		if ( is_wp_error( $guard ) ) {
@@ -1462,7 +1462,10 @@ class SocialLogin {
 	 * @return void
 	 */
 	private function rate_limit(): void {
-		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$ip = \BuddyNext\Moderation\SafeguardService::client_ip();
+		if ( '' === $ip ) {
+			return; // No resolvable address: fail open rather than share one bucket site-wide.
+		}
 		$key = 'bn_oauth_rl_' . md5( $ip );
 		// Increment first, compare the return value — see the note in
 		// AuthController::rate_limit_gate(). An OAuth callback is exactly the kind

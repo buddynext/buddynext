@@ -13,6 +13,11 @@
  * Variables:
  *   int|null $space_id        Target space ID (null = general feed).
  *   int      $current_user_id Current user ID.
+ *   bool     $article_tab     True from the main What's New composer only
+ *                             (templates/feed/home.php). With it, a member who
+ *                             can write gets Post / Article tabs; see
+ *                             partials/composer-article.php and
+ *                             ArticleProvider::show_composer_tab().
  *
  * Overridable: copy to {theme}/buddynext/partials/composer.php.
  *
@@ -166,11 +171,86 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 // with an image or video (state.canAddToStory): a story's audience is its media
 // privacy, so a narrower post must not widen who sees it.
 $composer_stories_url = ( ! $composer_space && \BuddyNext\Media\MediaClient::can_post_story() ) ? rest_url( 'mvs-pro/v1/media/' ) : '';
+
+// Post / Article tabs. The surface is the space's composer, the main feed's (the
+// one caller that passes article_tab) or a profile's; only the feed shows the tab
+// by default, and the buddynext_composer_article_tab filter decides the rest.
+$composer_article_provider = \BuddyNext\Feed\ArticleProvider::for_user( $composer_user_id );
+$composer_article          = null !== $composer_article_provider
+	&& '' !== $composer_article_provider['new_url']
+	&& \BuddyNext\Feed\ArticleProvider::show_composer_tab(
+		$composer_user_id,
+		array(
+			'surface'  => $composer_space ? 'space' : ( ! empty( $article_tab ) ? 'feed' : 'profile' ),
+			'space_id' => $composer_space,
+		)
+	);
+$composer_switch_id        = $composer_article ? wp_unique_id( 'bn-composer-switch-' ) : '';
+$composer_article_summary  = $composer_article ? \BuddyNext\Feed\ArticleProvider::composer_summary( $composer_user_id ) : array(
+	'drafts'   => 0,
+	'articles' => 0,
+	'pending'  => 0,
+);
+// Pending (waiting for review) is offered only while the member has one.
+$composer_links = array(
+	array( 'drafts_url', __( 'My drafts', 'buddynext' ), 'drafts' ),
+	array( 'my_articles_url', __( 'My articles', 'buddynext' ), 'articles' ),
+);
+if ( $composer_article_summary['pending'] > 0 ) {
+	$composer_links[] = array( 'pending_url', _x( 'Pending', 'composer link: articles waiting for review', 'buddynext' ), 'pending' );
+}
 ?>
+<?php if ( $composer_article ) : ?>
+<div class="bn-composer-switch"
+	data-wp-interactive="buddynext/post-composer"
+	data-wp-context='{"mode":"post"}'>
+	<?php // Roving tabindex: only the selected tab is in the Tab order; the arrows, Home and End move between them (actions.switchKeydown). ?>
+	<div class="bn-composer-switch__head">
+	<div class="bn-composer-switch__tabs" role="tablist" aria-label="<?php esc_attr_e( 'What to share', 'buddynext' ); ?>" data-wp-on--keydown="actions.switchKeydown">
+		<button type="button" role="tab" class="bn-composer-switch__tab"
+			id="<?php echo esc_attr( $composer_switch_id ); ?>-post-tab"
+			aria-controls="<?php echo esc_attr( $composer_switch_id ); ?>-post"
+			aria-selected="true"
+			tabindex="0"
+			data-mode="post"
+			data-wp-bind--aria-selected="state.isPostMode"
+			data-wp-bind--tabindex="state.postTabIndex"
+			data-wp-on--click="actions.selectMode"><?php esc_html_e( 'Post', 'buddynext' ); ?></button>
+		<button type="button" role="tab" class="bn-composer-switch__tab"
+			id="<?php echo esc_attr( $composer_switch_id ); ?>-article-tab"
+			aria-controls="<?php echo esc_attr( $composer_switch_id ); ?>-article"
+			aria-selected="false"
+			tabindex="-1"
+			data-mode="article"
+			data-wp-bind--aria-selected="state.isArticleMode"
+			data-wp-bind--tabindex="state.articleTabIndex"
+			data-wp-on--click="actions.selectMode"><?php esc_html_e( 'Article', 'buddynext' ); ?></button>
+	</div>
+	<?php // My drafts, My articles and Pending sit beside the tabs (seen only with the Article tab, their space kept on Post), so the panel below stays one row tall. ?>
+	<ul class="bn-composer-switch__links" hidden data-wp-bind--hidden="state.isPostMode">
+		<?php foreach ( $composer_links as $composer_link ) : ?>
+			<?php if ( '' !== (string) ( $composer_article_provider[ $composer_link[0] ] ?? '' ) ) : ?>
+				<li>
+					<a class="bn-composer-switch__link" data-bn-full-load href="<?php echo esc_url( (string) $composer_article_provider[ $composer_link[0] ] ); ?>">
+						<?php echo esc_html( $composer_link[1] ); ?>
+						<span class="bn-composer-switch__count"><?php echo esc_html( number_format_i18n( (int) $composer_article_summary[ $composer_link[2] ] ) ); ?></span>
+					</a>
+				</li>
+			<?php endif; ?>
+		<?php endforeach; ?>
+	</ul>
+	</div>
+	<?php // Hidden, never removed: switching tabs keeps whatever is typed in the post box. ?>
+	<div class="bn-composer-switch__panel" role="tabpanel"
+		id="<?php echo esc_attr( $composer_switch_id ); ?>-post"
+		aria-labelledby="<?php echo esc_attr( $composer_switch_id ); ?>-post-tab"
+		data-wp-bind--hidden="state.isArticleMode">
+<?php endif; ?>
 <div class="bn-composer"
 	data-wp-interactive="buddynext/post-composer"
 	data-wp-init="callbacks.restoreDraft"
 	data-wp-on-document--click="actions.closePrivacyOnOutside"
+	data-wp-on-document--keydown="actions.closePrivacyOnEscape"
 	data-wp-context='
 	<?php
 	echo esc_attr(
@@ -605,8 +685,10 @@ $composer_stories_url = ( ! $composer_space && \BuddyNext\Media\MediaClient::can
 					<ul
 						class="bn-composer__privacy-pop"
 						role="listbox"
+						aria-label="<?php esc_attr_e( 'Who can see this post', 'buddynext' ); ?>"
 						hidden
-						data-wp-bind--hidden="!state.privacyOpen">
+						data-wp-bind--hidden="!state.privacyOpen"
+						data-wp-on--keydown="actions.privacyKeys">
 						<li role="option" data-wp-bind--aria-selected="state.isPrivacyPublic">
 							<button type="button"
 								class="bn-composer__privacy-opt"
@@ -710,6 +792,25 @@ $composer_stories_url = ( ! $composer_space && \BuddyNext\Media\MediaClient::can
 	</div>
 
 </div>
+<?php if ( $composer_article ) : ?>
+	</div>
+	<div class="bn-composer-switch__panel" role="tabpanel"
+		id="<?php echo esc_attr( $composer_switch_id ); ?>-article"
+		aria-labelledby="<?php echo esc_attr( $composer_switch_id ); ?>-article-tab"
+		hidden
+		data-wp-bind--hidden="state.isPostMode">
+		<?php
+		buddynext_get_template(
+			'partials/composer-article.php',
+			array(
+				'provider'  => $composer_article_provider,
+				'id_prefix' => $composer_switch_id,
+			)
+		);
+		?>
+	</div>
+</div>
+<?php endif; ?>
 
 <?php
 /**

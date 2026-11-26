@@ -24,6 +24,8 @@ defined( 'ABSPATH' ) || exit;
 $bn_mu_owner_id = isset( $bn_mu_owner_id ) ? (int) $bn_mu_owner_id : get_current_user_id();
 $bn_mu_space_id = isset( $bn_mu_space_id ) ? (int) $bn_mu_space_id : 0;
 $bn_mu_is_space = $bn_mu_space_id > 0;
+// The site owner can lock privacy; MediaVerse then applies its default to every upload.
+$bn_mu_may_choose = \BuddyNext\Bridges\WPMediaVerseBridge::members_may_choose_privacy();
 
 $bn_mu_ctx = array(
 	'restNonce' => wp_create_nonce( 'wp_rest' ),
@@ -88,13 +90,12 @@ $bn_mu_ctx = array(
 		<span class="bn-mu__dropzone-icon" aria-hidden="true"><?php buddynext_icon( 'upload' ); ?></span>
 		<span class="bn-mu__dropzone-title"><?php esc_html_e( 'Drag files here or click to upload', 'buddynext' ); ?></span>
 		<span class="bn-mu__dropzone-hint"><?php esc_html_e( 'Photos, video or audio · up to 10 at once', 'buddynext' ); ?></span>
+		<span class="bn-mu__dropzone-error" role="alert" hidden
+			data-wp-text="context.errorMsg"
+			data-wp-bind--hidden="!context.errorMsg"></span>
 		<input class="bn-mu-input" type="file" accept="image/*,video/*,audio/*" multiple
 			data-wp-on--change="actions.onFileSelect" hidden />
 	</div>
-
-	<p class="bn-mu__error" role="alert"
-		data-wp-text="context.errorMsg"
-		data-wp-bind--hidden="!context.errorMsg"></p>
 
 	<div class="bn-mu__staged" data-wp-bind--hidden="!context.hasStaged">
 		<div class="bn-mu__staged-grid">
@@ -135,6 +136,11 @@ $bn_mu_ctx = array(
 				<span class="bn-mu__privacy bn-mu__privacy--fixed">
 					<span class="bn-mu__privacy-icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></span>
 					<span class="bn-mu__privacy-label"><?php esc_html_e( 'Shared with this space', 'buddynext' ); ?></span>
+				</span>
+			<?php elseif ( ! $bn_mu_may_choose ) : ?>
+				<span class="bn-mu__privacy bn-mu__privacy--fixed">
+					<span class="bn-mu__privacy-icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></span>
+					<span class="bn-mu__privacy-label"><?php esc_html_e( 'The site owner sets who can see uploads', 'buddynext' ); ?></span>
 				</span>
 			<?php else : ?>
 				<label class="bn-mu__privacy">

@@ -26,6 +26,42 @@ defined( 'ABSPATH' ) || exit;
 trait RendersDriveFiles {
 
 	/**
+	 * Folder rows with each row's `can_manage` answer.
+	 *
+	 * Folder rules belong to MediaVerse (card 10343837359): it answers "may you
+	 * manage this folder" per row (owners and moderators manage all; a member
+	 * manages folders they created that hold only their own files). BuddyNext only
+	 * renders that answer. A row without one comes from an older MediaVerse and
+	 * falls back to legacy_folder_manage().
+	 *
+	 * @param array $view       Drive view from WPMediaVerseBridge.
+	 * @param bool  $can_write  Whether the viewer may write to this drive at all.
+	 * @param bool  $owns_drive Space owner/moderator, or the member on their own drive.
+	 * @return array Folder rows.
+	 */
+	protected static function drive_folder_permissions( array $view, bool $can_write, bool $owns_drive ): array {
+		$folders = (array) ( $view['folders'] ?? array() );
+		foreach ( $folders as $i => $row ) {
+			$folders[ $i ]['can_manage'] = $can_write && ( isset( $row['can_manage'] ) ? (bool) $row['can_manage'] : self::legacy_folder_manage( $owns_drive ) );
+		}
+		return $folders;
+	}
+
+	/**
+	 * The folder rule an older MediaVerse (no folder answers) enforced: the drive's
+	 * owner, within MediaVerse's licence. Called only when an answer is missing, so a
+	 * current MediaVerse (2.7.0+, which deprecates DocumentLicense) never reaches it.
+	 *
+	 * @param bool $owns_drive Space owner/moderator, or the member on their own drive.
+	 * @return bool
+	 */
+	protected static function legacy_folder_manage( bool $owns_drive ): bool {
+		// Guarded by name: MediaVerse 4.0.0 removes the method.
+		$licence = '\\WPMediaVersePro\\Documents\\DocumentLicense::can_write';
+		return $owns_drive && is_callable( $licence ) && (bool) call_user_func( $licence, get_current_user_id() );
+	}
+
+	/**
 	 * Render the Files tab for one drive.
 	 *
 	 * Read-only view controls (folder, page, search) come off the GET query,
@@ -121,25 +157,10 @@ trait RendersDriveFiles {
 		// The host page (an embed) may narrow writing but never widen it.
 		$can_write = $view['can_write'] && ( ! isset( $args['can_write'] ) || (bool) $args['can_write'] );
 
-		// Folder rules belong to MediaVerse (card 10343837359): it answers "may you
-		// create a folder here" and, per row, "may you manage this folder" (owners
-		// and moderators manage all; a member manages folders they created that
-		// hold only their own files). BuddyNext only renders those answers. An
-		// older MediaVerse sends neither, so fall back to the rule it used to
-		// enforce: the space's owner/moderators, or the member on their own drive,
-		// within MediaVerse's licence.
-		$legacy_manage = $can_write
-			&& ( 'space' === $drive_type ? $can_moderate : get_current_user_id() === $drive_id )
-			&& class_exists( '\\WPMediaVersePro\\Documents\\DocumentLicense' )
-			&& \WPMediaVersePro\Documents\DocumentLicense::can_write( get_current_user_id() );
-
-		$can_create_folder = $can_write && ( null !== ( $view['can_create_folder'] ?? null ) ? (bool) $view['can_create_folder'] : $legacy_manage );
-		$any_row_managed   = false;
-		foreach ( $view['folders'] as $i => $folder_row ) {
-			$row_manage                          = $can_write && ( isset( $folder_row['can_manage'] ) ? (bool) $folder_row['can_manage'] : $legacy_manage );
-			$view['folders'][ $i ]['can_manage'] = $row_manage;
-			$any_row_managed                     = $any_row_managed || $row_manage;
-		}
+		$owns_drive        = 'space' === $drive_type ? $can_moderate : get_current_user_id() === $drive_id;
+		$view['folders']   = self::drive_folder_permissions( $view, $can_write, $owns_drive );
+		$can_create_folder = $can_write && ( null !== ( $view['can_create_folder'] ?? null ) ? (bool) $view['can_create_folder'] : self::legacy_folder_manage( $owns_drive ) );
+		$any_row_managed   = in_array( true, array_column( $view['folders'], 'can_manage' ), true );
 		// Folder tools at all (the Trash view and the script hook-up): anyone who
 		// may create a folder or manage one. MediaVerse scopes the trash list to
 		// what the viewer may restore.

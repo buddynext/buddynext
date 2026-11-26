@@ -23,6 +23,7 @@ namespace BuddyNext\Feed;
 use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
 use BuddyNext\SocialGraph\ConnectionService;
+use BuddyNext\Core\CacheService;
 use BuddyNext\Core\CursorCodec;
 use BuddyNext\Media\MediaClient;
 
@@ -84,11 +85,6 @@ class FeedService {
 	 * than this many LIVE announcements at once, only the newest 20 are candidates.
 	 */
 	private const ANNOUNCEMENT_CANDIDATES = 20;
-
-	/**
-	 * Version counter for every cached announcement id list.
-	 */
-	private const ANNOUNCEMENT_VERSION_KEY = 'announcement_ids_version';
 
 	/**
 	 * Ceiling for the "N new posts" pill.
@@ -278,7 +274,7 @@ class FeedService {
 			(
 				( ( space_id IS NULL OR space_id = 0 ) AND privacy = 'public' )
 				OR (
-					space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+					space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::public_open_spaces_sql() . " )
 					AND privacy IN ( 'public', 'space_members' )
 				)
 			)
@@ -318,16 +314,13 @@ class FeedService {
 	private function readable_space_where( int $viewer_id ): array {
 		global $wpdb;
 
-		$sql = "AND (
+		$sql = 'AND (
 			space_id IS NULL
 			OR space_id = 0
 			OR user_id = %d
-			OR space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
-			OR space_id IN (
-				SELECT space_id FROM {$wpdb->prefix}bn_space_members
-				WHERE user_id = %d AND status = 'active'
-			)
-		)";
+			OR space_id IN ( ' . \BuddyNext\Spaces\SpaceVisibility::public_open_spaces_sql() . ' )
+			OR space_id IN ( ' . \BuddyNext\Spaces\SpaceVisibility::member_spaces_sql( $viewer_id ) . ' )
+		)';
 
 		return array( $sql, array( $viewer_id, $viewer_id ) );
 	}
@@ -512,6 +505,8 @@ class FeedService {
 	 */
 	public const OWN_POST_FLOAT_MINUTES = 15;
 
+
+
 	/**
 	 * Return the home feed for the given user.
 	 *
@@ -621,6 +616,7 @@ class FeedService {
 		// / space feeds); the admin announcement is the sole top-of-home surface.
 		$default_order_by = 'created_at DESC, id DESC';
 		$tier_expr        = null;
+		$bn_boosts        = array();
 		if ( 'for-you' === $filter && $user_id > 0 ) {
 			global $wpdb;
 			$bn_conn_ids     = $this->connection_ids_capped( $user_id );
@@ -630,7 +626,7 @@ class FeedService {
 				10
 			);
 
-			$bn_tiers = array();
+			// Each boost condition is a WHEN of the tier CASE, in order: tier N = $bn_boosts[N].
 
 			/*
 			 * Your OWN post, just published, sits at the top of your own feed.
@@ -649,8 +645,8 @@ class FeedService {
 			 * member's feed never turns into a wall of their own writing. created_at
 			 * is stored UTC, so the comparison uses UTC_TIMESTAMP().
 			 */
-			$bn_tiers[] = $wpdb->prepare(
-				'WHEN user_id = %d AND created_at > DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d MINUTE ) THEN 0',
+			$bn_boosts[] = $wpdb->prepare(
+				'user_id = %d AND created_at > DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d MINUTE )',
 				$user_id,
 				self::OWN_POST_FLOAT_MINUTES
 			);
@@ -675,17 +671,21 @@ class FeedService {
 				: '';
 
 			if ( ! empty( $bn_conn_ids ) ) {
-				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ')' . $bn_recent . ' THEN ' . count( $bn_tiers );
+				$bn_boosts[] = 'user_id IN (' . implode( ',', $bn_conn_ids ) . ')' . $bn_recent;
 			}
 			if ( ! empty( $bn_interest_ids ) ) {
-				$bn_tiers[] = "WHEN space_id IN (SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND category_id IN ("
+				$bn_boosts[] = "space_id IN (SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND category_id IN ("
 					. implode( ',', array_map( 'absint', $bn_interest_ids ) )
-					. ")){$bn_recent} THEN " . count( $bn_tiers );
+					. ")){$bn_recent}";
 			}
 			// No emptiness guard: the own-post tier above is unconditional, so there is
 			// always at least one WHEN. The guard this replaces dated from when every
 			// tier was conditional on the member having connections or interests.
-			$tier_expr        = 'CASE ' . implode( ' ', $bn_tiers ) . ' ELSE ' . count( $bn_tiers ) . ' END';
+			$bn_tiers = array();
+			foreach ( $bn_boosts as $bn_tier => $bn_boost ) {
+				$bn_tiers[] = "WHEN {$bn_boost} THEN {$bn_tier}";
+			}
+			$tier_expr        = 'CASE ' . implode( ' ', $bn_tiers ) . ' ELSE ' . count( $bn_boosts ) . ' END';
 			$default_order_by = $tier_expr . ' ASC, created_at DESC, id DESC';
 		}
 
@@ -712,26 +712,31 @@ class FeedService {
 		// return only hardcoded SQL column references + direction keywords.
 		[ $source_where, $source_params ] = $this->home_source_clause( $filter, $user_id );
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$sql = $wpdb->prepare(
-			"SELECT *{$tier_select} FROM {$wpdb->prefix}bn_posts
-			 WHERE status = 'published'
-			   AND type <> 'announcement'
-			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-			   AND ({$source_where})
-			   {$excluded_where}
-			   {$hidden_where}
-			   {$cursor_where}
-			 ORDER BY {$order_by}
-			 LIMIT %d",
-			...array_merge( $source_params, $hidden_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$bn_cursor_tier = null === $cursor ? null : ( CursorCodec::decode( $cursor )['tier'] ?? null );
+		if ( null !== $tier_expr && ! self::$single_query && ( null === $cursor || null !== $bn_cursor_tier ) ) {
+			$rows = $this->for_you_rows( $bn_boosts, $tier_expr, $cursor, $bn_cursor_tier, $per_page + 1, $source_where, $excluded_where, $hidden_where, array_merge( $source_params, $hidden_params ) );
+		} else {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			$sql = $wpdb->prepare(
+				"SELECT *{$tier_select} FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'published'
+				   AND type <> 'announcement'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND ({$source_where})
+				   {$excluded_where}
+				   {$hidden_where}
+				   {$cursor_where}
+				 ORDER BY {$order_by}
+				 LIMIT %d",
+				...array_merge( $source_params, $hidden_params, $this->cursor_params( $cursor, $tier_expr ), array( $per_page + 1 ) )
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		// $sql was fully prepared by $wpdb->prepare() in the block above.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-		$rows = $wpdb->get_results( $sql, ARRAY_A );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			// $sql was fully prepared by $wpdb->prepare() in the block above.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			$rows = $wpdb->get_results( $sql, ARRAY_A );
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		}
 
 		$result = $this->paginate( (array) $rows, $per_page );
 
@@ -960,7 +965,7 @@ class FeedService {
 		// Honour each space's "Push space posts to activity feed" toggle: a space
 		// the owner opted out of (bn_space_{id}_push_to_feed = 0) must not surface
 		// in the home feed through ANY branch. Non-space posts are unaffected.
-		$excluded_spaces = $this->feed_excluded_space_ids();
+		$excluded_spaces = array_values( array_unique( array_merge( $this->feed_excluded_space_ids(), \BuddyNext\Spaces\SpaceVisibility::viewer_hidden_space_ids( $user_id ) ) ) );
 		if ( ! empty( $excluded_spaces ) ) {
 			$id_list = implode( ',', array_map( 'absint', $excluded_spaces ) );
 			$sql     = "( {$sql} ) AND ( space_id IS NULL OR space_id = 0 OR space_id NOT IN ( {$id_list} ) )";
@@ -1150,6 +1155,79 @@ class FeedService {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * The newest published post id in one Space (any author), the starting point of its "new posts" pill.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int Newest post id, or 0 when the Space has none.
+	 */
+	public function space_feed_watermark( int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COALESCE(MAX(id), 0) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published'", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$space_id
+			)
+		);
+	}
+
+	/**
+	 * The newest published post id in one Space, and how many newer than $after_id exist.
+	 *
+	 * Feeds the "N new posts" pill on a Space page. The caller has already checked the viewer may see the Space.
+	 * Counts a bounded window (NEW_COUNT_CAP + 1 rows) on the space_feed index, like the home feed does.
+	 *
+	 * @param int $user_id  Viewing user ID.
+	 * @param int $space_id Space ID.
+	 * @param int $after_id Count posts with an id above this one; 0 returns only the newest id.
+	 * @return array{count:int,newest_id:int}
+	 */
+	public function space_feed_new_count( int $user_id, int $space_id, int $after_id ): array {
+		global $wpdb;
+
+		$cache_key = "space_new_count_{$user_id}_{$space_id}_{$after_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$excluded_where                   = $this->excluded_users_where();
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT COUNT(*) AS new_count, COALESCE(MAX(id), %d) AS newest_id
+				 FROM (
+				     SELECT id
+				     FROM {$wpdb->prefix}bn_posts
+				     WHERE space_id = %d
+				       AND status = 'published'
+				       AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				       AND id > %d
+				       AND user_id <> %d
+				       {$excluded_where}
+				       {$hidden_where}
+				     ORDER BY id DESC
+				     LIMIT %d
+				 ) AS bounded", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				...array_merge( array( $after_id, $space_id, $after_id, $user_id ), $hidden_params, array( self::NEW_COUNT_CAP + 1 ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+
+		$result = array(
+			'count'     => isset( $row['new_count'] ) ? (int) $row['new_count'] : 0,
+			'newest_id' => isset( $row['newest_id'] ) ? (int) $row['newest_id'] : $after_id,
+		);
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::NEW_COUNT_TTL );
+
+		return $result;
 	}
 
 	/**
@@ -1397,22 +1475,6 @@ class FeedService {
 	}
 
 	/**
-	 * Current version of the announcement id lists.
-	 *
-	 * @return int
-	 */
-	private static function announcement_version(): int {
-		$version = wp_cache_get( self::ANNOUNCEMENT_VERSION_KEY, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( self::ANNOUNCEMENT_VERSION_KEY, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
 	 * Invalidate EVERY cached announcement id list, site-wide and per space, in O(1).
 	 *
 	 * Called from every write that can add or remove an announcement. A version bump is
@@ -1424,7 +1486,7 @@ class FeedService {
 	 * @return void
 	 */
 	public static function flush_announcement_ids(): void {
-		wp_cache_set( self::ANNOUNCEMENT_VERSION_KEY, self::announcement_version() + 1, self::CACHE_GROUP );
+		CacheService::set_last_changed( self::CACHE_GROUP, 'announcement_ids' );
 	}
 
 	/**
@@ -1444,7 +1506,7 @@ class FeedService {
 	 */
 	private function announcement_ids( ?int $space_id ): array {
 		$scope     = null === $space_id ? 'site' : 'space_' . $space_id;
-		$cache_key = 'ann_ids_v' . self::announcement_version() . '_' . $scope;
+		$cache_key = 'ann_ids_v' . CacheService::last_changed( self::CACHE_GROUP, 'announcement_ids' ) . '_' . $scope;
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -2027,9 +2089,12 @@ class FeedService {
 	 * @param int         $viewer_id Viewing user ID (reserved for future access checks).
 	 * @param string|null $cursor    Pagination cursor.
 	 * @param int         $per_page  Posts per page.
+	 * @param string      $type      Only posts of this type ('' = every type). The
+	 *                               Space Blog tab passes 'article'; the query then
+	 *                               runs on the space_type_feed index.
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $type = '' ): array {
 		/**
 		 * Filter whether this viewer may read the space's posts at all.
 		 *
@@ -2070,7 +2135,9 @@ class FeedService {
 		// future Pro filter makes it depend on the viewer's ENTITLEMENTS, it must bump a
 		// version on entitlement change (or accept the <=TTL lag), because the key cannot
 		// see inside an arbitrary filter.
-		if ( null !== $this->cache && null === $cursor && $space_id > 0 ) {
+		// A typed page (the Blog tab) is not cached: one indexed read, and the cache
+		// key has no room for the type.
+		if ( null !== $this->cache && null === $cursor && $space_id > 0 && '' === $type ) {
 			$key   = $this->cache->space_page_1_key( $space_id, $viewer_id, $per_page );
 			$cache = $this->cache;
 			return (array) $cache->get(
@@ -2081,7 +2148,7 @@ class FeedService {
 			);
 		}
 
-		return $this->space_feed_uncached( $space_id, $viewer_id, $cursor, $per_page );
+		return $this->space_feed_uncached( $space_id, $viewer_id, $cursor, $per_page, $type );
 	}
 
 	/**
@@ -2091,9 +2158,10 @@ class FeedService {
 	 * @param int         $viewer_id Viewer.
 	 * @param string|null $cursor    Pagination cursor.
 	 * @param int         $per_page  Page size.
+	 * @param string      $type      Only posts of this type ('' = every type).
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	private function space_feed_uncached( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+	private function space_feed_uncached( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $type = '' ): array {
 		global $wpdb;
 
 		$per_page       = min( $per_page, self::MAX_PER_PAGE );
@@ -2140,6 +2208,9 @@ class FeedService {
 		// sentinel honest — a page full of narrowed posts cannot truncate pagination.
 		[ $audience_where, $audience_params ] = $this->post_audience_clause( $viewer_id );
 
+		$type_where  = '' !== $type ? 'AND type = %s' : '';
+		$type_params = '' !== $type ? array( $type ) : array();
+
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
 		// posts this viewer reported); its params are bound below.
@@ -2147,6 +2218,7 @@ class FeedService {
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE space_id = %d
+			   {$type_where}
 			   AND status = 'published'
 			   AND {$audience_where}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
@@ -2155,7 +2227,7 @@ class FeedService {
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $space_id ), $audience_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $space_id ), $type_params, $audience_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -2351,7 +2423,10 @@ class FeedService {
 				$filter_where = " AND type IN ('discussion','forum_post','forum')";
 				break;
 			case 'posts':
-				$filter_where = " AND type NOT IN ('discussion','forum_post','forum') AND ( media_ids IS NULL OR media_ids = '' OR media_ids = '[]' )";
+				// An allowlist of what members write themselves. A denylist lost a type
+				// every time an integration was deactivated (its card type left
+				// card_types()), and a job or listing card then showed up as a "post".
+				$filter_where = " AND type IN ('text','link','poll','announcement','file') AND ( media_ids IS NULL OR media_ids = '' OR media_ids = '[]' )";
 				break;
 		}
 
@@ -2440,6 +2515,135 @@ class FeedService {
 	}
 
 	/**
+	 * Test seam: true runs the For you feed as the old single tiered query, so a
+	 * test can prove the two-read version returns the same pages.
+	 *
+	 * @var bool
+	 */
+	private static bool $single_query = false;
+
+	/**
+	 * Most posts the For you date read walks past before it falls back to a table
+	 * scan (see for_you_rows()). A property, not a constant, so a test can shrink it.
+	 *
+	 * @var int
+	 */
+	private static int $scan_window = 2000;
+
+	/**
+	 * The For you rows for one page, in index-served reads instead of one tiered
+	 * sort over every visible post.
+	 *
+	 * The tiered ORDER BY (a per-viewer CASE) cannot use an index, so the single
+	 * query read and sorted the whole visible table on every page (230 ms at 100k
+	 * posts). Each tier is plain date order inside itself, so the page is read in
+	 * tier order: own recent posts and connections together (on user_feed), then
+	 * the interest-space tier, then the rest, each stopping once the page is full.
+	 * Same rows, same order and the same tier-aware cursor as the single query.
+	 *
+	 * The interest tier and the rest are read by a date walk, which passes posts
+	 * outside the tier or hidden from the viewer. When that tier is sparse a walk
+	 * of the whole index costs more than a sort, so it walks at most $scan_window
+	 * posts and, if the page is still short, reads the tier on space_feed (the
+	 * rest: the old table scan).
+	 *
+	 * @param string[]    $boosts         Boost conditions, tier N = $boosts[N].
+	 * @param string      $tier_expr      The tier CASE built from $boosts.
+	 * @param string|null $cursor         Cursor.
+	 * @param int|null    $cursor_tier    Tier carried by the cursor.
+	 * @param int         $limit          Rows wanted (page size + 1).
+	 * @param string      $source_where   Source blend (with %d placeholders).
+	 * @param string      $excluded_where Excluded authors.
+	 * @param string      $hidden_where   Viewer-hidden posts (with placeholders).
+	 * @param array       $params         Params for $source_where then $hidden_where.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function for_you_rows( array $boosts, string $tier_expr, ?string $cursor, ?int $cursor_tier, int $limit, string $source_where, string $excluded_where, string $hidden_where, array $params ): array {
+		global $wpdb;
+
+		$rest  = count( $boosts ); // The ELSE tier.
+		$from  = "{$wpdb->prefix}bn_posts";
+		$where = "WHERE status = 'published'
+			   AND type <> 'announcement'
+			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+			   AND ({$source_where})
+			   {$excluded_where}
+			   {$hidden_where}";
+		$rows  = array();
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		// The rows of one tier, newest first: walk at most $scan_window posts back
+		// on post_created (cheap while the tier is dense), and when that leaves the
+		// page short, read the tier on $fallback instead: the interest tier on
+		// space_feed (sorts only its rows), the rest a table scan.
+		$walk = function ( int $tier, string $cond, ?string $after_cursor, int $need, string $fallback ) use ( $wpdb, $from, $where, $params ): array {
+			$after      = $this->cursor_where( $after_cursor );
+			$after_args = $this->cursor_params( $after_cursor );
+			$read       = static fn( string $index, string $window, array $window_args ): array => (array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT *, {$tier} AS bn_tier FROM {$from} {$index} {$where}
+					   AND {$cond}
+					   {$after}
+					   {$window}
+					 ORDER BY created_at DESC, id DESC
+					 LIMIT %d",
+					...array_merge( $params, $after_args, $window_args, array( $need ) )
+				),
+				ARRAY_A
+			);
+
+			// The date of the $scan_window-th post after the cursor (index only).
+			$edge = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT created_at FROM {$from} WHERE 1 = 1 {$after} ORDER BY created_at DESC, id DESC LIMIT 1 OFFSET %d",
+					...array_merge( $after_args, array( self::$scan_window ) )
+				)
+			);
+			if ( null === $edge ) {
+				return $read( '', '', array() ); // A small site: the whole table is one window.
+			}
+			$found = $read( 'FORCE INDEX (post_created)', 'AND created_at >= %s', array( $edge ) );
+
+			return count( $found ) < $need ? $read( $fallback, '', array() ) : $found;
+		};
+
+		// Own recent posts and connections in one read: their conditions are on the
+		// author, so user_feed serves it and sorts only those rows. Reading them as
+		// separate tiers cost two to four more queries each carrying the connection
+		// id list, and planning those dominated (QA: about 14 ms each at 100k).
+		$direct = $rest - ( $rest > 0 && str_starts_with( $boosts[ $rest - 1 ], 'space_id' ) ? 1 : 0 );
+		if ( null === $cursor || $cursor_tier < $direct ) {
+			$rows = (array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT *, ({$tier_expr}) AS bn_tier FROM {$from} {$where}
+					   AND ( (" . implode( ') OR (', array_slice( $boosts, 0, $direct ) ) . ") )
+					   {$this->cursor_where( $cursor, $tier_expr )}
+					 ORDER BY ({$tier_expr}) ASC, created_at DESC, id DESC
+					 LIMIT %d",
+					...array_merge( $params, $this->cursor_params( $cursor, $tier_expr ), array( $limit ) )
+				),
+				ARRAY_A
+			);
+		}
+
+		// Then the interest-space tier, whose condition is on the space and which
+		// table-scanned when OR'ed with the others, and the rest. A cursor inside one
+		// of them continues it by date; a later tier starts from the top.
+		for ( $tier = null === $cursor ? $direct : max( $direct, (int) $cursor_tier ); $tier <= $rest; $tier++ ) {
+			$need = $limit - count( $rows );
+			if ( $need <= 0 ) {
+				break;
+			}
+			$cond     = $tier < $rest ? "({$boosts[ $tier ]}) AND ({$tier_expr}) = {$tier}" : "({$tier_expr}) = {$rest}";
+			$fallback = $tier === $rest ? 'IGNORE INDEX (post_created)' : 'FORCE INDEX (space_feed)';
+			$rows     = array_merge( $rows, $walk( $tier, $cond, $tier === $cursor_tier ? $cursor : null, $need, $fallback ) );
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		return $rows;
+	}
+
+	/**
 	 * Build the WHERE fragment for cursor-based pagination.
 	 *
 	 * Returns an empty string when no cursor is given (first page).
@@ -2519,6 +2723,8 @@ class FeedService {
 		}
 
 		BlogPostListener::prime_sources( $rows );
+		// Each post in a space hydrates that space: one query for the page instead.
+		buddynext_service( 'spaces' )->prime( array_map( static fn( $row ): int => (int) ( ( (array) $row )['space_id'] ?? 0 ), $rows ) );
 		$items = array_map(
 			fn( $row ) => $this->post_service->hydrate( $row ),
 			$rows
@@ -2629,6 +2835,18 @@ class FeedService {
 		// before the viewer check below.
 		$this->prime_media( $items );
 
+		/**
+		 * Fires for every page of feed items about to render, guests included, so a bridge whose cards draw from
+		 * their source plugin (an event card from Eventonomy) can load the whole page in one call instead of
+		 * one call per card.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array $items  Hydrated feed rows about to render.
+		 * @param int   $viewer Current user ID (0 = logged out).
+		 */
+		do_action( 'buddynext_feed_items_primed', $items, $viewer );
+
 		if ( $viewer <= 0 || empty( $items ) ) {
 			return;
 		}
@@ -2667,6 +2885,14 @@ class FeedService {
 				buddynext_service( 'blocks' )->blocking_either_map( $viewer, $peers );
 				buddynext_service( 'connections' )->degrees_for( $viewer, $peers );
 			}
+		}
+
+		// A card in a space asks whether the viewer is banned there (it hides the
+		// write controls): answer the page's spaces in two queries, not two per card.
+		$space_ids = array_values( array_unique( array_filter( array_map( static fn( $item ): int => absint( is_array( $item ) ? ( $item['space_id'] ?? 0 ) : 0 ), $items ) ) ) );
+		if ( $space_ids ) {
+			buddynext_service( 'space_members' )->membership_map( $viewer, $space_ids );
+			buddynext_service( 'permissions' )->prime_space_bans( $viewer, $space_ids );
 		}
 
 		buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
@@ -2873,28 +3099,31 @@ class FeedService {
 	}
 
 	/**
-	 * Return a flat, de-duplicated list of media IDs from a space's recent
-	 * published posts, newest post first, capped at $limit. Powers the space
-	 * "Media" gallery without the template touching bn_posts directly.
+	 * The media shared in a Space's posts, one page of posts at a time, newest first.
 	 *
-	 * Scans up to 60 recent media-bearing posts (the source rows can each carry
-	 * several attachments) and flattens their media_ids JSON arrays before
-	 * trimming to $limit unique IDs. For a paginated grid use space_media_rows().
+	 * The page is POSTS (each carries up to a few pictures), read by keyset on (created_at, id), so a Space with
+	 * thousands of posts costs the same on page 2 as on page 1 and there is no total to count (the media sit inside a
+	 * JSON column). `next_cursor` is the cursor after the last post on the page, or null at the end; pass it back for
+	 * the next page. Each picture is then filtered by what THIS viewer may see: a photo whose owner made it private, or
+	 * unlinked it from the Space, still hangs off its post and must not keep showing to everyone.
 	 *
-	 * @param int $space_id  Space ID.
-	 * @param int $viewer_id Viewer user ID (0 = logged out). ANDs the shared
-	 *                       per-post audience clause so a followers/connections
-	 *                       post's media is excluded for a member outside that
-	 *                       audience before the per-item media gate runs (card
-	 *                       10264292078).
-	 * @param int $limit     Max media IDs to return (1-100). Default 24.
-	 * @return array<int,int>
+	 * @since 1.3.0
+	 *
+	 * @param int         $space_id  Space ID.
+	 * @param int         $viewer_id Viewing member (0 = guest).
+	 * @param int         $per_page  Posts per page (1-100). Default 24.
+	 * @param string|null $cursor    Cursor from the previous page; null for the newest.
+	 * @return array{ids: int[], next_cursor: string|null}
 	 */
-	public function space_media_ids( int $space_id, int $viewer_id, int $limit = 24 ): array {
+	public function space_media_page( int $space_id, int $viewer_id, int $per_page = 24, ?string $cursor = null ): array {
+		$empty = array(
+			'ids'         => array(),
+			'next_cursor' => null,
+		);
 		if ( $space_id <= 0 ) {
-			return array();
+			return $empty;
 		}
-		$limit = max( 1, min( 100, $limit ) );
+		$per_page = max( 1, min( 100, $per_page ) );
 
 		global $wpdb;
 		[ $audience_sql, $audience_params ] = $this->post_audience_clause( $viewer_id );
@@ -2902,26 +3131,36 @@ class FeedService {
 		// a suspended or viewer-blocked author's media (card 10264292078).
 		$excluded_where                   = $this->excluded_users_where();
 		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $viewer_id );
+		$cursor_where                     = $this->cursor_where( $cursor );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$rows = $wpdb->get_col(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT media_ids FROM {$wpdb->prefix}bn_posts
+				"SELECT id, created_at, media_ids FROM {$wpdb->prefix}bn_posts
 				 WHERE space_id = %d AND status = 'published'
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
 				   AND {$audience_sql}
 				   {$excluded_where}
 				   {$hidden_where}
-				 ORDER BY created_at DESC
-				 LIMIT 60",
-				array_merge( array( $space_id ), $audience_params, $hidden_params )
-			)
+				   {$cursor_where}
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d",
+				array_merge( array( $space_id ), $audience_params, $hidden_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			),
+			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
+		$rows = is_array( $rows ) ? $rows : array();
+		$more = count( $rows ) > $per_page;
+		$rows = array_slice( $rows, 0, $per_page );
+		if ( array() === $rows ) {
+			return $empty;
+		}
+
 		$media_ids = array();
-		foreach ( (array) $rows as $json ) {
-			$decoded = json_decode( (string) $json, true );
+		foreach ( $rows as $row ) {
+			$decoded = json_decode( (string) $row['media_ids'], true );
 			if ( ! is_array( $decoded ) ) {
 				continue;
 			}
@@ -2932,35 +3171,34 @@ class FeedService {
 				}
 			}
 		}
-
 		$media_ids = array_values( array_unique( $media_ids ) );
 
-		// The list so far is "media ATTACHED TO this space's posts", which is a
-		// different question from "may THIS viewer see it". A photo whose owner has
-		// since made it private — e.g. by unlinking it from the space in the media
-		// lightbox — still hangs off the post that embedded it, so without a gate
-		// here it keeps showing to everyone and the unlink has no visible effect.
-		// Filter through the engine's own per-viewer check (owner + admins always;
-		// otherwise the item's privacy), so a member sees exactly what they may and
-		// an unlinked/private item drops out for others while its owner still sees
-		// their own. Bounded to $limit, so at most $limit checks, each memoised.
+		// Filter through the engine's own per-viewer check (owner + admins always; otherwise the item's privacy).
+		// Bounded by the page, so at most a page of checks, each memoised.
 		$privacy = MediaClient::privacy();
-		if ( null === $privacy || ! is_callable( array( $privacy, 'can_view' ) ) ) {
-			return array_slice( $media_ids, 0, $limit );
+		if ( null !== $privacy && is_callable( array( $privacy, 'can_view' ) ) ) {
+			$viewer    = get_current_user_id();
+			$media_ids = array_values( array_filter( $media_ids, static fn( int $mid ): bool => (bool) $privacy->can_view( $mid, $viewer ) ) );
 		}
 
-		$viewer  = get_current_user_id();
-		$visible = array();
-		foreach ( $media_ids as $mid ) {
-			if ( ! $privacy->can_view( $mid, $viewer ) ) {
-				continue;
-			}
-			$visible[] = $mid;
-			if ( count( $visible ) >= $limit ) {
-				break;
-			}
-		}
+		return array(
+			'ids'         => $media_ids,
+			'next_cursor' => $more ? $this->encode_cursor( (array) end( $rows ) ) : null,
+		);
+	}
 
-		return $visible;
+	/**
+	 * The newest media shared in a Space, as a flat list of picture ids.
+	 *
+	 * Kept for callers that want one page and no cursor; the Space Media tab reads {@see space_media_page()}.
+	 *
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewing member (0 = guest).
+	 * @param int $limit     Most pictures to return (1-100).
+	 * @return int[]
+	 */
+	public function space_media_ids( int $space_id, int $viewer_id, int $limit = 24 ): array {
+		$limit = max( 1, min( 100, $limit ) );
+		return array_slice( $this->space_media_page( $space_id, $viewer_id, $limit )['ids'], 0, $limit );
 	}
 }

@@ -305,14 +305,14 @@
 }
 
 .bn-follow-btn--follow {
-	background: var(--brand);
-	color: var(--text-on-brand);
-	border-color: var(--brand);
+	background: var(--bn-accent-solid);
+	color: var(--bn-accent-fg);
+	border-color: var(--bn-accent-solid);
 }
 
 .bn-follow-btn--follow:hover {
-	background: var(--brand-hover);
-	border-color: var(--brand-hover);
+	background: color-mix(in oklch, var(--bn-accent-solid) 82%, black);
+	border-color: transparent;
 }
 
 .bn-follow-btn--following {
@@ -663,7 +663,7 @@
 .bn-form-input {
 	width: 100%;
 	padding: var(--bn-s3) var(--bn-s4);
-	border: 1px solid var(--border);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
@@ -681,8 +681,8 @@
 .bn-form-submit {
 	width: 100%;
 	padding: var(--bn-s3) var(--bn-s4);
-	background: var(--brand);
-	color: var(--text-on-brand);
+	background: var(--bn-accent-solid);
+	color: var(--bn-accent-fg);
 	border: none;
 	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
@@ -694,7 +694,7 @@
 }
 
 .bn-form-submit:hover {
-	background: var(--brand-hover);
+	background: color-mix(in oklch, var(--bn-accent-solid) 82%, black);
 }
 
 .bn-form-submit:disabled {

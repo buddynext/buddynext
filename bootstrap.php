@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
  * removing a public symbol bumps it, and the registry supports this and the previous value.
  */
 define( 'BUDDYNEXT_ADDON_API', 1 );
-define( 'BUDDYNEXT_VERSION', '1.2.9' );
+define( 'BUDDYNEXT_VERSION', '1.3.0' );
 define( 'BUDDYNEXT_FILE', __DIR__ . '/buddynext.php' );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( BUDDYNEXT_FILE ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( BUDDYNEXT_FILE ) );
@@ -121,6 +121,11 @@ register_deactivation_hook(
 		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::SWEEP_HOOK );
 		// A switched-off plugin asks the store nothing; activation re-arms it.
 		wp_clear_scheduled_hook( \BuddyNext\Core\PresetActivation::HOOK );
+		// Every recurring job (digests, cleanups, recounts, the moderation queue
+		// check, log retention), from Action Scheduler and WP-Cron alike, so a
+		// switched-off plugin leaves nothing to fail. Each re-arms itself on the
+		// next cron run after reactivation.
+		( new \BuddyNext\Core\CronScheduler() )->clear_events();
 	}
 );
 
@@ -161,6 +166,18 @@ add_action(
 			)
 		);
 	}
+);
+
+// The free product authorises updates with the preset key above, so there is nothing for an owner to manage: drop
+// the SDK's "Manage License" link from the BuddyNext row (it runs at 100). Not `keyless`, which would stop sending
+// the preset key the store authorises updates with.
+add_filter(
+	'plugin_action_links_' . BUDDYNEXT_BASENAME,
+	static function ( $actions ) {
+		unset( $actions['edd_sdk_manage'] );
+		return $actions;
+	},
+	101
 );
 
 /**
@@ -278,6 +295,34 @@ add_action(
 	}
 );
 
+// Server check: BuddyNext runs without mbstring, ctype or dom (Support\Text falls back) and without fileinfo (uploads are refused with a message), but names, search and link
+// previews follow ASCII rules or switch off, so the owner is told what to ask the host for. Plugins screen and
+// BuddyNext screens only.
+add_action(
+	'admin_notices',
+	static function (): void {
+		if ( ! current_user_can( 'update_plugins' ) || ! \BuddyNext\Admin\AdminHub::is_notice_screen() ) {
+			return;
+		}
+		$missing = \BuddyNext\Support\Text::missing_extensions();
+		if ( array() === $missing ) {
+			return;
+		}
+		// One line per missing extension, saying what the owner's members actually lose.
+		$effects = array(
+			'mbstring' => __( 'mbstring: names and text in other alphabets (accents, Cyrillic, Arabic, CJK) are not capitalised, shortened or searched correctly.', 'buddynext' ),
+			'dom'      => __( 'dom: link previews are off, so a pasted link posts as a plain link with no title or image card.', 'buddynext' ),
+			'ctype'    => __( 'ctype: BuddyNext uses its own check instead, so nothing changes for members, but other plugins may need it.', 'buddynext' ),
+			'fileinfo' => __( 'fileinfo: CSV invite lists and settings files cannot be imported, because the server cannot check what an uploaded file is.', 'buddynext' ),
+		);
+		echo '<div class="notice notice-warning"><p>' . esc_html__( 'BuddyNext works, but this server is missing PHP extensions. Ask your host to enable them:', 'buddynext' ) . '</p><ul class="ul-disc">';
+		foreach ( $missing as $ext ) {
+			echo '<li>' . esc_html( $effects[ $ext ] ?? $ext ) . '</li>';
+		}
+		echo '</ul></div>';
+	}
+);
+
 // Network Admin > Plugins: say where the community lives. Settings are on the main
 // site, so a super admin looking at the plugin row is pointed there.
 add_action(
@@ -311,6 +356,7 @@ add_action( 'init', array( \BuddyNext\Core\Installer::class, 'install_if_missing
 // feature's init work. One option compare once the stored schema revision matches.
 add_action( 'init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade_schema' ), 0 );
 add_action( \BuddyNext\Core\Installer::FINISH_UPGRADE_HOOK, array( \BuddyNext\Core\Installer::class, 'finish_upgrade' ) );
+add_action( \BuddyNext\Core\CronScheduler::DEDUPE_CONTINUE_HOOK, array( \BuddyNext\Core\CronScheduler::class, 'cancel_duplicate_pending' ) );
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
 \BuddyNext\Core\Installer::register_site_health();
 \BuddyNext\Auth\SessionIssuer::register();
@@ -606,7 +652,7 @@ function buddynext_readable_text_color( string $background, string $preferred = 
 		if ( 3 === strlen( $hex ) ) {
 			$hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
 		}
-		if ( 6 !== strlen( $hex ) || ! ctype_xdigit( $hex ) ) {
+		if ( 1 !== preg_match( '/^[0-9a-f]{6}$/iD', $hex ) ) {
 			return null;
 		}
 		$channels = array();
@@ -687,6 +733,36 @@ function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool 
 		return $fallback;
 	}
 	return (bool) $features->is_enabled( $slug );
+}
+
+/**
+ * The refusal a route returns while a community feature is turned off, or null when it is on.
+ *
+ * Feature routes stay registered when their toggle is off, so an app or a cached
+ * page that still calls one gets a stable error code instead of a 404 from WordPress.
+ * Every refusal carries the feature slug in its data so a client can tell
+ * "turned off" apart from "not allowed".
+ *
+ * @since 1.3.0
+ *
+ * @param string $slug    Feature slug (e.g. 'comments', 'polls').
+ * @param string $code    Error code. Default '{$slug}_disabled'.
+ * @param string $message Message for the member. Default a generic "turned off" line.
+ * @param int    $status  HTTP status. Default 403.
+ * @return WP_Error|null
+ */
+function buddynext_feature_refusal( string $slug, string $code = '', string $message = '', int $status = 403 ): ?WP_Error {
+	if ( buddynext_feature_enabled( $slug ) ) {
+		return null;
+	}
+	return new WP_Error(
+		'' !== $code ? $code : $slug . '_disabled',
+		'' !== $message ? $message : __( 'This feature is turned off on this community.', 'buddynext' ),
+		array(
+			'status'  => $status,
+			'feature' => $slug,
+		)
+	);
 }
 
 /**
@@ -829,6 +905,14 @@ function buddynext_integrations(): array {
 function buddynext_integration_enabled( string $key, string $aspect = 'nav', string $sub = '' ): bool {
 	$key = sanitize_key( $key );
 	$sub = '' !== $sub ? sanitize_key( $sub ) : '';
+
+	// Every integration switch in one query, the first time any is asked about.
+	// The flag is set first: a bridge that asks while registering must not recurse.
+	static $bn_switches_primed = false;
+	if ( ! $bn_switches_primed && did_action( 'init' ) ) {
+		$bn_switches_primed = true;
+		\BuddyNext\Integrations\IntegrationRegistry::instance()->prime_switches();
+	}
 
 	switch ( $aspect ) {
 		case 'feed':

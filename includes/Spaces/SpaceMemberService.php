@@ -20,12 +20,21 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Spaces;
 
+use BuddyNext\Core\CacheService;
 use WP_Error;
 
 /**
  * Handles space membership operations.
  */
 class SpaceMemberService {
+
+	/**
+	 * Longest ban reason kept, in characters.
+	 *
+	 * @var int
+	 */
+	public const BAN_REASON_MAX = 500;
+
 
 	/**
 	 * Cache group.
@@ -450,39 +459,9 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function approve_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
-		$space = $this->load_space_row( $space_id );
-		if ( empty( $space ) ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'This space no longer exists.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		$actor_role = $this->get_role( $space_id, $actor_id );
-
-		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Only the space owner or a moderator can approve join requests.', 'buddynext' )
-			);
-		}
-
-		$current_status = $this->get_status( $space_id, $user_id );
-
-		if ( 'pending' !== $current_status ) {
-			return new WP_Error(
-				'no_pending_request',
-				__( 'No pending join request found for this member.', 'buddynext' )
-			);
-		}
-
-		// Approval is a join: the same buddynext_can_join_space gate join() and
-		// request_join() run (seat caps, paid plans, invite-only rules), or an admin
-		// approval bypassed every limit. A refused request stays pending.
-		/** This filter is documented in includes/Spaces/SpaceMemberService.php (join()). */
-		if ( ! (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'approve' ) ) {
-			return $this->denied_join_error( $space_id, $user_id, $space, 'approve' );
+		$refused = $this->approval_refusal( $space_id, $actor_id, $user_id );
+		if ( null !== $refused ) {
+			return $refused;
 		}
 
 		global $wpdb;
@@ -521,6 +500,56 @@ class SpaceMemberService {
 		do_action( 'buddynext_space_member_joined', $space_id, $user_id, 'member' );
 
 		return true;
+	}
+
+	/**
+	 * Why approve_request() would refuse this approval, or null when it would pass.
+	 *
+	 * The one set of approval rules, shared with the linked forum's own queue: an
+	 * approval made there admits the member here, so it must pass the same checks.
+	 *
+	 * @param int  $space_id      Space ID.
+	 * @param int  $actor_id      User approving the request.
+	 * @param int  $user_id       User whose request is being approved.
+	 * @param bool $needs_pending False when the request is still to be recorded here
+	 *                            (no row yet, or an invitation): only a member or a
+	 *                            banned row is refused then.
+	 * @return WP_Error|null
+	 */
+	public function approval_refusal( int $space_id, int $actor_id, int $user_id, bool $needs_pending = true ): ?WP_Error {
+		$space = $this->load_space_row( $space_id );
+		if ( empty( $space ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'This space no longer exists.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( ! SpaceRoles::can_moderate( $this->get_role( $space_id, $actor_id ), $actor_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can approve join requests.', 'buddynext' )
+			);
+		}
+
+		$status = $this->get_status( $space_id, $user_id );
+		if ( $needs_pending ? 'pending' !== $status : in_array( $status, array( 'active', 'banned' ), true ) ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'No pending join request found for this member.', 'buddynext' )
+			);
+		}
+
+		// Approval is a join: the same buddynext_can_join_space gate join() and
+		// request_join() run (seat caps, paid plans, invite-only rules), or an admin
+		// approval bypassed every limit. A refused request stays pending.
+		/** This filter is documented in includes/Spaces/SpaceMemberService.php (join()). */
+		if ( ! (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'approve' ) ) {
+			return $this->denied_join_error( $space_id, $user_id, $space, 'approve' );
+		}
+
+		return null;
 	}
 
 	/**
@@ -956,6 +985,11 @@ class SpaceMemberService {
 		}
 
 		if ( 'owner' === $this->get_role( $space_id, $user_id ) ) {
+			return false;
+		}
+
+		// Removing yourself is leaving; a moderator doing it here would drop their own role with no confirm.
+		if ( $user_id === $acting_user_id ) {
 			return false;
 		}
 
@@ -1404,7 +1438,7 @@ class SpaceMemberService {
 		// role/search filters + limit + offset) so no two shapes collide. Finishes a
 		// previously half-wired cache — invalidate_cache() already dropped a members_*
 		// key, but nothing ever wrote it, so every space-page roster read hit the DB.
-		$cache_key = 'members_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+		$cache_key = 'members_v' . CacheService::last_changed( self::CACHE_GROUP, "members:{$space_id}" ) . '_'
 			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $limit, max( 0, $offset ), $args ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
@@ -1518,7 +1552,7 @@ class SpaceMemberService {
 
 		// Per-space version salt (the membership_rows() idiom) — invalidate_cache()
 		// bumps it on every join / leave / role change, retiring all pages at once.
-		$cache_key = 'member_ids_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+		$cache_key = 'member_ids_v' . CacheService::last_changed( self::CACHE_GROUP, "members:{$space_id}" ) . '_'
 			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $limit, $offset, $args ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
@@ -1636,7 +1670,7 @@ class SpaceMemberService {
 			);
 		}
 
-		$cache_key = 'members_ks_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+		$cache_key = 'members_ks_v' . CacheService::last_changed( self::CACHE_GROUP, "members:{$space_id}" ) . '_'
 			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $per_page, (string) $cursor, $args ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
@@ -1761,7 +1795,7 @@ class SpaceMemberService {
 			);
 		}
 
-		$cache_key = 'member_ids_ks_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+		$cache_key = 'member_ids_ks_v' . CacheService::last_changed( self::CACHE_GROUP, "members:{$space_id}" ) . '_'
 			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $per_page, (string) $cursor, $args ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
@@ -1883,6 +1917,13 @@ class SpaceMemberService {
 			);
 		}
 
+		// The answer is known for every space asked about, rows or not, so fill
+		// get_status()'s cache with it: the per-card Join gate (can_join() ->
+		// is_space_banned() -> get_status()) was one query per card on a cold cache.
+		foreach ( $space_ids as $space_id ) {
+			wp_cache_set( "status_{$space_id}_{$user_id}", $map[ $space_id ]['status'] ?? 'none', self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
 		return $map;
 	}
 
@@ -1999,7 +2040,7 @@ class SpaceMemberService {
 		// that only changes when the member joins or leaves something. Cache the
 		// unfiltered ceiling once per member (not per requested limit); the addon
 		// filter + the slice run per call so an exclusion change is never served stale.
-		$cache_key = 'membership_rows3_v' . self::membership_summary_version( $user_id ) . "_{$user_id}"; // v3: rows carry parent_id.
+		$cache_key = 'membership_rows3_v' . CacheService::last_changed( self::CACHE_GROUP, "membership:{$user_id}" ) . "_{$user_id}"; // v3: rows carry parent_id.
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -2105,7 +2146,7 @@ class SpaceMemberService {
 			return 0;
 		}
 
-		$cache_key = 'membership_count_v' . self::membership_summary_version( $user_id ) . "_{$user_id}";
+		$cache_key = 'membership_count_v' . CacheService::last_changed( self::CACHE_GROUP, "membership:{$user_id}" ) . "_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -2343,7 +2384,7 @@ class SpaceMemberService {
 		// Roster list: bump the per-space version salt (not a single fixed-key
 		// delete) — get_members() is parameterised by viewer/role/limit/offset, so
 		// it lives under many keys; one bump retires them all.
-		self::bump_cache_version( "members_ver_{$space_id}" );
+		CacheService::set_last_changed( self::CACHE_GROUP, "members:{$space_id}" );
 
 		// The member's own "My spaces" rail. It is rebuilt from these same rows, so it
 		// goes stale on exactly the events this method already handles — joining, leaving,
@@ -2351,49 +2392,6 @@ class SpaceMemberService {
 		// means a new membership path cannot forget it: everything that changes a
 		// membership already comes through this choke point.
 		self::invalidate_membership_summary( $user_id );
-	}
-
-	/**
-	 * Version of one member's cached "My spaces" summary.
-	 *
-	 * @param int $user_id Member.
-	 * @return int
-	 */
-	private static function membership_summary_version( int $user_id ): int {
-		return self::cache_version( "membership_ver_{$user_id}" );
-	}
-
-	/**
-	 * Read a version salt for a parameterised cache (seeding it to 1 when absent).
-	 *
-	 * The shared primitive behind every versioned cache in this service — the
-	 * per-user "My spaces" summary and the per-space members roster both embed a
-	 * salt from here in their keys, so a single bump retires every variant at once
-	 * (the object-cache-safe substitute for a wildcard delete).
-	 *
-	 * @param string $key Salt cache key (e.g. "membership_ver_{uid}", "members_ver_{space}").
-	 * @return int
-	 */
-	private static function cache_version( string $key ): int {
-		$version = wp_cache_get( $key, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( $key, $version, self::CACHE_GROUP );
-		}
-
-		return (int) $version;
-	}
-
-	/**
-	 * Bump a version salt, retiring every cache entry keyed on it. Call AFTER the
-	 * DB write it invalidates, never before.
-	 *
-	 * @param string $key Salt cache key.
-	 * @return void
-	 */
-	private static function bump_cache_version( string $key ): void {
-		wp_cache_set( $key, self::cache_version( $key ) + 1, self::CACHE_GROUP );
 	}
 
 	/**
@@ -2408,7 +2406,7 @@ class SpaceMemberService {
 	 * @return void
 	 */
 	private static function invalidate_membership_summary( int $user_id ): void {
-		self::bump_cache_version( "membership_ver_{$user_id}" );
+		CacheService::set_last_changed( self::CACHE_GROUP, "membership:{$user_id}" );
 	}
 
 	/**
@@ -2494,6 +2492,11 @@ class SpaceMemberService {
 			return new WP_Error( 'cannot_ban_owner', __( 'The space owner cannot be banned from their own space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// Nobody bans themselves: a moderator doing it would just strip their own role (leaving is the way out).
+		if ( $banned_by > 0 && $banned_by === $user_id ) {
+			return new WP_Error( 'cannot_ban_self', __( 'You cannot ban yourself from a space. Leave it instead.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
 		// INSERT IGNORE on the (space_id, user_id) key: a repeat or a racing second
 		// request inserts nothing, and only the request that wrote the row goes on.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2503,7 +2506,7 @@ class SpaceMemberService {
 				$space_id,
 				$user_id,
 				max( 0, $banned_by ),
-				sanitize_textarea_field( $reason ),
+				mb_substr( sanitize_textarea_field( $reason ), 0, self::BAN_REASON_MAX ),
 				current_time( 'mysql', true )
 			)
 		);
@@ -2629,6 +2632,37 @@ class SpaceMemberService {
 		do_action( 'buddynext_space_user_unbanned', $space_id, $user_id );
 
 		return true;
+	}
+
+	/**
+	 * Banned member ids for a space, one keyset page (PRIMARY KEY space_id, user_id).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $after_id Return ids above this one (0 for the first page).
+	 * @param int $limit    Page size, 1 to 500.
+	 * @return int[] Ascending user ids.
+	 */
+	public function banned_user_ids( int $space_id, int $after_id = 0, int $limit = 500 ): array {
+		global $wpdb;
+
+		if ( $space_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d AND user_id > %d ORDER BY user_id ASC LIMIT %d",
+				$space_id,
+				max( 0, $after_id ),
+				max( 1, min( 500, $limit ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**

@@ -39,6 +39,7 @@ use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\BuddyXBridge;
+use BuddyNext\Bridges\EventonomyAccess;
 use BuddyNext\Bridges\GamificationBridge;
 use BuddyNext\Bridges\JetonomyBridge;
 use BuddyNext\Bridges\MemberBlogBridge;
@@ -95,6 +96,36 @@ class Plugin {
 		'buddynext_features',
 		'buddynext_cookie_consent',
 		'buddynext_isolation_strip',
+		// Read by the shell, theme bridge and member gates on every community page.
+		// Most exist only once an owner changes them from the default, so each was
+		// a query per page without a persistent object cache (measured 1.3.0).
+		'bn_avatar_style',
+		'bn_default_cover_url',
+		'bn_role_map_overrides',
+		'buddynext_2fa_required',
+		'buddynext_brand_color',
+		'buddynext_connection_require_note',
+		'buddynext_container_width',
+		'buddynext_custom_css',
+		'buddynext_default_theme',
+		'buddynext_email_verify',
+		'buddynext_enable_community_mobile_nav',
+		'buddynext_enable_community_rail',
+		'buddynext_enabled_reactions',
+		'buddynext_google_indexing',
+		'buddynext_isolation_enabled',
+		'buddynext_logo_url',
+		'buddynext_post_edit_window',
+		'buddynext_private_community',
+		'buddynext_space_creation_role',
+		// Directory and feed surfaces: one entry in the same query costs nothing.
+		'buddynext_featured_announcement',
+		'buddynext_featured_spaces',
+		'buddynext_member_dir_columns',
+		'buddynext_space_allow_sub',
+		'buddynext_space_default_category',
+		'buddynext_space_default_type',
+		'buddynext_spaces_dir_columns',
 	);
 
 	/**
@@ -305,6 +336,7 @@ class Plugin {
 					$container->get( 'admin_email_editor' )->register();
 					( new \BuddyNext\Admin\EmailLog() )->register();
 					( new \BuddyNext\Admin\GetStartedScreen() )->register();
+					( new \BuddyNext\Admin\SetupVideosScreen() )->register();
 					( new \BuddyNext\Admin\SetupChecklist() )->register();
 					$container->get( 'setup_wizard' )->init();
 					( new \BuddyNext\Demo\DemoAdmin() )->register();
@@ -422,6 +454,15 @@ class Plugin {
 		// both session-minting chains — see LoginGuard.
 		( new \BuddyNext\Auth\LoginGuard() )->register();
 
+		// Site Health: can a logged-out visitor reach the sign-in route, or does a
+		// security plugin or host rule block it (the login screens then fall back
+		// to the standard WordPress form).
+		\BuddyNext\Auth\AuthRestHealth::register();
+
+		// Site Health: warn when every visitor shows one proxy address (the
+		// sign-up and sign-in limits would then be shared site-wide).
+		\BuddyNext\Moderation\SafeguardService::register_site_health();
+
 		// Sign-in with the @handle on every login form, for logins whose handle
 		// differs (a dot becomes a hyphen) - see Handle::authenticate().
 		add_filter( 'authenticate', array( \BuddyNext\Profile\Handle::class, 'authenticate' ), 25, 3 );
@@ -537,6 +578,7 @@ class Plugin {
 		// WordPress community expects. Gated at fire time on the 'blog'
 		// integration toggle, so registering the listener costs nothing.
 		( new \BuddyNext\Feed\BlogPostListener() )->register();
+		( new \BuddyNext\Feed\CardFactsBackfill() )->register();
 
 		// One article, one conversation: comments left on the post and on its
 		// feed card mirror each other, so members are not split into two
@@ -770,6 +812,7 @@ class Plugin {
 		// The Portfolio profile tab every integration's panels register into.
 		( new \BuddyNext\Profile\SuitePanelHost() )->register();
 		( new \BuddyNext\Spaces\SpaceLinkService() )->register();
+		add_action( \BuddyNext\Spaces\SpaceService::DELETE_HOOK, array( new \BuddyNext\Spaces\SpaceService(), 'run_delete_chunk' ), 10, 2 );
 
 		add_action(
 			'buddynext_load_bridges',
@@ -805,6 +848,15 @@ class Plugin {
 				( new \BuddyNext\Profile\GamificationKudos() )->register();
 
 				( new JetonomyBridge() )->init();
+
+				// Eventonomy 2.0.0 asks who counts as a member of an event; the event's Space answers (Free: Space
+				// types and roster; plan gating joins in when BuddyNext Pro is active). Inert on an older Eventonomy.
+				( new EventonomyAccess() )->init();
+
+				// Eventonomy 4+ closes a deleted Space's events and cancels a leaving member's registrations when told.
+				( new \BuddyNext\Bridges\EventonomySpaceLifecycle() )->init();
+				// The words and button a blocked viewer sees on a Space-members event.
+				( new \BuddyNext\Bridges\EventonomyTeaser() )->init();
 
 				// WB Member Blog: the member's published WordPress posts as an
 				// Articles profile tab. The FEED half needs no bridge — BlogPostListener

@@ -18,6 +18,18 @@ class MemberEditEmailTest extends \WP_UnitTestCase {
 
 	private int $user_id = 0;
 
+	/**
+	 * The screen is administrator-only; the save checks now ask edit_user of
+	 * the acting user, so act as one.
+	 */
+	public function set_up(): void {
+		parent::set_up();
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		if ( is_multisite() ) {
+			grant_super_admin( get_current_user_id() );
+		}
+	}
+
 	private function error_for( string $typed ): string {
 		$this->user_id = $this->user_id ?: self::factory()->user->create( array( 'user_email' => 'kept@example.com' ) );
 		$user_id       = $this->user_id;

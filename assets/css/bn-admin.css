@@ -188,11 +188,11 @@
 	--bn-a-field-max-w:       400px;
 
 	/* -- Input look (ONE uniform admin field — used by every option) ----- */
-	--bn-a-input-border:      var(--bn-line-strong);   /* crisp, reads as tappable */
+	--bn-a-input-border:      var(--bn-line-control);  /* 3:1 control edge (WCAG 1.4.11) */
 	--bn-a-input-radius:      var(--bn-a-r-sm);
 	--bn-a-input-pad-y:       var(--bn-a-s2);
 	--bn-a-input-pad-x:       var(--bn-a-s3);
-	--bn-a-focus-ring:        0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 22%, transparent);
+	--bn-a-focus-ring:        var(--bn-ring, 0 0 0 2px var(--bn-a-brand));
 
 	/* -- Card / dropdown min-widths -------------------------------------- */
 	--bn-a-dropdown-min-w:    140px;
@@ -503,7 +503,7 @@
 .bn-color-swatch {
 	width: 36px;
 	height: 36px;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: 2px;
 	cursor: pointer;
@@ -691,6 +691,43 @@
 	gap: var(--bn-a-s2);
 }
 
+/* The filters sit on an even grid, not a wrapping row. Each label sized itself, so the
+   second row started at a different position from the first and the page read as
+   scattered boxes. Three equal columns keep every field and the Filter button on the
+   same lines, two on a tablet, one on a phone. */
+.bn-modlog-toolbar .bn-modlog-filters {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	align-items: end;
+	gap: var(--bn-a-s3);
+}
+.bn-modlog-filters .bn-modlog-field :is(input, select) {
+	width: 100%;
+	max-width: none;
+	/* The native date input is taller than a text input; one height keeps the row level. */
+	height: 2.5rem;
+	box-sizing: border-box;
+}
+.bn-settings-section .bn-ss-body .bn-modlog-filters .bn-modlog-field input[type="date"] {
+	/* A shared rule forces height:auto !important on inputs, so the cap is what holds. */
+	max-height: 2.5rem;
+	padding-block: 0;
+}
+.bn-modlog-filters > .bn-btn {
+	height: 2.5rem;
+	justify-self: start;
+}
+@media (max-width: 960px) {
+	.bn-modlog-toolbar .bn-modlog-filters {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+@media (max-width: 480px) {
+	.bn-modlog-toolbar .bn-modlog-filters {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
 @media screen and ( max-width: 782px ) {
 
 	.bn-toolbar.bn-modlog-toolbar {
@@ -754,6 +791,13 @@
 	   first field's own top padding (e.g. .bn-toggle-row) supplies the rest, so
 	   header-to-first-field reads consistent with the spacing between fields. */
 	padding: var(--bn-a-s2) var(--bn-a-s5) var(--bn-a-s5);
+}
+
+/* A card with no header (Plans, Features, the Subscriptions panel) opens straight
+   into its content, so the tight top that binds a first row to a header would pin
+   that content to the card edge. Give it the same gutter the sides use. */
+.bn-settings-section > .bn-ss-body:first-child {
+	padding-top: var(--bn-a-s5);
 }
 
 /* Section-body intro paragraph. Shared by every admin tab that opens a
@@ -839,6 +883,7 @@
  * (render_*_row) still win where set. */
 .bn-ss-body input.bn-text-input:not([type="number"]):not([type="color"]),
 .bn-ss-body input.bn-input:not([type="number"]):not([type="color"]),
+.bn-ss-body input[type="text"].regular-text,
 .bn-ss-body input[type="email"].regular-text,
 .bn-ss-body input[type="url"].regular-text {
 	width: 100%;
@@ -1006,6 +1051,27 @@ select.bn-select-input,
 	transition: border-color var(--bn-a-transition), box-shadow var(--bn-a-transition);
 }
 
+/* The uniform field above forces one look with !important, which also erased
+ * the locked state: a read-only or disabled field (an account detail only a
+ * network admin may change, a role the viewer cannot grant) looked exactly
+ * like an editable one that ignored typing. Give it the muted fill, stepped-
+ * down text and dashed edge, at the same strength. */
+input.bn-text-input[readonly],
+textarea.bn-text-input[readonly],
+.bn-input[readonly],
+.bn-textarea[readonly],
+input.bn-text-input:disabled,
+select.bn-text-input:disabled,
+select.bn-select-input:disabled,
+.bn-input:disabled,
+.bn-textarea:disabled,
+.bn-select:disabled {
+	color: var(--bn-a-text-3) !important;
+	background-color: var(--bn-a-bg-hover) !important;
+	border-style: dashed !important;
+	cursor: not-allowed;
+}
+
 input.bn-text-input:focus,
 textarea.bn-text-input:focus,
 select.bn-text-input:focus,
@@ -1069,6 +1135,11 @@ select.bn-text-input {
 	box-shadow: none;
 	height: auto;
 	transition: border-color var(--bn-a-transition), box-shadow var(--bn-a-transition);
+}
+
+/* Core's .wp-core-ui select:active (0,2,1) repaints the edge #949494, under 3:1. */
+.bn-admin-hub select:active {
+	border-color: var(--bn-a-input-border);
 }
 
 /* Native <select> keeps room for the UA dropdown arrow on the inline-end. */
@@ -1162,108 +1233,213 @@ select.bn-text-input {
 	margin-block-start: var(--bn-a-s2);
 }
 
-.bn-int-subtab-group {
-	margin-top: var(--bn-a-s3);
-	padding: var(--bn-a-s2) var(--bn-a-s4);
-	background: var(--bn-sunken);
-	border-radius: var(--bn-a-r-md);
-}
+/* Integration Settings: one calm list. Each connected product is a row you can read at a glance
+   (name, status, where it appears, one master switch); its three switches and sub-tabs open
+   on demand. Every switch stays in the page at all times: the save handler records an opt-out
+   for any switch that is missing from the form, so panels are hidden, never removed. */
+.bn-int-intro { margin-block: 0 var(--bn-a-s4); max-width: 60rem; }
 
-.bn-int-subtab-group__kicker {
-	display: block;
-	padding-top: var(--bn-a-s2);
-	font-size: var(--bn-text-2xs, 11px);
-	font-weight: var(--bn-fw-semibold, 600);
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	color: var(--bn-a-text-3);
-}
-
-/* Integration Settings: one row per integration, one switch column per surface.
-   The wrapper is the scroll context (admin table contract), never the table. */
-.bn-int-matrix-wrap {
-	overflow-x: auto;
-}
-.bn-admin-hub__content .bn-int-matrix th[data-align="center"],
-.bn-admin-hub__content .bn-int-matrix td[data-align="center"] {
-	width: 7rem;
-	text-align: center;
-}
-/* Scoped under the hub so it outranks `.bn-admin-hub__content table:not(.form-table) th`. */
-.bn-admin-hub__content .bn-int-matrix tbody th.bn-int-matrix__name {
-	padding: var(--bn-a-s3) var(--bn-a-s4);
-	text-align: start;
-	text-transform: none;
-	letter-spacing: normal;
-	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-normal, 400);
-	color: var(--bn-a-text-1);
-	background: transparent;
-	vertical-align: middle;
-}
-.bn-admin-hub__content .bn-int-matrix tbody tr:hover th {
-	background: var(--bn-a-bg-hover);
-}
-.bn-int-matrix__title {
-	font-weight: var(--bn-a-fw-semibold);
-	margin-inline-end: var(--bn-a-s2);
-}
-/* A status chip moves to its own line as a whole rather than breaking inside. */
-.bn-int-matrix__name .bn-badge {
-	white-space: nowrap;
-}
-.bn-int-matrix__meta,
-.bn-int-matrix__name .bn-field-hint {
-	display: block;
-	margin: var(--bn-a-s1) 0 0;
-	font-size: var(--bn-a-text-xs);
-	color: var(--bn-a-text-3);
-}
-.bn-int-matrix__none {
-	color: var(--bn-a-text-3);
-}
-/* The sub-tab row reads as part of the integration above it. */
-.bn-admin-hub__content .bn-int-matrix tr:has(+ .bn-int-matrix__subrow) > * {
-	border-bottom: none;
-}
-.bn-int-matrix .bn-int-matrix__subrow td,
-.bn-int-matrix tr.bn-int-matrix__subrow:hover td {
-	padding-top: 0;
-	background: var(--bn-sunken);
-}
-.bn-int-matrix__subtabs {
+.bn-int-tools {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--bn-a-s2) var(--bn-a-s6);
-	padding: var(--bn-a-s2) 0 var(--bn-a-s1);
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-a-s3);
+	margin-block-end: var(--bn-a-s3);
 }
-.bn-int-matrix__subtab {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: var(--bn-a-s1);
+.bn-int-search { flex: 0 1 18rem; min-width: 12rem; }
+.bn-int-filters { display: flex; flex-wrap: wrap; gap: var(--bn-a-s2); }
+.bn-int-pill {
+	box-sizing: border-box;
+	min-height: 32px;
+	padding: 0 var(--bn-a-s3);
+	border: 1px solid var(--bn-a-input-border);
+	border-radius: var(--bn-a-r-full);
+	background: var(--bn-a-bg);
+	color: var(--bn-a-text-1);
+	font: inherit;
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-semibold);
+	cursor: pointer;
 }
-.bn-int-matrix__subtab .bn-toggle-label {
-	gap: var(--bn-a-s2);
-	min-height: 40px;
-}
-.bn-int-matrix__subtab .bn-field-hint {
-	margin: 0;
+.bn-int-pill:hover { border-color: var(--bn-a-brand); }
+.bn-int-pill.is-active { background: var(--bn-a-brand); border-color: var(--bn-a-brand); color: #fff; }
+.bn-int-pill:focus-visible, .bn-int-chev:focus-visible { outline: 2px solid var(--bn-a-brand); outline-offset: 2px; }
+
+.bn-int-group {
+	margin: var(--bn-a-s6) 0 var(--bn-a-s2);
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-semibold);
+	letter-spacing: .05em;
+	text-transform: uppercase;
+	color: var(--bn-a-text-3);
 }
 
-@media (max-width: 640px) {
-	.bn-admin-hub__content .bn-int-matrix th[data-align="center"],
-	.bn-admin-hub__content .bn-int-matrix td[data-align="center"] {
-		width: 4.5rem;
-		padding-inline: var(--bn-a-s1);
-	}
-	.bn-admin-hub__content .bn-int-matrix tbody th.bn-int-matrix__name,
-	.bn-int-matrix .bn-int-matrix__subrow td {
-		padding-inline: var(--bn-a-s3);
-	}
-	.bn-int-matrix thead th {
-		letter-spacing: normal;
-	}
+.bn-int-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--bn-a-s2); }
+.bn-int-card {
+	margin: 0;
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-lg);
+	overflow: hidden;
+}
+.bn-int-card[hidden] { display: none; }
+.bn-int-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s4);
+	min-height: 72px;
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+}
+.bn-int-tile {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 40px;
+	block-size: 40px;
+	border-radius: var(--bn-a-r-lg);
+	background: var(--bn-a-brand);
+	color: #fff;
+	font-weight: var(--bn-a-fw-bold);
+	font-size: var(--bn-a-text-base);
+}
+/* A product's own mark. The fixed box and the img width/height keep the row
+   from shifting while it loads; the hairline border lets a white or a dark
+   mark read on either admin surface. */
+.bn-int-tile.has-icon {
+	box-sizing: border-box;
+	overflow: hidden;
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+}
+.bn-int-tile.has-icon img {
+	display: block;
+	inline-size: 100%;
+	block-size: 100%;
+	object-fit: contain;
+}
+.bn-int-id { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bn-int-card__title { font-family: var(--bn-a-font-display); font-size: var(--bn-a-text-base); font-weight: var(--bn-a-fw-semibold); color: var(--bn-a-text-1); line-height: 1.3; }
+.bn-int-card__meta { font-size: var(--bn-a-text-sm); color: var(--bn-a-text-2); line-height: 1.4; }
+.bn-int-chip {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+	padding: 0 var(--bn-a-s3);
+	border-radius: var(--bn-a-r-full);
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-semibold);
+	white-space: nowrap;
+	background: var(--bn-a-sunken);
+	color: var(--bn-a-text-2);
+}
+.bn-int-chip[data-state="on"] { background: var(--bn-a-green-bg); color: var(--bn-a-green); }
+.bn-int-chip[data-state="attention"] { background: var(--bn-a-amber-bg); color: var(--bn-a-amber); }
+.bn-int-areas { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--bn-a-s1); inline-size: 14rem; }
+.bn-int-area {
+	display: inline-flex;
+	align-items: center;
+	min-height: 22px;
+	padding: 0 var(--bn-a-s2);
+	border-radius: var(--bn-a-r-sm);
+	background: var(--bn-a-brand-light);
+	color: var(--bn-a-brand-hover);
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-medium);
+}
+.bn-int-area.is-off { background: var(--bn-a-sunken); color: var(--bn-a-text-3); text-decoration: line-through; }
+.bn-int-master { flex: none; }
+.bn-int-chev {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	inline-size: 36px;
+	block-size: 36px;
+	padding: 0;
+	border: 1px solid var(--bn-a-input-border);
+	border-radius: var(--bn-a-r-md);
+	background: var(--bn-a-bg);
+	color: var(--bn-a-text-2);
+	cursor: pointer;
+}
+.bn-int-chev:hover { border-color: var(--bn-a-brand); color: var(--bn-a-brand); }
+.bn-int-chev__icon { inline-size: 16px; block-size: 16px; transition: transform .15s ease; }
+.bn-int-card.is-open .bn-int-chev__icon { transform: rotate( 180deg ); }
+
+.bn-int-detail {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s4);
+	border-top: 1px solid var(--bn-a-border-soft);
+	background: var(--bn-a-bg-subtle);
+}
+/* Without script the panels stay open; with it they open on demand. */
+.js .bn-int-card:not( .is-open ) .bn-int-detail { display: none; }
+.bn-int-opts { display: grid; grid-template-columns: repeat( 3, minmax( 0, 1fr ) ); gap: var(--bn-a-s3); }
+.bn-int-opt {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s3);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	background: var(--bn-a-bg);
+	cursor: pointer;
+}
+.bn-int-opt.is-off { opacity: .6; cursor: default; }
+.bn-int-opt--wide { grid-column: 1 / -1; }
+.bn-int-opt .bn-toggle-label { flex: none; }
+.bn-int-opt__copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bn-int-opt__label { font-size: var(--bn-a-text-sm); font-weight: var(--bn-a-fw-semibold); color: var(--bn-a-text-1); }
+.bn-int-opt__hint { font-size: var(--bn-a-text-xs); line-height: 1.45; color: var(--bn-a-text-2); }
+.bn-int-note {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s1);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border: 1px solid var(--bn-a-amber);
+	border-radius: var(--bn-a-r-md);
+	background: var(--bn-a-amber-bg);
+	color: var(--bn-a-text-1);
+	font-size: var(--bn-a-text-sm);
+	line-height: 1.5;
+}
+.bn-int-subs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--bn-a-s2); }
+.bn-int-subs__label { margin-inline-end: var(--bn-a-s1); font-size: var(--bn-a-text-xs); font-weight: var(--bn-a-fw-semibold); letter-spacing: .04em; text-transform: uppercase; color: var(--bn-a-text-2); }
+.bn-int-sub { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--bn-a-s2); }
+.bn-int-pillswitch {
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	min-height: 32px;
+	padding: 0 var(--bn-a-s3);
+	border: 1px solid var(--bn-a-input-border);
+	border-radius: var(--bn-a-r-full);
+	background: var(--bn-a-bg);
+	font-size: var(--bn-a-text-sm);
+	cursor: pointer;
+}
+.bn-int-pillswitch:has( input:checked ) { border-color: var(--bn-a-brand); background: var(--bn-a-brand-light); }
+.bn-int-pillswitch:focus-within { outline: 2px solid var(--bn-a-brand); outline-offset: 1px; }
+.bn-int-pillswitch input { margin: 0; }
+.bn-int-empty { margin: var(--bn-a-s4) 0; padding: var(--bn-a-s6); text-align: center; color: var(--bn-a-text-2); border: 1px dashed var(--bn-a-input-border); border-radius: var(--bn-a-r-lg); }
+
+@media ( max-width: 1100px ) {
+	.bn-int-areas { display: none; }
+	.bn-int-opts { grid-template-columns: minmax( 0, 1fr ); }
+}
+@media ( max-width: 600px ) {
+	.bn-int-row { flex-wrap: wrap; gap: var(--bn-a-s3); }
+	.bn-int-id { flex-basis: calc( 100% - 56px ); }
+	.bn-int-search { flex-basis: 100%; }
+	.bn-int-chev { min-inline-size: 44px; min-block-size: 44px; }
+	.bn-int-pill { min-height: 44px; }
 }
 
 /* Descriptor-driven option rows (AdminPageBase::render_sections) wrap EVERY control in
@@ -1396,11 +1572,38 @@ select.bn-text-input {
 	box-shadow: var(--bn-a-shadow-md);
 }
 
+.bn-save-bar__status {
+	margin-inline-end: auto;
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-3);
+}
+
+.bn-save-bar[data-dirty="true"] .bn-save-bar__status {
+	color: var(--bn-a-text-1);
+	font-weight: 600;
+}
+
+.bn-save-bar[data-dirty="true"] .bn-save-bar__status::before {
+	content: "";
+	display: inline-block;
+	inline-size: var(--bn-s2);
+	block-size: var(--bn-s2);
+	margin-inline-end: var(--bn-a-s2);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-a-amber);
+}
+
 /* A control scrolled or tabbed to near the bottom of a long tab lands above the
    sticky bar, not under it (WCAG 2.4.11 Focus Not Obscured). The padding covers
    the bar's height plus its bottom offset. */
 html:has(.bn-save-bar) {
 	scroll-padding-bottom: calc(var(--bn-a-s10) * 2 + var(--bn-a-s2));
+}
+/* On a phone the bar stacks its text over its buttons and is taller, so it needs more room. */
+@media (max-width: 782px) {
+	html:has(.bn-save-bar) {
+		scroll-padding-bottom: calc(var(--bn-a-s10) * 3 + var(--bn-a-s4));
+	}
 }
 
 /* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface
@@ -1429,7 +1632,7 @@ html:has(.bn-save-bar) {
 }
 
 input.bn-table-search {
-	border: 1px solid var(--bn-a-border) !important;
+	border: 1px solid var(--bn-a-input-border) !important;
 	border-radius: var(--bn-a-r-sm) !important;
 	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
 	font-size: var(--bn-a-text-sm) !important;
@@ -1572,6 +1775,66 @@ table.bn-table tr:hover td {
 
 .bn-table-wrap__scroll .bn-table tr:hover td:last-child {
 	background: var(--bn-a-bg-hover);
+}
+
+/* Fit the card, not the data. A list with eight columns does not fit a 753px card on a
+   laptop, and the pinned Actions column then covered Role and Status. Columns marked
+   .bn-col-secondary (Community role, Joined, Last active) step aside when the card is
+   narrower than 1260px and the member's name carries their dates in a muted line; wide
+   screens show every column. The query is on the CARD's width, not the window's, so it
+   holds whatever the sidebar and admin menu take. Below 783px WordPress's own stacked
+   layout (the row toggle) takes over, so it is left alone. */
+.bn-table-wrap__scroll {
+	container: bn-tbl / inline-size;
+}
+.bn-member-sub {
+	display: none;
+	margin-block-start: 2px;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+.bn-member-sub > span {
+	display: block;
+}
+@media (min-width: 783px) {
+	@container bn-tbl (max-width: 1260px) {
+		.bn-table .bn-col-secondary {
+			display: none;
+		}
+		.bn-table .bn-member-sub {
+			display: block;
+		}
+		/* The email is the widest thing in the row; letting it wrap is what lets Role and
+		   Status sit beside the name instead of under the pinned Actions. */
+		.bn-admin-hub__content table.bn-table:not(.form-table) :is(th, td).column-primary {
+			min-width: 0;
+			max-width: 14rem;
+		}
+		.bn-table .bn-member-info {
+			max-width: 11rem;
+		}
+		.bn-table .bn-member-meta {
+			flex-wrap: wrap;
+			white-space: normal;
+			overflow-wrap: anywhere;
+		}
+		.bn-table .bn-member-email {
+			white-space: normal;
+		}
+		.bn-admin-hub__content table.bn-table:not(.form-table) :is(th, td) {
+			padding-inline: var(--bn-a-s3);
+		}
+		/* WordPress's row toggle only exists for the stacked mobile layout, but its flex
+		   gap still took 32px of the name cell here. */
+		.bn-table .bn-member-cell .toggle-row,
+		.bn-table .bn-activity-author .toggle-row,
+		.bn-table td.column-primary > .toggle-row {
+			display: none;
+		}
+		.bn-table .bn-space-row-info {
+			max-width: 13rem;
+		}
+	}
 }
 
 /* A wrap-enabled flex cluster reports a tiny min-content width, so the auto
@@ -1840,6 +2103,16 @@ table.bn-table tr:hover td {
 	align-items: center;
 }
 
+/* "Install free" is a real button: it keeps the shared button's fill and label, not the quiet text-link look above. */
+.bn-addon-row__action.bn-btn {
+	color: var(--bn-accent-fg, #fff);
+	padding: var(--bn-a-s1) var(--bn-a-s3);
+}
+.bn-addon-row__action.bn-btn:hover,
+.bn-addon-row__action.bn-btn:focus {
+	color: var(--bn-accent-fg, #fff);
+}
+
 .bn-addon-row__action:hover,
 .bn-addon-row__action:focus {
 	color: var(--bn-a-brand-hover);
@@ -1950,23 +2223,21 @@ table.bn-table tr:hover td {
 	background: var(--bn-a-bg);
 }
 
+/* Wraps: a card can carry two status badges ("Not installed" + "Connects with
+   BuddyNext Pro" on a Free-only site), which do not fit beside the logo and
+   title in a narrow column. They drop to the next line instead of spilling out. */
 .bn-companion-card__head {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 10px;
 }
 
-.bn-companion-card__logo {
-	flex: 0 0 auto;
-	width: 40px;
-	height: 40px;
-	object-fit: contain;
-	border-radius: var(--bn-a-r-sm);
-}
-
 .bn-companion-card__title {
-	flex: 1;
+	flex: 1 1 auto;
+	min-width: 0;
 	margin: 0;
+	overflow-wrap: anywhere;
 	font-size: 15px;
 	font-weight: var(--bn-a-fw-semibold);
 	color: var(--bn-a-text-1);
@@ -1990,6 +2261,14 @@ table.bn-table tr:hover td {
 
 .bn-companion-card__unlocks svg { flex-shrink: 0; }
 
+/* Buttons and links in a card's action row share one height, so "Install free" and "Learn more" sit on one line. */
+.bn-companion-card__actions .bn-btn,
+.bn-companion-card__actions .bn-addon-row__action {
+	min-block-size: 36px;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+}
 .bn-companion-card__actions {
 	display: flex;
 	flex-wrap: wrap;
@@ -1997,6 +2276,14 @@ table.bn-table tr:hover td {
 	gap: 8px;
 	margin-top: auto;
 	padding-top: 4px;
+	/* One height for every card's action row, whether it holds a button and a link or a link alone, so the links of
+	   neighbouring cards sit on one line. */
+	min-block-size: 44px;
+}
+
+/* Three recommended themes sit in one row, not two and an orphan. */
+.bn-companion-grid--themes {
+	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
 }
 
 /* Status badge - companion variant */
@@ -2008,6 +2295,7 @@ table.bn-table tr:hover td {
 	font-weight: var(--bn-a-fw-bold);
 	line-height: 1.6;
 	white-space: nowrap;
+	max-width: 100%;
 }
 
 .bn-companion-badge--success {
@@ -2139,7 +2427,7 @@ table.bn-table tr:hover td {
 .bn-btn:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 25%, transparent);
+	box-shadow: var(--bn-ring);
 }
 
 .bn-btn-primary {
@@ -2148,14 +2436,16 @@ table.bn-table tr:hover td {
 	border-color: transparent;
 }
 
-.bn-btn-primary:hover {
+.bn-btn-primary:hover,
+.bn-btn-primary:focus,
+.bn-btn-primary:active {
 	background: color-mix(in oklch, var(--bn-a-brand) 82%, black);
 	color: var(--bn-accent-fg);
 }
 
 .bn-btn-secondary {
 	background: var(--bn-a-bg);
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	color: var(--bn-a-text-1);
 	border-radius: var(--bn-a-r-md);
 	padding: var(--bn-a-s2) var(--bn-a-s4);
@@ -2196,6 +2486,22 @@ button.bn-btn-danger:hover {
 	background: var(--bn-a-red);
 	border-color: var(--bn-a-red);
 	filter: brightness(0.94);
+}
+
+/* A destructive action repeated down a list (Delete, Revoke) reads as an outline, not a
+   solid red block per row: 40 filled red buttons make a table shout and hide the one
+   thing that needs attention. Still red, still clearly destructive, and it fills on
+   hover and focus. Standalone and modal danger buttons keep their solid style. */
+td .bn-btn[data-variant="danger"] {
+	background: transparent;
+	color: var(--bn-danger);
+	border-color: var(--bn-danger);
+}
+td .bn-btn[data-variant="danger"]:hover,
+td .bn-btn[data-variant="danger"]:focus-visible {
+	background: var(--bn-danger-bg);
+	color: color-mix(in oklab, var(--bn-danger) 80%, var(--bn-ink));
+	border-color: var(--bn-danger);
 }
 
 /* S9 — One secondary/outline button color (gray, not blue).
@@ -2267,7 +2573,7 @@ button.bn-btn-danger:hover {
 
 .bn-page-link {
 	padding: 5px var(--bn-a-s3);
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	font-size: var(--bn-a-text-xs);
 	color: var(--bn-a-text-1);
@@ -2377,7 +2683,7 @@ button.bn-btn-danger:hover {
 .bn-search-input {
 	flex: 1;
 	min-width: var(--bn-a-input-min-w);
-	border: 1px solid var(--bn-a-border) !important;
+	border: 1px solid var(--bn-a-input-border) !important;
 	border-radius: var(--bn-a-r-sm) !important;
 	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
 	font-size: var(--bn-a-text-sm) !important;
@@ -2396,7 +2702,7 @@ button.bn-btn-danger:hover {
 }
 
 .bn-filter-select {
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: var(--bn-a-s2) var(--bn-a-s3);
 	font-size: var(--bn-a-text-sm);
@@ -2465,7 +2771,7 @@ button.bn-btn-danger:hover {
 
 .bn-more-btn {
 	background: transparent;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	width: var(--bn-a-more-btn-sz);
 	height: var(--bn-a-more-btn-sz);
@@ -2572,9 +2878,10 @@ button.bn-btn-danger:hover {
 		flex-wrap: wrap;
 	}
 
+	/* Wrapped tabs read by their labels, as on desktop: no faint divider under the
+	   unselected ones (it drew a 1.1:1 edge); the selected tab keeps its underline. */
 	.bn-atab {
 		border-inline-end: none;
-		border-bottom: 1px solid var(--bn-a-border);
 		flex: 1 1 auto;
 		text-align: center;
 	}
@@ -2767,7 +3074,7 @@ button.bn-btn-danger:hover {
 	width: 100%;
 	max-width: 360px;
 	padding: var(--bn-s2) var(--bn-s3);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink);
@@ -2795,9 +3102,13 @@ button.bn-btn-danger:hover {
 }
 .bn-feature-group:first-of-type { margin-top: 0; }
 
+/* Two columns where the card is wide enough for two readable rows, one on a phone:
+   35 rows in a single column made the tab 4,600px long for what is a label, a line and
+   a switch each. Auto-fill needs no breakpoint, and `[hidden]` rows still drop out of
+   the grid (the search script only toggles that attribute). */
 .bn-feature-grid {
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
 	gap: var(--bn-s2);
 }
 
@@ -2891,6 +3202,8 @@ button.bn-btn-danger:hover {
    longer toggles the checkbox (was display:block, full fieldset width). */
 .bn-webhook-event-row {
 	display: flex;
+	flex-wrap: wrap;
+	min-width: 0;
 	align-items: center;
 	gap: var(--bn-a-s2);
 	padding: var(--bn-a-s2) var(--bn-a-s3);
@@ -2913,7 +3226,8 @@ button.bn-btn-danger:hover {
    previous compact single-column pile read as raw markup (owner). */
 .bn-settings-form fieldset.bn-field:has(.bn-webhook-event-row) {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+	/* min(340px, 100%): a column wider than a phone's content area pushed every row past the card edge. */
+	grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
 	gap: var(--bn-a-s2) var(--bn-a-s3);
 }
 
@@ -2995,29 +3309,6 @@ button.bn-btn-danger:hover {
 	margin: 0;
 }
 
-/* Empty-state "sample data" preview — dimmed, inert illustration of what a
-   moderation tab shows once it has live data. */
-.bn-mod-preview {
-	margin-top: var(--bn-s4);
-	opacity: 0.5;
-	pointer-events: none;
-	user-select: none;
-}
-.bn-mod-preview__badge {
-	display: inline-block;
-	margin-bottom: var(--bn-s2);
-	padding: var(--bn-s1) var(--bn-s3);
-	font-size: var(--bn-text-xs);
-	font-weight: 600;
-	color: var(--bn-ink-2);
-	background: var(--bn-sunken);
-	border: 1px dashed var(--bn-line);
-	border-radius: var(--bn-r-full);
-}
-.bn-mod-preview__table {
-	filter: grayscale(0.35);
-}
-
 /* AI connector status — shown on AI admin screens. Green when a provider is
    connected via the core Settings > Connectors page, amber otherwise. */
 .bn-ai-status {
@@ -3059,9 +3350,18 @@ button.bn-btn-danger:hover {
 	letter-spacing: 0.04em;
 	color: var(--bn-ink-2, #475569);
 }
-.bn-roles-table { max-width: 720px; }
+/* Five tables, one per group of actions. With auto column widths each sized itself to
+   its own longest label, so the "Minimum role" dropdown sat at a different spot in every
+   group. The role column has one fixed width and the action label takes the rest, so the
+   dropdowns line up down the whole tab. */
 .bn-roles-table td { vertical-align: middle; }
-.bn-roles-table select { min-width: 200px; }
+.bn-roles-table th:last-child,
+.bn-roles-table td:last-child { width: 15rem; }
+.bn-settings-section .bn-ss-body .bn-roles-table select { width: 100%; min-width: 0; max-width: 100%; }
+@media (max-width: 640px) {
+	.bn-roles-table th:last-child,
+	.bn-roles-table td:last-child { width: 55%; }
+}
 
 /* ── Insights (Growth section + dashboard widget) ───────────────────────── */
 /* The Insights stat tiles render via the shared stat-strip template part
@@ -3754,6 +4054,29 @@ button.bn-btn-danger:hover {
 	table-layout: auto;
 }
 
+/* The first column of these tables holds the long text (a report's details, a log line) and its full-sentence width
+   was the column's max-content, so it took nearly the whole table and squeezed Reason, Reporter, When and Actions
+   (a Reports table grew to 1182px in a 793px card, Actions off the edge). Capping it makes the text wrap and leaves
+   the room to the columns that carry the controls. */
+.bn-settings-section .bn-ss-body > table.widefat td:first-child,
+.bn-settings-section .bn-ss-body > form > table.widefat td:first-child,
+.bn-settings-section > table.widefat td:first-child {
+	max-inline-size: 16rem;
+}
+
+/* A short value such as '2 days ago' stays on one line. */
+.bn-admin-hub .widefat td.bn-nowrap {
+	white-space: nowrap;
+}
+
+/* The buttons of a row wrap onto a second line instead of making the Actions column the widest one. */
+.bn-settings-section .bn-ss-body > table.widefat td:last-child .bn-row-actions,
+.bn-settings-section .bn-ss-body > form > table.widefat td:last-child .bn-row-actions,
+.bn-settings-section > table.widefat td:last-child .bn-row-actions {
+	flex-wrap: wrap;
+	max-inline-size: 15rem;
+}
+
 } /* min-width: 783px */
 
 /* Below 782px WordPress core stacks a .wp-list-table into labelled rows - the
@@ -4055,20 +4378,47 @@ button.bn-btn-danger:hover {
 	}
 }
 
-/* Touch (iPad included) and narrow screens: the sub-tabs and the row expander
-   meet the 40px tap floor. The expander grows into the 44px the stacked row
-   already reserves for it, by sitting 4px from the corner instead of 8px. */
+/* Touch (iPad included) and narrow screens: the sub-tabs meet the 40px tap floor
+   and the row expander takes the full 44px the stacked row reserves for it,
+   sitting in the corner. */
 @media (pointer: coarse), (max-width: 782px) {
-	.bn-atab {
+	/* Sub-tabs and the list filter fields (core sizes those at 40px) meet the tap
+	   floor: 40px on a narrow mouse window, 44px for a finger. */
+	.bn-atab,
+	.bn-admin-hub .bn-mod-queue-filters select,
+	.bn-admin-hub .bn-mod-queue-filters input:is([type="text"], [type="search"], [type="date"], [type="number"]),
+	.bn-admin-hub .bn-filter-bar select,
+	.bn-admin-hub .bn-filter-bar input:is([type="text"], [type="search"], [type="date"], [type="number"]) {
 		box-sizing: border-box;
 		min-block-size: var(--bn-tap, 40px);
 	}
 
 	.bn-table .toggle-row {
-		inset-inline-end: var(--bn-a-s1, 4px);
-		top: var(--bn-a-s1, 4px);
-		inline-size: var(--bn-tap, 40px);
-		block-size: var(--bn-tap, 40px);
+		inset-inline-end: 0;
+		top: 0;
+		inline-size: 44px;
+		block-size: 44px;
+	}
+
+	/* Row "More actions" (Reports, Members, Spaces): 28px on desktop, 44px to touch. */
+	.bn-admin-hub .bn-more-btn,
+	.bn-admin-hub .bn-table .bn-more-btn {
+		inline-size: 44px;
+		block-size: 44px;
+	}
+
+	/* Its menu rows too: 33px with a mouse is fine, a finger needs 44px. The
+	   open dropdown lives under <body> (more-menu.js), so no hub ancestor here. */
+	.bn-more-dropdown a,
+	.bn-more-dropdown button,
+	.bn-more-dropdown select {
+		box-sizing: border-box;
+		min-block-size: 44px;
+	}
+
+	.bn-more-dropdown .bn-dropdown-item {
+		display: flex;
+		align-items: center;
 	}
 }
 
@@ -4369,6 +4719,7 @@ code.bn-ep-code {
 
 .bn-activity-filter {
 	display: flex;
+	flex: 1 1 100%;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-s2);
@@ -4386,7 +4737,7 @@ code.bn-ep-code {
 .bn-activity-filter .bn-input[type="search"] {
 	flex: 1 1 220px;
 	min-width: 180px;
-	max-width: 340px;
+	max-width: 280px;
 }
 
 .bn-activity-filter .bn-input[type="date"] {
@@ -4718,4 +5069,137 @@ code.bn-ep-code {
 .bn-appeal-decision .bn-input {
 	flex: 1 1 100%;
 	min-inline-size: 0;
+}
+
+/* Profile Fields: the Visible to dropdown held a 192px minimum, which pushed each field
+   table 9 to 22px past its card and added a sideways scrollbar. A narrower select still
+   shows every option ("Members only", "Connections only"). */
+.bn-settings-section .bn-ss-body .bn-pf-table select {
+	width: 100%;
+	min-width: 0;
+	max-width: 10.5rem;
+}
+
+/* Phones: the small controls that were under a comfortable tap size, and the one-line intro text that
+   runs wider than a readable line on a wide screen. */
+.bn-admin-hub__main > p.bn-field-hint { max-width: 72ch; }
+@media ( max-width: 600px ) {
+	.bn-notice__dismiss,
+	.bn-setup-card__dismiss-btn { min-inline-size: 44px; min-block-size: 44px; }
+	.bn-bulk-cb, .bn-table__cb input[type="checkbox"] { inline-size: 22px; block-size: 22px; }
+	.bn-config-btn, .bn-drag-row__handle, .bn-email-editor__token { min-inline-size: 40px; min-block-size: 40px; }
+}
+
+
+/* Text longer than its field (a long select choice, a long placeholder) ends in an ellipsis in wp-admin too. */
+.bn-admin-hub select,
+.bn-admin-hub input[type="text"],
+.bn-admin-hub input[type="search"],
+.bn-admin-hub input[type="email"],
+.bn-admin-hub input[type="url"],
+.bn-admin-hub input::placeholder {
+	text-overflow: ellipsis;
+}
+/* The visibility select in a Profile Fields row keeps room for its word once the row is open. */
+.bn-admin-hub select.bn-pf-vis-field {
+	min-width: 120px;
+}
+
+
+/* Reports, Moderation Log and the other plain list tables at phone width: WordPress only stacks a list table that opts
+   in to its mobile markup, so these keep their columns, and the card scrolls sideways instead of hiding the Actions
+   column behind its rounded corners. */
+@media (max-width: 782px) {
+	/* On a phone the long first column is narrower and the row buttons wrap, so the table fits the card (it scrolls only
+	   when a row still cannot fit). */
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat {
+		display: table;
+		table-layout: fixed;
+		width: 100%;
+		/* Narrower than this the columns hold a word or two each and break mid-word; the card scrolls sideways instead. */
+		min-width: 34rem;
+	}
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat:has(th:nth-child(6)) {
+		min-width: 46rem;
+	}
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th,
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat td {
+		min-width: 0;
+		overflow-wrap: break-word;
+		padding-inline: var(--bn-a-s2, 8px);
+	}
+	/* Column widths by role: the text columns keep enough room for a whole word, the last column holds the buttons. */
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th:first-child {
+		width: 24%;
+	}
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th:last-child {
+		width: 28%;
+	}
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat td:last-child .bn-row-actions {
+		flex-wrap: wrap;
+		max-inline-size: none;
+	}
+	.bn-settings-section .bn-ss-body:has(> table.widefat),
+	.bn-settings-section .bn-ss-body:has(> form > table.widefat),
+	.bn-settings-section:has(> table.widefat),
+	.bn-settings-section:has(> form > table.widefat) {
+		overflow-x: auto;
+	}
+	/* A header never splits mid-word on a phone: the table scrolls instead. */
+	.bn-admin-hub__content .bn-settings-section .bn-ss-body > table.widefat.widefat.widefat th {
+		overflow-wrap: normal;
+		hyphens: manual;
+		letter-spacing: 0;
+	}
+	/* A shadow on the edge that has more table behind it, so a clipped Actions column is a visible cue to scroll. */
+	.bn-settings-section .bn-ss-body:has(> table.widefat) {
+		background:
+			linear-gradient(to right, var(--bn-surface, #fff) 30%, transparent) left center / 24px 100% no-repeat local,
+			linear-gradient(to left, var(--bn-surface, #fff) 30%, transparent) right center / 24px 100% no-repeat local,
+			radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.22), transparent) left center / 10px 100% no-repeat scroll,
+			radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.22), transparent) right center / 10px 100% no-repeat scroll;
+	}
+}
+
+/* (The phone rules above repeat .widefat so they outrank the hub's block-scroller rule for plain tables.) */
+
+/* A long unbroken string in any text cell (a URL in a note or a detail) wraps at the cell's cap instead of stretching
+   the table past its card. `anywhere` lets the column shrink below the URL's length; while the columns have room the
+   table sizes them to their words, so ordinary text is not split (a phone uses break-word in a fixed layout, above).
+   The last column holds the buttons and is left alone. */
+.bn-settings-section .bn-ss-body > table.widefat td,
+.bn-settings-section .bn-ss-body > form > table.widefat td,
+.bn-settings-section > table.widefat td {
+	overflow-wrap: anywhere;
+}
+.bn-settings-section .bn-ss-body > table.widefat td:not(:last-child),
+.bn-settings-section .bn-ss-body > form > table.widefat td:not(:last-child),
+.bn-settings-section > table.widefat td:not(:last-child) {
+	max-inline-size: 22rem;
+}
+.bn-settings-section .bn-ss-body > table.widefat td:first-child strong,
+.bn-settings-section .bn-ss-body > table.widefat td:first-child .description,
+.bn-settings-section .bn-ss-body > table.widefat td:first-child a {
+	overflow-wrap: anywhere;
+}
+
+
+/* WordPress gives .tablenav a fixed 30px height, which assumes its controls stay on one line. On a tablet the bulk
+   bar (select, Apply and the extra fields) wraps to two lines and spilled over the table below it, so the Apply
+   button sat under the header row and could not be clicked. Let the bar grow with its content. */
+.bn-admin-hub .tablenav {
+	height: auto;
+	min-height: 30px;
+	display: flow-root;
+}
+
+/* One control height in the bulk bar: the select, Apply and the other buttons are all 40px. */
+.bn-admin-hub .tablenav .bulkactions select,
+.bn-admin-hub .tablenav .bulkactions .bn-btn,
+.bn-admin-hub .tablenav .bulkactions .button,
+.bn-admin-hub form.bn-bulk-bar select,
+.bn-admin-hub form.bn-bulk-bar .bn-btn {
+	box-sizing: border-box;
+	block-size: 40px;
+	min-block-size: 40px;
 }

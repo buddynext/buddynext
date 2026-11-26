@@ -28,7 +28,8 @@ Interests influence **ranking, not inclusion** - a member still sees the whole c
 ## Setting it up (for owners)
 
 1. Create meaningful **space categories** under **BuddyNext > Spaces > Directory**, in the **Categories** sub-tab - these are the interest choices members see.
-2. That's it. The onboarding step, the profile field, and the personalization engines all follow your categories automatically.
+2. Keep **Show in the spaces directory** on for each category you want members to pick, and do not set it to **Subspaces only**. Only categories shown in the directory and not limited to subspaces are offered as interests, in onboarding and on the profile Interests field.
+3. That's it. The onboarding step, the profile field, and the personalization engines all follow your categories automatically.
 
 You can view (but not edit) each member's picks from the admin member profile - interests belong to the member.
 
@@ -36,6 +37,7 @@ You can view (but not edit) each member's picks from the admin member profile - 
 
 - The Interests profile field is a protected system field: it cannot be deleted from the profile-fields editor, because suggestions and feed ranking depend on it.
 - A member with no picks simply gets the default (non-personalized) suggestions - nothing breaks.
+- A member who picked a category before you hid it keeps that pick; it is just no longer offered to others.
 - Categories you rename update everywhere; categories you delete disappear from members' picks gracefully.
 
 ## Related

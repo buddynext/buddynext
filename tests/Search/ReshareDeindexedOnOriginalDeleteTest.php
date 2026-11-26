@@ -88,8 +88,8 @@ class ReshareDeindexedOnOriginalDeleteTest extends WP_UnitTestCase {
 	/**
 	 * A reshare left dangling by a PRE-release delete (its original removed by a raw
 	 * DB delete that fired no hook, so it was never de-indexed) is repaired lazily:
-	 * the first search that surfaces it drops it from the rendered rows AND schedules
-	 * its de-index, so the index and the count converge over reads instead of the
+	 * the first search that surfaces it drops it from the rendered rows AND de-indexes it
+	 * in the same request, so the index and the count converge over reads instead of the
 	 * badge/pager disagreeing forever (card 10264292524).
 	 *
 	 * @return void
@@ -122,7 +122,7 @@ class ReshareDeindexedOnOriginalDeleteTest extends WP_UnitTestCase {
 
 		// A search matches the reshare's commentary (it is still indexed); the
 		// presentation pass (enrich_results -> enrich_posts) is what drops the dead
-		// reshare from the rendered rows and schedules the repair, while search()'s
+		// reshare from the rendered rows and repairs the index, while search()'s
 		// total still counts it — the exact badge/list drift the card describes.
 		$result   = $search->search( $token, 'post', 20, 1, $sharer );
 		$raw_ids  = array_map( static fn( $r ): int => (int) ( $r['object_id'] ?? 0 ), (array) $result['items'] );
@@ -132,15 +132,8 @@ class ReshareDeindexedOnOriginalDeleteTest extends WP_UnitTestCase {
 		$ids      = array_map( static fn( $r ): int => (int) ( $r['id'] ?? 0 ), $rendered );
 		$this->assertNotContains( $reshare, $ids, 'The dead reshare must be dropped from the rendered rows.' );
 
-		if ( function_exists( 'as_has_scheduled_action' ) ) {
-			$this->assertTrue(
-				as_has_scheduled_action( 'buddynext_async_deindex_post', array( $reshare ), 'buddynext' ),
-				'Surfacing a dangling reshare must schedule its de-index.'
-			);
-		}
-
-		// Running the scheduled worker converges the index — the row is gone.
-		$listener->async_deindex_post( $reshare );
+		// The repair runs in the same request, not on the background queue, so it
+		// also heals a site whose queue never runs (card 10501591033).
 		$this->assertSame( 0, $this->index_rows( $reshare ), 'The dangling reshare must leave the index after the lazy repair.' );
 	}
 }

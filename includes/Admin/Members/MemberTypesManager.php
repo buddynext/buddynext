@@ -230,8 +230,9 @@ class MemberTypesManager {
 					<?php foreach ( $types as $t ) : ?>
 						<tr>
 							<td class="column-primary" data-colname="<?php esc_attr_e( 'Type', 'buddynext' ); ?>">
+								<?php // The text colour members see (member card, profile, directory filter). ?>
 								<span class="bn-type-badge-preview"
-									style="background:<?php echo esc_attr( $t['color'] ); ?>;color:<?php echo esc_attr( $t['text_color'] ); ?>">
+									style="background:<?php echo esc_attr( $t['color'] ); ?>;color:<?php echo esc_attr( buddynext_readable_text_color( (string) $t['color'], (string) $t['text_color'] ) ); ?>">
 									<?php if ( '' !== (string) $t['icon_svg'] ) : ?>
 										<?php echo $t['icon_svg']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- sanitized via wp_kses on save. ?>
 									<?php endif; ?>
@@ -278,7 +279,7 @@ class MemberTypesManager {
 												"
 										class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
 									<div class="bn-more-menu">
-										<button class="bn-more-btn" type="button" aria-label="<?php esc_attr_e( 'More actions', 'buddynext' ); ?>"><?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+										<button class="bn-more-btn" type="button" aria-label="<?php /* translators: %s: member type name. */ echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), $t['name'] ) ); ?>"><?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 										<div class="bn-more-dropdown">
 											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 												<?php wp_nonce_field( 'bn_delete_member_type' ); ?>
@@ -388,7 +389,7 @@ class MemberTypesManager {
 
 						<?php if ( $current_type ) : ?>
 							<span class="bn-type-badge-preview"
-								style="background:<?php echo esc_attr( $current_type['color'] ); ?>;color:<?php echo esc_attr( $current_type['text_color'] ); ?>">
+								style="background:<?php echo esc_attr( $current_type['color'] ); ?>;color:<?php echo esc_attr( buddynext_readable_text_color( (string) $current_type['color'], (string) $current_type['text_color'] ) ); ?>">
 								<?php echo esc_html( $current_type['name'] ); ?>
 							</span>
 						<?php endif; ?>

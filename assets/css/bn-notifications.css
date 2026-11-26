@@ -130,6 +130,8 @@
 .bn-notif-row__avatar-wrap {
 	position: relative;
 	flex-shrink: 0;
+	/* The avatar sits on the first line of the text, not in the middle of a row that is as tall as its action buttons. */
+	align-self: start;
 	width: 28px;
 	height: 28px;
 }
@@ -196,6 +198,9 @@
 
 .bn-notif-row__body {
 	min-width: 0;
+	/* Top-aligned with the avatar (also top-aligned): a one-line row has both on its first line, a tall row keeps
+	   the avatar level with the first line of text instead of a row-centred body. */
+	align-self: start;
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
@@ -493,10 +498,40 @@
 		inset-block-start: var(--bn-s3);
 		inset-inline-end: var(--bn-s3);
 	}
+	/* Compact row: the text on top, then one line holding the time and the buttons (Open, Mark as read), instead of a
+	   third stacked row of full-width buttons. */
+	.bn-notif-row__body {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		grid-template-areas: "text text" "meta actions";
+		align-items: center;
+		row-gap: var(--bn-s1);
+	}
+	/* Room for the unread dot in the corner, so the text never runs under it. */
+	.bn-notif-row__text { grid-area: text; padding-inline-end: var(--bn-s5); }
+	.bn-notif-row__actions .bn-btn { padding-inline: var(--bn-s2); }
+	.bn-notif-row__meta { grid-area: meta; }
+	.bn-notif-row__actions {
+		grid-area: actions;
+		justify-self: end;
+		flex-wrap: nowrap;
+	}
 	.bn-notif-tabs { padding-block-end: 2px; }
 	.bn-notif-pagination {
 		justify-content: space-between;
 		gap: var(--bn-s2);
+	}
+}
+
+/* Above phone width the filter strip wraps instead of scrolling: with the
+   integration tabs it outgrows the main column at 1280px, and a strip with a
+   hidden scrollbar strands its last tabs for a mouse user. Phones keep the
+   swipeable single row from .bn-tabs. */
+@media (min-width: 641px) {
+	.bn-notif-tabs {
+		flex-wrap: wrap;
+		overflow-x: visible;
+		row-gap: var(--bn-s1);
 	}
 }
 

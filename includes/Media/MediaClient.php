@@ -39,9 +39,15 @@ class MediaClient {
 	 * @return bool
 	 */
 	public static function stories_available(): bool {
-		return self::available()
-			&& \WP_Block_Type_Registry::get_instance()->is_registered( 'mvs/pro-stories' )
-			&& '1' === (string) get_option( 'mvs_stories_enabled', '0' );
+		if ( ! self::available() || ! \WP_Block_Type_Registry::get_instance()->is_registered( 'mvs/pro-stories' ) ) {
+			return false;
+		}
+
+		// The engine answers whether stories are on; an older engine without that
+		// answer is asked through its option, as before.
+		return is_callable( array( '\WPMediaVerse\Core\TemplateHelpers', 'stories_available' ) )
+			? (bool) \WPMediaVerse\Core\TemplateHelpers::stories_available()
+			: '1' === (string) get_option( 'mvs_stories_enabled', '0' );
 	}
 
 	/**

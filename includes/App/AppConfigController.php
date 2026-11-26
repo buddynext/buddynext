@@ -255,15 +255,14 @@ class AppConfigController {
 			// Fail closed. The app unlocks on === true and nothing else, so a site
 			// running a version of this plugin that predates the field, or a Pro
 			// that never answered, reads as "no" rather than as "yes by accident".
-			// Pro flips this via buddynext_app_config, and only on a valid licence.
+			// Pro flips this via buddynext_app_config whenever Pro is active (the licence gates updates only).
 			'app_enabled'      => false,
 
 			'pro_active'       => defined( 'BUDDYNEXTPRO_VERSION' ),
 
 			// Fails OPEN, unlike app_enabled: an empty or malformed floor must not
 			// wall off every member of the site behind an update that may not
-			// exist. A licence gate that fails open leaks revenue; a version gate
-			// that fails closed bricks a community over a typo.
+			// exist. A version gate that fails closed bricks a community over a typo.
 			'min_app_version'  => $this->min_app_version(),
 
 			'branding'         => $this->branding(),
@@ -307,7 +306,7 @@ class AppConfigController {
 		/**
 		 * Filter the mobile app's bootstrap config.
 		 *
-		 * Pro uses this to flip app_enabled on a valid licence, fill the legal
+		 * Pro uses this to flip app_enabled while Pro is active, fill the legal
 		 * block, and add its own feature flags. Site owners can override branding.
 		 *
 		 * @since 1.0.9
@@ -369,7 +368,28 @@ class AppConfigController {
 			'emoji_picker'        => (bool) get_option( 'buddynext_enable_emoji_picker', true ),
 			'media_max_mb'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
 			'report_reasons'      => $reasons,
+			// Where this member writes an article (null: nowhere). One answer with the web.
+			'article_provider'    => $this->article_provider(),
 		);
+	}
+
+	/**
+	 * The viewer's article provider with the composer's counts, or null when they
+	 * cannot write (guest, a held member, a role the provider refuses).
+	 *
+	 * Same payload and counts the web composer reads (Feed\ArticleProvider), so the
+	 * app and the website never disagree.
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	private function article_provider(): ?array {
+		$user_id  = get_current_user_id();
+		$provider = \BuddyNext\Feed\ArticleProvider::for_user( $user_id );
+		if ( null === $provider || ! $provider['can_write'] ) {
+			return null;
+		}
+		$provider['counts'] = \BuddyNext\Feed\ArticleProvider::composer_summary( $user_id );
+		return $provider;
 	}
 
 	/**
@@ -390,10 +410,13 @@ class AppConfigController {
 		// Pass "never picked an accent" through rather than dressing it up as a choice.
 		$accent = \BuddyNext\Theme\Appearance::picked_brand();
 
-		// auto | light | dark. 'auto' means follow the device, which is what the
-		// web does for a visitor who has not chosen — so the app must honour the
-		// tri-state and not collapse it to light.
+		// auto | light | dark. The app has no host theme to match, so 'auto' (match
+		// the theme) and 'system' (follow the device) both reach it as 'auto':
+		// follow the device. The app contract keeps its three values.
 		$scheme = (string) get_option( 'buddynext_default_theme', 'auto' );
+		if ( 'system' === $scheme ) {
+			$scheme = 'auto';
+		}
 		if ( ! in_array( $scheme, array( 'auto', 'light', 'dark' ), true ) ) {
 			$scheme = 'auto';
 		}

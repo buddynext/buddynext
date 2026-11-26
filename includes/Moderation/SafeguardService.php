@@ -87,8 +87,11 @@ class SafeguardService {
 		 * @param string        $link_url Optional URL attached to the post.
 		 * @param string        $context  'create' or 'edit'. Create-time-only gates (rate limit,
 		 *                                duplicate content, new-member) must not fire on 'edit'.
+		 * @param string        $object_label What is being written: 'post' here; check_content() passes 'comment',
+		 *                                'profile', 'direct message', 'caption' and so on. A rule that counts posts
+		 *                                (a posts-per-hour limit) applies to 'post' only. Since 1.3.0.
 		 */
-		$pro = apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, 'create' );
+		$pro = apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, 'create', 'post' );
 		if ( is_wp_error( $pro ) ) {
 			return $pro;
 		}
@@ -147,7 +150,7 @@ class SafeguardService {
 		}
 
 		/** This filter is documented in includes/Moderation/SafeguardService.php */
-		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, $context );
+		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, $context, $object_label );
 	}
 
 	/**
@@ -190,7 +193,7 @@ class SafeguardService {
 
 		$pattern = $this->banned_word_pattern( $words );
 
-		if ( '' === $pattern || 1 !== preg_match( $pattern, $content ) ) {
+		if ( '' === $pattern || ! $this->banned_words_match( $pattern, $words, $content ) ) {
 			return true;
 		}
 
@@ -223,6 +226,34 @@ class SafeguardService {
 			),
 			array( 'status' => 422 )
 		);
+	}
+
+	/**
+	 * Whether the content contains a banned word, and never "no" just because the matcher failed.
+	 *
+	 * @param string   $pattern Pattern from banned_word_pattern().
+	 * @param string[] $words   The banned words (for the substring fallback).
+	 * @param string   $content Text to scan.
+	 * @return bool
+	 */
+	private function banned_words_match( string $pattern, array $words, string $content ): bool {
+		$found = preg_match( $pattern, $content );
+		if ( false === $found ) {
+			// The pattern is Unicode-aware, so one invalid byte makes preg_match fail. A failed match
+			// must never read as "allowed": retry on a cleaned copy, then fall back to plain substrings.
+			$clean = wp_check_invalid_utf8( $content, true );
+			$found = preg_match( $pattern, $clean );
+			if ( false === $found ) {
+				foreach ( $words as $word ) {
+					$word = trim( str_replace( '*', '', $word ) );
+					if ( '' !== $word && false !== \BuddyNext\Support\Text::ipos( $clean, $word ) ) {
+						return true;
+					}
+				}
+				return false;
+			}
+		}
+		return 1 === $found;
 	}
 
 	/**
@@ -363,6 +394,47 @@ class SafeguardService {
 	}
 
 	/**
+	 * How many bulk_import() scopes are open in this request.
+	 *
+	 * @var int
+	 */
+	private static int $bulk_depth = 0;
+
+	/**
+	 * Run bulk work (an import, a seeder, a migration) outside the post rate limits.
+	 *
+	 * Only code can open this scope, never a request parameter, so a spammer cannot claim it.
+	 * Every other rule (banned words, blocked links and domains, duplicates) still applies.
+	 * WP-CLI runs count as bulk without calling this.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param callable $work The bulk work.
+	 * @return mixed Whatever $work returns.
+	 */
+	public static function bulk_import( callable $work ) {
+		++self::$bulk_depth;
+		try {
+			return $work();
+		} finally {
+			--self::$bulk_depth;
+		}
+	}
+
+	/**
+	 * Whether the current work is a bulk import (an open bulk_import() scope or a WP-CLI run).
+	 *
+	 * The post, comment and Pro anti-flood rate limits stand down while this is true.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return bool
+	 */
+	public static function is_bulk_import(): bool {
+		return self::$bulk_depth > 0 || ( defined( 'WP_CLI' ) && WP_CLI );
+	}
+
+	/**
 	 * Check whether the user has exceeded the per-minute post rate limit.
 	 *
 	 * Reads option buddynext_post_rate_limit (int, default 10). A value of 0 or
@@ -375,7 +447,7 @@ class SafeguardService {
 	private function check_rate_limit( int $user_id ): bool|WP_Error {
 		$limit = (int) get_option( 'buddynext_post_rate_limit', 10 );
 
-		if ( $limit <= 0 ) {
+		if ( $limit <= 0 || self::is_bulk_import() ) {
 			return true;
 		}
 
@@ -464,9 +536,18 @@ class SafeguardService {
 	/**
 	 * Resolve the requester's client IP, validated.
 	 *
-	 * Reads REMOTE_ADDR by default. Sites behind a proxy/CDN can map the real
-	 * client address (e.g. from X-Forwarded-For) via the `buddynext_client_ip`
-	 * filter. Returns '' when no valid IP can be resolved so callers fail open.
+	 * The ONE place BuddyNext reads the client address: the IP blocklist, the
+	 * login / lost-password / reset / change-email rate limits, the OAuth callback
+	 * limit and the sign-up guard (rate limit + blocklist) all call this, and
+	 * bin/check-client-ip.py fails the build on any other REMOTE_ADDR read.
+	 *
+	 * Reads REMOTE_ADDR by default and never trusts a forwarded header on its
+	 * own: X-Forwarded-For is client-supplied, so keying a limit on it would let
+	 * an attacker mint unlimited buckets. The host or CDN restores the visitor
+	 * address (nginx real_ip, Apache mod_remoteip, Cloudflare "restore visitor
+	 * IP"), as WordPress core expects; sites that cannot do that map it via the
+	 * `buddynext_client_ip` filter. Returns '' when no valid IP can be resolved
+	 * so callers fail open.
 	 *
 	 * @return string A valid IPv4/IPv6 address, or '' when none.
 	 */
@@ -485,6 +566,181 @@ class SafeguardService {
 		$ip = (string) apply_filters( 'buddynext_client_ip', $ip );
 
 		return false !== filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+	}
+
+	/**
+	 * Members sampled by the shared-address Site Health check.
+	 *
+	 * Bounded so the check is one indexed presence query plus one primed
+	 * usermeta read at any community size.
+	 */
+	private const PROXY_SAMPLE = 50;
+
+	/**
+	 * Distinct members needed before the check draws a conclusion.
+	 */
+	private const PROXY_MIN_MEMBERS = 5;
+
+	/**
+	 * Register the Site Health test that spots an unrestored proxy address.
+	 *
+	 * @return void
+	 */
+	public static function register_site_health(): void {
+		add_filter(
+			'site_status_tests',
+			static function ( array $tests ): array {
+				$tests['direct']['buddynext_client_ip'] = array(
+					'label' => __( 'BuddyNext visitor addresses', 'buddynext' ),
+					'test'  => array( self::class, 'site_health_client_ip_test' ),
+				);
+				return $tests;
+			}
+		);
+	}
+
+	/**
+	 * The one address every recently signed-in member shares, if they all share one.
+	 *
+	 * Reads what WordPress core already records: the IP on each member's login
+	 * session (usermeta `session_tokens`, written from REMOTE_ADDR). When several
+	 * different members all sign in from the same address, the server is seeing
+	 * a proxy, load balancer or CDN, not the visitors. No new data is stored.
+	 *
+	 * @param int[] $user_ids Members to inspect (most recently active first).
+	 * @return string The shared address, or '' when addresses differ or the sample is too small.
+	 */
+	public static function shared_visitor_ip( array $user_ids ): string {
+		$ips = self::recent_sign_in_ips( $user_ids );
+		if ( count( $ips ) < self::PROXY_MIN_MEMBERS ) {
+			return '';
+		}
+		$distinct = array_unique( $ips );
+		return 1 === count( $distinct ) ? (string) reset( $distinct ) : '';
+	}
+
+	/**
+	 * The address of each member's latest sign-in, from core's session tokens.
+	 *
+	 * @param int[] $user_ids Members to inspect.
+	 * @return array<int,string> User id => address; members with no recorded address are left out.
+	 */
+	private static function recent_sign_in_ips( array $user_ids ): array {
+		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( count( $user_ids ) < self::PROXY_MIN_MEMBERS ) {
+			return array();
+		}
+		update_meta_cache( 'user', $user_ids );
+
+		$ips = array();
+		foreach ( $user_ids as $user_id ) {
+			$latest = null;
+			foreach ( \WP_Session_Tokens::get_instance( $user_id )->get_all() as $session ) {
+				if ( empty( $session['ip'] ) ) {
+					continue;
+				}
+				if ( null === $latest || (int) ( $session['login'] ?? 0 ) > (int) ( $latest['login'] ?? 0 ) ) {
+					$latest = $session;
+				}
+			}
+			if ( null !== $latest ) {
+				$ips[ $user_id ] = (string) $latest['ip'];
+			}
+		}
+
+		return $ips;
+	}
+
+	/**
+	 * Site Health: warn when every recent member shows the same address.
+	 *
+	 * Behind an unrestored proxy every visitor looks like one person, so the
+	 * sign-up limit (a few per hour) is shared by the whole site and ten wrong
+	 * passwords lock a member out for everyone. The fix belongs to the host, so
+	 * the result names the host-side steps in plain words.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function site_health_client_ip_test(): array {
+		$badge = array(
+			'label' => __( 'BuddyNext', 'buddynext' ),
+			'color' => 'blue',
+		);
+		// Every passing result says what was actually found: the check is skipped in
+		// two cases and cannot judge in a third, and none of those saw different
+		// addresses.
+		$good = static function ( string $label, string $description ) use ( $badge ): array {
+			return array(
+				'label'       => $label,
+				'status'      => 'good',
+				'badge'       => $badge,
+				'description' => '<p>' . esc_html( $description ) . '</p>',
+				'test'        => 'buddynext_client_ip',
+			);
+		};
+
+		// A site that maps the address itself has already fixed this.
+		if ( has_filter( 'buddynext_client_ip' ) ) {
+			return $good(
+				__( 'BuddyNext uses the visitor address your site supplies', 'buddynext' ),
+				__( 'Code on this site sets the visitor address through the buddynext_client_ip filter, so BuddyNext uses that address and does not check recent sign-ins.', 'buddynext' )
+			);
+		}
+
+		// Local development installs legitimately see 127.0.0.1 for everyone.
+		if ( 'local' === wp_get_environment_type() ) {
+			return $good(
+				__( 'Visitor address check skipped on a local site', 'buddynext' ),
+				__( 'This is a local development site, where every visitor shares one address, so the check is skipped. It runs on your live site.', 'buddynext' )
+			);
+		}
+
+		$ips = self::recent_sign_in_ips(
+			\BuddyNext\Realtime\PresenceService::recent_online_ids( self::PROXY_SAMPLE, WEEK_IN_SECONDS )
+		);
+		if ( count( $ips ) < self::PROXY_MIN_MEMBERS ) {
+			return $good(
+				__( 'Not enough recent sign-ins to check visitor addresses', 'buddynext' ),
+				sprintf(
+					/* translators: %d: number of members needed. */
+					__( 'Fewer than %d members signed in during the last week, which is too few to tell whether BuddyNext sees each visitor\'s own address. The check runs again as more members sign in.', 'buddynext' ),
+					self::PROXY_MIN_MEMBERS
+				)
+			);
+		}
+
+		$distinct = array_unique( $ips );
+		if ( 1 !== count( $distinct ) ) {
+			return $good(
+				__( 'BuddyNext sees each visitor\'s own address', 'buddynext' ),
+				__( 'Recent members signed in from different addresses, so sign-up and sign-in limits apply to each visitor separately.', 'buddynext' )
+			);
+		}
+		$shared = (string) reset( $distinct );
+
+		$private = false === filter_var( $shared, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE );
+
+		return array(
+			'label'       => __( 'All your visitors appear to come from one address', 'buddynext' ),
+			'status'      => 'recommended',
+			'badge'       => $badge,
+			'description' => '<p>' . sprintf(
+				/* translators: %s: the IP address every recent member signed in from. */
+				esc_html__( 'Your recent members all signed in from the same address (%s). That usually means a proxy, load balancer or CDN sits in front of the site and the real visitor address is not passed on.', 'buddynext' ),
+				esc_html( $shared )
+			) . '</p><p>'
+				. ( $private
+					? esc_html__( 'It is a private network address, which is what a proxy in front of the server looks like.', 'buddynext' ) . ' '
+					: '' )
+				. esc_html__( 'Until it is fixed, BuddyNext treats every visitor as one person: the sign-up limit is shared by the whole site, and a few wrong passwords can lock a member out for everyone.', 'buddynext' )
+				. '</p><p>' . esc_html__( 'Ask your host to pass the real visitor address to WordPress. The usual fixes are:', 'buddynext' ) . '</p><ul>'
+				. '<li>' . esc_html__( 'Cloudflare: turn on "Restore visitor IP" (or install the Cloudflare plugin, or add the CF-Connecting-IP header rule on the server).', 'buddynext' ) . '</li>'
+				. '<li>' . esc_html__( 'nginx: enable the real_ip module with set_real_ip_from for your proxy and real_ip_header X-Forwarded-For.', 'buddynext' ) . '</li>'
+				. '<li>' . esc_html__( 'Apache: enable mod_remoteip with RemoteIPHeader X-Forwarded-For and RemoteIPTrustedProxy for your proxy.', 'buddynext' ) . '</li>'
+				. '</ul>',
+			'actions'     => '',
+			'test'        => 'buddynext_client_ip',
+		);
 	}
 
 	/**

@@ -36,7 +36,7 @@ BuddyNext can suggest members for you to follow. Suggestions are drawn from memb
 
 ### Follow requests on private accounts
 
-If a member keeps their account private, following them sends a follow request instead of following immediately. The member sees a pending request they can approve or reject, and a count of how many requests are waiting. Once approved, the follow takes effect. On public accounts there is no request step - the follow is instant.
+If a member keeps their account private, following them sends a follow request instead of following immediately. The member sees a pending request they can approve or reject, and a count of how many requests are waiting. The notification about a new request, whether in the bell, in an email or in the daily digest, opens the member's own **Followers** tab, where the pending requests are accepted or declined. Once approved, the follow takes effect. On public accounts there is no request step - the follow is instant.
 
 ## Setting it up (for owners)
 

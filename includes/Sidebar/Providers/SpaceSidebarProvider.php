@@ -350,7 +350,7 @@ class SpaceSidebarProvider {
 					<?php buddynext_icon( 'calendar' ); ?>
 					<?php
 					// translators: %s is the formatted date.
-					printf( esc_html__( 'Created %s', 'buddynext' ), buddynext_date_local( (string) $space->created_at ) );
+					printf( esc_html__( 'Created %s', 'buddynext' ), wp_kses_post( buddynext_date_local( (string) $space->created_at ) ) );
 					?>
 				</span>
 			<?php endif; ?>
@@ -398,7 +398,7 @@ class SpaceSidebarProvider {
 					?>
 					<li class="bn-sh-side-space">
 						<a class="bn-sh-side-space__id" href="<?php echo esc_url( $sub_slug && function_exists( 'buddynext_space_url' ) ? buddynext_space_url( $sub_slug ) : '' ); ?>">
-							<span class="bn-avatar bn-sh-side-space__emblem" data-size="sm" data-tone="<?php echo esc_attr( $this->avatar_tone( $sub_id ) ); ?>" aria-hidden="true"><?php echo esc_html( mb_strtoupper( mb_substr( $sub_name, 0, 1 ) ) ); ?></span>
+							<span class="bn-avatar bn-sh-side-space__emblem" data-size="sm" data-tone="<?php echo esc_attr( $this->avatar_tone( $sub_id ) ); ?>" aria-hidden="true"><?php echo esc_html( \BuddyNext\Support\Text::upper( mb_substr( $sub_name, 0, 1 ) ) ); ?></span>
 							<span class="bn-sh-side-space__body">
 								<span class="bn-sh-side-space__name"><?php echo esc_html( $sub_name ); ?></span>
 								<span class="bn-sh-side-space__meta">

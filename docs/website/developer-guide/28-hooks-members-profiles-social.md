@@ -19,7 +19,8 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 |---|---|---|---|
 | `buddynext_handle_history_limit` | filter | A member changes their handle and BuddyNext records the old one. Caps how many previous handles are kept per member, so an old handle can still resolve to its owner instead of 404ing or being silently re-issued. Default `0` (keep them all). | `int $limit` |
 | `buddynext_profile_write_allowlist` | filter | The profile REST controller decides which fields a member may write about themselves. Anything not on the list is dropped rather than saved, so adding a custom field to the profile form also means adding it here. | `string[] $keys` (the accepted top-level keys) |
-| `buddynext_reserved_profile_slugs` | filter | A member handle is generated or validated. These slugs are refused because they collide with BuddyNext's own profile sub-routes (`files`, `media`, `likes`, …); a member claiming one would shadow their own tab. Add your own to reserve them. | `string[] $slugs` |
+| `buddynext_reserved_profile_slugs` | filter | A handle is checked at sign-up (typed username and the login derived from the email), profile edit, REST and wp-admin. Two tiers: route words (`me`, `edit`, `settings`, `admin`, `search`, `new`, `all`, `page`) are refused for everyone; impersonation words (`support`, `administrator`, `moderator`, `staff`, `help`, `team`, `official`...) are refused for members but an administrator may assign them. `$is_admin_actor` is `true` when an administrator assigns the handle, and the list you receive then holds route words only. Add your own (a brand term) to reserve them; a member who already holds a word keeps it. | `string[] $slugs, bool $is_admin_actor` |
+| `buddynext_presence_online_window` | filter | Deciding how recently a member must have been active to count as online (the green dot, the Online only filter, the online sort and the online widget). Receives the window in seconds (default 600); the result is never lower than the one-minute write throttle. Presence is recorded on page load, on client-side navigation and when a tab becomes visible, with at most one request per tab every four minutes. | `apply_filters( 'buddynext_presence_online_window', 600 )` - for example `add_filter( 'buddynext_presence_online_window', static fn () => 900 );` counts a member as online for 15 minutes. |
 | `buddynext_registration_pending` | action | A new registration is created but awaits admin approval | `int $user_id, string $email` |
 | `buddynext_user_verified` | action | A member completes email verification | `int $user_id` |
 | `buddynext_onboarding_completed` | action | A member finishes the onboarding wizard | `int $user_id` |
@@ -36,6 +37,12 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_profile_viewed` | action | A member's profile is served to a different viewer (never on self-view) | `int $profile_user_id, int $viewer_id` |
+
+### Profile and Space tab addresses
+
+| Hook | Type | When | Arguments |
+|---|---|---|---|
+| `buddynext_route_tab_exists` | filter | A profile or Space address names a tab. A tab that is not in the viewer's navigation answers 404. Return true to keep an address you serve yourself (for example an old link your add-on redirects). | `bool $is_known`, `string $surface` (`profile` or `space`), `string $tab`, `array $context` |
 
 > **Note:** The old `buddynext_profile_extra_data` filter that injected extra stat blocks into the profile header has been removed. Profile and space tabs are now registered through the unified Nav API - hook `buddynext_register_nav` to add a profile tab. See the integration registry (`buddynext_integrations`) for owner-toggle wiring.
 
@@ -66,6 +73,7 @@ These extend the profile field system. The default field types and labels are re
 | `buddynext_profile_field_row_badges` | action | After a field's name in the admin field list | `array $field, array $group` |
 | `buddynext_profile_field_setup_issues` | filter | Building the "Some profile fields need attention" notice on the Profile Fields screen. Append `array( 'field_id' => int, 'message' => string )`; the message follows the field label | `array $issues, array $groups` |
 | `buddynext_profile_field_wrapper_attributes` | filter | Printing the wrapper of one profile field on any member form: profile edit, signup, complete-profile and the admin member editor. Free always adds `data-bn-field-key` | `string $extra, array $field, int $user_id` - return escaped attributes with a leading space; `$user_id` is `0` on signup |
+| `buddynext_profile_text_cap` | filter | Resolving the character limit of a text or paragraph field. The same number sets the form's `maxlength` and the server's refusal on profile edit, REST, the admin member editor and sign-up. Defaults: the built-in fields keep their own limits (bio 1000, headline 160, location 120, pronouns 40); every other text field 255, every other paragraph field 5000. Return `0` for no limit. A value already stored over the limit still saves while it is unchanged | `int $cap, array $field` |
 | `buddynext_profile_group_wrapper_attributes` | filter | Printing the wrapper of one profile section on forms that render sections (profile edit, admin member editor). Free always adds `data-bn-group-key` | `string $extra, array $group, int $user_id` |
 | `buddynext_profile_saved` | action | After `ProfileService::save_profile()` commits, from every entry point (REST self-edit, admin editor, onboarding, registration, importers) | `int $user_id, array $data` - `$data` is the submitted payload keyed by `field_key` |
 
@@ -245,6 +253,7 @@ Narrower hooks that did not fit the sections above. Same table shape.
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
+| `buddynext_member_directory_per_page` | filter | How many members one directory page shows (default 24, clamped to 1-50). The server-rendered page, the pager and the REST default all read it; use a multiple of 12 to keep every grid width full. | `int $per_page` |
 | `buddynext_member_directory_query_args` | filter | The directory query args are resolved, before the SQL is built. Adjust `per_page`, `sort`, and `filters`. | `array $query_args, string $scope, int $viewer_id` (`$scope` is always `member_directory`) |
 | `buddynext_member_directory_order_by` | filter | The ORDER BY fragment is built (without the `ORDER BY` keyword). It is interpolated into SQL, so return only column references and `ASC`/`DESC`, and end with `u.ID` as a tie-breaker. | `string $order_by, int $viewer_id, array $query_args` |
 | `buddynext_member_directory_items` | filter | The hydrated member rows are about to be returned. Reorder or enrich them; removing rows does not adjust `total` or the cursor. | `array $items, string $scope, int $viewer_id, array $query_args` |

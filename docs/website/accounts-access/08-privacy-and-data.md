@@ -58,7 +58,11 @@ If your community needs to ask visitors for cookie consent - for example under E
 
 ## What members control on their own Privacy tab
 
-Under **Settings > Privacy**, each change saves as soon as a member makes it. The controls are **Who can see my profile**, **Who can follow me**, **Who can send me connection requests**, **Who can @mention me** (Members, My connections or Nobody), **Private account** (only approved followers see posts; new follows arrive as requests), **Show me in the member directory**, **Show my profile to search engines** and **Hide my profile views**. **Who can message me** is shown here too, but it is set in MediaVerse and BuddyNext only displays it. With a current MediaVerse, a one-line explanation under the row says what the selected choice allows and changes when the choice changes. Older MediaVerse versions show the row without the explanation.
+Under **Settings > Privacy**, each change saves as soon as a member makes it. The controls are **Who can see my profile**, **Who can follow me**, **Who can send me connection requests**, **Who can notify me with an @mention** (Members, My connections or Nobody), **Private account** (only approved followers see posts; new follows arrive as requests), **Show when I'm online**, **Show me in the member directory**, **Show my profile to search engines** and **Hide my profile views**. **Who can message me** is shown here too, but it is set in MediaVerse and BuddyNext only displays it. With a current MediaVerse, a one-line explanation under the row says what the selected choice allows and changes when the choice changes. Older MediaVerse versions show the row without the explanation.
+
+**Who can see my profile** controls who can open the profile page. A member set to "Only me" still appears by name and photo in the Members directory, in search and on posts they share, because the directory only shows that a member exists. Use **Private account** to limit who sees their posts.
+
+**Show when I'm online** is on by default. Turned off, the member's green dot and online status disappear from the member directory, the Online only filter, the Online now list, profiles, feed cards and Messages, and from Jetonomy pages when Jetonomy is active. It works both ways: while it is off, the member does not see anyone else's status either. Site moderators and admins still see the status, with a **Hidden from members** label on the profile. With Jetonomy active the choice is the same one Jetonomy's own setting stores, so a member who already hid their status in Jetonomy stays hidden.
 
 ## Export my data
 
@@ -98,6 +102,10 @@ This matches the standard expectation that deleting an account removes the perso
 - **What gets removed.** Deletion erases everything tied to the member: profile, preferences, follows, connections, blocks, and their own posts and comments. It is a complete erasure, not a hide, with no option to retain the content.
 - **Administrators are protected.** A site administrator cannot delete their own account through the member-facing tool, so you cannot accidentally lock yourself out of your own community. Instead of a button, an administrator sees a note under **Delete my account** saying another administrator can remove the account from **Users** in the WordPress dashboard.
 - **Consent and indexing are community-wide.** The cookie banner and the search-engine indexing policy apply to the whole community. Individual members can still choose to hide their own profile from search engines in their Privacy settings.
+
+## Memberships and invoices (BuddyNext Pro)
+
+A member's WordPress privacy export includes their memberships and invoices. A privacy erase request does not remove invoices or the subscriptions behind them: they are financial records the site must keep for tax purposes, and the erase report says so.
 
 ## Related
 

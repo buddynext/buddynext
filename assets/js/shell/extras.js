@@ -377,7 +377,11 @@
 	} );
 
 	document.addEventListener( 'keydown', function ( e ) {
-		var inInput = e.target.closest && e.target.closest( 'input,textarea,[contenteditable]' );
+		// A bare-key shortcut must never fire while the member is working in a form. Text fields were already skipped,
+		// but focus on a button INSIDE a form (an editor's Save draft or Add Heading) is still part of that work: n or
+		// g then f there navigated away and took an unsaved article with it. A control that is not a field but is
+		// inside a form or a dialog, a select, and anything marked data-bn-no-shortcuts are skipped too. Ctrl/Cmd+K is unaffected.
+		var inInput = e.target.closest && e.target.closest( 'input,textarea,select,form,[contenteditable],[role="textbox"],[role="dialog"],[data-bn-no-shortcuts]' );
 
 		if ( ( e.metaKey || e.ctrlKey ) && e.key === 'k' ) {
 			e.preventDefault();
@@ -429,51 +433,14 @@
 	} );
 	} // end buddynext_keyboard_shortcuts_enabled
 
-	// ── Mobile "More" overflow sheet ───────────────────────────────────────
-	// The bottom bar folds the Profile shortcut + admin-created custom tabs into
-	// a bottom sheet (nav.php) when overflow items exist. Toggle/close it here.
-	( function () {
-		function sheet() { return document.getElementById( 'bn-mobile-more' ); }
-		function backdrop() { return document.querySelector( '.bn-mobile-more-backdrop' ); }
-
-		function setOpen( open ) {
-			var s = sheet();
-			var b = backdrop();
-			if ( ! s ) return;
-			s.hidden = ! open;
-			if ( b ) b.hidden = ! open;
-			var toggle = document.querySelector( '[data-bn-more-toggle]' );
-			if ( toggle ) toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
-			var focusTo = open ? s.querySelector( '.bn-mobile-more__close' ) : toggle;
-			if ( focusTo ) focusTo.focus();
-		}
-
-		document.addEventListener( 'click', function ( e ) {
-			if ( ! e.target.closest ) return;
-			if ( e.target.closest( '[data-bn-more-toggle]' ) ) {
-				e.preventDefault();
-				setOpen( sheet() && sheet().hidden );
-				return;
-			}
-			if ( e.target.closest( '[data-bn-more-close]' ) ) {
-				e.preventDefault();
-				setOpen( false );
-			}
-		} );
-
-		document.addEventListener( 'keydown', function ( e ) {
-			if ( e.key === 'Escape' ) {
-				var s = sheet();
-				if ( s && ! s.hidden ) setOpen( false );
-			}
-		} );
-	}() );
+	// The mobile "More" sheet lives in shell/mobile-more.js (a dependency of this file),
+	// so pages without the shell (Jetonomy under BuddyNext) can load it alone.
 
 	// ── Horizontal tab strips: wheel-to-scroll ─────────────────────────────
 	// .bn-tabs strips scroll horizontally when they overflow (CSS overflow-x:
 	// auto) and a scroll-driven edge fade hints there is more. But a mouse wheel
 	// only scrolls vertically, so desktop mouse users could not reach tabs past
-	// the fade (keyboard users already get auto-scroll on focus, trackpad users
+	// the fade (keyboard focus is handled below, trackpad users
 	// get native horizontal scroll). Translate vertical wheel intent into
 	// horizontal scroll while the strip can still move; release to the page at
 	// the ends so the surrounding scroll never feels stuck.
@@ -489,6 +456,16 @@
 		strip.scrollLeft += e.deltaY;
 		e.preventDefault();
 	}, { passive: false } );
+
+	// Browsers only scroll a focused element into view when it is fully out of
+	// sight, so a tab half under the edge fade stayed half hidden on Tab. Bring
+	// the focused tab fully into the strip (only the strip moves: inline, nearest).
+	document.addEventListener( 'focusin', function ( e ) {
+		var strip = e.target.closest && e.target.closest( '.bn-tabs' );
+		if ( strip && strip.scrollWidth > strip.clientWidth && e.target !== strip ) {
+			e.target.scrollIntoView( { block: 'nearest', inline: 'nearest' } );
+		}
+	} );
 
 	// ── User hover card ────────────────────────────────────────────────────
 	( function () {

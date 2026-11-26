@@ -157,7 +157,7 @@ do_action( 'buddynext_part_hashtag_hero_before', $args );
 
 	<div class="bn-stat-grid bn-hashtag-header__stats">
 		<div class="bn-stat">
-			<div class="bn-stat__label"><?php echo esc_html( _n( 'Post', 'Posts', (int) $bn_post_count, 'buddynext' ) ); ?></div>
+			<div class="bn-stat__label"><?php echo esc_html( _nx( 'Post', 'Posts', (int) $bn_post_count, 'Count label for the number of posts', 'buddynext' ) ); ?></div>
 			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $bn_post_count ) ); ?></div>
 		</div>
 		<div class="bn-stat">

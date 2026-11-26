@@ -54,7 +54,8 @@ ob_start();
 				'row_avatar'  => (string) get_avatar_url( $bn_uid, array( 'size' => 40 ) ),
 				'row_tone'    => $bn_tone,
 				// Guests / self get no Follow button (matches the prior gating).
-				'row_follow'  => ( $bn_viewer > 0 && $bn_viewer !== (int) $bn_uid ),
+				// A suspended member cannot follow anyone, so the rows carry no Follow button.
+				'row_follow'  => ( $bn_viewer > 0 && $bn_viewer !== (int) $bn_uid && ! buddynext_service( 'moderation' )->is_suspended( $bn_viewer ) ),
 			)
 		);
 	endforeach;

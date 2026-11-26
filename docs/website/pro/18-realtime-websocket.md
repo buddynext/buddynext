@@ -37,7 +37,7 @@ Realtime settings live in the BuddyNext admin under **Realtime & Push > Realtime
 
 ### Requirements
 
-- A Pusher-compatible WebSocket server. Sockudo (open-source, self-hosted, actively maintained) is the recommended option and is free; Laravel Reverb is another self-hosted choice; Pusher Channels or Ably (in Pusher-compatible mode) are hosted drop-in alternatives that need no server of your own. The same Host, App ID, Key and Secret fields work for all of them; there are no separate port or scheme fields, so put the scheme (and port, if any) in the Host.
+- A Pusher-compatible WebSocket server. Sockudo (open-source, self-hosted, actively maintained) is the recommended option and is free; Laravel Reverb is another self-hosted choice; Pusher Channels or Ably (in Pusher-compatible mode) are hosted drop-in alternatives that need no server of your own. The same Host, App ID, Key and Secret fields work for all of them; there are no separate port or scheme fields, so put the scheme (and port, if any) in the Host. For Pusher Channels the Host is `https://api-YOUR-CLUSTER.pusher.com`; for Ably it is `https://main.pusher.ably.net` (see the [deployment guide](25-realtime-server-deployment.md) for which part of the key goes where).
 
 ### Choosing and connecting a server
 

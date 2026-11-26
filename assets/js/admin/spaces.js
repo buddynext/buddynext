@@ -76,6 +76,7 @@
 		bd.className = 'bn-modal-backdrop';
 		bd.setAttribute( 'role', 'dialog' );
 		bd.setAttribute( 'aria-modal', 'true' );
+		bd.setAttribute( 'aria-labelledby', 'bn-cat-confirm-title' );
 		bd.hidden = true;
 
 		var panel = document.createElement( 'div' );
@@ -87,6 +88,7 @@
 		head.className = 'bn-modal__head';
 		var title = document.createElement( 'h2' );
 		title.className = 'bn-modal__title';
+		title.id = 'bn-cat-confirm-title';
 		title.setAttribute( 'data-bn-cat-confirm-title', '' );
 		var closeBtn = document.createElement( 'button' );
 		closeBtn.type = 'button';

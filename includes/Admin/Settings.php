@@ -140,7 +140,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'features'      => __( 'Features', 'buddynext' ),
 			'registration'  => __( 'Registration & Login', 'buddynext' ),
 			'social'        => __( 'Social', 'buddynext' ),
-			'spaces'        => __( 'Settings', 'buddynext' ),
+			'spaces'        => __( 'Space settings', 'buddynext' ),
 			'notifications' => __( 'Notifications', 'buddynext' ),
 			'email'         => __( 'Email', 'buddynext' ),
 			'moderation'    => __( 'Controls', 'buddynext' ),
@@ -229,7 +229,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Settings API success notice — options.php redirects back here with
 		// ?settings-updated=true after a save; surface the confirmation.
 		if ( isset( $_GET['settings-updated'] ) && 'true' === sanitize_text_field( wp_unslash( $_GET['settings-updated'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
+			// A refused value is reported by its own notice; a green "Settings saved." beside it would say the opposite.
+			$bn_refused = array_filter(
+				get_settings_errors(),
+				static fn( array $e ): bool => 'error' === $e['type'] && ! in_array( $e['setting'], array( 'general', 'buddynext_messages' ), true )
+			);
+			if ( array() === $bn_refused ) {
+				add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
+			}
 			// Sanitizers report under their own option key and options.php carries those across
 			// the redirect, but only core's Settings screens print them; surface them here too.
 			foreach ( get_settings_errors() as $bn_error ) {
@@ -1797,7 +1804,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							 * and the first two did exactly the same thing: the ONLY code that
 							 * reads this option is EmailSender::digests_enabled(), which asks
 							 * `'never' !== $value`. Both cron jobs are scheduled unconditionally
-							 * (CronScheduler::maybe_schedule for JOB_DAILY_DIGEST and
+							 * (CronScheduler::ensure_recurring for JOB_DAILY_DIGEST and
 							 * JOB_WEEKLY_DIGEST), and the cadence a member actually receives
 							 * comes from their own `email_freq` preference. So an owner who
 							 * picked Daily changed nothing, and the hint - "how often BuddyNext
@@ -2704,10 +2711,22 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		// Integration bridges are configured on the Integrations tab (per-aspect
 		// toggles), not here — the Features tab has no 'bridges' group.
-		$group_labels = array(
-			'core'         => __( 'Core (always on)', 'buddynext' ),
-			'community'    => __( 'Community features', 'buddynext' ),
-			'integrations' => __( 'Power-user integrations', 'buddynext' ),
+		/**
+		 * Filter the Features tab group headings, keyed by a feature's `group`.
+		 * A plugin that adds features in its own groups names them here; a group
+		 * with no label shows its key.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array<string,string> $group_labels Group key => translated heading.
+		 */
+		$group_labels = (array) apply_filters(
+			'buddynext_feature_group_labels',
+			array(
+				'core'         => __( 'Core (always on)', 'buddynext' ),
+				'community'    => __( 'Community features', 'buddynext' ),
+				'integrations' => __( 'Power-user integrations', 'buddynext' ),
+			)
 		);
 
 		// S5: the page H1 + subhead already say "Features" / "Pick which features
@@ -3353,7 +3372,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						</label>
 						<div class="bn-copy-row">
 							<input type="text" class="bn-input" id="<?php echo esc_attr( $cb_id ); ?>" value="<?php echo esc_attr( $cb ); ?>" readonly onfocus="this.select()" />
-							<button type="button" class="bn-btn bn-copy-btn" data-variant="secondary" data-size="sm" data-bn-copy="<?php echo esc_attr( $cb_id ); ?>"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
+							<button type="button" class="bn-btn bn-copy-btn" data-variant="secondary" data-size="sm" data-bn-copy="<?php echo esc_attr( $cb_id ); ?>" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: provider name (e.g. Google). */ __( 'Copy the redirect link for %s', 'buddynext' ), $label ) ); ?>"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
 						</div>
 					</div>
 
@@ -3396,14 +3415,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * Each card resolves to a real, state-aware action: Active companions show
 	 * "Connected"; installed-but-inactive get a one-click Activate; not-installed
 	 * get a one-click "Install free" via the EDD store (CompanionInstaller,
-	 * install_plugins-gated). A "Learn more" link to the store page sits alongside
-	 * every action.
+	 * install_plugins-gated). The free GitHub site tools follow, installed from
+	 * their public release with a manual fallback. A "Learn more" link sits
+	 * alongside every action.
 	 *
 	 * @return void
 	 */
 	private function render_tab_integrations(): void {
-		$companions   = \BuddyNext\Integrations\CompanionRegistry::all();
+		// The free GitHub site tools (Demo Installer, Wbcom Essential) list after the companions.
+		$companions   = \BuddyNext\Integrations\CompanionRegistry::all() + \BuddyNext\Integrations\CompanionRegistry::tools();
 		$can_install  = current_user_can( 'install_plugins' );
+		$files_ok     = wp_is_file_mod_allowed( 'buddynext_companion_install' );
 		$can_activate = current_user_can( 'activate_plugins' );
 		$logo_base    = defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '';
 		$logo_base   .= 'assets/img/companions/';
@@ -3454,7 +3476,16 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				$bn_unlocks  = (string) ( $bn_c['unlocks'] ?? '' );
 				$bn_store    = (string) ( $bn_c['store_url'] ?? '' );
 				$bn_basename = (string) ( $bn_c['free']['basename'] ?? '' );
-				$bn_logo     = $logo_base . sanitize_file_name( (string) $bn_slug ) . '.svg';
+				$bn_github   = 'github' === ( $bn_c['source'] ?? '' );
+				// A GitHub tool installs or activates in place; with installs blocked it shows the manual steps.
+				// DISALLOW_FILE_MODS also removes install_plugins, so a locked host is judged on activate_plugins.
+				$bn_gh_block = $bn_github && 'not_installed' === $bn_status && ! $files_ok && $can_activate;
+				$bn_gh_click = $bn_github && 'active' !== $bn_status && ( $can_install || $bn_gh_block );
+				$bn_gh_attrs = '';
+				if ( $bn_gh_click ) {
+					\BuddyNext\Integrations\CompanionGithubUi::enqueue();
+					$bn_gh_attrs = \BuddyNext\Integrations\CompanionGithubUi::attrs( (string) $bn_slug, $bn_status, array( 'badge' => __( 'Installed', 'buddynext' ) ) );
+				}
 
 				// Four of these connect through a bridge that ships in BuddyNext Pro.
 				// Without Pro the plugin is installed but nothing is wired, so the
@@ -3467,7 +3498,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					$bn_badge_label = __( 'Installed', 'buddynext' );
 				} elseif ( 'active' === $bn_status ) {
 					$bn_badge_class = 'bn-companion-badge bn-companion-badge--success';
-					$bn_badge_label = __( 'Connected', 'buddynext' );
+					$bn_badge_label = $bn_github ? __( 'Installed', 'buddynext' ) : __( 'Connected', 'buddynext' );
 				} elseif ( 'inactive' === $bn_status ) {
 					$bn_badge_class = 'bn-companion-badge bn-companion-badge--warning';
 					$bn_badge_label = __( 'Installed, activate', 'buddynext' );
@@ -3476,18 +3507,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					$bn_badge_label = __( 'Not installed', 'buddynext' );
 				}
 				?>
-			<div class="bn-companion-card" id="bn-companion-<?php echo esc_attr( sanitize_html_class( (string) $bn_slug ) ); ?>" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+			<div class="bn-companion-card" id="bn-companion-<?php echo esc_attr( sanitize_html_class( (string) $bn_slug ) ); ?>" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>"<?php echo $bn_gh_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CompanionGithubUi::attrs() escapes every value. ?>>
 				<div class="bn-companion-card__head">
-					<img
-						class="bn-companion-card__logo"
-						src="<?php echo esc_url( $bn_logo ); ?>"
-						alt="<?php echo esc_attr( $bn_label ); ?>"
-						width="40"
-						height="40"
-						loading="lazy"
-					/>
+					<?php echo ProductIcon::for_companion( (string) $bn_slug, $bn_c ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- ProductIcon escapes its markup. ?>
 					<h3 class="bn-companion-card__title"><?php echo esc_html( $bn_label ); ?></h3>
-					<span class="<?php echo esc_attr( $bn_badge_class ); ?>"><?php echo esc_html( $bn_badge_label ); ?></span>
+					<span class="<?php echo esc_attr( $bn_badge_class ); ?>" data-bn-gh-badge><?php echo esc_html( $bn_badge_label ); ?></span>
 					<?php if ( $bn_needs_pro && ! $bn_waits_for_pro ) : ?>
 						<span class="bn-companion-badge bn-companion-badge--muted"><?php esc_html_e( 'Connects with BuddyNext Pro', 'buddynext' ); ?></span>
 					<?php endif; ?>
@@ -3514,11 +3538,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 				<div class="bn-companion-card__actions">
 					<?php // Active companions already carry the "Connected" status badge in the card head, so the actions row shows only "Learn more". ?>
-					<?php if ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
+					<?php if ( $bn_gh_click ) : ?>
+						<?php if ( ! $bn_gh_block ) : ?>
+							<button type="button" class="bn-addon-row__action" data-bn-gh-go>
+								<span class="bn-gh-spinner" aria-hidden="true"></span>
+								<span data-bn-gh-label><?php echo esc_html( 'inactive' === $bn_status ? __( 'Activate', 'buddynext' ) : __( 'Install free', 'buddynext' ) ); ?></span>
+							</button>
+						<?php endif; ?>
+					<?php elseif ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
 						<a href="<?php echo esc_url( \BuddyNext\Integrations\CompanionRegistry::activate_url( $bn_basename ) ); ?>"
 							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
-					<?php elseif ( 'not_installed' === $bn_status && $can_install ) : ?>
-						<button type="button" class="bn-addon-row__action bn-companion-install" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+					<?php elseif ( 'not_installed' === $bn_status && $can_install && ! $bn_github ) : ?>
+						<button type="button" class="bn-btn bn-addon-row__action bn-companion-install" data-variant="primary" data-size="sm" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 							<?php esc_html_e( 'Install free', 'buddynext' ); ?>
 						</button>
 					<?php elseif ( $bn_waits_for_pro && null !== $bn_pro_action ) : ?>
@@ -3534,6 +3565,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 					<span class="bn-companion-msg" role="status" aria-live="polite"></span>
 				</div>
+				<?php
+				if ( $bn_gh_click ) {
+					\BuddyNext\Integrations\CompanionGithubUi::render_status();
+					\BuddyNext\Integrations\CompanionGithubUi::render_fallback( (string) $bn_slug, $bn_gh_block ? \BuddyNext\Integrations\CompanionGithubUi::blocked_reason() : '' );
+				}
+				?>
 			</div>
 			<?php endforeach; ?>
 		</div>
@@ -3583,7 +3620,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			</div>
 		</div>
 
-		<div class="bn-companion-grid">
+		<div class="bn-companion-grid bn-companion-grid--themes">
 			<?php foreach ( $bn_themes as $bn_t ) : ?>
 			<div class="bn-companion-card" data-status="<?php echo $bn_t['active'] ? 'active' : 'not_installed'; ?>">
 				<div class="bn-companion-card__head">
@@ -3599,7 +3636,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 				<div class="bn-companion-card__actions">
 					<?php if ( ! $bn_t['active'] && ! empty( $bn_t['install'] ) && $can_install ) : ?>
-						<a href="<?php echo esc_url( (string) $bn_t['install'] ); ?>" class="bn-addon-row__action"><?php esc_html_e( 'Install free', 'buddynext' ); ?></a>
+						<a href="<?php echo esc_url( (string) $bn_t['install'] ); ?>" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Install free', 'buddynext' ); ?></a>
 					<?php endif; ?>
 					<a href="<?php echo esc_url( (string) $bn_t['store'] ); ?>" class="bn-addon-row__action bn-addon-row__action--ghost" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Learn more', 'buddynext' ); ?></a>
 				</div>
@@ -3770,7 +3807,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							<?php $bn_member = get_userdata( (int) $bn_row['user_id'] ); ?>
 							<tr>
 								<td class="column-primary">
-									<?php echo buddynext_date_local( (string) $bn_row['created_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ); ?>
+									<?php echo wp_kses_post( buddynext_date_local( (string) $bn_row['created_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?>
 									<button type="button" class="toggle-row">
 										<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
 										<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>

@@ -20,6 +20,7 @@ namespace BuddyNext\Nav\Providers;
 
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Media\MediaClient;
+use BuddyNext\Feed\FeedWindow;
 use BuddyNext\Nav\NavContext;
 use BuddyNext\Nav\NavRegistry;
 use BuddyNext\Spaces\SpaceFieldRegistry;
@@ -443,7 +444,7 @@ final class SpaceNav {
 		$archived   = ! empty( $space->is_archived );
 		// An archived space is read-only for everyone (mirrors the post/comment/join
 		// guards); otherwise the composer follows the space's "who can post" rule.
-		$can_post = $is_member && ! $archived && SpacePostGuard::can_post( $space_id, $viewer_id );
+		$can_post = $is_member && SpacePostGuard::can_contribute( $space_id, $viewer_id );
 
 		$feed = buddynext_service( 'feed' );
 
@@ -826,6 +827,11 @@ final class SpaceNav {
 
 		$viewer = get_current_user_id();
 
+		// A page of posts at a time: Load more grows the page, then Older media continues from the cursor, like every
+		// other list (FeedWindow). Without this the tab stopped at the newest 24 with no way to older media.
+		$window = FeedWindow::read( 24 );
+		$media  = buddynext_service( 'feed' )->space_media_page( $space_id, $viewer, (int) $window['shown'], '' !== (string) $window['cursor'] ? (string) $window['cursor'] : null );
+
 		// The same gallery the profile uses, scoped to this space: one template
 		// and one Interactivity store for both, so the two cannot drift.
 		// space_media_ids() supplies the flat grid (media shared in posts here);
@@ -836,7 +842,8 @@ final class SpaceNav {
 				'bn_mt_space_id'       => $space_id,
 				'bn_mt_owner_id'       => 0,
 				'bn_mt_is_owner'       => \BuddyNext\Media\Galleries::can_create_space_album( $space_id, $viewer ),
-				'bn_mt_media_ids'      => (array) buddynext_service( 'feed' )->space_media_ids( $space_id, $viewer, 24 ),
+				'bn_mt_media_ids'      => $media['ids'],
+				'bn_mt_pager'          => FeedWindow::links( $this->tab_url( $space_id, 'media' ), $window, $media['next_cursor'] ),
 				// Honour the Albums integration toggle here like ProfileNav does. Without
 				// this, media-tab.php defaults the flag to true when it is absent, so the
 				// Albums sub-tab rendered on Spaces even with the toggle off (card

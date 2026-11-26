@@ -69,11 +69,18 @@ $bn_purge_meta = static function ( $options_only = false ) use ( $wpdb ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$wpdb->query(
 		$wpdb->prepare(
-			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s",
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s AND option_name <> %s",
 			$wpdb->esc_like( 'buddynext_' ) . '%',
-			$wpdb->esc_like( 'buddynext_pro_' ) . '%'
+			$wpdb->esc_like( 'buddynext_pro_' ) . '%',
+			// The wipe choice is SHARED with Pro, which reads it when it is deleted: it is removed last, only when Pro is
+			// gone (see the end of this file). Deleting it here made a Free-first uninstall turn Pro's delete into a keep.
+			'buddynext_delete_data_on_uninstall'
 		)
 	);
+
+	// Widget instances (widget_buddynext_*), part of the same settings the wipe removes.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'widget_buddynext_' ) . '%' ) );
 
 	// Default-delete keeps member content: the user meta below is member-owned
 	// (onboarding, privacy, follows), so it is purged only on the opt-in wipe.
@@ -122,9 +129,9 @@ $bn_purge_meta = static function ( $options_only = false ) use ( $wpdb ) {
  * EVERY uninstall regardless of the data-retention setting — leaving them
  * behind was the "211 Action Scheduler actions and transients" orphan the audit
  * flagged. Action Scheduler is not loaded during uninstall, so its rows are
- * deleted directly by our own hook prefix (every Free job hook starts
- * `buddynext_`; Pro's are left to Pro); the tables may be absent if AS never
- * ran, hence the guard.
+ * deleted directly: Free's 'buddynext' group (Pro's hooks there are left to
+ * Pro) plus the two onboarding nudge hooks by exact name; the tables may be
+ * absent if AS never ran, hence the guard.
  *
  * @return void
  */
@@ -141,24 +148,62 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 		)
 	);
 
-	// Action Scheduler rows for our own hooks, deleted directly because AS is not
-	// booted here. Guarded on table existence so an install that never scheduled
-	// anything is a no-op.
+	// Action Scheduler rows of Free's own group ('buddynext'), deleted directly
+	// because AS is not booted here. Pro's hooks that run in that group
+	// (buddynextpro_* / buddynext_pro_*) stay for Pro's uninstall, and no other
+	// plugin's group is read (DATA-LIFECYCLE: delete only what you own). The two
+	// onboarding nudge hooks also go by exact name whatever their group or status:
+	// every release scheduled them in 'buddynext', so this only catches a row whose
+	// group row was removed by hand or by a cleanup plugin. Log rows
+	// go first, by action id, in bounded batches; the loop stops on a DELETE that
+	// fails or removes nothing.
 	$bn_as_actions = $wpdb->prefix . 'actionscheduler_actions';
-	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_actions ) ) === $bn_as_actions ) {
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		// Free's hooks are buddynext_*; Pro's are buddynextpro_* and buddynext_pro_*,
-		// and stay for Pro to manage (DATA-LIFECYCLE: delete only what you own).
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM `{$bn_as_actions}` WHERE hook LIKE %s AND hook NOT LIKE %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$wpdb->esc_like( 'buddynext_' ) . '%',
-				$wpdb->esc_like( 'buddynext_pro_' ) . '%'
-			)
-		);
+	$bn_as_logs    = $wpdb->prefix . 'actionscheduler_logs';
+	$bn_as_present = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_actions ) ) === $bn_as_actions;
+	if ( $bn_as_present ) {
+		// -1 when the group does not exist: group_id 0 holds every plugin's ungrouped rows.
+		$bn_group_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT group_id FROM {$wpdb->prefix}actionscheduler_groups WHERE slug = %s", 'buddynext' ) ) ?: -1;
+		$bn_has_logs = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_logs ) ) === $bn_as_logs;
+		do {
+			$bn_ids = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT action_id FROM `{$bn_as_actions}` WHERE ( group_id = %d AND hook NOT LIKE %s AND hook NOT LIKE %s ) OR hook IN ( %s, %s ) LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$bn_group_id,
+						$wpdb->esc_like( 'buddynextpro_' ) . '%',
+						$wpdb->esc_like( 'buddynext_pro_' ) . '%',
+						'bn_onboarding_nudge_24h',
+						'bn_onboarding_nudge_72h',
+						\BuddyNext\Core\Installer::UNINSTALL_BATCH
+					)
+				)
+			);
+			if ( array() === $bn_ids ) {
+				break;
+			}
+			$bn_in = implode( ',', $bn_ids );
+			if ( $bn_has_logs ) {
+				$wpdb->query( "DELETE FROM `{$bn_as_logs}` WHERE action_id IN ( {$bn_in} )" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ints only.
+			}
+			$bn_deleted = $wpdb->query( "DELETE FROM `{$bn_as_actions}` WHERE action_id IN ( {$bn_in} )" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ints only.
+			$bn_full    = count( $bn_ids ) === \BuddyNext\Core\Installer::UNINSTALL_BATCH;
+		} while ( $bn_deleted && $bn_full );
 	}
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	// WP-Cron events (the AS-absent fallback), with any arguments: every event of
+	// Free's hook namespace and the two onboarding nudges, and the licence SDK's
+	// weekly check named after the slug. Pro's buddynext_pro_* events stay for Pro.
+	foreach ( (array) _get_cron_array() as $bn_events ) {
+		foreach ( array_keys( (array) $bn_events ) as $bn_hook ) {
+			$bn_hook = (string) $bn_hook;
+			if ( ( str_starts_with( $bn_hook, 'buddynext_' ) && ! str_starts_with( $bn_hook, 'buddynext_pro_' ) )
+				|| in_array( $bn_hook, array( 'bn_onboarding_nudge_24h', 'bn_onboarding_nudge_72h', 'edd_sl_sdk_weekly_license_check_buddynext' ), true ) ) {
+				wp_unschedule_hook( $bn_hook );
+			}
+		}
+	}
 
 	// The isolation mu-plugin (buddynext-isolation.php) filters option_active_plugins
 	// on front-end routes. Left behind, it keeps stripping plugins with BuddyNext
@@ -200,16 +245,44 @@ $bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_me
 		\BuddyNext\Core\Installer::delete_hub_pages();
 		$bn_drop_tables( $prefix );
 	}
-	// Settings and flags always go, so a clean reinstall starts from defaults.
+	// Settings and flags go only with the opt-in wipe. The default keeps them with
+	// the spaces, posts and members the owner is told are kept, so a reinstall
+	// restores the site as it was (the tables are kept, so their version flags
+	// must be too, or a reinstall would re-seed over existing rows).
 	// Member user meta is network-wide and handled once, below.
-	$bn_purge_meta( true );
+	if ( $bn_delete_data ) {
+		// The licence SDK's options, named after its slug: the plugin's folder (basename of the entry
+		// file's directory), which is `buddynext` unless a GitHub zip extracted it as `buddynext-main`.
+		// The update cache is edd_sl_md5( [ slug, key, beta ] ) (libs/edd-sl-sdk Updater::get_cache_key()),
+		// derived exactly, before the key it hashes is deleted: other plugins on the same SDK keep their own
+		// edd_sl_* rows, so no wildcard. BuddyNext writes its own key under `buddynext` whatever the folder
+		// is called, so both names are cleared. With data kept they all stay, and a reinstall reuses them:
+		// the same key, the cached version info until it times out, and the last licence status until the
+		// weekly check refreshes it.
+		foreach ( array_unique( array( 'buddynext', basename( __DIR__ ) ) ) as $bn_slug ) {
+			delete_option( 'edd_sl_' . md5( (string) wp_json_encode( array( $bn_slug, get_option( $bn_slug . '_license_key' ), 0 ) ) ) );
+			foreach ( array( '_license_key', '_license', '_license_key_allow_tracking' ) as $bn_licence_suffix ) {
+				delete_option( $bn_slug . $bn_licence_suffix );
+			}
+		}
+		$bn_purge_meta( true );
+	}
 };
 
 $bn_clean_site( $wpdb->prefix );
 
 if ( $bn_wipe_members ) {
 	$bn_purge_meta();
+	// Last of all: the shared wipe choice. Pro reads it when it is deleted, so it stays while Pro is installed.
+	if ( ! file_exists( WP_PLUGIN_DIR . '/buddynext-pro/buddynext-pro.php' ) ) {
+		delete_option( 'buddynext_delete_data_on_uninstall' );
+	}
 }
+
+// The deletes above went straight to SQL, so a persistent object cache (Redis, Memcached) still holds the old options,
+// pages and db version: a reinstall would read them back, point at pages that no longer exist and show the setup wizard
+// as complete on a wiped site. Flush it, data kept or removed (transients and Action Scheduler rows were deleted either way).
+wp_cache_flush();
 
 if ( is_multisite() ) {
 	restore_current_blog();

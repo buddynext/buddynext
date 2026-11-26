@@ -52,6 +52,29 @@ test.describe('auth / signup', () => {
         }
     });
 
+    test('J-04b the signup message names the field that is wrong', async ({ page }) => {
+        await page.goto(urls.signup, { waitUntil: 'domcontentloaded' });
+        const email = page.locator('input[type="email"]').first();
+        const password = page.locator('input[type="password"]').first();
+        test.skip((await email.count()) === 0, 'registration is closed on this site');
+        const alertText = async () => (await page.locator('.bn-auth-field__msg[role="alert"]:visible').first().textContent())?.trim();
+
+        // A malformed address says so, not "fill in your email and password".
+        await email.fill('notanemail');
+        await password.fill('Str0ng!Passw0rd#2026');
+        await password.press('Enter');
+        await expect.poll(alertText).toBe('Please enter a valid email address.');
+
+        // An empty email names the email; an empty password names the password.
+        await email.fill('');
+        await password.press('Enter');
+        await expect.poll(alertText).toBe('Please enter your email address.');
+        await email.fill('someone@example.com');
+        await password.fill('');
+        await password.press('Enter');
+        await expect.poll(alertText).toBe('Please enter a password.');
+    });
+
     test('shows registration form on /login/signup/', async ({ page }) => {
         await page.goto(urls.signup, { waitUntil: 'domcontentloaded' });
 

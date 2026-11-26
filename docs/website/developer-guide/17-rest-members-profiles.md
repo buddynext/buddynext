@@ -17,7 +17,7 @@ All routes register under `buddynext/v1`. Authentication, the success/error enve
 | Self routes | `/me/*` - operate on the authenticated caller; require login |
 | Target routes | `/users/{id}/*` - act on a specific user; public reads or admin writes |
 | Error body | `{ "code": "...", "message": "...", "data": { "status": N } }` |
-| `per_page` max | 50 on directory and collection reads |
+| `per_page` max | 50 on the member directory and most collection reads; `/me/blocked`, `/me/muted` and `/me/restricted` allow 100 (see [the REST contract](14-rest-contract.md#ceilings)) |
 
 Permission callbacks fall into a few classes used throughout this surface:
 
@@ -48,6 +48,8 @@ Every route below operates on `get_current_user_id()` and requires a logged-in c
 | DELETE | `/me/avatar` | require_auth | Remove the caller's avatar (revert to default) |
 | POST | `/me/cover` | require_auth | Upload the caller's cover image |
 | DELETE | `/me/cover` | require_auth | Remove the caller's cover image |
+| POST | `/me/cover/position` | require_auth | Reframe the cover already set (`focal_x`, `focal_y` 0 to 100, `focal_zoom` 1 to 3); 409 when there is no cover, 422 for an invalid position. No picture is sent. |
+| POST | `/users/{id}/cover/position` | require_edit_any_profile | The same for another member's cover. |
 
 ### Drafts, bookmarks, and shares
 
@@ -74,12 +76,12 @@ These are read-only list views of the caller's own social-graph state. The write
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/me/onboarding` | require_auth | Read the caller's onboarding wizard state (current step, completion) |
-| POST | `/me/onboarding/step` | require_auth | Persist progress for one onboarding step |
+| POST | `/me/onboarding/step` | require_auth | Persist progress for one onboarding step. On step 1 a non-empty `data.slug` is the member's chosen handle: it is saved with the step, and a reserved or taken handle returns 409 (`handle_reserved` / `handle_taken`) with nothing saved (1.3.0) |
 | POST | `/me/onboarding/skip` | require_auth | Skip the onboarding wizard |
 | POST | `/me/onboarding/complete` | require_auth | Mark onboarding complete (fires `buddynext_onboarding_completed`). Optional body carries the wizard's answers: `display_name`, `bio`, `slug`, `channels`, `spaces`, `user_ids`, `interests`. |
 | GET | `/me/interests` | require_auth | Read the caller's picked interest categories as `{ interests: [ { id, name }, ... ] }` (deleted categories drop out) |
 | POST | `/me/interests` | require_auth | Persist the caller's interest categories. Body: `interests` (array of category IDs). Returns `{ saved: true, interests: [...] }` |
-| POST | `/me/presence/heartbeat` | require_auth | Refresh the caller's `bn_last_active` stamp for online/presence |
+| POST | `/me/presence/heartbeat` | require_auth | Record that the caller is active (stored in the indexed `bn_presence` table; written at most once a minute per member). The browser calls it after client-side navigation and when a tab becomes visible, at most once every four minutes per tab. Returns `{ online, written, window }`, where `window` is the online window in seconds (default 600, filter `buddynext_presence_online_window`) |
 
 > **`/me/interests` writes through the profile store, not user meta.** The picks land in the system `interests` profile field (a `category_multiselect`, one `bn_profile_values` row per pick) - `POST /me/interests` is a thin alias over the canonical profile-save path, so a pick made here is the same value `PUT /me/profile` would write.
 
@@ -156,7 +158,7 @@ Registered by `JetonomyBridge` and present **only when the Jetonomy companion is
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/members/{id}/portfolio` | public | A member's Portfolio panels, the same data the Portfolio profile tab shows: `{ member_id, is_owner, panels: [ { key, label, icon, count, items, cta, owner_cta }, ... ] }`. Gated by profile visibility (a blocked or non-permitted viewer gets an empty `panels`); `owner_cta` is empty and owner-only panels are left out for anyone but the member. |
-| GET | `/members/{id}/discussions` | public | A member's Discussions credential panel: `{ accepted_answers, reputation, trust_level, discussion_count, discussions: [ { id, title, url, reply_count, vote_score, space_name, created_at }, ... ] }` (up to 20 recent). Returns `404` when the member does not exist. |
+| GET | `/members/{id}/discussions` | public | A member's Discussions credential panel: `{ accepted_answers, reputation, trust_level, discussion_count, discussions: [ { id, title, url, reply_count, vote_score, space_name, created_at }, ... ], next_cursor }` (20 per page, newest first). Pass the previous response's `next_cursor` as `after` to read the next page; `next_cursor` is empty on the last page. Returns `404` when the member does not exist. |
 
 The space-scoped Jetonomy bridge routes (`POST /spaces/{id}/forum`, `GET /spaces/{id}/discussion-search`) are documented on the REST: Spaces page.
 
@@ -166,7 +168,7 @@ Registered by `MemberBlogBridge` / `MemberBlogRestController`, present only when
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`). Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. Co-written posts (Member Blog Pro co-authors) list for every writer; each item names its other writers in `co_writers` (`id`, `name`). |
+| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`, `per_page` up to 50, default 10). Honours the member's profile visibility and blocks, the same gate as every other profile panel route: a viewer who may not see the profile gets the empty list, not an error. Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. Co-written posts (Member Blog Pro co-authors) list for every writer; each item names its other writers in `co_writers` (`id`, `name`). Images (1.3.0): `cover_image` (16:9 crop) and `thumb_image` (square crop) are `{url, width, height}` or `null` when there is no usable image (none, or under 600px wide for a cover, under 192px for a thumbnail); `width`/`height` are `null` for an external image of unknown size. `cover` stays a string with the cover URL, or `null`. |
 
 ### Moderation actions targeting a user
 

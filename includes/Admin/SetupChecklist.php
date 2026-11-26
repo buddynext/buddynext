@@ -92,7 +92,9 @@ final class SetupChecklist {
 		}
 		$screen = get_current_screen();
 		$id     = $screen ? (string) $screen->id : '';
-		if ( 'dashboard' !== $id && ! str_contains( $id, 'buddynext' ) ) {
+		// The reminder belongs where an owner decides things: the WordPress dashboard and BuddyNext Settings. Home carries
+		// its own setup card, and every other BuddyNext screen is a place to work, not to be nagged.
+		if ( 'dashboard' !== $id && ! str_contains( $id, 'buddynext-settings' ) ) {
 			return;
 		}
 		if ( str_contains( $id, 'buddynext-setup' ) || 'toplevel_page_' . self::LANDING_SLUG === $id ) {
@@ -193,21 +195,33 @@ final class SetupChecklist {
 	 * @return void
 	 */
 	public static function maybe_render( string $page ): void {
-		if ( self::LANDING_SLUG !== $page || ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-		if ( get_option( self::OPT_DISMISSED ) ) {
+		if ( self::LANDING_SLUG !== $page || ! current_user_can( 'manage_options' ) || self::is_done() ) {
 			return;
 		}
 
 		$steps = self::steps();
 		$done  = count( array_filter( $steps, static fn( array $s ): bool => $s['done'] ) );
-		$total = count( $steps );
-		if ( $done >= $total ) {
-			return; // Everything set up — hide the card without needing a dismiss.
-		}
+		self::render_card( $steps, $done, count( $steps ) );
+	}
 
-		self::render_card( $steps, $done, $total );
+	/**
+	 * Whether setup is over: the owner dismissed the checklist or every step is done.
+	 *
+	 * Setup offers (the checklist, the demo promos) stop here so an owner never walks the
+	 * same setup twice.
+	 *
+	 * @return bool
+	 */
+	public static function is_done(): bool {
+		if ( get_option( self::OPT_DISMISSED ) ) {
+			return true;
+		}
+		foreach ( self::steps() as $step ) {
+			if ( ! $step['done'] ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -316,11 +330,14 @@ final class SetupChecklist {
 		// a step that is done once messaging is on, with the one click if it is not.
 		if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
 			$bn_turn_on = \BuddyNext\Messages\MessagesData::turn_on_url();
+			$bn_msg_on  = ! \BuddyNext\Messages\MessagesData::switched_off();
 			$steps[]    = array(
 				'key'       => 'messages',
 				'label'     => __( 'Turn on messages', 'buddynext' ),
-				'desc'      => __( 'Messages are off in MediaVerse. Turn them on to let members message each other.', 'buddynext' ),
-				'done'      => ! \BuddyNext\Messages\MessagesData::switched_off(),
+				'desc'      => $bn_msg_on
+					? __( 'Members can message each other.', 'buddynext' )
+					: __( 'Messages are off in MediaVerse. Turn them on to let members message each other.', 'buddynext' ),
+				'done'      => $bn_msg_on,
 				'cta'       => '' !== $bn_turn_on ? $bn_turn_on : \BuddyNext\Messages\MessagesData::settings_url(),
 				'cta_label' => __( 'Turn on messages', 'buddynext' ),
 				'icon'      => 'message-circle',

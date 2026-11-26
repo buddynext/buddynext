@@ -76,6 +76,285 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A follow BuddyNext decides is never approved by the bridge: a refusal
+	 * already made upstream stays refused, and a private account's follow turns
+	 * into a pending request so MediaVerse records nothing.
+	 */
+	public function test_can_follow_defers_to_buddynext(): void {
+		$target   = self::factory()->user->create();
+		$follower = self::factory()->user->create();
+
+		$this->assertFalse( $this->bridge->can_follow( false, $follower, $target ) );
+
+		update_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META, 1 );
+		// A request is reported as pending (WPMediaVerse answers "follow requested"), never as a refusal.
+		$this->assertSame( 'pending', $this->bridge->can_follow( true, $follower, $target ) );
+		$this->assertSame( 'pending', $this->bridge->can_follow( true, $follower, $target ), 'Asking again still reads as pending.' );
+
+		// The first try left a pending request; a different member follows the
+		// same account once it is public again.
+		delete_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META );
+		$this->assertTrue( $this->bridge->can_follow( true, self::factory()->user->create(), $target ) );
+	}
+
+	/**
+	 * MediaVerse's profile button asks whether a request is waiting, so it reads Requested after a reload.
+	 */
+	public function test_a_waiting_follow_request_is_reported_to_mediaverse(): void {
+		$target   = self::factory()->user->create();
+		$follower = self::factory()->user->create();
+
+		$this->assertFalse( $this->bridge->follow_is_requested( false, $follower, $target ), 'Nothing waiting.' );
+		$this->assertTrue( (bool) apply_filters( 'mvs_follow_is_requested', true, $follower, $target ), 'The earlier answer stands.' );
+
+		update_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META, 1 );
+		$this->bridge->can_follow( true, $follower, $target ); // A follow of a private account becomes a request.
+
+		$this->assertTrue( $this->bridge->follow_is_requested( false, $follower, $target ), 'The pending request is reported.' );
+		$this->assertTrue( (bool) apply_filters( 'mvs_follow_is_requested', false, $follower, $target ), 'The bridge answers the filter.' );
+		$this->assertFalse( $this->bridge->follow_is_requested( false, self::factory()->user->create(), $target ), 'Only the member who asked.' );
+	}
+
+	/**
+	 * Cancelling a private account's request from a MediaVerse client removes the pending request.
+	 */
+	public function test_mediaverse_unfollow_withdraws_a_pending_request(): void {
+		$target   = self::factory()->user->create();
+		$follower = self::factory()->user->create();
+		$bn       = new \BuddyNext\SocialGraph\FollowService();
+
+		update_user_meta( $target, \BuddyNext\SocialGraph\FollowService::PRIVATE_META, 1 );
+		$bn->follow( $follower, $target );
+		$this->assertTrue( $bn->has_pending_request( $follower, $target ) );
+
+		$mirrored = 0;
+		$count    = static function () use ( &$mirrored ): void {
+			++$mirrored;
+		};
+		add_action( 'mvs_user_unfollowed', $count );
+
+		$this->bridge->withdraw_pending_follow( $follower, $target );
+
+		remove_action( 'mvs_user_unfollowed', $count );
+		$this->assertFalse( $bn->has_pending_request( $follower, $target ), 'The request is gone, so the owner can no longer approve it.' );
+		$this->assertSame( 0, $mirrored, 'Nothing bounces back into MediaVerse.' );
+
+		// Nothing pending: nothing happens.
+		$this->bridge->withdraw_pending_follow( $follower, $target );
+		$this->assertFalse( $bn->has_pending_request( $follower, $target ) );
+	}
+
+	/**
+	 * A media report becomes a row in the BuddyNext queue; a MediaVerse-only reason
+	 * folds into the nearest BuddyNext one and keeps its name in the note; other
+	 * kinds of report are left to MediaVerse.
+	 */
+	public function test_media_report_lands_in_the_buddynext_queue(): void {
+		global $wpdb;
+		$reporter = self::factory()->user->create();
+		$exists   = static fn( $found, $type, $id ) => 'media' === $type && 9002 === $id ? true : $found;
+		add_filter( 'buddynext_object_exists', $exists, 20, 3 );
+
+		$this->bridge->queue_media_report( 1, $reporter, 'user', 9002, 'spam' );
+		$this->assertSame( 0, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE reporter_id = %d", $reporter ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		$this->bridge->queue_media_report( 1, $reporter, 'media', 9002, 'violence' );
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT object_type, object_id, reason, notes FROM {$wpdb->prefix}bn_reports WHERE reporter_id = %d", $reporter ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		remove_filter( 'buddynext_object_exists', $exists, 20 );
+
+		$this->assertSame( 'media', $row['object_type'] );
+		$this->assertSame( '9002', $row['object_id'] );
+		$this->assertSame( 'inappropriate', $row['reason'] );
+		$this->assertStringContainsString( 'violence', $row['notes'] );
+	}
+
+	/**
+	 * A report closed on the MediaVerse side closes the BuddyNext row, only for
+	 * media, and an unrelated target is left alone.
+	 */
+	public function test_closing_a_media_report_in_mediaverse_closes_the_buddynext_row(): void {
+		global $wpdb;
+		$reporter = self::factory()->user->create();
+		$mod      = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $mod );
+		$exists = static fn( $found, $type, $id ) => 'media' === $type && 9003 === $id ? true : $found;
+		add_filter( 'buddynext_object_exists', $exists, 20, 3 );
+
+		$this->bridge->queue_media_report( 1, $reporter, 'media', 9003, 'spam' );
+		$status = fn() => $wpdb->get_var( "SELECT status FROM {$wpdb->prefix}bn_reports WHERE object_type = 'media' AND object_id = 9003" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( 'pending', $status() );
+
+		$this->bridge->close_bn_media_report( 1, $reporter, 'resolved', 'user', 9003 );
+		$this->assertSame( 'pending', $status(), 'Another kind of report is not ours to close.' );
+
+		$this->bridge->close_bn_media_report( 1, $reporter, 'dismissed', 'media', 9003 );
+		remove_filter( 'buddynext_object_exists', $exists, 20 );
+		$this->assertSame( 'dismissed', $status() );
+	}
+
+	/**
+	 * Photos on a deleted space's drive are trashed with it; documents and other
+	 * spaces' media are left alone.
+	 */
+	public function test_deleting_a_space_trashes_its_drive_media(): void {
+		global $wpdb;
+		if ( ! \BuddyNext\Media\MediaClient::available() || ! is_object( \BuddyNext\Media\MediaClient::repo() ) || ! method_exists( \BuddyNext\Media\MediaClient::repo(), 'space_drive_media_ids' ) ) {
+			$this->markTestSkipped( 'Needs MediaVerse 2.6.5.' );
+		}
+		$table = $wpdb->prefix . 'mvs_media_index';
+		$row   = array(
+			'post_author' => 1,
+			'media_type'  => 'image',
+			'status'      => 'publish',
+			'drive_type'  => 'space',
+			'drive_id'    => 777001,
+		);
+		$wpdb->insert( $table, $row ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$mine = (int) $wpdb->insert_id;
+		$wpdb->insert( $table, array_merge( $row, array( 'drive_id' => 777002 ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$other = (int) $wpdb->insert_id;
+		$wpdb->insert( $table, array_merge( $row, array( 'media_type' => 'document' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$doc = (int) $wpdb->insert_id;
+
+		$this->bridge->trash_space_drive_media( 777001 );
+
+		$status = fn( $id ) => $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$table} WHERE media_id = %d", $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( 'trash', $status( $mine ) );
+		$this->assertSame( 'publish', $status( $other ), 'Another space drive is untouched.' );
+		$this->assertSame( 'publish', $status( $doc ), 'Documents are the document engine\'s to clear.' );
+	}
+
+	/**
+	 * A drive whose first 250 items cannot be trashed still has every other item
+	 * trashed: each run starts after the last id it saw, and the chain ends with
+	 * the drive. Stubbed repository (the MediaVerse contract with $after_id).
+	 */
+	public function test_untrashable_media_do_not_stop_the_space_drive_chain(): void {
+		$repo = new class() {
+			/** @var array<int,string> */
+			public array $status = array();
+			public function space_drive_media_ids( int $space_id, int $limit = 100, int $after_id = 0 ): array {
+				unset( $space_id );
+				$out = array();
+				foreach ( $this->status as $id => $st ) {
+					if ( 'publish' === $st && $id > $after_id ) {
+						$out[] = $id;
+					}
+					if ( count( $out ) >= $limit ) {
+						break;
+					}
+				}
+				return $out;
+			}
+			public function trash( int $id ): bool {
+				if ( $id <= 250 ) {
+					return false;
+				}
+				$this->status[ $id ] = 'trash';
+				return true;
+			}
+		};
+		for ( $id = 1; $id <= 450; $id++ ) {
+			$repo->status[ $id ] = 'publish';
+		}
+		$seam = static fn( $svc, $key ) => 'media_repository' === $key ? $repo : $svc;
+		add_filter( 'buddynext_media_service', $seam, 10, 2 );
+		as_unschedule_all_actions( WPMediaVerseBridge::DRIVE_MEDIA_HOOK );
+
+		$this->bridge->trash_space_drive_media( 777003 );
+		for ( $run = 0; $run < 10; $run++ ) {
+			$next = as_get_scheduled_actions( array( 'hook' => WPMediaVerseBridge::DRIVE_MEDIA_HOOK, 'status' => 'pending', 'per_page' => 5 ) );
+			if ( array() === $next ) {
+				break;
+			}
+			$action = reset( $next );
+			as_unschedule_all_actions( WPMediaVerseBridge::DRIVE_MEDIA_HOOK );
+			$this->bridge->trash_space_drive_media( ...$action->get_args() );
+		}
+		remove_filter( 'buddynext_media_service', $seam, 10 );
+
+		$left = array_keys( array_filter( $repo->status, static fn( $st ) => 'publish' === $st ) );
+		$this->assertSame( range( 1, 250 ), $left, 'Every trashable item is trashed; the blocked 250 are left.' );
+		$this->assertLessThan( 10, $run, 'The chain ends with the drive.' );
+	}
+
+	/**
+	 * The same walk against MediaVerse's real repository query (its cursor read):
+	 * 450 items on a space drive, the first 250 refused by trash(), every other
+	 * item trashed. Only trash() is wrapped, to refuse the blocked ids.
+	 */
+	public function test_untrashable_media_walk_uses_the_real_mediaverse_cursor(): void {
+		global $wpdb;
+		$real = \BuddyNext\Media\MediaClient::available() ? \BuddyNext\Media\MediaClient::repo() : null;
+		if ( ! is_object( $real ) || ! method_exists( $real, 'space_drive_media_ids' ) || 3 > ( new \ReflectionMethod( $real, 'space_drive_media_ids' ) )->getNumberOfParameters() ) {
+			$this->markTestSkipped( 'Needs MediaVerse 2.6.5 with the $after_id cursor.' );
+		}
+		$table = $wpdb->prefix . 'mvs_media_index';
+		$ids   = array();
+		for ( $i = 0; $i < 450; $i++ ) {
+			$wpdb->insert( $table, array( 'post_author' => 1, 'media_type' => 'image', 'status' => 'publish', 'drive_type' => 'space', 'drive_id' => 777004 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$ids[] = (int) $wpdb->insert_id;
+		}
+		$blocked = array_flip( array_slice( $ids, 0, 250 ) );
+		$repo    = new class( $real, $blocked ) {
+			/**
+			 * @param object         $real    MediaVerse repository.
+			 * @param array<int,int> $blocked Ids trash() refuses.
+			 */
+			public function __construct( private object $real, private array $blocked ) {}
+			public function space_drive_media_ids( int $space_id, int $limit = 100, int $after_id = 0 ): array {
+				return $this->real->space_drive_media_ids( $space_id, $limit, $after_id );
+			}
+			public function trash( int $id ): bool {
+				return isset( $this->blocked[ $id ] ) ? false : (bool) $this->real->trash( $id );
+			}
+		};
+		$seam = static fn( $svc, $key ) => 'media_repository' === $key ? $repo : $svc;
+		add_filter( 'buddynext_media_service', $seam, 10, 2 );
+		as_unschedule_all_actions( WPMediaVerseBridge::DRIVE_MEDIA_HOOK );
+
+		$this->bridge->trash_space_drive_media( 777004 );
+		for ( $run = 0; $run < 10; $run++ ) {
+			$next = as_get_scheduled_actions( array( 'hook' => WPMediaVerseBridge::DRIVE_MEDIA_HOOK, 'status' => 'pending', 'per_page' => 5 ) );
+			if ( array() === $next ) {
+				break;
+			}
+			$action = reset( $next );
+			as_unschedule_all_actions( WPMediaVerseBridge::DRIVE_MEDIA_HOOK );
+			$this->bridge->trash_space_drive_media( ...$action->get_args() );
+		}
+		remove_filter( 'buddynext_media_service', $seam, 10 );
+
+		$left = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT media_id FROM {$table} WHERE drive_id = %d AND status = 'publish' ORDER BY media_id", 777004 ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( array_slice( $ids, 0, 250 ), $left, 'Every trashable item is trashed; the blocked 250 are left.' );
+		$this->assertLessThan( 10, $run, 'The chain ends with the drive.' );
+	}
+
+	/**
+	 * A BuddyNext block closes the blocker's media to the blocked member only, and
+	 * hides either side from the other's lists.
+	 */
+	public function test_bn_block_refuses_media_and_hides_lists(): void {
+		$blocker = self::factory()->user->create();
+		$blocked = self::factory()->user->create();
+		$other   = self::factory()->user->create();
+		$args    = array( 'author_id' => $blocker );
+
+		$this->assertFalse( $this->bridge->bn_block_refuses_media( false, 1, $blocked, $args ) );
+
+		buddynext_service( 'blocks' )->block( $blocker, $blocked );
+
+		$this->assertTrue( $this->bridge->bn_block_refuses_media( false, 1, $blocked, $args ) );
+		$this->assertFalse( $this->bridge->bn_block_refuses_media( false, 1, $other, $args ) );
+		$this->assertFalse( $this->bridge->bn_block_refuses_media( false, 1, $blocker, array( 'author_id' => $blocked ) ) );
+		$this->assertTrue( $this->bridge->bn_block_refuses_media( true, 1, $other, $args ) );
+
+		$this->assertSame( array( $blocked ), $this->bridge->bn_blocked_ids( array(), $blocker ) );
+		$this->assertSame( array( $blocker ), $this->bridge->bn_blocked_ids( array(), $blocked ) );
+		$this->assertSame( array(), $this->bridge->bn_blocked_ids( array(), $other ) );
+	}
+
+	/**
 	 * Prove the gate actually refuses, not merely that a filter is attached.
 	 *
 	 * Attachment alone is a weak assertion — it would still pass if check_block()
@@ -309,7 +588,11 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$html = (string) apply_filters(
 			'buddynext_render_post_body_media',
 			'',
-			array( 'bn_post_type' => 'media', 'post_content' => 'shared a video', 'link_preview' => array() )
+			array(
+				'bn_post_type' => 'media',
+				'post_content' => 'shared a video',
+				'link_preview' => array(),
+			)
 		);
 
 		$this->assertSame( '', $html );
@@ -341,7 +624,7 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		// Below the REAL server ceiling, whatever this runner's php.ini sets it to
 		// (a bare PHP CLI often defaults upload_max_filesize to 2M) — the point is
 		// the lower of the two numbers, not a specific absolute size.
-		$configured = (int) max( 1, intdiv( wp_max_upload_size(), 2 ) );
+		$configured                          = (int) max( 1, intdiv( wp_max_upload_size(), 2 ) );
 		StubSettingsHelper::$max_upload_size = $configured;
 
 		$this->assertSame( $configured, WPMediaVerseBridge::media_max_bytes() );

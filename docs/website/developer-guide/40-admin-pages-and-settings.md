@@ -143,6 +143,8 @@ Three options carry custom array sanitizers and are registered with explicit sta
 | **Navigation** | `admin_post_bn_save_nav` -> `NavManager::handle_save_nav()` | The five nav-override options below. |
 | **Pages & URLs** | `admin_post_bn_save_hub_pages` -> `NavManager::handle_save_hub_pages()` | The `buddynext_page_*` slug/page assignments. |
 
+**Renaming a hub keeps its old addresses.** When a `buddynext_page_*` slug option changes (`update_option_` or `add_option_`), `PageRouter::remember_hub_slug()` stores the previous slug as `_wp_old_slug` post meta on the hub's WordPress page. A `template_redirect` callback (`PageRouter::redirect_renamed_hub()`, priority 9) runs only on a 404: if the first path segment matches a remembered slug it sends a `301` to the current slug with the rest of the path and the query string intact. Renaming back to an old slug removes it from the remembered list. A hub with no WordPress page cannot remember anything, so its old address is not redirected. See the [Rename Members and Spaces recipe](../recipes/08-rename-members-and-spaces.md).
+
 The **Navigation** tab edits five **scopes**, one option each (`NavManager::SCOPE_OPTION_MAP`, mirrored by `Nav\NavOverrides::SCOPE_OPTION`):
 
 | Scope | Option | The surface it controls |

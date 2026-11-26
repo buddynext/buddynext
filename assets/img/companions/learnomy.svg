@@ -1,18 +1,1 @@
-<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Learnomy">
-  <defs>
-    <linearGradient id="lrnTile" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2a8af0"/>
-      <stop offset="1" stop-color="#1b6ec2"/>
-    </linearGradient>
-  </defs>
-  <!-- App tile -->
-  <rect width="256" height="256" rx="58" fill="url(#lrnTile)"/>
-  <!-- Ascending learning path: three rising steps -->
-  <g fill="#ffffff">
-    <rect x="62"  y="146" width="30" height="42"  rx="11"/>
-    <rect x="106" y="120" width="30" height="68"  rx="11"/>
-    <rect x="150" y="92"  width="30" height="96"  rx="11"/>
-  </g>
-  <!-- Summit dot: the learner reaching the goal -->
-  <circle cx="165" cy="70" r="15" fill="#ffffff"/>
-</svg>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Learnomy"><defs><linearGradient id="lm45BCEF" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7FD0F5"/><stop offset="1" stop-color="#45BCEF"/></linearGradient><linearGradient id="lm1E88D2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#49A6E6"/><stop offset="1" stop-color="#1E88D2"/></linearGradient><linearGradient id="lm5D3F99" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7E5CBE"/><stop offset="1" stop-color="#5D3F99"/></linearGradient><linearGradient id="lmD91C5C" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E8467F"/><stop offset="1" stop-color="#D91C5C"/></linearGradient><linearGradient id="lmE93E30" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0604F"/><stop offset="1" stop-color="#E93E30"/></linearGradient><linearGradient id="lmF5821F" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FBA04A"/><stop offset="1" stop-color="#F5821F"/></linearGradient><linearGradient id="lmFFB43B" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFC966"/><stop offset="1" stop-color="#FFB43B"/></linearGradient><linearGradient id="lmchev" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1E88D2"/><stop offset="1" stop-color="#5D3F99"/></linearGradient></defs><path d="M129.68 64.02 A64 64 0 0 1 176.98 86.80" fill="none" stroke="url(#lm45BCEF)" stroke-width="32" stroke-linecap="round"/><path d="M179.06 89.42 A64 64 0 0 1 190.75 140.60" fill="none" stroke="url(#lm1E88D2)" stroke-width="32" stroke-linecap="round"/><path d="M190.00 143.87 A64 64 0 0 1 157.27 184.92" fill="none" stroke="url(#lm5D3F99)" stroke-width="32" stroke-linecap="round"/><path d="M154.25 186.37 A64 64 0 0 1 101.75 186.37" fill="none" stroke="url(#lmD91C5C)" stroke-width="32" stroke-linecap="round"/><path d="M98.73 184.92 A64 64 0 0 1 66.00 143.87" fill="none" stroke="url(#lmE93E30)" stroke-width="32" stroke-linecap="round"/><path d="M65.25 140.60 A64 64 0 0 1 76.94 89.42" fill="none" stroke="url(#lmF5821F)" stroke-width="32" stroke-linecap="round"/><path d="M79.02 86.80 A64 64 0 0 1 126.32 64.02" fill="none" stroke="url(#lmFFB43B)" stroke-width="32" stroke-linecap="round"/><path d="M104 138 L128 114 L152 138" fill="none" stroke="url(#lmchev)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></svg>

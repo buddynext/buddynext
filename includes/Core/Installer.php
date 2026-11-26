@@ -116,6 +116,13 @@ class Installer {
 	 */
 	public const FINISH_UPGRADE_HOOK = 'buddynext_finish_upgrade';
 
+	/**
+	 * Rows one uninstall DELETE removes (uninstall.php).
+	 *
+	 * @since 1.3.0
+	 */
+	public const UNINSTALL_BATCH = 2000;
+
 	public const OWNED_TABLES = array(
 		'bn_appeals',
 		'bn_blocks',
@@ -495,8 +502,12 @@ class Installer {
 	 *      by-type layout) and bn_profile_groups.intro (optional text shown above
 	 *      a group's fields on the edit and sign-up forms). dbDelta ADDs both;
 	 *      existing sites render exactly as before. GitHub #217.
+	 *  76: KEY space_type_feed (space_id, type, status, created_at) on bn_posts, so
+	 *      one type of a space's cards (its articles) pages and moves without a
+	 *      filesort or a scan of the space's whole feed. Existing installs via the
+	 *      idempotent ADD KEY in maybe_alter_tables(); read-only, no data touched.
 	 */
-	private const SCHEMA_VERSION = 75;
+	private const SCHEMA_VERSION = 78;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -1201,8 +1212,9 @@ class Installer {
 	 * @return void
 	 */
 	public static function schedule_finish_upgrade(): void {
-		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::FINISH_UPGRADE_HOOK, array(), 'buddynext', true );
+		// enqueue_once() adds a plain copy when the unique insert is refused because this
+		// job is the one running (finish_upgrade() re-queueing itself behind the lock).
+		if ( CronScheduler::enqueue_once( self::FINISH_UPGRADE_HOOK, array() ) ) {
 			return;
 		}
 		wp_schedule_single_event( time() + 30, self::FINISH_UPGRADE_HOOK );
@@ -1538,6 +1550,13 @@ class Installer {
 		// v74: remove the old purge marker, which nothing reads any more.
 		self::maybe_migrate_purge_markers( $bn_stored_schema );
 
+		// v77: cut the article cover and thumbnail crops for articles published
+		// before they existed, in Action Scheduler batches.
+		self::maybe_migrate_article_crops( $bn_stored_schema );
+
+		// v78: cancel the pending duplicate index jobs earlier builds queued.
+		self::maybe_migrate_pending_duplicates( $bn_stored_schema );
+
 		// run() is authoritative on the schema version: it stamps it when the schema
 		// is healthy and deliberately WITHHOLDS it when install_schema() recorded a
 		// failure (a missing table/column, or an index widen that did not take).
@@ -1627,6 +1646,50 @@ class Installer {
 			return;
 		}
 		delete_metadata( 'user', 0, 'buddynext_verify_pending', '', true );
+	}
+
+	/**
+	 * Start the one-time article crop pass (v77).
+	 *
+	 * Articles published before 1.3.0 have featured images without the
+	 * bn-article-cover / bn-article-thumb crops, so their cards fall back to a
+	 * larger existing file. Queues the first batch of
+	 * BlogPostListener::regen_crops_batch(), which chains itself; guarded so a
+	 * repeated upgrade pass never stacks a second chain.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $stored_schema Schema version before this upgrade.
+	 * @return void
+	 */
+	private static function maybe_migrate_article_crops( int $stored_schema ): void {
+		if ( $stored_schema >= 77 ) {
+			return;
+		}
+		if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( \BuddyNext\Feed\ArticleImage::REGEN_HOOK ) ) {
+			return;
+		}
+		\BuddyNext\Feed\BlogPostListener::queue_crop_batch( 0 );
+	}
+
+	/**
+	 * Cancel the pending duplicate jobs builds before 1.3.0 queued (v78).
+	 *
+	 * Those builds queued the search and hashtag index jobs and the chunked
+	 * continuations without a pending check, so saving a space twice left two
+	 * identical buddynext_async_index_space rows. 1.3.0 queues them once; this
+	 * clears what the old code left. See CronScheduler::cancel_duplicate_pending().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $stored_schema Schema version before this upgrade.
+	 * @return void
+	 */
+	private static function maybe_migrate_pending_duplicates( int $stored_schema ): void {
+		if ( $stored_schema >= 78 ) {
+			return;
+		}
+		CronScheduler::cancel_duplicate_pending();
 	}
 
 	/**
@@ -2621,6 +2684,12 @@ class Installer {
 		// Create/upgrade every bn_* table. Split out so the PHPUnit bootstrap can
 		// create the schema without the first-run seeds / hub pages / mu-plugin
 		// that follow (which would otherwise collide with test fixtures).
+		// Tables absent before this run start empty, so their one-time starter seeds are owed again: with the tables
+		// dropped and the options kept, the fresh-install guard below left profile fields, member types and space
+		// categories at zero for good. A table that did not exist holds no owner edits to protect.
+		$bn_missing_before = $is_fresh_install ? array() : self::missing_tables();
+		$bn_seed_owed      = static fn( string $table ): bool => $is_fresh_install || in_array( $table, $bn_missing_before, true );
+
 		self::install_schema();
 
 		self::seed_email_templates( $wpdb->prefix );
@@ -2637,7 +2706,7 @@ class Installer {
 		// skips rows that exist, and a deleted row conflicts with nothing, so it
 		// came back as if new. Same fresh-install rule as the starter space
 		// categories and member types below, for the same reason.
-		if ( $is_fresh_install ) {
+		if ( $bn_seed_owed( 'bn_profile_groups' ) ) {
 			self::seed_default_profile_groups_and_fields( $wpdb->prefix );
 		}
 
@@ -2663,6 +2732,15 @@ class Installer {
 
 		if ( array() === $missing && array() === self::$last_schema_errors ) {
 			delete_option( self::SCHEMA_FAILURE_OPTION );
+
+			// The manual update (deactivate, replace files, activate) reaches here through
+			// activation, not maybe_upgrade_schema(): owe the data migrations for the
+			// version this site was on before the stamp below, or they never run.
+			// add_option() keeps an older owed version.
+			if ( $stored_schema > 0 && $stored_schema < self::SCHEMA_VERSION ) {
+				add_option( self::PENDING_MIGRATIONS_OPTION, $stored_schema, '', false );
+				CronScheduler::when_ready( array( self::class, 'schedule_finish_upgrade' ) );
+			}
 
 			update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
 			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
@@ -2701,8 +2779,6 @@ class Installer {
 		// the fresh-install guard means deleted ones never come back.
 		if ( $is_fresh_install ) {
 			RecommendedDefaults::seed();
-			self::seed_starter_space_categories( $wpdb->prefix );
-			self::seed_starter_member_types( $wpdb->prefix );
 
 			// Mirror BuddyNext's default OPEN registration mode onto WP core's
 			// users_can_register - the same sync Settings performs on save. WP
@@ -2733,6 +2809,13 @@ class Installer {
 			add_option( 'buddynext_webhook_strict_signatures', true );
 		}
 
+		if ( $bn_seed_owed( 'bn_space_categories' ) ) {
+			self::seed_starter_space_categories( $wpdb->prefix );
+		}
+		if ( $bn_seed_owed( 'bn_member_types' ) ) {
+			self::seed_starter_member_types( $wpdb->prefix );
+		}
+
 		self::create_hub_pages();
 
 		// Seed the strip-list mirror (autoloaded) BEFORE writing the mu-plugin. It is
@@ -2751,8 +2834,10 @@ class Installer {
 		// brief bn_onboarding_nudges table, and the idle publish sweep still around
 		// (cards 10264295353 / 10264291719). run_cron_migration() is idempotent and
 		// each step guards on the current schedule/table state, so calling it here on
-		// every activation — fresh or upgrade — is safe.
-		CronScheduler::run_cron_migration();
+		// every activation — fresh or upgrade — is safe. On the update path run()
+		// is reached at init:0, before Action Scheduler's data store (init:1), so the
+		// as_* calls wait for it; on activation it is ready and this runs inline.
+		CronScheduler::when_ready( array( CronScheduler::class, 'run_cron_migration' ) );
 
 		// Same activation gap for the isolation-state preserve (card 10264291719 RFT
 		// round 4): a ZIP-upload update runs run() but not maybe_upgrade(), so a site
@@ -2768,7 +2853,11 @@ class Installer {
 		// pre-1.2.0 upgrade and is idempotent.
 		self::maybe_clear_unconsented_tracking( $stored_schema );
 
-		\BuddyNext\Search\SearchService::schedule_reindex_all();
+		CronScheduler::when_ready( array( \BuddyNext\Search\SearchService::class, 'schedule_reindex_all' ) );
+
+		// Activation and a version change both reach run(): owe the after-activation
+		// pass (nudge restore, requeue of kept jobs that failed while the plugin was off).
+		CronScheduler::flag_requeue();
 	}
 
 	/**
@@ -3143,6 +3232,10 @@ class Installer {
 				'admin_type'   => 'ADD KEY admin_type (type, created_at)',
 				'admin_recent' => 'ADD KEY admin_recent (created_at)',
 				'admin_active' => 'ADD KEY admin_active (last_active_at)',
+			),
+			// v76: one type of a space's cards (its articles), newest first.
+			'bn_posts'          => array(
+				'space_type_feed' => 'ADD KEY space_type_feed (space_id, type, status, created_at)',
 			),
 			'bn_space_members'  => array(
 				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
@@ -3686,159 +3779,159 @@ class Installer {
 		$templates = array(
 			array(
 				'type'         => 'email_verify',
-				'subject'      => 'Verify your email address on {{site_name}}',
-				'preview_text' => 'Click the link to confirm your address',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 48 hours.</p>',
+				'subject'      => __( 'Verify your email address on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Click the link to confirm your address', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 48 hours.</p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'email_change_confirm',
-				'subject'      => 'Confirm your new email address on {{site_name}}',
-				'preview_text' => 'Confirm the email change on your account',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You asked to change the email address on your {{site_name}} account to this inbox. Confirm the change by clicking the link below:</p><p><a href="{{verify_url}}">Confirm my new email</a></p><p>This link expires in 24 hours. If you did not request this, ignore this email and your address stays the same.</p>',
+				'subject'      => __( 'Confirm your new email address on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Confirm the email change on your account', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>You asked to change the email address on your {{site_name}} account to this inbox. Confirm the change by clicking the link below:</p><p><a href="{{verify_url}}">Confirm my new email</a></p><p>This link expires in 24 hours. If you did not request this, ignore this email and your address stays the same.</p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'welcome',
-				'subject'      => 'Welcome to {{site_name}}',
-				'preview_text' => 'Your community account is ready',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all set: <a href="{{action_url}}">start exploring</a>.</p>',
+				'subject'      => __( 'Welcome to {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Your community account is ready', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all set: <a href="{{action_url}}">start exploring</a>.</p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.announcement',
-				'subject'      => 'New announcement in {{space_name}}',
-				'preview_text' => 'An announcement was posted in {{space_name}}',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>{{notification_message}}</p><p><a href="{{action_url}}">Read it</a></p>',
+				'subject'      => __( 'New announcement in {{space_name}}', 'buddynext' ),
+				'preview_text' => __( 'An announcement was posted in {{space_name}}', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>{{notification_message}}</p><p><a href="{{action_url}}">Read it</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.new_follower',
-				'subject'      => '{{actor_name}} started following you on {{site_name}}',
-				'preview_text' => 'You have a new follower',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> started following you on {{site_name}}. <a href="{{action_url}}">View their profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} started following you on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'You have a new follower', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> started following you on {{site_name}}. <a href="{{action_url}}">View their profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.connection_requested',
-				'subject'      => '{{actor_name}} wants to connect on {{site_name}}',
-				'preview_text' => 'You have a new connection request',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> sent you a connection request on {{site_name}}. <a href="{{action_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} wants to connect on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'You have a new connection request', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> sent you a connection request on {{site_name}}. <a href="{{action_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.connection_accepted',
-				'subject'      => '{{actor_name}} accepted your connection request on {{site_name}}',
-				'preview_text' => 'You are now connected',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> accepted your connection request on {{site_name}}. <a href="{{action_url}}">View their profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} accepted your connection request on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'You are now connected', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> accepted your connection request on {{site_name}}. <a href="{{action_url}}">View their profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.mention',
-				'subject'      => '{{actor_name}} mentioned you on {{site_name}}',
-				'preview_text' => 'Someone mentioned you in a post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> mentioned you on {{site_name}}. <a href="{{action_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} mentioned you on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Someone mentioned you in a post', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> mentioned you on {{site_name}}. <a href="{{action_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.post_reacted',
-				'subject'      => 'Someone reacted to your post on {{site_name}}',
-				'preview_text' => 'New reaction on your post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a reaction on {{site_name}}. <a href="{{action_url}}">See the reactions.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( 'Someone reacted to your post on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'New reaction on your post', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Your post received a reaction on {{site_name}}. <a href="{{action_url}}">See the reactions.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.post_commented',
-				'subject'      => '{{actor_name}} commented on your post on {{site_name}}',
-				'preview_text' => 'Someone commented on your post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> commented on your post on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} commented on your post on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Someone commented on your post', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> commented on your post on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.post_shared',
-				'subject'      => '{{actor_name}} shared your post on {{site_name}}',
-				'preview_text' => 'Someone shared your post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> shared your post on {{site_name}}. <a href="{{action_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} shared your post on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Someone shared your post', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> shared your post on {{site_name}}. <a href="{{action_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.space_invite',
-				'subject'      => '{{actor_name}} invited you to join {{space_name}}',
-				'preview_text' => 'Join this community space',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> invited you to join <strong>{{space_name}}</strong> on {{site_name}}. <a href="{{action_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} invited you to join {{space_name}}', 'buddynext' ),
+				'preview_text' => __( 'Join this community space', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> invited you to join <strong>{{space_name}}</strong> on {{site_name}}. <a href="{{action_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.space_join_requested',
-				'subject'      => '{{actor_name}} asked to join {{space_name}}',
-				'preview_text' => 'A member wants to join your space',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> asked to join <strong>{{space_name}}</strong> on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} asked to join {{space_name}}', 'buddynext' ),
+				'preview_text' => __( 'A member wants to join your space', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> asked to join <strong>{{space_name}}</strong> on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.space_request_approved',
-				'subject'      => 'Your request to join {{space_name}} was approved',
-				'preview_text' => 'Welcome to {{space_name}}',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join <strong>{{space_name}}</strong> on {{site_name}} has been approved. <a href="{{action_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( 'Your request to join {{space_name}} was approved', 'buddynext' ),
+				'preview_text' => __( 'Welcome to {{space_name}}', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Your request to join <strong>{{space_name}}</strong> on {{site_name}} has been approved. <a href="{{action_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.strike_issued',
-				'subject'      => 'A moderation action was taken on your {{site_name}} account',
-				'preview_text' => 'Important account notice',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>',
+				'subject'      => __( 'A moderation action was taken on your {{site_name}} account', 'buddynext' ),
+				'preview_text' => __( 'Important account notice', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.strike_warning',
-				'subject'      => 'Your {{site_name}} account has received multiple strikes',
-				'preview_text' => 'You have received multiple moderation strikes',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has received multiple moderation strikes. Please review our community guidelines to avoid further action.</p><p>If you believe this is in error, you can contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( 'Your {{site_name}} account has received multiple strikes', 'buddynext' ),
+				'preview_text' => __( 'You have received multiple moderation strikes', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has received multiple moderation strikes. Please review our community guidelines to avoid further action.</p><p>If you believe this is in error, you can contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.member_suspended',
-				'subject'      => 'Your {{site_name}} account has been suspended',
-				'preview_text' => 'Your account has been suspended',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. While it is suspended you cannot post or interact with the community.</p><p><strong>Reason:</strong> {{reason}}<br><strong>Suspended until:</strong> {{expires_at}}</p><p>If you think this was a mistake, you can appeal from your account page.</p><p><a href="{{action_url}}">See your account status</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( 'Your {{site_name}} account has been suspended', 'buddynext' ),
+				'preview_text' => __( 'Your account has been suspended', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. While it is suspended you cannot post or interact with the community.</p><p><strong>Reason:</strong> {{reason}}<br><strong>Suspended until:</strong> {{expires_at}}</p><p>If you think this was a mistake, you can appeal from your account page.</p><p><a href="{{action_url}}">See your account status</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.appeal_resolved',
-				'subject'      => 'Your {{site_name}} appeal has been reviewed',
-				'preview_text' => 'Your moderation appeal has been resolved',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( 'Your {{site_name}} appeal has been reviewed', 'buddynext' ),
+				'preview_text' => __( 'Your moderation appeal has been resolved', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.new_report',
-				'subject'      => 'New content report awaiting review on {{site_name}}',
-				'preview_text' => 'A member reported content for moderation',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>A new report was filed on {{site_name}} and is waiting in the moderation queue.</p><p><a href="{{action_url}}">Review the moderation queue &rarr;</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( 'New content report awaiting review on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'A member reported content for moderation', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>A new report was filed on {{site_name}} and is waiting in the moderation queue.</p><p><a href="{{action_url}}">Review the moderation queue &rarr;</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.daily_digest',
-				'subject'      => 'Your daily digest from {{site_name}}',
-				'preview_text' => 'Here\'s what happened on {{site_name}} today',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from today on <a href="{{action_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
+				'subject'      => __( 'Your daily digest from {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Here\'s what happened on {{site_name}} today', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from today on <a href="{{action_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.weekly_digest',
-				'subject'      => 'Your weekly digest from {{site_name}}',
-				'preview_text' => 'Here\'s your weekly round-up from {{site_name}}',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from this week on <a href="{{action_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
+				'subject'      => __( 'Your weekly digest from {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Here\'s your weekly round-up from {{site_name}}', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from this week on <a href="{{action_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.bulk_invite',
-				'subject'      => 'You\'ve been invited to join {{site_name}}',
-				'preview_text' => 'Accept your invitation and create your account',
-				'body_html'    => '<p>Hi {{first_name}},</p><p>You\'ve been invited to join <strong>{{site_name}}</strong>!</p><p><a href="{{invite_url}}">Accept invitation &rarr;</a></p><p>This invitation expires in 7 days.</p>',
+				'subject'      => __( 'You\'ve been invited to join {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Accept your invitation and create your account', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{first_name}},</p><p>You\'ve been invited to join <strong>{{site_name}}</strong>!</p><p><a href="{{invite_url}}">Accept invitation &rarr;</a></p><p>This invitation expires in 7 days.</p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.onboarding_nudge',
-				'subject'      => 'Finish setting up your {{site_name}} profile',
-				'preview_text' => 'Complete your onboarding to get the most out of the community',
-				'body_html'    => '<p>Hi {{recipient_name}},</p><p>You\'re almost there! Complete your profile setup on <strong>{{site_name}}</strong> to connect with the community.</p><p><a href="{{onboarding_url}}">Complete your profile &rarr;</a></p>',
+				'subject'      => __( 'Finish setting up your {{site_name}} profile', 'buddynext' ),
+				'preview_text' => __( 'Complete your onboarding to get the most out of the community', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{recipient_name}},</p><p>You\'re almost there! Complete your profile setup on <strong>{{site_name}}</strong> to connect with the community.</p><p><a href="{{onboarding_url}}">Complete your profile &rarr;</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.new_message',
-				'subject'      => '{{actor_name}} sent you a message on {{site_name}}',
-				'preview_text' => 'You have a new direct message',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> sent you a direct message on {{site_name}}. <a href="{{action_url}}">Read it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} sent you a message on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'You have a new direct message', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> sent you a direct message on {{site_name}}. <a href="{{action_url}}">Read it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.media_commented',
-				'subject'      => '{{actor_name}} commented on your media on {{site_name}}',
-				'preview_text' => 'Someone commented on your media',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> commented on your media on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} commented on your media on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Someone commented on your media', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> commented on your media on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 			array(
 				'type'         => 'bn.media_favorited',
-				'subject'      => '{{actor_name}} favorited your media on {{site_name}}',
-				'preview_text' => 'Your media received a new favorite',
-				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> favorited your media on {{site_name}}. <a href="{{action_url}}">View it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => __( '{{actor_name}} favorited your media on {{site_name}}', 'buddynext' ),
+				'preview_text' => __( 'Your media received a new favorite', 'buddynext' ),
+				'body_html'    => __( '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> favorited your media on {{site_name}}. <a href="{{action_url}}">View it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>', 'buddynext' ),
 			),
 		);
 
@@ -3982,6 +4075,11 @@ class Installer {
 					'subject'   => 'New join request for your {{site_name}} space',
 					'body_html' => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 				),
+			),
+			// 1.3.0: the preheader said "ignore" while the request screen's button
+			// says Decline; the inbox preview now uses the same word as the button.
+			'bn.follow_requested'       => array(
+				array( 'preview_text' => 'Approve or ignore the request' ),
 			),
 			'bn.media_commented'        => array(
 				array(
@@ -4767,6 +4865,7 @@ class Installer {
 				PRIMARY KEY         (id),
 				KEY                 user_feed (user_id, status, created_at),
 				KEY                 space_feed (space_id, status, created_at),
+				KEY                 space_type_feed (space_id, type, status, created_at),
 				KEY                 announcement_feed (is_announcement, status, created_at),
 				KEY                 explore (privacy, created_at),
 				KEY                 active_feed (privacy, status, last_activity_at),
@@ -5395,7 +5494,13 @@ class Installer {
 		}
 
 		wp_mkdir_p( WP_CONTENT_DIR . '/mu-plugins/' );
-		file_put_contents( $dest, $content ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+
+		// Core's own direct writer: the same write as before, as the PHP user, with no
+		// credentials prompt (the generated file belongs in wp-content, so the
+		// connection-based writers that ask for FTP details do not fit).
+		require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-base.php';
+		require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-direct.php';
+		( new \WP_Filesystem_Direct( null ) )->put_contents( $dest, $content, 0644 );
 	}
 
 	/**

@@ -2,7 +2,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
 import { dbCount, tablePrefix } from '../_fixtures/wp';
 import { dbSeedingAvailable } from '../_fixtures/db.fixture';
-import { idsOf, restJson } from '../_fixtures/effects';
+import { listOf, restJson } from '../_fixtures/effects';
 
 /**
  * J-45 DM list.
@@ -65,7 +65,12 @@ test.describe('messages / list', () => {
             // thread on screen that the route does not know about.
             const rest = await restJson(page, '/wp-json/mvs/v1/me/conversations?per_page=50');
             if (rest.status === 200) {
-                const routeIds = idsOf(rest.data);
+                // A direct thread whose partner account was deleted keeps only the viewer as a participant: the rail
+                // hides it (nobody to talk to), so compare only threads that still have someone else in them.
+                const routeIds = listOf(rest.data)
+                    .filter((c) => ((c.participants as Array<{ id: number }> | undefined) ?? []).length !== 1 || c.type !== 'direct')
+                    .map((c) => Number(c.id))
+                    .filter((n) => n > 0);
                 const railIds = (await page.locator('.bn-dm-rail__item[data-conv-id]').evaluateAll((els) =>
                     els.map((el) => Number(el.getAttribute('data-conv-id')))
                 )) as number[];

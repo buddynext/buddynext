@@ -25,6 +25,7 @@
  * @var string   $initials           Two-letter fallback initials.
  * @var int      $degree             Viewer→author connection degree (1=1st, 2=2nd; 0/3+ hidden).
  * @var bool     $show_follow        When true, render an inline Follow button (caller gates on not-already-following).
+ * @var string   $action_line        What the member did, plain text ("added a new listing"); '' when none.
  * @var string   $created_at         UTC MySQL datetime.
  * @var string   $post_time          Already-escaped relative time HTML.
  * @var string   $edited_label       Already-escaped "(edited)" label.
@@ -59,6 +60,7 @@ $args = array(
 	'initials'          => isset( $initials ) ? (string) $initials : '',
 	'degree'            => isset( $degree ) ? (int) $degree : 0,
 	'show_follow'       => isset( $show_follow ) ? (bool) $show_follow : false,
+	'action_line'       => isset( $action_line ) ? (string) $action_line : '',
 	'created_at'        => isset( $created_at ) ? (string) $created_at : '',
 	'post_time'         => isset( $post_time ) ? (string) $post_time : '',
 	'edited_label'      => isset( $edited_label ) ? (string) $edited_label : '',
@@ -123,6 +125,10 @@ do_action( 'buddynext_part_post_byline_before', $args );
 				data-bn-user-handle="<?php echo esc_attr( (string) $args['username'] ); ?>"
 			><?php echo esc_html( (string) $args['display_name'] ); ?></a>
 
+			<?php if ( '' !== (string) $args['action_line'] ) : ?>
+				<span class="bn-post-card__action"><?php echo esc_html( (string) $args['action_line'] ); ?></span>
+			<?php endif; ?>
+
 			<?php
 			// Connection-degree pill (1st / 2nd) — mirrors parts/member-card +
 			// parts/profile-hero. Only 1st/2nd are surfaced; 3rd+ and "self"
@@ -155,7 +161,7 @@ do_action( 'buddynext_part_post_byline_before', $args );
 
 		<div class="bn-post-card__meta">
 			<?php if ( '' !== (string) $args['username'] ) : ?>
-				<a class="bn-post-card__handle" href="<?php echo esc_url( (string) $args['profile_link'] ); ?>">@<?php echo esc_html( (string) $args['username'] ); ?></a>
+				<a class="bn-post-card__handle" href="<?php echo esc_url( (string) $args['profile_link'] ); ?>"><bdi dir="ltr">@<?php echo esc_html( (string) $args['username'] ); ?></bdi></a>
 				<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 			<?php endif; ?>
 

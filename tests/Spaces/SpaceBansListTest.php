@@ -119,4 +119,56 @@ class SpaceBansListTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $removed, 'Listeners that revoke membership grants (forum access) must hear the ban.' );
 		$this->assertFalse( $this->service->is_member( $space_id, $user_id ) );
 	}
+
+	public function test_a_long_reason_is_capped_on_the_server(): void {
+		$user_id = self::factory()->user->create();
+		$admin   = self::factory()->user->create( array( 'role' => 'administrator' ) );
+
+		$this->service->ban_from_space( 7, $user_id, $admin, str_repeat( 'x', 1000 ) );
+
+		$bans = $this->service->get_space_bans( 7 );
+		$this->assertSame( SpaceMemberService::BAN_REASON_MAX, mb_strlen( (string) $bans[0]['reason'] ) );
+	}
+
+	public function test_nobody_can_ban_themselves(): void {
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$result = $this->service->ban_from_space( 8, $admin, $admin, 'oops' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'cannot_ban_self', $result->get_error_code() );
+		$this->assertSame( array(), $this->service->get_space_bans( 8 ) );
+	}
+
+	public function test_a_member_cannot_remove_themselves(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->assertFalse( $this->service->remove( 9, $admin, $admin ) );
+	}
+
+	/**
+	 * banned_user_ids() walks a space's bans in id order, one keyset page at a time.
+	 *
+	 * @return void
+	 */
+	public function test_banned_user_ids_pages_by_id(): void {
+		$owner = self::factory()->user->create();
+		$space = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Ban pages',
+				'slug' => 'ban-pages-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
+		$svc = new \BuddyNext\Spaces\SpaceMemberService();
+		$ids = self::factory()->user->create_many( 3 );
+		foreach ( $ids as $uid ) {
+			$svc->join( $space, $uid );
+			$this->assertTrue( true === $svc->ban_from_space( $space, $uid, $owner ) );
+		}
+		sort( $ids );
+
+		$this->assertSame( array_slice( $ids, 0, 2 ), $svc->banned_user_ids( $space, 0, 2 ) );
+		$this->assertSame( array( $ids[2] ), $svc->banned_user_ids( $space, $ids[1], 2 ) );
+		$this->assertSame( array(), $svc->banned_user_ids( $space + 999999 ) );
+	}
 }

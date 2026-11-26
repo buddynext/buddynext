@@ -1,6 +1,6 @@
 # Community Insights
 
-Community Insights is your at-a-glance view of how the community is doing, computed from your own data and shown right inside wp-admin. It answers the questions every owner asks - how many members do I have, are they active, is anyone posting - without exporting anything or connecting a third-party analytics tool. You find it under **BuddyNext > Engagement > Insights**, and a compact version also appears on your main WordPress dashboard.
+Community Insights is your at-a-glance view of how the community is doing, computed from your own data and shown right inside wp-admin. It answers the questions every owner asks - how many members do I have, are they active, is anyone posting - without exporting anything or connecting a third-party analytics tool. You find it under **BuddyNext > Community > Engagement > Insights**, and a compact version also appears on your main WordPress dashboard.
 
 ![The BuddyNext Insights screen with member, post, space and engagement metrics and a new-members chart](../images/admin-insights.webp)
 
@@ -34,6 +34,10 @@ BuddyNext also adds a small **BuddyNext community** widget to the standard WordP
 Community Insights covers the essentials every owner needs and is part of the free plugin. If you want deeper reporting - trends over longer periods, breakdowns, and more detailed engagement views - that lives in BuddyNext Pro Analytics. Insights is the quick daily read; Analytics is the full report. See the Pro documentation for what Analytics adds.
 
 > **Note:** Every number here is calculated from your own community data on your own site. Nothing is sent anywhere, and there is nothing to set up - the figures appear as soon as members start using the community.
+
+## What changed in 1.3.0
+
+- The Insights stat rows are one height, and Engagement rate reads as reactions and comments **per post**.
 
 ## Related
 

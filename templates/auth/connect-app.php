@@ -48,7 +48,7 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 					<p class="bn-auth-sub">
 						<?php esc_html_e( 'The link that opened this page did not come from an app this site recognises. Go back to the app and try connecting again.', 'buddynext' ); ?>
 					</p>
-					<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( home_url( '/' ) ); ?>">
+					<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( home_url( '/' ) ); ?>">
 						<?php esc_html_e( 'Back to the site', 'buddynext' ); ?>
 					</a>
 				</section>
@@ -72,17 +72,18 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 			// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 			echo wp_interactivity_data_wp_context(
 				array(
-					'restUrl'     => $bn_rest_root,
-					'restNonce'   => $bn_rest_nonce,
-					'bridgeToken' => $bn_bridge_token,
-					'appName'     => $bn_app_name,
-					'appId'       => $bn_app_id,
-					'scheme'      => $bn_scheme,
-					'state'       => $bn_state,
-					'busy'        => false,
-					'connected'   => false,
-					'deepLink'    => '',
-					'error'       => '',
+					'restUrl'        => $bn_rest_root,
+					'restNonce'      => $bn_rest_nonce,
+					'bridgeToken'    => $bn_bridge_token,
+					'appName'        => $bn_app_name,
+					'appId'          => $bn_app_id,
+					'scheme'         => $bn_scheme,
+					'state'          => $bn_state,
+					'busy'           => false,
+					'connected'      => false,
+					'deepLink'       => '',
+					'error'          => '',
+					'blockedMessage' => __( 'Your site\'s security settings blocked the app connection. Please ask the site owner to allow the BuddyNext sign-in routes.', 'buddynext' ),
 				)
 			);
 			// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -118,7 +119,7 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 						data-wp-text="state.error"></div>
 
 					<div data-wp-bind--hidden="state.connected">
-						<button class="bn-btn bn-btn--primary bn-btn--block"
+						<button class="bn-btn" data-variant="primary" data-size="lg" data-full
 							type="button"
 							data-wp-on--click="actions.approve"
 							data-wp-bind--disabled="state.busy">
@@ -135,7 +136,7 @@ $bn_app_label = '' !== $bn_app_name ? $bn_app_name : __( 'the app', 'buddynext' 
 
 					<div data-wp-bind--hidden="!state.connected">
 						<p class="bn-auth-sub"><?php esc_html_e( 'Connected. Opening the app…', 'buddynext' ); ?></p>
-						<a class="bn-btn bn-btn--primary bn-btn--block"
+						<a class="bn-btn" data-variant="primary" data-size="lg" data-full
 							data-wp-bind--href="state.deepLink">
 							<?php esc_html_e( 'Open the app', 'buddynext' ); ?>
 						</a>

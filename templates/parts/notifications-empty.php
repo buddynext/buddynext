@@ -56,12 +56,12 @@ $bn_class   = trim(
 // Filter-specific empty-state copy so each tab tells the user what
 // they should see when activity exists for that category.
 $empty_copy = array(
-	'all'      => array(
+	'all'          => array(
 		'title' => __( "You're all caught up", 'buddynext' ),
 		'sub'   => __( 'New activity will show here. Try posting something or following a few members to get started.', 'buddynext' ),
 		'icon'  => 'check-circle',
 	),
-	'unread'   => array(
+	'unread'       => array(
 		'title' => __( 'No unread notifications', 'buddynext' ),
 		// Layout-agnostic on purpose: the filters are a sidebar on desktop but a
 		// tab strip above the list on mobile, so "on the left" was wrong on a
@@ -69,35 +69,45 @@ $empty_copy = array(
 		'sub'   => __( 'Everything has been read. Switch filters to revisit older activity.', 'buddynext' ),
 		'icon'  => 'check-circle',
 	),
-	'mention'  => array(
+	'mention'      => array(
 		'title' => __( 'No mentions yet', 'buddynext' ),
 		'sub'   => __( 'When someone mentions you in a post or a comment, it will appear here.', 'buddynext' ),
 		'icon'  => 'at-sign',
 	),
-	'comment'  => array(
+	'comment'      => array(
 		'title' => __( 'No comments yet', 'buddynext' ),
 		'sub'   => __( 'Comments on your posts will appear here.', 'buddynext' ),
 		'icon'  => 'message-circle',
 	),
-	'reaction' => array(
+	'reaction'     => array(
 		'title' => __( 'No reactions yet', 'buddynext' ),
 		'sub'   => __( 'Reactions to your posts will appear here.', 'buddynext' ),
 		'icon'  => 'heart',
 	),
-	'follow'   => array(
+	'follow'       => array(
 		'title' => __( 'No follow activity', 'buddynext' ),
 		'sub'   => __( 'New followers, connection requests, and accepted connections will appear here.', 'buddynext' ),
 		'icon'  => 'users',
 	),
-	'space'    => array(
+	'space'        => array(
 		'title' => __( 'No space activity', 'buddynext' ),
 		'sub'   => __( 'Invites, join requests, and new posts in your spaces will appear here.', 'buddynext' ),
 		'icon'  => 'home',
 	),
-	'message'  => array(
+	'message'      => array(
 		'title' => __( 'No new messages', 'buddynext' ),
 		'sub'   => __( 'Direct messages will appear here when someone reaches out.', 'buddynext' ),
 		'icon'  => 'mail',
+	),
+	'jobs'         => array(
+		'title' => __( 'No job updates', 'buddynext' ),
+		'sub'   => __( 'Updates on jobs you posted or applied for will appear here.', 'buddynext' ),
+		'icon'  => 'briefcase',
+	),
+	'achievements' => array(
+		'title' => __( 'No achievements yet', 'buddynext' ),
+		'sub'   => __( 'Badges and levels you earn will appear here.', 'buddynext' ),
+		'icon'  => 'award',
 	),
 );
 

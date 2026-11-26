@@ -153,6 +153,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		// nothing at all. A form that reports success on failure is worse than one that
 		// errors: the owner walks away believing a privacy control is set.
 		$bn_wrote_something = false;
+		$bn_articles_moving = false;
 
 		if ( 'integrations' === $bn_subtab ) {
 			if ( ! $bn_is_space_owner ) {
@@ -197,6 +198,19 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 					$bn_integration_values['gamification_leaderboard_tab'] = isset( $_POST['gamification_leaderboard_tab'] ) ? '1' : '0';
 				}
 
+				// Articles tab (WB Member Blog). Only while the row is live: the field is
+				// registered, the site-wide switch is on and the Space is open, so a disabled
+				// row never zeroes the owner's choice.
+				if ( null !== $bn_field_registry->get_field( \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD )
+					&& buddynext_integration_enabled( \BuddyNext\Bridges\MemberBlogBridge::INTEGRATION, 'nav', 'spaces' )
+					&& \BuddyNext\Bridges\MemberBlogBridge::space_is_open( $space_id ) ) {
+					$bn_articles_new = isset( $_POST['articles_tab'] ) ? '1' : '0';
+					if ( ( false !== buddynext_get_space_field( $space_id, \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD ) ) !== ( '1' === $bn_articles_new ) ) {
+						$bn_articles_moving = true;
+					}
+					$bn_integration_values[ \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD ] = $bn_articles_new;
+				}
+
 				// Events (Eventonomy). Only write when the field is registered — i.e.
 				// the Eventonomy bridge (Pro) is active — so saving this tab with it
 				// absent does not zero the owner's choice, the same guard the toggles
@@ -236,16 +250,20 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// - first enable : create a new dedicated discussion, OR (initial
 				// setup only) link one the caller is allowed to.
 				// - later on/off : just flip the enabled flag; same discussion.
-				if ( class_exists( 'Jetonomy\\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'nav' ) && 'error' !== $save_notice ) {
-					$bn_disc_result = ( new \BuddyNext\Bridges\JetonomyBridge() )->apply_discussion_choice(
+				// Same rule as the REST /discussion routes: JetonomyBridge::can_manage_discussion().
+				$bn_jt_bridge = new \BuddyNext\Bridges\JetonomyBridge();
+				if ( 'error' !== $save_notice && $bn_jt_bridge->can_manage_discussion( $space_id, $bn_actor_id ) ) {
+					$bn_disc_result = $bn_jt_bridge->apply_discussion_choice(
 						$space_id,
 						isset( $_POST['bn_discussion_enabled'] ),
 						isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0,
-						get_current_user_id()
+						$bn_actor_id
 					);
 					if ( is_wp_error( $bn_disc_result ) ) {
 						$save_notice           = 'error';
-						$bn_save_error_message = __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' );
+						$bn_save_error_message = 'bn_discussion_not_created' === $bn_disc_result->get_error_code()
+							? __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' )
+							: $bn_disc_result->get_error_message();
 					}
 				}
 			}
@@ -271,6 +289,22 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			} else {
 				$save_notice           = 'error';
 				$bn_save_error_message = (string) reset( $bn_brand_result['errors'] );
+			}
+		}
+
+		// Location rides the general panel but is a registered field (meta, public, searchable), so it saves through
+		// the registry, which trims it, enforces its owner-only writable_by and re-indexes the Space for search.
+		if ( 'error' !== $save_notice && isset( $_POST['space_location'] ) ) {
+			$bn_location_result = $bn_field_registry->save_for_space(
+				$space_id,
+				array( 'location' => sanitize_text_field( wp_unslash( (string) $_POST['space_location'] ) ) ),
+				$bn_actor_id
+			);
+			if ( empty( $bn_location_result['errors'] ) ) {
+				$bn_wrote_something = true;
+			} else {
+				$save_notice           = 'error';
+				$bn_save_error_message = (string) reset( $bn_location_result['errors'] );
 			}
 		}
 
@@ -468,6 +502,7 @@ $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media
 $mvs_documents_tab     = (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' );
 $bn_leaderboard_tab    = (bool) buddynext_get_space_field( $space_id, 'gamification_leaderboard_tab' );
 $album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
+$articles_tab          = false !== buddynext_get_space_field( $space_id, \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD );
 $events_tab            = (bool) buddynext_get_space_field( $space_id, 'events_tab' );
 $event_creators        = (string) buddynext_get_space_field( $space_id, 'event_creators' );
 $listora_listings_tab  = (bool) buddynext_get_space_field( $space_id, 'listora_listings_tab' );
@@ -808,7 +843,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 		<?php if ( 'success' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
-				<?php esc_html_e( 'Changes saved successfully.', 'buddynext' ); ?>
+				<?php echo esc_html( ! empty( $bn_articles_moving ) ? __( 'Saved. Moving articles in the background.', 'buddynext' ) : __( 'Changes saved successfully.', 'buddynext' ) ); ?>
 			</div>
 		<?php elseif ( 'error' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="danger" role="alert">
@@ -880,6 +915,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					'mvs_documents_tab'     => $mvs_documents_tab,
 					'leaderboard_tab'       => $bn_leaderboard_tab,
 					'album_creators'        => $album_creators,
+					'articles_tab'          => $articles_tab,
 					'events_tab'            => $events_tab,
 					'event_creators'        => $event_creators,
 					'listora_listings_tab'  => $listora_listings_tab,
@@ -1001,9 +1037,12 @@ foreach ( $builtin_tabs as $bn_t ) {
 
 		// general / privacy / integrations share the outer general-settings form.
 		$bn_wrap_form = in_array( $settings_tab, array( 'general', 'privacy', 'integrations' ), true );
+		// Integrations is owner-only and renders read-only for a moderator: nothing
+		// in it can be saved, so the shared save bar must not offer Save.
+		$bn_form_readonly = 'integrations' === $settings_tab && ! $bn_is_space_owner;
 		if ( $bn_wrap_form ) :
 			?>
-			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form" data-bn-settings-general-form data-space-id="<?php echo esc_attr( (string) $space_id ); ?>" data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>" data-wp-on--input="actions.savebarMarkDirty" data-wp-on--change="actions.savebarMarkDirty">
+			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form"<?php echo $bn_form_readonly ? ' data-bn-readonly' : ''; ?> data-bn-settings-general-form data-space-id="<?php echo esc_attr( (string) $space_id ); ?>" data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>" data-wp-on--input="actions.savebarMarkDirty" data-wp-on--change="actions.savebarMarkDirty">
 				<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
 				<input type="hidden" name="bn_settings_subtab" value="<?php echo esc_attr( $settings_tab ); ?>" />
 				<?php

@@ -483,6 +483,11 @@ do_action( 'buddynext_part_post_body_before', $args );
 				<?php if ( '' !== $bn_link_desc ) : ?>
 					<p class="bn-post-card__bridge-text"><?php echo esc_html( $bn_link_desc ); ?></p>
 				<?php endif; ?>
+				<?php
+				// The forum's own numbers and the Open discussion button, the same markup every bridge card uses.
+				$bn_disc_parts = \BuddyNext\Feed\IntegrationActivity::resolve( 'discussion', array(), (array) ( $args['link_meta'] ?? array() ), (int) $args['bn_post_id'] );
+				echo \BuddyNext\Feed\IntegrationActivity::render_parts( $bn_disc_parts['facts'], $bn_disc_parts['actions'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside render_parts().
+				?>
 			</div>
 		</div>
 		<?php endif; ?>
@@ -518,7 +523,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 						<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-name"><?php echo esc_html( $orig_name ); ?></a>
 						<span class="bn-post-card__shared-sub">
 							<?php if ( $orig_username ) : ?>
-								<span class="bn-post-card__shared-username">@<?php echo esc_html( $orig_username ); ?></span>
+								<span class="bn-post-card__shared-username"><bdi dir="ltr">@<?php echo esc_html( $orig_username ); ?></bdi></span>
 								<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 							<?php endif; ?>
 							<span class="bn-post-card__shared-time"><?php echo esc_html( $orig_time ); ?></span>

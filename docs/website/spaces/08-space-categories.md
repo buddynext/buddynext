@@ -20,6 +20,8 @@ When a member creates a space, they pick its category from the categories you ha
 
 A category marked as not shown in the directory still exists and can be assigned to spaces, but it does not appear as a filter option for members - useful for internal or staging categories you do not want members browsing by.
 
+Categories also double as **interests**: new members pick the ones they care about during onboarding, and can change them later on their profile. Only categories shown in the directory are offered, and a category set to **Subspaces only** is never offered, because members cannot browse by it. A member who picked a category before you hid it keeps that pick.
+
 ## Setting it up (for owners)
 
 Categories are managed in the admin under BuddyNext > Spaces > Directory, in the Categories subtab. From there you create, edit, reorder, and delete categories. Each category has these fields:
@@ -34,7 +36,7 @@ Categories are managed in the admin under BuddyNext > Spaces > Directory, in the
 | Icon | An optional inline icon shown with the category. | None |
 | Sort order | A number that sets where the category appears in the list; lower numbers come first. | 0 |
 | Use for | Where members can pick the category: main spaces and subspaces, main spaces only, or subspaces only. | Main spaces and subspaces |
-| Show in the spaces directory | Whether the category appears as a filter option for members in the directory. | On |
+| Show in the spaces directory | Whether the category appears as a filter option for members in the directory, and as an interest members can pick. | On |
 
 
 ![Adding a space category with the Use for choice](../images/admin-space-categories-use-for.webp)

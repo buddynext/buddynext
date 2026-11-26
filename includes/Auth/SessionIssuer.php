@@ -103,16 +103,9 @@ class SessionIssuer {
 	 *                       challenge before a session is issued.
 	 */
 	public function start( int $user_id, bool $remember ): bool|WP_Error {
-		$user = get_user_by( 'id', $user_id );
-		if ( ! $user instanceof WP_User ) {
-			return new WP_Error( 'bn_no_user', __( 'That account could not be found.', 'buddynext' ) );
-		}
-
-		// The same chain wp_authenticate() runs. The admin-approval hold lives
-		// here, as do any third-party gates the owner has installed.
-		$checked = apply_filters( 'wp_authenticate_user', $user, '' );
-		if ( is_wp_error( $checked ) ) {
-			return $checked;
+		$user = $this->admit( $user_id );
+		if ( is_wp_error( $user ) ) {
+			return $user;
 		}
 
 		// Two-factor: do not sign in. Issue a challenge ticket and let the caller
@@ -128,12 +121,121 @@ class SessionIssuer {
 			);
 		}
 
-		wp_set_current_user( $user_id );
-		wp_set_auth_cookie( $user_id, $remember, is_ssl() );
+		$this->sign_in( $user, $remember );
+
+		return true;
+	}
+
+	/**
+	 * Finish a sign-in once the second factor has verified.
+	 *
+	 * The challenge ticket lives up to five minutes, so the member could have been
+	 * put on hold, or sit behind a newly blocked network, since the ticket was
+	 * issued. The same gates as start() run again; only the 2FA challenge is skipped.
+	 *
+	 * @param int  $user_id  Member whose code verified.
+	 * @param bool $remember Whether to issue a long-lived cookie.
+	 * @return true|WP_Error True when signed in, or the gate's refusal.
+	 */
+	public function finish_second_factor( int $user_id, bool $remember ): bool|WP_Error {
+		$user = $this->admit( $user_id );
+		if ( is_wp_error( $user ) ) {
+			return $user;
+		}
+
+		$this->sign_in( $user, $remember );
+
+		return true;
+	}
+
+	/**
+	 * The sign-in refusals a member may read once they proved their password.
+	 *
+	 * @return string[] WP_Error codes.
+	 */
+	public static function reportable_codes(): array {
+		/**
+		 * Filter the sign-in refusals a member may read once they proved their password.
+		 *
+		 * Add a code here so your wp_authenticate_user or authenticate gate tells a member
+		 * why they are held. Everything else gets the generic failure. Never add a network
+		 * or anti-automation refusal (IP block, lockout, bot check): reporting it confirms
+		 * the password to whoever is being refused.
+		 *
+		 * @since 1.2.8
+		 *
+		 * @param string[] $codes Reportable WP_Error codes.
+		 */
+		return (array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) );
+	}
+
+	/**
+	 * Keep a signed-in member's session alive after something that destroyed its tokens.
+	 *
+	 * A password change or "sign out everywhere" drops every session token, including this
+	 * request's. This issues the cookie again for the same member; it is not a sign-in, so no
+	 * gate runs and wp_login does not fire.
+	 *
+	 * @param int $user_id Member who is already signed in on this request.
+	 * @return void
+	 */
+	public static function reissue_cookie( int $user_id ): void {
+		wp_set_auth_cookie( $user_id, false, is_ssl() );
+	}
+
+	/**
+	 * The words to show a member whose sign-in a gate refused after they proved who they are.
+	 *
+	 * Only the refusals the owner allows are spelled out (the approval hold by default).
+	 * A network refusal is never reported: saying so would confirm the credentials to
+	 * whoever is being refused.
+	 *
+	 * @param WP_Error $refusal Error from start() or finish_second_factor().
+	 * @return string
+	 */
+	public static function refusal_message( WP_Error $refusal ): string {
+		return in_array( $refusal->get_error_code(), self::reportable_codes(), true )
+			? $refusal->get_error_message()
+			: __( 'Sign-in is not available right now.', 'buddynext' );
+	}
+
+	/**
+	 * Load the member and replay the gates every door must respect.
+	 *
+	 * The same chain wp_authenticate() runs. The blocked-network refusal and the
+	 * admin-approval hold live here, as do any third-party gates the owner has installed.
+	 *
+	 * @param int $user_id Member to admit.
+	 * @return WP_User|WP_Error
+	 */
+	private function admit( int $user_id ): WP_User|WP_Error {
+		$user = get_user_by( 'id', $user_id );
+		if ( ! $user instanceof WP_User ) {
+			return new WP_Error( 'bn_no_user', __( 'That account could not be found.', 'buddynext' ) );
+		}
+
+		$checked = apply_filters( 'wp_authenticate_user', $user, '' );
+
+		return is_wp_error( $checked ) ? $checked : $user;
+	}
+
+	/**
+	 * Set the auth cookie and fire wp_login. The only place BuddyNext starts a session.
+	 *
+	 * WARNING: this does NOT run the approval hold, the blocked-network check or the second factor.
+	 * Public for the one caller that has already run them itself (the password sign-in, after core's
+	 * authenticate chain and its own two-factor branch); every other door must go through start() or
+	 * finish_second_factor(), which replay the gates first.
+	 *
+	 * @param WP_User $user     Member to sign in.
+	 * @param bool    $remember Whether to issue a long-lived cookie.
+	 * @return void
+	 */
+	public function sign_in( WP_User $user, bool $remember ): void {
+		wp_set_current_user( $user->ID );
+		wp_set_auth_cookie( $user->ID, $remember, is_ssl() );
 
 		/** This action is documented in wp-includes/user.php (wp_signon). */
 		do_action( 'wp_login', $user->user_login, $user );
-
-		return true;
 	}
 }

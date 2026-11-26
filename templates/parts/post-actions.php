@@ -122,8 +122,10 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			type="button"
 			class="bn-post-card__action-btn bn-post-card__action-btn--react"
 			aria-label="<?php esc_attr_e( 'React to post', 'buddynext' ); ?>"
+			aria-pressed="<?php echo ! empty( $args['user_reaction'] ) ? 'true' : 'false'; ?>"
 			data-wp-on--click="actions.toggleReactionPicker"
 			data-wp-bind--class="state.reactBtnClass"
+			data-wp-bind--aria-pressed="state.reactPressed"
 		>
 			<span data-wp-bind--class="state.reactionIconClass" data-wp-style--background-image="state.reactionIconUrl" aria-hidden="true">
 				<?php
@@ -143,11 +145,11 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			</span>
 			<?php
 			// Label reflects the viewer's current reaction (e.g. "Love") and falls
-			// back to "React" when none. Bound to state.reactionLabel so picking a
+			// back to "Like" when none, so a first tap does not rename the button. Bound to state.reactionLabel so picking a
 			// reaction updates the label in step with the icon.
 			$bn_react_label = ( ! empty( $args['user_reaction'] ) && class_exists( '\BuddyNext\Reactions\ReactionService' ) )
 				? \BuddyNext\Reactions\ReactionService::label( (string) $args['user_reaction'] )
-				: __( 'React', 'buddynext' );
+				: __( 'Like', 'buddynext' );
 			?>
 			<span class="bn-post-card__action-label" data-wp-text="state.reactionLabel"><?php echo esc_html( $bn_react_label ); ?></span>
 		</button>
@@ -219,7 +221,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 				$bn_chip_style = '';
 				if ( '' === $bn_glyph ) {
 					if ( '' === $reaction_char ) {
-						$reaction_char = mb_strtoupper( mb_substr( $reaction_label, 0, 1 ) );
+						$reaction_char = \BuddyNext\Support\Text::upper( mb_substr( $reaction_label, 0, 1 ) );
 					}
 					if ( '' !== $reaction_color && preg_match( '/^#[0-9a-fA-F]{6}$/', $reaction_color ) ) {
 						$bn_chip_style = 'color:' . $reaction_color . ';';
@@ -315,7 +317,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			data-wp-bind--aria-pressed="state.bookmarked"
 		>
 			<span aria-hidden="true"><?php buddynext_icon( 'bookmark' ); ?></span>
-			<span class="bn-post-card__action-label"><?php esc_html_e( 'Save', 'buddynext' ); ?></span>
+			<span class="bn-post-card__action-label"><?php esc_html_e( 'Bookmark', 'buddynext' ); ?></span>
 		</button>
 	<?php endif; ?>
 

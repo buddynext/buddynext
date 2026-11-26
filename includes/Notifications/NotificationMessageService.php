@@ -40,10 +40,25 @@ class NotificationMessageService {
 	private const CACHE_TTL = 300;
 
 	/**
+	 * Post id => space id, filled for a page of rows by compose_batch().
+	 *
+	 * @var array<int, int>
+	 */
+	private array $post_space = array();
+
+	/**
+	 * Post type per post id (primed for a page of notifications, or read on demand), so a Space notice can say
+	 * what kind of post it is.
+	 *
+	 * @var array<int,string>
+	 */
+	private array $post_type = array();
+
+	/**
 	 * Compose the full presentation payload for a single notification row.
 	 *
-	 * Accepts an associative array with keys: id, type, sender_id, object_id,
-	 * object_type, group_count, data, created_at, is_read. Returns an array
+	 * Accepts an associative array with keys: id, type, recipient_id, sender_id,
+	 * object_id, object_type, group_count, data, created_at, is_read. Returns an array
 	 * with keys: message, url, icon, tone, label, actor_id, actor_name,
 	 * group_count. Used by template, nav dropdown, REST list endpoint, and
 	 * email token resolver so every surface renders the same copy.
@@ -72,10 +87,18 @@ class NotificationMessageService {
 
 		$actor_name = $this->resolve_actor_name( $actor_id );
 		$meta       = $this->meta_for( $type );
-		$url        = $this->url_for( $type, $actor_id, $object_id, $data );
+		// The recipient resolves "me" links (a received request opens the
+		// recipient's own tab). Rows read from the table carry it; a caller that
+		// composes in someone else's request (Pro push runs in the sender's) must
+		// pass it, or the link would point at the current user instead.
+		$url = $this->url_for( $type, $actor_id, $object_id, $data, isset( $row['recipient_id'] ) ? (int) $row['recipient_id'] : 0 );
 
 		$grouped_template = (string) ( $data['message_grouped'] ?? '' );
+		// True when the sentence itself already counts the others ("and 31
+		// others"), so a "x32" badge beside it would say the same thing twice.
+		$others_named = false;
 		if ( $group_count > 1 && '' !== $grouped_template ) {
+			$others_named = str_contains( $grouped_template, '{others}' );
 			// A row that carries its own grouped sentence (integration contract rows).
 			$message = strtr(
 				$grouped_template,
@@ -93,20 +116,22 @@ class NotificationMessageService {
 			// is left in the row, not the person the first event named.
 			$message = strtr( (string) $data['message_single'], array( '{actor}' => $actor_name ) );
 		} elseif ( $group_count > 1 && $this->supports_group_collapse( $type ) ) {
-			$message = $this->compose_grouped( $type, $actor_name, $group_count, $object_id, $data );
+			$message      = $this->compose_grouped( $type, $actor_name, $group_count, $object_id, $data );
+			$others_named = true;
 		} else {
 			$message = $this->compose_single( $type, $actor_name, $object_id, $data );
 		}
 
 		return array(
-			'message'     => $message,
-			'url'         => $url,
-			'icon'        => $meta['icon'],
-			'tone'        => $meta['tone'],
-			'label'       => $meta['label'],
-			'actor_id'    => $actor_id,
-			'actor_name'  => $actor_name,
-			'group_count' => $group_count,
+			'message'      => $message,
+			'url'          => $url,
+			'icon'         => $meta['icon'],
+			'tone'         => $meta['tone'],
+			'label'        => $meta['label'],
+			'actor_id'     => $actor_id,
+			'actor_name'   => $actor_name,
+			'group_count'  => $group_count,
+			'others_named' => $others_named,
 		);
 	}
 
@@ -131,6 +156,7 @@ class NotificationMessageService {
 			// One pass warms users and avatars, so per-row lookups are cache hits.
 			\BuddyNext\Profile\AvatarService::prime( array_keys( $actor_ids ) );
 		}
+		$this->prime_space_names( $rows );
 
 		$out = array();
 		foreach ( $rows as $i => $row ) {
@@ -295,6 +321,14 @@ class NotificationMessageService {
 				$space_name = $space_id > 0
 					? $this->resolve_space_name( $space_id )
 					: $this->resolve_space_for_post( $object_id );
+				if ( 'event' === $this->post_type_of( $object_id ) ) {
+					return sprintf(
+						/* translators: 1: actor display name, 2: space name. */
+						__( '%1$s scheduled an event in %2$s.', 'buddynext' ),
+						$actor_name,
+						$space_name
+					);
+				}
 				return sprintf(
 					/* translators: 1: actor display name, 2: space name. */
 					__( '%1$s posted in %2$s.', 'buddynext' ),
@@ -411,6 +445,10 @@ class NotificationMessageService {
 						return __( 'Your message was removed by a moderator.', 'buddynext' );
 					case 'post':
 						return __( 'Your post was removed by a moderator.', 'buddynext' );
+					case 'jetonomy_topic':
+						return __( 'Your discussion was removed by a moderator.', 'buddynext' );
+					case 'jetonomy_reply':
+						return __( 'Your reply in a discussion was removed by a moderator.', 'buddynext' );
 					default:
 						return __( 'Something you posted was removed by a moderator.', 'buddynext' );
 				}
@@ -898,11 +936,18 @@ class NotificationMessageService {
 				// (where the pending request is reviewed/accepted), not the
 				// requester's profile. The recipient is the user viewing the
 				// notification.
+				// #bn-requests lands on the request list itself: the profile header
+				// sits above the tab, so the list started below the fold.
 				$me = $viewer_id;
-				return $me > 0 ? PageRouter::connections_url( $me ) : '';
+				return $me > 0 ? PageRouter::connections_url( $me ) . '#bn-requests' : '';
+
+			case 'bn.follow_requested':
+				// A received follow request: open the RECIPIENT's own Followers
+				// tab, where the pending requests are approved or declined. The
+				// requester's profile has no Accept control.
+				return $viewer_id > 0 ? PageRouter::followers_url( $viewer_id ) . '#bn-requests' : '';
 
 			case 'bn.new_follower':
-			case 'bn.follow_requested':
 			case 'bn.connection_accepted':
 				return $actor_id > 0 ? PageRouter::profile_url( $actor_id ) : '';
 
@@ -1157,6 +1202,100 @@ class NotificationMessageService {
 	}
 
 	/**
+	 * Answer every space name a page of rows will ask for, in two queries.
+	 *
+	 * Space notifications name their space, and a space-post notification without
+	 * a space_id in its data first looks the post's space up: two queries per row
+	 * on a cold cache. This fills the post => space map and the name cache that
+	 * resolve_space_for_post() and resolve_space_name() read.
+	 *
+	 * @param array[] $rows Notification rows.
+	 * @return void
+	 */
+	private function prime_space_names( array $rows ): void {
+		$space_ids = array();
+		$post_ids  = array();
+		$type_ids  = array();
+		foreach ( $rows as $row ) {
+			$type      = (string) ( $row['type'] ?? '' );
+			$object_id = (int) ( $row['object_id'] ?? 0 );
+			if ( 0 !== strpos( $type, 'bn.space_' ) || $object_id <= 0 ) {
+				continue;
+			}
+			if ( 'bn.space_new_post' !== $type ) {
+				$space_ids[] = $object_id;
+				continue;
+			}
+			$type_ids[] = $object_id;
+			$data_space = (int) ( $this->normalise_data( $row['data'] ?? null )['space_id'] ?? 0 );
+			if ( $data_space > 0 ) {
+				$space_ids[] = $data_space;
+			} elseif ( ! isset( $this->post_space[ $object_id ] ) ) {
+				$post_ids[] = $object_id;
+			}
+		}
+
+		global $wpdb;
+		$post_ids = array_values( array_unique( $post_ids ) );
+		$type_ids = array_values( array_diff( array_unique( $type_ids ), array_keys( $this->post_type ) ) );
+		$lookup   = array_values( array_unique( array_merge( $post_ids, $type_ids ) ) );
+		if ( $lookup ) {
+			$in = implode( ', ', array_fill( 0, count( $lookup ), '%d' ) );
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders from array_fill( %d ), every id bound; one lookup for the whole page (space and type together).
+			$found = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, space_id, type FROM {$wpdb->prefix}bn_posts WHERE id IN ( {$in} )", ...$lookup ), ARRAY_A );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			foreach ( $post_ids as $post_id ) {
+				$this->post_space[ $post_id ] = 0;
+			}
+			foreach ( $found as $post_row ) {
+				$row_id                     = (int) $post_row['id'];
+				$this->post_type[ $row_id ] = (string) $post_row['type'];
+				if ( in_array( $row_id, $post_ids, true ) ) {
+					$this->post_space[ $row_id ] = (int) $post_row['space_id'];
+					$space_ids[]                 = (int) $post_row['space_id'];
+				}
+			}
+		}
+
+		$missing = array();
+		foreach ( array_unique( array_filter( $space_ids ) ) as $space_id ) {
+			if ( false === wp_cache_get( "name_{$space_id}", self::CACHE_GROUP ) ) {
+				$missing[] = (int) $space_id;
+			}
+		}
+		if ( ! $missing ) {
+			return;
+		}
+		$in = implode( ', ', array_fill( 0, count( $missing ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders from array_fill( %d ), every id bound; cached below.
+		$names = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, name FROM {$wpdb->prefix}bn_spaces WHERE id IN ( {$in} )", ...$missing ), ARRAY_A );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		foreach ( $names as $name_row ) {
+			if ( '' !== (string) $name_row['name'] ) {
+				wp_cache_set( 'name_' . (int) $name_row['id'], (string) $name_row['name'], self::CACHE_GROUP, self::CACHE_TTL );
+			}
+		}
+	}
+
+	/**
+	 * The type of a post ('event', 'text', ...), from the page's primed lookup or one read.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	private function post_type_of( int $post_id ): string {
+		if ( $post_id <= 0 ) {
+			return '';
+		}
+		if ( ! isset( $this->post_type[ $post_id ] ) ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$this->post_type[ $post_id ] = (string) $wpdb->get_var( $wpdb->prepare( "SELECT type FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1", $post_id ) );
+		}
+		return $this->post_type[ $post_id ];
+	}
+
+	/**
 	 * Resolve the space name for a post.
 	 *
 	 * @param int $post_id Post ID.
@@ -1164,6 +1303,9 @@ class NotificationMessageService {
 	private function resolve_space_for_post( int $post_id ): string {
 		if ( $post_id <= 0 ) {
 			return __( 'a space', 'buddynext' );
+		}
+		if ( isset( $this->post_space[ $post_id ] ) ) {
+			return $this->resolve_space_name( $this->post_space[ $post_id ] );
 		}
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

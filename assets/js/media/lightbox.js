@@ -300,6 +300,11 @@
 		// Private DM media has no social layer — skip reactions/comments/favorite/
 		// views entirely (the chrome is also hidden via .bn-lightbox--dm).
 		var isDM = !! ( gallery[ index ] && gallery[ index ].dm );
+		// The post parent the tile names, set before anything reads it: the
+		// comment thread loads below, before the meta fetch that re-seeds it in
+		// applyAbuseControls(). Without this a second photo read the FIRST one's
+		// post id and showed the wrong thread.
+		currentPostId = ( gallery[ index ] && gallery[ index ].postId ) || 0;
 		// reset transient state
 		resetReactions();
 		clear( panel.author );
@@ -313,7 +318,13 @@
 
 		// Media meta (author, views, urls). DM media renders into the floating
 		// stage chrome (sender + download); social media into the side panel.
-		api( '/media/' + id ).then( function ( m ) {
+		//
+		// The view is recorded FIRST and the meta read after it. Both used to fire
+		// together, so the total painted was the one from before this open: a photo
+		// opened for the first time read "0 views" while it was on screen. DM media
+		// records no view, so it reads straight away.
+		var viewed = isDM ? Promise.resolve() : api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+		viewed.then( function () { return api( '/media/' + id ); } ).then( function ( m ) {
 			if ( current !== id ) { return; }
 			renderAuthor( m, isDM ? panel.dmAuthor : panel.author );
 			applyAbuseControls( m );
@@ -346,10 +357,7 @@
 		// was the JS half of that bug; the template gated the panel, this gated
 		// the fetch, and either alone was enough to hide the thread.
 		if ( ! LOGGED_IN ) {
-			api( '/media/' + id + '/comments' ).then( function ( list ) {
-				if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
-			} ).catch( function () {} );
-			api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+			loadComments( id );
 			return;
 		}
 
@@ -371,13 +379,9 @@
 			if ( current === id && 0 === currentPostId ) { applyReactions( r ); }
 		} ).catch( function () {} );
 
-		// Comments.
-		api( '/media/' + id + '/comments' ).then( function ( list ) {
-			if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
-		} ).catch( function () { renderComments( [] ); } );
-
-		// View tracking (best-effort; logged-in or not).
-		api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+		// Comments: the post's thread when the tile names its post, else the
+		// media's own (loadPostContext re-reads once space-context answers).
+		loadComments( id );
 	}
 
 	// The uploader of the media currently open. Needed for Block (which blocks the MEMBER, not
@@ -593,6 +597,7 @@
 					// answer already on screen.
 					if ( ! alreadySeeded ) {
 						paintPostReactions( forId, currentPostId );
+						loadComments( forId );
 					}
 
 					// ...and the post's bookmark, which is what Save writes. The
@@ -912,7 +917,7 @@
 		notify( ( I18N.copyManual || 'Copy this link: ' ) + text, 'info' );
 	}
 
-	function renderComments( list ) {
+	function renderComments( list, total ) {
 		if ( ! panel.comments ) { return; }
 		clear( panel.comments );
 		if ( ! list.length ) {
@@ -923,6 +928,72 @@
 			return;
 		}
 		list.forEach( function ( c ) { panel.comments.appendChild( commentEl( c ) ); } );
+		// A long thread is read in pages; the rest is one click away on the post.
+		var item = gallery[ index ] || {};
+		if ( total > list.length && item.permalink ) {
+			var more = document.createElement( 'a' );
+			more.className = 'bn-lightbox__comments-more';
+			more.href = item.permalink;
+			more.textContent = I18N.allComments || __( 'View all comments on the post' );
+			panel.comments.appendChild( more );
+		}
+	}
+
+	/*
+	 * ONE PHOTO, ONE THREAD.
+	 *
+	 * Same split as the reactions above. A photo posted in the feed carries its
+	 * conversation on the BuddyNext post: comments left on the card live there,
+	 * and lightbox comments were mirrored there too (WPMediaVerseBridge::
+	 * sync_lightbox_comment). The lightbox read only the media's own thread, so a
+	 * photo with 18 comments on its card opened to "No comments yet.".
+	 *
+	 * So with a post parent the lightbox reads and writes the POST thread through
+	 * BuddyNext's own /comments routes, and a write publishes the stored total on
+	 * buddynext:post-counts so the card under the viewer shows it at once. Media
+	 * with no post parent keeps the engine's thread.
+	 */
+	var THREAD_PAGE = 50; // CommentController per_page maximum.
+
+	function loadComments( id ) {
+		var postId = currentPostId;
+		var read = postId > 0
+			? bnApi( '/comments?object_type=post&object_id=' + postId + '&per_page=' + THREAD_PAGE ).then( function ( r ) {
+				var rows = [];
+				( ( r && r.items ) || [] ).forEach( function ( c ) {
+					rows.push( c );
+					( c.replies || [] ).forEach( function ( reply ) { rows.push( reply ); } );
+				} );
+				return { list: rows, total: parseInt( r && r.total, 10 ) || rows.length };
+			} )
+			: api( '/media/' + id + '/comments' ).then( function ( list ) {
+				var rows = Array.isArray( list ) ? list : ( list.comments || [] );
+				return { list: rows, total: rows.length };
+			} );
+		read.then( function ( res ) {
+			if ( current === id && postId === currentPostId ) { renderComments( res.list, res.total ); }
+		} ).catch( function () {
+			if ( current === id ) { renderComments( [], 0 ); }
+		} );
+	}
+
+	/**
+	 * Tell every card for this post its stored comment total (post-card.js listens).
+	 * `change` names the comment just added or removed, so an open thread under the
+	 * viewer (the /p/ page) shows it in place instead of after a reload.
+	 */
+	function publishCommentCount( postId, data, change ) {
+		var n = data && parseInt( data.comment_count, 10 );
+		if ( ! postId || ! isFinite( n ) ) { return; }
+		var detail = { postId: postId, comments: n };
+		if ( change && change.added ) { detail.addedCommentId = change.added; }
+		if ( change && change.removed ) { detail.removedCommentId = change.removed; }
+		document.dispatchEvent( new CustomEvent( 'buddynext:post-counts', { detail: detail } ) );
+	}
+
+	/** True when the row came from the BuddyNext post thread, not the engine. */
+	function isPostComment( c ) {
+		return 'post' === ( c && c.object_type );
 	}
 
 	/**
@@ -943,7 +1014,7 @@
 		// per comment; render it when present so the thread reads as a social
 		// conversation, not flat text. The row still lays out correctly without one
 		// (card 10268182721).
-		var avatarUrl = c.author_avatar || ( c.author_data && c.author_data.avatar ) || '';
+		var avatarUrl = c.author_avatar || c.author_avatar_url || ( c.author_data && c.author_data.avatar ) || '';
 		if ( avatarUrl ) {
 			var av = document.createElement( 'img' );
 			av.className = 'bn-lightbox__comment-avatar';
@@ -1033,8 +1104,10 @@
 		var save = commentAction( __( 'Save' ), 'save', function () {
 			var text = ( input.value || '' ).trim();
 			if ( ! text || ! current ) { return; }
-			api( '/media/' + current + '/comments/' + c.id, { method: 'PATCH', json: { content: text } } )
-				.then( reloadComments )
+			var edit = isPostComment( c )
+				? bnApi( '/comments/' + c.id, { method: 'PATCH', json: { content: text } } )
+				: api( '/media/' + current + '/comments/' + c.id, { method: 'PATCH', json: { content: text } } );
+			edit.then( reloadComments )
 				.catch( function () {} );
 		} );
 		var cancel = commentAction( __( 'Cancel' ), 'cancel', reloadComments );
@@ -1067,9 +1140,11 @@
 		label.textContent = __( 'Delete this comment?' );
 
 		var yes = commentAction( __( 'Delete' ), 'delete', function () {
-			api( '/media/' + current + '/comments/' + c.id, { method: 'DELETE' } )
-				.then( reloadComments )
-				.catch( reloadComments );
+			var postId = isPostComment( c ) ? currentPostId : 0;
+			var del = postId
+				? bnApi( '/comments/' + c.id, { method: 'DELETE' } ).then( function ( data ) { publishCommentCount( postId, data, { removed: c.id } ); } )
+				: api( '/media/' + current + '/comments/' + c.id, { method: 'DELETE' } );
+			del.then( reloadComments ).catch( reloadComments );
 		} );
 		var no = commentAction( __( 'Cancel' ), 'cancel', reloadComments );
 
@@ -1148,7 +1223,19 @@
 
 		var privacy = document.createElement( 'select' );
 		privacy.className = 'bn-lightbox__field-input';
-		var opts = m.privacy_options || {};
+		// MediaVerse Pro sends the levels with each media item; with MediaVerse Free alone, or when
+		// Pro sends none, they come from its own list, handed over in the page config. Never a list
+		// kept on this side. The site owner can lock privacy: then there is no choice to offer.
+		var engineOpts = m.privacy_options && Object.keys( m.privacy_options ).length ? m.privacy_options : null;
+		// wp_localize_script sends false as an empty string, so read it by truthiness; a config
+		// without the key (an older cached page) is not a lock.
+		var privacyLocked = ( 'canChoosePrivacy' in cfg ) && ! cfg.canChoosePrivacy;
+		var opts = privacyLocked ? {} : ( engineOpts || cfg.privacyChoices || {} );
+		var privacyTouched = false;
+		privacy.addEventListener( 'change', function () { privacyTouched = true; } );
+		// 'loggedin' is a stored synonym of 'members'.
+		var current_level = 'loggedin' === m.privacy ? 'members' : m.privacy;
+		var levelShown = false;
 		Object.keys( opts ).forEach( function ( k ) {
 			var o = document.createElement( 'option' );
 			var v = opts[ k ];
@@ -1157,9 +1244,21 @@
 			// rather than guessing one shape.
 			o.value = ( v && v.value ) ? v.value : k;
 			o.textContent = ( v && v.label ) ? v.label : String( v );
-			if ( o.value === m.privacy ) { o.selected = true; }
+			// MediaVerse Pro calls its friends level "Friends Only"; on this site that is Connections.
+			if ( engineOpts && 'friends' === o.value && cfg.connectionsLabel ) { o.textContent = cfg.connectionsLabel; }
+			if ( o.value === current_level ) { o.selected = true; levelShown = true; }
 			privacy.appendChild( o );
 		} );
+		// A level this list does not hold (a Space or message level): say so, rather than showing
+		// the first option as if it were the item's setting. Nothing is sent unless the member picks.
+		if ( privacy.options.length > 0 && ! levelShown ) {
+			var keep = document.createElement( 'option' );
+			keep.value = '';
+			keep.disabled = true;
+			keep.selected = true;
+			keep.textContent = I18N.keepCurrent || 'Keep the current setting';
+			privacy.insertBefore( keep, privacy.firstChild );
+		}
 
 		var dl = document.createElement( 'input' );
 		dl.type = 'checkbox';
@@ -1168,7 +1267,15 @@
 
 		host.appendChild( field( __( 'Title' ), title ) );
 		host.appendChild( field( __( 'Description' ), desc ) );
-		host.appendChild( field( __( 'Privacy' ), privacy ) );
+		// No levels to offer: no select at all, rather than a blank one that would send nothing.
+		if ( privacy.options.length > 0 ) {
+			host.appendChild( field( __( 'Privacy' ), privacy ) );
+		} else if ( privacyLocked ) {
+			var lockHint = document.createElement( 'p' );
+			lockHint.className = 'bn-lightbox__field-hint';
+			lockHint.textContent = I18N.privacyLocked || 'The site owner sets who can see media.';
+			host.appendChild( lockHint );
+		}
 		host.appendChild( field( __( 'Allow downloads' ), dl ) );
 		// Say what the switch can and cannot do, so an owner does not rely on it as protection.
 		var dlHint = document.createElement( 'p' );
@@ -1179,14 +1286,19 @@
 		var actions = document.createElement( 'div' );
 		actions.className = 'bn-lightbox__panel-actions';
 		actions.appendChild( panelBtn( __( 'Save changes' ), 'primary', function () {
+			var changes = {
+				title: title.value,
+				description: desc.value,
+				allow_download: dl.checked,
+			};
+			// Only a level the member actually chose is sent, so an item whose current level is not in
+			// the list is never changed by pressing Save on something else.
+			if ( privacyTouched && privacy.options.length > 0 ) {
+				changes.privacy = privacy.value;
+			}
 			api( '/media/' + current, {
 				method: 'PATCH',
-				json: {
-					title: title.value,
-					description: desc.value,
-					privacy: privacy.value,
-					allow_download: dl.checked,
-				},
+				json: changes,
 			} ).then( function ( updated ) {
 				if ( updated && updated.id ) {
 					currentMedia = updated;
@@ -1194,7 +1306,11 @@
 					syncTileDownload( parseInt( updated.id, 10 ), false === updated.allow_download );
 				}
 				closeExtraPanel();
-			} ).catch( function () {} );
+				notify( I18N.changesSaved || 'Changes saved', 'success' );
+			} ).catch( function ( res ) {
+				// The panel stays open with what the member typed; say why it did not save.
+				notify( window.buddynextRest.restError( res, I18N.changesFailed || 'Could not save your changes. Try again.' ), 'error' );
+			} );
 		} ) );
 		actions.appendChild( panelBtn( __( 'Cancel' ), 'ghost', closeExtraPanel ) );
 		host.appendChild( actions );
@@ -1246,24 +1362,25 @@
 	}
 
 	function reloadComments() {
-		if ( ! current ) { return; }
-		var id = current;
-		api( '/media/' + id + '/comments' ).then( function ( list ) {
-			if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
-		} ).catch( function () {} );
+		if ( current ) { loadComments( current ); }
 	}
 
 	function addComment() {
 		if ( ! requireLogin() || ! current ) { return; }
 		var val = ( panel.input.value || '' ).trim();
 		if ( ! val ) { return; }
-		var id = current;
+		var id     = current;
+		var postId = currentPostId;
 		panel.input.value = '';
-		api( '/media/' + id + '/comments', { method: 'POST', json: { content: val } } ).then( function () {
-			return api( '/media/' + id + '/comments' );
-		} ).then( function ( list ) {
-			if ( current === id ) { renderComments( Array.isArray( list ) ? list : ( list.comments || [] ) ); }
-		} ).catch( function () {} );
+		var write = postId > 0
+			? bnApi( '/comments', { method: 'POST', json: { object_type: 'post', object_id: postId, content: val } } ).then( function ( data ) { publishCommentCount( postId, data, { added: data && data.id } ); } )
+			: api( '/media/' + id + '/comments', { method: 'POST', json: { content: val } } );
+		write.then( function () {
+			if ( current === id ) { loadComments( id ); }
+		} ).catch( function () {
+			// Give the text back rather than losing what the member typed.
+			if ( current === id && ! panel.input.value ) { panel.input.value = val; }
+		} );
 	}
 
 	function requireLogin() {
@@ -1279,6 +1396,10 @@
 		if ( ! gallery.length ) { return; }
 		index = Math.max( 0, Math.min( startIndex, gallery.length - 1 ) );
 		lastFocus = document.activeElement;
+		// Safari and Firefox on macOS do not focus a button or link on click: remember the tile that was pressed.
+		if ( ( ! lastFocus || lastFocus === document.body ) && window.event && window.event.target && window.event.target.closest ) {
+			lastFocus = window.event.target.closest( 'a, button, [tabindex], [role="button"]' ) || lastFocus;
+		}
 		renderMedia();
 		if ( gallery[ index ].id ) { loadPanel( gallery[ index ].id ); }
 		overlay.hidden = false;

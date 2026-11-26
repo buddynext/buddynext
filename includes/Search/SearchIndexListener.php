@@ -67,8 +67,10 @@ class SearchIndexListener implements ListenerInterface {
 		add_action( 'buddynext_space_updated', array( $this, 'on_space_updated' ), 10, 1 );
 		add_action( 'buddynext_space_deleted', array( $this, 'on_space_deleted' ), 10, 1 );
 
-		// Synchronous fallback handlers — run inline when Action Scheduler is absent.
+		// Workers: called inline for one post or space, and by queued bulk jobs.
 		add_action( 'buddynext_async_index_user', array( $this, 'async_index_user' ), 10, 1 );
+		add_action( 'buddynext_async_index_users', array( $this, 'async_index_users' ), 10, 3 );
+		add_action( 'buddynext_async_reindex_user_posts', array( $this, 'async_reindex_user_posts' ), 10, 2 );
 		add_action( 'buddynext_async_index_post', array( $this, 'async_index_post' ), 10, 2 );
 		add_action( 'buddynext_async_deindex_post', array( $this, 'async_deindex_post' ), 10, 1 );
 		add_action( 'buddynext_async_index_space', array( $this, 'async_index_space' ), 10, 1 );
@@ -109,7 +111,7 @@ class SearchIndexListener implements ListenerInterface {
 		$args = array( $key, $after_id );
 
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::INTEGRATION_REINDEX_HOOK, $args, 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::INTEGRATION_REINDEX_HOOK, $args, 'buddynext' );
 			return;
 		}
 
@@ -240,7 +242,11 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_post_created( int $post_id, int $user_id = 0, string $type = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
-		$this->dispatch( 'buddynext_async_index_post', array( $post_id, $user_id ) );
+		// Inline, like a member (on_index_user()): one post is one SELECT and one
+		// upsert, and a queued job made post search depend on Action Scheduler
+		// running. On a host whose queue never runs, no new post was ever
+		// searchable (card 10501591033). Bulk work stays on the queue.
+		$this->async_index_post( $post_id, $user_id );
 	}
 
 	/**
@@ -250,7 +256,9 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_post_deleted( int $post_id ): void {
-		$this->dispatch( 'buddynext_async_deindex_post', array( $post_id ) );
+		// Inline for the same reason as on_post_created(): a deleted or removed
+		// post must leave search even when the queue does not run.
+		$this->async_deindex_post( $post_id );
 
 		// A reshare of this post is now a dead end — the shared original is gone, so a
 		// search hit opens to an "unavailable" card. Deindex the reshares at the
@@ -267,6 +275,8 @@ class SearchIndexListener implements ListenerInterface {
 				$post_id
 			)
 		);
+		// The reshares are the bulk part (a popular post has thousands), so they
+		// stay queued; SearchService also drops a dead reshare from results.
 		foreach ( $bn_reshare_ids as $bn_reshare_id ) {
 			$this->dispatch( 'buddynext_async_deindex_post', array( (int) $bn_reshare_id ) );
 		}
@@ -285,7 +295,7 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_post_updated( int $post_id, int $user_id = 0, array $fields = array() ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
-		$this->dispatch( 'buddynext_async_index_post', array( $post_id, $user_id ) );
+		$this->async_index_post( $post_id, $user_id );
 	}
 
 	/**
@@ -294,8 +304,11 @@ class SearchIndexListener implements ListenerInterface {
 	 * Fired when a member toggles an account-level setting that governs whether
 	 * their posts appear in global search (private account / search-indexable).
 	 * Each published post is re-indexed so its stored visibility matches the new
-	 * setting; dispatching one async action per post lets Action Scheduler chunk
-	 * the work for prolific authors.
+	 * setting. One chained action walks the posts a page at a time.
+	 *
+	 * This used to queue one action per post: a member with 50k posts put 50k
+	 * Action Scheduler rows (and about 150k log rows) in the queue from one
+	 * settings save.
 	 *
 	 * @param int $user_id The member whose search visibility changed.
 	 * @return void
@@ -305,17 +318,23 @@ class SearchIndexListener implements ListenerInterface {
 			return;
 		}
 
+		$this->dispatch( 'buddynext_async_reindex_user_posts', array( $user_id, 0 ) );
+	}
+
+	/**
+	 * Re-index one keyset page of a member's published posts, then queue the next.
+	 *
+	 * @param int $user_id Member.
+	 * @param int $after   Keyset cursor: the last post id already done.
+	 * @return void
+	 */
+	public function async_reindex_user_posts( int $user_id, int $after = 0 ): void {
 		global $wpdb;
 
-		// Keyset-paged, not one unbounded SELECT. A member who flips their search visibility
-		// used to load EVERY id they have ever published into PHP at once, then fan out a
-		// dispatch per post. A prolific author with 50k posts did that inline, on a settings
-		// save.
-		$after = 0;
-
-		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$post_ids = $wpdb->get_col(
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT id FROM {$wpdb->prefix}bn_posts
 					  WHERE user_id = %d AND status = 'published' AND id > %d
@@ -325,15 +344,16 @@ class SearchIndexListener implements ListenerInterface {
 					$after,
 					self::REINDEX_BATCH
 				)
-			);
+			)
+		);
 
-			$fetched = count( (array) $post_ids );
+		foreach ( $post_ids as $post_id ) {
+			$this->async_index_post( $post_id, $user_id );
+		}
 
-			foreach ( $post_ids as $post_id ) {
-				$after = (int) $post_id;
-				$this->dispatch( 'buddynext_async_index_post', array( (int) $post_id, $user_id ) );
-			}
-		} while ( self::REINDEX_BATCH === $fetched );
+		if ( self::REINDEX_BATCH === count( $post_ids ) ) {
+			$this->dispatch( 'buddynext_async_reindex_user_posts', array( $user_id, (int) end( $post_ids ) ) );
+		}
 	}
 
 	/**
@@ -347,7 +367,8 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_space_created( int $space_id, int $user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
-		$this->dispatch( 'buddynext_async_index_space', array( $space_id ) );
+		// Inline: one space row, same reason as on_post_created().
+		$this->async_index_space( $space_id );
 	}
 
 	/**
@@ -357,7 +378,8 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_space_updated( int $space_id ): void {
-		$this->dispatch( 'buddynext_async_index_space', array( $space_id ) );
+		// The space's own row inline; its posts below are the bulk part.
+		$this->async_index_space( $space_id );
 
 		// The space row is not the only thing indexed under this space.
 		//
@@ -384,6 +406,12 @@ class SearchIndexListener implements ListenerInterface {
 		// author account. Those posts are re-indexed so each is decided by the
 		// same rule that wrote it in the first place. Async and batched: this one
 		// is not a leak, and a large space should not block the request.
+		// One pending pass per space: saving the space settings again before it
+		// starts would only queue the same re-read.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_reindex_space_posts', array( $space_id, 0 ) );
+			return;
+		}
 		$this->dispatch( 'buddynext_async_reindex_space_posts', array( $space_id, 0 ) );
 	}
 
@@ -396,11 +424,14 @@ class SearchIndexListener implements ListenerInterface {
 	 * author accounts and the space ceiling are all re-evaluated by one rule
 	 * rather than a second copy of it living here.
 	 *
+	 * Walks by post id (id > the last one done), not OFFSET: an OFFSET read skips the rows before it on every batch, so
+	 * a space with tens of thousands of posts got slower with each one.
+	 *
 	 * @param int $space_id Space to walk.
-	 * @param int $offset   Batch offset.
+	 * @param int $after_id Last post id already done (0 to start).
 	 * @return void
 	 */
-	public function async_reindex_space_posts( int $space_id, int $offset = 0 ): void {
+	public function async_reindex_space_posts( int $space_id, int $after_id = 0 ): void {
 		global $wpdb;
 
 		if ( $space_id <= 0 ) {
@@ -418,11 +449,12 @@ class SearchIndexListener implements ListenerInterface {
 				   FROM {$wpdb->prefix}bn_posts
 				  WHERE space_id = %d
 				    AND status = 'published'
+				    AND id > %d
 				  ORDER BY id ASC
-				  LIMIT %d OFFSET %d",
+				  LIMIT %d",
 				$space_id,
-				$batch,
-				$offset
+				$after_id,
+				$batch
 			),
 			ARRAY_A
 		);
@@ -437,7 +469,7 @@ class SearchIndexListener implements ListenerInterface {
 
 		// Only queue another pass when this one was full; a short batch is the end.
 		if ( count( $rows ) === $batch ) {
-			$this->dispatch( 'buddynext_async_reindex_space_posts', array( $space_id, $offset + $batch ) );
+			$this->dispatch( 'buddynext_async_reindex_space_posts', array( $space_id, (int) end( $rows )['id'] ) );
 		}
 	}
 
@@ -448,7 +480,7 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_space_deleted( int $space_id ): void {
-		$this->dispatch( 'buddynext_async_deindex_space', array( $space_id ) );
+		$this->async_deindex_space( $space_id );
 	}
 
 	/**
@@ -461,6 +493,34 @@ class SearchIndexListener implements ListenerInterface {
 	 */
 	public function async_index_user( int $user_id ): void {
 		buddynext_service( 'profiles' )->index_user( $user_id );
+	}
+
+	/**
+	 * Re-index the members holding a value for one profile field, by user-id range.
+	 *
+	 * Queued once per profile-mirror rebuild batch. The range, not the id list,
+	 * travels in the args, so the action stays three ints (Action Scheduler keeps
+	 * args under 191 characters in an indexed column and spills longer ones).
+	 *
+	 * @param int $field_id Profile field whose values changed.
+	 * @param int $from_id  First user id of the batch (inclusive).
+	 * @param int $to_id    Last user id of the batch (inclusive).
+	 * @return void
+	 */
+	public function async_index_users( $field_id, $from_id = 0, $to_id = 0 ): void {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one bounded background read.
+		$user_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_profile_values WHERE field_id = %d AND user_id BETWEEN %d AND %d",
+				(int) $field_id,
+				(int) $from_id,
+				(int) $to_id
+			)
+		);
+		foreach ( array_map( 'intval', $user_ids ) as $user_id ) {
+			$this->async_index_user( $user_id );
+		}
 	}
 
 	/**
@@ -488,7 +548,7 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
-	 * Synchronous fallback: index a single post.
+	 * Index a single post (inline on create and edit; also the queued worker).
 	 *
 	 * Reads post data from bn_posts and upserts it into bn_search_index.
 	 * Skips posts that are not in published status so the index stays clean.
@@ -534,7 +594,7 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
-	 * Synchronous fallback: remove a post from the index.
+	 * Remove a single post from the index (inline on delete; also the queued worker).
 	 *
 	 * @param int $post_id Post ID.
 	 * @return void
@@ -544,7 +604,7 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
-	 * Synchronous fallback: index a single space.
+	 * Index a single space (inline on create and edit; also the queued worker).
 	 *
 	 * Reads space data from bn_spaces and upserts it into bn_search_index.
 	 * Secret spaces are indexed as private so they do not surface in public results.
@@ -642,7 +702,7 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
-	 * Synchronous fallback: remove a space from the index.
+	 * Remove a single space from the index (inline on delete; also the queued worker).
 	 *
 	 * @param int $space_id Space ID.
 	 * @return void
@@ -773,8 +833,9 @@ class SearchIndexListener implements ListenerInterface {
 	/**
 	 * Dispatch a hook via Action Scheduler or run it inline.
 	 *
-	 * When Action Scheduler is available the job is queued for async execution.
-	 * When it is absent the hook is fired immediately via do_action_ref_array()
+	 * When Action Scheduler is available the job is queued for async execution,
+	 * once: an identical job still pending (a privacy flipped twice) is not
+	 * queued again (args are ids, the job reads current state). When it is absent the hook is fired immediately via do_action_ref_array()
 	 * so the synchronous fallback handlers registered in init() handle it.
 	 *
 	 * @param string  $hook Hook name to dispatch.
@@ -783,7 +844,7 @@ class SearchIndexListener implements ListenerInterface {
 	 */
 	private function dispatch( string $hook, array $args ): void {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( $hook, $args, 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( $hook, $args );
 		} else {
 			do_action_ref_array( $hook, $args );
 		}

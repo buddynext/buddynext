@@ -18,6 +18,8 @@ BuddyNext's side of this integration is deliberately small, and deliberately gen
 - **The tab shows only where it helps.** The Articles tab appears for members Member Blog lets write, and on any profile that has published articles. A member who cannot write sees no empty tab and no **Write** button; **Manage articles** stays.
 - **An owner route back to writing.** When you are looking at your own Articles tab, you also get **Write a new article** and **Manage articles**, plus an Edit link on each row. All of them go to Member Blog's dashboard.
 - **Drafts and pending posts, for you only.** Your own tab shows work in progress with a status badge so an unfinished draft never reads as published. Nobody else sees them, apart from people who can edit other members' posts (such as editors and administrators).
+- **An Article tab in the What's New composer.** Members Member Blog lets write get Post / Article tabs in the main composer; the Article tab opens Member Blog's editor with the typed title filled in, offers **Continue writing** for their latest draft, and links to **My drafts** and **My articles** with counts. See [Post Composer](../community/02-post-composer.md#writing-an-article).
+- **The Articles list follows profile visibility.** A member's articles are shown only to people who may see that member's profile: the profile's visibility setting (everyone, followers or connections) and blocks apply, on the profile tab and through the REST API alike. Someone who may not see the profile gets an empty list, not an error.
 
 Everything else stays where it belongs. BuddyNext does not render an editor, does not own a posting form, and does not duplicate Member Blog's dashboard. All writing, editing and submission happens in Member Blog.
 
@@ -37,7 +39,7 @@ The **Blog posts** card on **BuddyNext > Integration Settings** has two switches
 
 | Setting | What it does | Default |
 |---|---|---|
-| Navigation | Shows the Articles tab on member profiles. Turning it off also decides whether author links open the member's profile (they only do while the profile can list the author's posts); see [Member Profiles](../members/01-member-profiles.md). | On |
+| Navigation | Shows the Articles tab on member profiles and the Article tab in the What's New composer. Turning it off also decides whether author links open the member's profile (they only do while the profile can list the author's posts); see [Member Profiles](../members/01-member-profiles.md). | On |
 | Feed | Whether a published post posts an article card in the feed. This works with or without Member Blog. | On |
 
 There is no search switch for this integration.
@@ -49,6 +51,27 @@ There is no search switch for this integration.
 The tab lists the member's posts in the standard WordPress `post` type, newest first, paginated. If your site teaches BuddyNext about additional post types through the `buddynext_site_tracking_post_types` filter, those appear on the tab and in the feed together - one change, both surfaces.
 
 Visitors and other members see published posts only. You see your own drafts, pending review and scheduled posts as well, each labelled. With no posts yet, your own tab says "You have not published an article yet." with a **Write your first article** button.
+
+## Articles in Spaces
+
+Members can write an article for an open Space: the Space gets a **Blog** tab listing its articles, and a **Write for this Space** button for members who may post there. If you want articles on member profiles and in the feed only, turn this off.
+
+Go to **Integration Settings**, open the **WB Member Blog** row and switch **Articles in Spaces** off, then save.
+
+- The **Blog** tab in Spaces and every **Write for this Space** button are hidden, and the write form ignores a Space link. A bookmarked `/spaces/your-space/blog/` address simply opens the Space.
+- Nothing is deleted. Articles written for an open Space show in the site feed instead; they were already public. Articles written for a private or secret Space stay members-only in that Space.
+- Turning it back on restores the Space for every article. The cards are moved in the background in small batches, so a large site is not slowed down.
+- The switch shows disabled, with the reason, while WB Member Blog is not active or Navigation is off for the row. **Settings > Navigation** shows the Space **Blog** tab as off in Integration Settings.
+
+This switch is site-wide. Each open Space owner can also switch articles off for their own Space.
+
+### Per Space
+
+Open **Manage space > Integrations** and use the **Articles tab** switch (it appears while WB Member Blog is active). It is on by default for every Space.
+
+- Off means the same as the site-wide switch, for that Space only: no **Blog** tab, no **Write for this Space** button, and the write form ignores that Space. Other Spaces are not affected.
+- Nothing is deleted. Articles already written for the Space show in the site feed, and turning the switch back on restores them. They move in the background and no notifications are sent.
+- Only the Space owner can change it. The switch is disabled with the reason when the site admin has articles in Spaces off, and for private and secret Spaces, which do not have a Blog tab. The choice you saved is kept if the Space's type changes, or if the plugin is switched off for a while.
 
 ## Pro
 

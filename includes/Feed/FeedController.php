@@ -166,6 +166,11 @@ class FeedController extends BaseRestController {
 						'enum'              => FeedService::HOME_FILTERS,
 						'sanitize_callback' => 'sanitize_key',
 					),
+					'space_id' => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'sanitize_callback' => 'absint',
+					),
 				),
 			)
 		);
@@ -241,7 +246,19 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_feed' ),
 				'permission_callback' => '__return_true',
-				'args'                => $this->feed_pagination_args(),
+				'args'                => array_merge(
+					$this->feed_pagination_args(),
+					array(
+						'type' => array(
+							'type'              => 'string',
+							'required'          => false,
+							'enum'              => array( BlogPostListener::TYPE ),
+							'description'       => "Only posts of this type: 'article' lists the space's article cards (the Space Blog tab). Omit for every post.",
+							'validate_callback' => 'rest_validate_request_arg',
+							'sanitize_callback' => 'sanitize_key',
+						),
+					)
+				),
 			)
 		);
 
@@ -545,6 +562,9 @@ class FeedController extends BaseRestController {
 
 		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $poll_ids );
 
+		/** This action is documented in includes/Feed/FeedService.php (prime_viewer_state). */
+		do_action( 'buddynext_feed_items_primed', $items, $viewer );
+
 		// Community signals, primed for the page like everything above it. Presence is
 		// one read for every author; the face-stacks are one bounded read for every
 		// post. Resolved per card instead, these are the two cheapest ways to turn a
@@ -606,7 +626,7 @@ class FeedController extends BaseRestController {
 				$item['content']      = '';
 				$item['content_html'] = '';
 				$item['link_url']     = '';
-				$item['link_meta']    = array( 'title' => IntegrationActivity::orphaned_card_title( (string) $item['type'], (string) ( $bn_orphan_meta['title'] ?? '' ) ) );
+				$item['link_meta']    = array( 'title' => IntegrationActivity::orphaned_card_title( (string) ( $item['type'] ?? '' ), (string) ( $bn_orphan_meta['title'] ?? '' ) ) );
 			}
 
 			if ( ! empty( $item['members_only'] ) ) {
@@ -631,6 +651,17 @@ class FeedController extends BaseRestController {
 			// this a photo post carries only `media_ids` (bare ints) and the app has nothing
 			// to load. `media_ids` is kept for back-compat; `media` is the render source.
 			$item['media'] = self::resolve_media( $item['media_ids'] ?? null );
+
+			/**
+			 * Last word on one enriched feed item, so a bridge can fill a partner's card from the partner itself
+			 * (an event card carries the event as it is now) and every client reads the same shape.
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param array $item   The enriched item.
+			 * @param int   $viewer Current user ID (0 = logged out).
+			 */
+			$item = (array) apply_filters( 'buddynext_feed_item_enriched', $item, $viewer );
 		}
 		unset( $item );
 
@@ -808,14 +839,15 @@ class FeedController extends BaseRestController {
 
 		if ( $viewer > 0 ) {
 			global $wpdb;
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// member_spaces_sql() is a fixed subquery with one %d and inlined absint ids.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 			$space_ids = $wpdb->get_col(
 				$wpdb->prepare(
-					"SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
+					\BuddyNext\Spaces\SpaceVisibility::member_spaces_sql( $viewer ),
 					$viewer
 				)
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 			foreach ( $space_ids as $sid ) {
 				$ann = $feed->space_announcement( (int) $sid, $viewer );
@@ -943,6 +975,24 @@ class FeedController extends BaseRestController {
 		$filter   = (string) ( $request->get_param( 'filter' ) ?? 'for-you' );
 		if ( ! in_array( $filter, FeedService::HOME_FILTERS, true ) ) {
 			$filter = 'for-you';
+		}
+
+		// A Space page counts that Space's own posts, and only for a viewer who may READ its content (the rule the
+		// Space feed itself uses). Seeing the Space's shell is not enough: a private Space answers the same empty
+		// count to a non-member, a banned member and a secret-Space probe, so nothing leaks about its activity.
+		$space_id = (int) $request->get_param( 'space_id' );
+		if ( $space_id > 0 ) {
+			$space = buddynext_service( 'spaces' )->get( $space_id );
+			if ( ! is_array( $space ) || ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $user_id ) ) {
+				return new WP_REST_Response(
+					array(
+						'count'     => 0,
+						'newest_id' => $after_id,
+					),
+					200
+				);
+			}
+			return new WP_REST_Response( $this->feed_service()->space_feed_new_count( $user_id, $space_id, $after_id ), 200 );
 		}
 
 		$result = $this->feed_service()->home_feed_new_count( $user_id, $after_id, $filter );
@@ -1138,7 +1188,7 @@ class FeedController extends BaseRestController {
 			}
 		}
 
-		$result = $this->feed_service()->space_feed( $space_id, $viewer_id, $cursor, $per_page );
+		$result = $this->feed_service()->space_feed( $space_id, $viewer_id, $cursor, $per_page, (string) $request->get_param( 'type' ) );
 
 		return $this->enriched_response( $result, $viewer_id );
 	}
@@ -1155,12 +1205,9 @@ class FeedController extends BaseRestController {
 	public function dismiss_announcement( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		// Announcements feature gate — when off, no announcement is surfaced, so a
 		// dismiss request can only be stale; treat it as not found.
-		if ( ! buddynext_feature_enabled( 'announcements' ) ) {
-			return new WP_Error(
-				'feature_disabled',
-				__( 'Announcements are disabled.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
+		$off = buddynext_feature_refusal( 'announcements', 'feature_disabled', __( 'Announcements are disabled.', 'buddynext' ), 404 );
+		if ( $off ) {
+			return $off;
 		}
 
 		$post_id = (int) $request->get_param( 'id' );

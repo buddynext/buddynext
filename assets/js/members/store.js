@@ -95,7 +95,6 @@ function buildQuery( ctx ) {
 	if ( ctx.relation )   { qp.set( 'relation',    ctx.relation ); }
 	if ( ctx.memberType ) { qp.set( 'member_type', ctx.memberType ); }
 	if ( ctx.onlineOnly ) { qp.set( 'online',      '1' ); }
-	qp.set( 'per_page', '20' );
 	return qp.toString();
 }
 
@@ -684,7 +683,12 @@ async function delegatedMute( card, btn, cfg ) {
 			method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
 		} );
 		if ( ! res.ok ) { throw res; }
-		bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), { tone: 'success' } );
+		// Muting or unmuting is instant, so the toast carries Undo: the same action again.
+		bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), {
+			tone: 'success',
+			timeout: 6000,
+			action: { label: t( 'undo', 'Undo' ), onClick: () => delegatedMute( card, btn, cfg ) },
+		} );
 	} catch ( e ) {
 		card.dataset.muted = was ? '1' : '0';
 		btn.textContent = was ? t( 'unmute', 'Unmute' ) : t( 'mute', 'Mute' );
@@ -762,6 +766,36 @@ function buildKebab( item ) {
 	return menuWrap;
 }
 
+/**
+ * The header count line for the current filters, worded like the server's
+ * MemberDirectoryService::directory_subtitle(). Unfiltered it is the community
+ * size the page was rendered with (the grid total leaves the viewer out); with a
+ * filter on it is exactly the number the grid lists.
+ *
+ * @param {Object} ctx   Store context.
+ * @param {number} total Grid total from the REST answer.
+ * @return {string} Line text.
+ */
+function directorySubtitle( ctx, total ) {
+	const filtered = !! ( ctx.search || ctx.memberType || ctx.onlineOnly || ( ctx.relation && ctx.relation !== 'all' ) );
+	const n        = filtered ? total : ( Number( ctx.communityTotal ) || total );
+	const count    = n.toLocaleString( document.documentElement.lang || undefined );
+	let key = 'subtitleCommunity';
+	let fb  = '%s members in the community';
+	if ( ctx.onlineOnly ) {
+		key = 'subtitleOnline';
+		fb  = '%s members online';
+	} else if ( filtered ) {
+		key = 'subtitleFound';
+		fb  = '%s members found';
+	}
+	if ( n === 1 ) {
+		key += 'One';
+		fb   = fb.replace( 'members', 'member' );
+	}
+	return fmt( t( key, fb ), count );
+}
+
 async function refresh( ctx ) {
 	ctx.loading  = true;
 	ctx.hasError = false;
@@ -780,6 +814,7 @@ async function refresh( ctx ) {
 		renderGrid( items );
 		ctx.isEmpty = items.length === 0;
 		ctx.totalLabel = ( json.total || 0 ) + '';
+		ctx.subtitle   = directorySubtitle( ctx, Number( json.total ) || 0 );
 		// Keep the numbered pager honest about the filtered total.
 		syncPager( json.total );
 	} catch ( _e ) {
@@ -796,6 +831,7 @@ async function refresh( ctx ) {
 const membersStore = store( 'buddynext/members', {
 	state: {
 		get hasSearch()     { return ( getContext().search || '' ).length > 0; },
+		get directorySubtitle() { return getContext().subtitle || ''; },
 		get isListView()    { return readView() === 'list'; },
 		get isGridPressed() { return readView() === 'grid' ? 'true' : 'false'; },
 		get isListPressed() { return readView() === 'list' ? 'true' : 'false'; },
@@ -1218,7 +1254,19 @@ const membersStore = store( 'buddynext/members', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw res; }
-				bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), { tone: 'success' } );
+				bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), {
+					tone: 'success',
+					timeout: 6000,
+					action: {
+						label: t( 'undo', 'Undo' ),
+						onClick: async () => {
+							const back = await restFetch( '/users/' + ctx.userId + '/mute', {
+								method: was ? 'POST' : 'DELETE', base: ctx.restUrl || undefined, nonce: restNonce( ctx ), toastOnError: false,
+							} );
+							if ( back.ok ) { ctx.isMuted = was; }
+						},
+					},
+				} );
 			} catch ( e ) {
 				ctx.isMuted = was;
 				toastRestError( e, t( 'toastCouldNotUpdateMute', 'Could not update mute state. Try again.' ) );

@@ -93,7 +93,7 @@ $bn_glyph = static function ( ?array $reaction, int $size ): void {
 		);
 		return;
 	}
-	$bn_char  = '' !== (string) $reaction['char'] ? (string) $reaction['char'] : mb_strtoupper( mb_substr( (string) ( $reaction['label'] ?: $reaction['slug'] ), 0, 1 ) );
+	$bn_char  = '' !== (string) $reaction['char'] ? (string) $reaction['char'] : \BuddyNext\Support\Text::upper( mb_substr( (string) ( $reaction['label'] ?: $reaction['slug'] ), 0, 1 ) );
 	$bn_style = sprintf( 'width:%1$dpx;height:%1$dpx;', absint( $size ) );
 	if ( preg_match( '/^#[0-9a-fA-F]{6}$/', (string) $reaction['color'] ) ) {
 		$bn_style .= 'color:' . $reaction['color'] . ';';

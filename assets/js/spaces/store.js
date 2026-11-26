@@ -53,6 +53,8 @@ function bnSavebarRollback( form ) {
 
 /** Debounce handle for the Discussion search box. @type {number} */
 var discussionSearchTimer = null;
+// Latest discussion search per picker; an older answer that lands later is dropped.
+var discussionSearchSeq   = 0;
 var parentSearchTimer     = null;
 
 /**
@@ -106,10 +108,12 @@ async function renderDiscussionResults( picker, q ) {
 	var spaceId = picker.getAttribute( 'data-space-id' );
 	if ( ! list || ! spaceId ) { return; }
 
+	var seq = ++discussionSearchSeq;
 	var res = await restFetch(
 		'/spaces/' + spaceId + '/discussion-search?q=' + encodeURIComponent( q ),
 		{ method: 'GET', nonce: resolveNonce(), toastOnError: false }
 	);
+	if ( seq !== discussionSearchSeq ) { return; }
 
 	// A failed request (network / REST error) is NOT the same as "no matches".
 	// restFetch runs with toastOnError:false, so surface a manual danger toast
@@ -124,8 +128,18 @@ async function renderDiscussionResults( picker, q ) {
 	var results = ( res.data && res.data.results ) || [];
 
 	list.innerHTML = '';
+	var input = picker.querySelector( '[data-bn-discussion-search]' );
 	if ( ! results.length ) {
-		closeDiscussionResults( picker );
+		// Say so. The list used to just stay shut, so an owner could not tell "you
+		// have no discussion to link" from "the search did not run".
+		var none = document.createElement( 'li' );
+		none.className = 'bn-space-settings__discussion-empty';
+		none.setAttribute( 'role', 'option' );
+		none.setAttribute( 'aria-disabled', 'true' );
+		none.textContent = t( 'discussionNoMatch', 'No discussions found. Leave this empty to create a new one.' );
+		list.appendChild( none );
+		list.removeAttribute( 'hidden' );
+		if ( input ) { input.setAttribute( 'aria-expanded', 'true' ); }
 		return;
 	}
 
@@ -144,9 +158,34 @@ async function renderDiscussionResults( picker, q ) {
 	} );
 
 	list.removeAttribute( 'hidden' );
-	var input = picker.querySelector( '[data-bn-discussion-search]' );
 	if ( input ) { input.setAttribute( 'aria-expanded', 'true' ); }
 }
+
+// The open list closes on Escape (focus back in the box) and on a click outside
+// the picker, like every other listbox on the site. It stayed open over the rest
+// of the tab until a result was picked.
+document.addEventListener( 'keydown', function ( event ) {
+	if ( 'Escape' !== event.key || ! event.target || ! event.target.closest ) { return; }
+	var picker = event.target.closest( '[data-bn-discussion-picker]' );
+	var list   = picker && picker.querySelector( '[data-bn-discussion-results]' );
+	if ( ! list || list.hidden ) { return; }
+	event.preventDefault();
+	discussionSearchSeq++;
+	clearTimeout( discussionSearchTimer );
+	closeDiscussionResults( picker );
+	var input = picker.querySelector( '[data-bn-discussion-search]' );
+	if ( input ) { input.focus(); }
+} );
+document.addEventListener( 'click', function ( event ) {
+	document.querySelectorAll( '[data-bn-discussion-picker]' ).forEach( function ( picker ) {
+		if ( picker.contains( event.target ) ) { return; }
+		var list = picker.querySelector( '[data-bn-discussion-results]' );
+		if ( list && ! list.hidden ) {
+			discussionSearchSeq++;
+			closeDiscussionResults( picker );
+		}
+	} );
+} );
 
 /**
  * Commit a chosen discussion to a picker: fill the search box, set the hidden
@@ -176,8 +215,9 @@ function pickDiscussion( picker, row ) {
  * @param {boolean} enabled Desired checked state.
  */
 function setDiscussionEnabled( picker, enabled ) {
-	var row    = picker && picker.closest( '.bn-toggle-row' );
-	var toggle = row && row.querySelector( 'input[name="bn_discussion_enabled"]' );
+	// The toggle row closes before the picker, so look in the settings panel.
+	var panel  = picker && picker.closest( 'form' );
+	var toggle = panel && panel.querySelector( 'input[name="bn_discussion_enabled"]' );
 	if ( toggle ) { toggle.checked = !! enabled; }
 }
 
@@ -1153,9 +1193,20 @@ var storeInstance = store( 'buddynext/spaces', {
 			// dispatch here, so a mis-tap is guarded on every one of them by
 			// construction — no data-bn-confirm attribute to add (or, on the hero,
 			// to break) route by route (card 10294398101 item 1).
+			// A space the member cannot simply rejoin (request or invite only) says so before they are locked out.
+			var joinScope  = btn && btn.closest( '[data-join-method]' );
+			var joinMethod = joinScope ? joinScope.dataset.joinMethod : 'join';
+			var lockedOut  = 'request' === joinMethod || 'invite' === joinMethod;
+			// A moderator who leaves comes back as an ordinary member, so the confirm says so.
+			var viewerRole = joinScope ? ( joinScope.dataset.bnViewerRole || '' ) : '';
+			var loseRole   = 'moderator' === viewerRole ? ' ' + t( 'leaveSpaceLoseRole', 'You will also lose your moderator role here, and it is not restored if you join again.' ) : '';
 			var confirmed = await bnConfirmDialog( {
 				title:   t( 'leaveSpaceTitle', 'Leave this space?' ),
-				message: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ),
+				message: ( lockedOut
+					? ( 'invite' === joinMethod
+						? t( 'leaveSpaceInviteOnly', 'You will lose access to its posts, and you will need a new invitation to come back.' )
+						: t( 'leaveSpaceRequestOnly', 'You will lose access to its posts, and you will have to ask to join again and be approved.' ) )
+					: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ) ) + loseRole,
 				ok:      t( 'leaveSpaceOk', 'Leave' ),
 				cancel:  t( 'cancel', 'Cancel' ),
 				// Leaving is reversible (the member can join again), so it is not a danger dialog.
@@ -1888,6 +1939,12 @@ var storeInstance = store( 'buddynext/spaces', {
 				? event.currentTarget
 				: ( event && event.target ? event.target.closest( 'form' ) : null );
 			if ( ! form ) { return; }
+			// A box with no name submits nothing, so typing in it changes nothing
+			// that Save would keep: the Discussion and parent-space search boxes.
+			// Counting it read as "Unsaved changes" and warned on reload. A pick
+			// from either sets a named field, and that marks the form itself.
+			var src = event && event.target;
+			if ( src && src.matches && src.matches( 'input:not([name]):not([type="checkbox"]):not([type="radio"])' ) ) { return; }
 			bnSavebarDirtyForm = form;
 			storeInstance.state.savebarPhase = 'dirty';
 		},
@@ -3334,10 +3391,13 @@ document.addEventListener( 'keydown', function ( event ) {
 	// driven by the store's savebar* actions (data-wp-on--input/change/click in
 	// the SSR markup), which set storeInstance.state.savebarPhase. This IIFE
 	// only owns the pristine snapshot + the beforeunload guard.
+	var editable = false;
 	for ( var i = 0; i < forms.length; i++ ) {
 		captureDefaults( forms[ i ] );
+		// A read-only panel (Integrations for a moderator) has nothing to save.
+		editable = editable || ! forms[ i ].hasAttribute( 'data-bn-readonly' );
 	}
-	storeInstance.state.savebarHasForm = true;
+	storeInstance.state.savebarHasForm = editable;
 
 	// If the page server-rendered with a success notice, flash "saved" briefly,
 	// then settle back to idle — both via reactive state, no .hidden poke.
@@ -3449,10 +3509,12 @@ document.addEventListener( 'keydown', function ( event ) {
 	}() );
 
 	// A throwaway file input drives the OS picker; we never keep a value in it.
-	function pickFile( onChosen ) {
+	// The accept list matches what REST takes for that kind: the icon (avatar)
+	// accepts GIF, the cover does not (SpaceController::handle_space_image_upload).
+	function pickFile( kind, onChosen ) {
 		var picker = document.createElement( 'input' );
 		picker.type   = 'file';
-		picker.accept = 'image/jpeg,image/png,image/webp,image/gif';
+		picker.accept = 'avatar' === kind ? 'image/jpeg,image/png,image/webp,image/gif' : 'image/jpeg,image/png,image/webp';
 		picker.style.display = 'none';
 		picker.addEventListener( 'change', function () {
 			var file = picker.files && picker.files[0];
@@ -3548,11 +3610,23 @@ document.addEventListener( 'keydown', function ( event ) {
 		var preview   = field.querySelector( '[data-bn-cover-preview]' );
 		var input     = field.querySelector( '[data-bn-cover-input]' );
 		var removeBtn = field.querySelector( '[data-bn-cover-remove]' );
+		var uploadBtn = field.querySelector( '[data-bn-cover-upload]' );
+		var repoBtn   = field.querySelector( '[data-bn-cover-reposition]' );
 		var empty     = field.querySelector( '.bn-space-settings__cover-empty' );
 		if ( ! preview ) { return; }
 
+		// The cover as it is now, so Reposition opens on the picture and framing that are shown.
+		var numAttr = function ( name, fallback ) { var n = parseFloat( preview.getAttribute( name ) ); return isFinite( n ) ? n : fallback; };
+		var current = {
+			url:   input ? input.value : '',
+			focal: { x: numAttr( 'data-focal-x', 50 ), y: numAttr( 'data-focal-y', 50 ), zoom: numAttr( 'data-focal-zoom', 1 ) },
+		};
+
 		function paint( url, focal ) {
 			if ( input ) { input.value = url || ''; }
+			current.url   = url || '';
+			current.focal = url && focal ? focal : { x: 50, y: 50, zoom: 1 };
+			if ( repoBtn ) { repoBtn.hidden = ! url; }
 			if ( url ) {
 				preview.classList.add( 'has-image' );
 				preview.style.backgroundImage    = "url('" + url.replace( /'/g, "\\'" ) + "')";
@@ -3601,7 +3675,7 @@ document.addEventListener( 'keydown', function ( event ) {
 		}
 
 		function choose() {
-			pickFile( function ( file ) {
+			pickFile( 'cover', function ( file ) {
 				// Reposition first (drag to pan, scroll/slider to zoom) via the same
 				// modal the member cover uses, then upload the image with the chosen
 				// focal point. Cancelling the modal cancels the whole cover change -
@@ -3629,6 +3703,43 @@ document.addEventListener( 'keydown', function ( event ) {
 				} );
 			} );
 		}
+
+		// Reposition the cover that is already set: same window, opened on the current picture and
+		// framing. Apply saves the framing at once (no picture is re-uploaded); a failed save keeps
+		// the window open with the reason and leaves the cover as it was.
+		function reposition() {
+			if ( ! current.url ) { return; }
+			var header = document.querySelector( '.bn-sh-cover' );
+			var box    = header ? header.getBoundingClientRect() : null;
+			openCoverReposModal( current.url, t, {
+				initial: current.focal,
+				aspect:  box && box.height > 0 ? box.width / box.height : 0,
+				onApply: function ( focal ) {
+					var body = new FormData();
+					body.append( 'focal_x', String( focal.x ) );
+					body.append( 'focal_y', String( focal.y ) );
+					body.append( 'focal_zoom', String( focal.zoom ) );
+					return restFetch( '/spaces/' + spaceId + '/cover/position', {
+						method: 'POST',
+						nonce:  imageNonce,
+						body:   body,
+						toastOnError: false,
+					} ).then( function ( res ) {
+						if ( ! res.ok ) {
+							throw new Error( ( res.data && res.data.message ) ? res.data.message : t( 'coverPositionFailed', 'Could not save the position. Try again.' ) );
+						}
+					} );
+				},
+			} ).then( function ( focal ) {
+				if ( ! focal ) { return; }
+				paint( current.url, focal );
+				paintSpaceHeader( 'cover', current.url, undefined, focal );
+				if ( window.bnToast ) { window.bnToast( t( 'coverPositionSaved', 'Cover position saved.' ), 'success' ); }
+			} );
+		}
+
+		if ( uploadBtn ) { uploadBtn.addEventListener( 'click', function ( e ) { e.preventDefault(); choose(); } ); }
+		if ( repoBtn )   { repoBtn.addEventListener( 'click', function ( e ) { e.preventDefault(); reposition(); } ); }
 
 		preview.addEventListener( 'click', function ( e ) { e.preventDefault(); choose(); } );
 		preview.addEventListener( 'keydown', function ( e ) {
@@ -3666,7 +3777,7 @@ document.addEventListener( 'keydown', function ( event ) {
 
 		btn.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
-			pickFile( function ( file ) {
+			pickFile( 'avatar', function ( file ) {
 				btn.disabled = true;
 				var orig = btn.textContent;
 				btn.textContent = t( 'uploading', 'Uploading…' );

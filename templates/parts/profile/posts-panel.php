@@ -47,6 +47,9 @@ if ( 'posts' === $bn_pl_kind && $bn_pl_is_owner ) :
 endif;
 
 if ( ! empty( $bn_pl_posts ) ) :
+	// Every per-viewer question the cards ask (reaction, bookmark, space ban,
+	// author follow state) answered for the page up front, as the home feed does.
+	buddynext_service( 'feed' )->prime_viewer_state( $bn_pl_posts, $bn_pl_viewer );
 	// Router region around the list + its Load more, as on the home feed: the
 	// router hydrates what it swaps, so paging never yields dead cards.
 	$bn_pl_region = (bool) apply_filters( 'buddynext_feed_client_pagination', true )

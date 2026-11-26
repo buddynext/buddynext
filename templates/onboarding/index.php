@@ -96,12 +96,12 @@ if ( isset( $_GET['redo'] ) && isset( $_GET['_step'] ) ) { // phpcs:ignore WordP
 	$saved_step = max( 1, min( $total_steps, (int) $_GET['_step'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 }
 
-// Interests step data: the owner's live categories (name + color) and the
+// Interests step data: the categories a member may pick (name + color) and the
 // member's already-stored picks (redo / resume case). Absent step → both empty.
 $bn_ob_categories   = array();
 $bn_ob_interest_ids = array();
 if ( isset( $step_pos['interests'] ) ) {
-	$bn_ob_categories   = ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_all();
+	$bn_ob_categories   = ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_for_members();
 	$bn_ob_interest_ids = $bn_ob_service->get_interest_ids( $ob_user_id );
 }
 
@@ -265,6 +265,11 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			<?php endforeach; ?>
 		</nav>
 
+		<?php
+		// The step shown first is known on the server, so every other step ships `hidden`: a script that is slow or blocked
+		// leaves one step on screen instead of the whole wizard stacked. The store keeps the attribute in step afterwards.
+		$bn_ob_hidden = static fn( int $position ): string => (int) $saved_step === $position ? '' : 'hidden';
+		?>
 		<div class="bn-ob-form-body">
 
 		<!-- ── Step 1: Profile ── -->
@@ -272,6 +277,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-1"
 			data-step="1"
 			aria-labelledby="bn-ob-step-1-title"
+			<?php echo esc_attr( $bn_ob_hidden( 1 ) ); ?>
 			data-wp-bind--hidden="!state.isStep1"
 		>
 
@@ -296,7 +302,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						<?php else : ?>
 							<?php echo esc_html( $initials ); ?>
 						<?php endif; ?>
-						<span class="bn-ob-avatar__spinner" aria-hidden="true"
+						<span class="bn-ob-avatar__spinner" aria-hidden="true" hidden
 							data-wp-bind--hidden="!context.avatarUploading"></span>
 					</button>
 					<input type="file"
@@ -439,6 +445,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
 			data-step="<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
 			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['interests'] ); ?>-title"
+			<?php echo esc_attr( $bn_ob_hidden( (int) $step_pos['interests'] ) ); ?>
 			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
 		>
 
@@ -504,6 +511,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
 			data-step="<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
 			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>-title"
+			<?php echo esc_attr( $bn_ob_hidden( (int) $step_pos['spaces'] ) ); ?>
 			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
 		>
 
@@ -601,6 +609,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
 			data-step="<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
 			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>-title"
+			<?php echo esc_attr( $bn_ob_hidden( (int) $step_pos['people'] ) ); ?>
 			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
 		>
 
@@ -639,7 +648,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 										<?php if ( $sug_headline ) : ?>
 											<?php echo esc_html( $sug_headline ); ?>
 										<?php else : ?>
-											@<?php echo esc_html( $sug_handle ); ?>
+											<bdi dir="ltr">@<?php echo esc_html( $sug_handle ); ?></bdi>
 											·
 											<?php
 											echo esc_html(
@@ -707,6 +716,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
 			data-step="<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
 			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>-title"
+			<?php echo esc_attr( $bn_ob_hidden( (int) $step_pos['notifications'] ) ); ?>
 			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
 		>
 
@@ -815,13 +825,22 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		 * @param array<int,array{key:string,label:string,icon:string}> $steps      Steps keyed 1..N.
 		 * @param array<string,int>                                     $step_pos   Step key => 1-based position.
 		 * @param int                                                   $ob_user_id Member being onboarded.
+		 * @param int                                                   $saved_step The step shown first (1-based): every other step ships `hidden`.
 		 */
-		do_action( 'buddynext_onboarding_render_extra_steps', $steps, $step_pos, $ob_user_id );
+		do_action( 'buddynext_onboarding_render_extra_steps', $steps, $step_pos, $ob_user_id, $saved_step );
 		?>
 
-		<div class="bn-ob-error" role="alert" aria-live="polite"
+		<div class="bn-ob-error" role="alert" aria-live="polite" hidden
 			data-wp-bind--hidden="!state.error"
 			data-wp-text="state.error"></div>
+		<noscript>
+			<p class="bn-ob-noscript"><?php esc_html_e( 'JavaScript is needed to move between the steps. Turn it on in your browser to finish setting up, or skip setup for now.', 'buddynext' ); ?></p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-ob-noscript">
+				<input type="hidden" name="action" value="bn_onboarding_skip">
+				<?php wp_nonce_field( 'bn_onboarding_skip' ); ?>
+				<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Skip setup', 'buddynext' ); ?></button>
+			</form>
+		</noscript>
 
 		</div><!-- /.bn-ob-form-body -->
 

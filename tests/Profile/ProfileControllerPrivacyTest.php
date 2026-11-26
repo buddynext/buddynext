@@ -184,6 +184,7 @@ class ProfileControllerPrivacyTest extends \WP_Test_REST_TestCase {
 			'bn_account_private'            => true,
 			'bn_privacy_show_in_directory'  => false,
 			'bn_privacy_search_indexable'   => false,
+			'bn_privacy_show_online'        => false,
 			'bn_pro_hide_profile_views'     => true,
 		);
 		$this->assertSame( 200, $this->authed_put( $saved )->get_status() );

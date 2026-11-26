@@ -2,6 +2,11 @@
   "generated": "2026-06-11T06:53:37+00:00",
   "suppressions": [
     {
+      "id": "hook-consumed-never-fired:buddynext_dedupe_pending_actions",
+      "reason": "Fired, but under a class constant the scanner cannot follow: CronScheduler::cancel_duplicate_pending() queues its own continuation, CronScheduler::DEDUPE_CONTINUE_HOOK, through enqueue_once() (Action Scheduler), and the queue runner fires it; the handler is bound in bootstrap.php. False positive.",
+      "severity": "error"
+    },
+    {
       "id": "hook-consumed-never-fired:buddynext_finish_upgrade",
       "reason": "Fired, but under a class constant the scanner cannot follow: Installer::maybe_upgrade_schema() queues Installer::FINISH_UPGRADE_HOOK through as_enqueue_async_action() (Action Scheduler) or wp_schedule_single_event() (WP-Cron), and the queue runner fires it. False positive.",
       "severity": "error"

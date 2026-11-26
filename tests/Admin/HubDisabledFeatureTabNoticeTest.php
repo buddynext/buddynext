@@ -36,7 +36,7 @@ class HubDisabledFeatureTabNoticeTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A known-but-unregistered tab points to Features; an unknown one still reads as moved.
+	 * A known-but-unregistered tab points to Features; an unknown one names both causes and points there too.
 	 *
 	 * @return void
 	 */
@@ -46,9 +46,15 @@ class HubDisabledFeatureTabNoticeTest extends WP_UnitTestCase {
 
 		$off = $this->render( 'ai' );
 		$this->assertStringContainsString( 'feature that is turned off', $off );
-		$this->assertStringNotContainsString( 'That setting has moved', $off );
+		$this->assertStringNotContainsString( 'may have moved', $off );
 
-		$this->assertStringContainsString( 'That setting has moved', $this->render( 'no-such-tab' ) );
+		// A slug the hub cannot place may still be an add-on feature that is off (Pro's
+		// Coupons and Paywall tabs are not in the map), so it must not claim the tab is
+		// gone: it names both possibilities and links to Features.
+		$unknown = $this->render( 'no-such-tab' );
+		$this->assertStringNotContainsString( 'no longer exists', $unknown );
+		$this->assertStringContainsString( 'feature that is turned off', $unknown );
+		$this->assertStringContainsString( 'tab=features', $unknown );
 	}
 
 	/**

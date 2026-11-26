@@ -37,8 +37,16 @@ The All gated spaces perk is the all-access pass. A plan that grants it lets its
 
 ### What a blocked member sees
 
-When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button points to the call-to-action link you set. With no link set, it goes to the plan's own page when one plan is on offer, Unlisted plans included, or to your pricing page when several listed plans are. A hidden Unlisted plan is not named or linked while a listed plan opens the same space. When none of the space's plans can be bought, only a listed all-access plan can stand in; otherwise there is no button. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
+When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The upgrade button needs a payment gateway switched on; without one the member sees "Membership purchase is not configured yet. Please check back soon." instead. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button points to the call-to-action link you set. With no link set, it goes to the plan's own page when one plan is on offer, Unlisted plans included, or to your pricing page when several listed plans are. A hidden Unlisted plan is not named or linked while a listed plan opens the same space. When none of the space's plans can be bought, only a listed all-access plan can stand in; otherwise there is no button. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
 
+
+### Where a gated space shows up
+
+A space that needs a plan keeps its content and its member list to people the plan admits, everywhere, not only on the space page:
+
+- **Member list.** The space's member list (the Members page, the app and the leaderboard) is shown only to people who may read the space. A guest or a member without the plan gets a "not allowed" answer.
+- **Feeds.** Posts from a gated space do not appear in the site-wide activity feed, Explore or the hashtag feeds for people who have not joined it. A member who joined it and still holds the plan sees them in their own feed. If the plan lapses, the member stays on the member list but the space's posts leave their feed and the space page shows the paywall, until they renew.
+- **Search.** A member who holds the plan but has not joined still finds the space's posts through search.
 
 ## Setting it up (for owners)
 
@@ -93,6 +101,11 @@ Below the global defaults, the Paywall tab lists every gated space with the plan
 Gating spaces behind a membership, the paywall prompt, and the per-space override settings are all BuddyNext Pro and depend on Membership Plans. BuddyNext Free has open and request-to-join spaces but no membership-based gating.
 
 Within Pro, both linking a space to a plan and the paywall prompt are managed from the admin Paywall tab. A visible badge on gated spaces is planned but not part of the current release.
+
+## What changed in 1.3.0
+
+- A guest or a free member who opens a plan-gated space sees the plan prompt and a button to the pricing page (a guest also sees Log in).
+- The prompt and its pricing button need a payment gateway switched on. Without one, a guest or free member sees "Membership purchase is not configured yet. Please check back soon." and no button.
 
 ## Related
 

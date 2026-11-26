@@ -74,7 +74,7 @@ class Spaces extends AdminPageBase {
 		AdminHub::register_tab(
 			'spaces',
 			'directory',
-			__( 'Directory', 'buddynext' ),
+			__( 'Spaces directory', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array(
 				'subtitle' => __( 'Manage all spaces and categories.', 'buddynext' ),
@@ -407,13 +407,7 @@ class Spaces extends AdminPageBase {
 					<?php endforeach; ?>
 				</ol>
 				<p class="bn-featured-picker__empty" data-bn-featured-empty <?php echo empty( $bn_featured_rows ) ? '' : 'hidden'; ?>>
-					<?php
-					printf(
-						/* translators: %d: maximum number of featured spaces. */
-						esc_html__( 'Feature up to %d spaces to guide new members. Search below, or use the “…” menu on any space in the list.', 'buddynext' ),
-						(int) $bn_featured_limit
-					);
-					?>
+					<?php esc_html_e( 'Nothing is featured yet. Search below, or use the “…” menu on any space in the list.', 'buddynext' ); ?>
 				</p>
 				<div class="bn-featured-picker__add">
 					<label class="screen-reader-text" for="bn-featured-search"><?php esc_html_e( 'Add a space by name', 'buddynext' ); ?></label>
@@ -489,6 +483,26 @@ class Spaces extends AdminPageBase {
 							<span class="bn-segment__count">(<?php echo esc_html( (string) $bn_featured_count ); ?>)</span>
 						</a>
 				</div>
+				<?php
+				// Sort sits beside the type filter so it still works where the Last activity and
+				// Created column headings are hidden to fit the card (see .bn-col-secondary).
+				$bn_sort_args = array(
+					's'    => $search,
+					'type' => $type,
+				);
+				?>
+				<div class="bn-segment bn-spaces-sort" role="group" aria-label="<?php esc_attr_e( 'Sort spaces', 'buddynext' ); ?>">
+					<a href="<?php echo esc_url( add_query_arg( array_merge( $bn_sort_args, array( 'orderby' => 'created_at' ) ), $base_url ) ); ?>"
+						class="bn-segment__item<?php echo 'last_active_at' === $bn_orderby ? '' : ' is-active'; ?>"
+						aria-selected="<?php echo 'last_active_at' === $bn_orderby ? 'false' : 'true'; ?>">
+						<?php esc_html_e( 'Newest', 'buddynext' ); ?>
+					</a>
+					<a href="<?php echo esc_url( add_query_arg( array_merge( $bn_sort_args, array( 'orderby' => 'last_active_at' ) ), $base_url ) ); ?>"
+						class="bn-segment__item<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"
+						aria-selected="<?php echo 'last_active_at' === $bn_orderby ? 'true' : 'false'; ?>">
+						<?php esc_html_e( 'Recently active', 'buddynext' ); ?>
+					</a>
+				</div>
 
 			<?php
 			// Bulk-action form. Row checkboxes associate via form="bn-spaces-bulk"
@@ -524,8 +538,8 @@ class Spaces extends AdminPageBase {
 							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Join requests', 'buddynext' ); ?></th>
-							<th scope="col"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'last_active_at' ) ); ?>" class="bn-th-sort<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Last activity', 'buddynext' ); ?></a></th>
-							<th scope="col"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'created_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Created', 'buddynext' ); ?></a></th>
+							<th scope="col" class="bn-col-secondary"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'last_active_at' ) ); ?>" class="bn-th-sort<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Last activity', 'buddynext' ); ?></a></th>
+							<th scope="col" class="bn-col-secondary"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'created_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Created', 'buddynext' ); ?></a></th>
 							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
 					</thead>
@@ -569,7 +583,9 @@ class Spaces extends AdminPageBase {
 											<?php if ( in_array( (int) $space['id'], $bn_featured_ids, true ) ) : ?>
 												<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Featured', 'buddynext' ); ?></span>
 											<?php endif; ?>
-											<?php if ( ! empty( $space['is_archived'] ) ) : ?>
+											<?php if ( ! empty( $space['is_deleting'] ) ) : ?>
+												<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Deleting', 'buddynext' ); ?></span>
+											<?php elseif ( ! empty( $space['is_archived'] ) ) : ?>
 												<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
 											<?php endif; ?>
 											<?php if ( '' !== (string) $space['parent_name'] ) : ?>
@@ -596,6 +612,24 @@ class Spaces extends AdminPageBase {
 													?>
 												</span>
 											<?php endif; ?>
+											<?php // Shown only where the Last activity and Created columns are hidden to fit the card. ?>
+											<span class="bn-member-sub">
+												<?php $bn_sub_active = (string) ( $space['last_active_at'] ?? '' ); ?>
+												<?php if ( '' !== $bn_sub_active ) : ?>
+													<span>
+														<?php
+														/* translators: %s: how long ago the space last had activity, for example "3h ago". */
+														echo esc_html( sprintf( __( 'Active %s', 'buddynext' ), \BuddyNext\Core\Dates::relative( $bn_sub_active ) ) );
+														?>
+													</span>
+												<?php endif; ?>
+												<span>
+													<?php
+													/* translators: %s: date the space was created. */
+													echo esc_html( sprintf( __( 'Created %s', 'buddynext' ), wp_strip_all_tags( (string) $created ) ) );
+													?>
+												</span>
+											</span>
 										</div>
 										<button type="button" class="toggle-row">
 											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
@@ -615,30 +649,30 @@ class Spaces extends AdminPageBase {
 											<span class="bn-row-meta" aria-hidden="true">-</span>
 										<?php endif; ?>
 									</td>
-									<td data-colname="<?php esc_attr_e( 'Last activity', 'buddynext' ); ?>">
+									<td class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Last activity', 'buddynext' ); ?>">
 										<?php
 										$bn_last_active = (string) ( $space['last_active_at'] ?? '' );
 										if ( '' !== $bn_last_active ) {
-											$bn_la_ts = strtotime( $bn_last_active . ' UTC' );
-											/* translators: %s: human-readable time difference, e.g. "3 hours". */
-											echo esc_html( sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $bn_la_ts, time() ) ) );
+											echo esc_html( \BuddyNext\Core\Dates::relative( $bn_last_active ) );
 										} else {
 											echo '<span aria-hidden="true">&#8212;</span><span class="screen-reader-text">' . esc_html__( 'No activity yet', 'buddynext' ) . '</span>';
 										}
 										?>
 									</td>
-									<td data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) $created ); ?></td>
+									<td class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) $created ); ?></td>
 									<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 										<div class="bn-row-actions">
+											<?php if ( empty( $space['is_deleting'] ) ) : // A space on its way out has no page to view or manage. ?>
 											<a href="<?php echo esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ); ?>"
 													class="bn-btn" data-variant="secondary" data-size="sm" target="_blank" rel="noopener">
 												<?php esc_html_e( 'View', 'buddynext' ); ?>
 											</a>
-											<?php // Manage links to the space's own settings screen — site admins pass its manage-settings capability, so this is the admin edit surface (rename, type, category, cover, who-can-post, transfer ownership). ?>
+												<?php // Manage links to the space's own settings screen — site admins pass its manage-settings capability, so this is the admin edit surface (rename, type, category, cover, who-can-post, transfer ownership). ?>
 											<a href="<?php echo esc_url( trailingslashit( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ) . 'settings/' ); ?>"
 													class="bn-btn" data-variant="secondary" data-size="sm">
 												<?php esc_html_e( 'Manage', 'buddynext' ); ?>
 											</a>
+											<?php endif; ?>
 											<?php
 											// Archive/Unarchive + Delete live in the shared kebab overflow
 											// (same .bn-more-menu component as the Members list) so the row
@@ -648,7 +682,7 @@ class Spaces extends AdminPageBase {
 											$bn_is_featured    = in_array( (int) $space['id'], $bn_featured_ids, true );
 											?>
 											<div class="bn-more-menu" data-space-id="<?php echo absint( $space['id'] ); ?>">
-												<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
+												<button type="button" class="bn-more-btn" aria-label="
 												<?php
 													/* translators: %s: name of the item the actions apply to. */
 													echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), (string) $space['name'] ) );
@@ -656,35 +690,40 @@ class Spaces extends AdminPageBase {
 												">
 													<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
 												</button>
-												<div class="bn-more-dropdown" role="menu">
+												<div class="bn-more-dropdown">
+													<?php $bn_is_deleting = ! empty( $space['is_deleting'] ); ?>
+													<?php if ( ! $bn_is_deleting ) : // A half-deleted space can only be finished, never brought back. ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 														<?php wp_nonce_field( 'bn_archive_space' ); ?>
 														<input type="hidden" name="action" value="bn_archive_space">
 														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
 														<input type="hidden" name="archive" value="<?php echo $bn_space_archived ? '0' : '1'; ?>">
-														<button type="submit" class="bn-dropdown-item" role="menuitem">
+														<button type="submit" class="bn-dropdown-item">
 															<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
 														</button>
 													</form>
+													<?php endif; ?>
 													<?php // Featured lists show top-level spaces only; a sub-space offers Unfeature only if it was featured before 1.2.8. ?>
-													<?php if ( $bn_is_featured || empty( $space['parent_id'] ) ) : ?>
+													<?php if ( ! $bn_is_deleting && ( $bn_is_featured || empty( $space['parent_id'] ) ) ) : ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 														<?php wp_nonce_field( 'bn_feature_space' ); ?>
 														<input type="hidden" name="action" value="bn_feature_space">
 														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
 														<input type="hidden" name="feature" value="<?php echo $bn_is_featured ? '0' : '1'; ?>">
-														<button type="submit" class="bn-dropdown-item" role="menuitem">
+														<button type="submit" class="bn-dropdown-item">
 															<?php echo $bn_is_featured ? esc_html__( 'Unfeature', 'buddynext' ) : esc_html__( 'Feature', 'buddynext' ); ?>
 														</button>
 													</form>
 													<?php endif; ?>
 													<?php // Change owner opens a small dialog that asks who; the dialog's own form posts bn_transfer_space. ?>
-													<button type="button" class="bn-dropdown-item" role="menuitem"
+													<?php if ( ! $bn_is_deleting ) : ?>
+													<button type="button" class="bn-dropdown-item"
 															data-bn-owner-trigger
 															data-space-id="<?php echo esc_attr( (string) $space['id'] ); ?>"
 															data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
 														<?php esc_html_e( 'Change owner', 'buddynext' ); ?>
 													</button>
+													<?php endif; ?>
 													<form method="post"
 															action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 															class="bn-delete-space-form">
@@ -693,10 +732,9 @@ class Spaces extends AdminPageBase {
 														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
 														<button type="submit"
 																class="bn-dropdown-item bn-dropdown-danger"
-																role="menuitem"
 																data-bn-delete-space-trigger
 																data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
-															<?php esc_html_e( 'Delete', 'buddynext' ); ?>
+															<?php $bn_is_deleting ? esc_html_e( 'Finish deleting', 'buddynext' ) : esc_html_e( 'Delete', 'buddynext' ); ?>
 														</button>
 													</form>
 												</div>
@@ -897,6 +935,7 @@ class Spaces extends AdminPageBase {
 						array(
 							'name'    => 'show_in_dir',
 							'label'   => __( 'Show in the spaces directory', 'buddynext' ),
+							'hint'    => __( 'Also offered as an interest members can pick during onboarding and on their profile, unless it is for subspaces only.', 'buddynext' ),
 							'default' => true,
 						),
 					),
@@ -1019,7 +1058,8 @@ class Spaces extends AdminPageBase {
 					</button>
 				</header>
 				<div class="bn-modal__body">
-					<p><?php esc_html_e( 'This will permanently delete the space and all of its member associations. This cannot be undone.', 'buddynext' ); ?></p>
+					<p><?php esc_html_e( 'This permanently deletes the space, all of its posts, and all member relationships. This cannot be undone.', 'buddynext' ); ?></p>
+					<p><?php esc_html_e( 'A big space disappears at once and is cleared away in the background, which can take a few minutes. Not sure? Close this and use Archive instead: it keeps everything and makes the space read-only.', 'buddynext' ); ?></p>
 				</div>
 				<div class="bn-modal__foot">
 					<button
@@ -1193,6 +1233,11 @@ class Spaces extends AdminPageBase {
 		// one query each — no per-row N+1 on the admin list.
 		$page_ids = array_map( static fn( array $s ): int => $s['id'], $spaces );
 		if ( $page_ids ) {
+			// One query for the whole page, so the per-row "being deleted" check reads cache.
+			update_meta_cache( 'bn_space', $page_ids );
+			foreach ( $spaces as $bn_idx => $bn_row ) {
+				$spaces[ $bn_idx ]['is_deleting'] = \BuddyNext\Spaces\SpaceService::is_deleting( (int) $bn_row['id'] );
+			}
 			$ids_in = implode( ',', array_map( 'absint', $page_ids ) );
 
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared

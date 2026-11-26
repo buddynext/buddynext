@@ -84,6 +84,13 @@ class ProfileController extends BaseRestController {
 	);
 
 	/**
+	 * "Show when I'm online": a profile-write key whose storage PresenceService owns.
+	 *
+	 * @var string
+	 */
+	private const PROFILE_SHOW_ONLINE_KEY = 'bn_privacy_show_online';
+
+	/**
 	 * Boolean preference metas accepted by a profile write.
 	 *
 	 * @since 1.1.6
@@ -137,7 +144,8 @@ class ProfileController extends BaseRestController {
 			self::PROFILE_META_AUDIENCE,
 			array( self::PROFILE_DM_KEY ),
 			array_keys( self::PROFILE_META_GATES ),
-			self::PROFILE_META_BOOLS
+			self::PROFILE_META_BOOLS,
+			array( self::PROFILE_SHOW_ONLINE_KEY )
 		);
 
 		// Flat fields — exactly the set save_profile() resolves by field_key.
@@ -496,6 +504,34 @@ class ProfileController extends BaseRestController {
 					'methods'             => 'DELETE',
 					'callback'            => array( $this, 'delete_avatar' ),
 					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		// Reposition a cover that is already set: saves the pan and zoom only, no picture.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/cover/position',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'set_cover_position' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/cover/position',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'admin_set_cover_position' ),
+				'permission_callback' => array( $this, 'require_edit_any_profile' ),
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
 				),
 			)
 		);
@@ -1343,6 +1379,13 @@ class ProfileController extends BaseRestController {
 			$search_vis_before[ $svk ] = (string) get_user_meta( $user_id, $svk, true );
 		}
 
+		// "Show when I'm online" is stored inverted, on Jetonomy's key while Jetonomy
+		// is active (PresenceService::set_hidden owns the storage rule).
+		if ( array_key_exists( self::PROFILE_SHOW_ONLINE_KEY, $data ) ) {
+			\BuddyNext\Realtime\PresenceService::set_hidden( $user_id, empty( $data[ self::PROFILE_SHOW_ONLINE_KEY ] ) );
+			unset( $data[ self::PROFILE_SHOW_ONLINE_KEY ] );
+		}
+
 		foreach ( $bool_keys as $bk ) {
 			if ( array_key_exists( $bk, $data ) ) {
 				update_user_meta( $user_id, $bk, ! empty( $data[ $bk ] ) ? '1' : '0' );
@@ -1906,12 +1949,16 @@ class ProfileController extends BaseRestController {
 			return $valid;
 		}
 
-		if ( ! \BuddyNext\Core\PageRouter::is_slug_available( $requested_slug, $user_id ) ) {
-			return new WP_Error(
-				'slug_taken',
-				__( 'That profile URL is already taken.', 'buddynext' ),
-				array( 'status' => 409 )
-			);
+		$refusal = \BuddyNext\Core\PageRouter::slug_refusal( $requested_slug, $user_id );
+		if ( null !== $refusal ) {
+			// A reserved word says so; anything else keeps the established code.
+			return 'handle_reserved' === $refusal->get_error_code()
+				? $refusal
+				: new WP_Error(
+					'slug_taken',
+					__( 'That profile URL is already taken.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
 		}
 
 		// One writer for the handle: it also keeps user_nicename in step and
@@ -1937,14 +1984,17 @@ class ProfileController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function check_slug_availability( WP_REST_Request $request ): WP_REST_Response {
-		$user_id   = get_current_user_id();
-		$slug      = sanitize_title( (string) $request->get_param( 'slug' ) );
-		$available = '' !== $slug && \BuddyNext\Core\PageRouter::is_slug_available( $slug, $user_id );
+		$user_id = get_current_user_id();
+		$slug    = sanitize_title( (string) $request->get_param( 'slug' ) );
+		$refusal = '' === $slug ? null : \BuddyNext\Core\PageRouter::slug_refusal( $slug, $user_id );
 
 		return new WP_REST_Response(
 			array(
 				'slug'      => $slug,
-				'available' => $available,
+				'available' => '' !== $slug && null === $refusal,
+				// Why not, in words a member can act on (reserved vs taken vs unusable).
+				'reason'    => null === $refusal ? '' : (string) $refusal->get_error_code(),
+				'message'   => null === $refusal ? '' : $refusal->get_error_message(),
 			),
 			200
 		);
@@ -2381,6 +2431,61 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * POST /me/cover/position: save the framing (focal_x, focal_y, focal_zoom) of the current user's cover.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function set_cover_position( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->handle_cover_position( get_current_user_id(), $request );
+	}
+
+	/**
+	 * POST /users/{id}/cover/position: the same for any member, for someone who may edit any profile.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function admin_set_cover_position( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = absint( $request->get_param( 'id' ) );
+
+		if ( ! get_userdata( $user_id ) ) {
+			return new WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return $this->handle_cover_position( $user_id, $request );
+	}
+
+	/**
+	 * Store the framing of a cover that is already set; never touches the picture.
+	 *
+	 * @param int             $user_id Member whose cover is framed.
+	 * @param WP_REST_Request $request Request carrying focal_x, focal_y and focal_zoom.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function handle_cover_position( int $user_id, WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		if ( '' === ( new AvatarService() )->get_cover_url( $user_id ) ) {
+			return new WP_Error( 'cover_missing', __( 'There is no cover photo to reposition.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
+		$focal = CoverFocal::from_params( (array) $request->get_params() );
+		if ( null === $focal ) {
+			return new WP_Error( 'focal_invalid', __( 'That position is not valid.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		update_user_meta( $user_id, CoverFocal::META_KEY, $focal );
+
+		return new WP_REST_Response(
+			array(
+				'focal_x'    => $focal['x'],
+				'focal_y'    => $focal['y'],
+				'focal_zoom' => $focal['zoom'],
+			),
+			200
+		);
+	}
+
+	/**
 	 * Fully remove a user's cover photo: usermeta URL, the stored focal point,
 	 * and the image variations on disk.
 	 *
@@ -2637,24 +2742,18 @@ class ProfileController extends BaseRestController {
 		 * phpcs:disable WordPress.Security.NonceVerification.Missing
 		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		 */
-		$focal_x_raw    = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1;
-		$focal_y_raw    = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1;
-		$focal_zoom_raw = isset( $_POST['focal_zoom'] ) ? (float) wp_unslash( (string) $_POST['focal_zoom'] ) : 1.0;
+		$focal_in = CoverFocal::from_params( wp_unslash( $_POST ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		if ( $focal_x_raw >= 0 && $focal_x_raw <= 100 && $focal_y_raw >= 0 && $focal_y_raw <= 100 ) {
-			update_user_meta(
-				$user_id,
-				'buddynext_cover_focal',
-				array(
-					'x'    => round( $focal_x_raw, 2 ),
-					'y'    => round( $focal_y_raw, 2 ),
-					'zoom' => round( max( 1.0, min( 3.0, $focal_zoom_raw ) ), 3 ),
-				)
-			);
+		if ( null !== $focal_in ) {
+			update_user_meta( $user_id, CoverFocal::META_KEY, $focal_in );
+		} else {
+			// A replacement picture sent without a position starts centred: the old framing was
+			// chosen for the old picture and must not carry over to the new one.
+			delete_user_meta( $user_id, CoverFocal::META_KEY );
 		}
 
-		$focal = (array) get_user_meta( $user_id, 'buddynext_cover_focal', true );
+		$focal = (array) get_user_meta( $user_id, CoverFocal::META_KEY, true );
 
 		return new WP_REST_Response(
 			array(

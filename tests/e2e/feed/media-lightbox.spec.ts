@@ -271,9 +271,11 @@ test.describe('feed / media lightbox', () => {
             const fav = await mvsGet(page, nonce, `/media/${mediaId}/favorite`);
             expect(fav.status, 'GET mvs/v1 favorite').toBe(200);
             expect((fav.body as { favorited?: boolean } | null)?.favorited, 'favorite stored on the media item').toBe(true);
-            const thread = await mvsGet(page, nonce, `/media/${mediaId}/comments`);
-            expect(thread.status, 'GET mvs/v1 comments').toBe(200);
-            expect(JSON.stringify(thread.body), 'comment stored on the media item').toContain(commentText);
+            // A photo that is a feed post keeps its conversation on the post (the lightbox mirrors it there), so the
+            // comment is read from the post thread, the one place the card and the lightbox both show it.
+            const thread = await restGet<unknown>(page.request, nonce, `/comments?object_type=post&object_id=${postId}`);
+            expect(thread.status, 'GET comments on the post').toBe(200);
+            expect(JSON.stringify(thread.body), 'comment stored on the post behind the photo').toContain(commentText);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }

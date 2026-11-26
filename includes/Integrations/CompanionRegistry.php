@@ -34,6 +34,9 @@ final class CompanionRegistry {
 	 *   free      array    { item_id, key, basename } for one-click free install.
 	 *   store_url string   Product page for the "Get Pro" link (wbcomdesigns.com only).
 	 *   unlocks   string   What this turns on inside BuddyNext when connected.
+	 *   icon      string   Optional. Square icon beside the name: an http(s) URL or a path
+	 *                      relative to the plugins folder. Wbcom companions omit it and
+	 *                      use the mark bundled at assets/img/companions/{slug}.svg.
 	 *
 	 * @return array<string, array<string, mixed>>
 	 */
@@ -67,7 +70,7 @@ final class CompanionRegistry {
 					'label'       => 'Jetonomy',
 					'integration' => 'jetonomy',
 					'why'         => __( 'Forum-style threaded discussions and Q&A boards.', 'buddynext' ),
-					'detect'      => static fn(): bool => class_exists( '\\Jetonomy\\Plugin' ) || function_exists( 'jetonomy' ),
+					'detect'      => static fn(): bool => class_exists( '\\Jetonomy\\Jetonomy' ),
 					'free'        => array(
 						'item_id'  => 1660320,
 						'key'      => 'wbcomfreec7e2a9b45d8f1c3e6a0b9d2f7c4e8a11',
@@ -183,6 +186,70 @@ final class CompanionRegistry {
 	}
 
 	/**
+	 * Free Wbcom site tools that install from their public GitHub release.
+	 *
+	 * Kept apart from all(): they are not integrations, so the wizard's add-on step
+	 * and Integration Settings never list them. The Add-ons tab and the Home demo card
+	 * offer them. Not filterable: the download source is fixed here, never data.
+	 *
+	 *   source  'github'.
+	 *   github  { repo, prefix }: the release asset is the .zip whose name starts with prefix.
+	 *   free    { basename } for installed/active detection.
+	 *   logo    Bundled mark in assets/img/companions/ when it is not {slug}.svg, without .svg.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	public static function tools(): array {
+		return array(
+			'wbcom-demo-installer' => array(
+				'label'     => 'Wbcom Demo Installer',
+				'why'       => __( 'Sets up your theme and the Wbcom products with sample people and content, then removes it all in one click.', 'buddynext' ),
+				'source'    => 'github',
+				'github'    => array(
+					'repo'   => 'buddynext/wbcom-demo-installer',
+					'prefix' => 'wbcom-demo-installer-',
+				),
+				'detect'    => static fn(): bool => defined( 'WBCOM_DEMO_DIR' ) || function_exists( 'wbcom_demo_status' ),
+				'free'      => array( 'basename' => 'wbcom-demo-installer/wbcom-demo-installer.php' ),
+				'store_url' => 'https://github.com/buddynext/wbcom-demo-installer',
+				'logo'      => 'wbcom',
+				'setup_url' => 'themes.php?page=wbcom-demo',
+			),
+			'wbcom-essential'      => array(
+				'label'     => 'Wbcom Essential',
+				'why'       => __( 'Blocks and widgets for designing your home page and community pages.', 'buddynext' ),
+				'source'    => 'github',
+				'github'    => array(
+					'repo'   => 'vapvarun/wbcom-essential',
+					'prefix' => 'wbcom-essential-',
+				),
+				'detect'    => static fn(): bool => defined( 'WBCOM_ESSENTIAL_VERSION' ),
+				'free'      => array( 'basename' => 'wbcom-essential/loader.php' ),
+				'store_url' => 'https://github.com/vapvarun/wbcom-essential',
+			),
+		);
+	}
+
+	/**
+	 * Where an owner downloads a GitHub tool by hand: the asset when known, else the latest release page.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $slug    Tool slug.
+	 * @param string $zip_url Release asset URL, when the API returned one.
+	 * @return array{zip_url:string,upload_url:string}
+	 */
+	public static function manual( string $slug, string $zip_url = '' ): array {
+		$repo = (string) ( self::get( $slug )['github']['repo'] ?? '' );
+		return array(
+			'zip_url'    => '' !== $zip_url ? $zip_url : 'https://github.com/' . $repo . '/releases/latest',
+			'upload_url' => self_admin_url( 'plugin-install.php?tab=upload' ),
+		);
+	}
+
+	/**
 	 * The ACTIVE companion whose bridge registers this integration key, or null.
 	 *
 	 * Lets Integration Settings name each box by the product the owner installed.
@@ -190,25 +257,25 @@ final class CompanionRegistry {
 	 * so an inactive companion lends neither its name nor its Active badge.
 	 *
 	 * @param string $integration_key Key on the buddynext_integrations registry.
-	 * @return array<string, mixed>|null
+	 * @return array<string, mixed>|null The entry, with its `slug` added.
 	 */
 	public static function for_integration( string $integration_key ): ?array {
 		foreach ( self::all() as $slug => $entry ) {
 			if ( ( $entry['integration'] ?? '' ) === $integration_key && self::is_active( (string) $slug ) ) {
-				return $entry;
+				return array( 'slug' => (string) $slug ) + $entry;
 			}
 		}
 		return null;
 	}
 
 	/**
-	 * One companion by slug.
+	 * One companion or GitHub tool by slug.
 	 *
 	 * @param string $slug Companion slug.
 	 * @return array<string, mixed>|null
 	 */
 	public static function get( string $slug ): ?array {
-		$all = self::all();
+		$all = self::all() + self::tools();
 		return $all[ $slug ] ?? null;
 	}
 

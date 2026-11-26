@@ -162,6 +162,7 @@
 }
 .bn-search-recent__chip:hover {
 	background: color-mix(in oklab, var(--bn-accent) 14%, transparent);
+	color: var(--bn-accent-text); /* a theme's a:hover colour must not repaint it under 4.5:1 */
 }
 .bn-search-recent__clear {
 	background: transparent;

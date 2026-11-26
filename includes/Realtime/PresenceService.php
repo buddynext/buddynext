@@ -1,20 +1,20 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * Online-presence heartbeat writer.
+ * Online presence: the one seam that writes and reads "last active".
  *
- * The presence readers — BlockService::is_user_online() and the member
- * directory `online`/`most_active` query — both resolve presence from the
- * `bn_last_active` user_meta timestamp. Nothing in Free wrote that value, so
- * every member resolved to offline and the "Online now" directory filter,
- * online sort, member-card dots, and OnlineMembersWidget were all permanently
- * empty.
+ * Writers, all event-driven (no Heartbeat API, no admin-ajax, no timer):
+ *   1. template_redirect - every front-end page view by a logged-in member.
+ *   2. POST /me/presence/heartbeat (RealtimeController) - called by the
+ *      buddynext/presence script module after a client-side navigation and when a
+ *      tab comes back into view, at most once per ~4 minutes per tab. This is
+ *      also the path that works when a page cache served the HTML, because the
+ *      cached page skips template_redirect.
+ * Both go through stamp(), throttled to one write per member per minute.
  *
- * This service is the missing producer. It stamps `bn_last_active` for the
- * logged-in user on front-end activity, throttled via a short transient so a
- * page-heavy session does not write on every request. It is the Free polling
- * equivalent of Pro's WebSocket heartbeat — same meta key, same 300s window
- * used by the reader, so Pro can later swap the producer without touching the
- * readers.
+ * Readers resolve "online" as active within online_window() (default 600s,
+ * filterable). Everything goes through this class, so another presence source
+ * (for example a future core presence API) can feed stamp() without touching
+ * any reader.
  *
  * @package BuddyNext\Realtime
  * @since   1.0.0
@@ -25,7 +25,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Realtime;
 
 /**
- * Writes the `bn_last_active` presence timestamp on authenticated activity.
+ * Writes and reads member presence in the indexed bn_presence table.
  *
  * @since 1.0.0
  */
@@ -48,8 +48,8 @@ class PresenceService {
 	 * Minimum seconds between two stamps for the same user.
 	 *
 	 * A transient guard keyed per user prevents a write on every page load.
-	 * Kept well under the reader's 300s online window so presence never goes
-	 * stale for an active user.
+	 * Kept well under the online window so presence never goes stale for an
+	 * active user.
 	 *
 	 * @since 1.0.0
 	 * @var int
@@ -61,8 +61,9 @@ class PresenceService {
 	 *
 	 * Called once at boot. The stamp runs on template_redirect — every
 	 * front-end page view by a logged-in user — so presence works with no
-	 * JavaScript at all. The REST heartbeat endpoint (RealtimeController)
-	 * provides a finer-grained, JS-driven top-up on top of this baseline.
+	 * JavaScript at all. The REST heartbeat endpoint (RealtimeController) is
+	 * the event-driven top-up for client navigation and a tab coming back into
+	 * view; see the class docblock.
 	 *
 	 * @since 1.0.0
 	 *
@@ -71,12 +72,97 @@ class PresenceService {
 	public function register(): void {
 		add_action( 'template_redirect', array( $this, 'heartbeat' ) );
 		add_action( 'wp_logout', array( $this, 'clear_on_logout' ) );
+		add_filter( 'site_status_tests', array( $this, 'register_site_health' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_ping' ), 20 );
+	}
+
+	/**
+	 * Load the client presence ping for a signed-in member on a BuddyNext hub.
+	 *
+	 * Hubs are recognised by the shell script every hub enqueues
+	 * (PageRouter::enqueue_hub_assets()), so the ping rides the same pages the
+	 * shell does and never loads on an unrelated theme page. Runs after the
+	 * modules are registered (AssetService, priority 10).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public function enqueue_ping(): void {
+		if ( is_user_logged_in() && wp_script_is( 'bn-shell-extras', 'enqueued' ) ) {
+			wp_enqueue_script_module( '@buddynext/presence' );
+		}
+	}
+
+	/**
+	 * Add the "presence is recording" Site Health test.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string, mixed> $tests Site Health tests.
+	 * @return array<string, mixed>
+	 */
+	public function register_site_health( array $tests ): array {
+		$tests['direct']['buddynext_presence'] = array(
+			'label' => __( 'BuddyNext online status', 'buddynext' ),
+			'test'  => array( self::class, 'site_health_test' ),
+		);
+		return $tests;
+	}
+
+	/**
+	 * Site Health: warn when members are active but nobody is ever recorded online.
+	 *
+	 * "Members are active" is read from the community itself: a post published in
+	 * the last hour. Writing one means a signed-in member was on the site, which
+	 * should have stamped presence (page view or the client ping). If that hour
+	 * holds posts but no presence at all, the stamp is not reaching the server,
+	 * almost always because a page cache serves pages to signed-in members or a
+	 * firewall blocks the REST ping. Two indexed reads, no stored state.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function site_health_test(): array {
+		global $wpdb;
+		$since = time() - HOUR_IN_SECONDS;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$recent_post = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM ( SELECT 1 FROM {$wpdb->prefix}bn_posts WHERE created_at >= %s LIMIT 1 ) recent",
+				gmdate( 'Y-m-d H:i:s', $since )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$badge = array(
+			'label' => __( 'BuddyNext', 'buddynext' ),
+			'color' => 'blue',
+		);
+
+		if ( 0 === $recent_post || self::online_count( HOUR_IN_SECONDS ) > 0 ) {
+			return array(
+				'label'       => __( 'BuddyNext is recording who is online', 'buddynext' ),
+				'status'      => 'good',
+				'badge'       => $badge,
+				'description' => '<p>' . esc_html__( 'Online dots, the Online only filter and the Online now list are up to date.', 'buddynext' ) . '</p>',
+				'test'        => 'buddynext_presence',
+			);
+		}
+
+		return array(
+			'label'       => __( 'BuddyNext is not recording who is online', 'buddynext' ),
+			'status'      => 'recommended',
+			'badge'       => $badge,
+			'description' => '<p>' . esc_html__( 'Members posted in the last hour, but nobody was recorded as online. Online dots, the Online only filter and the Online now list will look empty.', 'buddynext' ) . '</p><p>' . esc_html__( 'The usual cause is a page cache that serves saved pages to signed-in members, or a security rule that blocks the BuddyNext REST API. Ask your host to skip page caching for signed-in visitors and to allow requests to /wp-json/buddynext/v1/. Posts made only from a mobile app can also show this, because an app does not open site pages.', 'buddynext' ) . '</p>',
+			'test'        => 'buddynext_presence',
+		);
 	}
 
 	/**
 	 * Clear a user's presence on explicit logout so they read offline at once.
 	 *
-	 * Presence is a decaying heartbeat (ONLINE_WINDOW seconds); without this an
+	 * Presence is a decaying heartbeat (online_window() seconds); without this an
 	 * explicit logout would keep showing the user "online" until the window
 	 * elapsed. bn_presence is BuddyNext's own table, so this deletes the row
 	 * directly; last_active_at() then resolves 0 (offline). The throttle transient
@@ -214,12 +300,49 @@ class PresenceService {
 	}
 
 	/**
-	 * Default "online" window in seconds (matches the legacy reader's 300s).
+	 * Default "online" window in seconds: active in the last 10 minutes.
+	 *
+	 * Raised from 300 in 1.3.0. Presence is event-driven (a page view, a client
+	 * navigation, a tab coming back into view) with no timer, so a member who
+	 * reads one long thread sends nothing; 10 minutes keeps them online through
+	 * that without polling. Read the effective value through online_window(),
+	 * which a site may filter; this constant is only the default.
 	 *
 	 * @since 1.0.0
 	 * @var int
 	 */
-	public const ONLINE_WINDOW = 300;
+	public const ONLINE_WINDOW = 600;
+
+	/**
+	 * The effective "online" window in seconds.
+	 *
+	 * Every presence reader (dots, the Online only filter, the online sort, the
+	 * Online now widget) resolves its window here, so one filter changes them all.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return int Seconds, never under one minute (the stamp throttle).
+	 */
+	public static function online_window(): int {
+		/**
+		 * Filter how recently a member must have been active to count as online.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int $seconds Default PresenceService::ONLINE_WINDOW (600).
+		 */
+		return max( self::THROTTLE_SECONDS, (int) apply_filters( 'buddynext_presence_online_window', self::ONLINE_WINDOW ) );
+	}
+
+	/**
+	 * Resolve a caller's window argument: 0 means the effective online window.
+	 *
+	 * @param int $within Seconds, or 0 for online_window().
+	 * @return int
+	 */
+	private static function window( int $within ): int {
+		return $within > 0 ? $within : self::online_window();
+	}
 
 	/**
 	 * UPSERT a user's presence timestamp into the indexed bn_presence table.
@@ -266,7 +389,9 @@ class PresenceService {
 	 */
 	public static function visible_to_viewer( int $viewer_id ): bool {
 		if ( $viewer_id > 0 ) {
-			return true;
+			// A member who hides their own status stops seeing everyone else's
+			// (reciprocal, like WhatsApp). Staff keep it: they need it for reports.
+			return ! self::is_hidden( $viewer_id ) || self::is_staff( $viewer_id );
 		}
 
 		/**
@@ -278,16 +403,130 @@ class PresenceService {
 	}
 
 	/**
+	 * Usermeta key BuddyNext owns for "Show when I'm online" = off.
+	 */
+	public const HIDE_META = 'bn_hide_online';
+
+	/**
+	 * Jetonomy's key for the same choice. While Jetonomy is active it is the one
+	 * BuddyNext writes, so Jetonomy pages honour the member's choice too.
+	 */
+	public const JETONOMY_HIDE_META = 'jetonomy_hide_online';
+
+	/**
+	 * Whether a member chose to hide their online status ("Show when I'm online" off).
+	 *
+	 * Either key counts, so a member who hid it on Jetonomy before BuddyNext had
+	 * the setting stays hidden without saving anything.
+	 *
+	 * @param int $user_id Member ID.
+	 * @return bool
+	 */
+	public static function is_hidden( int $user_id ): bool {
+		return $user_id > 0
+			&& ( '1' === (string) get_user_meta( $user_id, self::HIDE_META, true ) || '1' === (string) get_user_meta( $user_id, self::JETONOMY_HIDE_META, true ) );
+	}
+
+	/**
+	 * Save "Show when I'm online".
+	 *
+	 * Writes Jetonomy's key while Jetonomy is active, BuddyNext's own otherwise, and
+	 * brings the other key along when it exists so the two can never disagree.
+	 *
+	 * @param int  $user_id Member ID.
+	 * @param bool $hidden  True = hide (setting off).
+	 * @return void
+	 */
+	public static function set_hidden( int $user_id, bool $hidden ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		$primary = class_exists( '\\Jetonomy\\Models\\Space' ) ? self::JETONOMY_HIDE_META : self::HIDE_META;
+		foreach ( array( self::HIDE_META, self::JETONOMY_HIDE_META ) as $key ) {
+			if ( $key !== $primary && '' === (string) get_user_meta( $user_id, $key, true ) ) {
+				continue;
+			}
+			if ( $hidden ) {
+				update_user_meta( $user_id, $key, 1 );
+			} else {
+				delete_user_meta( $user_id, $key );
+			}
+		}
+	}
+
+	/**
+	 * Whether a viewer is staff who still see hidden presence (site moderators and admins).
+	 *
+	 * @param int $viewer_id Viewer ID.
+	 * @return bool
+	 */
+	public static function is_staff( int $viewer_id ): bool {
+		return $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-moderation/review-queue' );
+	}
+
+	/**
+	 * Whether a viewer may see a target's presence (dot and last seen).
+	 *
+	 * @param int $viewer_id Viewer ID (0 = guest).
+	 * @param int $target_id Member whose presence would show.
+	 * @return bool
+	 */
+	public static function can_see( int $viewer_id, int $target_id ): bool {
+		if ( ! self::visible_to_viewer( $viewer_id ) ) {
+			return false;
+		}
+		return $viewer_id === $target_id || ! self::is_hidden( $target_id ) || self::is_staff( $viewer_id );
+	}
+
+	/**
+	 * Drop members who hide their status from a list of ids, unless the viewer is staff.
+	 *
+	 * @param int[] $user_ids  Member IDs.
+	 * @param int   $viewer_id Viewer ID.
+	 * @return int[]
+	 */
+	public static function without_hidden( array $user_ids, int $viewer_id ): array {
+		if ( array() === $user_ids || self::is_staff( $viewer_id ) ) {
+			return $user_ids;
+		}
+		update_meta_cache( 'user', $user_ids );
+		return array_values(
+			array_filter(
+				$user_ids,
+				static fn( $id ): bool => (int) $id === $viewer_id || ! self::is_hidden( (int) $id )
+			)
+		);
+	}
+
+	/**
+	 * SQL condition that excludes members who hide their status, for a non-staff viewer.
+	 *
+	 * Returns '' for staff. The usermeta meta_key index serves the subquery; the hidden
+	 * set is small.
+	 *
+	 * @param string $user_col  Column holding the member ID, e.g. "u.ID".
+	 * @param int    $viewer_id Viewer ID.
+	 * @return string " AND ..." or ''.
+	 */
+	public static function hidden_sql( string $user_col, int $viewer_id ): string {
+		if ( self::is_staff( $viewer_id ) ) {
+			return '';
+		}
+		global $wpdb;
+		return " AND {$user_col} NOT IN ( SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key IN ( '" . self::HIDE_META . "', '" . self::JETONOMY_HIDE_META . "' ) AND meta_value = '1' )";
+	}
+
+	/**
 	 * IDs of users active within the given window — an indexed range scan.
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @param int $within Seconds. 0 (default) = online_window().
 	 * @return array<int, int> User IDs.
 	 */
-	public static function online_ids( int $within = self::ONLINE_WINDOW ): array {
+	public static function online_ids( int $within = 0 ): array {
 		global $wpdb;
-		$cutoff = time() - max( 1, $within );
+		$cutoff = time() - self::window( $within );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
@@ -309,13 +548,13 @@ class PresenceService {
 	 * @since 1.0.0
 	 *
 	 * @param int $limit  Max IDs to return (clamped to >= 1).
-	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @param int $within Seconds. 0 (default) = online_window().
 	 * @return array<int, int> User IDs, most recently active first.
 	 */
-	public static function recent_online_ids( int $limit, int $within = self::ONLINE_WINDOW ): array {
+	public static function recent_online_ids( int $limit, int $within = 0 ): array {
 		global $wpdb;
 		$limit  = max( 1, $limit );
-		$cutoff = time() - max( 1, $within );
+		$cutoff = time() - self::window( $within );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
@@ -333,12 +572,12 @@ class PresenceService {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @param int $within Seconds. 0 (default) = online_window().
 	 * @return int
 	 */
-	public static function online_count( int $within = self::ONLINE_WINDOW ): int {
+	public static function online_count( int $within = 0 ): int {
 		global $wpdb;
-		$cutoff = time() - max( 1, $within );
+		$cutoff = time() - self::window( $within );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -350,19 +589,27 @@ class PresenceService {
 	}
 
 	/**
-	 * Whether a user has been active within the window.
+	 * Whether a user has been active within the window, as the current viewer may know it.
+	 *
+	 * Partner plugins (Jetonomy) ask this for their dots, so a member who turned off "Show when
+	 * I'm online" reads as offline here too, unless the viewer is that member or staff. Jetonomy
+	 * only knows its own key, and a member who hid while Jetonomy was inactive holds bn_hide_online.
 	 *
 	 * @since 1.0.0
 	 *
 	 * @param int $user_id User id.
-	 * @param int $within  Seconds. Defaults to ONLINE_WINDOW.
+	 * @param int $within  Seconds. 0 (default) = online_window().
 	 * @return bool
 	 */
-	public static function is_online( int $user_id, int $within = self::ONLINE_WINDOW ): bool {
+	public static function is_online( int $user_id, int $within = 0 ): bool {
 		if ( $user_id <= 0 ) {
 			return false;
 		}
-		return self::last_active_at( $user_id ) > ( time() - max( 1, $within ) );
+		$viewer = get_current_user_id();
+		if ( $viewer !== $user_id && self::is_hidden( $user_id ) && ! self::is_staff( $viewer ) ) {
+			return false;
+		}
+		return self::last_active_at( $user_id ) > ( time() - self::window( $within ) );
 	}
 
 	/**

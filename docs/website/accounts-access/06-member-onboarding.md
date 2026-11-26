@@ -9,7 +9,7 @@ BuddyNext greets every new member with a short welcome wizard the moment they fi
 The onboarding wizard is a guided first-session flow that opens right after a new member registers (or right after they verify their email, if email verification is turned on). It has up to six steps - profile, interests, spaces, follows, notifications, and an optional membership offer - and the Interests step appears only when your community has space categories set up, so a community with none shows one fewer. For the member-facing walkthrough of every screen, see [The Member Journey, Screen by Screen](../members/00-member-journey.md):
 
 1. **Profile** - set a display name, write a short bio, claim a username/handle, and upload an avatar.
-2. **Interests** - pick topics from your community's space categories; these personalize the member's suggestions and feed (see [Member Interests](../members/11-interests.md)).
+2. **Interests** - pick topics from your community's space categories (only categories shown in the directory and not limited to subspaces are offered); these personalize the member's suggestions and feed (see [Member Interests](../members/11-interests.md)).
 3. **Spaces** - join suggested spaces with one click.
 4. **Follows** - follow suggested members.
 5. **Notifications** - choose how to be notified (email, in-app, push).
@@ -33,7 +33,7 @@ You will see the wizard automatically after you join. Here is what each step doe
 |-------|--------------|
 | Display name | The name shown across the community. |
 | Bio | A short line about you, shown on your profile. |
-| Username / handle | Your unique profile address. A live check tells you instantly whether the handle is available before you continue. |
+| Username / handle | Your unique profile address. A live check tells you instantly whether the handle is available, reserved or taken before you continue. Continue saves the handle you typed; a reserved or taken one keeps you on this step with the reason, so you never finish onboarding under a different handle. |
 | Avatar | Upload a profile photo. |
 
 A live preview updates as you type so you can see how your profile will look.
@@ -113,6 +113,11 @@ Both emails are scheduled the moment a member registers. As soon as the member c
 - **Already done.** Once a member finishes or skips, the wizard never shows again. Re-opening the page just sends them on to the activity feed. A member can run it again from **Settings > Account > Profile setup** (**Run setup again**).
 - **Guests cannot access it.** Onboarding is for signed-in members only. Logged-out visitors are not shown the wizard.
 - **It is reliable.** Finishing saves every step together, so a member's choices are kept even if their connection drops during the redirect.
+
+## What changed in 1.3.0
+
+- With JavaScript turned off the wizard shows a plain **Skip setup** button that completes onboarding and opens the activity feed, so a member is never stuck on the page.
+- A suspended member is not sent to onboarding.
 
 ## Related
 

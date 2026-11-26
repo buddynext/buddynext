@@ -57,7 +57,7 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 
 		// What every reader receives: get() itself, served from its cache this time.
 		$after = (array) $service->get( $card_id );
-		$this->assertSame( (string) get_the_post_thumbnail_url( (int) $post_id, 'medium_large' ), $after['link_meta']['thumbnail'], 'image added after publish shows on the card' );
+		$this->assertSame( (string) ( \BuddyNext\Feed\ArticleImage::for_post( (int) $post_id, 'cover' )['url'] ?? '' ), $after['link_meta']['thumbnail'], 'image added after publish shows on the card' );
 		$this->assertNotSame( '', $after['link_meta']['thumbnail'] );
 		$this->assertSame( 'Updated title', $after['link_meta']['title'], 'edited title shows on the card' );
 	}
@@ -83,16 +83,36 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 		$status  = static fn() => (string) ( $service->get( $card )['status'] ?? '' );
 		$this->assertGreaterThan( 0, $card );
 
-		wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ) );
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'draft',
+			)
+		);
 		$this->assertSame( 'draft', $status(), 'unpublish withdraws the card' );
 
-		wp_update_post( array( 'ID' => $post_id, 'post_status' => 'publish' ) );
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
 		$this->assertSame( $card, BlogPostListener::card_id_for_post( $post_id ), 'republish brings back the same card' );
 		$this->assertSame( 'published', $status() );
 
-		wp_update_post( array( 'ID' => $post_id, 'post_password' => 'secret' ) );
+		wp_update_post(
+			array(
+				'ID'            => $post_id,
+				'post_password' => 'secret',
+			)
+		);
 		$this->assertSame( 'draft', $status(), 'a password withdraws the card' );
-		wp_update_post( array( 'ID' => $post_id, 'post_password' => '' ) );
+		wp_update_post(
+			array(
+				'ID'            => $post_id,
+				'post_password' => '',
+			)
+		);
 		$this->assertSame( 'published', $status() );
 
 		wp_trash_post( $post_id );
@@ -117,6 +137,46 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 			'source_post_id' => 999999,
 		);
 		$this->assertSame( $meta, BlogPostListener::live_link_meta( $meta ) );
+	}
+
+	/**
+	 * A private or password-protected source yields no title, excerpt or cover,
+	 * even from the copy stored when the card was published (a reshare or a cached
+	 * copy can still reach a withdrawn card).
+	 *
+	 * @return void
+	 */
+	public function test_live_meta_hides_a_private_or_protected_source(): void {
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$meta   = array(
+			'title'       => 'Stored secret title',
+			'description' => 'Stored secret excerpt',
+			'image'       => 'https://example.com/secret-cover.jpg',
+			'thumbnail'   => 'https://example.com/secret-cover.jpg',
+			'url'         => 'https://example.com/?p=1',
+		);
+
+		foreach ( array(
+			array( 'post_status' => 'private' ),
+			array(
+				'post_status'   => 'publish',
+				'post_password' => 'pw',
+			),
+		) as $shape ) {
+			$post_id = self::factory()->post->create(
+				array_merge(
+					array(
+						'post_author' => $author,
+						'post_title'  => 'Live secret title',
+					),
+					$shape
+				)
+			);
+			$live    = BlogPostListener::live_link_meta( array_merge( $meta, array( BlogPostListener::META_POST_ID => $post_id ) ) );
+
+			$encoded = (string) wp_json_encode( $live );
+			$this->assertStringNotContainsString( 'secret', $encoded, wp_json_encode( $shape ) . ' leaked: ' . $encoded );
+		}
 	}
 
 	/**

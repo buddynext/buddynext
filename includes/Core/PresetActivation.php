@@ -281,7 +281,7 @@ class PresetActivation {
 	 * @return void
 	 */
 	public static function maybe_render_notice(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( 'manage_options' ) || ! \BuddyNext\Admin\AdminHub::is_notice_screen() ) {
 			return;
 		}
 

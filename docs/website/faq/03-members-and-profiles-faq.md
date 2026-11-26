@@ -28,7 +28,7 @@ Your handle is the short, readable part of your profile's web address. BuddyNext
 
 ## Can I hide my online status?
 
-Not currently - there is no per-member privacy control to turn off the online indicator. A member counts as online when they have been active in the last five minutes, and it drops off automatically after that. See [Online Presence](../members/09-presence-online.md).
+Not currently - there is no per-member privacy control to turn off the online indicator. A member counts as online when they have been active in the last 10 minutes, and it drops off automatically after that. See [Online Presence](../members/09-presence-online.md).
 
 ## What is the difference between blocking, muting, and restricting someone?
 

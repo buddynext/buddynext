@@ -422,6 +422,36 @@ py_gate bin/check-tab-url.py "an AdminHub::tab_url() call points at a tab that i
 section "Interactivity directive paths"
 py_gate bin/check-directive-paths.py "a directive is bound to an expression — move the comparison into a computed getter"
 
+# One client-IP reader. Up to 1.2.9 three of four REMOTE_ADDR readers skipped the
+# buddynext_client_ip filter, so behind a proxy the sign-up and sign-in limits were
+# shared by the whole site. Only SafeguardService::client_ip() may read it, and no
+# code may trust a forwarded header.
+section "Client IP reader"
+py_gate bin/check-client-ip.py "the client address is read outside SafeguardService::client_ip() - see above"
+
+# ensure_recurring() is ( $hook, $first, $interval, $group ) since 1.3.0. A caller left on
+# the old ( $hook, $interval ) order fataled every scheduling request (ArgumentCountError),
+# and a swapped pair schedules the first run decades away; PHPStan sees neither.
+section "ensure_recurring argument order"
+py_gate bin/check-ensure-recurring.py "an ensure_recurring() call uses the pre-1.3.0 argument order - see above"
+
+# The shipped .pot matches the code. A stale template hides every new string from all
+# locales (1.3.0's translatable email defaults reached no .po because the .pot predated them).
+section "Translation template fresh"
+if ! bn_heavy_gate_skipped "pot freshness"; then
+	if command -v "${WP_CLI:-wp}" >/dev/null 2>&1; then
+		php bin/check-pot-fresh.php || fail "languages/buddynext.pot is stale - run bin/i18n.sh and commit languages/"
+	else
+		note "WP-CLI not found - skipped pot freshness"
+	fi
+fi
+
+# One button API. The retired bn-btn--primary/--secondary/--sm/--block modifiers
+# lived only in bn-profile.css, so any page without that file drew them as bare grey
+# boxes (finish-sign-up, 1.2.9). Markup uses class="bn-btn" + data-variant/data-size/data-full.
+section "Legacy button classes"
+py_gate bin/check-legacy-button-classes.py "a retired bn-btn-- modifier is back - use data-variant / data-size / data-full"
+
 # 3b-i-a. Raw manage_options checks outside the settings screens only go down
 # (permissions program, card 10322714806): a power belongs to an ability so a site
 # can give it to a moderator without making them a WordPress administrator.
@@ -477,6 +507,10 @@ py_gate bin/check-ui-dashes.py "a translatable string contains an em-dash - use 
 section "Journey run (Playwright)"
 if bn_heavy_gate_skipped "journey suite"; then
 	:
+elif [ "${SKIP_JOURNEY_RUN:-0}" = 1 ]; then
+	# The same switch bin/build-release.sh documents ("bypass only the journey suite"); without this the build
+	# ran the suite here anyway. For a re-zip of a tree whose journeys already passed - say so to QA.
+	note "journey run BYPASSED (SKIP_JOURNEY_RUN=1)"
 elif [ -f bin/check-journey-run.sh ]; then
 	# Captured, not tested inline: under set -e the non-zero exit would abort
 	# the run before the case could classify skip-vs-regression.

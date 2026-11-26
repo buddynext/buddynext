@@ -42,6 +42,10 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
 				reply_count INT NOT NULL DEFAULT 0,
 				vote_score INT NOT NULL DEFAULT 0,
+				is_sticky TINYINT(1) NOT NULL DEFAULT 0,
+				is_closed TINYINT(1) NOT NULL DEFAULT 0,
+				is_resolved TINYINT(1) NOT NULL DEFAULT 0,
+				accepted_reply_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)
@@ -53,6 +57,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				slug VARCHAR(200) NOT NULL DEFAULT '',
 				title VARCHAR(200) NOT NULL DEFAULT '',
 				visibility VARCHAR(20) NOT NULL DEFAULT 'public',
+				author_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				status VARCHAR(20) NOT NULL DEFAULT 'active',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
 		);
@@ -65,6 +71,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				content_plain LONGTEXT NULL,
 				is_private TINYINT(1) NOT NULL DEFAULT 0,
 				is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+				parent_id BIGINT UNSIGNED NULL,
 				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
@@ -87,6 +94,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
+		// A test above resets the shared nav registry and leaves only this bridge's items in it: start the next test clean.
+		\BuddyNext\Nav\NavRegistry::instance()->reset();
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_posts" );
@@ -139,7 +148,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	private function publish_jt_post( int $post_id, int $space_id = 0 ): void {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $space_id, 'status' => 'publish' ), array( 'id' => $post_id ) );
+		$wpdb->update(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'space_id' => $space_id,
+				'status'   => 'publish',
+			),
+			array( 'id' => $post_id )
+		);
 		do_action( 'jetonomy_post_publish_transition', $post_id, 1, '' );
 	}
 
@@ -218,7 +234,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$still_there = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s", $expected_url )
 		);
-		$published = (int) $wpdb->get_var(
+		$published   = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s AND status = 'published'", $expected_url )
 		);
 		$this->assertSame( 1, $still_there, 'the card row is preserved on a soft delete (withdrawn, not removed)' );
@@ -236,7 +252,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$this->seed_jt_space( 11, 'approvals' );
 		$this->seed_jt_post( 60, $this->author_id, 'Pending', 'Body', 'pending-thread' );
-		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 11, 'status' => 'pending' ), array( 'id' => 60 ) );
+		$wpdb->update(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'space_id' => 11,
+				'status'   => 'pending',
+			),
+			array( 'id' => 60 )
+		);
 		$url  = home_url( '/community' ) . '/s/approvals/t/pending-thread/';
 		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT id, status FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
 
@@ -269,7 +292,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->publish_jt_post( 70, 12 );
 		$wpdb->insert(
 			$wpdb->prefix . 'jt_replies',
-			array( 'id' => 700, 'post_id' => 70, 'author_id' => $this->user_id, 'content' => '<p>A forum reply</p>', 'content_plain' => 'A forum reply' ),
+			array(
+				'id'            => 700,
+				'post_id'       => 70,
+				'author_id'     => $this->user_id,
+				'content'       => '<p>A forum reply</p>',
+				'content_plain' => 'A forum reply',
+			),
 			array( '%d', '%d', '%d', '%s', '%s' )
 		);
 		$comment = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT id, is_deleted, content FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d", 700 ) );
@@ -380,8 +409,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'is_anonymous' => 1 ), array( 'id' => 2601 ) );
 		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
 
-		$hook   = \BuddyNext\Bridges\JetonomyBridge::REPAIR_ANONYMOUS_HOOK;
-		$queued = static function () use ( $hook ): bool {
+		$hook    = \BuddyNext\Bridges\JetonomyBridge::REPAIR_ANONYMOUS_HOOK;
+		$queued  = static function () use ( $hook ): bool {
 			return function_exists( 'as_has_scheduled_action' )
 				? (bool) as_has_scheduled_action( $hook, array(), 'buddynext' )
 				: false !== wp_next_scheduled( $hook );
@@ -434,7 +463,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 27, 'card-only' );
 		$this->seed_jt_post( 270, $this->author_id, 'Card only', 'Body', 'card-only' );
 		$this->publish_jt_post( 270, 27 );
-		$wpdb->delete( $wpdb->prefix . 'bn_search_index', array( 'object_type' => 'discussion', 'object_id' => 270 ) );
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_search_index',
+			array(
+				'object_type' => 'discussion',
+				'object_id'   => 270,
+			)
+		);
 		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 270 ) );
 		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
 		$this->assertSame( 1, $this->discussion_cards( $this->author_id ), 'Fixture: a published card.' );
@@ -457,7 +492,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		// as after search was switched off and time passed.
 		foreach ( array( 280, 281 ) as $topic_id ) {
 			$this->seed_jt_post( $topic_id, $this->author_id, 'Reindex topic ' . $topic_id, 'Body', 'reindex-' . $topic_id );
-			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 28, 'status' => 'publish' ), array( 'id' => $topic_id ) );
+			$wpdb->update(
+				$wpdb->prefix . 'jt_posts',
+				array(
+					'space_id' => 28,
+					'status'   => 'publish',
+				),
+				array( 'id' => $topic_id )
+			);
 		}
 		$indexed = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id IN ( 280, 281 )" );
 		$this->assertSame( 0, $indexed(), 'Fixture: not indexed.' );
@@ -470,6 +512,42 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A forum's re-index walks by topic id: the first batch of 200 queues the next one after its last id, and the
+	 * last batch queues nothing, with every topic indexed once.
+	 *
+	 * @return void
+	 */
+	public function test_reindexing_a_forum_continues_by_topic_id_across_batches(): void {
+		global $wpdb;
+		$this->seed_jt_space( 29, 'big-forum' );
+		for ( $topic_id = 2900; $topic_id < 2903 + 200; $topic_id++ ) {
+			$wpdb->insert( $wpdb->prefix . 'jt_posts', array( 'id' => $topic_id, 'space_id' => 29, 'author_id' => $this->author_id, 'slug' => 'big-' . $topic_id, 'title' => 'Big ' . $topic_id, 'content_plain' => 'Body', 'status' => 'publish' ) );
+		}
+		$queued = array();
+		add_filter(
+			'pre_as_enqueue_async_action',
+			static function ( $pre, $hook, $args ) use ( &$queued ) {
+				if ( 'buddynext_async_reindex_forum_discussions' === $hook ) {
+					$queued[] = $args;
+					return 1;
+				}
+				return $pre;
+			},
+			10,
+			3
+		);
+		$indexed = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id BETWEEN 2900 AND 3102" );
+
+		$this->bridge->reindex_forum_discussions( 29, 0 );
+		$this->assertSame( 200, $indexed(), 'The first batch is 200 topics.' );
+		$this->assertSame( array( array( 29, 3099 ) ), $queued, 'The next batch starts after the last topic done.' );
+
+		$this->bridge->reindex_forum_discussions( 29, 3099 );
+		$this->assertSame( 203, $indexed(), 'The rest are done, none twice.' );
+		$this->assertCount( 1, $queued, 'The last batch queues nothing.' );
+	}
+
+	/**
 	 * An anonymous or private reply is not mirrored as a signed feed comment.
 	 *
 	 * @return void
@@ -479,7 +557,10 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 23, 'anon-replies' );
 		$this->seed_jt_post( 230, $this->author_id, 'Thread', 'Body', 'anon-reply-thread' );
 		$this->publish_jt_post( 230, 23 );
-		foreach ( array( 2301 => 'is_anonymous', 2302 => 'is_private' ) as $reply_id => $flag ) {
+		foreach ( array(
+			2301 => 'is_anonymous',
+			2302 => 'is_private',
+		) as $reply_id => $flag ) {
 			$wpdb->insert(
 				$wpdb->prefix . 'jt_replies',
 				array(
@@ -500,6 +581,123 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The profile Discussions panel: a cursor past the end of the list (nothing on the page) still offers the way back to
+	 * the newest, and an empty first page does not grow a pager.
+	 *
+	 * @return void
+	 */
+	public function test_the_discussions_panel_offers_the_newest_link_on_an_empty_older_page(): void {
+		$render = function ( bool $older ): string {
+			ob_start();
+			buddynext_get_template(
+				'parts/profile/discussions-panel.php',
+				array(
+					'profile_user_id'  => $this->author_id,
+					'discussions'      => array(),
+					'next_cursor'      => '',
+					'is_older_page'    => $older,
+					'discussion_count' => 46,
+					'accepted_answers' => 0,
+					'reputation'       => 0,
+					'trust_level'      => 0,
+					'forum_url'        => '',
+				)
+			);
+			return (string) ob_get_clean();
+		};
+
+		$this->assertStringContainsString( 'Newest discussions', $render( true ), 'Past the end: the way back is offered.' );
+		$this->assertStringNotContainsString( 'Newest discussions', $render( false ), 'The first page has no pager of its own.' );
+	}
+
+	/**
+	 * A forum reply to a reply is a reply to that comment on the card, not a flat top-level comment.
+	 * With no mirrored parent (the parent reply is anonymous) it stays top-level.
+	 *
+	 * @return void
+	 */
+	public function test_a_forum_reply_to_a_reply_is_threaded_on_the_card(): void {
+		global $wpdb;
+		$this->seed_jt_space( 27, 'threads' );
+		$this->seed_jt_post( 270, $this->author_id, 'Threaded', 'Body', 'threaded-topic' );
+		$this->publish_jt_post( 270, 27 );
+
+		$comments = new \BuddyNext\Comments\CommentService();
+		$write    = function ( int $reply_id, int $parent_id, array $extra = array() ) use ( $wpdb ): void {
+			$wpdb->insert(
+				$wpdb->prefix . 'jt_replies',
+				array_merge(
+					array(
+						'id'            => $reply_id,
+						'post_id'       => 270,
+						'author_id'     => $this->user_id,
+						'content_plain' => 'Reply ' . $reply_id,
+						'parent_id'     => $parent_id > 0 ? $parent_id : null,
+					),
+					$extra
+				)
+			);
+			do_action( 'jetonomy_reply_publish_transition', $reply_id, 1, '' );
+		};
+
+		$write( 2701, 0 );
+		$write( 2702, 2701 );
+		$write( 2703, 2702 );
+		$write( 2704, 0, array( 'is_anonymous' => 1 ) );
+		$write( 2705, 2704 );
+
+		$top   = $comments->find_by_sync_reply_id( 2701 );
+		$child = $comments->find_by_sync_reply_id( 2702 );
+		$deep  = $comments->find_by_sync_reply_id( 2703 );
+		$orph  = $comments->find_by_sync_reply_id( 2705 );
+
+		$this->assertNotNull( $top );
+		$this->assertEmpty( $top['parent_id'], 'A first-level reply is a top-level comment.' );
+		$this->assertSame( (int) $top['id'], (int) $child['parent_id'], 'A reply to it is its child.' );
+		$this->assertSame( (int) $child['id'], (int) $deep['parent_id'], 'And a reply to that, one level deeper.' );
+		$this->assertNotNull( $orph, 'A reply whose parent was not mirrored is still mirrored.' );
+		$this->assertEmpty( $orph['parent_id'], 'It stays top-level.' );
+	}
+
+	/**
+	 * A forum thread deeper than the card allows keeps every reply: each lands at the deepest level that fits, never
+	 * dropped and never thrown back to the top.
+	 *
+	 * @return void
+	 */
+	public function test_a_forum_thread_deeper_than_the_card_cap_keeps_every_reply_at_the_deepest_level_that_fits(): void {
+		global $wpdb;
+		$this->seed_jt_space( 28, 'deep-threads' );
+		$this->seed_jt_post( 280, $this->author_id, 'Deep', 'Body', 'deep-topic' );
+		$this->publish_jt_post( 280, 28 );
+		$comments = new \BuddyNext\Comments\CommentService();
+		$cap      = \BuddyNext\Comments\CommentService::MAX_REPLY_DEPTH;
+
+		$parent = 0;
+		for ( $i = 1; $i <= $cap + 3; $i++ ) {
+			$reply_id = 2800 + $i;
+			$wpdb->insert( $wpdb->prefix . 'jt_replies', array( 'id' => $reply_id, 'post_id' => 280, 'author_id' => $this->user_id, 'content_plain' => 'Level ' . $i, 'parent_id' => $parent > 0 ? $parent : null ) );
+			do_action( 'jetonomy_reply_publish_transition', $reply_id, 1, '' );
+			$parent = $reply_id;
+		}
+
+		$depth = static function ( array $comment ) use ( $comments ): int {
+			$levels = 1;
+			while ( ! empty( $comment['parent_id'] ) ) {
+				$comment = $comments->get( (int) $comment['parent_id'] );
+				++$levels;
+			}
+			return $levels;
+		};
+		for ( $i = 1; $i <= $cap + 3; $i++ ) {
+			$mirrored = $comments->find_by_sync_reply_id( 2800 + $i );
+			$this->assertNotNull( $mirrored, "Reply $i is mirrored." );
+			// Levels 1..cap nest one under the other; every reply past that sits at the deepest allowed level.
+			$this->assertSame( min( $i, $cap ), $depth( $mirrored ), "Reply $i sits at the deepest level that fits." );
+		}
+	}
+
+	/**
 	 * The profile list and count leave out anonymous, private and private-forum topics.
 	 *
 	 * @return void
@@ -509,7 +707,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 24, 'public-forum' );
 		$this->seed_jt_space( 25, 'private-forum' );
 		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'private' ), array( 'id' => 25 ) );
-		foreach ( array( 240 => 24, 241 => 24, 242 => 24, 243 => 25 ) as $post_id => $forum_id ) {
+		foreach ( array(
+			240 => 24,
+			241 => 24,
+			242 => 24,
+			243 => 25,
+		) as $post_id => $forum_id ) {
 			$this->seed_jt_post( $post_id, $this->author_id, 'Topic ' . $post_id, 'Body', 'topic-' . $post_id );
 			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $forum_id ), array( 'id' => $post_id ) );
 		}
@@ -520,6 +723,49 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( 240 ), $listed );
 		$this->assertSame( 1, $this->bridge->discussion_count( $this->author_id ) );
+	}
+
+	/**
+	 * A member with more discussions than a page is read a page at a time by cursor: every topic once, newest first,
+	 * including topics that share a second, and the last page says there is no more.
+	 *
+	 * @return void
+	 */
+	public function test_profile_discussions_page_by_cursor_without_skipping_or_repeating(): void {
+		global $wpdb;
+		$this->seed_jt_space( 26, 'paged-forum' );
+		$stamps = array(
+			260 => '2026-11-01 10:00:00',
+			261 => '2026-11-02 10:00:00',
+			262 => '2026-11-03 10:00:00',
+			263 => '2026-11-03 10:00:00',
+			264 => '2026-11-04 10:00:00',
+		);
+		foreach ( $stamps as $post_id => $at ) {
+			$this->seed_jt_post( $post_id, $this->author_id, 'Topic ' . $post_id, 'Body', 'paged-' . $post_id );
+			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 26, 'created_at' => $at ), array( 'id' => $post_id ) );
+		}
+
+		$seen  = array();
+		$after = '';
+		$pages = 0;
+		do {
+			$next   = '';
+			$rows   = $this->bridge->user_discussions( $this->author_id, 2, $after, $next );
+			$seen   = array_merge( $seen, array_map( static fn( $row ) => (int) $row->id, $rows ) );
+			$after  = $next;
+			$pages += 1;
+		} while ( '' !== $after && $pages < 10 );
+
+		$this->assertSame( array( 264, 263, 262, 261, 260 ), $seen, 'Newest first, each topic once, ties broken by id.' );
+		$this->assertSame( 3, $pages, 'Five topics at two a page is three pages.' );
+
+		$next = 'unchanged';
+		$this->bridge->user_discussions( $this->author_id, 50, '', $next );
+		$this->assertSame( '', $next, 'Everything fits on one page: no cursor.' );
+
+		$bad  = $this->bridge->user_discussions( $this->author_id, 2, "x' OR 1=1 --", $next );
+		$this->assertSame( array( 264, 263 ), array_map( static fn( $row ) => (int) $row->id, $bad ), 'A malformed cursor starts from the newest page.' );
 	}
 
 	/**
@@ -547,7 +793,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$commenter = self::factory()->user->create();
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
-			array( 'object_type' => 'post', 'object_id' => $card_id, 'user_id' => $commenter, 'content' => 'great thread' ),
+			array(
+				'object_type' => 'post',
+				'object_id'   => $card_id,
+				'user_id'     => $commenter,
+				'content'     => 'great thread',
+			),
 			array( '%s', '%d', '%d', '%s' )
 		);
 		$this->assertGreaterThan( 0, (int) $wpdb->insert_id );
@@ -585,7 +836,18 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT status, link_meta FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
 
 		// A card from before the post_id stamp: matched by URL and stamped.
-		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'link_meta' => wp_json_encode( array( 'url' => $url, 'title' => 'Old' ) ) ), array( 'link_url' => $url ) );
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'link_meta' => wp_json_encode(
+					array(
+						'url'   => $url,
+						'title' => 'Old',
+					)
+				),
+			),
+			array( 'link_url' => $url )
+		);
 		$this->assertSame( $url, $this->bridge->verify_discussion_card( $url, array() ) );
 		$this->assertSame( 50, (int) ( json_decode( $card()->link_meta, true )['post_id'] ?? 0 ), 'an unstamped card is stamped' );
 
@@ -641,6 +903,24 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The owner's forum admin row is a copy of their space role: creating the forum
+	 * runs as a mirror write, so it pays no forum join award (only the space creation pays).
+	 */
+	public function test_provisioning_the_forum_is_a_mirror_write_so_the_owner_row_pays_nothing(): void {
+		\Jetonomy\Models\Space::$created_as_mirror = array();
+		$space_id = ( new \BuddyNext\Spaces\SpaceService() )->create(
+			self::factory()->user->create(),
+			array(
+				'name' => 'Owner row',
+				'slug' => 'owner-row',
+			)
+		);
+
+		$this->assertGreaterThan( 0, $this->bridge->provision_space_forum( (int) $space_id ) );
+		$this->assertSame( array( true ), \Jetonomy\Models\Space::$created_as_mirror );
+	}
+
+	/**
 	 * The owner's on/off choice: first on creates the discussion, off keeps it,
 	 * on again restores the same one. Web settings and REST share this path.
 	 *
@@ -649,7 +929,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function test_discussion_choice_round_trip_keeps_one_discussion(): void {
 		global $wpdb;
 		$owner    = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Choice', 'slug' => 'choice-' . wp_rand( 1000, 9999 ) ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Choice',
+				'slug' => 'choice-' . wp_rand( 1000, 9999 ),
+			)
+		);
 
 		$this->assertTrue( $this->bridge->apply_discussion_choice( $space_id, true, 0, $owner ) );
 		$first = $this->bridge->space_discussion_status( $space_id );
@@ -677,7 +963,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$owner    = self::factory()->user->create();
 		$member   = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Trail runners', 'slug' => 'trail-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Trail runners',
+				'slug' => 'trail-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
 		buddynext_service( 'space_members' )->join( $space_id, $member );
 		$this->bridge->apply_discussion_choice( $space_id, true, 0, $owner );
 		$forum_id = $this->bridge->space_discussion_status( $space_id )['forum_id'];
@@ -703,7 +996,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	 */
 	public function test_discussion_route_is_for_space_managers(): void {
 		$owner    = self::factory()->user->create();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Gate', 'slug' => 'gate-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Gate',
+				'slug' => 'gate-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
 		$request  = new \WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $space_id . '/discussion' );
 		$request->set_url_params( array( 'id' => $space_id ) );
 
@@ -744,9 +1044,23 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$spaces->ban_from_space( $open, $banned, $owner );
 
 		foreach ( array_merge( $members, array( $banned, 999999 ) ) as $user_id ) {
-			$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $user_id, 'source' => 'manual' ) );
+			$wpdb->insert(
+				$wpdb->prefix . 'jt_space_members',
+				array(
+					'space_id' => 7,
+					'user_id'  => $user_id,
+					'source'   => 'manual',
+				)
+			);
 		}
-		$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $by_tier, 'source' => 'tier' ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_space_members',
+			array(
+				'space_id' => 7,
+				'user_id'  => $by_tier,
+				'source'   => 'tier',
+			)
+		);
 
 		// Not linked to forum 7: nothing is copied.
 		$this->bridge->copy_forum_members( $open, 7, 0 );
@@ -872,7 +1186,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 					'type'       => 'link',
 					'content'    => 'Card',
 					'link_url'   => $link,
-					'link_meta'  => wp_json_encode( array( 'url' => $link, 'title' => '100%25 sure' ) ),
+					'link_meta'  => wp_json_encode(
+						array(
+							'url'   => $link,
+							'title' => '100%25 sure',
+						)
+					),
 					'privacy'    => 'public',
 					'status'     => 'published',
 					'created_at' => current_time( 'mysql', true ),
@@ -943,6 +1262,765 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$bridge->backfill_discussion_posting();
 		$this->assertSame( '', $read() );
 	}
+
+	/**
+	 * A space with an owner, a space moderator, and a plain member who holds the
+	 * site-wide community moderator rank.
+	 *
+	 * @return array{space:int,owner:int,moderator:int,community_mod:int}
+	 */
+	private function space_with_team(): array {
+		$owner         = self::factory()->user->create();
+		$moderator     = self::factory()->user->create();
+		$community_mod = self::factory()->user->create();
+		$space_id      = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Team',
+				'slug' => 'team-' . wp_rand( 1000, 99999 ),
+				'type' => 'open',
+			)
+		);
+		$members       = buddynext_service( 'space_members' );
+		$members->join( $space_id, $moderator );
+		$members->change_role( $space_id, $moderator, 'moderator', $owner );
+		$members->join( $space_id, $community_mod );
+		update_user_meta( $community_mod, 'bn_community_role', 'moderator' );
+
+		return array(
+			'space'         => $space_id,
+			'owner'         => $owner,
+			'moderator'     => $moderator,
+			'community_mod' => $community_mod,
+		);
+	}
+
+	/**
+	 * Dispatch one Discussion management route as a user and return the HTTP status.
+	 *
+	 * @param string $method   HTTP verb.
+	 * @param string $route    discussion|discussion-search.
+	 * @param int    $space_id Space.
+	 * @param int    $user_id  Caller.
+	 * @return int
+	 */
+	private function discussion_route_status( string $method, string $route, int $space_id, int $user_id ): int {
+		wp_set_current_user( $user_id );
+		$request = new \WP_REST_Request( $method, '/buddynext/v1/spaces/' . $space_id . '/' . $route );
+		if ( 'POST' === $method ) {
+			$request->set_param( 'enabled', false );
+		}
+		return rest_get_server()->dispatch( $request )->get_status();
+	}
+
+	/**
+	 * Only the space owner (or a site admin) links, unlinks, reads or searches a
+	 * space's discussion over REST: the same rule the web settings save applies.
+	 * A space moderator and a member with the community moderator rank are refused
+	 * on every verb (card 10517707153).
+	 *
+	 * @return void
+	 */
+	public function test_only_the_space_owner_manages_the_discussion_over_rest(): void {
+		$team = $this->space_with_team();
+		$id   = $team['space'];
+
+		foreach ( array( array( 'GET', 'discussion' ), array( 'POST', 'discussion' ), array( 'DELETE', 'discussion' ), array( 'GET', 'discussion-search' ) ) as $call ) {
+			$label = implode( ' ', $call );
+			$this->assertSame( 403, $this->discussion_route_status( $call[0], $call[1], $id, $team['moderator'] ), "Space moderator: $label" );
+			$this->assertSame( 403, $this->discussion_route_status( $call[0], $call[1], $id, $team['community_mod'] ), "Community moderator: $label" );
+			$this->assertSame( 200, $this->discussion_route_status( $call[0], $call[1], $id, $team['owner'] ), "Owner: $label" );
+		}
+
+		$this->assertTrue( $this->bridge->can_manage_discussion( $id, $team['owner'] ) );
+		$this->assertFalse( $this->bridge->can_manage_discussion( $id, $team['moderator'] ) );
+		$this->assertFalse( $this->bridge->can_manage_discussion( $id, 0 ) );
+	}
+
+	/**
+	 * With Jetonomy switched off site-wide the web save writes nothing, so REST
+	 * refuses too, even for the owner.
+	 *
+	 * @return void
+	 */
+	public function test_site_switch_off_blocks_discussion_management_over_rest(): void {
+		$team = $this->space_with_team();
+		update_option( 'buddynext_integration_jetonomy_nav', '0' );
+
+		$this->assertSame( 403, $this->discussion_route_status( 'POST', 'discussion', $team['space'], $team['owner'] ) );
+		$this->assertSame( 403, $this->discussion_route_status( 'GET', 'discussion-search', $team['space'], $team['owner'] ) );
+		$this->assertFalse( $this->bridge->can_manage_discussion( $team['space'], $team['owner'] ) );
+	}
+
+	/**
+	 * "Start the first discussion" creates a forum only once the owner has
+	 * switched Discussion on; a moderator cannot create one the owner never chose.
+	 *
+	 * @return void
+	 */
+	public function test_on_demand_discussion_needs_the_owner_switch(): void {
+		$team    = $this->space_with_team();
+		$request = new \WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $team['space'] . '/forum' );
+		$request->set_url_params( array( 'id' => $team['space'] ) );
+		wp_set_current_user( $team['moderator'] );
+
+		$off = $this->bridge->rest_provision_forum( $request )->get_data();
+		$this->assertSame( 0, $off['forum_id'], 'Nothing is created while Discussion is off.' );
+		$this->assertFalse( $off['can_provision'] );
+
+		update_space_meta( $team['space'], 'discussion_enabled', '1' );
+		$on = $this->bridge->rest_provision_forum( $request )->get_data();
+		$this->assertGreaterThan( 0, $on['forum_id'], 'Once the owner switched it on, a moderator may start it.' );
+	}
+
+	/**
+	 * A forum belongs to one space: linking, adopting and the picker all refuse a
+	 * forum another space already holds (card 10517706879).
+	 *
+	 * @return void
+	 */
+	public function test_a_forum_is_linked_to_one_space_only(): void {
+		global $wpdb;
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_spaces',
+			array(
+				'slug'      => 'shared',
+				'title'     => 'Shared forum',
+				'author_id' => $admin,
+			)
+		);
+		$forum = (int) $wpdb->insert_id;
+		$make  = static fn( string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$admin,
+			array(
+				'name' => $name,
+				'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ),
+				'type' => 'open',
+			)
+		);
+		$first = $make( 'First' );
+		$other = $make( 'Other' );
+
+		$this->assertTrue( $this->bridge->apply_discussion_choice( $first, true, $forum, $admin ) );
+
+		// The picker hides it from every other space, not from its own.
+		$ids = static fn( array $rows ): array => array_column( $rows, 'id' );
+		$this->assertNotContains( $forum, $ids( $this->bridge->search_discussions( 'Shared', 0, 20, $other ) ) );
+		$this->assertContains( $forum, $ids( $this->bridge->search_discussions( 'Shared', 0, 20, $first ) ) );
+
+		// A crafted link is refused and nothing is written.
+		$taken = $this->bridge->apply_discussion_choice( $other, true, $forum, $admin );
+		$this->assertWPError( $taken );
+		$this->assertSame( 'bn_discussion_taken', $taken->get_error_code() );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $other, 'jetonomy_forum_id' ) );
+
+		// An integration offering it for adoption is passed over; a fresh one is made.
+		$offer = static fn(): int => $forum;
+		add_filter( 'buddynext_adopt_discussion_space', $offer );
+		$made  = $this->bridge->provision_space_forum( $other );
+		remove_filter( 'buddynext_adopt_discussion_space', $offer );
+		$this->assertGreaterThan( 0, $made );
+		$this->assertNotSame( $forum, $made );
+	}
+
+	/**
+	 * The forum-to-space lookup answers the same space every time when old data
+	 * holds a duplicate, remembers a miss for the request, and forgets it the
+	 * moment a link is written.
+	 *
+	 * @return void
+	 */
+	public function test_forum_lookup_is_deterministic_and_remembers_a_miss(): void {
+		global $wpdb;
+		$owner  = self::factory()->user->create();
+		$make   = static fn( string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => $name,
+				'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ),
+			)
+		);
+		$first  = $make( 'Lookup one' );
+		$second = $make( 'Lookup two' );
+		$lookup = new \ReflectionMethod( JetonomyBridge::class, 'space_id_for_forum' );
+		$lookup->setAccessible( true );
+
+		$this->assertSame( 0, $lookup->invoke( $this->bridge, 4242 ) );
+		$before = $wpdb->num_queries;
+		$this->assertSame( 0, $lookup->invoke( $this->bridge, 4242 ) );
+		$this->assertSame( $before, $wpdb->num_queries, 'A miss is remembered for the request.' );
+
+		update_space_meta( $first, 'jetonomy_forum_id', 4242 );
+		$this->assertSame( $first, $lookup->invoke( $this->bridge, 4242 ), 'Writing a link clears the remembered miss.' );
+
+		// Legacy duplicate: the earliest link keeps answering.
+		update_space_meta( $second, 'jetonomy_forum_id', 4242 );
+		$this->assertSame( $first, $lookup->invoke( $this->bridge, 4242 ) );
+		$this->assertSame( array( 4242 => array( $first, $second ) ), JetonomyBridge::duplicate_forum_links() );
+	}
+
+	/**
+	 * A deleted space's forum is purged only when the bridge made it for THAT space, left
+	 * alone when an add-on claimed it, and only hidden when anything else is in doubt.
+	 */
+	public function test_forum_fate_on_delete_never_destroys_a_forum_the_space_did_not_make(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$this->user_id,
+			array(
+				'name' => 'Fate',
+				'slug' => 'fate-space',
+				'type' => 'open',
+			)
+		);
+
+		$this->assertSame( 'none', $this->bridge->forum_fate_on_delete( $space_id ), 'No forum, nothing to do.' );
+
+		update_space_meta( $space_id, 'jetonomy_forum_id', 41 );
+		update_space_meta( $space_id, 'jetonomy_forum_provisioned', 41 );
+		$this->assertSame( 'purge', $this->bridge->forum_fate_on_delete( $space_id ), 'The forum the bridge made is removed.' );
+
+		// An older forum is linked later; the marker still names the first forum.
+		update_space_meta( $space_id, 'jetonomy_forum_id', 77 );
+		$this->assertSame( 'hide', $this->bridge->forum_fate_on_delete( $space_id ), 'A relinked older forum is never purged.' );
+
+		// A forum from before the marker existed, with nothing proving it is ours.
+		update_space_meta( $space_id, 'jetonomy_forum_provisioned', 0 );
+		$this->assertSame( 'hide', $this->bridge->forum_fate_on_delete( $space_id ), 'No proof, no purge.' );
+
+		// A course (or any add-on) claims the forum the bridge made.
+		update_space_meta( $space_id, 'jetonomy_forum_id', 41 );
+		update_space_meta( $space_id, 'jetonomy_forum_provisioned', 41 );
+		$claim = static fn() => true;
+		add_filter( 'buddynext_space_forum_claimed', $claim );
+		$this->assertSame( 'unlink', $this->bridge->forum_fate_on_delete( $space_id ), 'A claimed forum outlives the space.' );
+		remove_filter( 'buddynext_space_forum_claimed', $claim );
+	}
+
+	/**
+	 * A space whose Discussions are switched off keeps the forum's topics but shows none of
+	 * them: no feed card, no search row. Switching back on republishes both.
+	 */
+	public function test_discussions_off_shows_no_card_and_no_search_row(): void {
+		global $wpdb;
+
+		$bn_space = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$this->user_id,
+			array(
+				'name' => 'Off switch',
+				'slug' => 'off-switch',
+				'type' => 'open',
+			)
+		);
+		$this->seed_jt_space( 8, 'off-switch' );
+		update_space_meta( $bn_space, 'jetonomy_forum_id', 8 );
+		$this->seed_jt_post( 81, $this->author_id, 'Hidden while off', 'Body', 'hidden-while-off' );
+		$count = fn( string $table, string $where ) => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}{$table} WHERE {$where}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		update_space_meta( $bn_space, 'discussion_enabled', '0' );
+		$this->publish_jt_post( 81, 8 );
+		$this->assertSame( 0, $count( 'bn_search_index', "object_type = 'discussion' AND object_id = 81" ), 'No search row while off.' );
+		$this->assertSame( 0, $count( 'bn_posts', "type = 'discussion' AND status = 'published' AND link_url LIKE '%hidden-while-off%'" ), 'No card while off.' );
+
+		update_space_meta( $bn_space, 'discussion_enabled', '1' );
+		$this->bridge->sync_discussion( 81, 8 );
+		$this->assertSame( 1, $count( 'bn_search_index', "object_type = 'discussion' AND object_id = 81" ), 'Back on: the topic is searchable again.' );
+		$this->assertSame( 1, $count( 'bn_posts', "type = 'discussion' AND status = 'published' AND link_url LIKE '%hidden-while-off%'" ), 'Back on: the card is back.' );
+	}
+
+	/**
+	 * A join made through the forum cannot get round the space: refused while the space is archived,
+	 * but never for a member already in it or for the bridge's own roster copies.
+	 */
+	public function test_forum_join_cannot_get_round_the_space(): void {
+		$sv       = new \BuddyNext\Spaces\SpaceService();
+		$bn_space = (int) $sv->create(
+			$this->user_id,
+			array(
+				'name' => 'Join veto',
+				'slug' => 'join-veto',
+				'type' => 'open',
+			)
+		);
+		$this->seed_jt_space( 9, 'join-veto' );
+		update_space_meta( $bn_space, 'jetonomy_forum_id', 9 );
+		$outsider = self::factory()->user->create();
+
+		$this->assertTrue( $this->bridge->veto_forum_join( true, $outsider, 9 ), 'An open space lets an outsider join its forum.' );
+
+		$sv->archive( $bn_space, $this->user_id );
+		$this->assertWPError( $this->bridge->veto_forum_join( true, $outsider, 9 ), 'An archived space takes no new members, forum or not.' );
+		$this->assertTrue( $this->bridge->veto_forum_join( true, $this->user_id, 9 ), 'The owner is already in the space.' );
+		\BuddyNext\Feed\IntegrationActivity::as_mirror(
+			fn() => $this->assertTrue( $this->bridge->veto_forum_join( true, $outsider, 9 ), 'The bridge\'s own roster copies pass.' )
+		);
+	}
+
+	/**
+	 * A plan-gated open space shapes a private forum; nothing else changes the type.
+	 */
+	public function test_a_plan_gated_open_space_gets_a_private_forum(): void {
+		$this->assertSame( 'open', JetonomyBridge::forum_type_for( array( 'type' => 'open' ) ) );
+		$this->assertSame( 'private', JetonomyBridge::forum_type_for( array( 'type' => 'open', 'is_gated' => true ) ) );
+		$this->assertSame( 'secret', JetonomyBridge::forum_type_for( array( 'type' => 'secret', 'is_gated' => true ) ) );
+		$this->assertSame( 'private', JetonomyBridge::discussion_visibility_for( JetonomyBridge::forum_type_for( array( 'type' => 'open', 'is_gated' => true ) ) ) );
+	}
+
+	/**
+	 * Rail item keys by rail key.
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	private function rail_items(): array {
+		return array_column( $this->bridge->inject_discussions_nav_item( array() ), null, 'key' );
+	}
+
+	/**
+	 * The forum keeps the "discussions" rail key (so saved nav overrides still apply)
+	 * and reaches guests; "my-discussions" is the member's own tab, logged in only.
+	 *
+	 * @return void
+	 */
+	public function test_rail_links_the_forum_for_everyone_and_my_discussions_for_members(): void {
+		wp_set_current_user( 0 );
+		$guest = $this->rail_items();
+		$this->assertSame( array( 'discussions' ), array_keys( $guest ) );
+		$this->assertSame( trailingslashit( home_url( '/community' ) ), $guest['discussions']['url'] );
+		$this->assertSame( 60, $guest['discussions']['order'] );
+		$this->assertArrayNotHasKey( 'active', $guest['discussions'] );
+		$this->assertArrayNotHasKey( 'group', $guest['discussions'] );
+
+		wp_set_current_user( $this->user_id );
+		$member = $this->rail_items();
+		$this->assertSame( array( 'discussions', 'my-discussions' ), array_keys( $member ) );
+		$this->assertSame( 'you', $member['my-discussions']['group'] );
+		$this->assertSame( 206, $member['my-discussions']['order'] );
+		$this->assertStringEndsWith( '/discussions/', $member['my-discussions']['url'] );
+		$this->assertStringContainsString( (string) wp_parse_url( \BuddyNext\Core\PageRouter::profile_url( $this->user_id ), PHP_URL_PATH ), $member['my-discussions']['url'] );
+	}
+
+	/**
+	 * Integration Settings > Show in navigation off hides both rail items.
+	 *
+	 * @return void
+	 */
+	public function test_rail_links_follow_the_navigation_switch(): void {
+		wp_set_current_user( $this->user_id );
+		update_option( 'buddynext_integration_jetonomy_nav', '0' );
+		$this->assertSame( array(), $this->rail_items() );
+	}
+
+	/**
+	 * A linked forum is on unless the owner explicitly switched it off: a link made
+	 * before the flag existed must not lose its tab.
+	 *
+	 * @return void
+	 */
+	public function test_a_linked_forum_is_on_unless_explicitly_switched_off(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$this->user_id,
+			array(
+				'name' => 'Flag',
+				'slug' => 'flag-' . wp_rand( 1000, 99999 ),
+				'type' => 'open',
+			)
+		);
+		$this->assertFalse( $this->bridge->space_discussion_enabled( $space_id ), 'No forum linked.' );
+
+		update_space_meta( $space_id, 'jetonomy_forum_id', 5150 );
+		delete_space_meta( $space_id, 'discussion_enabled' );
+		$this->assertTrue( $this->bridge->space_discussion_enabled( $space_id ), 'Linked, flag unset.' );
+		$this->assertTrue( $this->bridge->space_discussion_status( $space_id )['enabled'], 'The settings switch shows on.' );
+		$this->assertNotNull( $this->resolve_space_discussions_url( $space_id ), 'The tab shows.' );
+
+		update_space_meta( $space_id, 'discussion_enabled', '0' );
+		$this->assertFalse( $this->bridge->space_discussion_enabled( $space_id ), "Linked, flag '0'." );
+
+		update_space_meta( $space_id, 'discussion_enabled', '1' );
+		$this->assertTrue( $this->bridge->space_discussion_enabled( $space_id ), "Linked, flag '1'." );
+	}
+
+	/**
+	 * An open space with a linked forum holding one thread.
+	 *
+	 * @param string $type Space type.
+	 * @return array{space:int,owner:int,forum:int,slug:string}
+	 */
+	private function space_with_forum( string $type = 'open' ): array {
+		global $wpdb;
+		$owner    = self::factory()->user->create();
+		$name     = 'Forum space ' . wp_rand( 1000, 99999 );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => $name,
+				'slug' => sanitize_title( $name ),
+				'type' => $type,
+			)
+		);
+		$slug = 'jt-' . $space_id;
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_spaces',
+			array(
+				'slug'  => $slug,
+				'title' => $name,
+			)
+		);
+		$forum = (int) $wpdb->insert_id;
+		update_space_meta( $space_id, 'jetonomy_forum_id', $forum );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'id'        => 9000 + $forum,
+				'space_id'  => $forum,
+				'author_id' => $owner,
+				'slug'      => 'first-thread',
+				'title'     => 'First thread',
+			)
+		);
+		wp_cache_flush();
+
+		return array(
+			'space' => $space_id,
+			'owner' => $owner,
+			'forum' => $forum,
+			'slug'  => $slug,
+		);
+	}
+
+	/**
+	 * A topic moved to another forum takes its card and search row with it.
+	 *
+	 * Jetonomy fires no event on a move, so the bridge reads the successful move route.
+	 * Into a private forum the card is withdrawn and the search row turns private; back
+	 * into a public one both come back.
+	 *
+	 * @return void
+	 */
+	public function test_a_moved_topic_takes_its_card_and_search_row_to_the_new_forum(): void {
+		global $wpdb;
+		$open    = $this->space_with_forum( 'open' );
+		$private = $this->space_with_forum( 'private' );
+		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'private' ), array( 'id' => (int) $private['forum'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$pid     = 4100 + wp_rand( 1, 800 );
+		$this->seed_jt_post( $pid, (int) $open['owner'], 'Moving topic', 'zzmoveword body', 'moving-topic' );
+		$this->publish_jt_post( $pid, (int) $open['forum'] );
+
+		$card   = fn(): array => (array) $wpdb->get_row( "SELECT COALESCE(space_id,0) AS space_id, status, link_url FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_meta LIKE '%\"post_id\": {$pid}%' ORDER BY id DESC LIMIT 1", ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$search = fn(): array => (array) $wpdb->get_row( "SELECT space_id, visibility FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = {$pid}", ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$move   = function ( int $forum ) use ( $wpdb, $pid ): void {
+			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $forum ), array( 'id' => $pid ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$request = new \WP_REST_Request( 'POST', '/jetonomy/v1/posts/' . $pid . '/move' );
+			$this->bridge->on_move_response( new \WP_REST_Response( array( 'moved' => true ), 200 ), array(), $request );
+		};
+
+		$this->assertSame( (string) $open['space'], (string) $card()['space_id'], 'The card starts in the open forum\'s Space.' );
+
+		$move( (int) $private['forum'] );
+		$this->assertSame( (string) $private['space'], (string) $card()['space_id'], 'The card follows the topic to the new forum\'s Space.' );
+		$this->assertNotSame( 'published', $card()['status'], 'A private forum has no public card.' );
+		$this->assertStringContainsString( (string) $private['slug'], (string) $card()['link_url'], 'The card links to the new address.' );
+		$this->assertSame( 'private', $search()['visibility'], 'The title is no longer findable by everyone.' );
+		$this->assertSame( (string) $private['space'], (string) $search()['space_id'] );
+
+		$move( (int) $open['forum'] );
+		$this->assertSame( 'published', $card()['status'], 'Back in a public forum the card returns.' );
+		$this->assertSame( 'public', $search()['visibility'] );
+
+		$request = new \WP_REST_Request( 'POST', '/jetonomy/v1/posts/' . $pid . '/move' );
+		$before  = $card();
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => (int) $private['forum'] ), array( 'id' => $pid ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->bridge->on_move_response( new \WP_Error( 'jetonomy_denied', 'No' ), array(), $request );
+		$this->assertSame( $before['space_id'], $card()['space_id'], 'A refused move changes nothing.' );
+	}
+
+	/**
+	 * Render the space Discussions panel for a viewer.
+	 *
+	 * @param int $space_id Space.
+	 * @param int $viewer   Viewer.
+	 * @return string
+	 */
+	private function space_panel_html( int $space_id, int $viewer ): string {
+		wp_set_current_user( $viewer );
+		ob_start();
+		$this->bridge->render_space_discussions_panel( $space_id, $viewer );
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * With threads present the panel header offers "Start a discussion" to someone
+	 * who may post, and never to someone who may not; the forum link is there for both.
+	 *
+	 * @return void
+	 */
+	public function test_start_a_discussion_is_in_the_header_only_for_a_poster(): void {
+		$fx       = $this->space_with_forum();
+		$composer = '/community/s/' . $fx['slug'] . '/new/';
+
+		$owner = $this->space_panel_html( $fx['space'], $fx['owner'] );
+		$this->assertStringContainsString( 'First thread', $owner );
+		$this->assertStringContainsString( $composer, $owner );
+		$this->assertStringContainsString( 'Open in Community', $owner );
+
+		$outsider = $this->space_panel_html( $fx['space'], $this->user_id );
+		$this->assertStringContainsString( 'First thread', $outsider );
+		$this->assertStringNotContainsString( $composer, $outsider );
+		$this->assertStringContainsString( 'Open in Community', $outsider );
+	}
+
+	/**
+	 * An empty linked forum still links to the forum, and its one "Start a
+	 * discussion" is the empty-state CTA, not a second header button.
+	 *
+	 * @return void
+	 */
+	public function test_an_empty_forum_links_to_the_forum_with_one_start_button(): void {
+		global $wpdb;
+		$fx = $this->space_with_forum();
+		$wpdb->delete( $wpdb->prefix . 'jt_posts', array( 'space_id' => $fx['forum'] ) );
+		wp_cache_flush();
+
+		$html = $this->space_panel_html( $fx['space'], $fx['owner'] );
+		$this->assertStringContainsString( 'Open in Community', $html );
+		$this->assertSame( 1, substr_count( $html, '/new/' ) );
+	}
+
+	/**
+	 * Render the owner hint above the About panel.
+	 *
+	 * @param int $space_id Space.
+	 * @param int $viewer   Viewer.
+	 * @return string
+	 */
+	private function owner_hint_html( int $space_id, int $viewer ): string {
+		wp_set_current_user( $viewer );
+		ob_start();
+		$this->bridge->render_discussion_owner_hint( array( 'space' => ( new \BuddyNext\Spaces\SpaceService() )->get_object( $space_id ) ) );
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Only the owner of a space with no forum is pointed at the Discussion switch.
+	 *
+	 * @return void
+	 */
+	public function test_turn_on_discussions_hint_is_for_the_owner_of_a_forumless_space(): void {
+		$team = $this->space_with_team();
+
+		$owner = $this->owner_hint_html( $team['space'], $team['owner'] );
+		$this->assertStringContainsString( 'Turn on Discussions', $owner );
+		$this->assertStringContainsString( 'bn_stab=integrations', $owner );
+
+		$this->assertSame( '', $this->owner_hint_html( $team['space'], $team['moderator'] ) );
+		$this->assertSame( '', $this->owner_hint_html( $team['space'], $this->user_id ) );
+		$this->assertSame( '', $this->owner_hint_html( $team['space'], 0 ) );
+
+		update_space_meta( $team['space'], 'jetonomy_forum_id', 6160 );
+		update_space_meta( $team['space'], 'discussion_enabled', '0' );
+		$this->assertSame( '', $this->owner_hint_html( $team['space'], $team['owner'] ), 'A forum switched off is a choice already made.' );
+	}
+
+	/**
+	 * Run the breadcrumb filter on a Jetonomy route.
+	 *
+	 * @param array<string,string> $vars Query vars.
+	 * @param int                  $viewer Viewer.
+	 * @return string
+	 */
+	private function crumb_html( array $vars, int $viewer ): string {
+		wp_set_current_user( $viewer );
+		foreach ( array( 'jetonomy_route', 'jetonomy_slug', 'jetonomy_space_slug' ) as $var ) {
+			set_query_var( $var, $vars[ $var ] ?? '' );
+		}
+		return $this->bridge->add_space_breadcrumb( self::CRUMB );
+	}
+
+	/**
+	 * Jetonomy's breadcrumb as its partial renders it.
+	 *
+	 * @var string
+	 */
+	private const CRUMB = '<nav class="jt-crumb" aria-label="Breadcrumb"><a href="http://example.org/community/">Home</a><span aria-hidden="true">/</span><span aria-current="page" dir="auto">Forum</span></nav>';
+
+	/**
+	 * A linked forum's pages lead back to its Space, on the forum and topic routes.
+	 *
+	 * @return void
+	 */
+	public function test_breadcrumb_leads_back_to_the_linked_space(): void {
+		$fx    = $this->space_with_forum();
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $fx['space'] );
+		$back  = '<a href="' . esc_url( buddynext_space_url( (string) $space['slug'] ) ) . '" dir="auto">Back to ' . esc_html( (string) $space['name'] ) . '</a> <span aria-hidden="true">/</span> ';
+
+		$forum = $this->crumb_html(
+			array(
+				'jetonomy_route' => 'space',
+				'jetonomy_slug'  => $fx['slug'],
+			),
+			$this->user_id
+		);
+		$this->assertStringStartsWith( '<nav class="jt-crumb" aria-label="Breadcrumb">' . $back . '<a href="http://example.org/community/">Home</a>', $forum, 'The link leads the trail, inside Jetonomy\'s nav.' );
+
+		$topic = $this->crumb_html(
+			array(
+				'jetonomy_route'      => 'post',
+				'jetonomy_space_slug' => $fx['slug'],
+				'jetonomy_slug'       => 'first-thread',
+			),
+			0
+		);
+		$this->assertStringContainsString( $back, $topic, 'Guests see the link to a space they may view.' );
+	}
+
+	/**
+	 * Unlinked forum, a Space the viewer may not see, and an unknown route all
+	 * leave the trail untouched.
+	 *
+	 * @return void
+	 */
+	public function test_breadcrumb_is_unchanged_when_the_space_cannot_be_shown(): void {
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_spaces',
+			array(
+				'slug'  => 'loose-forum',
+				'title' => 'Loose',
+			)
+		);
+		$this->assertSame(
+			self::CRUMB,
+			$this->crumb_html(
+				array(
+					'jetonomy_route' => 'space',
+					'jetonomy_slug'  => 'loose-forum',
+				),
+				$this->user_id
+			),
+			'Unlinked forum.'
+		);
+
+		$secret = $this->space_with_forum( 'secret' );
+		$vars   = array(
+			'jetonomy_route' => 'space',
+			'jetonomy_slug'  => $secret['slug'],
+		);
+		$this->assertSame( self::CRUMB, $this->crumb_html( $vars, $this->user_id ), 'A secret space is never named to a non-member.' );
+		$this->assertSame( self::CRUMB, $this->crumb_html( $vars, 0 ), 'Nor to a guest.' );
+		$this->assertStringContainsString( 'Back to', $this->crumb_html( $vars, $secret['owner'] ), 'Its owner gets the link.' );
+
+		$this->assertSame( self::CRUMB, $this->crumb_html( array( 'jetonomy_route' => 'profile', 'jetonomy_slug' => $secret['slug'] ), $secret['owner'] ), 'Not a forum route.' );
+		$this->assertSame( self::CRUMB, $this->crumb_html( array( 'jetonomy_route' => 'space', 'jetonomy_slug' => 'no-such-forum' ), $this->user_id ), 'Unknown forum.' );
+		$this->assertSame( '', $this->bridge->add_space_breadcrumb( '' ), 'No breadcrumb at all.' );
+	}
+
+	/**
+	 * Build the PATCH a forum admin's edit sends to Jetonomy.
+	 *
+	 * @param int                 $forum_id Forum id.
+	 * @param array<string,mixed> $params   Fields in the edit.
+	 * @return \WP_REST_Request
+	 */
+	private function forum_patch( int $forum_id, array $params ): \WP_REST_Request {
+		$request = new \WP_REST_Request( 'PATCH', '/jetonomy/v1/spaces/' . $forum_id );
+		foreach ( $params as $key => $value ) {
+			$request->set_param( $key, $value );
+		}
+		return $request;
+	}
+
+	/**
+	 * The Space decides who can see and join its forum: no writer of the forum may say otherwise.
+	 */
+	public function test_a_linked_forum_cannot_be_edited_away_from_its_space(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Follows', 'slug' => 'follows-' . wp_rand( 1000, 9999 ) ) );
+		update_space_meta( $space_id, 'jetonomy_forum_id', '9101' );
+		\Jetonomy\Models\Space::$rows[9101] = array( 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' );
+
+		foreach ( array( 'visibility' => 'private', 'join_policy' => 'approval', 'status' => 'archived' ) as $field => $value ) {
+			$refused = $this->bridge->refuse_forum_drift( true, 9101, array( $field => $value ) );
+			$this->assertWPError( $refused, $field );
+			$this->assertSame( 'bn_forum_follows_space', $refused->get_error_code() );
+			$this->assertSame( 409, $refused->get_error_data()['status'] );
+		}
+
+		// Everything else about a forum is the forum admin's own to edit, and a form that re-sends today's values is fine.
+		$this->assertTrue( $this->bridge->refuse_forum_drift( true, 9101, array( 'title' => 'New name', 'description' => 'x' ) ) );
+		$this->assertTrue( $this->bridge->refuse_forum_drift( true, 9101, array( 'title' => 'T', 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' ) ) );
+
+		// Another plugin's refusal stands, and a forum that belongs to no Space is its admin's to change.
+		$other = new \WP_Error( 'other', 'Refused elsewhere.' );
+		$this->assertSame( $other, $this->bridge->refuse_forum_drift( $other, 9101, array( 'visibility' => 'private' ) ) );
+		\Jetonomy\Models\Space::$rows[9102] = array( 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' );
+		$this->assertTrue( $this->bridge->refuse_forum_drift( true, 9102, array( 'visibility' => 'private' ) ), 'A forum that belongs to no Space is its admin\'s to change.' );
+
+		\Jetonomy\Models\Space::$rows = array();
+	}
+
+	/**
+	 * Through the real model write: the bridge's own forum write lands, and every other writer is refused with the row
+	 * unchanged.
+	 */
+	public function test_the_bridges_own_forum_writes_pass_the_guard_and_every_other_writer_is_refused(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Own write', 'slug' => 'own-write-' . wp_rand( 1000, 9999 ) ) );
+		update_space_meta( $space_id, 'jetonomy_forum_id', '9103' );
+		\Jetonomy\Models\Space::$rows[9103] = array( 'visibility' => 'public', 'join_policy' => 'open', 'status' => 'active' );
+		add_filter( 'jetonomy_before_update_space', array( $this->bridge, 'refuse_forum_drift' ), 10, 3 );
+
+		$other = \Jetonomy\Models\Space::update( 9103, array( 'visibility' => 'private' ) );
+		$this->assertWPError( $other, 'Any other writer is refused.' );
+		$this->assertSame( 'public', \Jetonomy\Models\Space::$rows[9103]['visibility'], 'And the forum is unchanged.' );
+
+		$this->assertTrue( JetonomyBridge::write_forum( 9103, array( 'visibility' => 'private' ) ), 'The Space\'s own write goes through.' );
+		$this->assertSame( 'private', \Jetonomy\Models\Space::$rows[9103]['visibility'] );
+		$this->assertWPError( \Jetonomy\Models\Space::update( 9103, array( 'visibility' => 'public' ) ), 'The marker does not outlive the write.' );
+
+		\Jetonomy\Models\Space::$rows = array();
+	}
+	/**
+	 * One push per event: Jetonomy Pro keeps its push unless BuddyNext can really send one
+	 * (the stand-down itself is covered in BuddyNext Pro, where push exists).
+	 */
+	public function test_jetonomy_pro_keeps_its_push_while_buddynext_cannot_push(): void {
+		$adopt = static fn( $types ) => $types;
+		add_filter( 'jetonomy_community_notification_types', $adopt );
+		$this->assertTrue( $this->bridge->leave_push_to_buddynext( true ), 'No push provider here: Jetonomy Pro keeps its push.' );
+		$this->assertFalse( $this->bridge->leave_push_to_buddynext( false ), 'An earlier no stays a no.' );
+		remove_filter( 'jetonomy_community_notification_types', $adopt );
+	}
+
+	/**
+	 * A forum page is painted by the theme, so the member's saved text size has to be applied there by BuddyNext's own script.
+	 */
+	public function test_a_forum_page_loads_the_saved_text_size_script_and_other_pages_do_not(): void {
+		global $wp_query;
+		$wp_query = new \WP_Query();
+		$reset    = static function (): void {
+			wp_dequeue_script( 'bn-shell-font-scale' );
+			wp_dequeue_script( 'bn-mobile-more' );
+		};
+		$reset();
+		$this->bridge->maybe_add_mobile_bar();
+		do_action( 'wp_enqueue_scripts' );
+		$this->assertFalse( wp_script_is( 'bn-shell-font-scale', 'enqueued' ), 'Not a forum route: nothing added.' );
+
+		// A forum route with the owner's bottom bar switched off: the text size still applies, the bar's script does not load.
+		set_query_var( 'jetonomy_route', 'space' );
+		update_option( 'buddynext_integration_jetonomy_nav', '0' );
+		$this->bridge->maybe_add_mobile_bar();
+		do_action( 'wp_enqueue_scripts' );
+		$this->assertTrue( wp_script_is( 'bn-shell-font-scale', 'enqueued' ), 'Bar off: the saved text size is still applied.' );
+		$this->assertStringContainsString( 'bnThemeHostOnly', wp_scripts()->get_inline_script_data( 'bn-shell-font-scale', 'before' ) );
+		$this->assertFalse( wp_script_is( 'bn-mobile-more', 'enqueued' ), 'Bar off: no bottom-bar script.' );
+
+		// With the bar on, both.
+		$reset();
+		update_option( 'buddynext_integration_jetonomy_nav', '1' );
+		$this->bridge->maybe_add_mobile_bar();
+		do_action( 'wp_enqueue_scripts' );
+		$this->assertTrue( wp_script_is( 'bn-shell-font-scale', 'enqueued' ) );
+		$this->assertTrue( wp_script_is( 'bn-mobile-more', 'enqueued' ), 'Bar on: the bottom-bar script loads too.' );
+	}
 }
 
 namespace Jetonomy\Models;
@@ -954,6 +2032,13 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 	 */
 	class Space {
 		/**
+		 * Whether each create() ran as a bridge mirror write.
+		 *
+		 * @var bool[]
+		 */
+		public static array $created_as_mirror = array();
+
+		/**
 		 * Create a forum space.
 		 *
 		 * @param array<string,mixed> $data        Space data (slug, title, ...).
@@ -962,9 +2047,42 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 		 */
 		public static function create( array $data, ?int $owner_id = null ): int {
 			global $wpdb;
+			// The real model seeds the creator's admin roster row here, which pays a join award.
+			self::$created_as_mirror[] = \BuddyNext\Feed\IntegrationActivity::is_mirror();
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => (string) ( $data['slug'] ?? '' ) ), array( '%s' ) );
 			return (int) $wpdb->insert_id;
+		}
+
+		/**
+		 * Look a forum up. The stub keeps no rows to read back, so nothing is found
+		 * and the visibility sync has nothing to align.
+		 *
+		 * @param int $id Forum id.
+		 * @return object|null
+		 */
+		public static function find( int $id ): ?object {
+			return isset( self::$rows[ $id ] ) ? (object) self::$rows[ $id ] : null;
+		}
+
+		/**
+		 * Forum rows a test wants find() to return, by id. Empty means nothing is found.
+		 *
+		 * @var array<int,array<string,mixed>>
+		 */
+		public static array $rows = array();
+
+		/**
+		 * Look a forum up by slug in the shadow jt_spaces table.
+		 *
+		 * @param string $slug Forum slug.
+		 * @return object|null
+		 */
+		public static function find_by_slug( string $slug ): ?object {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_spaces WHERE slug = %s", $slug ) );
+			return $id > 0 ? (object) array( 'id' => $id ) : null;
 		}
 
 		/**
@@ -1002,8 +2120,21 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 		 * @param array<string,mixed> $data Columns to write.
 		 * @return void
 		 */
-		public static function update( int $id, array $data ): void {
-			self::$settings[ $id ] = (array) json_decode( (string) ( $data['settings'] ?? '{}' ), true );
+		public static function update( int $id, array $data ) {
+			// Like the real model: ask the filter first, and write nothing when it refuses.
+			$allowed = apply_filters( 'jetonomy_before_update_space', true, $id, $data );
+			if ( is_wp_error( $allowed ) ) {
+				return $allowed;
+			}
+			if ( array_key_exists( 'settings', $data ) ) {
+				self::$settings[ $id ] = (array) json_decode( (string) $data['settings'], true );
+			}
+			foreach ( array( 'visibility', 'join_policy', 'status' ) as $column ) {
+				if ( array_key_exists( $column, $data ) && isset( self::$rows[ $id ] ) ) {
+					self::$rows[ $id ][ $column ] = $data[ $column ];
+				}
+			}
+			return true;
 		}
 	}
 }

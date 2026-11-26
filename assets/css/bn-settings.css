@@ -79,11 +79,15 @@
 	position: relative;
 }
 
-.bn-settings :is(button, a.bn-btn, .bn-prefs-chip)::after {
+/* Switches (.bn-toggle) carry their own 44px layer in bn-base.css; this 40px one is left off them,
+   or the two would stack and the layer would sit off-centre. */
+.bn-settings :is(button, a.bn-btn, .bn-prefs-chip):not(.bn-toggle)::after {
 	content: "";
 	position: absolute;
 	inset-block-start: 50%;
-	inset-inline-start: 50%;
+	/* Physical left on purpose: translate is physical, so a logical start would put the
+	   layer a full width off-centre in RTL and widen the page. Centring has no direction. */
+	left: 50%;
 	translate: -50% -50%;
 	inline-size: max(100%, 40px);
 	block-size: max(100%, 40px);

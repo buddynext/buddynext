@@ -128,6 +128,15 @@ a.bn-suite-panel__item-link:focus-visible {
 	display: block;
 }
 
+/* A company logo is shown whole: a wide logo cropped to a square loses its name.
+   Photos and course covers keep the cover crop above. */
+.bn-suite-panel__thumb img.bn-suite-panel__logo {
+	object-fit: contain;
+	padding: var(--bn-s1);
+	background: var(--bn-surface);
+	box-sizing: border-box;
+}
+
 /* Monogram fallback — a solid tone tile with initials, mirroring BN's avatar
    language. Deterministic tone per row (seeded from company/title) so rows read
    distinct instead of repeating the section icon. */
@@ -237,6 +246,188 @@ a.bn-suite-panel__item-link:focus-visible {
 	color: var(--bn-accent-text, var(--bn-accent));
 }
 
+/* Grouped view (e.g. jobs by company): one bordered section per group with a
+   logo, name, total and a "View all" link, then its rows. The rest of the
+   groups sit in a native <details>; its summary is the "Show N more" control. */
+.bn-suite-groups {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-suite-groups__extra {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+	margin-block-start: var(--bn-s4);
+}
+
+.bn-suite-groups__empty {
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-suite-group {
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	overflow: hidden;
+}
+
+.bn-suite-group__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-block-end: 1px solid var(--bn-line);
+	background: var(--bn-sunken);
+}
+
+.bn-suite-group .bn-suite-group__logo {
+	width: 40px;
+	height: 40px;
+}
+
+.bn-suite-group__id {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.bn-suite-group__name {
+	margin: 0;
+	font-size: var(--bn-text-base);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+	overflow-wrap: anywhere;
+}
+
+.bn-suite-group__summary {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-suite-group__all {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+	padding-inline: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	white-space: nowrap;
+}
+
+.bn-suite-group__items {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bn-suite-group__item + .bn-suite-group__item {
+	border-block-start: 1px solid var(--bn-line);
+}
+
+/* The whole row is the job link: at least 44px tall. */
+.bn-suite-group__job {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	min-height: 44px;
+	padding: var(--bn-s3) var(--bn-s4);
+	color: inherit;
+	text-decoration: none;
+	transition: background-color 0.15s ease;
+}
+
+a.bn-suite-group__job:hover,
+a.bn-suite-group__job:focus-visible {
+	background: var(--bn-bg-hover);
+}
+
+a.bn-suite-group__job:focus-visible {
+	outline: 2px solid transparent;
+	box-shadow: inset 0 0 0 2px var(--bn-focus);
+}
+
+.bn-suite-group__job-body {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.1rem;
+}
+
+.bn-suite-group__job-title {
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
+	overflow-wrap: anywhere;
+}
+
+a.bn-suite-group__job:hover .bn-suite-group__job-title,
+a.bn-suite-group__job:focus-visible .bn-suite-group__job-title {
+	color: var(--bn-accent-text, var(--bn-accent));
+}
+
+.bn-suite-group__job-meta {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-suite-group__badge {
+	flex: 0 0 auto;
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-accent-text, var(--bn-accent));
+	background: var(--bn-accent-50);
+	padding: 2px var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	white-space: nowrap;
+}
+
+/* Desktop and phone wording of the same text; only one is ever displayed. */
+.bn-suite-group__narrow {
+	display: none;
+}
+
+.bn-suite-groups__toggle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px dashed var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	color: var(--bn-accent-text, var(--bn-accent));
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	cursor: pointer;
+	list-style: none;
+}
+
+.bn-suite-groups__toggle::-webkit-details-marker {
+	display: none;
+}
+
+.bn-suite-groups__toggle:hover {
+	background: var(--bn-bg-hover);
+}
+
+.bn-suite-groups__toggle:focus-visible {
+	outline: 2px solid transparent;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-suite-groups__toggle-less,
+.bn-suite-groups__more[open] .bn-suite-groups__toggle-more {
+	display: none;
+}
+
+.bn-suite-groups__more[open] .bn-suite-groups__toggle-less {
+	display: inline;
+}
+
 @media (max-width: 640px) {
 	.bn-suite-panel__head {
 		flex-direction: column;
@@ -269,5 +460,27 @@ a.bn-suite-panel__item-link:focus-visible {
 
 	.bn-suite-panel__item-highlight {
 		margin-inline-start: 0;
+	}
+
+	/* Phone: shorter link text and meta ("2 days ago"), no type pill. */
+	.bn-suite-group__wide,
+	.bn-suite-group__badge {
+		display: none;
+	}
+
+	.bn-suite-group__narrow {
+		display: inline;
+	}
+
+	.bn-suite-group__job-meta.bn-suite-group__narrow {
+		display: block;
+	}
+
+	.bn-suite-group__head {
+		padding-inline: var(--bn-s3);
+	}
+
+	.bn-suite-group__job {
+		padding-inline: var(--bn-s3);
 	}
 }

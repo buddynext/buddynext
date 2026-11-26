@@ -66,6 +66,11 @@ if ( $bn_uid <= 0 ) {
 	return;
 }
 
+// A suspended member has no streak to keep: the card would only invite actions they cannot take.
+if ( buddynext_service( 'moderation' )->is_suspended( $bn_uid ) ) {
+	return;
+}
+
 $bn_user = get_userdata( $bn_uid );
 if ( ! $bn_user instanceof WP_User ) {
 	return;
@@ -205,7 +210,7 @@ do_action( 'buddynext_part_sidebar_greeting_streak_before', $args );
 				aria-label="<?php echo esc_attr( $bn_cell_aria ); ?>"
 				title="<?php echo esc_attr( $bn_cell_aria ); ?>"
 			>
-				<?php echo esc_html( mb_strtoupper( (string) $bn_cell['letter'] ) ); ?>
+				<?php echo esc_html( \BuddyNext\Support\Text::upper( (string) $bn_cell['letter'] ) ); ?>
 			</li>
 		<?php endforeach; ?>
 	</ol>

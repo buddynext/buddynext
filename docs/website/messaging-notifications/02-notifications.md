@@ -19,7 +19,7 @@ BuddyNext creates a notification when another member does something that involve
 | Event | When it fires |
 |---|---|
 | New follower | Someone starts following you |
-| Follow request | Someone requests to follow your private account |
+| Follow request | Someone requests to follow your private account. Opening it takes you to your own Followers tab, where you accept or decline. |
 | Connection request | Someone sends you a connection request |
 | Connection accepted | Someone accepts your connection request |
 | Reaction on your post | Someone reacts to a post you authored |
@@ -64,7 +64,7 @@ Since 1.2.5 you can also select several notifications and delete them together, 
 
 ### Filtering
 
-The Notifications page has filter tabs: **All**, **Unread**, **Mentions**, **Comments**, **Reactions**, **Spaces**, **Follows** and **Messages** (the Messages tab is left out while messages are switched off). Switching tabs updates the list in place, without reloading the page.
+The Notifications page has filter tabs: **All**, **Unread**, **Mentions**, **Comments**, **Reactions**, **Spaces**, **Follows** and **Messages** (the Messages tab is left out while messages are switched off), plus **Jobs** and **Achievements** while WP Career Board and WB Gamification are active. On a wide screen every tab stays visible; on a phone the row scrolls sideways. Switching tabs updates the list in place, without reloading the page.
 
 ### Grouped notifications
 
@@ -93,6 +93,11 @@ The bell ships as part of the user menu, which you place in your header with the
 ## Free vs Pro
 
 In-app notifications, the bell, the full Notifications page, grouping, filtering, and automatic background refresh are all part of the free plugin. The free build keeps the bell current by checking for new activity on a short interval, which is enough to feel live for most communities. Pro adds instant web push so a member is alerted even when the tab is not open - see Push Notifications.
+
+## What changed in 1.3.0
+
+- **Mark all read** now updates the page in place: the unread marks and the per-row Mark as read buttons go, and the week tile counts everything as read, without a reload.
+- On a phone each row is compact: the text, then the time and the buttons on one line.
 
 ## Related
 

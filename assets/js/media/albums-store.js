@@ -119,17 +119,27 @@ function mediaPrivacyFor( ctx ) {
 	return ctx.activeAlbumPrivacy || 'public';
 }
 
-async function fetchAlbums( ctx ) {
+/* Albums and album pictures load a page at a time (the REST routes cap a page at 60). The first page is 48; Load more
+ * asks for the next, so a member with many albums, or an album with many pictures, can reach all of them. */
+const ALBUM_PAGE = 48;
+
+async function fetchAlbums( ctx, page = 1 ) {
 	try {
-		const res = await restFetch( albumsRoot( ctx ) + '?per_page=48', {
+		const res = await restFetch( albumsRoot( ctx ) + '?per_page=' + ALBUM_PAGE + '&page=' + page, {
 			method: 'GET', nonce: ctx.restNonce, toastOnError: false,
 		} );
 		const list = ( res.ok && res.data && Array.isArray( res.data.albums ) ) ? res.data.albums : [];
-		ctx.albums = list.map( toCard );
+		ctx.albums = page > 1 ? ctx.albums.concat( list.map( toCard ) ) : list.map( toCard );
 		ctx.hasAlbums = ctx.albums.length > 0;
+		ctx.albumsPage = page;
+		// The server says whether another page exists: a page the viewer may see only part of comes back short and is not the last.
+		ctx.albumsHasMore = !! ( res.ok && res.data && res.data.has_more );
 	} catch ( e ) {
-		ctx.albums = [];
-		ctx.hasAlbums = false;
+		if ( page === 1 ) {
+			ctx.albums = [];
+			ctx.hasAlbums = false;
+		}
+		ctx.albumsHasMore = false;
 	}
 }
 
@@ -153,6 +163,13 @@ const albumsStore = store( 'buddynext/media-albums', {
 	},
 	actions: {
 		showMedia()  { getContext().view = 'media'; },
+		async loadMoreAlbums() {
+			const ctx = getContext();
+			if ( ctx.albumsLoadingMore ) { return; }
+			ctx.albumsLoadingMore = true;
+			await fetchAlbums( ctx, ( Number( ctx.albumsPage ) || 1 ) + 1 );
+			ctx.albumsLoadingMore = false;
+		},
 		showAlbums() {
 			const ctx = getContext();
 			ctx.view = 'albums';
@@ -199,7 +216,9 @@ const albumsStore = store( 'buddynext/media-albums', {
 			// one had it stored by the /me/albums/{id} edit route and reported back
 			// as if in force. The server refuses it too; this just stops asking.
 			const body = { title, description: ctx.createDesc || '' };
-			if ( ( Number( ctx.spaceId ) || 0 ) === 0 ) {
+			// Nor when the site owner has locked it: the form shows no choice then, and the engine
+			// refuses an album edit that changes the level.
+			if ( ( Number( ctx.spaceId ) || 0 ) === 0 && false !== ctx.canChoosePrivacy ) {
 				body.privacy = ctx.createPrivacy || 'public';
 			}
 			try {
@@ -447,19 +466,53 @@ const albumsStore = store( 'buddynext/media-albums', {
 
 function detailGridEl() { return document.querySelector( '[data-bn-album-grid]' ); }
 
+let detailPage = 1;
+let detailPages = 1;
+
+/* The Load more button under an open album: shown while there is a next page. */
+function syncDetailMore() {
+	const wrap = document.querySelector( '[data-bn-album-more-wrap]' );
+	if ( wrap ) { wrap.hidden = detailPage >= detailPages; }
+}
+
+async function loadMoreDetail( ctx ) {
+	const grid = detailGridEl();
+	if ( ! grid || detailPage >= detailPages ) { return; }
+	const btn = document.querySelector( '[data-bn-album-more]' );
+	if ( btn ) { btn.disabled = true; }
+	try {
+		const res = await restFetch( '/albums/' + ctx.activeAlbumId + '?per_page=' + ALBUM_PAGE + '&page=' + ( detailPage + 1 ), {
+			method: 'GET', nonce: ctx.restNonce, toastOnError: false,
+		} );
+		if ( res.ok && res.data && res.data.html ) {
+			grid.insertAdjacentHTML( 'beforeend', res.data.html );
+			if ( res.data.is_owner ) { enhanceDetailTiles( grid ); }
+			detailPage = Number( res.data.page ) || detailPage + 1;
+			detailPages = Number( res.data.total_pages ) || detailPages;
+		}
+	} catch ( e ) {
+		// Leave the button for another try.
+	}
+	if ( btn ) { btn.disabled = false; }
+	syncDetailMore();
+}
+
 async function loadAlbumDetail( ctx ) {
 	const grid = detailGridEl();
 	if ( ! grid ) { return; }
 	currentAlbumId = Number( ctx.activeAlbumId ) || 0;
 	grid.innerHTML = '<div class="bn-album-detail__loading"></div>';
 	try {
-		const res = await restFetch( '/albums/' + ctx.activeAlbumId + '?per_page=48', {
+		const res = await restFetch( '/albums/' + ctx.activeAlbumId + '?per_page=' + ALBUM_PAGE + '&page=1', {
 			method: 'GET', nonce: ctx.restNonce, toastOnError: false,
 		} );
 		if ( res.ok && res.data ) {
 			// Server-rendered, pre-escaped MediaRenderer markup (same as the gallery).
 			grid.innerHTML = res.data.html || emptyAlbum();
 			if ( res.data.is_owner ) { enhanceDetailTiles( grid ); }
+			detailPage = Number( res.data.page ) || 1;
+			detailPages = Number( res.data.total_pages ) || 1;
+			syncDetailMore();
 		} else {
 			// restFetch resolves { ok:false } on 403/500/offline — it never throws —
 			// so without this branch the loading spinner was the terminal state and
@@ -503,6 +556,12 @@ function bindDetailRetry( ctx ) {
 	if ( detailRetryBound ) { return; }
 	detailRetryBound = true;
 	document.addEventListener( 'click', ( e ) => {
+		const more = e.target.closest( '[data-bn-album-more]' );
+		if ( more ) {
+			e.preventDefault();
+			loadMoreDetail( ctx );
+			return;
+		}
 		const btn = e.target.closest( '[data-bn-album-retry]' );
 		if ( ! btn ) { return; }
 		e.preventDefault();

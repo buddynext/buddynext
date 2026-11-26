@@ -15,7 +15,7 @@
  */
 
 import { store, getContext, getElement, withScope } from '@wordpress/interactivity';
-import { bnToast } from '@buddynext/shell-dialog';
+import { bnToast, bnReloadWithToast } from '@buddynext/shell-dialog';
 import { restError, restFetch , toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '@buddynext/upload-core';
@@ -610,7 +610,7 @@ function restoreDraftsOnLoad() {
 
 onNavReady( restoreDraftsOnLoad );
 
-store( 'buddynext/post-composer', {
+const { state } = store( 'buddynext/post-composer', {
 	state: {
 		get open() {
 			try { return !! getContext().composerOpen; } catch ( _e ) { return false; }
@@ -754,8 +754,57 @@ store( 'buddynext/post-composer', {
 		get voiceSubmitLabel() {
 			try { return getContext().submitting ? t( 'scheduling', 'Scheduling…' ) : t( 'scheduleRoom', 'Schedule room' ); } catch ( _e ) { return t( 'scheduleRoom', 'Schedule room' ); }
 		},
+		// Post / Article tabs (partials/composer.php). `mode` lives on the
+		// .bn-composer-switch context only; nothing is remembered between visits.
+		get isPostMode() {
+			try { return 'article' !== getContext().mode; } catch ( _e ) { return true; }
+		},
+		get isArticleMode() {
+			try { return 'article' === getContext().mode; } catch ( _e ) { return false; }
+		},
+		get postTabIndex() {
+			return state.isPostMode ? 0 : -1;
+		},
+		get articleTabIndex() {
+			return state.isArticleMode ? 0 : -1;
+		},
 	},
 	actions: {
+		/**
+		 * Select the clicked Post / Article tab. Both are type="button", so this
+		 * never submits anything, and the Post panel is only hidden, so its text,
+		 * media and draft survive the switch.
+		 *
+		 * @param {MouseEvent} event Click on a [data-mode] tab.
+		 */
+		selectMode( event ) {
+			getContext().mode = 'article' === event.currentTarget.dataset.mode ? 'article' : 'post';
+		},
+		/**
+		 * Tab-list keyboard: Left / Right move to the other tab (two tabs, so the
+		 * direction is the same in RTL), Home selects Post, End selects Article.
+		 * Selection follows focus, and focus moves to the newly selected tab.
+		 *
+		 * @param {KeyboardEvent} event Keydown on the tablist.
+		 */
+		switchKeydown( event ) {
+			if ( ! [ 'ArrowLeft', 'ArrowRight', 'Home', 'End' ].includes( event.key ) ) {
+				return;
+			}
+			event.preventDefault();
+			const ctx = getContext();
+			let mode = 'article' === ctx.mode ? 'post' : 'article';
+			if ( 'Home' === event.key ) {
+				mode = 'post';
+			} else if ( 'End' === event.key ) {
+				mode = 'article';
+			}
+			ctx.mode = mode;
+			const tab = getElement()?.ref?.querySelector( '[data-mode="' + mode + '"]' );
+			if ( tab ) {
+				tab.focus();
+			}
+		},
 		open() {
 			getContext().composerOpen = true;
 		},
@@ -778,7 +827,7 @@ store( 'buddynext/post-composer', {
 			// Captured now, in the action's scope: the native change handler below
 			// runs outside it, where getContext() is not available.
 			const composerCtx = getContext();
-			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const composerEl = document.querySelector( '.bn-composer[data-wp-interactive="buddynext/post-composer"]' );
 			const fileInput  = document.querySelector( '.bn-composer__file-input' );
 			if ( ! fileInput || ! composerEl ) {
 				return;
@@ -1078,7 +1127,7 @@ store( 'buddynext/post-composer', {
 		 * to the wrong audience. One document per post.
 		 */
 		pickDocument() {
-			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const composerEl = document.querySelector( '.bn-composer[data-wp-interactive="buddynext/post-composer"]' );
 			const docInput   = document.querySelector( '.bn-composer__doc-input' );
 			if ( ! docInput || ! composerEl ) {
 				return;
@@ -1497,7 +1546,9 @@ store( 'buddynext/post-composer', {
 						}
 					}
 					ctx.addToStory = false;
-					if ( window.bnToast ) {
+					let postedMsg  = '';
+					let postedTone = 'success';
+					{
 						let msg = t( 'postPublished', 'Post published' );
 						if ( isPending ) {
 							msg = t( 'postSubmittedForReview', 'Your post was submitted for review.' );
@@ -1508,7 +1559,8 @@ store( 'buddynext/post-composer', {
 								? t( 'storyAddFailed', 'Your post is up. It could not be added to your story.' )
 								: t( 'postedToStory', 'Posted and added to your story.' );
 						}
-						window.bnToast( msg, storyIds.length && storyFailed && ! isPending && ! isScheduled ? 'info' : 'success' );
+						postedMsg  = msg;
+						postedTone = storyIds.length && storyFailed && ! isPending && ! isScheduled ? 'info' : 'success';
 					}
 
 					// Live post → prepend the server-rendered card in place (no
@@ -1517,10 +1569,14 @@ store( 'buddynext/post-composer', {
 					// this page), fall back to a reload so the new state still shows.
 					if ( isPending || isScheduled ) {
 						ctx.submitting = false;
+						bnToast( postedMsg, { tone: postedTone } );
 					} else if ( prependFeedCard( created.html ) ) {
 						ctx.submitting = false;
+						bnToast( postedMsg, { tone: postedTone } );
 					} else {
-						setTimeout( function () { window.location.reload(); }, 500 );
+						// A server-drawn card cannot be hydrated in place, so the page reloads to show it; the
+						// toast is parked across the reload so the member still sees the confirmation.
+						bnReloadWithToast( postedMsg, { tone: postedTone } );
 					}
 					return;
 				}
@@ -1553,10 +1609,39 @@ store( 'buddynext/post-composer', {
 				ctx.submitting     = false;
 			}
 		},
+		/**
+		 * Arrow keys, Home and End move between the "Posting to" choices (the popover is a listbox).
+		 *
+		 * @param {KeyboardEvent} event The keydown event on the list.
+		 */
+		privacyKeys( event ) {
+			const keys = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+			const list = event.currentTarget;
+			if ( ! list || ! ( event.key in keys || 'Home' === event.key || 'End' === event.key ) ) {
+				return;
+			}
+			const opts = Array.prototype.slice.call( list.querySelectorAll( '.bn-composer__privacy-opt' ) );
+			if ( ! opts.length ) {
+				return;
+			}
+			event.preventDefault();
+			const at   = opts.indexOf( document.activeElement );
+			let next   = at + ( keys[ event.key ] || 0 );
+			if ( 'Home' === event.key ) { next = 0; }
+			if ( 'End' === event.key ) { next = opts.length - 1; }
+			opts[ ( next + opts.length ) % opts.length ].focus();
+		},
 		togglePrivacy() {
 			const ctx        = getContext();
 			ctx.privacyOpen  = ! ctx.privacyOpen;
 			if ( ctx.privacyOpen ) {
+				// Keyboard users land on the current choice, as in any listbox.
+				const trigger0 = getElement().ref;
+				requestAnimationFrame( function () {
+					const wrap = trigger0 ? trigger0.closest( '.bn-composer__privacy-wrap' ) : null;
+					const sel  = wrap ? ( wrap.querySelector( '[role="option"][aria-selected="true"] .bn-composer__privacy-opt' ) || wrap.querySelector( '.bn-composer__privacy-opt' ) ) : null;
+					if ( sel && sel.getClientRects().length && document.activeElement === trigger0 ) { sel.focus(); }
+				} );
 				// Keep the popover inside the viewport. The "Posting to" chip's
 				// position shifts with the action-row layout, so a static CSS inset
 				// overflows one edge or the other on mobile — the shared clamp
@@ -1702,6 +1787,26 @@ store( 'buddynext/post-composer', {
 		 *
 		 * @param {MouseEvent} event The document click event.
 		 */
+		/**
+		 * Escape closes the "Posting to" popover and hands focus back to its chip.
+		 *
+		 * @param {KeyboardEvent} event The document keydown event.
+		 */
+		closePrivacyOnEscape( event ) {
+			if ( ! event || 'Escape' !== event.key ) {
+				return;
+			}
+			const ctx = getContext();
+			if ( ! ctx || ! ctx.privacyOpen ) {
+				return;
+			}
+			ctx.privacyOpen = false;
+			const ref  = getElement()?.ref || null;
+			const chip = ref ? ref.querySelector( '.bn-composer__privacy-chip' ) : null;
+			if ( chip ) {
+				chip.focus();
+			}
+		},
 		closePrivacyOnOutside( event ) {
 			const ctx = getContext();
 			if ( ! ctx || ! ctx.privacyOpen ) {

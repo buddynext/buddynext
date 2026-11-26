@@ -627,6 +627,36 @@ function attachMentionHashtagTypeahead( textarea ) {
 			top = top - lineHeight - listHeight;
 		}
 
+		// Never cover the field's own buttons. The comment editor is a two-line
+		// box with its Save and Cancel icons right under it, so the list opened
+		// over Save and stayed there until Esc: the member could not save the
+		// edit they were making. When the list would overlap a button of the same
+		// form, open it above the caret line instead, as long as that stays on
+		// screen (the list is an overlay, so it may extend above the box).
+		// With no room above (the field at the top of the viewport), drop it
+		// below the buttons it would have covered instead.
+		const op = dropdown.offsetParent;
+		if ( op && listHeight > 0 ) {
+			const base    = op.getBoundingClientRect();
+			const box     = {
+				top: base.top + top,
+				bottom: base.top + top + listHeight,
+				left: base.left + left,
+				right: base.left + left + listWidth,
+			};
+			const owner   = textarea.closest( 'form' ) || textarea.parentElement;
+			const covered = Array.from( owner.querySelectorAll( 'button' ) )
+				.filter( ( b ) => ! dropdown.contains( b ) )
+				.map( ( b ) => b.getBoundingClientRect() )
+				.filter( ( r ) => r.width > 0 && r.top < box.bottom && r.bottom > box.top && r.left < box.right && r.right > box.left );
+			if ( covered.length ) {
+				const above = top - lineHeight - listHeight;
+				top = base.top + above >= 0
+					? above
+					: Math.max( ...covered.map( ( r ) => r.bottom ) ) - base.top + 4;
+			}
+		}
+
 		dropdown.style.top  = Math.round( top ) + 'px';
 		dropdown.style.left = Math.round( left ) + 'px';
 	};
@@ -822,6 +852,7 @@ const BN_PILL_CAP = 99;
 // Per-page state for the pill. Re-seeded on every (re-)init so the once-bound
 // document listeners always read the freshly-swapped feed / watermark / nonce.
 const bnPill = {
+	spaceId:   0, // non-zero on a Space page: the poll counts that Space's own posts.
 	feed:      null,
 	pill:      null,
 	pendingIds: new Set(),
@@ -889,7 +920,7 @@ const BN_PILL_INLINE_MAX = 20;
  */
 async function bnPillShowNew() {
 	const feed = bnPill.feed;
-	if ( ! feed || bnPill.baseWatermark <= 0 || bnPill.pendingIds.size > BN_PILL_INLINE_MAX ) {
+	if ( ! feed || bnPill.spaceId || bnPill.baseWatermark <= 0 || bnPill.pendingIds.size > BN_PILL_INLINE_MAX ) {
 		window.location.reload();
 		return;
 	}
@@ -924,7 +955,7 @@ async function bnPillPoll() {
 	if ( ! bnPill.enabled || document.hidden || ! bnPill.restUrl ) { return; }
 	try {
 		const url = bnPill.restUrl + '/feed/new-count?after_id=' + encodeURIComponent( bnPill.watermark ) +
-			'&filter=' + encodeURIComponent( bnPill.filter );
+			'&filter=' + encodeURIComponent( bnPill.filter ) + ( bnPill.spaceId ? '&space_id=' + encodeURIComponent( bnPill.spaceId ) : '' );
 		const res = await restFetch( url, { nonce: bnPill.restNonce || '', toastOnError: false } );
 		if ( ! res.ok ) { return; }
 		const json = res.data;
@@ -975,7 +1006,7 @@ function bnPillSchedule() {
    so a client navigation never stacks a second poll chain or listener.
    ---------------------------------------------------------------- */
 function initRealtimeNewPostsPill() {
-	const feed = document.querySelector( '.bn-feed-list, .bn-explore-grid' );
+	const feed = document.querySelector( '.bn-feed-list, .bn-explore-grid, .bn-space-feed-panel[data-bn-space-pill] .bn-sh-feed' );
 	// Skip explore — it ranks by engagement, not chrono; a "new post"
 	// at the top makes no sense there.
 	if ( ! feed || feed.classList.contains( 'bn-explore-grid' ) ) {
@@ -994,7 +1025,7 @@ function initRealtimeNewPostsPill() {
 
 	// REST root + nonce come from the always-present composer context; the feed
 	// page on /activity renders the composer for every logged-in member.
-	const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+	const composerEl = document.querySelector( '.bn-composer[data-wp-interactive="buddynext/post-composer"]' );
 	bnPill.restUrl   = '';
 	bnPill.restNonce = '';
 	if ( composerEl ) {
@@ -1020,7 +1051,10 @@ function initRealtimeNewPostsPill() {
 	//
 	// The DOM scan stays as the fallback for any surface that renders the feed
 	// without the attribute; it is only ever wrong in the direction above.
-	const bnStack    = document.querySelector( '.bn-feed-stack' );
+	// A Space page counts that Space's own posts: its panel carries the watermark, the cadence and the Space id.
+	const bnSpacePanel = feed.closest( '.bn-space-feed-panel[data-bn-space-pill]' );
+	bnPill.spaceId     = bnSpacePanel ? parseInt( bnSpacePanel.dataset.spaceId || '', 10 ) || 0 : 0;
+	const bnStack    = bnSpacePanel || document.querySelector( '.bn-feed-stack' );
 	const bnSeeded   = bnStack ? parseInt( bnStack.dataset.bnWatermark || '', 10 ) : NaN;
 	bnPill.watermark = Number.isNaN( bnSeeded ) ? 0 : bnSeeded;
 	if ( Number.isNaN( bnSeeded ) ) {
@@ -1053,7 +1087,7 @@ function initRealtimeNewPostsPill() {
 			if ( ! id ) { return; }
 			// Skip the viewer's own posts — they're shown immediately
 			// by the composer's local insertion logic.
-			const composer = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const composer = document.querySelector( '.bn-composer[data-wp-interactive="buddynext/post-composer"]' );
 			let viewerId = 0;
 			if ( composer ) {
 				try { viewerId = parseInt( JSON.parse( composer.dataset.wpContext || '{}' ).userId, 10 ); } catch ( _e ) {}
@@ -1126,24 +1160,49 @@ function initEmojiPicker() {
 	let panel = null;
 	let activeTrigger = null;
 
-	const closePanel = () => {
+	const COLUMNS = 8;
+
+	const closePanel = ( restoreFocus ) => {
+		const trigger = activeTrigger;
+		const hadFocus = panel && panel.contains( document.activeElement );
 		if ( panel ) { panel.hidden = true; }
-		if ( activeTrigger ) { activeTrigger.setAttribute( 'aria-expanded', 'false' ); }
+		if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
 		activeTrigger = null;
+		// Focus that was inside the picker goes back to the control that opened it, never to <body>.
+		if ( ( true === restoreFocus || hadFocus ) && trigger && document.contains( trigger ) && 'function' === typeof trigger.focus ) {
+			trigger.focus();
+		}
+	};
+
+	/** The picker's emoji buttons, in order. */
+	const options = () => ( panel ? Array.prototype.slice.call( panel.querySelectorAll( '.bn-emoji-popover__option' ) ) : [] );
+
+	/** Roving focus: exactly one option is a Tab stop, the one that has focus. */
+	const focusOption = ( list, i ) => {
+		const n = Math.max( 0, Math.min( list.length - 1, i ) );
+		list.forEach( ( b, k ) => { b.tabIndex = k === n ? 0 : -1; } );
+		list[ n ].focus();
 	};
 
 	const buildPanel = () => {
 		const base = bnEmojiAssetBase();
 		const p = document.createElement( 'div' );
 		p.className = 'bn-emoji-popover';
-		p.setAttribute( 'role', 'menu' );
+		p.setAttribute( 'role', 'group' );
 		p.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
 		p.hidden = true;
+		// On a phone the picker is a sheet along the bottom: a visible Close ends it (hidden on desktop by CSS).
+		const closeBtn = document.createElement( 'button' );
+		closeBtn.type = 'button';
+		closeBtn.className = 'bn-emoji-popover__close';
+		closeBtn.textContent = t( 'close', 'Close' );
+		p.appendChild( closeBtn );
 		Object.keys( BN_EMOJI_MAP ).forEach( ( slug ) => {
 			const btn = document.createElement( 'button' );
 			btn.type = 'button';
 			btn.className = 'bn-emoji-popover__option';
 			btn.dataset.emojiChar = BN_EMOJI_MAP[ slug ];
+			btn.tabIndex = -1; // Roving focus: the picker is one Tab stop, the arrow keys move inside it.
 			btn.setAttribute( 'aria-label', slug );
 			btn.title = slug;
 			if ( base ) {
@@ -1172,6 +1231,11 @@ function initEmojiPicker() {
 	};
 
 	document.addEventListener( 'click', ( e ) => {
+		if ( e.target.closest( '.bn-emoji-popover__close' ) ) {
+			e.preventDefault();
+			closePanel( true );
+			return;
+		}
 		const option = e.target.closest( '.bn-emoji-popover__option' );
 		if ( option && panel && ! panel.hidden && activeTrigger ) {
 			e.preventDefault();
@@ -1181,7 +1245,11 @@ function initEmojiPicker() {
 			// Facebook, X and LinkedIn); outside-click, Escape and the trigger toggle
 			// still dismiss it. Refocus the field so the caret stays where the next
 			// pick or keystroke lands. (Card 10258511674.)
-			if ( emojiTarget && typeof emojiTarget.focus === 'function' ) {
+			// A keyboard pick (detail 0) stays on the emoji so the next one is an arrow key away; a pointer pick returns to
+			// the field so typing carries on.
+			if ( 0 === e.detail ) {
+				option.focus();
+			} else if ( emojiTarget && typeof emojiTarget.focus === 'function' ) {
 				emojiTarget.focus();
 			}
 			return;
@@ -1220,7 +1288,8 @@ function initEmojiPicker() {
 		const margin = 8;
 
 		// Horizontal: prefer trigger-aligned, clamp into [margin, right edge].
-		const maxLeft = Math.max( margin, window.innerWidth - pr.width - margin );
+		const viewW   = document.documentElement.clientWidth || window.innerWidth; // without the scrollbar
+		const maxLeft = Math.max( margin, viewW - pr.width - margin );
 		const left    = Math.min( Math.max( r.left, margin ), maxLeft );
 
 		// Vertical: flip above the trigger when it does not fit below. A popover is
@@ -1233,10 +1302,29 @@ function initEmojiPicker() {
 
 		panel.style.top  = ( window.scrollY + top ) + 'px';
 		panel.style.left = ( window.scrollX + left ) + 'px';
+		// Opened from the keyboard: focus goes into the picker (the pointer keeps it in the field).
+		if ( 0 === e.detail ) { focusOption( options(), 0 ); }
 	} );
 
 	document.addEventListener( 'keydown', ( e ) => {
-		if ( e.key === 'Escape' ) { closePanel(); }
+		if ( e.key === 'Escape' ) { closePanel( true ); return; }
+		if ( ! panel || panel.hidden || ! panel.contains( document.activeElement ) ) { return; }
+		const list = options();
+		const at   = list.indexOf( document.activeElement );
+		const jump = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: COLUMNS, ArrowUp: -COLUMNS }[ e.key ];
+		if ( undefined !== jump ) {
+			e.preventDefault();
+			focusOption( list, at + jump );
+		} else if ( 'Home' === e.key ) {
+			e.preventDefault();
+			focusOption( list, 0 );
+		} else if ( 'End' === e.key ) {
+			e.preventDefault();
+			focusOption( list, list.length - 1 );
+		} else if ( 'Tab' === e.key ) {
+			// Leaving the picker with Tab closes it and carries on from its trigger.
+			closePanel( true );
+		}
 	} );
 	window.addEventListener( 'resize', closePanel );
 	window.addEventListener( 'scroll', closePanel, true );

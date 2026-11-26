@@ -107,8 +107,8 @@ class IconService {
 	 *
 	 * @param string $slug      Reaction slug. See `assets/emoji/README.md`.
 	 * @param string $css_class Optional CSS class appended to `bn-emoji`.
-	 * @param string $alt       Optional alt text. Default is the slug as
-	 *                          a human label (e.g. `like` → `Like reaction`).
+	 * @param string $alt       Optional alt text. Default is the reaction's
+	 *                          translated name (e.g. `like` → `Like`).
 	 *                          Pass `''` explicitly for a decorative image
 	 *                          (an `aria-hidden="true"` empty-alt is emitted).
 	 * @return string Sanitized `<img>` markup, safe to echo.
@@ -122,7 +122,7 @@ class IconService {
 		$classes = 'bn-emoji' . ( '' !== $css_class ? ' ' . $css_class : '' );
 
 		if ( null === $alt ) {
-			$alt = ucfirst( str_replace( array( '-', '_' ), ' ', $slug ) ) . ' reaction';
+			$alt = \BuddyNext\Reactions\ReactionService::label( $slug );
 		}
 
 		if ( '' === $alt ) {

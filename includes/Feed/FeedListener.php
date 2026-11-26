@@ -43,6 +43,10 @@ class FeedListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function register(): void {
+		// One live read per card type for the whole page, on the web feed and on REST alike.
+		add_action( 'buddynext_feed_items_primed', array( IntegrationActivity::class, 'prime_live' ), 5, 2 );
+		add_filter( 'buddynext_feed_item_enriched', array( IntegrationActivity::class, 'enrich_item' ), 20, 2 );
+
 		add_action( 'buddynext_post_created', array( $this, 'bust_writer' ), 10, 2 );
 		add_action( 'buddynext_post_deleted', array( $this, 'bust_writer' ), 10, 2 );
 
@@ -68,6 +72,12 @@ class FeedListener implements ListenerInterface {
 		foreach ( array( 'buddynext_comment_deleted', 'buddynext_comment_updated', 'buddynext_comment_restored', 'buddynext_post_updated' ) as $hook ) {
 			add_action( $hook, array( $this, 'bust_writer' ), 10, 2 );
 		}
+
+		// A gained or lost ability changes which gated Spaces' posts this member may read, so
+		// their cached page-1 feeds must not keep serving the old answer for the 30s TTL.
+		foreach ( array( 'buddynext_ability_granted', 'buddynext_ability_revoked' ) as $hook ) {
+			add_action( $hook, fn( $user_id ) => $this->cache->invalidate_writer( (int) $user_id ), 10, 1 );
+		}
 	}
 
 	/**
@@ -89,8 +99,8 @@ class FeedListener implements ListenerInterface {
 	/**
 	 * Invalidate the REPORTER's own first-page feed after they report something.
 	 *
-	 * The call to invalidate_writer() is right despite the name: the version stamp it
-	 * bumps (`home:ver:<id>`) is the same one home_page_1_key() salts the VIEWER's
+	 * The call to invalidate_writer() is right despite the name: the salt it
+	 * moves (family `home:<id>`) is the same one home_page_1_key() salts the VIEWER's
 	 * key with, so bumping it for the reporter rebuilds the reporter's own feed.
 	 *
 	 * @param int    $report_id   Report row (unused - shape only).

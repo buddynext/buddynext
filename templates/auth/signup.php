@@ -24,6 +24,16 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 // this on every auth screen).
 $login_url = \BuddyNext\Core\PageRouter::login_url();
 
+// WordPress's own sign-up form, offered only when a security plugin blocks the
+// community sign-up AND the owner keeps core registration open (otherwise
+// wp-login.php?action=register sends the visitor straight back here).
+$bn_core_signup_url = ( \BuddyNext\Auth\CoreRegistration::is_allowed() && get_option( 'users_can_register' ) )
+	? site_url( 'wp-login.php?action=register', 'login' )
+	: '';
+$bn_blocked_message = '' !== $bn_core_signup_url
+	? __( 'Your site\'s security settings blocked the community sign-up. You can use the standard sign-up form instead.', 'buddynext' )
+	: __( 'Your site\'s security settings blocked the community sign-up. Please contact the site owner.', 'buddynext' );
+
 /*
  * Terms links to an admin-chosen page (Settings → Registration → Legal Pages) —
  * never a guessed slug. Privacy reuses WordPress core's Privacy Policy page
@@ -251,6 +261,8 @@ if ( 'invite' === $bn_reg_mode ) {
 				'challengeEnabled' => (bool) $bn_challenge_on,
 				'challengeToken'   => (string) $bn_challenge['token'],
 				'challengeAnswer'  => '',
+				'blocked'          => false,
+				'blockedMessage'   => $bn_blocked_message,
 			)
 		);
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -290,6 +302,14 @@ if ( 'invite' === $bn_reg_mode ) {
 				<div class="bn-auth-field__msg" role="alert" aria-live="polite"
 					data-wp-bind--hidden="!state.error"
 					data-wp-text="state.error"></div>
+
+				<?php if ( '' !== $bn_core_signup_url ) : ?>
+					<p class="bn-auth-alt" hidden data-wp-bind--hidden="!context.blocked">
+						<a class="bn-auth-link" href="<?php echo esc_url( $bn_core_signup_url ); ?>">
+							<?php esc_html_e( 'Use the standard sign-up form', 'buddynext' ); ?>
+						</a>
+					</p>
+				<?php endif; ?>
 
 				<?php
 				/*
@@ -354,6 +374,7 @@ if ( 'invite' === $bn_reg_mode ) {
 				<?php endif; ?>
 
 				<form class="bn-auth-form"
+					method="post"
 					novalidate
 					data-wp-bind--hidden="state.pending"
 					data-wp-on--submit="actions.submitSignup">
@@ -562,42 +583,18 @@ if ( 'invite' === $bn_reg_mode ) {
 								echo '<p class="bn-auth-group-intro">' . esc_html( $bn_rf_intro ) . '</p>';
 							}
 						}
-						$bn_rf_half  = 'half' === \BuddyNext\Profile\FieldType::sanitize_width( $bn_reg_field['width'] ?? 'auto' );
-						$bn_rf_key   = (string) $bn_reg_field['field_key'];
-						$bn_rf_name  = 'bn_field_' . $bn_rf_key;
-						$bn_rf_req   = ! empty( $bn_reg_field['is_required'] );
-						$bn_rf_input = \BuddyNext\Profile\FieldType::render_input( $bn_reg_field, '', $bn_rf_name );
-
-						// FieldType::render_input already gives every control its own id
-						// ('bn-field-{name}') and carries `required` from the field row, so
-						// the only thing to inject is the tag the signup store collects on.
-						// The old blanket id injection put ONE id on a radio / checkbox
-						// group's N inputs — duplicate ids and an ambiguous label-for.
-						$bn_rf_ctrl_id  = 'bn-field-' . sanitize_html_class( $bn_rf_name );
-						$bn_rf_group    = ( false !== strpos( $bn_rf_input, '<fieldset' ) );
-						$bn_rf_label_id = 'bn-signup-field-' . sanitize_html_class( $bn_rf_key ) . '-label';
-
-						$bn_rf_input = str_replace(
-							array( '<input ', '<select ', '<textarea ' ),
-							array( '<input data-bn-reg-field ', '<select data-bn-reg-field ', '<textarea data-bn-reg-field ' ),
-							$bn_rf_input
-						);
-
-						if ( $bn_rf_group ) {
-							// A group has no single labellable control — point the fieldset
-							// at the visible label instead of a broken <label for>.
-							$bn_rf_input = str_replace(
-								'<fieldset ',
-								'<fieldset aria-labelledby="' . esc_attr( $bn_rf_label_id ) . '" ',
-								$bn_rf_input
-							);
-							// Radios only: `required` on each radio of a group means "pick
-							// one" natively. On a checkbox group it would mean "tick them
-							// ALL", so multiselect is validated server-side instead.
-							if ( $bn_rf_req && false !== strpos( $bn_rf_input, 'bn-field-radio-group' ) ) {
-								$bn_rf_input = str_replace( '<input data-bn-reg-field ', '<input data-bn-reg-field required ', $bn_rf_input );
-							}
-						}
+						$bn_rf_half = 'half' === \BuddyNext\Profile\FieldType::sanitize_width( $bn_reg_field['width'] ?? 'auto' );
+						$bn_rf_key  = (string) $bn_reg_field['field_key'];
+						$bn_rf_name = 'bn_field_' . $bn_rf_key;
+						$bn_rf_req  = ! empty( $bn_reg_field['is_required'] );
+						// One renderer for both registration forms (sign-up and social
+						// finish-sign-up): tags every control for the signup store, labels
+						// groups by aria-labelledby, `required` on radio groups only.
+						$bn_rf_render   = \BuddyNext\Profile\FieldType::render_registration_input( $bn_reg_field, $bn_rf_name, $bn_rf_req );
+						$bn_rf_input    = $bn_rf_render['html'];
+						$bn_rf_group    = $bn_rf_render['is_group'];
+						$bn_rf_ctrl_id  = $bn_rf_render['control_id'];
+						$bn_rf_label_id = $bn_rf_render['label_id'];
 						?>
 						<?php // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- field_wrapper_attributes() escapes. ?>
 						<div class="bn-auth-field<?php echo $bn_rf_half ? ' bn-auth-field--half' : ''; ?>"<?php echo \BuddyNext\Profile\FieldType::field_wrapper_attributes( $bn_reg_field, 0 ); ?>>

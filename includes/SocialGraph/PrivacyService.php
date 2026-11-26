@@ -134,6 +134,7 @@ class PrivacyService {
 			'bn_account_private'            => (bool) get_user_meta( $user_id, 'bn_account_private', true ),
 			'bn_privacy_show_in_directory'  => '0' !== (string) get_user_meta( $user_id, 'bn_privacy_show_in_directory', true ),
 			'bn_privacy_search_indexable'   => '0' !== (string) get_user_meta( $user_id, 'bn_privacy_search_indexable', true ),
+			'bn_privacy_show_online'        => ! \BuddyNext\Realtime\PresenceService::is_hidden( $user_id ),
 			// The canonical Pro-shared key (Pro reads it for who-viewed-your-profile).
 			'bn_pro_hide_profile_views'     => '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true ),
 		);
@@ -329,8 +330,9 @@ class PrivacyService {
 	}
 
 	/**
-	 * Check whether an actor may @mention a target user (i.e. trigger the
-	 * mention notification + link). Honours the target's `bn_privacy_mention`
+	 * Check whether an actor's @mention of a target user sends the target a
+	 * notification. It never controls typing the name or the profile link: a
+	 * mention links to the profile regardless. Honours the target's `bn_privacy_mention`
 	 * audience preference:
 	 *   - 'everyone'    — anyone may mention them (default).
 	 *   - 'members'     — any logged-in member may (every poster qualifies).

@@ -100,7 +100,7 @@ if ( ! empty( $bn_dc_space['avatar_url'] ) ) {
 } elseif ( '' !== $bn_card_cat_slug ) {
 	$bn_card_emblem = wp_kses( $cat_icon, IconService::allowed_tags() );
 } else {
-	$bn_card_emblem = sprintf( '<span class="bn-sd-card__emblem-letter">%s</span>', esc_html( mb_strtoupper( mb_substr( $space_name, 0, 1 ) ) ) );
+	$bn_card_emblem = sprintf( '<span class="bn-sd-card__emblem-letter">%s</span>', esc_html( \BuddyNext\Support\Text::upper( mb_substr( $space_name, 0, 1 ) ) ) );
 }
 ?>
 <?php

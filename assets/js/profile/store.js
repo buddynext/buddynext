@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnMarkReported, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnMarkReported, bnReportDialog, bnResolveConnectNote, bnReloadWithToast, trapFocus, dialogOpener } from '@buddynext/shell-dialog';
 import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 import { foldAccents } from '@buddynext/slug';
@@ -181,6 +181,21 @@ function setCoverPreview( url ) {
 function toggleCoverRemove( show ) {
 	var btn = document.querySelector( '[data-bn-cover-remove]' );
 	if ( btn ) { btn.hidden = ! show; }
+	// Reposition only makes sense while there is a cover to frame.
+	var reposition = document.querySelector( '[data-bn-cover-reposition]' );
+	if ( reposition ) { reposition.hidden = ! show; }
+}
+
+/**
+ * Paint a cover framing onto the edit-page preview and remember it on the element, so the next
+ * Reposition opens on what is shown.
+ */
+function paintCoverFraming( img, x, y, zoom ) {
+	img.style.objectPosition = x + '% ' + y + '%';
+	img.style.transform      = 'scale(' + zoom + ')';
+	img.dataset.focalX    = String( x );
+	img.dataset.focalY    = String( y );
+	img.dataset.focalZoom = String( zoom );
 }
 
 /**
@@ -215,17 +230,44 @@ function buildXIcon() {
 
    No external library: pure Canvas API + pointer events.
    ---------------------------------------------------------------- */
+/** The control that opened the avatar picker, for the crop dialog to hand focus back to. */
+let avatarOpener = null;
+
+/** Copy text to the clipboard and say so; when the browser refuses, ask for a manual copy. */
+function copyText( text, doneMessage ) {
+	if ( ! text ) { return; }
+	const fail = () => bnToast( t( 'couldNotCopyManual', 'Could not copy. Select the text and copy it yourself.' ), { tone: 'danger' } );
+	if ( navigator.clipboard && navigator.clipboard.writeText ) {
+		navigator.clipboard.writeText( text ).then( () => bnToast( doneMessage, { tone: 'success' } ), fail );
+		return;
+	}
+	fail();
+}
+
 async function openAvatarCropModal( file ) {
 	return new Promise( ( resolve ) => {
 		const url = URL.createObjectURL( file );
 		const img = new Image();
+		const unreadable = () => {
+			URL.revokeObjectURL( url );
+			bnToast( t( 'avatarUnreadable', 'That picture could not be opened. Choose a different JPG, PNG, GIF or WebP file.' ), { tone: 'danger' } );
+			resolve( null );
+		};
+		// A source the browser never finishes decoding must not leave the member waiting on nothing.
+		const giveUp = window.setTimeout( unreadable, 20000 );
 		img.onload = () => {
+			window.clearTimeout( giveUp );
+			// Past ~50 megapixels a canvas copy can run the tab out of memory (the server refuses such files too).
+			if ( img.naturalWidth * img.naturalHeight > 50000000 ) {
+				unreadable();
+				return;
+			}
 			URL.revokeObjectURL( url );
 			renderCropModal( img, resolve );
 		};
 		img.onerror = () => {
-			URL.revokeObjectURL( url );
-			resolve( null );
+			window.clearTimeout( giveUp );
+			unreadable();
 		};
 		img.src = url;
 	} );
@@ -234,6 +276,10 @@ async function openAvatarCropModal( file ) {
 function renderCropModal( img, resolve ) {
 	const SIZE   = 360; // canvas square side
 	const OUTPUT = 512; // exported JPEG side
+
+	// Where focus goes back on close: the control that opened the picker (remembered at the click, since the file
+	// chooser runs between the click and here).
+	const opener = avatarOpener || document.activeElement;
 
 	const overlay = document.createElement( 'div' );
 	overlay.className = 'bn-avatar-crop-overlay';
@@ -257,6 +303,19 @@ function renderCropModal( img, resolve ) {
 	canvas.width  = SIZE;
 	canvas.height = SIZE;
 	canvas.className = 'bn-avatar-crop-canvas';
+	// Keyboard framing: the arrow keys move the picture under the mask, as dragging does.
+	canvas.tabIndex = 0;
+	canvas.setAttribute( 'role', 'img' );
+	canvas.setAttribute( 'aria-label', t( 'cropAvatarCanvas', 'Avatar preview. Use the arrow keys to move the picture.' ) );
+	canvas.addEventListener( 'keydown', ( e ) => {
+		const step = e.shiftKey ? 30 : 10;
+		const move = { ArrowLeft: [ step, 0 ], ArrowRight: [ -step, 0 ], ArrowUp: [ 0, step ], ArrowDown: [ 0, -step ] }[ e.key ];
+		if ( ! move ) { return; }
+		e.preventDefault();
+		tx += move[ 0 ];
+		ty += move[ 1 ];
+		draw();
+	} );
 	stage.appendChild( canvas );
 	panel.appendChild( stage );
 
@@ -377,9 +436,13 @@ function renderCropModal( img, resolve ) {
 	actions.appendChild( apply );
 	panel.appendChild( actions );
 
+	// Tab stays inside the dialog (aria-modal promises it) and the focus goes back where it came from.
+	let releaseTrap = null;
 	const cleanup = ( value ) => {
+		if ( releaseTrap ) { releaseTrap(); releaseTrap = null; }
 		overlay.remove();
 		document.removeEventListener( 'keydown', onKey );
+		if ( opener && 'function' === typeof opener.focus && document.contains( opener ) ) { opener.focus(); }
 		resolve( value );
 	};
 
@@ -431,13 +494,17 @@ function renderCropModal( img, resolve ) {
 
 	const onKey = ( e ) => {
 		if ( e.key === 'Escape' ) { cleanup( null ); }
-		if ( e.key === 'Enter'  ) { apply.click(); }
+		// Enter applies from the picture or the slider; on Cancel it is Cancel's own press.
+		if ( e.key === 'Enter' && ! ( e.target && e.target.closest && e.target.closest( 'button' ) ) ) { apply.click(); }
 	};
 	document.addEventListener( 'keydown', onKey );
 
 	overlay.appendChild( panel );
 	document.body.appendChild( overlay );
 	draw();
+	// Focus goes in (the first control, the zoom slider) and Tab is held inside until the dialog closes.
+	releaseTrap = trapFocus( overlay );
+	slider.focus();
 }
 
 
@@ -760,21 +827,23 @@ async function flushStagedMedia( ctx ) {
 		// Reactive busy flag for the cover's deferred upload (see avatar note).
 		ctx.coverUploading = true;
 		var cvFd    = new FormData();
-		cvFd.append( 'avatar', _pendingCover.file );
+		// A staged position with no new file saves the framing of the cover already set.
+		var posOnly = ! _pendingCover.file;
+		if ( ! posOnly ) { cvFd.append( 'avatar', _pendingCover.file ); }
 		cvFd.append( 'focal_x', String( _pendingCover.x ) );
 		cvFd.append( 'focal_y', String( _pendingCover.y ) );
 		cvFd.append( 'focal_zoom', String( _pendingCover.zoom ) );
 		try {
-			var cvRes = await restFetch( profileResourcePath( 'cover' ), {
+			var cvRes = await restFetch( profileResourcePath( posOnly ? 'cover/position' : 'cover' ), {
 				method:       'POST',
 				nonce:        ctx.restNonce,
 				body:         cvFd,
 				toastOnError: false,
 			} );
 			var cvData = cvRes.data || {};
-			if ( cvRes.ok && cvData.cover_url ) {
+			if ( cvRes.ok && ( posOnly ? undefined !== cvData.focal_x : cvData.cover_url ) ) {
 				coverOk      = true;
-				ctx.coverUrl = cvData.cover_url;
+				if ( ! posOnly ) { ctx.coverUrl = cvData.cover_url; }
 				toggleCoverRemove( true );
 			} else {
 				allOk = false;
@@ -1146,6 +1215,8 @@ const profileStore = store( 'buddynext/profile', {
 		// the transitions live in one place.
 		get followBtnHidden() { const c = getContext(); return !! c.isFollowing || !! c.followPending; },
 		/* Two-factor stage visibility (mutually exclusive). */
+		get twofaStatusText() { return getContext().twofaEnabled ? t( 'twofaBadgeOn', 'On' ) : t( 'twofaBadgeOff', 'Off' ); },
+		get twofaStatusTone() { return getContext().twofaEnabled ? 'success' : 'neutral'; },
 		get twofaShowStart()  { const c = getContext(); return ! c.twofaEnabled && c.twofaStage === 'idle'; },
 		get twofaShowSetup()  { return getContext().twofaStage === 'setup'; },
 		get twofaShowBackup() { return getContext().twofaStage === 'backup'; },
@@ -1163,6 +1234,14 @@ const profileStore = store( 'buddynext/profile', {
 		get slugStatusHidden() { const c = getContext(); return c.slugChecking || c.slugAvailable === null; },
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
+		// Reserved and taken are different advice: a free variant of a reserved
+		// word is still reserved. The server's refusal code says which.
+		get slugStatusText() {
+			const code = getContext().slugReason || '';
+			if ( 'handle_reserved' === code ) { return t( 'handleReserved', 'Reserved' ); }
+			if ( 'handle_taken' === code ) { return t( 'handleTaken', 'Taken' ); }
+			return t( 'handleUnavailable', 'Not available' );
+		},
 		// Field error flags for the account forms. The Interactivity expression parser
 		// honours ONE leading "!", so "!!context.errors.x" in markup always evaluated true
 		// and every field opened in its error state; a getter returns a real boolean.
@@ -1306,6 +1385,14 @@ const profileStore = store( 'buddynext/profile', {
 		 * from a real <button> so keyboard activation works without extra
 		 * handlers.
 		 */
+		/* Copy the 2FA setup key or the backup codes (one per line). Falls back to a toast that asks for a manual copy. */
+		copyTwofaSecret() {
+			copyText( getContext().twofaSecret || '', t( 'twofaSecretCopied', 'Setup key copied' ) );
+		},
+		copyTwofaCodes() {
+			copyText( ( getContext().twofaBackupCodes || [] ).join( '\n' ), t( 'twofaCodesCopied', 'Backup codes copied' ) );
+		},
+
 		shareProfile( event ) {
 			const trigger = event.target.closest( '[data-share-url]' );
 			if ( ! trigger ) { return; }
@@ -1678,7 +1765,8 @@ const profileStore = store( 'buddynext/profile', {
 			var nonce = getContext().restNonce;
 			var input = document.createElement( 'input' );
 			input.type   = 'file';
-			input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			// Covers refuse GIF on the server, so the picker does not offer it.
+			input.accept = 'cover' === kind ? 'image/jpeg,image/png,image/webp' : 'image/jpeg,image/png,image/gif,image/webp';
 			// Attached to the page: Safari never fires change on a detached file input.
 			input.hidden = true;
 			document.querySelectorAll( 'input[data-bn-photo-input]' ).forEach( function ( old ) { old.remove(); } );
@@ -1717,13 +1805,15 @@ const profileStore = store( 'buddynext/profile', {
 			if ( ! input ) { return; }
 
 			// The server's alphabet (Handle::CHARSET, lowercased): letters, digits,
-			// hyphen and underscore. A space becomes a hyphen; anything else is
+			// hyphen and underscore. A space or a dot becomes a hyphen, exactly as
+			// the server's sanitize_title() does (john.doe saves as john-doe), so
+			// the box never shows a handle the save would change; anything else is
 			// dropped. Leading and trailing hyphens are left alone here, or a hyphen
 			// could never be typed: the server trims them on save.
 			// Accents fold first, with the table Handle::make_safe() uses.
 			var slug = foldAccents( input.value )
 			                .toLowerCase()
-			                .replace( /\s+/g, '-' )
+			                .replace( /[\s.]+/g, '-' )
 			                .replace( /[^a-z0-9_-]/g, '' );
 
 			// The box is bound to this draft (data-wp-bind--value), so the box and
@@ -1754,6 +1844,7 @@ const profileStore = store( 'buddynext/profile', {
 					if ( thisAbort.signal.aborted ) { return; }
 					if ( res.ok && res.data ) {
 						ctx.slugAvailable = res.data.available;
+						ctx.slugReason    = res.data.reason || '';
 					}
 					ctx.slugChecking = false;
 				} );
@@ -1785,7 +1876,10 @@ const profileStore = store( 'buddynext/profile', {
 				} else {
 					toastRestError( res, t( 'saveFailed', 'Could not save. Try again.' ) );
 					// Taken in the meantime: the live check's "available" is out of date.
-					if ( 409 === res.status ) { ctx.slugAvailable = false; }
+					if ( 409 === res.status ) {
+						ctx.slugAvailable = false;
+						ctx.slugReason    = ( res.data && res.data.code ) || '';
+					}
 				}
 			} )
 			   .finally( function () { ctx.slugSaving = false; } );
@@ -1840,13 +1934,23 @@ const profileStore = store( 'buddynext/profile', {
 			if ( el ) { el.click(); }
 		},
 		triggerAvatarUpload() {
+			avatarOpener = dialogOpener();
 			var el = document.getElementById( 'bn-ep-avatar-file' );
 			if ( el ) { el.click(); }
 		},
 
 		async handleAvatarFileChange( event ) {
+			// Picking a file is not an edit yet: only Apply stages one and marks the form dirty, so opening the cropper and
+			// cancelling leaves no "unsaved changes" behind.
+			if ( event && 'function' === typeof event.stopPropagation ) { event.stopPropagation(); }
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
+			// Only a picture can be cropped: say so instead of ignoring the pick.
+			if ( ! /^image\/(jpeg|png|gif|webp)$/.test( file.type ) ) {
+				bnToast( t( 'avatarNotAnImage', 'Choose a JPG, PNG, GIF or WebP picture.' ), { tone: 'danger' } );
+				event.target.value = '';
+				return;
+			}
 
 			// Capture the Interactivity context BEFORE any await — getContext()
 			// only resolves synchronously within the action's initial scope, so
@@ -1946,6 +2050,42 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
+		/**
+		 * Reposition the cover that is already set: the same window as a new cover, opened on the
+		 * current picture and its saved framing. Apply stages the framing (like a new cover) and it is
+		 * saved with Save changes; Cancel changes nothing.
+		 */
+		async repositionCover() {
+			var ctx = getContext();
+			var img = document.querySelector( '[data-bn-cover-preview]' );
+			var src = _pendingCover && _pendingCover.file ? _pendingCover.file : ( img ? img.getAttribute( 'src' ) : '' );
+			if ( ! img || ! src ) { return; }
+
+			var wrap   = img.closest( '.bn-pf-cover' );
+			var box    = wrap ? wrap.getBoundingClientRect() : null;
+			var num    = function ( v, fallback ) { var n = parseFloat( v ); return isFinite( n ) ? n : fallback; };
+			var repos  = await openCoverReposModal( src, t, {
+				initial: { x: num( img.dataset.focalX, 50 ), y: num( img.dataset.focalY, 50 ), zoom: num( img.dataset.focalZoom, 1 ) },
+				aspect:  box && box.height > 0 ? box.width / box.height : 0,
+			} );
+			if ( ! repos ) { return; }
+
+			if ( _pendingCover ) {
+				_pendingCover.x    = repos.x;
+				_pendingCover.y    = repos.y;
+				_pendingCover.zoom = repos.zoom;
+			} else {
+				_pendingCover = { file: null, x: repos.x, y: repos.y, zoom: repos.zoom };
+			}
+			ctx.coverFocalX = repos.x;
+			ctx.coverFocalY = repos.y;
+			ctx.coverZoom   = repos.zoom;
+			paintCoverFraming( img, repos.x, repos.y, repos.zoom );
+			ctx.isDirty = true;
+			syncDirtyAttr( true );
+			bnToast( t( 'coverPositionReady', 'Position ready: click Save changes to keep it' ), { tone: 'info' } );
+		},
+
 		async handleCoverFileChange( event ) {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
@@ -1975,8 +2115,7 @@ const profileStore = store( 'buddynext/profile', {
 				if ( coverImg ) {
 					coverImg.src = URL.createObjectURL( file );
 					coverImg.style.display = '';
-					coverImg.style.objectPosition = repos.x + '% ' + repos.y + '%';
-					coverImg.style.transform = 'scale(' + repos.zoom + ')';
+					paintCoverFraming( coverImg, repos.x, repos.y, repos.zoom );
 					var wrap = coverImg.closest( '.bn-pf-cover' );
 					if ( wrap ) { wrap.classList.add( 'bn-pf-cover--has-image' ); }
 				}
@@ -2233,7 +2372,20 @@ const profileStore = store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw res; }
-				bnToast( wasMuted ? t( 'unmuted', 'Unmuted' ) : t( 'muted', 'Muted' ), { tone: 'success' } );
+				// Instant, so the toast carries Undo: the opposite request, and the button label follows.
+				bnToast( wasMuted ? t( 'unmuted', 'Unmuted' ) : t( 'muted', 'Muted' ), {
+					tone: 'success',
+					timeout: 6000,
+					action: {
+						label: t( 'undo', 'Undo' ),
+						onClick: async function () {
+							var back = await restFetch( '/users/' + ctx.profileUserId + '/mute', {
+								method: wasMuted ? 'POST' : 'DELETE', nonce: ctx.restNonce, toastOnError: false,
+							} );
+							if ( back.ok ) { ctx.isMuted = wasMuted; }
+						},
+					},
+				} );
 			} catch ( e ) {
 				ctx.isMuted = wasMuted;
 				toastRestError( e, t( 'muteFailed', 'Could not update mute state' ) );

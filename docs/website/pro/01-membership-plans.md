@@ -30,7 +30,7 @@ Members never touch the admin. They see two surfaces, and BuddyNext creates both
 - **The pricing page** - a normal, editable WordPress page at `/membership-plans/` by default. It carries the pricing block, and because it is a real page you can add a hero, testimonials, an FAQ, anything, with the editor you already use. Since 1.2.4 it renders inside the community layout (same header, menu, light and dark mode and phone layout as every community page) instead of the theme's page template, and it stays open to visitors when the community is private, so people can buy before they join.
 - **Settings > Membership** - the member's own billing area, at `/settings/membership/`, sitting alongside their notification settings.
 
-You can rename the pricing slug, or point it at a different page, from Settings → Pages & URLs. The default slug avoids the bare `/membership/` path, which other plugins sometimes claim. If the page is ever deleted, BuddyNext recreates it on the next admin screen load while Monetization is on. The billing area is a settings tab rather than a page, so it needs no Pages & URLs row.
+You can rename the pricing slug, or point it at a different page, from Settings → Pages & URLs; the old address then redirects to the new one (see [Rename Members and Spaces](../recipes/08-rename-members-and-spaces.md)). The default slug avoids the bare `/membership/` path, which other plugins sometimes claim. If the page is ever deleted, BuddyNext recreates it on the next admin screen load while Monetization is on. The billing area is a settings tab rather than a page, so it needs no Pages & URLs row.
 
 ### View the plans and subscribe
 
@@ -278,7 +278,7 @@ The Subscriptions tab is your record of who has access. It lists each subscripti
 - Reinstate - on an expired or cancelled row, makes it active again from today.
 
 The tab has three views: **Subscriptions**, **Orders**, and **Add order**.
-- **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders view has the same button.
+- **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders view has the same button. Cells that could run as a spreadsheet formula are written as plain text with a leading single quote.
 
 A subscription's source tells you how it was created: a gateway name (such as Stripe or PayPal) for a paid purchase, **Granted by admin** for access you granted outside checkout, **Default plan** for the plan every new member is placed on, or **Test payment** for a Test gateway purchase. A membership granted by another system - WooCommerce, Paid Memberships Pro, or any integration that uses the source contract - is named as that source and is deliberately **not** counted as revenue this site collected.
 
@@ -335,6 +335,8 @@ The same section shows the member's **Billing history** and links to all their o
 **Selling through another checkout (1.2.5).** A payment taken somewhere else, on a checkout page, in Make, Zapier or n8n, can give the buyer their plan without anyone opening wp-admin. The outside tool sends a signed request to your site's access webhook to grant a plan, extend it when the buyer renews, or cancel it. A cancel lets the member keep access to the end of what they paid for, unless the tool asks for it to end now. If the tool sends the order reference and the amount paid, **Monetization > Subscriptions** shows them on that member's row, for example "Order order-1002 · $19.00", so you can match a plan to a payment. These amounts are not counted in your revenue figures, because BuddyNext did not take the money. Setup is on **Platform > Webhooks**: see [Outbound Webhooks](../integrations/06-outbound-webhooks.md) for the owner steps and [Webhooks REST](../developer-guide/23-rest-webhooks.md) for the request format.
 
 Separately, the Plans tab shows a **Plans granted by other systems** panel whenever a bridge to another Wbcom app or a supported third-party system (WooCommerce, Paid Memberships Pro, and the like) is active. It lists, read-only, which purchase or level on that system currently maps to which BuddyNext plan - so you can see at a glance that, say, a WooCommerce product grants your Premium plan, without visiting that system's own screen. A mapping that points at a plan you have since deleted is called out so you can fix it. The mapping itself is configured on each system's own screen, not here.
+
+These links only work while **Memberships** is on. If WooCommerce or Paid Memberships Pro is active and Memberships is off, a purchase there unlocks no community plan, so BuddyNext says so: a notice on BuddyNext admin screens, and one line on the PMPro level and WooCommerce product editors, each with a **Turn on Memberships** button that switches the feature on for you. Each admin can dismiss the notice for themselves. The wording follows the active plugin: levels for Paid Memberships Pro, products for WooCommerce, both when both are active.
 
 ### The printable invoice
 
@@ -403,6 +405,11 @@ Within Pro, taking real payments needs a payment gateway. Pro is built to work w
 
 - BuddyNext Pro active alongside BuddyNext.
 - A connected payment gateway (Stripe or PayPal, or another connected gateway) to charge members through checkout. Without one, you can still define plans and grant access by hand while you finish setting up.
+
+## What changed in 1.3.0
+
+- With paid memberships off, the plans page says so instead of staying empty, and members never see owner setup text.
+- When you have not chosen a Recommended plan and have two or more paid plans, the first paid plan is featured.
 
 ## Related
 

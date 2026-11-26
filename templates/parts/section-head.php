@@ -16,6 +16,8 @@
  *
  * @var string   $title         Required. Heading text.
  * @var string   $subtitle      Optional. Smaller supporting text shown beneath the title.
+ * @var string   $subtitle_bind Optional. Interactivity state path bound to the subtitle text
+ *                              (data-wp-text), for a surface whose count changes live.
  * @var string   $title_icon    Optional. Lucide-icon slug rendered before the title.
  * @var string   $heading_level Optional. One of 'h1'|'h2'|'h3'. Default 'h1'.
  * @var string   $actions_html  Optional. Pre-built HTML for the actions slot.
@@ -43,6 +45,7 @@ $bn_allowed_levels = array( 'h1', 'h2', 'h3' );
 $args = array(
 	'title'          => isset( $title ) ? (string) $title : '',
 	'subtitle'       => isset( $subtitle ) ? (string) $subtitle : '',
+	'subtitle_bind'  => isset( $subtitle_bind ) ? (string) $subtitle_bind : '',
 	'title_icon'     => isset( $title_icon ) ? (string) $title_icon : '',
 	'heading_level'  => ( isset( $heading_level ) && in_array( (string) $heading_level, $bn_allowed_levels, true ) ) ? (string) $heading_level : 'h1',
 	'actions_html'   => isset( $actions_html ) ? (string) $actions_html : '',
@@ -91,7 +94,11 @@ do_action( 'buddynext_part_section_head_before', $args );
 				<?php echo esc_html( (string) $args['title'] ); ?>
 			</<?php echo esc_html( $bn_h ); ?>>
 			<?php if ( '' !== (string) $args['subtitle'] ) : ?>
-				<p class="bn-section-head__subtitle"><?php echo esc_html( (string) $args['subtitle'] ); ?></p>
+				<p class="bn-section-head__subtitle"
+					<?php if ( '' !== (string) $args['subtitle_bind'] ) : ?>
+						data-wp-text="<?php echo esc_attr( (string) $args['subtitle_bind'] ); ?>"
+					<?php endif; ?>
+				><?php echo esc_html( (string) $args['subtitle'] ); ?></p>
 			<?php endif; ?>
 			<?php if ( ! empty( $args['meta'] ) ) : ?>
 				<div class="bn-section-head__meta">

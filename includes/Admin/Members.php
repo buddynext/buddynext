@@ -69,15 +69,37 @@ class Members extends AdminPageBase {
 		AdminHub::register_tab(
 			'members',
 			'directory',
-			__( 'Directory', 'buddynext' ),
+			__( 'Members directory', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array(
-				'subtitle' => __( 'Manage your community members', 'buddynext' ),
-				'action'   => $this->build_export_action(),
+				'subtitle'      => __( 'Manage your community members', 'buddynext' ),
+				'action'        => $this->build_export_action(),
 				// Nested tabs this page renders off the same ?tab= var (see
 				// render_page()). Declared so the hub router treats them as valid links
 				// to this tab, not misroutes (card 10264294727).
-				'subtabs'  => self::SUBTABS,
+				'subtabs'       => self::SUBTABS,
+				'subtab_titles' => array(
+					'profile-fields'  => array(
+						'title'    => __( 'Profile fields', 'buddynext' ),
+						'subtitle' => __( 'The fields members fill in on their profile', 'buddynext' ),
+					),
+					'avatar-settings' => array(
+						'title'    => __( 'Avatar and cover', 'buddynext' ),
+						'subtitle' => __( 'Profile pictures and cover images', 'buddynext' ),
+					),
+					'member-types'    => array(
+						'title'    => __( 'Member types', 'buddynext' ),
+						'subtitle' => __( 'Group members by what they do in your community', 'buddynext' ),
+					),
+					'invites'         => array(
+						'title'    => __( 'Invites', 'buddynext' ),
+						'subtitle' => __( 'Invite people to join, one by one or in bulk', 'buddynext' ),
+					),
+					'pending'         => array(
+						'title'    => __( 'Pending approval', 'buddynext' ),
+						'subtitle' => __( 'New accounts waiting for an administrator', 'buddynext' ),
+					),
+				),
 			)
 		);
 
@@ -165,6 +187,7 @@ class Members extends AdminPageBase {
 	 *   'orderby'  string User field to order by. Default 'registered'.
 	 *   'order'    string 'ASC' | 'DESC'. Default 'DESC'.
 	 *   'role'     string WP role slug to filter by. Default '' (all roles).
+	 *   'member_type' string Member type slug to filter by. Default '' (all types).
 	 *
 	 * @param array<string, mixed> $args Query arguments.
 	 * @return array{ members: array<int, array<string, mixed>>, total: int, pages: int }
@@ -246,7 +269,10 @@ class Members extends AdminPageBase {
 			add_action( 'pre_user_query', $presence_sort );
 		}
 
-		$user_query = new \WP_User_Query( $query_args );
+		$type_slug  = sanitize_key( (string) ( $args['member_type'] ?? '' ) );
+		$user_query = '' !== $type_slug
+			? buddynext_service( 'member_types' )->within_type( $type_slug, static fn() => new \WP_User_Query( $query_args ) )
+			: new \WP_User_Query( $query_args );
 
 		if ( null !== $presence_sort ) {
 			remove_action( 'pre_user_query', $presence_sort );
@@ -289,9 +315,12 @@ class Members extends AdminPageBase {
 			}
 		}
 
+		$type_names = buddynext_service( 'member_types' )->names_for_users( $result_ids );
+
 		$members = array();
 		foreach ( $user_query->get_results() as $user ) {
 			$members[] = array(
+				'member_types'     => $type_names[ (int) $user->ID ] ?? array(),
 				'id'               => $user->ID,
 				'login'            => $user->user_login,
 				// The mentionable handle is user_nicename, NOT user_login: mentions
@@ -480,11 +509,50 @@ class Members extends AdminPageBase {
 			case 'reason_required':
 			case 'invalid_reason':
 				return __( 'The member was not suspended: choose a reason, and add a note when you pick Other.', 'buddynext' );
+			case 'self':
+				return __( 'The member was not suspended: you cannot suspend your own account.', 'buddynext' );
+			case 'outranked':
+			case 'network_admin':
+				return __( 'The member was not suspended: they hold more authority than you.', 'buddynext' );
+			case 'indefinite':
+				return __( 'The member was not suspended: only a community or site admin can suspend without an end date. Choose a duration.', 'buddynext' );
+			case 'permission':
 			case 'forbidden':
 				return __( 'The member was not suspended: you do not have permission for this suspension.', 'buddynext' );
 			default:
 				return __( 'The member was not suspended. Please try again.', 'buddynext' );
 		}
+	}
+
+	/**
+	 * Whether the edit form cleared a custom profile slug the member holds.
+	 *
+	 * Only a field that was sent and is blank counts, and only when there is a
+	 * custom slug to clear, so an unrelated save never touches the handle.
+	 * Callers verify the nonce first.
+	 *
+	 * @param int $user_id Member being edited.
+	 * @return bool
+	 */
+	private static function slug_cleared( int $user_id ): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- every caller runs check_admin_referer() first.
+		return isset( $_POST['bn_profile_slug'] ) && '' === trim( sanitize_text_field( wp_unslash( (string) $_POST['bn_profile_slug'] ) ) )
+			&& '' !== (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+	}
+
+	/**
+	 * The notice key for a refused suspension: the service's refusal reason when
+	 * it gave one (self, outranked ...), else the error code.
+	 *
+	 * Several refusals share the `forbidden` code, so the code alone collapsed
+	 * "you cannot suspend your own account" into "no permission".
+	 *
+	 * @param \WP_Error $error Refusal from suspension_from_request() or suspend_user().
+	 * @return string
+	 */
+	public static function suspend_error_key( \WP_Error $error ): string {
+		$data = $error->get_error_data();
+		return is_array( $data ) && ! empty( $data['reason'] ) ? sanitize_key( (string) $data['reason'] ) : (string) $error->get_error_code();
 	}
 
 	/**
@@ -505,41 +573,6 @@ class Members extends AdminPageBase {
 		delete_transient( self::STATS_CACHE );
 
 		return $result;
-	}
-
-	/**
-	 * Export all community members as a CSV string.
-	 *
-	 * Returns a UTF-8 CSV with a header row and one data row per member,
-	 * ordered by registration date ascending.
-	 *
-	 * @return string CSV content ready to stream or save.
-	 */
-	public function export_members_csv(): string {
-		$users = get_users(
-			array(
-				'orderby' => 'registered',
-				'order'   => 'ASC',
-				'fields'  => array( 'ID', 'user_login', 'user_nicename', 'user_email', 'user_registered' ),
-			)
-		);
-
-		$rows   = array();
-		$rows[] = 'ID,Login,Email,Registered';
-
-		foreach ( $users as $user ) {
-			$rows[] = implode(
-				',',
-				array(
-					(int) $user->ID,
-					'"' . str_replace( '"', '""', $user->user_login ) . '"',
-					'"' . str_replace( '"', '""', $user->user_email ) . '"',
-					'"' . str_replace( '"', '""', $user->user_registered ) . '"',
-				)
-			);
-		}
-
-		return implode( "\n", $rows );
 	}
 
 	// ── Admin-post handlers ────────────────────────────────────────────────────
@@ -616,7 +649,7 @@ class Members extends AdminPageBase {
 					? array(
 						'page'     => 'buddynext-members',
 						'action'   => 'suspend_failed',
-						'bn_error' => $result->get_error_code(),
+						'bn_error' => self::suspend_error_key( $result ),
 					)
 					: array(
 						'page'    => 'buddynext-members',
@@ -701,6 +734,9 @@ class Members extends AdminPageBase {
 						</select>
 						<span class="bn-field-hint">
 							<?php esc_html_e( 'Controls moderation powers inside the community. Separate from the WordPress role above. Saved with the profile.', 'buddynext' ); ?>
+							<?php if ( \BuddyNext\Media\MediaClient::available() ) : ?>
+								<?php esc_html_e( 'Moderators can open any member\'s media, private included, so they can act on reports.', 'buddynext' ); ?>
+							<?php endif; ?>
 						</span>
 					</div>
 				</div>
@@ -811,14 +847,13 @@ class Members extends AdminPageBase {
 		$raw_ids = isset( $_POST['ids'] ) ? (array) wp_unslash( $_POST['ids'] ) : array();
 		$ids     = array_values( array_unique( array_filter( array_map( 'absint', $raw_ids ) ) ) );
 
-		$current = get_current_user_id();
-		$done    = 0;
+		$done = 0;
 		// One reason for the whole batch, from the same modal a single suspend uses.
 		$bn_bulk_suspend = 'suspend' === $bulk_action ? self::suspension_from_request() : array();
 		if ( '' !== $bulk_action && ! empty( $ids ) ) {
 			foreach ( $ids as $uid ) {
-				// Never let a bulk action hit yourself or another administrator.
-				if ( $uid === $current || user_can( $uid, 'manage_options' ) ) {
+				// Never let a bulk action hit an administrator (yourself included).
+				if ( user_can( $uid, 'manage_options' ) ) {
 					continue;
 				}
 				if ( 'suspend' === $bulk_action ) {
@@ -842,7 +877,7 @@ class Members extends AdminPageBase {
 					? array(
 						'page'     => 'buddynext-members',
 						'action'   => 'suspend_failed',
-						'bn_error' => $bn_bulk_suspend->get_error_code(),
+						'bn_error' => self::suspend_error_key( $bn_bulk_suspend ),
 					)
 					: array(
 						'page'        => 'buddynext-members',
@@ -858,39 +893,60 @@ class Members extends AdminPageBase {
 	/**
 	 * The first reason this member edit cannot be saved, or '' when it can.
 	 *
-	 * Checks only; nothing is written here. Covers the avatar and cover uploads,
-	 * the email, the WordPress role and the handle. Profile fields are validated
-	 * by ProfileService::save_profile(), which the handler runs before any other
-	 * write.
+	 * Checks only; nothing is written here. Covers who may edit this member, the
+	 * avatar and cover uploads, the email, display name, WordPress role and the
+	 * handle. Profile fields are validated by ProfileService::save_profile(),
+	 * which the handler runs before any other write.
+	 *
+	 * Authorization follows WordPress's own user screens. The handler gate is
+	 * manage_options, which on a network a site administrator holds while core
+	 * refuses them `edit_user` on other members. So the account fields core owns
+	 * (email, display name, handle) need `edit_user` for this member, a role change
+	 * needs `promote_user`, and a network super admin can only be edited by a super
+	 * admin. Community data (profile fields, photos, type) stays a manage_options
+	 * job. On a single site an administrator holds every one of these caps, so
+	 * nothing changes there.
 	 *
 	 * @param int      $user_id Member being edited.
 	 * @param \WP_User $wp_user That member.
 	 * @return string An error code for the `bn_error` query arg, or ''.
 	 */
 	private function member_edit_error( int $user_id, \WP_User $wp_user ): string {
+		if ( self::is_protected_super_admin( $user_id ) ) {
+			return 'member_forbidden';
+		}
+
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- check_admin_referer() ran in the caller.
 		$images = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
 		foreach ( array(
 			'avatar' => 2,
 			'cover'  => 5,
 		) as $kind => $max_mb ) {
-			$file = isset( $_FILES[ 'bn_' . $kind ] ) && is_array( $_FILES[ 'bn_' . $kind ] ) ? $_FILES[ 'bn_' . $kind ] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- size and type are compared, never stored.
+			$file = isset( $_FILES[ 'bn_' . $kind ] ) && is_array( $_FILES[ 'bn_' . $kind ] ) ? $_FILES[ 'bn_' . $kind ] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- size and real type are checked, never stored.
 			if ( empty( $file['name'] ) ) {
 				continue;
 			}
 			if ( isset( $file['size'] ) && (int) $file['size'] > $max_mb * MB_IN_BYTES ) {
 				return $kind . '_size';
 			}
-			if ( isset( $file['type'] ) && ! in_array( $file['type'], $images, true ) ) {
+			// Judged on the file's bytes, never on $_FILES['type'], which the browser
+			// sets. The same core check the front-end uploads use.
+			$check = wp_check_filetype_and_ext( (string) ( $file['tmp_name'] ?? '' ), sanitize_file_name( (string) $file['name'] ) );
+			if ( empty( $check['type'] ) || ! in_array( $check['type'], $images, true ) ) {
 				return $kind . '_type';
 			}
 		}
+
+		$can_edit_account = current_user_can( 'edit_user', $user_id );
 
 		// Judged on what was typed: sanitize_email() turns a value with no "@" into '',
 		// which read as "left blank" and reported a save that never happened.
 		$raw_email = isset( $_POST['bn_user_email'] ) ? trim( (string) wp_unslash( $_POST['bn_user_email'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized on the next line.
 		$new_email = sanitize_email( $raw_email );
 		if ( '' !== $raw_email && $new_email !== $wp_user->user_email ) {
+			if ( ! $can_edit_account ) {
+				return 'account_forbidden';
+			}
 			if ( ! is_email( $new_email ) ) {
 				return 'email_invalid';
 			}
@@ -900,18 +956,63 @@ class Members extends AdminPageBase {
 			}
 		}
 
-		$new_role = isset( $_POST['bn_user_role'] ) ? sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) : '';
-		if ( '' !== $new_role && ! in_array( $new_role, array_keys( wp_roles()->get_names() ), true ) ) {
-			return 'role_invalid';
+		$new_name = isset( $_POST['display_name'] ) ? sanitize_text_field( wp_unslash( $_POST['display_name'] ) ) : '';
+		if ( '' !== $new_name && $new_name !== $wp_user->display_name && ! $can_edit_account ) {
+			return 'account_forbidden';
 		}
 
+		$new_role = isset( $_POST['bn_user_role'] ) ? sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) : '';
+		if ( '' !== $new_role ) {
+			if ( ! in_array( $new_role, array_keys( wp_roles()->get_names() ), true ) ) {
+				return 'role_invalid';
+			}
+			$current_role = (string) ( array_values( (array) $wp_user->roles )[0] ?? '' );
+			if ( $new_role !== $current_role && ! current_user_can( 'promote_user', $user_id ) ) {
+				return 'role_forbidden';
+			}
+		}
+
+		// Only a changed handle is judged: a member already holding a word that is
+		// reserved today keeps it through an unrelated edit.
 		$new_slug = isset( $_POST['bn_profile_slug'] ) ? sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) ) : '';
-		if ( '' !== $new_slug && ! \BuddyNext\Core\PageRouter::is_slug_available( $new_slug, $user_id ) ) {
-			return 'slug_taken';
+		if ( '' !== $new_slug && (string) get_user_meta( $user_id, 'bn_profile_slug', true ) !== $new_slug ) {
+			if ( ! $can_edit_account ) {
+				return 'account_forbidden';
+			}
+			// Asked as an administrator: this screen may give a staff account a
+			// reserved impersonation word (support, staff ...); route words stay
+			// refused for everyone.
+			$refusal = \BuddyNext\Core\PageRouter::slug_refusal( $new_slug, $user_id, true );
+			if ( null !== $refusal ) {
+				return 'handle_reserved' === $refusal->get_error_code() ? 'slug_reserved' : 'slug_taken';
+			}
+		} elseif ( self::slug_cleared( $user_id ) ) {
+			// A cleared field means "back to the default handle": it must be free.
+			if ( ! $can_edit_account ) {
+				return 'account_forbidden';
+			}
+			$bn_default = \BuddyNext\Profile\Handle::default_for( $wp_user );
+			if ( $bn_default !== $wp_user->user_nicename && ! \BuddyNext\Core\PageRouter::is_slug_available( $bn_default, $user_id, true ) ) {
+				return 'slug_default_taken';
+			}
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		return '';
+	}
+
+	/**
+	 * Whether this member is a network super admin the current user may not edit.
+	 *
+	 * Core already refuses `edit_user` here, but `promote_user` and the community
+	 * fields are not tied to the target, so the edit screen refuses the whole
+	 * save rather than letting a site administrator reshape a super admin.
+	 *
+	 * @param int $user_id Member being edited.
+	 * @return bool
+	 */
+	public static function is_protected_super_admin( int $user_id ): bool {
+		return is_multisite() && is_super_admin( $user_id ) && ! is_super_admin();
 	}
 
 	/**
@@ -1036,6 +1137,11 @@ class Members extends AdminPageBase {
 			}
 		}
 
+		// A photo the image editor cannot process (or a handle lost to a race) is
+		// reported, not dropped: the rest of the edit still saves, and the notice
+		// says what did not.
+		$partial_error = '';
+
 		// Handle avatar removal.
 		if ( ! empty( $_POST['bn_remove_avatar'] ) ) {
 			delete_user_meta( $user_id, 'bn_avatar' );
@@ -1059,7 +1165,9 @@ class Members extends AdminPageBase {
 			$avatar_tmp = isset( $_FILES['bn_avatar']['tmp_name'] ) ? (string) $_FILES['bn_avatar']['tmp_name'] : '';
 			$uploaded   = ( new \BuddyNext\Media\ImageStorageService() )->store( $avatar_tmp, 'avatar', 'user', (int) $user_id );
 
-			if ( ! is_wp_error( $uploaded ) ) {
+			if ( is_wp_error( $uploaded ) ) {
+				$partial_error = 'avatar_failed';
+			} else {
 				update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $uploaded ) );
 				wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
 				wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
@@ -1081,12 +1189,14 @@ class Members extends AdminPageBase {
 			$cover_tmp      = isset( $_FILES['bn_cover']['tmp_name'] ) ? (string) $_FILES['bn_cover']['tmp_name'] : '';
 			$cover_uploaded = ( new \BuddyNext\Media\ImageStorageService() )->store( $cover_tmp, 'cover', 'user', (int) $user_id );
 
-			if ( ! is_wp_error( $cover_uploaded ) ) {
+			if ( is_wp_error( $cover_uploaded ) ) {
+				$partial_error = 'cover_failed';
+			} else {
 				( new \BuddyNext\Profile\AvatarService() )->save_cover_url( (int) $user_id, (string) $cover_uploaded );
 			}
 		}
 
-		// Handle display name update.
+		// Handle display name update (checked in member_edit_error() above).
 		if ( isset( $_POST['display_name'] ) && '' !== $_POST['display_name'] ) {
 			wp_update_user(
 				array(
@@ -1114,11 +1224,20 @@ class Members extends AdminPageBase {
 			self::swap_primary_role( $user_id, sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) );
 		}
 
-		// Handle profile slug update.
-		if ( isset( $_POST['bn_profile_slug'] ) && '' !== $_POST['bn_profile_slug'] ) {
+		// Handle profile slug update. A cleared field returns the member to the
+		// default handle (their username); it used to be ignored, so a custom slug
+		// could never be removed.
+		if ( self::slug_cleared( $user_id ) ) {
+			if ( is_wp_error( \BuddyNext\Profile\Handle::reset( $user_id ) ) ) {
+				$partial_error = 'slug_default_taken';
+			}
+		} elseif ( isset( $_POST['bn_profile_slug'] ) && '' !== $_POST['bn_profile_slug'] ) {
 			$new_slug = sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) );
-			if ( '' !== $new_slug ) {
-				\BuddyNext\Profile\Handle::set( $user_id, $new_slug ); // Availability checked in member_edit_error() above.
+			if ( '' !== $new_slug && (string) get_user_meta( $user_id, 'bn_profile_slug', true ) !== $new_slug ) {
+				// Availability checked in member_edit_error() above; a lost race still reports.
+				if ( is_wp_error( \BuddyNext\Profile\Handle::set( $user_id, $new_slug, true ) ) ) {
+					$partial_error = 'slug_taken';
+				}
 			}
 		}
 
@@ -1137,9 +1256,12 @@ class Members extends AdminPageBase {
 		 */
 		do_action( 'buddynext_admin_member_profile_saved', $user_id, $wp_user, $profile_data );
 
-		wp_safe_redirect(
-			add_query_arg( 'saved', '1', $redirect_url )
-		);
+		$done = array( 'saved' => '1' );
+		if ( '' !== $partial_error ) {
+			$done['bn_error'] = $partial_error;
+		}
+
+		wp_safe_redirect( add_query_arg( $done, $redirect_url ) );
 		exit;
 	}
 
@@ -1331,6 +1453,19 @@ class Members extends AdminPageBase {
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="bn_export_members">
 			<?php wp_nonce_field( 'bn_export_members' ); ?>
+			<?php
+			// The export follows what the owner is looking at: the same search, role, member type and Active or Suspended tab.
+			// phpcs:disable WordPress.Security.NonceVerification.Recommended
+			foreach ( array( 's', 'role', 'member_type', 'status' ) as $bn_key ) :
+				$bn_val = sanitize_text_field( wp_unslash( $_GET[ $bn_key ] ?? '' ) );
+				if ( '' !== $bn_val ) :
+					?>
+					<input type="hidden" name="<?php echo esc_attr( $bn_key ); ?>" value="<?php echo esc_attr( $bn_val ); ?>">
+					<?php
+				endif;
+			endforeach;
+			// phpcs:enable WordPress.Security.NonceVerification.Recommended
+			?>
 			<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
 				<?php esc_html_e( 'Export CSV', 'buddynext' ); ?>
 			</button>
@@ -1456,7 +1591,7 @@ class Members extends AdminPageBase {
 				</p>
 			</div>
 			<span class="bn-alert__action">
-				<a class="button button-primary" href="<?php echo esc_url( $repair_url ); ?>">
+				<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $repair_url ); ?>">
 					<?php esc_html_e( 'Repair handles', 'buddynext' ); ?>
 				</a>
 			</span>
@@ -1564,6 +1699,8 @@ class Members extends AdminPageBase {
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$role_filter = sanitize_key( wp_unslash( $_GET['role'] ?? '' ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$type_filter = sanitize_key( wp_unslash( $_GET['member_type'] ?? '' ) );
 
 		// Sort: default newest-joined; ?orderby=display_name lists the roster
 		// alphabetically (C5 — sortability parity with Spaces:Directory), and
@@ -1585,16 +1722,39 @@ class Members extends AdminPageBase {
 		$bn_order = strtoupper( sanitize_key( wp_unslash( $_GET['order'] ?? 'DESC' ) ) );
 		$bn_order = 'ASC' === $bn_order ? 'ASC' : 'DESC';
 
+		// The Sort menu in the filter bar sends both parts as one value, so it works on a
+		// narrow screen where the Joined and Last active column headings are hidden. It
+		// wins over the heading links, which clear it when used.
+		$bn_sorts = array(
+			'registered' => array( 'registered', 'DESC' ),
+			'name'       => array( 'display_name', 'ASC' ),
+			'active'     => array( 'last_active', 'DESC' ),
+			'dormant'    => array( 'last_active', 'ASC' ),
+		);
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$bn_sort_key = sanitize_key( wp_unslash( $_GET['sort'] ?? '' ) );
+		if ( isset( $bn_sorts[ $bn_sort_key ] ) ) {
+			list( $bn_orderby, $bn_order ) = $bn_sorts[ $bn_sort_key ];
+		}
+		if ( 'display_name' === $bn_orderby ) {
+			$bn_sort_now = 'name';
+		} elseif ( 'last_active' === $bn_orderby ) {
+			$bn_sort_now = 'ASC' === $bn_order ? 'dormant' : 'active';
+		} else {
+			$bn_sort_now = 'registered';
+		}
+
 		$data    = $this->list_members(
 			array(
-				'page'    => $page,
-				'search'  => $search,
-				'status'  => $status,
-				'role'    => $role_filter,
-				'orderby' => $bn_orderby,
+				'page'        => $page,
+				'search'      => $search,
+				'status'      => $status,
+				'role'        => $role_filter,
+				'member_type' => $type_filter,
+				'orderby'     => $bn_orderby,
 				// A-Z reads ascending; last_active honours the toggle so an owner
 				// can flip to dormant-first; joined stays newest-first.
-				'order'   => 'display_name' === $bn_orderby ? 'ASC' : ( 'last_active' === $bn_orderby ? $bn_order : 'DESC' ),
+				'order'       => 'display_name' === $bn_orderby ? 'ASC' : ( 'last_active' === $bn_orderby ? $bn_order : 'DESC' ),
 			)
 		);
 		$total   = $data['total'];
@@ -1648,6 +1808,7 @@ class Members extends AdminPageBase {
 		$base      = admin_url( 'admin.php?page=buddynext-members' );
 		$s_all     = '' !== $search ? add_query_arg( 's', rawurlencode( $search ), $base ) : $base;
 		$s_role    = '' !== $role_filter ? add_query_arg( 'role', $role_filter, $s_all ) : $s_all;
+		$s_role    = '' !== $type_filter ? add_query_arg( 'member_type', $type_filter, $s_role ) : $s_role;
 		$tab_links = array(
 			'all'       => array(
 				'url'   => $s_role,
@@ -1693,10 +1854,8 @@ class Members extends AdminPageBase {
 			<?php endforeach; ?>
 		</div>
 
+		<?php // No card title: the page heading and the tab already say "Members". ?>
 		<div class="bn-settings-section bn-members-table-wrap">
-			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Members', 'buddynext' ); ?></span>
-			</div>
 			<div class="bn-ss-body">
 			<?php
 			// One toolbar row: the search/filter form and the bulk-action form are
@@ -1719,7 +1878,8 @@ class Members extends AdminPageBase {
 						id="bn-members-search"
 						name="s"
 						class="bn-input"
-						placeholder="<?php esc_attr_e( 'Search by name, email or username...', 'buddynext' ); ?>"
+						placeholder="<?php esc_attr_e( 'Search members…', 'buddynext' ); ?>"
+						title="<?php esc_attr_e( 'Search by name, email or username', 'buddynext' ); ?>"
 						value="<?php echo esc_attr( $search ); ?>">
 					<label for="bn-members-role" class="screen-reader-text"><?php esc_html_e( 'Filter by role', 'buddynext' ); ?></label>
 					<select id="bn-members-role" name="role" class="bn-select">
@@ -1729,6 +1889,25 @@ class Members extends AdminPageBase {
 								<?php echo esc_html( translate_user_role( $rl ) ); ?>
 							</option>
 						<?php endforeach; ?>
+					</select>
+					<?php $bn_types = buddynext_service( 'member_types' )->get_all(); ?>
+					<?php if ( array() !== $bn_types ) : ?>
+						<label for="bn-members-type" class="screen-reader-text"><?php esc_html_e( 'Filter by member type', 'buddynext' ); ?></label>
+						<select id="bn-members-type" name="member_type" class="bn-select">
+							<option value=""><?php esc_html_e( 'All types', 'buddynext' ); ?></option>
+							<?php foreach ( $bn_types as $bn_type ) : ?>
+								<option value="<?php echo esc_attr( (string) $bn_type['slug'] ); ?>" <?php selected( $type_filter, (string) $bn_type['slug'] ); ?>>
+									<?php echo esc_html( (string) $bn_type['name'] ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					<?php endif; ?>
+					<label for="bn-members-sort" class="screen-reader-text"><?php esc_html_e( 'Sort members', 'buddynext' ); ?></label>
+					<select id="bn-members-sort" name="sort" class="bn-select">
+						<option value="registered" <?php selected( $bn_sort_now, 'registered' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
+						<option value="name" <?php selected( $bn_sort_now, 'name' ); ?>><?php esc_html_e( 'Name A to Z', 'buddynext' ); ?></option>
+						<option value="active" <?php selected( $bn_sort_now, 'active' ); ?>><?php esc_html_e( 'Recently active', 'buddynext' ); ?></option>
+						<option value="dormant" <?php selected( $bn_sort_now, 'dormant' ); ?>><?php esc_html_e( 'Least recently active', 'buddynext' ); ?></option>
 					</select>
 					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
 						<?php esc_html_e( 'Filter', 'buddynext' ); ?>
@@ -1773,11 +1952,23 @@ class Members extends AdminPageBase {
 								<th scope="col" class="bn-table__cb" data-align="center">
 									<input type="checkbox" id="bn-members-cb-all" aria-label="<?php esc_attr_e( 'Select all members', 'buddynext' ); ?>">
 								</th>
-								<th scope="col" class="column-primary"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'display_name' ) ); ?>" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
+								<th scope="col" class="column-primary"><a href="
+								<?php
+								echo esc_url(
+									add_query_arg(
+										array(
+											'orderby' => 'display_name',
+											'sort'    => false,
+										)
+									)
+								);
+								?>
+								" class="bn-th-sort<?php echo 'display_name' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Member', 'buddynext' ); ?></a></th>
 								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
-								<th scope="col"><?php esc_html_e( 'Community role', 'buddynext' ); ?></th>
+								<th scope="col" class="bn-col-secondary"><?php esc_html_e( 'Member type', 'buddynext' ); ?></th>
+								<th scope="col" class="bn-col-secondary"><?php esc_html_e( 'Community role', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
-								<th scope="col" class="bn-col-muted"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
+								<th scope="col" class="bn-col-muted bn-col-secondary"><a href="<?php echo esc_url( remove_query_arg( array( 'orderby', 'sort' ) ) ); ?>" class="bn-th-sort<?php echo 'registered' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Joined', 'buddynext' ); ?></a></th>
 								<?php
 								// Clicking the active column flips direction, so the owner can
 								// go from most-recently-active to dormant-first without a second
@@ -1786,7 +1977,7 @@ class Members extends AdminPageBase {
 								$bn_la_active = 'last_active' === $bn_orderby;
 								$bn_la_next   = ( $bn_la_active && 'DESC' === $bn_order ) ? 'ASC' : 'DESC';
 								?>
-								<th scope="col" class="bn-col-muted"
+								<th scope="col" class="bn-col-muted bn-col-secondary"
 									<?php
 									if ( $bn_la_active ) :
 										?>
@@ -1798,6 +1989,7 @@ class Members extends AdminPageBase {
 											array(
 												'orderby' => 'last_active',
 												'order'   => $bn_la_next,
+												'sort'    => false,
 											)
 										)
 									);
@@ -1842,6 +2034,34 @@ class Members extends AdminPageBase {
 												<span class="bn-member-sep" aria-hidden="true">&middot;</span>
 												<a class="bn-member-email" href="<?php echo esc_url( 'mailto:' . $member['email'] ); ?>"><?php echo esc_html( $member['email'] ); ?></a>
 											</div>
+											<?php
+											// Shown only where the Joined and Last active columns are hidden to fit the card
+											// (see .bn-col-secondary in bn-admin.css); hidden everywhere else.
+											?>
+											<div class="bn-member-sub">
+												<?php if ( array() !== $member['member_types'] ) : ?>
+													<span>
+														<?php
+														/* translators: %s: the member's type, for example "Professional". */
+														echo esc_html( sprintf( __( 'Type: %s', 'buddynext' ), implode( ', ', $member['member_types'] ) ) );
+														?>
+													</span>
+												<?php endif; ?>
+												<span>
+													<?php
+													/* translators: %s: date the member joined. */
+													echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), wp_strip_all_tags( (string) buddynext_date_local( $member['registered'], 'M j, Y' ) ) ) );
+													?>
+												</span>
+												<?php if ( $member['last_active'] > 0 ) : ?>
+													<span>
+														<?php
+														/* translators: %s: how long ago the member was last active, for example "3h ago". */
+														echo esc_html( sprintf( __( 'Active %s', 'buddynext' ), buddynext_time_ago( gmdate( 'Y-m-d H:i:s', (int) $member['last_active'] ) ) ) );
+														?>
+													</span>
+												<?php endif; ?>
+											</div>
 										</div>
 										<button type="button" class="toggle-row">
 											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
@@ -1850,7 +2070,7 @@ class Members extends AdminPageBase {
 									</div>
 								</td>
 								<td data-colname="<?php esc_attr_e( 'Role', 'buddynext' ); ?>"><?php MemberDisplay::render_role_badge( $member['role'] ); ?></td>
-								<td data-colname="<?php esc_attr_e( 'Community role', 'buddynext' ); ?>">
+								<td class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Community role', 'buddynext' ); ?>">
 									<?php
 									// bn_community_role (member < moderator < admin). get_user_meta is
 									// served from the batch cache list_members() already primed, so this
@@ -1873,6 +2093,9 @@ class Members extends AdminPageBase {
 									self::render_community_role_badge( $bn_comm_role );
 									?>
 								</td>
+								<td class="bn-col-secondary" data-colname="<?php esc_attr_e( 'Member type', 'buddynext' ); ?>">
+									<?php echo array() === $member['member_types'] ? '&mdash;' : esc_html( implode( ', ', $member['member_types'] ) ); ?>
+								</td>
 								<td data-colname="<?php esc_attr_e( 'Status', 'buddynext' ); ?>">
 									<?php if ( $member['suspended'] ) : ?>
 										<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
@@ -1882,12 +2105,12 @@ class Members extends AdminPageBase {
 										<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 									<?php endif; ?>
 								</td>
-								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Joined', 'buddynext' ); ?>">
+								<td class="bn-col-muted bn-col-secondary" data-colname="<?php esc_attr_e( 'Joined', 'buddynext' ); ?>">
 									<time datetime="<?php echo esc_attr( \BuddyNext\Core\Dates::iso8601( $member['registered'] ) ); ?>">
-										<?php echo buddynext_date_local( $member['registered'], 'M j, Y' ); ?>
+										<?php echo wp_kses_post( buddynext_date_local( $member['registered'], 'M j, Y' ) ); ?>
 									</time>
 								</td>
-								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last active', 'buddynext' ); ?>">
+								<td class="bn-col-muted bn-col-secondary" data-colname="<?php esc_attr_e( 'Last active', 'buddynext' ); ?>">
 									<?php if ( $member['last_active'] > 0 ) : ?>
 										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_active'] ) ); ?>">
 											<?php echo esc_html( buddynext_time_ago( gmdate( 'Y-m-d H:i:s', (int) $member['last_active'] ) ) ); ?>
@@ -1920,8 +2143,14 @@ class Members extends AdminPageBase {
 										<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-btn" data-variant="secondary" data-size="sm">
 											<?php esc_html_e( 'Edit', 'buddynext' ); ?>
 										</a>
+										<?php
+										// Offer Suspend only when the service would accept it: not on your own
+										// account, nor on someone who outranks you. With nothing to offer, no menu.
+										$bn_can_suspend = null === buddynext_service( 'moderation' )->suspend_refusal( absint( $member['id'] ), get_current_user_id() );
+										if ( $member['suspended'] || $bn_can_suspend ) :
+											?>
 										<div class="bn-more-menu" data-uid="<?php echo absint( $member['id'] ); ?>">
-											<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
+											<button type="button" class="bn-more-btn" aria-label="
 											<?php
 												/* translators: %s: name of the item the actions apply to. */
 												echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), $member['display'] ) );
@@ -1929,17 +2158,17 @@ class Members extends AdminPageBase {
 											">
 												<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 											</button>
-											<div class="bn-more-dropdown" role="menu">
+											<div class="bn-more-dropdown">
 												<?php if ( $member['suspended'] ) : ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 														<input type="hidden" name="action" value="bn_unsuspend_member">
 														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
 														<?php wp_nonce_field( 'bn_unsuspend_member' ); ?>
-														<button type="submit" class="bn-dropdown-item" role="menuitem">
+														<button type="submit" class="bn-dropdown-item">
 															<?php esc_html_e( 'Unsuspend', 'buddynext' ); ?>
 														</button>
 													</form>
-												<?php else : ?>
+												<?php elseif ( $bn_can_suspend ) : ?>
 													<form method="post"
 														action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 														data-bn-confirm="1"
@@ -1950,13 +2179,14 @@ class Members extends AdminPageBase {
 														<input type="hidden" name="action" value="bn_suspend_member">
 														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
 														<?php wp_nonce_field( 'bn_suspend_member' ); ?>
-														<button type="submit" class="bn-dropdown-item bn-dropdown-danger" role="menuitem">
+														<button type="submit" class="bn-dropdown-item bn-dropdown-danger">
 															<?php esc_html_e( 'Suspend', 'buddynext' ); ?>
 														</button>
 													</form>
 												<?php endif; ?>
 											</div>
 										</div>
+										<?php endif; ?>
 									</div>
 								</td>
 							</tr>
@@ -1972,19 +2202,20 @@ class Members extends AdminPageBase {
 				(int) $pages,
 				(int) $total,
 				self::DEFAULT_PER_PAGE,
-				static function ( int $p ) use ( $search, $status, $role_filter, $bn_orderby, $bn_order ): string {
+				static function ( int $p ) use ( $search, $status, $role_filter, $type_filter, $bn_orderby, $bn_order ): string {
 					return add_query_arg(
 						array_filter(
 							array(
-								'page'    => 'buddynext-members',
-								'paged'   => $p > 1 ? $p : false,
-								's'       => '' !== $search ? $search : false,
-								'status'  => 'all' !== $status ? $status : false,
-								'role'    => '' !== $role_filter ? $role_filter : false,
-								'orderby' => 'registered' !== $bn_orderby ? $bn_orderby : false,
+								'page'        => 'buddynext-members',
+								'paged'       => $p > 1 ? $p : false,
+								's'           => '' !== $search ? $search : false,
+								'status'      => 'all' !== $status ? $status : false,
+								'role'        => '' !== $role_filter ? $role_filter : false,
+								'member_type' => '' !== $type_filter ? $type_filter : false,
+								'orderby'     => 'registered' !== $bn_orderby ? $bn_orderby : false,
 								// Carry the direction too, or paging a dormant-first list
 								// silently flips it back to most-recent on page 2.
-								'order'   => 'DESC' !== $bn_order ? $bn_order : false,
+								'order'       => 'DESC' !== $bn_order ? $bn_order : false,
 							)
 						),
 						admin_url( 'admin.php' )
@@ -2060,7 +2291,9 @@ class Members extends AdminPageBase {
 							<option value="7" selected><?php esc_html_e( '7 days', 'buddynext' ); ?></option>
 							<option value="30"><?php esc_html_e( '30 days', 'buddynext' ); ?></option>
 							<option value="90"><?php esc_html_e( '90 days', 'buddynext' ); ?></option>
-							<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
+							<?php if ( buddynext_can( get_current_user_id(), 'buddynext-moderation/suspend-indefinitely' ) ) : // Same ability suspend_user() enforces. ?>
+								<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
+							<?php endif; ?>
 						</select>
 					</div>
 					<div class="bn-field">
@@ -2096,5 +2329,23 @@ class Members extends AdminPageBase {
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Deprecated: the whole member list as one CSV string.
+	 *
+	 * Delegates to the current export (paged reads, escaped cells) and captures its
+	 * output, so callers get the same CSV the Members > Export screen downloads.
+	 *
+	 * @deprecated 1.3.0 Use \BuddyNext\Admin\Members\MemberExport::export_members_csv(), which streams.
+	 * @return string CSV, header row first.
+	 */
+	public function export_members_csv(): string {
+		_deprecated_function( __METHOD__, '1.3.0', '\\BuddyNext\\Admin\\Members\\MemberExport::export_members_csv()' );
+		// ponytail: the whole file is held in memory (about 100 bytes a member);
+		// a caller with a very large site should stream with MemberExport instead.
+		ob_start();
+		( new \BuddyNext\Admin\Members\MemberExport() )->export_members_csv();
+		return (string) ob_get_clean();
 	}
 }

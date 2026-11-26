@@ -258,6 +258,9 @@ function performRequest( path, opts, isRetry ) {
 		credentials: 'same-origin',
 		headers,
 		signal,
+		// Lets a small fire-and-forget request (the presence ping) finish even if
+		// the page is navigated away from mid-flight.
+		keepalive: !! opts.keepalive,
 		// Upload progress callback ( loaded, total ); switches the transport to XHR.
 		onUploadProgress: opts.onUploadProgress,
 	};
@@ -338,6 +341,44 @@ export function restError( res, fallback ) {
 }
 
 /**
+ * Whether a request was refused by something in front of BuddyNext.
+ *
+ * Security plugins (All In One Security, Wordfence, Solid Security, Disable REST
+ * API) and host firewalls can block REST for logged-out visitors. Their 401/403
+ * never reached a BuddyNext route, so it lacks the `data.buddynext` flag every
+ * BuddyNext auth refusal carries (AuthController::mark_own_refusal). The auth
+ * screens use this to fall back to the standard WordPress form instead of
+ * showing the blocker's text as if the member typed something wrong.
+ *
+ * @param {Object} res A restFetch() result.
+ * @return {boolean} True when the refusal did not come from BuddyNext.
+ */
+export function refusedBeforeBuddyNext( res ) {
+	return !! res
+		&& ( 401 === res.status || 403 === res.status )
+		&& ! ( res.data && res.data.data && res.data.data.buddynext );
+}
+
+/**
+ * Submit a form natively to its own action (the standard WordPress form),
+ * for use after refusedBeforeBuddyNext(). Fields bound to a "submitting" state
+ * are disabled while the REST request ran, and a disabled field is not posted.
+ *
+ * @param {HTMLFormElement|null} form Form to submit.
+ * @return {boolean} True when the form was submitted.
+ */
+export function submitFormNatively( form ) {
+	if ( ! form || 'function' !== typeof form.submit ) {
+		return false;
+	}
+	form.querySelectorAll( ':disabled' ).forEach( ( el ) => {
+		el.disabled = false;
+	} );
+	form.submit();
+	return true;
+}
+
+/**
  * Toast a failed request for a caller that opted out of restFetch's own toast.
  * Stays quiet for a suspended member, who has already been shown the appeal toast.
  *
@@ -360,8 +401,9 @@ export function toastRestError( res, fallback ) {
  * Perform a REST request.
  *
  * @param {string} path Path relative to the namespace base (or absolute URL).
- * @param {Object} [opts] fetch-like options plus { base, nonce, toastOnError,
- *                        onUploadProgress( loaded, total ) }.
+ * @param {Object} [opts] fetch-like options plus { base, nonce, toastOnError, silent,
+ *                        onUploadProgress( loaded, total ) }. silent: show no toast at all, not even the
+ *                        hold notice (a background call the member did not make).
  * @return {Promise<{ok:boolean,status:number,data:*,error?:string}>} Result.
  */
 export async function restFetch( path, opts ) {
@@ -377,6 +419,8 @@ export async function restFetch( path, opts ) {
 		const info = ( result.data && result.data.data ) || {};
 		if ( info.appeal_url ) {
 			result.suspended = true;
+		}
+		if ( info.appeal_url && ! opts.silent ) {
 			bnToast(
 				( result.data && result.data.message ) || 'Your account is on hold.',
 				{
@@ -387,7 +431,7 @@ export async function restFetch( path, opts ) {
 					},
 				}
 			);
-		} else if ( opts.toastOnError !== false ) {
+		} else if ( ! info.appeal_url && ! opts.silent && opts.toastOnError !== false ) {
 			bnToast( restError( result ), { tone: 'danger' } );
 		}
 	}

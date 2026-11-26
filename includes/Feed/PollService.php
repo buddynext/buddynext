@@ -191,6 +191,21 @@ class PollService {
 				);
 			}
 
+			if ( $removed > 0 ) {
+				/**
+				 * Fires when a poll vote is taken back: a toggle off, or the old vote of
+				 * a switch (then `buddynext_poll_voted` follows for the new option).
+				 * Lets a reward listener reverse what the vote paid.
+				 *
+				 * @since 1.3.0
+				 *
+				 * @param int $post_id   Poll post ID.
+				 * @param int $option_id Option the vote was removed from.
+				 * @param int $user_id   The voter.
+				 */
+				do_action( 'buddynext_poll_vote_removed', $post_id, (int) $existing_option_id, $user_id );
+			}
+
 			// Same option clicked again → toggle off, we're done.
 			if ( (int) $existing_option_id === $option_id ) {
 				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -230,8 +245,9 @@ class PollService {
 		 * Fires after a poll vote is cast or switched.
 		 *
 		 * Does NOT fire on toggle-off (clicking the same option to remove a
-		 * vote) — that path returns early above. Vote switches (different
-		 * option than previous) fire once, after the new vote is inserted.
+		 * vote); that fires `buddynext_poll_vote_removed` instead. A switch fires
+		 * `buddynext_poll_vote_removed` for the old option, then this once for the
+		 * new one.
 		 *
 		 * @param int $post_id   Poll post ID.
 		 * @param int $option_id Option the user voted for.

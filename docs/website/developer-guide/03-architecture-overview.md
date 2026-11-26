@@ -80,6 +80,26 @@ Rules that hold for every module:
 - The Listener holds no state. It registers hooks and delegates to the Service. Its entry point is `register()`, not `init()`, and it implements `BuddyNext\Contracts\ListenerInterface`.
 - The Cache is owned by the feature, not Core. Its cache-group constants and TTL constants live as class consts, so invalidation is reviewable as PHP, not scattered `wp_cache_delete()` calls.
 
+### Invalidating a family of cached reads: the last-changed salt
+
+When a read is cached under many keys you cannot list (pages, filters, cursors), do not keep your own version counter. Use the one helper, `BuddyNext\Core\CacheService`:
+
+```php
+use BuddyNext\Core\CacheService;
+
+// Build every key of the family on the salt.
+$key = 'feed_' . $space_id . '_' . $page . '_v' . CacheService::last_changed( 'buddynext_feed_global', 'space:' . $space_id );
+
+// After the write that makes those reads stale, retire the whole family at once.
+CacheService::set_last_changed( 'buddynext_feed_global', 'space:' . $space_id );
+```
+
+- `CacheService::last_changed( string $group, string $family ): string` returns the family's current salt, creating one if none exists. `CacheService::set_last_changed( string $group, string $family ): string` replaces it and returns the new one. Both are static, since 1.3.0.
+- The salt is a unique id (time plus entropy), never a counter, and is stored without an expiry. A counter that restarts after its key is evicted can land on a number an older payload is still cached under and serve it again; a unique id cannot repeat, so an evicted salt only causes one cache miss.
+- Call `set_last_changed()` after the write it invalidates, not before.
+- It works the same with or without a persistent object cache. It is a narrower form of WordPress core's `wp_cache_get_last_changed( $group )`: the family keeps a write from retiring unrelated reads.
+- BuddyNext's own feeds, comment threads, member directory, connections and suggestions use it. Do not add another hand-rolled `*_ver_*` counter.
+
 Tests mirror the source tree: `includes/Feed/PostController.php` is tested by `tests/Feed/PostControllerTest.php`.
 
 ## The DI container

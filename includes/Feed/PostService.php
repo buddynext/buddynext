@@ -383,12 +383,9 @@ class PostService {
 		}
 
 		if ( 'poll' === $type ) {
-			if ( ! buddynext_feature_enabled( 'polls' ) ) {
-				return new WP_Error(
-					'polls_disabled',
-					__( 'Polls are disabled on this community.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
+			$off = buddynext_feature_refusal( 'polls', 'polls_disabled', __( 'Polls are disabled on this community.', 'buddynext' ) );
+			if ( $off ) {
+				return $off;
 			}
 			$options = $data['options'] ?? array();
 			if ( ! is_array( $options ) || count( $options ) < 2 ) {
@@ -416,12 +413,9 @@ class PostService {
 			// announcements when the toggle is on (FeedService gates every read on
 			// it), so accepting one while it is off writes a post nothing will ever
 			// surface. Gate the write on the same toggle as the read.
-			if ( ! buddynext_feature_enabled( 'announcements' ) ) {
-				return new WP_Error(
-					'feature_disabled',
-					__( 'Announcements are turned off for this community.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
+			$off = buddynext_feature_refusal( 'announcements', 'feature_disabled', __( 'Announcements are turned off for this community.', 'buddynext' ) );
+			if ( $off ) {
+				return $off;
 			}
 
 			// Site-wide needs the announce ability (community admins by default); a
@@ -832,30 +826,70 @@ class PostService {
 			ModerationService::auto_flag( 'post', $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ), $flag_filed );
 		}
 
-		// Parse @username mentions and fire buddynext_user_mentioned for each.
-		$content = (string) ( $data['content'] ?? '' );
-		if ( '' !== $content ) {
-			preg_match_all( Handle::mention_regex(), $content, $mention_matches );
-			foreach ( $mention_matches[1] as $raw_username ) {
-				// Resolved as a HANDLE, not a login. The handle is what every
-				// surface shows and what the typeahead inserts; resolving by login
-				// missed every member whose login differs from their nicename (a
-				// space, a capital, a dot, an email, or a custom slug), so the
-				// mention linked correctly and the member was never notified.
-				$mentioned_user = Handle::resolve( (string) $raw_username );
-				if ( $mentioned_user instanceof \WP_User && $mentioned_user->ID !== $user_id
-					&& $this->mention_allowed( $user_id, (int) $mentioned_user->ID ) ) {
-					/**
-					 * Fires when a user is @mentioned in a BuddyNext post.
-					 *
-					 * @param int $mentioned_user_id ID of the user who was mentioned.
-					 * @param int $mentioner_id      ID of the user who wrote the post.
-					 * @param int $post_id           Post ID containing the mention.
-					 */
-					do_action( 'buddynext_user_mentioned', $mentioned_user->ID, $user_id, $post_id );
-				}
+		// Parse @handle mentions and fire buddynext_user_mentioned for each.
+		$this->notify_mentions( $user_id, $post_id, (string) ( $data['content'] ?? '' ) );
+	}
+
+	/**
+	 * Fire buddynext_user_mentioned for each member @mentioned in $content.
+	 *
+	 * The one mention seam for posts and comments, on create and on edit. On an
+	 * edit pass the text as it was before in $previous: only members the edit
+	 * newly mentions are told, so fixing a typo does not notify everyone again.
+	 * Each target's bn_privacy_mention audience decides whether they are told.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $author_id  Member who wrote the mention.
+	 * @param int    $context_id Post ID the mention deep-links to (a comment passes its post).
+	 * @param string $content    Text as it now reads.
+	 * @param string $previous   Text before an edit; '' on create.
+	 * @return void
+	 */
+	public function notify_mentions( int $author_id, int $context_id, string $content, string $previous = '' ): void {
+		$already = '' === $previous ? array() : self::mentioned_user_ids( $previous, $author_id );
+		foreach ( array_diff( self::mentioned_user_ids( $content, $author_id ), $already ) as $mentioned_id ) {
+			if ( $this->mention_allowed( $author_id, $mentioned_id ) ) {
+				/**
+				 * Fires when a user is @mentioned in a BuddyNext post or comment,
+				 * when it is created or when an edit adds the mention.
+				 *
+				 * @param int $mentioned_user_id ID of the user who was mentioned.
+				 * @param int $mentioner_id      ID of the user who wrote the mention.
+				 * @param int $post_id           Post ID containing the mention (the comment's post for a comment).
+				 */
+				do_action( 'buddynext_user_mentioned', $mentioned_id, $author_id, $context_id );
 			}
 		}
+	}
+
+	/**
+	 * Members @mentioned in a piece of text, excluding the author.
+	 *
+	 * Mentions resolve as HANDLES, not logins. The handle is what every surface
+	 * shows and what the typeahead inserts; resolving by login missed every
+	 * member whose login differs from their nicename (a space, a capital, a dot,
+	 * an email, or a custom slug), so the mention linked and nobody was told.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $content   Text to scan.
+	 * @param int    $author_id Author, never counted as mentioned.
+	 * @return int[] Unique user IDs.
+	 */
+	public static function mentioned_user_ids( string $content, int $author_id ): array {
+		if ( '' === $content ) {
+			return array();
+		}
+		preg_match_all( Handle::mention_regex(), $content, $matches );
+		$ids = array();
+		foreach ( array_unique( $matches[1] ) as $raw_handle ) {
+			$user = Handle::resolve( (string) $raw_handle );
+			if ( $user instanceof \WP_User && (int) $user->ID !== $author_id ) {
+				$ids[ (int) $user->ID ] = (int) $user->ID;
+			}
+		}
+		return array_values( $ids );
 	}
 
 	/**
@@ -2592,6 +2626,15 @@ class PostService {
 			ModerationService::auto_flag( 'post', $post_id, $edit_flag_reason, $edit_space_id );
 		}
 
+		// An edit that adds an @mention tells that member, as create() would have.
+		// Only for a live post edited by its author: a scheduled or held post
+		// notifies at go-live from its final text, and a moderator's redaction
+		// must not send notifications in the author's name.
+		if ( in_array( 'content', $changed, true ) && ! empty( self::STATUSES[ $row_status ]['readable'] )
+			&& (int) ( $row['user_id'] ?? 0 ) === $user_id ) {
+			$this->notify_mentions( $user_id, $post_id, (string) $fields['content'], (string) ( $row['content'] ?? '' ) );
+		}
+
 		/**
 		 * Fires after a post is updated.
 		 *
@@ -2665,8 +2708,9 @@ class PostService {
 		if ( $bn_use_txn ) {
 			$wpdb->query( 'START TRANSACTION' );
 		}
-		$bn_swept   = $this->cascade_post_children( array( $post_id ) );
-		$bn_removed = $wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
+		$bn_comments_by_post = array();
+		$bn_swept            = $this->cascade_post_children( array( $post_id ), $bn_comments_by_post );
+		$bn_removed          = $wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
 		if ( ! $bn_swept || false === $bn_removed ) {
 			if ( $bn_use_txn ) {
 				$wpdb->query( 'ROLLBACK' );
@@ -2693,12 +2737,22 @@ class PostService {
 		}
 
 		/**
-		 * Fires after a post is deleted.
+		 * Fires after a post is deleted, on every delete path.
 		 *
-		 * @param int $post_id Deleted post ID.
-		 * @param int $user_id User who deleted the post.
+		 * `$user_id` is who deleted it: the author, a moderator, or 0 for a system
+		 * delete (an integration removing its card). `$author_id` is always the
+		 * member who wrote the post, so a listener that keys on the author (streaks,
+		 * points) reads arg 3, never arg 2.
+		 *
+		 * @since 1.0.0
+		 * @since 1.3.0 Added `$author_id`.
+		 *
+		 * @param int $post_id   Deleted post ID.
+		 * @param int $user_id   User who deleted the post (0 for a system delete).
+		 * @param int $author_id Author of the deleted post.
 		 */
-		do_action( 'buddynext_post_deleted', $post_id, $user_id );
+		do_action( 'buddynext_post_deleted', $post_id, $user_id, (int) ( $bn_deleted_row['user_id'] ?? 0 ) );
+		$this->announce_comments_deleted( $bn_comments_by_post );
 
 		if ( $bn_deleted_space_id > 0 ) {
 			/** Documented in create(). */
@@ -2706,6 +2760,37 @@ class PostService {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Tell listeners which comments went with deleted posts: one call per post.
+	 *
+	 * The cascade removes a post's comments in bulk, so buddynext_comment_deleted
+	 * (one listener round per comment) is deliberately NOT fired for them: a post
+	 * with thousands of comments would run every comment listener thousands of
+	 * times inside the delete request. Fired after COMMIT, so the rows are gone and
+	 * listeners get ids only.
+	 *
+	 * @param array<int,array<int,int>> $comments_by_post post_id => ( removed comment id => its author id ).
+	 * @return void
+	 */
+	private function announce_comments_deleted( array $comments_by_post ): void {
+		foreach ( $comments_by_post as $post_id => $comment_ids ) {
+			/**
+			 * Fires once per deleted post that had comments, with every comment the
+			 * delete removed along with it. buddynext_comment_deleted does not fire
+			 * for these.
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param int[]            $comment_ids Removed comment IDs (rows already gone).
+			 * @param int              $post_id     The deleted post they belonged to.
+			 * @param array<int,int>   $authors     Removed comment ID => its author's user ID. The rows are
+			 *                                      gone, so this is the only way a listener learns whose
+			 *                                      comments went (a reward, a streak).
+			 */
+			do_action( 'buddynext_post_comments_deleted', array_map( 'intval', array_keys( $comment_ids ) ), (int) $post_id, array_map( 'intval', $comment_ids ) );
+		}
 	}
 
 	/**
@@ -2744,10 +2829,16 @@ class PostService {
 	 *
 	 * @since 1.2.0
 	 *
-	 * @param array<int,int> $post_ids Post ids whose children to remove.
+	 * Also reports which comments it removed, grouped by post, so the caller can
+	 * fire buddynext_post_comments_deleted once per post AFTER the delete commits
+	 * (see fire_post_deleted()). The comment rows are gone by then, so listeners get
+	 * ids only.
+	 *
+	 * @param array<int,int>            $post_ids         Post ids whose children to remove.
+	 * @param array<int,array<int,int>> $comments_by_post Filled with post_id => ( removed comment id => author id ).
 	 * @return bool True when every delete statement succeeded; false if any errored.
 	 */
-	private function cascade_post_children( array $post_ids ): bool {
+	private function cascade_post_children( array $post_ids, array &$comments_by_post = array() ): bool {
 		global $wpdb;
 
 		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
@@ -2785,12 +2876,16 @@ class PostService {
 			// Comment ids for these posts, gathered before the comments go, so the
 			// comment-keyed sweep below has its targets.
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $in is an absint-mapped id list, injection-safe.
-			$comment_ids = $wpdb->get_col( "SELECT id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})" );
+			$comment_rows = (array) $wpdb->get_results( "SELECT id, object_id, user_id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})", ARRAY_A );
 
 			// Comment-keyed child rows first (reactions/notifications/reports whose
 			// object_type='comment'), chunked the same way for a post carrying tens
 			// of thousands of comments.
-			$comment_ids = array_values( array_filter( array_map( 'absint', (array) $comment_ids ) ) );
+			$comment_ids = array();
+			foreach ( $comment_rows as $comment_row ) {
+				$comment_ids[] = (int) $comment_row['id'];
+				$comments_by_post[ (int) $comment_row['object_id'] ][ (int) $comment_row['id'] ] = (int) $comment_row['user_id'];
+			}
 			foreach ( array_chunk( $comment_ids, self::CASCADE_CHUNK ) as $comment_chunk ) {
 				$cin              = implode( ',', array_map( 'absint', $comment_chunk ) );
 				$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'comment' AND object_id IN ({$cin})" ) );
@@ -2939,7 +3034,7 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s",
+				"SELECT id, space_id, user_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s",
 				$type,
 				$link_url
 			),
@@ -2952,6 +3047,7 @@ class PostService {
 		}
 
 		$post_ids  = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$authors   = array_combine( $post_ids, array_map( static fn( array $r ): int => (int) $r['user_id'], $rows ) );
 		$space_ids = array();
 		foreach ( $rows as $r ) {
 			$sid = (int) $r['space_id'];
@@ -2968,7 +3064,8 @@ class PostService {
 		if ( $bn_use_txn ) {
 			$wpdb->query( 'START TRANSACTION' );
 		}
-		$bn_swept = $this->cascade_post_children( $post_ids );
+		$bn_comments_by_post = array();
+		$bn_swept            = $this->cascade_post_children( $post_ids, $bn_comments_by_post );
 
 		$deleted      = 0;
 		$bn_delete_ok = true;
@@ -3000,8 +3097,9 @@ class PostService {
 		foreach ( $post_ids as $pid ) {
 			wp_cache_delete( "post_{$pid}", self::CACHE_GROUP );
 			/** Documented in delete(). */
-			do_action( 'buddynext_post_deleted', $pid, 0 );
+			do_action( 'buddynext_post_deleted', $pid, 0, $authors[ $pid ] ?? 0 );
 		}
+		$this->announce_comments_deleted( $bn_comments_by_post );
 
 		// One invalidation per affected space (documented in create()).
 		foreach ( array_keys( $space_ids ) as $sid ) {
@@ -3090,6 +3188,71 @@ class PostService {
 	}
 
 	/**
+	 * Give an integration card stored as a plain `link` its real type.
+	 *
+	 * Through 1.0.x every integration published its cards with no type, so they
+	 * were stored as `link`; from 1.1.0 they carry one ('listing', 'job',
+	 * 'course'...). Every lookup is by (type, link_url), so an old card was never
+	 * found again: a re-save published a duplicate, unpublishing or deleting the
+	 * item left the old card in the feed. Retyping it in place (same id, date,
+	 * reactions and comments) lets every later lookup find it.
+	 *
+	 * Only cards an integration wrote are adopted: their link_meta carries the
+	 * `url` key IntegrationActivity has always stored, which a member's own link
+	 * post (title, description, thumbnail) does not.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $type     The card's real type.
+	 * @param string $link_url Link the card points at.
+	 * @param int    $user_id  Only cards by this member (0 = any member).
+	 * @return int Cards retyped.
+	 */
+	public function adopt_legacy_link_cards( string $type, string $link_url, int $user_id = 0 ): int {
+		if ( '' === $type || 'link' === $type || '' === $link_url ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				  WHERE type = 'link' AND link_url = %s AND link_meta LIKE %s
+				    AND ( %d = 0 OR user_id = %d )",
+				$link_url,
+				'%' . $wpdb->esc_like( '"url"' ) . '%',
+				$user_id,
+				$user_id
+			),
+			ARRAY_A
+		);
+		if ( empty( $rows ) ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return 0;
+		}
+
+		$ids = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$in  = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// $in is a list of %d placeholders bound through ...$ids.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$updated = (int) $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET type = %s WHERE id IN ( {$in} )", $type, ...$ids ) );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( $rows as $row ) {
+			self::flush_cache( (int) $row['id'] );
+			if ( (int) $row['space_id'] > 0 ) {
+				/** Documented in create(). */
+				do_action( 'buddynext_space_posts_changed', (int) $row['space_id'] );
+			}
+		}
+
+		return $updated;
+	}
+
+	/**
 	 * Move an integration card between two statuses, matched by type + external link.
 	 *
 	 * The reversible alternative to delete_by_link() for a partner entity that was
@@ -3174,6 +3337,41 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $this->move_status( (array) $rows, $from, $to );
+	}
+
+	/**
+	 * Whether a card of a type already carries this link_meta value, in any live or withdrawn state.
+	 *
+	 * A bridge asks it to keep one card for a group of items (the dates of a repeating event). Withdrawn cards
+	 * count, so a date that was cancelled does not make the next date publish a second card.
+	 *
+	 * @param string $type     Post type marker (e.g. 'event').
+	 * @param string $meta_key link_meta field name (e.g. 'series_id').
+	 * @param int    $value    Value to match.
+	 * @return bool
+	 */
+	public function has_link_meta_card( string $type, string $meta_key, int $value ): bool {
+		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return null !== $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s AND status IN ( 'published', 'draft' )
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d
+				 LIMIT 1",
+				$type,
+				'$.' . $meta_key,
+				$value
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
@@ -3393,7 +3591,49 @@ class PostService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], (array) $rows ) ) );
+		return $this->move_rows_to_space( (array) $rows, $space_id );
+	}
+
+	/**
+	 * Put every card of a type that points at one link into another space.
+	 *
+	 * For cards a partner identifies by URL only (a Listora listing). Same rules as move_link_meta_space().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $type     Post type marker (e.g. 'listing').
+	 * @param string $link_url The card's link.
+	 * @param int    $space_id Target BuddyNext space id, or 0 for none.
+	 * @return int Cards moved.
+	 */
+	public function move_link_url_space( string $type, string $link_url, int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s AND COALESCE( space_id, 0 ) <> %d",
+				$type,
+				$link_url,
+				$space_id
+			),
+			ARRAY_A
+		);
+
+		return $this->move_rows_to_space( (array) $rows, $space_id );
+	}
+
+	/**
+	 * Move the given card rows (id, space_id) into a space and tell the old and new feeds.
+	 *
+	 * @param array<int,array<string,mixed>> $rows     Rows with id and space_id.
+	 * @param int                            $space_id Target space id, or 0 for none.
+	 * @return int Cards moved.
+	 */
+	private function move_rows_to_space( array $rows, int $space_id ): int {
+		global $wpdb;
+
+		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], $rows ) ) );
 		if ( empty( $ids ) ) {
 			return 0;
 		}
@@ -3410,7 +3650,7 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$spaces = $space_id > 0 ? array( $space_id => true ) : array();
-		foreach ( (array) $rows as $row ) {
+		foreach ( $rows as $row ) {
 			wp_cache_delete( 'post_' . (int) $row['id'], self::CACHE_GROUP );
 			if ( ! empty( $row['space_id'] ) ) {
 				$spaces[ (int) $row['space_id'] ] = true;
@@ -3419,6 +3659,91 @@ class PostService {
 		foreach ( array_keys( $spaces ) as $sid ) {
 			/** Documented in create(). */
 			do_action( 'buddynext_space_posts_changed', $sid );
+		}
+
+		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
+	 * The cards of one type in a space, as link and link_meta (bounded, newest first).
+	 *
+	 * Lets a bridge re-place its partner items' cards when the Space they sit in changes type or is
+	 * deleted. One indexed read (space_type_feed).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $space_id Space id.
+	 * @param string $type     Card type (e.g. 'event').
+	 * @param int    $limit    Most rows to return.
+	 * @return array<int,array{link_url:string,link_meta:array<string,mixed>}>
+	 */
+	public function cards_in_space( int $space_id, string $type, int $limit = 500 ): array {
+		global $wpdb;
+
+		if ( $space_id <= 0 || '' === $type ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare( "SELECT link_url, link_meta FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND type = %s ORDER BY id DESC LIMIT %d", $space_id, $type, max( 1, $limit ) ),
+			ARRAY_A
+		);
+
+		return array_map(
+			static function ( $row ): array {
+				$meta = json_decode( (string) ( $row['link_meta'] ?? '' ), true );
+				return array(
+					'link_url'  => (string) ( $row['link_url'] ?? '' ),
+					'link_meta' => is_array( $meta ) ? $meta : array(),
+				);
+			},
+			$rows
+		);
+	}
+
+	/**
+	 * Move every card of one type out of a space and onto the site-wide feed.
+	 *
+	 * For a space that is about to be deleted while some of its cards point at
+	 * content that outlives it (a published article): the cards keep their ids,
+	 * dates, reactions and comments, and become public site-wide cards, so the
+	 * space teardown that follows no longer finds them. One indexed UPDATE
+	 * (space_type_feed); each moved card's cache is dropped.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $space_id Space being emptied.
+	 * @param string $type     Card type to move (e.g. 'article').
+	 * @return int Cards moved.
+	 */
+	public function move_space_type_to_site( int $space_id, string $type ): int {
+		global $wpdb;
+
+		if ( $space_id <= 0 || '' === $type ) {
+			return 0;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = array_map(
+			'intval',
+			(array) $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND type = %s", $space_id, $type ) )
+		);
+		if ( array() === $ids ) {
+			return 0;
+		}
+
+		$moved = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET space_id = NULL, privacy = 'public', updated_at = UTC_TIMESTAMP() WHERE space_id = %d AND type = %s",
+				$space_id,
+				$type
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( $ids as $id ) {
+			wp_cache_delete( 'post_' . $id, self::CACHE_GROUP );
 		}
 
 		return is_int( $moved ) ? $moved : 0;
@@ -3651,13 +3976,14 @@ class PostService {
 	 * quoted; scoped to a bounded, indexed `type` so the JSON read never scans the
 	 * whole table.
 	 *
-	 * @param string $type     Post type to scope to (e.g. 'event').
-	 * @param string $meta_key link_meta field name (e.g. 'event_id').
-	 * @param int    $value    Value to match.
+	 * @param string    $type     Post type to scope to (e.g. 'event').
+	 * @param string    $meta_key link_meta field name (e.g. 'event_id').
+	 * @param int|int[] $value Value, or values, to match (many in ONE query, so a bulk delete is not one scan per id).
 	 * @return int Rows removed.
 	 */
-	public function delete_by_link_meta_int( string $type, string $meta_key, int $value ): int {
-		if ( '' === $type || '' === $meta_key ) {
+	public function delete_by_link_meta_int( string $type, string $meta_key, int|array $value ): int {
+		$values = array_values( array_filter( array_map( 'absint', (array) $value ) ) );
+		if ( '' === $type || '' === $meta_key || array() === $values ) {
 			return 0;
 		}
 
@@ -3673,14 +3999,12 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				"SELECT id, space_id, user_id FROM {$wpdb->prefix}bn_posts
 				 WHERE type = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
-				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
-				$type,
-				'$.' . $meta_key,
-				$value
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) IN ( " . implode( ',', array_fill( 0, count( $values ), '%d' ) ) . ' )',
+				array_merge( array( $type, '$.' . $meta_key ), $values )
 			),
 			ARRAY_A
 		);
@@ -3691,6 +4015,7 @@ class PostService {
 		}
 
 		$post_ids  = array_map( static fn( array $r ): int => (int) $r['id'], $rows );
+		$authors   = array_combine( $post_ids, array_map( static fn( array $r ): int => (int) $r['user_id'], $rows ) );
 		$space_ids = array();
 		foreach ( $rows as $r ) {
 			$sid = (int) $r['space_id'];
@@ -3709,7 +4034,8 @@ class PostService {
 		if ( $bn_use_txn ) {
 			$wpdb->query( 'START TRANSACTION' );
 		}
-		$bn_swept = $this->cascade_post_children( $post_ids );
+		$bn_comments_by_post = array();
+		$bn_swept            = $this->cascade_post_children( $post_ids, $bn_comments_by_post );
 
 		$deleted      = 0;
 		$bn_delete_ok = true;
@@ -3741,8 +4067,9 @@ class PostService {
 		foreach ( $post_ids as $pid ) {
 			wp_cache_delete( "post_{$pid}", self::CACHE_GROUP );
 			/** Documented in delete(). */
-			do_action( 'buddynext_post_deleted', $pid, 0 );
+			do_action( 'buddynext_post_deleted', $pid, 0, $authors[ $pid ] ?? 0 );
 		}
+		$this->announce_comments_deleted( $bn_comments_by_post );
 
 		// One invalidation per affected space (documented in create()).
 		foreach ( array_keys( $space_ids ) as $sid ) {

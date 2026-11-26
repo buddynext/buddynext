@@ -11,7 +11,7 @@
             "name": "GPL-2.0-or-later",
             "identifier": "GPL-2.0-or-later"
         },
-        "version": "1.2.7"
+        "version": "1.2.9"
     },
     "servers": [
         {
@@ -2258,7 +2258,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success."
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Comment"
+                                }
+                            }
+                        }
                     },
                     "400": {
                         "description": "Invalid or missing parameter."
@@ -2881,6 +2888,55 @@
                         }
                     }
                 }
+            }
+        },
+        "/companions/status": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "operationId": "get_companions_status",
+                "summary": "GET /buddynext/v1/companions/status",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "query",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CompanionStatus"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/feed/announcements": {
@@ -4028,6 +4084,64 @@
                 ]
             }
         },
+        "/kudos": {
+            "post": {
+                "tags": [
+                    "Social Graph"
+                ],
+                "operationId": "post_kudos",
+                "summary": "POST /buddynext/v1/kudos",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "receiver_id": {
+                                        "type": "string"
+                                    },
+                                    "message": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "receiver_id"
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/link-preview": {
             "get": {
                 "tags": [
@@ -4870,6 +4984,41 @@
                 ],
                 "operationId": "delete_me_cover",
                 "summary": "DELETE /buddynext/v1/me/cover",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/me/cover/position": {
+            "post": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "post_me_cover_position",
+                "summary": "POST /buddynext/v1/me/cover/position",
                 "responses": {
                     "200": {
                         "description": "Success.",
@@ -7396,7 +7545,7 @@
                         "description": "",
                         "schema": {
                             "type": "integer",
-                            "default": 20
+                            "default": 24
                         }
                     },
                     {
@@ -7513,6 +7662,16 @@
                         "required": true,
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "after",
+                        "in": "query",
+                        "required": false,
+                        "description": "Cursor from the previous response's next_cursor; omit for the newest page.",
+                        "schema": {
+                            "type": "string",
+                            "default": ""
                         }
                     }
                 ],
@@ -12480,6 +12639,54 @@
                 ]
             }
         },
+        "/spaces/{id}/cover/position": {
+            "post": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "post_spaces_id_cover_position",
+                "summary": "POST /buddynext/v1/spaces/{id}/cover/position",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/spaces/{id}/discussion": {
             "get": {
                 "tags": [
@@ -12789,6 +12996,18 @@
                         "schema": {
                             "type": "integer",
                             "default": 20
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": false,
+                        "description": "Only posts of this type: 'article' lists the space's article cards (the Space Blog tab). Omit for every post.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "article"
+                            ]
                         }
                     }
                 ],
@@ -14343,6 +14562,49 @@
                 ]
             }
         },
+        "/users/{id}/achievements": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_users_id_achievements",
+                "summary": "GET /buddynext/v1/users/{id}/achievements",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Achievement"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/users/{id}/albums": {
             "get": {
                 "tags": [
@@ -14963,6 +15225,54 @@
                 ],
                 "operationId": "delete_users_id_cover",
                 "summary": "DELETE /buddynext/v1/users/{id}/cover",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/users/{id}/cover/position": {
+            "post": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "post_users_id_cover_position",
+                "summary": "POST /buddynext/v1/users/{id}/cover/position",
                 "parameters": [
                     {
                         "name": "id",
@@ -17287,6 +17597,15 @@
                                 "owner_cta": {
                                     "type": "object"
                                 },
+                                "owner_primary": {
+                                    "type": [
+                                        "array",
+                                        "object"
+                                    ]
+                                },
+                                "owner_empty": {
+                                    "type": "string"
+                                },
                                 "items": {
                                     "type": "array"
                                 }
@@ -17736,6 +18055,61 @@
                                         }
                                     }
                                 }
+                            },
+                            "article_provider": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "description": "Where the viewer writes an article (Feed\\ArticleProvider::for_user()) with the composer counts; null when they cannot write (guest, suspended, pending approval, or a role the provider refuses).",
+                                "properties": {
+                                    "key": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "icon": {
+                                        "type": "string"
+                                    },
+                                    "can_write": {
+                                        "type": "boolean"
+                                    },
+                                    "new_url": {
+                                        "type": "string"
+                                    },
+                                    "drafts_url": {
+                                        "type": "string"
+                                    },
+                                    "my_articles_url": {
+                                        "type": "string"
+                                    },
+                                    "pending_url": {
+                                        "type": "string",
+                                        "description": "The member's posts waiting for review."
+                                    },
+                                    "title_arg": {
+                                        "type": "string"
+                                    },
+                                    "supports_space": {
+                                        "type": "boolean"
+                                    },
+                                    "counts": {
+                                        "type": "object",
+                                        "description": "The composer counts (Feed\\ArticleProvider::composer_summary()): drafts = draft, articles = publish + private, pending = pending (held for review)",
+                                        "properties": {
+                                            "drafts": {
+                                                "type": "integer"
+                                            },
+                                            "articles": {
+                                                "type": "integer"
+                                            },
+                                            "pending": {
+                                                "type": "integer"
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -17911,7 +18285,57 @@
                         "type": [
                             "object",
                             "null"
-                        ]
+                        ],
+                        "properties": {
+                            "cover_image": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "properties": {
+                                    "url": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "width": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "height": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "thumb_image": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "properties": {
+                                    "url": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "width": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "height": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
                     },
                     "poll_options": {
                         "type": "array",
@@ -17974,6 +18398,9 @@
                     },
                     "members_only_cta": {
                         "type": "object"
+                    },
+                    "card_unavailable": {
+                        "type": "boolean"
                     },
                     "shareable": {
                         "type": "boolean"
@@ -18312,6 +18739,9 @@
                     "members_only_cta": {
                         "type": "object"
                     },
+                    "card_unavailable": {
+                        "type": "boolean"
+                    },
                     "shareable": {
                         "type": "boolean"
                     },
@@ -18491,7 +18921,57 @@
                                             "type": [
                                                 "object",
                                                 "null"
-                                            ]
+                                            ],
+                                            "properties": {
+                                                "cover_image": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string",
+                                                            "format": "uri"
+                                                        },
+                                                        "width": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "height": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    }
+                                                },
+                                                "thumb_image": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string",
+                                                            "format": "uri"
+                                                        },
+                                                        "width": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "height": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         },
                                         "poll_options": {
                                             "type": "array",
@@ -18554,6 +19034,9 @@
                                         },
                                         "members_only_cta": {
                                             "type": "object"
+                                        },
+                                        "card_unavailable": {
+                                            "type": "boolean"
                                         },
                                         "shareable": {
                                             "type": "boolean"
@@ -19399,6 +19882,9 @@
                             "bn_privacy_search_indexable": {
                                 "type": "boolean"
                             },
+                            "bn_privacy_show_online": {
+                                "type": "boolean"
+                            },
                             "bn_pro_hide_profile_views": {
                                 "type": "boolean"
                             }
@@ -19448,6 +19934,14 @@
                     },
                     "available": {
                         "type": "boolean"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why the slug is not available: handle_reserved, handle_taken or a handle_* validation code. Empty when available."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The refusal in words for the member. Empty when available."
                     }
                 }
             },
@@ -19771,6 +20265,9 @@
                         "type": "string"
                     },
                     "registered_at": {
+                        "type": "string"
+                    },
+                    "headline": {
                         "type": "string"
                     },
                     "bio": {
@@ -22411,6 +22908,9 @@
                             "null"
                         ]
                     },
+                    "viewer_reported": {
+                        "type": "boolean"
+                    },
                     "can_edit": {
                         "type": "boolean"
                     },
@@ -23450,6 +23950,9 @@
                     },
                     "per_page": {
                         "type": "integer"
+                    },
+                    "has_more": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -23518,6 +24021,23 @@
                     },
                     "total_pages": {
                         "type": "integer"
+                    }
+                }
+            },
+            "CompanionStatus": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "inactive",
+                            "not_installed",
+                            "unknown"
+                        ]
                     }
                 }
             },
@@ -23599,6 +24119,59 @@
                                 },
                                 "purpose": {
                                     "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Achievement": {
+                "type": "object",
+                "properties": {
+                    "has_standing": {
+                        "type": "boolean"
+                    },
+                    "standing": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "icon": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "badges": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "image_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                },
+                                "is_credential": {
+                                    "type": "boolean"
+                                },
+                                "earned_at": {
+                                    "type": "string"
+                                },
+                                "share_url": {
+                                    "type": "string",
+                                    "format": "uri"
                                 }
                             }
                         }
@@ -23766,6 +24339,54 @@
                                         "null"
                                     ],
                                     "format": "uri"
+                                },
+                                "cover_image": {
+                                    "type": [
+                                        "object",
+                                        "null"
+                                    ],
+                                    "properties": {
+                                        "url": {
+                                            "type": "string",
+                                            "format": "uri"
+                                        },
+                                        "width": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "height": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "thumb_image": {
+                                    "type": [
+                                        "object",
+                                        "null"
+                                    ],
+                                    "properties": {
+                                        "url": {
+                                            "type": "string",
+                                            "format": "uri"
+                                        },
+                                        "width": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "height": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        }
+                                    }
                                 },
                                 "status": {
                                     "type": "string"

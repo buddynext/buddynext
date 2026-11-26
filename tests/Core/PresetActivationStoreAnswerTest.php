@@ -103,9 +103,17 @@ class PresetActivationStoreAnswerTest extends WP_UnitTestCase {
 		$this->assertFalse( wp_next_scheduled( PresetActivation::HOOK ) );
 
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
-		ob_start();
-		PresetActivation::maybe_render_notice();
-		$notice = (string) ob_get_clean();
+		// The notice shows on the Plugins screen and BuddyNext screens only.
+		$hook_suffix = $GLOBALS['hook_suffix'] ?? null;
+		$render      = static function ( string $screen ): string {
+			$GLOBALS['hook_suffix'] = $screen; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the screen under test.
+			ob_start();
+			PresetActivation::maybe_render_notice();
+			return (string) ob_get_clean();
+		};
+		$this->assertSame( '', $render( 'index.php' ), 'Not on the Dashboard or other wp-admin screens.' );
+		$notice                 = $render( 'plugins.php' );
+		$GLOBALS['hook_suffix'] = $hook_suffix; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- restore.
 		$this->assertStringContainsString( 'reason: expired', $notice );
 		$this->assertStringContainsString( 'Retry activation now', $notice );
 	}

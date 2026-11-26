@@ -30,6 +30,8 @@ class OnboardingListener implements ListenerInterface {
 	 * bootstrapped, so buddynext_service() is available to every handler.
 	 */
 	public function register(): void {
+		// The no-script way out of the wizard: a plain form post that skips it (the steps themselves need JavaScript).
+		add_action( 'admin_post_bn_onboarding_skip', array( $this, 'handle_skip' ) );
 		add_action( 'user_register', array( $this, 'reconcile_invites_on_register' ), 16, 1 );
 		// Schedule the two onboarding nudges the moment the member registers, each as
 		// an Action Scheduler single action due at its offset (card 10264295353).
@@ -51,6 +53,11 @@ class OnboardingListener implements ListenerInterface {
 	 * Action Scheduler group shared with the rest of BuddyNext's jobs.
 	 */
 	private const NUDGE_GROUP = 'buddynext';
+
+	/**
+	 * Seconds from now for a restored nudge whose original moment has passed.
+	 */
+	private const RESTORE_DELAY = 5 * MINUTE_IN_SECONDS;
 
 	/**
 	 * The two per-user nudge hooks, keyed by delay from registration.
@@ -100,12 +107,7 @@ class OnboardingListener implements ListenerInterface {
 		// never fires enqueue_nudges() at all, so it gets no nudge. That is the
 		// owner-accepted ceiling of the two-single-actions-per-signup design (card
 		// 10264295353); widen it only by registering user_register earlier, not here.
-		if ( did_action( 'action_scheduler_init' ) ) {
-			$this->schedule_nudges( $user_id );
-			return;
-		}
-		add_action(
-			'action_scheduler_init',
+		\BuddyNext\Core\CronScheduler::when_ready(
 			function () use ( $user_id ) {
 				$this->schedule_nudges( $user_id );
 			}
@@ -133,15 +135,102 @@ class OnboardingListener implements ListenerInterface {
 	}
 
 	/**
+	 * Put back the nudges a deactivation cancelled, for members still inside the window.
+	 *
+	 * Deactivating cancels every pending nudge. Runs from CronScheduler::schedule_events()
+	 * while the after-activation flag is set (the first scheduling request after an
+	 * activation or update: cron runner, wp-admin page, WP-CLI), never on a front-end
+	 * request, for members who registered in the last 72 hours and still owe the wizard.
+	 *
+	 * @return void
+	 */
+	public function restore_nudges(): void {
+		// ponytail: newest 500 sign-ups of the last 72h; a community with more sign-ups than that
+		// in three days gets the rest from ensure_nudges() when each member reaches the wizard.
+		$user_ids = get_users(
+			array(
+				'fields'     => 'ID',
+				'number'     => 500,
+				'orderby'    => 'registered',
+				'order'      => 'DESC',
+				'date_query' => array(
+					array(
+						'after'  => gmdate( 'Y-m-d H:i:s', time() - 3 * DAY_IN_SECONDS ),
+						'column' => 'user_registered',
+					),
+				),
+			)
+		);
+		cache_users( array_map( 'intval', $user_ids ) ); // One query for the users and their meta, not one per member.
+		foreach ( $user_ids as $user_id ) {
+			$this->ensure_nudges( (int) $user_id );
+		}
+	}
+
+	/**
+	 * Schedule a member's nudges once, if they still owe the wizard and never had them.
+	 *
+	 * "Once" is read from Action Scheduler itself: a nudge that is pending, running, sent
+	 * or failed is never scheduled again; only a cancelled one (deactivation) is replaced.
+	 * Only inside the nudge window (registration + the last nudge's offset): the daily prune
+	 * deletes sent nudge rows after 7 days, so outside the window "no row" cannot mean
+	 * "never nudged", and a member past it is never nudged again. Each nudge keeps its
+	 * original moment (registration + 24h / 72h); one whose moment has passed counts from now.
+	 *
+	 * @param int $user_id Member ID.
+	 * @return void
+	 */
+	public function ensure_nudges( int $user_id ): void {
+		if ( $user_id <= 0 || ! function_exists( 'as_get_scheduled_actions' ) || ! did_action( 'action_scheduler_init' )
+			|| ! buddynext_service( 'onboarding' )->is_required_for( $user_id ) ) {
+			return;
+		}
+		$user       = get_userdata( $user_id );
+		$registered = $user ? (int) strtotime( (string) $user->user_registered . ' UTC' ) : 0;
+		$hooks      = $this->nudge_hooks();
+		if ( $registered + max( $hooks ) <= time() ) {
+			return; // Past the window: nudged at signup (1.2.9 behaviour), never again.
+		}
+		// "No row" means "never nudged" only while a sent nudge's row is still kept: with
+		// the retention filter at 1 or 2 days a sent 24h nudge is deleted inside the window.
+		if ( $registered + \BuddyNext\Core\LogRetentionService::finished_retention_days() * DAY_IN_SECONDS <= time() ) {
+			return;
+		}
+		$args = array( $user_id );
+		foreach ( $hooks as $hook => $offset ) {
+			$had = as_get_scheduled_actions(
+				array(
+					'hook'     => $hook,
+					'args'     => $args,
+					'group'    => self::NUDGE_GROUP,
+					'status'   => array( 'pending', 'in-progress', 'complete', 'failed' ),
+					'per_page' => 1,
+				),
+				'ids'
+			);
+			if ( array() !== $had ) {
+				continue;
+			}
+			// A nudge whose moment has passed (it was canceled, never sent) goes out shortly,
+			// so the 24h mail still comes before the 72h one.
+			as_schedule_single_action( max( $registered + $offset, time() + self::RESTORE_DELAY ), $hook, $args, self::NUDGE_GROUP );
+		}
+	}
+
+	/**
 	 * Action Scheduler callback: send a deferred invite email.
 	 *
 	 * InviteService::create() enqueues this (one per invite) so a bulk/CSV import
 	 * never blocks the request on a loop of synchronous wp_mail() calls.
 	 *
-	 * @param mixed $invite Invite payload { id, email, first_name, token }.
+	 * @param mixed $invite Invite id; a 1.2.x job carries the full payload array
+	 *                      (kept for queued copies, removed in 1.4.0).
 	 * @return void
 	 */
 	public function handle_async_invite_email( $invite ): void {
+		if ( is_numeric( $invite ) && (int) $invite > 0 ) {
+			$invite = array( 'id' => (int) $invite );
+		}
 		if ( is_array( $invite ) ) {
 			( new InviteService() )->deliver_invite_email( $invite );
 		}
@@ -316,5 +405,20 @@ class OnboardingListener implements ListenerInterface {
 				'onboarding_url' => \BuddyNext\Core\PageRouter::onboarding_url(),
 			)
 		);
+	}
+
+	/**
+	 * Skip the wizard from a plain form post (the member's own session, nonce checked), then land on the feed.
+	 *
+	 * @return void
+	 */
+	public function handle_skip(): void {
+		check_admin_referer( 'bn_onboarding_skip' );
+		$user_id = get_current_user_id();
+		if ( $user_id > 0 ) {
+			buddynext_service( 'onboarding' )->finish( $user_id );
+		}
+		wp_safe_redirect( \BuddyNext\Core\PageRouter::activity_url() );
+		exit;
 	}
 }

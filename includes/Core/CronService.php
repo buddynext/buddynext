@@ -75,7 +75,7 @@ class CronService {
 				continue;
 			}
 
-			$sent = $this->send_digest_email( $user_id, $template, $notifications );
+			$sent = $this->send_digest_email( $user_id, 'bn.daily_digest', $template, $notifications );
 			if ( $sent ) {
 				$this->log_digest( $user_id, 'bn.daily_digest' );
 			} else {
@@ -125,7 +125,7 @@ class CronService {
 				continue;
 			}
 
-			$sent = $this->send_digest_email( $user_id, $template, $notifications );
+			$sent = $this->send_digest_email( $user_id, 'bn.weekly_digest', $template, $notifications );
 			if ( $sent ) {
 				$this->log_digest( $user_id, 'bn.weekly_digest' );
 			} else {
@@ -353,7 +353,7 @@ class CronService {
 	 * by design." It is the record of who actioned whom, which an appeal reviewer or a legal /
 	 * GDPR request needs, and it grows by one narrow row per moderator action.
 	 *
-	 * Runs weekly. Driven by the Privacy → retention setting (buddynext_data_retention_days,
+	 * Runs daily (inside the retention job). Driven by the Privacy → retention setting (buddynext_data_retention_days,
 	 * default 365); 0 (or less) disables pruning. Batched at 1,000 with a per-run cap so a
 	 * large table never locks or times the cron out.
 	 *
@@ -369,8 +369,11 @@ class CronService {
 
 		global $wpdb;
 
-		$cutoff      = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
-		$max_batches = 50; // up to 50k rows per weekly run.
+		$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
+		// created_at < cutoff is implied (a report is resolved after it is filed) and
+		// lets the status_date index skip every row inside the window, so the daily
+		// run on an already-pruned table reads almost nothing.
+		$max_batches = 50; // up to 50k rows per run.
 
 		do {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -378,8 +381,10 @@ class CronService {
 				$wpdb->prepare(
 					"DELETE FROM {$wpdb->prefix}bn_reports
 					  WHERE status IN ( 'resolved', 'dismissed' )
+					    AND created_at < %s
 					    AND COALESCE( resolved_at, created_at ) < %s
 					  LIMIT 1000",
+					$cutoff,
 					$cutoff
 				)
 			);
@@ -498,7 +503,7 @@ class CronService {
 		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
 			return; // No Action Scheduler — degrade to the next recurring run.
 		}
-		as_enqueue_async_action( $hook, array( (int) max( $user_ids ) ), CronScheduler::GROUP );
+		CronScheduler::enqueue_once( $hook, array( (int) max( $user_ids ) ), CronScheduler::GROUP );
 	}
 
 	/**
@@ -726,11 +731,32 @@ class CronService {
 	 * template subject and body_html before dispatching via wp_mail().
 	 *
 	 * @param int                                               $user_id       Recipient user ID.
+	 * @param string                                            $type          Template type (bn.daily_digest / bn.weekly_digest).
 	 * @param object                                            $template      Template row with subject, body_html.
 	 * @param array<int, array{type: string, group_count: int}> $notifications Notification rows for list.
 	 * @return bool True when wp_mail() reports success.
 	 */
-	private function send_digest_email( int $user_id, object $template, array $notifications ): bool {
+	private function send_digest_email( int $user_id, string $type, object $template, array $notifications ): bool {
+		// The recipient's language: their profile locale when set, else the site's.
+		$switched = switch_to_user_locale( $user_id );
+		try {
+			return $this->send_digest_in_locale( $user_id, \BuddyNext\Notifications\EmailDefaults::localise( $type, $template ), $notifications );
+		} finally {
+			if ( $switched ) {
+				restore_previous_locale();
+			}
+		}
+	}
+
+	/**
+	 * Body of send_digest_email(), run inside the recipient's locale.
+	 *
+	 * @param int                              $user_id       Recipient user ID.
+	 * @param object                           $template      Localised template row.
+	 * @param array<int, array<string, mixed>> $notifications Notification rows.
+	 * @return bool
+	 */
+	private function send_digest_in_locale( int $user_id, object $template, array $notifications ): bool {
 		$user = get_userdata( $user_id );
 		if ( false === $user || '' === $user->user_email ) {
 			return false;

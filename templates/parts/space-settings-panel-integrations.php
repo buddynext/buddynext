@@ -22,6 +22,8 @@
  * @var string $album_creators        Optional. 'members' (default) or 'admins' - who may
  *                                    create albums in this space. Uploading INTO an
  *                                    existing album stays open to members either way.
+ * @var bool   $articles_tab          Optional. Current value of the Articles-tab toggle (WB Member Blog). Renders only
+ *                                    when MemberBlogBridge has registered the field.
  * @var bool   $events_tab            Optional. Current value of the Events-tab toggle.
  * @var string $event_creators        Optional. 'members' (default) or 'admins' - who may
  *                                    add events to this space. Rows render only when the
@@ -64,6 +66,7 @@ $args = array(
 	'mvs_documents_tab'     => isset( $mvs_documents_tab ) ? (bool) $mvs_documents_tab : false,
 	'leaderboard_tab'       => isset( $leaderboard_tab ) ? (bool) $leaderboard_tab : false,
 	'album_creators'        => isset( $album_creators ) ? (string) $album_creators : 'members',
+	'articles_tab'          => isset( $articles_tab ) ? (bool) $articles_tab : true,
 	'events_tab'            => isset( $events_tab ) ? (bool) $events_tab : false,
 	'event_creators'        => isset( $event_creators ) ? (string) $event_creators : 'members',
 	'listora_listings_tab'  => isset( $listora_listings_tab ) ? (bool) $listora_listings_tab : false,
@@ -166,24 +169,28 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	if ( ! $args['is_space_owner'] ) :
 		?>
 		<p class="bn-space-settings__hint bn-space-settings__hint--locked">
-			<?php esc_html_e( 'Only the space owner can change these. They decide whether this space has a discussion, a media tab, and whether its activity reaches the main feed.', 'buddynext' ); ?>
+			<?php esc_html_e( 'Only the space owner can change these. They decide whether this space has a discussion, a media tab, an articles tab, and whether its activity reaches the main feed.', 'buddynext' ); ?>
 		</p>
 	<?php endif; ?>
 
+	<?php
+	// No row at all without Jetonomy: a switch-less "turn the switch on" line
+	// told the owner to do something they could not.
+	if ( class_exists( 'Jetonomy\\Jetonomy' ) ) :
+		?>
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
-			<div class="bn-toggle-row__label"><?php esc_html_e( 'Discussion', 'buddynext' ); ?></div>
+			<div class="bn-toggle-row__label"><?php esc_html_e( 'Discussions', 'buddynext' ); ?></div>
 			<div class="bn-toggle-row__desc">
 				<?php
 				if ( $bn_disc_has ) {
-					esc_html_e( 'This space has its own discussion area for threaded conversations.', 'buddynext' );
+					esc_html_e( 'This space has its own discussion area for topics and replies.', 'buddynext' );
 				} else {
 					esc_html_e( 'Give this space its own discussion area. Turn the switch on and a discussion is created for it automatically.', 'buddynext' );
 				}
 				?>
 			</div>
 			<?php $bn_off_note( 'jetonomy' ); ?>
-			<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
 				<?php if ( $bn_disc_has ) : ?>
 					<?php
 					// This Space already owns its one dedicated discussion. Show WHICH
@@ -193,33 +200,33 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 					<p class="bn-space-settings__hint bn-space-settings__discussion-linked">
 						<?php
 						printf(
-							/* translators: %s: the linked discussion's name. */
-							esc_html__( 'Linked discussion: %s', 'buddynext' ),
-							'<strong>' . esc_html( '' !== $bn_disc_name ? $bn_disc_name : __( 'Discussion', 'buddynext' ) ) . '</strong>'
+							/* translators: %s: the linked Discussions area's name. */
+							esc_html__( 'Linked Discussions: %s', 'buddynext' ),
+							'<strong>' . esc_html( '' !== $bn_disc_name ? $bn_disc_name : __( 'Discussions', 'buddynext' ) ) . '</strong>'
 						);
 						?>
 						<?php if ( '' !== $bn_disc_url ) : ?>
-							&middot; <a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View discussion', 'buddynext' ); ?></a>
+							&middot; <a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View Discussions', 'buddynext' ); ?></a>
 						<?php endif; ?>
-						&middot;
-						<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>" data-wp-on--click="actions.unlinkDiscussion"><?php esc_html_e( 'Unlink', 'buddynext' ); ?></button>
+						<?php
+						// Unlink is the owner's, like the toggle beside it: the route refuses
+						// a moderator, so a moderator gets no button that can only fail.
+						if ( $args['is_space_owner'] ) :
+							?>
+							&middot;
+							<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>" data-wp-on--click="actions.unlinkDiscussion"><?php esc_html_e( 'Unlink', 'buddynext' ); ?></button>
+						<?php endif; ?>
 					</p>
 				<?php endif; ?>
-			<?php else : ?>
-				<p class="bn-space-settings__hint">
-					<?php esc_html_e( 'Discussions are unavailable on this site right now.', 'buddynext' ); ?>
-				</p>
-			<?php endif; ?>
 		</div>
-		<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
-			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable discussion', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'jetonomy' ) ); ?>>
-				<span class="bn-toggle" aria-hidden="true"></span>
-			</label>
-		<?php endif; ?>
+		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Discussions', 'buddynext' ); ?>">
+			<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'jetonomy' ) ); ?>>
+			<span class="bn-toggle" aria-hidden="true"></span>
+		</label>
 	</div>
+	<?php endif; ?>
 
-	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) ) : ?>
+	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) && $args['is_space_owner'] ) : ?>
 		<?php
 		// First-time setup only: create a new dedicated discussion (default)
 		// or link an existing one. The typeahead search scopes results by
@@ -304,6 +311,38 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Leaderboard tab', 'buddynext' ); ?>">
 				<input type="checkbox" class="bn-space-settings__toggle-input" name="gamification_leaderboard_tab" value="1" <?php checked( (bool) $args['leaderboard_tab'] ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+	<?php endif; ?>
+
+	<?php
+	/*
+	 * Articles tab (WB Member Blog). The row exists only while the bridge has registered
+	 * the field. It is disabled, with the reason, when the site admin switched articles in
+	 * Spaces off or the Space is private or secret (articles are only written for an open
+	 * Space). The save skips a disabled row, so the Space keeps its own choice.
+	 */
+	?>
+	<?php if ( null !== \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( \BuddyNext\Bridges\MemberBlogBridge::SPACE_FIELD ) ) : ?>
+		<?php
+		$bn_articles_site_off = ! buddynext_integration_enabled( \BuddyNext\Bridges\MemberBlogBridge::INTEGRATION, 'nav', 'spaces' );
+		$bn_articles_closed   = ! \BuddyNext\Bridges\MemberBlogBridge::space_is_open( (int) $bn_space->id );
+		?>
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Articles tab', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Blog tab so members can write and read articles for this space.', 'buddynext' ); ?></div>
+				<?php if ( $bn_articles_site_off ) : ?>
+					<p class="bn-space-settings__hint"><?php esc_html_e( 'Turned off for the whole site by the site admin.', 'buddynext' ); ?></p>
+				<?php elseif ( $bn_articles_closed ) : ?>
+					<p class="bn-space-settings__hint"><?php esc_html_e( 'Private spaces do not have a Blog tab.', 'buddynext' ); ?></p>
+				<?php elseif ( ! (bool) $args['articles_tab'] ) : ?>
+					<p class="bn-space-settings__hint"><?php esc_html_e( 'Nothing is deleted. Articles already written for this space show in the site feed instead, and turning this back on restores them.', 'buddynext' ); ?></p>
+				<?php endif; ?>
+			</div>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Articles tab', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="articles_tab" value="1" <?php checked( (bool) $args['articles_tab'] && ! $bn_articles_site_off && ! $bn_articles_closed ); ?> <?php disabled( ! $args['is_space_owner'] || $bn_articles_site_off || $bn_articles_closed ); ?> role="switch">
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>

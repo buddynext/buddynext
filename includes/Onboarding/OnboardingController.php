@@ -260,7 +260,31 @@ class OnboardingController {
 			return $too_long;
 		}
 
+		// Step 1 carries the chosen handle. It is saved here, with the step, because
+		// the wizard reloads after the interests step and rebuilds itself from what
+		// is stored: a handle that was only typed was replaced by the old one before
+		// Finish sent it. A refused handle keeps the member on step 1 with the reason.
+		$slug = 1 === $step && isset( $data['slug'] ) && is_string( $data['slug'] ) ? trim( $data['slug'] ) : '';
+		if ( '' !== $slug ) {
+			$refusal = $this->service->slug_refusal( $user_id, $slug );
+			if ( null !== $refusal ) {
+				return new WP_REST_Response(
+					array(
+						'saved'   => false,
+						'code'    => $refusal->get_error_code(),
+						'message' => $refusal->get_error_message(),
+						'errors'  => array( 'slug' => $refusal->get_error_message() ),
+					),
+					409
+				);
+			}
+		}
+
 		$this->service->save_step( $user_id, $step, $data );
+
+		if ( '' !== $slug ) {
+			$this->service->save_slug( $user_id, $slug );
+		}
 
 		return new WP_REST_Response(
 			array(
@@ -352,6 +376,25 @@ class OnboardingController {
 			return $too_long;
 		}
 
+		// A handle that cannot be had stops the finish with the reason, before
+		// anything is written. It used to be dropped silently: the response said
+		// completed while the member kept a different handle than the one chosen.
+		$slug = $request->get_param( 'slug' );
+		if ( is_string( $slug ) && '' !== trim( $slug ) ) {
+			$refusal = $this->service->slug_refusal( $user_id, $slug );
+			if ( null !== $refusal ) {
+				return new WP_REST_Response(
+					array(
+						'completed' => false,
+						'code'      => $refusal->get_error_code(),
+						'message'   => $refusal->get_error_message(),
+						'errors'    => array( 'slug' => $refusal->get_error_message() ),
+					),
+					409
+				);
+			}
+		}
+
 		// Step 1 — profile (display name + bio).
 		$profile = array();
 		if ( null !== $request->get_param( 'display_name' ) ) {
@@ -373,7 +416,6 @@ class OnboardingController {
 		// the member first learned their real one from their profile URL.
 		// Reported as onboarding showing "shubham.qa" and publishing "@shubham-qa".
 		$bn_saved_handle = '';
-		$slug            = $request->get_param( 'slug' );
 		if ( is_string( $slug ) && '' !== trim( $slug ) ) {
 			$bn_saved_handle = $this->service->save_slug( $user_id, $slug );
 		}
@@ -509,22 +551,9 @@ class OnboardingController {
 	 * @return string
 	 */
 	private function pending_invite_redirect( int $user_id, string $fallback ): string {
-		$pending = get_user_meta( $user_id, SpaceInviteLinkService::PENDING_KEY, true );
-		if ( ! is_array( $pending ) || empty( $pending ) ) {
-			return $fallback;
-		}
+		$space_id = ( new SpaceInviteLinkService() )->settle_pending( $user_id );
 
-		// Single-use: clear it whether or not any entry is still valid.
-		delete_user_meta( $user_id, SpaceInviteLinkService::PENDING_KEY );
-
-		$joined_ids = ( new SpaceInviteLinkService() )->join_all_pending( $user_id, $pending );
-		if ( empty( $joined_ids ) ) {
-			return $fallback;
-		}
-
-		// Land them in the space they opened LAST — the one most likely still top
-		// of mind — while any others joined silently alongside it.
-		return PageRouter::space_url( (int) end( $joined_ids ) );
+		return $space_id > 0 ? PageRouter::space_url( $space_id ) : $fallback;
 	}
 
 	/**
@@ -538,12 +567,9 @@ class OnboardingController {
 	 * @return true|WP_Error
 	 */
 	public function require_auth(): bool|WP_Error {
-		if ( ! buddynext_feature_enabled( 'onboarding' ) ) {
-			return new WP_Error(
-				'feature_disabled',
-				__( 'Onboarding is turned off for this community.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		$off = buddynext_feature_refusal( 'onboarding', 'feature_disabled', __( 'Onboarding is turned off for this community.', 'buddynext' ) );
+		if ( $off ) {
+			return $off;
 		}
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(

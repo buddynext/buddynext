@@ -21,6 +21,14 @@
 
 .bn-admin-hub {
 	max-width: none;
+
+	/* WordPress paints native checkboxes, radios, focus rings and plain links from one
+	   variable, so inside BuddyNext they showed WordPress blue beside brand-blue buttons
+	   and switches. Point it at the brand accent (which follows the owner's hue and any
+	   White-label setting) for every screen in the hub at once. */
+	--wp-admin-theme-color: var(--bn-accent);
+	--wp-admin-theme-color-darker-10: var(--bn-accent-600);
+	--wp-admin-theme-color-darker-20: var(--bn-accent-700);
 }
 
 .bn-admin-hub__header {
@@ -86,7 +94,7 @@
 .bn-admin-hub__tab:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
+	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-sm, 4px);
 	color: var(--bn-ink);
 }
@@ -255,7 +263,7 @@
 .bn-segment__item:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-segment__item.is-active,
 .bn-segment__item[aria-selected="true"] {
@@ -357,6 +365,26 @@
 }
 .bn-admin-hub__main h2:first-child,
 .bn-admin-hub__main--wide h2:first-child { margin-top: 0; }
+/* An h2 INSIDE a card is that card's title, not an eyebrow above it. Without this it
+   rendered as the small monospace chip (Usage tracking, Test a phrase, Membership
+   plans, Recommended for new communities) beside cards whose titles are 15px. Same
+   type as .bn-ss-title so every card title reads alike. */
+.bn-admin-hub__main :is(.bn-settings-section, .bn-recommended-card, .bn-card, .card, .bn-setup-card, .bn-fam-header) h2:not(.bn-modal__title),
+.bn-admin-hub__main--wide :is(.bn-settings-section, .bn-recommended-card, .bn-card, .card, .bn-setup-card, .bn-fam-header) h2:not(.bn-modal__title) {
+	display: block;
+	margin: 0 0 var(--bn-a-s1);
+	padding: 0;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	font-family: var(--bn-a-font-display);
+	font-size: var(--bn-a-text-base);
+	font-weight: var(--bn-a-fw-semibold);
+	letter-spacing: normal;
+	text-transform: none;
+	color: var(--bn-a-text-1);
+	line-height: var(--bn-leading-tight, 1.25);
+}
 /* H3 below remains a "subsection title inside the card". */
 .bn-admin-hub__main h3,
 .bn-admin-hub__main--wide h3 {
@@ -373,8 +401,8 @@
    form inside a table cell or an existing card is an INLINE CONTROL (the
    Profile Fields per-row Required/visibility forms) - carding those produced
    box-in-box rows. */
-.bn-admin-hub__main form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel):not(:has(.bn-settings-section)):not(td form):not(th form):not(.bn-card form):not(.bn-settings-section form),
-.bn-admin-hub__main--wide form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel):not(:has(.bn-settings-section)):not(td form):not(th form):not(.bn-card form):not(.bn-settings-section form),
+.bn-admin-hub__main form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel):not(:has(.bn-settings-section)):not(td form):not(th form):not(.bn-card form):not(.card form):not(.bn-settings-section form),
+.bn-admin-hub__main--wide form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel):not(:has(.bn-settings-section)):not(td form):not(th form):not(.bn-card form):not(.card form):not(.bn-settings-section form),
 .bn-admin-hub__main > table.wp-list-table,
 .bn-admin-hub__main--wide > table.wp-list-table {
 	background: var(--bn-surface, #fff);
@@ -496,6 +524,25 @@
 	padding: var(--bn-s3, 12px) var(--bn-s3, 12px) var(--bn-s3, 12px) 0;
 }
 
+/* Old WordPress `form-table` forms put the label in a left column, so a screen that still uses one
+   read differently from every other form here (label above its field). Stacked, they match. */
+.bn-admin-hub__main .form-table,
+.bn-admin-hub__main .form-table tbody,
+.bn-admin-hub__main .form-table tr,
+.bn-admin-hub__main .form-table th,
+.bn-admin-hub__main .form-table td {
+	display: block;
+	width: auto;
+}
+.bn-admin-hub__main .form-table tr + tr { margin-block-start: var(--bn-s2, 8px); }
+.bn-admin-hub__main .form-table th {
+	padding: 0 0 var(--bn-s1, 4px);
+	font-weight: 600;
+}
+.bn-admin-hub__main .form-table td { padding: 0 0 var(--bn-s2, 8px); }
+.bn-admin-hub__main .form-table td > .description,
+.bn-admin-hub__main .form-table td > p.description { margin: var(--bn-s1, 4px) 0 0; }
+
 /* Submit row visually separates from the form body. */
 .bn-admin-hub__main p.submit,
 .bn-admin-hub__main--wide p.submit {
@@ -532,7 +579,7 @@
 }
 .bn-admin-hub__main .button-primary:focus-visible,
 .bn-admin-hub__main--wide .button-primary:focus-visible {
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+	box-shadow: var(--bn-ring);
 }
 
 /* Danger / link-delete variant stays red so destruction reads. */
@@ -557,6 +604,38 @@
    the boxes never butt up against each other. */
 .bn-admin-hub .bn-stat-grid {
 	margin-bottom: var(--bn-s4, 16px);
+	/* Equal columns, as many as fit: a flex row let one wider tile push a fourth tile onto its own full-width line
+	   (3 + 1), and six tiles read 5 + 1. */
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+	/* Every row the same height, so a tile without a trend line is not shorter than the ones above it. */
+	grid-auto-rows: 1fr;
+	gap: var(--bn-s3, 12px);
+}
+.bn-admin-hub .bn-stat-grid > .bn-stat {
+	min-width: 0;
+}
+
+/* Quantity rules: 5 tiles share one row, 6 and 8 tiles split evenly (3 + 3, 4 + 4) instead of leaving an orphan. */
+@media (min-width: 900px) {
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(7):last-child) {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(5):last-child) {
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+	}
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(6):last-child) {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(8):last-child) {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+}
+@media (min-width: 783px) and (max-width: 899px) {
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(5):last-child),
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(6):last-child) {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
 }
 
 /* ── Mobile — tab strip becomes a horizontal scroller ────────────────── */
@@ -654,7 +733,7 @@
 .bn-hub-nav-group__label:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 2px color-mix( in oklch, var(--bn-accent) 45%, transparent );
+	box-shadow: var(--bn-ring);
 }
 .bn-hub-nav-group.is-current > .bn-hub-nav-group__label { color: var(--bn-ink); }
 .bn-hub-nav-group__name {
@@ -701,8 +780,15 @@
 	font-weight: var(--bn-fw-medium, 500);
 	line-height: 1.3;
 }
+/* A finger gets the full 44px floor (WCAG 2.5.5 / Apple HIG) on every control
+   that reads --bn-tap: hub chrome, sub-tabs, Reports filter selects. A mouse
+   keeps the 40px desktop rung. */
+@media (pointer: coarse) {
+	.bn-admin-hub { --bn-tap: 44px; }
+}
+
 /* Touch (iPad included) and narrow screens: nav links and the header Search /
-   Docs buttons meet the 40px tap floor; a mouse keeps the compact desktop rail. */
+   Docs buttons meet the tap floor; a mouse keeps the compact desktop rail. */
 @media (pointer: coarse), (max-width: 782px) {
 	.bn-hub-nav-link,
 	.bn-hub-nav-group__label,
@@ -713,7 +799,7 @@
 .bn-hub-nav-link:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 2px color-mix( in oklch, var(--bn-accent) 45%, transparent );
+	box-shadow: var(--bn-ring);
 }
 .bn-hub-nav-link.is-active {
 	background: var(--bn-accent-100, var(--bn-sunken));
@@ -747,15 +833,11 @@
 }
 .bn-admin-hub--paneled .bn-admin-hub__header { padding-top: 0; }
 
-/* iPad portrait + narrow: panel stacks above content */
-/* iPad landscape/portrait (admin target floor is 768 - owner: admin is
-   desktop + iPad only): keep the two-column layout with a narrower rail
-   instead of stacking the full nav above the content, which buried every
-   screen below the fold on tablets. */
-@media ( max-width: 1024px ) {
-	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 216px minmax( 0, 1fr ); } /* MONETIZATION fits beside the icons with a classic 15px scrollbar. */
-	.bn-hub-nav-link { padding-inline-start: var(--bn-s4, 16px); }
-}
+/* Rail and tablets: from 1280px the left rail sits beside the content (it lists only
+   the current group's tabs). Below that, which is every iPad up to the 11-inch Pro, the
+   rail folds into one "Group > Tab" button so the content card gets the full width:
+   beside the rail the card was about 500px wide at 1024px and 700px at 1194px, and up to
+   eleven tables scrolled sideways. Measured: with the fold none do, at any width. */
 
 /* Below the iPad floor (out of admin scope, kept usable): stack, with the
    nav sections all collapsed so content stays within one swipe.
@@ -766,7 +848,7 @@
    two-column, so the content well was squeezed from both sides at once. iPad
    portrait is 768, so it still stacks there — the change only removes the
    sliver, it does not move the tablet behaviour. */
-@media ( max-width: 782px ) {
+@media ( max-width: 1279px ) {
 	/*
 	 * minmax(0, 1fr), not a bare 1fr. `1fr` floors at the track's MIN-CONTENT
 	 * width, and the nav's longest labels ("Registration & Login", "Roles &
@@ -810,8 +892,71 @@
 }
 
 /* Wider screens keep the rail; the phone toggle never shows. */
-@media ( min-width: 783px ) {
+@media ( min-width: 1280px ) {
 	.bn-hub-nav-toggle { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Group bar: the eight groups across the top of every admin screen
+   -------------------------------------------------------------------------- */
+.bn-hub-groupbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s1, 4px);
+	margin-block-end: var(--bn-s4, 16px);
+	padding: var(--bn-s1, 4px);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg, 12px);
+}
+.bn-hub-groupbar__item {
+	box-sizing: border-box;
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-block-size: var(--bn-tap, 40px);
+	padding-inline: var(--bn-s3, 12px);
+	border-radius: var(--bn-r-md, 8px);
+	color: var(--bn-ink-2);
+	font-weight: var(--bn-fw-semibold, 600);
+	text-decoration: none;
+	white-space: nowrap;
+}
+.bn-hub-groupbar__item:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+.bn-hub-groupbar__item:focus-visible { outline: 2px solid var(--bn-accent); outline-offset: 2px; }
+.bn-hub-groupbar__item.is-active {
+	background: var(--bn-accent-solid, var(--bn-accent));
+	color: var(--bn-accent-fg, var(--bn-bg));
+}
+/* iPad portrait: eight labels need about 775px and about 700px exist, so the bar
+   wraps to two even rows of four. Everything stays visible; no script, no "More". */
+@media ( max-width: 900px ) {
+	.bn-hub-groupbar__item { flex-basis: calc( 25% - var(--bn-s1, 4px) ); }
+}
+/* Phones (600px and below; iPad portrait at 768px still gets the wrapped bar): the bar is
+   replaced by the same groups at the head of the opened menu. */
+@media ( max-width: 600px ) {
+	.bn-hub-groupbar { display: none; }
+}
+.bn-hub-nav-groups { display: none; }
+@media ( max-width: 600px ) {
+	.bn-hub-nav-groups {
+		display: flex;
+		flex-direction: column;
+		margin-block-end: var(--bn-s2, 8px);
+		border-block-end: 1px solid var(--bn-line);
+	}
+	.bn-hub-nav-groups__item {
+		display: flex;
+		align-items: center;
+		min-block-size: 44px;
+		padding-inline: var(--bn-s3, 12px);
+		color: var(--bn-ink-2);
+		font-weight: var(--bn-fw-semibold, 600);
+		text-decoration: none;
+	}
+	.bn-hub-nav-groups__item.is-active { color: var(--bn-accent); }
 }
 
 /* --------------------------------------------------------------------------
@@ -891,7 +1036,7 @@
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold, 600);
 	padding: 6px 11px;
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md, 8px);
 	color: var(--bn-ink-2);
 	background: var(--bn-surface);
@@ -1080,7 +1225,7 @@
 	font-weight: var(--bn-a-fw-semibold);
 	color: var(--bn-a-brand);
 	text-decoration: none;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: 5px var(--bn-a-s3);
 	white-space: nowrap;
@@ -1175,7 +1320,7 @@
 	gap: var(--bn-a-s3);
 	padding: var(--bn-a-s4);
 	background: var(--bn-a-bg);
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border); /* A link tile is a control: 3:1 edge. */
 	border-radius: var(--bn-a-r-md, 10px);
 	box-shadow: var(--bn-a-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
 	text-decoration: none;
@@ -1231,4 +1376,322 @@
 	color: var(--bn-ink-3, #6b7280);
 	font-style: italic;
 	opacity: 1;
+}
+
+/* A group with six tabs or fewer lists them flat, with no section headings. */
+.bn-hub-nav-list.is-flat .bn-hub-nav-group__label { display: none; }
+.bn-hub-nav-list.is-flat .bn-hub-nav-group { margin-bottom: 0; }
+.bn-hub-nav-list.is-flat .bn-hub-nav-group__items { padding-top: 0; }
+.bn-hub-nav-list.is-flat .bn-hub-nav-link { padding-inline-start: var(--bn-s4, 16px); }
+/* A section that only lends one tab to this group (License from Get Started) has no
+   heading of its own: the tab sits with the group's other tabs. */
+.bn-hub-nav-group.is-borrowed > .bn-hub-nav-group__label { display: none; }
+
+/* The Demo Installer card's action stays on one line: "Get the installer" wrapped to two. */
+.bn-demo-installer .bn-btn { white-space: nowrap; flex: none; }
+
+/* Help and resources: closes the rail on every group, so a one-item rail (Home) is not a
+   box of empty space. Quiet links, 44px rows, a hairline above. */
+.bn-hub-resources {
+	margin-block-start: var(--bn-s4, 16px);
+	padding-block-start: var(--bn-s3, 12px);
+	border-block-start: 1px solid var(--bn-border, #e3e6ea);
+}
+.bn-hub-resources__title {
+	margin: 0 0 var(--bn-s1, 4px);
+	padding-inline: var(--bn-s4, 16px);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+}
+.bn-hub-resources__link {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2, 8px);
+	min-height: 40px;
+	padding: var(--bn-s2, 8px) var(--bn-s4, 16px);
+	border-radius: var(--bn-r-md);
+	font-size: 13px;
+	color: var(--bn-ink, #1d2327);
+	text-decoration: none;
+}
+.bn-hub-resources__link:hover,
+.bn-hub-resources__link:focus-visible { background: var(--bn-sunken); color: var(--bn-accent-700, #0f4a9e); }
+.bn-hub-resources__link .bn-hub-nav-link__icon { flex: none; width: 16px; height: 16px; color: var(--bn-ink-3); }
+@media ( max-width: 1279px ) { .bn-hub-resources__link { min-height: 44px; } }
+
+/* Home keeps its H1 for screen readers only; the header then takes no room. */
+.bn-admin-hub__header.is-title-hidden { margin: 0; padding: 0; min-height: 0; }
+
+/* Setup videos tab: a player with an "Up next" list beside it, then links to the long guides. */
+.bn-videos { display: flex; flex-direction: column; gap: var(--bn-s4, 16px); }
+.bn-videos__stage {
+	display: grid;
+	grid-template-columns: minmax(0, 1.9fr) minmax(280px, 1fr);
+	gap: var(--bn-s4, 16px);
+	align-items: stretch;
+}
+.bn-videos__main { padding: 0; overflow: hidden; }
+.bn-videos__frame { aspect-ratio: 16 / 9; background: #0f1623; }
+.bn-videos__poster {
+	display: block;
+	position: relative;
+	inline-size: 100%;
+	block-size: 100%;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+.bn-videos__poster img,
+.bn-videos__player { display: block; inline-size: 100%; block-size: 100%; border: 0; object-fit: cover; }
+.bn-videos__play {
+	position: absolute;
+	inset: 50% auto auto 50%;
+	transform: translate( -50%, -50% );
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 64px;
+	block-size: 64px;
+	border-radius: 50%;
+	background: #fff;
+	color: var(--bn-accent-600, #1a64c8);
+	box-shadow: 0 4px 16px rgba( 0, 0, 0, .3 );
+	transition: transform .15s ease;
+}
+.bn-videos__poster:hover .bn-videos__play { transform: translate( -50%, -50% ) scale( 1.06 ); }
+.bn-videos__play-icon { inline-size: 26px; block-size: 26px; }
+.bn-videos__poster:focus-visible { outline: 3px solid var(--bn-accent-600, #1a64c8); outline-offset: -3px; }
+.bn-videos__info { display: flex; flex-direction: column; gap: var(--bn-s2, 8px); padding: var(--bn-s5, 20px) var(--bn-s6, 24px) var(--bn-s6, 24px); }
+.bn-videos__eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--bn-ink-3); }
+.bn-videos__title { margin: 0; font-size: 20px; line-height: 1.3; }
+.bn-videos__blurb { margin: 0; max-inline-size: 60ch; font-size: 14px; line-height: 1.55; color: var(--bn-ink-2, #4b5560); }
+.bn-videos__cta { margin: var(--bn-s2, 8px) 0 0; }
+
+/* The list takes the player column's height and scrolls, so ten films never make the page tall. */
+.bn-videos__list { display: flex; flex-direction: column; min-inline-size: 0; padding: 0; overflow: hidden; contain: size layout; }
+.bn-videos__filters, .bn-videos__series { display: flex; flex-wrap: wrap; gap: var(--bn-s2, 8px); margin: 0; padding: 0; list-style: none; }
+.bn-videos__list .bn-videos__filters { padding: var(--bn-s3, 12px) var(--bn-s4, 14px); border-block-end: 1px solid var(--bn-border, #e3e6ea); }
+.bn-videos__chip {
+	display: inline-flex;
+	align-items: center;
+	min-block-size: 32px;
+	padding: 0 var(--bn-s3, 12px);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: 999px;
+	background: var(--bn-surface, #fff);
+	color: var(--bn-ink, #1d2327);
+	font: inherit;
+	font-size: 12px;
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+}
+.bn-videos__chip:hover, .bn-videos__chip:focus-visible { border-color: var(--bn-accent-600, #1a64c8); color: var(--bn-accent-700, #0f4a9e); }
+.bn-videos__chip.is-active { background: var(--bn-accent-600, #1a64c8); border-color: var(--bn-accent-600, #1a64c8); color: #fff; }
+.bn-videos__rows { flex: 1; min-block-size: 0; margin: 0; padding: var(--bn-s2, 6px); overflow-y: auto; list-style: none; }
+.bn-videos__item[hidden] { display: none; }
+.bn-videos__row {
+	position: relative;
+	display: grid;
+	grid-template-columns: 112px minmax(0, 1fr);
+	gap: var(--bn-s3, 12px);
+	align-items: center;
+	padding: var(--bn-s2, 8px);
+	border-radius: 10px;
+	color: var(--bn-ink, #1d2327);
+	text-decoration: none;
+}
+.bn-videos__row:hover, .bn-videos__row:focus-visible { background: var(--bn-sunken); }
+.bn-videos__row.is-current { background: var(--bn-accent-50, #eaf2fd); }
+.bn-videos__thumb { display: block; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 6px; background: #dfe7f3; }
+.bn-videos__thumb img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
+.bn-videos__row-body { display: flex; flex-direction: column; gap: 3px; min-inline-size: 0; }
+.bn-videos__row-title { font-size: 13px; font-weight: 600; line-height: 1.35; }
+.bn-videos__row-meta { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--bn-ink-3); }
+.bn-videos__now { display: none; align-self: flex-start; padding: 1px 8px; border-radius: 999px; background: var(--bn-accent-600, #1a64c8); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.bn-videos__row.is-current .bn-videos__now { display: inline-block; }
+.bn-videos__more .bn-videos__series { margin-block-start: var(--bn-s3, 12px); }
+.bn-videos li { margin: 0; }
+.bn-videos__series li { display: flex; }
+.bn-videos__chip, .bn-videos__row, .bn-videos__thumb { box-sizing: border-box; }
+/* The tab's own gap sets the spacing between its cards, so a card's own margin must not add to it. */
+.bn-videos > .bn-setup-card, .bn-videos__stage > .bn-setup-card { margin: 0; }
+.bn-videos__more .bn-videos__chip { min-block-size: 36px; padding: 0 var(--bn-s4, 14px); font-size: 13px; }
+@media ( max-width: 1100px ) {
+	.bn-videos__stage { grid-template-columns: minmax(0, 1fr); }
+	.bn-videos__list { contain: none; }
+	.bn-videos__rows { max-block-size: 440px; }
+}
+@media ( max-width: 600px ) {
+	.bn-videos__chip { min-block-size: 44px; }
+	.bn-videos__info { padding: var(--bn-s4, 16px); }
+	.bn-videos__row { grid-template-columns: 96px minmax(0, 1fr); }
+}
+
+/* On a phone the version chip is the item that does not fit: without it the logo, Search and
+   Docs share one row instead of Docs dropping onto a line of its own. The version stays on the
+   Plugins screen and in the page source. */
+@media ( max-width: 480px ) {
+	.bn-admin-hub__brand-ver { display: none; }
+}
+
+/* Phones: a card with a title, a line of text and one action gives the action its own row instead of
+   squeezing the title into a narrow column beside it. */
+@media ( max-width: 600px ) {
+	.bn-home-welcome .bn-setup-card__head,
+	.bn-demo-promo .bn-setup-card__head,
+	.bn-videos__more .bn-setup-card__head { flex-direction: column; align-items: stretch; }
+	.bn-home-welcome .bn-setup-card__actions .bn-btn,
+	.bn-demo-promo .bn-setup-card__head > .bn-btn,
+	.bn-demo-promo .bn-demo-promo__form .bn-btn,
+	.bn-videos__more .bn-setup-card__head > .bn-btn { inline-size: 100%; justify-content: center; }
+}
+
+/* ── GitHub site tools: one-click install (Home demo card + Add-ons rows) ──
+   Shared by CompanionGithubUi markup on every hub screen: the busy button, the live
+   status line, a thin progress bar that reserves no space until shown, and the
+   manual fallback (reason, then Download / Upload / Come back). */
+.bn-demo-installer__action { flex: none; }
+.bn-demo-installer__trust {
+	margin: var(--bn-a-s2) 0 0;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+.bn-gh-spinner { display: none; }
+[data-bn-gh-go].is-busy .bn-gh-spinner {
+	display: inline-block;
+	inline-size: 1em;
+	block-size: 1em;
+	margin-inline-end: var(--bn-a-s2);
+	border: 2px solid currentColor;
+	border-inline-end-color: transparent;
+	border-radius: var(--bn-a-r-full);
+	vertical-align: -0.15em;
+	animation: bn-gh-spin 0.8s linear infinite;
+}
+[data-bn-gh-go]:disabled { cursor: progress; }
+[data-bn-gh-go][hidden] { display: none; }
+.bn-gh-status {
+	margin: var(--bn-a-s2) 0 0;
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+}
+.bn-gh-status:empty { display: none; }
+[data-state="active"] > .bn-gh-status,
+[data-state="active"] .bn-gh-status { color: var(--bn-a-green); font-weight: var(--bn-a-fw-semibold); }
+.bn-gh-progress {
+	position: relative;
+	overflow: hidden;
+	block-size: var(--bn-a-s1);
+	margin-block-start: var(--bn-a-s2);
+	border-radius: var(--bn-a-r-full);
+	background: var(--bn-a-bg-subtle);
+}
+.bn-gh-progress[hidden] { display: none; }
+.bn-gh-progress__bar {
+	position: absolute;
+	inset-block: 0;
+	inline-size: 40%;
+	border-radius: inherit;
+	background: var(--bn-a-brand);
+	animation: bn-gh-slide 1.2s ease-in-out infinite;
+}
+.bn-gh-fallback {
+	margin-block-start: var(--bn-a-s3);
+	padding: var(--bn-a-s3);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	background: var(--bn-a-bg-subtle);
+}
+.bn-gh-fallback[hidden] { display: none; }
+.bn-gh-fallback__reason {
+	margin: 0 0 var(--bn-a-s2);
+	padding: var(--bn-a-s2) var(--bn-a-s3);
+	border-radius: var(--bn-a-r-sm);
+	background: var(--bn-a-red-bg);
+	color: var(--bn-a-red);
+	font-weight: var(--bn-a-fw-semibold);
+}
+.bn-gh-fallback__reason:empty { display: none; }
+.bn-gh-fallback__lead { margin: 0 0 var(--bn-a-s2); color: var(--bn-a-text-2); }
+.bn-gh-fallback__steps {
+	margin: 0 0 var(--bn-a-s3);
+	padding-inline-start: var(--bn-a-s5);
+	display: grid;
+	gap: var(--bn-a-s2);
+}
+.bn-gh-fallback__steps li { margin: 0; }
+.bn-gh-fallback__steps strong { margin-inline-end: var(--bn-a-s2); }
+@keyframes bn-gh-spin { to { transform: rotate(360deg); } }
+@keyframes bn-gh-slide {
+	from { inset-inline-start: -40%; }
+	to { inset-inline-start: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-bn-gh-go].is-busy .bn-gh-spinner,
+	.bn-gh-progress__bar { animation-duration: 3s; }
+}
+
+/* Demo tiles from the installer, under the idle installer card. */
+.bn-demo-tiles {
+	list-style: none;
+	margin: var(--bn-a-s4) 0 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+	gap: var(--bn-a-s3);
+}
+.bn-demo-tile {
+	position: relative;
+	margin: 0;
+	padding: var(--bn-a-s3);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s2);
+}
+.bn-demo-tile__badge {
+	position: absolute;
+	inset-block-start: var(--bn-a-s3);
+	inset-inline-end: var(--bn-a-s3);
+}
+.bn-demo-tile__name { padding-inline-end: calc(var(--bn-s16) + var(--bn-s8)); }
+.bn-demo-tile__name {
+	margin: 0;
+	font-size: var(--bn-a-text-base);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+}
+.bn-demo-tile__desc,
+.bn-demo-tile__ready { margin: 0; font-size: var(--bn-a-text-sm); color: var(--bn-a-text-2); }
+.bn-demo-tile__ready { color: var(--bn-a-text-3); }
+.bn-demo-tile__actions {
+	margin-block-start: auto;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-a-s3);
+}
+.bn-demo-tile__film { font-size: var(--bn-a-text-sm); }
+.bn-demo-tiles__more { margin: var(--bn-a-s3) 0 0; }
+
+/* Phones: the install action drops under the text, full width at a 44px tap target. */
+@media ( max-width: 600px ) {
+	.bn-demo-installer__action [data-bn-gh-go],
+	.bn-demo-installer__action > .bn-btn,
+	.bn-demo-tile__actions .bn-btn {
+		inline-size: 100%;
+		min-block-size: 44px;
+		justify-content: center;
+	}
+	.bn-gh-fallback [data-bn-gh-check],
+	.bn-gh-fallback [data-bn-gh-retry] { min-block-size: 44px; }
+	.bn-demo-tile__film,
+	.bn-demo-tiles__more a { display: inline-flex; align-items: center; min-block-size: 44px; }
 }

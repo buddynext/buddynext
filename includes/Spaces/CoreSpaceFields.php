@@ -13,7 +13,7 @@ namespace BuddyNext\Spaces;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Registers the eight built-in space options as core space fields.
+ * Registers the built-in space options as core space fields.
  *
  * These were historically per-space wp_options (bn_space_{id}_*), which
  * autoloaded and bypassed any developer API. They are now first-class space
@@ -31,10 +31,39 @@ final class CoreSpaceFields {
 	 */
 	public function register(): void {
 		add_action( 'buddynext_register_space_fields', array( $this, 'register_fields' ) );
+		add_filter( 'buddynext_field_sanitize', array( $this, 'sanitize_location' ), 10, 3 );
 	}
 
 	/**
-	 * Register the eight built-in fields.
+	 * The longest a Space's Location may be, in characters. The form's maxlength and the server's refusal.
+	 */
+	public const LOCATION_MAX = 100;
+
+	/**
+	 * Hold a Space's Location to its length on every write path (the form, REST, the field API).
+	 *
+	 * Only the Space field named location is judged: a profile field of the same name has its own limit, and every
+	 * other field passes through.
+	 *
+	 * @param mixed $custom Value an earlier filter chose (null = nobody yet).
+	 * @param mixed $field  The field definition (a Space field carries 'key', a profile field 'field_key').
+	 * @param mixed $raw    The submitted value.
+	 * @return mixed
+	 */
+	public function sanitize_location( $custom, $field, $raw = '' ) {
+		if ( null !== $custom || ! is_array( $field ) || 'location' !== ( $field['key'] ?? '' ) || isset( $field['field_key'] ) ) {
+			return $custom;
+		}
+		$value = sanitize_text_field( is_array( $raw ) ? '' : (string) $raw );
+		if ( mb_strlen( $value ) > self::LOCATION_MAX ) {
+			/* translators: %d: maximum number of characters. */
+			return new \WP_Error( 'bn_location_too_long', sprintf( __( 'Location can be at most %d characters.', 'buddynext' ), self::LOCATION_MAX ) );
+		}
+		return $value;
+	}
+
+	/**
+	 * Register the built-in fields.
 	 *
 	 * @param SpaceFieldRegistry $registry The field registry.
 	 * @return void
@@ -57,6 +86,26 @@ final class CoreSpaceFields {
 				'sort_order'  => 5,
 				'visibility'  => 'members',
 				'writable_by' => 'owner',
+				'core'        => true,
+			)
+		);
+
+		// Where the Space is, in the owner's own words ("Bollington, Cheshire, UK"). Plain text, optional, public, and
+		// folded into the Space search index, so a member who searches for a place finds the Spaces there. It is a
+		// search aid, not a directory: there are no place archives and no extra index.
+		$registry->register(
+			'location',
+			array(
+				'label'       => __( 'Location', 'buddynext' ),
+				'description' => __( 'Optional. Members can find this Space by searching for a place.', 'buddynext' ),
+				'type'        => 'text',
+				'default'     => '',
+				'section'     => 'general',
+				'sort_order'  => 8,
+				'visibility'  => 'public',
+				'searchable'  => true,
+				'writable_by' => 'owner',
+				// Core: it has its own input on the General settings panel, and its own line on the About tab.
 				'core'        => true,
 			)
 		);

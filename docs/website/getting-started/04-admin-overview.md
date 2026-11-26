@@ -135,6 +135,8 @@ The tab bars on profiles, spaces, space settings, member settings and feed filte
 
 On a phone, the **More** sheet is always there, on any theme. It lists Members, Explore, Messages, Bookmarks and Settings, so they stay reachable even when the bottom bar has no room for them. The sheet is built from the same list as the left rail.
 
+With Jetonomy active, the bottom bar also shows on Jetonomy's community pages. There it holds Activity, Discussions (marked as the current page), Spaces, then Messages for a member or Log in for a visitor, plus the **More** sheet. Jetonomy's floating Reply button is hidden there, because the Reply link on the topic stays, and the bar slides away while a member is typing a reply. Turning off the Jetonomy navigation integration removes the bar from those pages.
+
 ## Jump to any setting with the command palette
 
 You do not have to remember which section a setting lives in. BuddyNext registers every one of its settings with WordPress core's built-in **Command Palette**.
@@ -152,3 +154,9 @@ Each section has its own deep-dive in this documentation:
 - For communities, categories, and membership rules, see the [Spaces documentation](../spaces/01-spaces-overview.md).
 - For reactions, notifications, email, and moderation, see the [Activity Feed](../community/01-activity-feed.md), [Notifications](../messaging-notifications/02-notifications.md), and [Moderation Queue](../moderation/02-moderation-queue.md) pages.
 - For Pro sections (Realtime & Push, Campaigns, Monetization) and the Pro moderation tabs, see the [BuddyNext Pro documentation](../pro/01-membership-plans.md). (Insights is a free feature - see [Community Insights](06-community-insights.md).)
+
+## What changed in 1.3.0
+
+- On every settings tab **Save** stays disabled until a field changes, and the Unsaved changes note appears with the first edit.
+- The setup reminder shows on the WordPress dashboard and Settings only. Phone tables keep readable columns and scroll sideways inside their card, with a shadow at the edge that has more.
+- Add-ons cards and Profile Fields headers keep their buttons and labels on one line.

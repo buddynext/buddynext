@@ -20,11 +20,14 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+defined( 'ABSPATH' ) || exit;
+
 use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Media\Galleries;
+use BuddyNext\Spaces\SpacePostGuard;
 use BuddyNext\Spaces\SpaceVisibility;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\IntegrationActivity;
@@ -58,6 +61,23 @@ class WPMediaVerseBridge {
 	private bool $mirroring_follow = false;
 
 	/**
+	 * Raised while a report status is copied across, so the two sides do not echo it back.
+	 *
+	 * @var bool
+	 */
+	private bool $mirroring_report = false;
+
+	/**
+	 * Action Scheduler hook that continues trashing a big space drive.
+	 */
+	public const DRIVE_MEDIA_HOOK = 'buddynext_space_drive_media_trash';
+
+	/**
+	 * Media items trashed per run.
+	 */
+	public const DRIVE_MEDIA_PER_RUN = 200;
+
+	/**
 	 * Flag reason carried from the pre-send content gate to the post-send report.
 	 *
 	 * A DM is checked before it is written (mvs_message_content_check), so at flag
@@ -75,6 +95,13 @@ class WPMediaVerseBridge {
 	 * @var bool
 	 */
 	private static bool $mirroring_comment = false;
+
+	/**
+	 * True while a media item's earlier comments are being carried onto its card.
+	 *
+	 * @var bool
+	 */
+	private static bool $carrying_comments = false;
 
 	/**
 	 * Attach the DM safety gates.
@@ -247,8 +274,13 @@ class WPMediaVerseBridge {
 		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
 		// show divergent follow state for the same pair. A re-entrancy guard plus
 		// an is_following() short-circuit prevents the mirror from looping.
+		// MediaVerse 2.6.5+ asks before it records a follow, so BuddyNext decides
+		// first and a private account never sees an active follow it must withdraw.
+		add_filter( 'mvs_can_follow', array( $this, 'can_follow' ), 10, 3 );
+		add_filter( 'mvs_follow_is_requested', array( $this, 'follow_is_requested' ), 10, 3 );
 		add_action( 'mvs_user_followed', array( $this, 'mirror_mvs_follow' ), 10, 2 );
 		add_action( 'mvs_user_unfollowed', array( $this, 'mirror_mvs_unfollow' ), 10, 2 );
+		add_action( 'mvs_follow_request_withdrawn', array( $this, 'withdraw_pending_follow' ), 10, 2 );
 		add_action( 'buddynext_user_followed', array( $this, 'mirror_bn_follow' ), 10, 2 );
 		add_action( 'buddynext_user_unfollowed', array( $this, 'mirror_bn_unfollow' ), 10, 2 );
 
@@ -256,14 +288,7 @@ class WPMediaVerseBridge {
 		// as well as by the installer: a site that updates BuddyNext before
 		// MediaVerse cannot run it yet, and must still get it once it can.
 		add_action( 'init', array( self::class, 'maybe_queue_privacy_repair' ), 20, 0 );
-		add_action(
-			MediaPrivacyRepairCommand::HOOK,
-			static function (): void {
-				MediaPrivacyRepairCommand::run();
-			},
-			10,
-			0
-		);
+		add_action( MediaPrivacyRepairCommand::HOOK, array( self::class, 'run_privacy_repair' ), 10, 0 );
 
 		// A member switching their account between public and private changes the
 		// audience of their public posts, so their attached media follows.
@@ -281,9 +306,33 @@ class WPMediaVerseBridge {
 		add_filter( 'mvs_are_friends', array( $this, 'are_friends' ), 10, 3 );
 		add_filter( 'mvs_friend_ids', array( $this, 'friend_ids' ), 10, 2 );
 
+		// ...so a member can choose it, in BuddyNext's word. MediaVerse offers the level only
+		// where BuddyPress has a friends component, and calls it Friends.
+		add_filter( 'mvs_privacy_choices', array( $this, 'offer_connections_level' ) );
+		add_filter( 'mvs_privacy_labels', array( $this, 'name_connections_level' ) );
+
 		// Followers-only media: BuddyNext's own follow list has the last word. Late,
 		// so a grant another rule already made (a competition entry) is left alone.
 		add_filter( 'mvs_privacy_can_view', array( $this, 'followers_only_needs_a_bn_follow' ), 20, 4 );
+
+		// A BuddyNext block is a block here too: the blocked member cannot open,
+		// favourite, react to or comment on the blocker's media, and either side
+		// disappears from the other's lists. MediaVerse keeps its own block list;
+		// these two filters add BuddyNext's to it. MediaVerse 2.6.5+.
+		add_filter( 'mvs_safety_refuses', array( $this, 'bn_block_refuses_media' ), 10, 4 );
+		add_filter( 'mvs_blocked_either_way_ids', array( $this, 'bn_blocked_ids' ), 10, 2 );
+
+		// A media report lands in the one BuddyNext moderation queue, where the
+		// moderator's Remove, Warn, Strike and Suspend already work. MediaVerse
+		// keeps its own row (it owns the duplicate check and the auto-hide count).
+		add_action( 'mvs_report_submitted', array( $this, 'queue_media_report' ), 10, 5 );
+		add_action( 'buddynext_reports_actioned', array( $this, 'close_mvs_media_report' ), 10, 3 );
+
+		// Photos, videos and audio on a deleted space's drive go with it. The
+		// document half of the drive is MediaVerse Pro's own cleanup.
+		add_action( 'buddynext_purge_space_data', array( $this, 'trash_space_drive_media' ), 10, 1 );
+		add_action( self::DRIVE_MEDIA_HOOK, array( $this, 'trash_space_drive_media' ), 10, 3 );
+		add_action( 'mvs_report_resolved', array( $this, 'close_bn_media_report' ), 10, 5 );
 
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
 		// event whose only native listener (the MVS chat panel) is suppressed
@@ -755,8 +804,15 @@ class WPMediaVerseBridge {
 			'media',
 			'',
 			0,
-			array( 'media_id' => $media_id )
+			// An upload (possibly a bulk one) does not notify every member of a Space.
+			array(
+				'media_id'     => $media_id,
+				'notify_space' => false,
+			)
 		);
+		// Same as a photo card: comments made before the card existed are carried
+		// onto it, so a video or audio post shows the conversation it links to.
+		$this->carry_comments_onto_card( $media_id );
 	}
 
 	/**
@@ -786,7 +842,28 @@ class WPMediaVerseBridge {
 
 		$args = is_array( $args ) ? $args : array();
 
-		return IntegrationActivity::render_bridge_card( $this->hydrate_media_preview( $args ) );
+		$args = $this->hydrate_media_preview( $args );
+
+		// "Video", "Audio" or "Photo" with its own icon, rather than a bare "Media", read for this
+		// card's own item (the repository field is media_type).
+		$label = '';
+		$icon  = '';
+		$repo  = MediaClient::repo();
+		$id    = (int) ( $args['link_preview']['media_id'] ?? 0 );
+		if ( $id > 0 && is_object( $repo ) && method_exists( $repo, 'get' ) ) {
+			$kinds = array(
+				'video' => array( __( 'Video', 'buddynext' ), 'play' ),
+				'audio' => array( __( 'Audio', 'buddynext' ), 'music' ),
+				'image' => array( __( 'Photo', 'buddynext' ), 'image' ),
+				'photo' => array( __( 'Photo', 'buddynext' ), 'image' ),
+			);
+			$kind  = $kinds[ strtolower( (string) $repo->get( $id, 'media_type' ) ) ] ?? null;
+			if ( null !== $kind ) {
+				list( $label, $icon ) = $kind;
+			}
+		}
+
+		return IntegrationActivity::render_bridge_card( $args, $icon, $label );
 	}
 
 	/**
@@ -871,6 +948,22 @@ class WPMediaVerseBridge {
 			if ( '' !== $thumb ) {
 				$link['thumb'] = $thumb;
 				$link['image'] = $thumb;
+			}
+		}
+
+		// A video or audio clip says how long it is. Read here, for this viewer, like the title and
+		// cover: the card stores a reference, not a snapshot.
+		if ( method_exists( $repo, 'get' ) ) {
+			$seconds = (int) $repo->get( $media_id, 'duration' );
+			if ( $seconds > 0 ) {
+				$link['facts'] = array(
+					array(
+						'icon' => 'clock',
+						'text' => $seconds >= 3600
+							? sprintf( '%d:%02d:%02d', intdiv( $seconds, 3600 ), intdiv( $seconds % 3600, 60 ), $seconds % 60 )
+							: sprintf( '%d:%02d', intdiv( $seconds, 60 ), $seconds % 60 ),
+					),
+				);
 			}
 		}
 
@@ -1431,16 +1524,24 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Queue the one-time repair of media stored wider than its post, once.
+	 * Queue the one-time repair of media stored wider than its post.
 	 *
-	 * Only when MediaVerse has the writers the repair needs (2.6.2), and only
-	 * once per site: the flag is set when the job is queued. Action Scheduler
-	 * when present, a single WP-Cron event otherwise.
+	 * Only when MediaVerse has the writers the repair needs (2.6.2). The option
+	 * holds the time it was queued until a run finishes, then 'done'. A queued
+	 * run that never finished (a timeout or a fatal on a very large site) is
+	 * queued again once a day until one does, so old media is never left wider
+	 * than its post without anyone noticing. Action Scheduler when present, a
+	 * single WP-Cron event otherwise.
 	 *
 	 * @return void
 	 */
 	public static function maybe_queue_privacy_repair(): void {
-		if ( get_option( 'buddynext_media_privacy_repair_queued' ) ) {
+		$state = get_option( 'buddynext_media_privacy_repair_queued' );
+		if ( 'done' === $state ) {
+			return;
+		}
+		// Queued recently: give that run time to finish.
+		if ( is_numeric( $state ) && (int) $state > time() - DAY_IN_SECONDS ) {
 			return;
 		}
 
@@ -1449,16 +1550,33 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		update_option( 'buddynext_media_privacy_repair_queued', time(), true );
-
 		$hook = MediaPrivacyRepairCommand::HOOK;
-		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( $hook, array(), 'buddynext' );
+		// Still waiting in the queue: nothing to add.
+		if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( $hook ) ) {
+			return;
+		}
+		if ( wp_next_scheduled( $hook ) ) {
 			return;
 		}
 
-		if ( ! wp_next_scheduled( $hook ) ) {
-			wp_schedule_single_event( time() + 60, $hook );
+		update_option( 'buddynext_media_privacy_repair_queued', time(), true );
+
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			\BuddyNext\Core\CronScheduler::enqueue_once( $hook, array(), 'buddynext' );
+			return;
+		}
+
+		wp_schedule_single_event( time() + 60, $hook );
+	}
+
+	/**
+	 * The queued repair: run it, and only when it finished record that it did.
+	 *
+	 * @return void
+	 */
+	public static function run_privacy_repair(): void {
+		if ( null !== MediaPrivacyRepairCommand::run() ) {
+			update_option( 'buddynext_media_privacy_repair_queued', 'done', true );
 		}
 	}
 
@@ -1677,16 +1795,15 @@ class WPMediaVerseBridge {
 		for ( $page = 1; $page <= 5; $page++ ) {
 			$album_ids = get_posts(
 				array(
-					'post_type'        => 'mvs_album',
-					'author'           => $author_id,
-					'post_status'      => 'any',
-					'fields'           => 'ids',
-					'posts_per_page'   => 100,
-					'paged'            => $page,
-					'orderby'          => 'ID',
-					'order'            => 'DESC',
-					'no_found_rows'    => true,
-					'suppress_filters' => true,
+					'post_type'      => 'mvs_album',
+					'author'         => $author_id,
+					'post_status'    => 'any',
+					'fields'         => 'ids',
+					'posts_per_page' => 100,
+					'paged'          => $page,
+					'orderby'        => 'ID',
+					'order'          => 'DESC',
+					'no_found_rows'  => true,
 				)
 			);
 
@@ -1797,6 +1914,68 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Offer MediaVerse's friends level, which on a BuddyNext site means connections.
+	 *
+	 * The level is stored, enforced (are_friends) and accepted on save already; only its
+	 * place in the list was missing, because MediaVerse adds it for BuddyPress friends alone.
+	 * A site that has that component keeps its own entry.
+	 *
+	 * @param array<string,string> $choices Privacy slug => label, in display order.
+	 * @return array<string,string>
+	 */
+	public function offer_connections_level( $choices ): array {
+		$choices = (array) $choices;
+		if ( isset( $choices['friends'] ) ) {
+			return $choices;
+		}
+
+		$entry = array( 'friends' => self::connections_label() );
+		$at    = array_search( 'followers', array_keys( $choices ), true );
+
+		// Between Followers and Only me, the order of the upload tray.
+		return false === $at
+			? $choices + $entry
+			: array_slice( $choices, 0, $at + 1, true ) + $entry + array_slice( $choices, $at + 1, null, true );
+	}
+
+	/**
+	 * BuddyNext's word for MediaVerse's friends level, in the choice list and the label list alike.
+	 *
+	 * @return string
+	 */
+	private static function connections_label(): string {
+		return __( 'Connections: people you are connected with', 'buddynext' );
+	}
+
+	/**
+	 * Call MediaVerse's friends level by BuddyNext's word.
+	 *
+	 * @param array<string,string> $labels Privacy slug => label.
+	 * @return array<string,string>
+	 */
+	public function name_connections_level( $labels ): array {
+		$labels            = (array) $labels;
+		$labels['friends'] = self::connections_label();
+
+		return $labels;
+	}
+
+	/**
+	 * Whether the signed-in member may choose who sees their media.
+	 *
+	 * The site owner can switch this off (MediaVerse Settings > General). MediaVerse then
+	 * applies its default to every upload and refuses a change, so a picker that still
+	 * showed would be a choice that does nothing. True when MediaVerse does not say.
+	 *
+	 * @return bool
+	 */
+	public static function members_may_choose_privacy(): bool {
+		$callback = array( '\\WPMediaVerse\\Services\\PrivacyService', 'user_may_choose_privacy' );
+
+		return ! is_callable( $callback ) || (bool) $callback();
+	}
+
+	/**
 	 * Whether two members are connected, for MediaVerse's friends level.
 	 *
 	 * A connections-only post stores its media as `friends`; MediaVerse asks here
@@ -1865,7 +2044,7 @@ class WPMediaVerseBridge {
 	 *
 	 * ponytail: the newest 5,000 connections. A single item is always checked
 	 * exactly through are_friends(); only a list would miss friends-only media of
-	 * a connection past that number. Raise it, or page it, if a member gets there.
+	 * a connection past that number. The cap is read from the same filter a connection is accepted under.
 	 *
 	 * @param int[] $friend_ids Earlier answer.
 	 * @param int   $user_id    Member.
@@ -1874,7 +2053,11 @@ class WPMediaVerseBridge {
 	public function friend_ids( $friend_ids, int $user_id ): array {
 		unset( $friend_ids );
 
-		return array_map( 'intval', (array) buddynext_service( 'connections' )->connections( $user_id, 5000, 0 ) );
+		// The same cap a connection is accepted under, so the list and the limit can
+		// never disagree: a site that raises it still lists every friend.
+		$cap = max( 1, (int) apply_filters( 'buddynext_max_connections', \BuddyNext\SocialGraph\ConnectionService::MAX_CONNECTIONS, $user_id ) );
+
+		return array_map( 'intval', (array) buddynext_service( 'connections' )->connections( $user_id, $cap, 0 ) );
 	}
 
 	/**
@@ -2053,7 +2236,7 @@ class WPMediaVerseBridge {
 				// contract is docs/architecture/core-contract.md in MediaVerse.
 				'min_version'    => '2.6.2',
 				// Tested against the 2.6.2 branch on 2026-10-11.
-				'tested_version' => '2.6.4', // Verified 2026-11-11 on the 1.2.9 release site against this partner release (functional suite and bridge checks).
+				'tested_version' => '2.7.0', // Verified 2026-11-23 by QA (J36) on 1.3.0 with Jetonomy 2.1.0 on the same site (three-plugin pass).
 				'has_nav'        => true,
 				'nav_label'      => __( 'Media', 'buddynext' ),
 				'has_feed'       => true,
@@ -2231,6 +2414,23 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * MediaVerse's report service, or null when unavailable.
+	 *
+	 * @return object|null
+	 */
+	private function mvs_reports(): ?object {
+		if ( ! class_exists( '\WPMediaVerse\Core\Plugin' ) ) {
+			return null;
+		}
+		$container = \WPMediaVerse\Core\Plugin::container();
+		if ( ! is_object( $container ) || ! $container->has( 'reports' ) ) {
+			return null;
+		}
+		$svc = $container->get( 'reports' );
+		return is_object( $svc ) ? $svc : null;
+	}
+
+	/**
 	 * Resolve the WPMediaVerse follow service, or null when unavailable.
 	 *
 	 * @return object|null
@@ -2301,6 +2501,248 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Trash the photos, videos and audio on a deleted space's drive.
+	 *
+	 * One run trashes up to DRIVE_MEDIA_PER_RUN items and queues the next run when
+	 * the page was full, so a big drive never needs one long request. Trashing (not
+	 * erasing) is the same ordinary delete a member performs; the file leaves with
+	 * MediaVerse's own trash purge.
+	 *
+	 * Each run starts after the last id the previous run saw ($after_id), so an
+	 * item that cannot be trashed is passed over, not listed again: the chain walks
+	 * the whole drive and ends where the drive ends. A blocked item is left as it
+	 * is and counted; the last run logs the count once.
+	 *
+	 * @param int $space_id Deleted space.
+	 * @param int $after_id Last media id the previous run saw (0 for the first run).
+	 * @param int $blocked  Items earlier runs could not trash.
+	 * @return void
+	 */
+	public function trash_space_drive_media( $space_id, $after_id = 0, $blocked = 0 ): void {
+		$space_id = (int) $space_id;
+		$after_id = (int) $after_id;
+		$blocked  = (int) $blocked;
+		$repo     = MediaClient::repo(); // Null without MediaVerse, unless the media seam supplies one.
+		if ( $space_id <= 0 || ! is_object( $repo ) || ! method_exists( $repo, 'space_drive_media_ids' ) ) {
+			return;
+		}
+
+		// MediaVerse lists the drive oldest first, starting after $after_id. A
+		// MediaVerse without that argument ignores it and starts from the oldest;
+		// ids already seen are dropped here, so the chain still ends.
+		$page = array_map( 'intval', (array) $repo->space_drive_media_ids( $space_id, self::DRIVE_MEDIA_PER_RUN, $after_id ) );
+		$ids  = array_values( array_filter( $page, static fn( int $id ): bool => $id > $after_id ) );
+		foreach ( $ids as $media_id ) {
+			$blocked += $repo->trash( $media_id ) ? 0 : 1;
+		}
+
+		if ( array() !== $ids && count( $page ) >= self::DRIVE_MEDIA_PER_RUN && function_exists( 'as_enqueue_async_action' ) ) {
+			// The cursor (last id seen) makes each run's arguments its own.
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::DRIVE_MEDIA_HOOK, array( $space_id, max( $ids ), $blocked ) );
+			return;
+		}
+
+		if ( $blocked > 0 ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- one line per deleted space, for the site owner's log.
+			error_log( sprintf( 'BuddyNext: %d media item(s) on deleted space %d could not be moved to the trash and were left in place.', $blocked, $space_id ) );
+		}
+	}
+
+	/**
+	 * Copy a media report into the BuddyNext moderation queue.
+	 *
+	 * MediaVerse reasons BuddyNext does not list are folded into the nearest one,
+	 * with the original named in the note so the moderator still sees it.
+	 *
+	 * @param int    $report_id   MediaVerse report id.
+	 * @param int    $reporter_id Reporter.
+	 * @param string $target_type Reported kind; only media is queued here.
+	 * @param int    $target_id   Media id.
+	 * @param string $reason      MediaVerse reason.
+	 * @return void
+	 */
+	public function queue_media_report( $report_id, $reporter_id, $target_type, $target_id, $reason ): void {
+		if ( 'media' !== $target_type || (int) $reporter_id <= 0 ) {
+			return;
+		}
+
+		$map    = array(
+			'nudity'    => 'inappropriate',
+			'violence'  => 'inappropriate',
+			'copyright' => 'other',
+		);
+		$reason = sanitize_key( (string) $reason );
+		$mapped = $map[ $reason ] ?? $reason;
+		$note   = isset( $map[ $reason ] )
+			/* translators: %s: the reason the member picked in the media report form. */
+			? sprintf( __( 'Reported on a photo or video as: %s', 'buddynext' ), $reason )
+			: '';
+
+		// A duplicate or rate-limited copy is not an error for the member: the
+		// MediaVerse report already went through.
+		buddynext_service( 'moderation' )->report( (int) $reporter_id, 'media', (int) $target_id, $mapped, 0, $note );
+	}
+
+	/**
+	 * A moderator closed a media report in BuddyNext: close MediaVerse's copy too.
+	 *
+	 * @param string $object_type Reported kind.
+	 * @param int    $object_id   Reported id.
+	 * @param string $status      resolved | dismissed.
+	 * @return void
+	 */
+	public function close_mvs_media_report( $object_type, $object_id, $status ): void {
+		if ( 'media' !== $object_type || $this->mirroring_report ) {
+			return;
+		}
+
+		$reports = $this->mvs_reports();
+		if ( null === $reports || ! method_exists( $reports, 'close_pending_for_target' ) ) {
+			return;
+		}
+
+		$this->mirroring_report = true;
+		try {
+			$reports->close_pending_for_target( 'media', (int) $object_id, (string) $status );
+		} finally {
+			$this->mirroring_report = false;
+		}
+	}
+
+	/**
+	 * A moderator closed a media report in MediaVerse: close the BuddyNext row too.
+	 *
+	 * @param int    $report_id   MediaVerse report id.
+	 * @param int    $reporter_id Reporter.
+	 * @param string $status      resolved | dismissed.
+	 * @param string $target_type Reported kind (MediaVerse 2.6.5+).
+	 * @param int    $target_id   Reported id (MediaVerse 2.6.5+).
+	 * @return void
+	 */
+	public function close_bn_media_report( $report_id, $reporter_id, $status, $target_type = '', $target_id = 0 ): void {
+		if ( 'media' !== $target_type || (int) $target_id <= 0 || $this->mirroring_report ) {
+			return;
+		}
+
+		$this->mirroring_report = true;
+		try {
+			// MediaVerse already decided, so its moderator need not be a BuddyNext
+			// one. Nothing open means the two sides already agree.
+			buddynext_service( 'moderation' )->close_mirrored_reports( 'media', (int) $target_id, 'dismissed' === $status ? 'dismissed' : 'resolved', get_current_user_id() );
+		} finally {
+			$this->mirroring_report = false;
+		}
+	}
+
+	/**
+	 * Refuse a blocked member the blocker's media.
+	 *
+	 * Same single-item rule MediaVerse applies to its own blocks: the person who
+	 * was blocked loses the item, the blocker can still open a direct link.
+	 * MediaVerse has already let the author and moderators through.
+	 *
+	 * @param bool  $refuses  What MediaVerse decided.
+	 * @param int   $media_id Item id.
+	 * @param int   $user_id  Viewer.
+	 * @param array $args     The caller's values; author_id when known.
+	 * @return bool
+	 */
+	public function bn_block_refuses_media( $refuses, $media_id, $user_id, $args = array() ): bool {
+		if ( $refuses || (int) $user_id <= 0 ) {
+			return (bool) $refuses;
+		}
+
+		$author = isset( $args['author_id'] ) ? (int) $args['author_id'] : 0;
+		if ( $author <= 0 ) {
+			$repo   = MediaClient::repo();
+			$author = is_object( $repo ) ? (int) $repo->get( (int) $media_id, 'post_author' ) : 0;
+		}
+
+		return $author > 0 && buddynext_service( 'blocks' )->has_blocked( $author, (int) $user_id );
+	}
+
+	/**
+	 * Add the members BuddyNext blocks, either way, to MediaVerse's hidden list.
+	 *
+	 * @param int[] $ids     Ids MediaVerse already hides.
+	 * @param int   $user_id The viewer.
+	 * @return int[]
+	 */
+	public function bn_blocked_ids( $ids, $user_id ): array {
+		$ids = (array) $ids;
+
+		return (int) $user_id > 0
+			? array_values( array_unique( array_merge( $ids, buddynext_service( 'blocks' )->block_related_ids( (int) $user_id ) ) ) )
+			: $ids;
+	}
+
+	/**
+	 * Let BuddyNext decide a follow before WPMediaVerse records it.
+	 *
+	 * A private account turns the follow into a request, and a block or limit
+	 * refuses it; only an approved follow is written on the MediaVerse side.
+	 * Older MediaVerse builds never call this, and mirror_mvs_follow() still
+	 * takes the follow back for them.
+	 *
+	 * A request is answered 'pending' (WPMediaVerse 2.6.5+ turns that into "follow requested", not an
+	 * error); an older build reads any non-true answer as a refusal, as before.
+	 *
+	 * @param bool|string $can          Whether the follow may be recorded.
+	 * @param int         $follower_id  User who is following.
+	 * @param int         $following_id User being followed.
+	 * @return bool|string True to record it, false to refuse it, 'pending' for a request.
+	 */
+	public function can_follow( $can, int $follower_id, int $following_id ): bool|string {
+		if ( ! $can ) {
+			return false;
+		}
+		if ( $this->mirroring_follow ) {
+			return true;
+		}
+		$bn = $this->bn_follows();
+		if ( null === $bn || ! method_exists( $bn, 'follow' ) || ! method_exists( $bn, 'is_following' ) ) {
+			return true;
+		}
+		if ( ! $bn->is_following( $follower_id, $following_id ) ) {
+			// Guard up: BuddyNext's own follow event must not mirror back into
+			// MediaVerse, which records the follow itself once this returns true.
+			$this->mirroring_follow = true;
+			try {
+				\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->follow( $follower_id, $following_id ) );
+			} finally {
+				$this->mirroring_follow = false;
+			}
+		}
+
+		if ( $bn->is_following( $follower_id, $following_id ) ) {
+			return true;
+		}
+		return method_exists( $bn, 'has_pending_request' ) && $bn->has_pending_request( $follower_id, $following_id ) ? 'pending' : false;
+	}
+
+	/**
+	 * Whether the viewer has a follow request waiting on a private account.
+	 *
+	 * MediaVerse's profile button asks this when the page loads, so "Requested" (and the cancel click) survives a
+	 * reload; it knew the state only in the page that sent the request. Answered from the same pending request
+	 * can_follow() reports.
+	 *
+	 * @param bool $requested    Earlier answer.
+	 * @param int  $follower_id  The viewer.
+	 * @param int  $following_id The member whose profile this is.
+	 * @return bool
+	 */
+	public function follow_is_requested( $requested, int $follower_id, int $following_id ): bool {
+		if ( $requested ) {
+			return true;
+		}
+
+		$bn = $this->bn_follows();
+
+		return null !== $bn && method_exists( $bn, 'has_pending_request' ) && $bn->has_pending_request( $follower_id, $following_id );
+	}
+
+	/**
 	 * Mirror an unfollow on a WPMediaVerse profile into bn_follows.
 	 *
 	 * @param int $follower_id  User who unfollowed.
@@ -2322,6 +2764,30 @@ class WPMediaVerseBridge {
 		$this->mirroring_follow = true;
 		try {
 			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->unfollow( $follower_id, $following_id ) );
+		} finally {
+			$this->mirroring_follow = false;
+		}
+	}
+
+	/**
+	 * Cancel a pending follow request when the member unfollows from a WPMediaVerse client.
+	 *
+	 * A private account's request lives only in BuddyNext; without this the client showed "not
+	 * following" while the request stayed alive and the owner could still approve it.
+	 *
+	 * @param int $follower_id  User who unfollowed.
+	 * @param int $following_id User whose request is withdrawn.
+	 * @return void
+	 */
+	public function withdraw_pending_follow( int $follower_id, int $following_id ): void {
+		$bn = $this->bn_follows();
+		if ( null === $bn || ! method_exists( $bn, 'unfollow' ) || ! method_exists( $bn, 'has_pending_request' ) || ! $bn->has_pending_request( $follower_id, $following_id ) ) {
+			return;
+		}
+		// Guard up: BuddyNext's own unfollow event must not mirror back into MediaVerse.
+		$this->mirroring_follow = true;
+		try {
+			$bn->unfollow( $follower_id, $following_id );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -2548,26 +3014,21 @@ class WPMediaVerseBridge {
 			return $level;
 		}
 		$role = buddynext_service( 'space_members' )->get_role( $drive_id, $user_id );
-		if ( 'owner' === $role ) {
-			return 'own';
-		}
-		if ( 'moderator' === $role ) {
-			return 'write';
-		}
 		if ( null !== $role ) {
-			// Any space member may CONTRIBUTE. MediaVerse built this ladder for
-			// exactly this case - its own docblock says a yes/no "cannot express
-			// 'may contribute but does not own', which is what a Space member is,
-			// and why a Space upload is impossible while ownership is the only
-			// write gate". Answering 'read' here was that impossibility: a member's
-			// photo could never land on the space drive, so space-scoped media
-			// privacy was unreachable and the file fell back to a level readable by
-			// every signed-in member of the site.
-			//
-			// `write` is contribution, not control. Editing or deleting an
-			// individual item is a per-item decision MediaVerse makes separately
-			// (PermissionService::permission_for), so this grants nobody rights over
-			// anyone else's upload.
+			// A member's level follows the Space's own rule for putting something in
+			// it: the same one that gates a post. In a Space where only the owner
+			// posts, or one that is archived, the drive is read-only for members
+			// (and for the owner too when archived); it was `write` for any member.
+			if ( ! SpacePostGuard::can_contribute( $drive_id, $user_id ) ) {
+				return 'read';
+			}
+			if ( 'owner' === $role ) {
+				return 'own';
+			}
+			// `write` is contribution, not control. MediaVerse's own docblock says a
+			// yes/no "cannot express 'may contribute but does not own', which is
+			// what a Space member is"; editing or deleting an individual item is a
+			// per-item decision it makes separately (PermissionService::permission_for).
 			return 'write';
 		}
 		return SpaceVisibility::can_view_content( $space, $user_id ) ? 'read' : 'none';
@@ -3422,7 +3883,8 @@ class WPMediaVerseBridge {
 			return self::render_document_unavailable();
 		}
 		// A cookie-auth GET needs a nonce (same as the Files tab download links).
-		$url = add_query_arg( '_wpnonce', wp_create_nonce( 'wp_rest' ), $link );
+		$download = add_query_arg( '_wpnonce', wp_create_nonce( 'wp_rest' ), $link );
+		$url      = $download;
 
 		// A space post whose space shows this viewer its Files tab opens the
 		// file's page there (preview + Download). Anywhere else the tab is not
@@ -3451,12 +3913,72 @@ class WPMediaVerseBridge {
 		// Reference, not embed: the card links OUT to the document; BuddyNext
 		// never renders its bytes. Build the preview fresh, per viewer.
 		$args['link_preview'] = array(
-			'url'   => $url,
-			'title' => $title,
-			'desc'  => $size > 0 ? size_format( $size ) : '',
+			'url'     => $url,
+			'title'   => $title,
+			'desc'    => '',
+			'facts'   => self::document_facts( $doc, $size ),
+			// The title opens the file page; Download is the one thing it cannot do. When the title already
+			// downloads, the card drops the button (see IntegrationActivity::resolve()).
+			'actions' => array(
+				array(
+					'label' => __( 'Download', 'buddynext' ),
+					'url'   => $download,
+				),
+			),
 		);
 
-		return IntegrationActivity::render_bridge_card( $args );
+		// What the author typed with the file is shown above its card, as it is on the post's own page.
+		$caption      = trim( (string) ( $args['post_content'] ?? '' ) );
+		$caption_html = '' !== $caption
+			? '<div class="bn-post-card__content">' . wp_kses_post( nl2br( buddynext_format_content( $caption ) ) ) . '</div>'
+			: '';
+
+		return $caption_html . IntegrationActivity::render_bridge_card( $args );
+	}
+
+	/**
+	 * The kind and size of a document, for its feed card. How long ago it was added is already under the author's name.
+	 *
+	 * The viewer's own read of the document, so nothing here is stored on the card.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string,mixed> $doc  MediaVerse document (mime_type, doc_type, created_at_gmt).
+	 * @param int                 $size File size in bytes.
+	 * @return array<int,array{icon:string,text:string}>
+	 */
+	public static function document_facts( array $doc, int $size ): array {
+		$mime  = (string) ( $doc['mime_type'] ?? '' );
+		$kinds = array(
+			'application/pdf'    => 'PDF',
+			'text/plain'         => 'Text',
+			'text/csv'           => 'CSV',
+			'application/zip'    => 'ZIP',
+			'application/msword' => 'Word',
+		);
+		$kind  = $kinds[ $mime ] ?? '';
+		if ( '' === $kind ) {
+			if ( false !== strpos( $mime, 'wordprocessingml' ) ) {
+				$kind = 'Word';
+			} elseif ( false !== strpos( $mime, 'spreadsheetml' ) || false !== strpos( $mime, 'ms-excel' ) ) {
+				$kind = 'Excel';
+			} elseif ( false !== strpos( $mime, 'presentationml' ) || false !== strpos( $mime, 'ms-powerpoint' ) ) {
+				$kind = 'PowerPoint';
+			} else {
+				$kind = (string) ( $doc['doc_type'] ?? '' );
+			}
+		}
+
+		return array(
+			array(
+				'icon' => 'file-text',
+				'text' => ucfirst( $kind ),
+			),
+			array(
+				'icon' => 'download',
+				'text' => $size > 0 ? size_format( $size ) : '',
+			),
+		);
 	}
 
 	/**
@@ -3683,8 +4205,8 @@ class WPMediaVerseBridge {
 	/**
 	 * Sync a WPMediaVerse lightbox comment to the BuddyNext activity feed.
 	 *
-	 * When a user comments on a photo via the MVS lightbox, find the bn_posts
-	 * entry that contains that media_id and create a bn_comments row threaded
+	 * When a user comments on a photo, video or audio item via the MVS lightbox,
+	 * find the bn_posts entry that shows it and create a bn_comments row threaded
 	 * under it — so the comment appears in the BuddyNext feed as a regular
 	 * post comment.
 	 *
@@ -3708,13 +4230,21 @@ class WPMediaVerseBridge {
 
 		global $wpdb;
 
-		// The newest published post showing this media, through the bn_post_media
-		// index (card 10344434252). None yet: publish_media_activity() carries the
-		// comment over when it creates the card.
-		$bn_post_ids = ( new PostService() )->ids_with_media( $media_id, 'published' );
-		$bn_post_id  = empty( $bn_post_ids ) ? 0 : max( $bn_post_ids );
+		// The post showing this media: a photo post through the bn_post_media index,
+		// a video, audio or file card through its /media/ link. The same lookup the
+		// /media/ redirect and the notification link use, so the post a member is
+		// sent to is the post the comment is on (card 10515576377). None yet:
+		// publish_media_activity() carries the comment over when it creates the card.
+		$bn_post_id = $this->source_post_for_media( $media_id );
 		if ( ! $bn_post_id ) {
 			return;
+		}
+
+		// A card that has never had a comment mirrored onto it (one created before
+		// 1.3.0 for a video or audio upload, whose comments were never copied) gets
+		// the earlier comments now, on the next comment, with no background job.
+		if ( ! self::$carrying_comments && ! self::has_mirrored_comment( $media_id, $bn_post_id ) ) {
+			$this->carry_comments_onto_card( $media_id );
 		}
 
 		// Dedup: this hook can re-fire for the same lightbox comment (re-saves,
@@ -3725,6 +4255,21 @@ class WPMediaVerseBridge {
 		// silently swallow the second — so scope the match to this media too.
 		if ( self::mirror_comment_id( $media_id, $comment, $bn_post_id ) > 0 ) {
 			return;
+		}
+
+		// The feed shows this comment to every viewer of the post, so it runs the
+		// same content safeguard a feed comment does. A hard block keeps it off the
+		// feed (the engine still holds it on the lightbox, which this plugin does
+		// not own); a flag lets it through and files a report below.
+		$scan_flag = '';
+		$guard     = function_exists( 'buddynext_service' ) ? buddynext_service( 'safeguard' ) : null;
+		if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) && '' !== trim( (string) $comment->comment_content ) ) {
+			$verdict = $guard->check_content( (string) $comment->comment_content, '', $user_id, 0, 'create', 'comment' );
+			if ( SafeguardService::is_flag_verdict( $verdict ) ) {
+				$scan_flag = (string) $verdict->get_error_message();
+			} elseif ( is_wp_error( $verdict ) ) {
+				return;
+			}
 		}
 
 		// Create the bn_comments entry, dated when the member wrote it (a comment
@@ -3770,6 +4315,9 @@ class WPMediaVerseBridge {
 		// that CommentService fires and every listener expects — a short 3-arg
 		// form would ArgumentCountError-fatal the 4-arg listeners.
 		$new_comment_id = (int) $wpdb->insert_id;
+		if ( $new_comment_id > 0 && '' !== $scan_flag ) {
+			ModerationService::auto_flag( 'comment', $new_comment_id, $scan_flag );
+		}
 		if ( $new_comment_id > 0 ) {
 			// A mirror of a comment MediaVerse already recorded: flag it so reward
 			// listeners do not pay the same comment twice, and mute notifications -
@@ -3835,9 +4383,10 @@ class WPMediaVerseBridge {
 	/**
 	 * Copy a media item's existing comments onto the card just created for it.
 	 *
-	 * Runs inside the Action Scheduler job that creates a photo's card, so it adds
-	 * nothing to the member's request. Deduplicated by sync_lightbox_comment() and
-	 * silent (the owner was told when each comment was written).
+	 * Runs inside the Action Scheduler job that creates a media card, so it adds
+	 * nothing to the member's request; and once for a card that never had one
+	 * mirrored (sync_lightbox_comment()). Deduplicated by sync_lightbox_comment()
+	 * and silent (the owner was told when each comment was written).
 	 *
 	 * @param int $media_id Media id.
 	 * @return void
@@ -3847,15 +4396,43 @@ class WPMediaVerseBridge {
 		if ( ! is_object( $service ) || ! method_exists( $service, 'get_for_media' ) ) {
 			return;
 		}
-		// ponytail: the first 200 top-level comments; the card is two minutes old, so
-		// more than that before it exists is not a real case.
-		$page = (array) $service->get_for_media( $media_id, 200, 1 );
-		foreach ( (array) ( $page['comments'] ?? array() ) as $row ) {
-			$comment_id = (int) ( $row['id'] ?? 0 );
-			if ( $comment_id > 0 ) {
-				$this->sync_lightbox_comment( $media_id, 0, $comment_id );
+		// ponytail: the first 200 top-level comments; a card is created two minutes
+		// after the upload, and an older card is healed once. Page further if a
+		// site reports media with more than 200 comments before its card.
+		$page                    = (array) $service->get_for_media( $media_id, 200, 1 );
+		self::$carrying_comments = true;
+		try {
+			foreach ( (array) ( $page['comments'] ?? array() ) as $row ) {
+				$comment_id = (int) ( $row['id'] ?? 0 );
+				if ( $comment_id > 0 ) {
+					$this->sync_lightbox_comment( $media_id, 0, $comment_id );
+				}
 			}
+		} finally {
+			self::$carrying_comments = false;
 		}
+	}
+
+	/**
+	 * Whether any MediaVerse comment on this media was ever mirrored onto the post.
+	 *
+	 * Counts withdrawn copies too: a card that has had a mirror was already
+	 * carried over, so it is not carried again.
+	 *
+	 * @param int $media_id Media id.
+	 * @param int $post_id  BuddyNext post id.
+	 * @return bool
+	 */
+	private static function has_mirrored_comment( int $media_id, int $post_id ): bool {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one row on the (object_type, object_id) index, once per comment write.
+		return null !== $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id = %d AND media_id = %d LIMIT 1",
+				$post_id,
+				$media_id
+			)
+		);
 	}
 
 	/**
@@ -3871,6 +4448,9 @@ class WPMediaVerseBridge {
 	/**
 	 * Where a media notification opens: the post the media is in, else its page.
 	 *
+	 * Follows the owner's "Media links" setting, like the /media/ redirect: when
+	 * the owner chose a dedicated media page, the notification opens that page.
+	 *
 	 * Hooked on: buddynext_media_notification_url.
 	 *
 	 * @param string $url      URL so far.
@@ -3882,7 +4462,7 @@ class WPMediaVerseBridge {
 		if ( $media_id <= 0 ) {
 			return (string) $url;
 		}
-		$post_id = $this->source_post_for_media( $media_id );
+		$post_id = 'dedicated' === (string) get_option( 'buddynext_media_single_pages', 'activity' ) ? 0 : $this->source_post_for_media( $media_id );
 		if ( $post_id > 0 ) {
 			return \BuddyNext\Core\PageRouter::post_url( $post_id );
 		}

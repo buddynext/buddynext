@@ -10,9 +10,13 @@
  *   buddynext_post_created → on_post_created() → dispatch buddynext_async_index_hashtags
  *   buddynext_async_index_hashtags → async_index_hashtags() → extract + sync
  *
- * External content (WPMediaVerse media, Jetonomy discussions, Career Board jobs)
- * reaches this listener via the buddynext_index_hashtags action which the
- * respective bridge fires directly — that action also runs async via this class.
+ * The job carries ids only (object type and post id) and reads the post's
+ * content when it runs, so it never indexes text that was edited after it was
+ * queued, and an identical pending job is not queued twice.
+ *
+ * External content (media, discussions, jobs) reaches this listener through the
+ * buddynext_index_hashtags action with its text. That text is extracted inline
+ * (a regex and one sync, no remote call) rather than copied into a queued job.
  *
  * @package BuddyNext\Hashtags
  */
@@ -64,6 +68,7 @@ class HashtagListener implements ListenerInterface {
 		add_action( 'buddynext_index_hashtags', array( $this, 'on_index_hashtags' ), 10, 3 );
 
 		// Async worker hooks — run inline when Action Scheduler is absent.
+		// Three accepted args so a job queued by 1.2.x (with a third, content arg) still runs.
 		add_action( 'buddynext_async_index_hashtags', array( $this, 'async_index_hashtags' ), 10, 3 );
 
 		// One-time Unicode re-sync (schema v24 / R11) — self-chaining batch worker.
@@ -98,7 +103,7 @@ class HashtagListener implements ListenerInterface {
 		// poll questions, media captions, reshare notes, event/job/discussion
 		// bodies etc. with #hashtags were silently never indexed (never appeared
 		// in hashtag feeds or trending, and following the tag missed them).
-		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id, '' ) );
+		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id ) );
 	}
 
 	/**
@@ -130,7 +135,7 @@ class HashtagListener implements ListenerInterface {
 			return;
 		}
 
-		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id, '' ) );
+		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id ) );
 	}
 
 	/**
@@ -164,40 +169,66 @@ class HashtagListener implements ListenerInterface {
 			return;
 		}
 
-		$this->dispatch( 'buddynext_async_index_hashtags', array( $object_type, $object_id, $content ) );
+		$this->sync_tags( $object_type, $object_id, $content );
 	}
 
 	/**
-	 * Async worker — extract hashtags from content and sync the pivot table.
+	 * Async worker — read a native post's saved content and sync its hashtags.
 	 *
-	 * For object_type='post' with an empty content string the post row is
-	 * fetched from bn_posts so the async context always has the saved content.
+	 * Reads the content when the job runs, so the tags always match the post as
+	 * it is now. A post that is gone or removed (status neither readable nor
+	 * pre-publication, e.g. deleted) is skipped: its tags were unlinked when it
+	 * was removed. Only native posts are queued; bridge content is synced inline
+	 * by on_index_hashtags(). A job queued by 1.2.x for other content (bridge
+	 * items) carries its content as a third arg and is synced from it; that
+	 * legacy signature is kept for queued copies and removed in 1.4.0.
 	 *
-	 * @param string $object_type Object type.
+	 * @param string $object_type Object type ('post', or a 1.2.x bridge type).
 	 * @param int    $object_id   Object ID.
-	 * @param string $content     Content to extract from (may be empty for 'post' — fetched below).
+	 * @param string $legacy      Content a 1.2.x job carried; used only for non-post types.
 	 * @return void
 	 */
-	public function async_index_hashtags( string $object_type, int $object_id, string $content ): void {
+	public function async_index_hashtags( string $object_type, int $object_id, string $legacy = '' ): void {
 		// Authoritative guard: covers already-queued jobs and any direct callers
 		// of this worker hook, so no extraction/sync/signal happens while the
 		// Hashtags feature is off.
 		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
 			return;
 		}
-
-		if ( 'post' === $object_type && '' === $content ) {
-			global $wpdb;
-
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$content = (string) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT content FROM {$wpdb->prefix}bn_posts WHERE id = %d",
-					$object_id
-				)
-			);
+		if ( 'post' !== $object_type ) {
+			if ( '' !== $legacy && $object_id > 0 ) {
+				$this->sync_tags( $object_type, $object_id, $legacy );
+			}
+			return;
 		}
 
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row    = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT content, status FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				$object_id
+			),
+			ARRAY_A
+		);
+		$status = is_array( $row ) ? (string) $row['status'] : '';
+		if ( empty( PostService::STATUSES[ $status ]['readable'] ) && empty( PostService::STATUSES[ $status ]['pre_publication'] ) ) {
+			return;
+		}
+
+		$this->sync_tags( 'post', $object_id, (string) $row['content'] );
+	}
+
+	/**
+	 * Extract hashtags from text, sync the pivot table and fire the per-tag signal.
+	 *
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object ID.
+	 * @param string $content     Text to extract from.
+	 * @return void
+	 */
+	private function sync_tags( string $object_type, int $object_id, string $content ): void {
 		if ( '' === trim( $content ) ) {
 			return;
 		}
@@ -349,7 +380,8 @@ class HashtagListener implements ListenerInterface {
 	 */
 	private function dispatch( string $hook, array $args ): void {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( $hook, $args, 'buddynext' );
+			// Same object, same content, not started yet: the pending job does it.
+			\BuddyNext\Core\CronScheduler::enqueue_once( $hook, $args );
 		} else {
 			do_action_ref_array( $hook, $args );
 		}

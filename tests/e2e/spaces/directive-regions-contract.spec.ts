@@ -35,7 +35,7 @@ test.describe( 'spaces / directive regions contract', () => {
 		// Effect: the space the page links to is a real space the REST directory returns,
 		// so the tabs below are asserted on live data and not on an empty shell.
 		const slug = spaceHref.split( '/' ).filter( Boolean ).pop();
-		const directory = await restList( page, '/spaces?per_page=100' );
+		const directory = await restList( page, `/spaces?per_page=100&search=${ encodeURIComponent( ( slug ?? '' ).replace( /-\d+$/, '' ).replace( /-/g, ' ' ) ) }` );
 		expect( directory.status, 'spaces REST directory answers' ).toBe( 200 );
 		expect( directory.items.map( ( s ) => s.slug ), 'the linked space is in the REST directory' ).toContain( slug );
 

@@ -22,8 +22,10 @@ The action and filter seams for the activity feed and everything members post in
 | `buddynext_feed_allowed_post_types` | filter | The feed resolves which post types it will store and render, so an add-on can register its own card/post type instead of being dropped as unknown | `string[] $types` (defaults to the built-in set) |
 | `buddynext_post_created` | action | A new post goes live (also fired for a share, with `$type = 'share'`) | `int $post_id, int $user_id, string $type` |
 | `buddynext_post_updated` | action | A post is edited | `int $post_id, int $user_id, array $fields` (columns written this update) |
-| `buddynext_post_deleted` | action | A post is deleted by its owner | `int $post_id, int $user_id` |
+| `buddynext_post_deleted` | action | A post is deleted, on every path: by its author, by a moderator, or by an integration removing its card | `int $post_id, int $user_id, int $author_id` (`$user_id` is who deleted it, 0 for a system delete; `$author_id`, added in 1.3.0, is always the post's author, so key author-side state such as streaks or points on it) |
 | `buddynext_purge_page_cache` | action | A feed change purged one of its pages from the page caches BuddyNext knows (WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache). Hook it to purge the same URL from a cache BuddyNext does not know, such as Cloudflare APO or a proxy. Fires once per URL per request. | `string $url` (absolute) |
+| `buddynext_purge_page_cache_all` | action | A hub's URL slug changed (for example People renamed to Community), or the owner saved a setting that changes every guest page (appearance, width, names, navigation), so every cached page may be out of date. BuddyNext has already flushed the whole of each page cache it knows; hook it to flush a cache it does not know, such as Cloudflare APO or a proxy. Fires at most once per request. Since 1.3.0. | none |
+| `buddynext_public_markup_options` | filter | The options whose change flushes the page cache. Every setting registered through the settings screens already does; add the key of one that is saved another way and reaches every guest page, such as a brand name or logo. Since 1.3.0. | `string[] $options` |
 | `buddynext_link_preview_max_redirects` | filter | Fetching a link preview, capping how many redirect hops are followed (default `5`; every hop is re-validated against SSRF rules before it is followed) | `int $max, string $url` |
 | `buddynext_post_approved` | action | A held post is approved by a moderator | `int $post_id, int $author` |
 | `buddynext_post_rejected` | action | A held post is rejected by a moderator | `int $post_id, int $author, string $reason` |
@@ -40,7 +42,9 @@ The action and filter seams for the activity feed and everything members post in
 | `buddynext_comment_created` | action | A new comment is created | `int $comment_id, string $object_type, int $object_id, int $user_id` |
 | `buddynext_post_comment_received` | action | The author's post receives a comment from someone else (recipient mirror) | `int $comment_id, int $post_id, int $author_id, int $commenter_id` |
 | `buddynext_comment_updated` | action | A comment is edited | `int $comment_id, int $user_id` |
-| `buddynext_comment_deleted` | action | A comment is deleted | `int $comment_id, int $user_id` |
+| `buddynext_comment_deleted` | action | A comment is deleted on its own (not when its post is deleted, see below) | `int $comment_id, int $user_id` |
+| `buddynext_comment_thread_changed` | action | Anything that changes what a thread shows: a comment added, edited, deleted, hidden or restored (1.3.0). Fires once per change with the object the thread belongs to, so one listener covers every path. BuddyNext uses it to purge the post's page from a page cache | `string $object_type, int $object_id` |
+| `buddynext_post_comments_deleted` | action | A deleted post took its comments with it. Fires once per post that had comments, after the delete commits, with every removed comment id and a map of comment id to its author (1.3.0). The rows are already gone, so the map is how you learn whose comments went. `buddynext_comment_deleted` does not fire for these | `int[] $comment_ids, int $post_id, array<int,int> $authors` |
 
 `$object_type` is the thing the comment is attached to (`'post'`, `'media'`, etc.). The post-counter and recipient-mirror logic only run when `$object_type === 'post'`.
 
@@ -63,12 +67,14 @@ The canonical six reaction slugs are `like`, `love`, `haha`, `wow`, `sad`, `angr
 |---|---|---|---|
 | `buddynext_poll_vote_before_save` | filter | A poll vote is about to be written | `array $data, int $user_id` (`$data` has `user_id`, `post_id`, `option_id`) |
 | `buddynext_poll_voted` | action | A poll vote is cast or switched (not on toggle-off) | `int $post_id, int $option_id, int $user_id` |
+| `buddynext_poll_vote_removed` | action | A poll vote is taken back: a toggle off, or the old vote of a switch (1.3.0). A switch fires this for the old option, then `buddynext_poll_voted` for the new one | `int $post_id, int $option_id, int $user_id` |
 | `buddynext_share_before_save` | filter | A share is about to be written | `array $data, int $user_id` (`$data` has `user_id`, `post_id`, `content`) |
 | `buddynext_post_shared` | action | A post is shared | `int $share_id, int $original_post_id, int $user_id` |
+| `buddynext_post_unshared` | action | A member's share is removed, by un-sharing or by deleting the repost card. Fires once, only when a share row was really removed (1.3.0) | `int $share_id, int $original_post_id, int $user_id` (same as `buddynext_post_shared`) |
 | `buddynext_post_bookmarked` | action | A post is bookmarked (first time only) | `int $post_id, int $user_id` |
 | `buddynext_post_unbookmarked` | action | A bookmark is removed (only when a row was deleted) | `int $post_id, int $user_id` |
 
-> **Note:** `buddynext_poll_voted` does not fire when a member clicks the same option again to remove their vote (toggle-off returns early). A vote switch to a different option fires once, after the new vote is recorded.
+> **Note:** `buddynext_poll_voted` does not fire when a member clicks the same option again to remove their vote; `buddynext_poll_vote_removed` fires instead. A vote switch fires `buddynext_poll_vote_removed` for the old option, then `buddynext_poll_voted` once for the new one.
 
 ## Feed query and rendering
 
@@ -77,6 +83,8 @@ The canonical six reaction slugs are `like`, `love`, `haha`, `wow`, `sad`, `angr
 | `buddynext_feed_query_args` | filter | Before a feed query runs (home, profile, space, explore) | `array $args, string $scope, int $viewer_id` (`$args` has `per_page`, `cursor`, `user_id`) |
 | `buddynext_feed_order_by` | filter | The home feed `ORDER BY` clause is built | `string $order_by, int $user_id, array $query_args` |
 | `buddynext_for_you_priority_days` | filter | The For you feed is being ordered. Sets how many days a post by a connection, or in a space matching the member's interests, stays above newer posts from everyone else. Return `0` for no limit. Since 1.2.5. | `int $days, int $user_id` (default `7`) |
+| `buddynext_hashtags_synced` | action | An object's hashtags are written to the index (a moment after a post is created, in the background; since 1.3.0) | `string $object_type` (`post`, `comment`), `int $object_id`, `string[] $slugs`. The page cache purges the hashtag pages from it; a cache BuddyNext does not know can do the same. |
+| `buddynext_feed_hidden_space_ids` | filter | The home feed is built for a signed-in viewer (since 1.3.0) | `int[] $space_ids` (default none), `int $viewer_id`. Add the ids of Spaces this viewer belongs to but may not read right now; their posts are left out of this viewer's home feed. BuddyNext Pro uses it for a plan-gated Space whose plan has lapsed. Keep it cheap: it runs whenever the feed is built. |
 | `buddynext_feed_items` | filter | A feed page is about to be returned | `array $items, string $scope, int $viewer_id, array $args` |
 | `buddynext_post_impression` | action | Each item on a served feed page is rendered | `int $post_id, int $viewer_id, string $surface` (`home_feed`, `profile_feed`, `space_feed`, `explore_feed`) |
 
@@ -144,6 +152,8 @@ Narrower hooks around announcements, members-only posts, the feed templates, and
 | `buddynext_bookmarks_before` / `buddynext_bookmarks_after` | action | Before and after the bookmarks hub renders. | `int $current_user_id` |
 | `buddynext_single_post_thread` | action | After the single-post card, so a bridge can render an alternative thread UI. | `int $post_id, array $post` |
 | `buddynext_feed_client_pagination` | filter | A feed, Explore, or bookmarks template decides whether "Load more" swaps in place through the client router. Return `false` to fall back to a plain link. | `bool $enabled` (default `true`) |
+| `buddynext_feed_items_primed` | action | A page of feed items is about to render, guests included. A bridge whose cards draw from their source plugin loads the whole page in one call here instead of one call per card. | `array $items, int $viewer` |
+| `buddynext_feed_item_enriched` | filter | One feed item has been enriched for the REST response. The last word on its shape, so a bridge can fill a partner's card from the partner itself and every client reads the same item. | `array $item, int $viewer` |
 | `buddynext_feed_new_count_interval` | filter | The home feed sets how often the "N new posts" pill polls, in seconds (default `60`). | `int $seconds` |
 | `buddynext_share_networks` | filter | The share modal builds the list of networks for sharing a public post. Return an empty array to offer only "Copy link". | `array $networks` (key => `icon`, `label`, `url` template with `{url}` and `{text}`) |
 

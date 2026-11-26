@@ -3,9 +3,13 @@
  * Powers templates/auth/login.php. Submits credentials to
  * POST /buddynext/v1/auth/login and redirects on success. Surfaces
  * inline errors without a page reload.
+ *
+ * When the site's security settings block REST for logged-out visitors, the
+ * same form is posted natively to wp-login.php (its action), so members can
+ * still sign in. See signInTheWordPressWay().
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restError, restFetch } from '@buddynext/rest-client';
+import { refusedBeforeBuddyNext, restError, restFetch, submitFormNatively } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -44,6 +48,31 @@ function toast( message, tone ) {
 	if ( typeof window.bnToast === 'function' ) {
 		window.bnToast( message, tone || 'info' );
 	}
+}
+
+/**
+ * Hand a blocked sign-in to WordPress's own login (the form's wp-login.php action).
+ *
+ * @param {Object}               c    Context.
+ * @param {HTMLFormElement|null} form The sign-in form, its fields still filled in.
+ * @param {boolean}              afterCode True when the block hit the two-factor code step.
+ * @return {boolean} True when the form was handed over.
+ */
+function signInTheWordPressWay( c, form, afterCode ) {
+	if ( ! form ) {
+		return false;
+	}
+	c.error = c.blockedMessage || '';
+	if ( afterCode ) {
+		// The typed code cannot travel (wp-login.php issues a fresh challenge), so tell that
+		// screen why it is asking again.
+		const tag = document.createElement( 'input' );
+		tag.type  = 'hidden';
+		tag.name  = 'bn_signin_notice';
+		tag.value = 'blocked';
+		form.appendChild( tag );
+	}
+	return submitFormNatively( form );
 }
 
 const loginStore = store( 'buddynext/auth-login', {
@@ -87,6 +116,8 @@ const loginStore = store( 'buddynext/auth-login', {
 			if ( event && typeof event.preventDefault === 'function' ) {
 				event.preventDefault();
 			}
+			// The submit event fires on the <form>; kept for the WordPress fallback.
+			const form = event && event.target && 'FORM' === event.target.tagName ? event.target : null;
 			const c = ctx();
 			if ( c.submitting ) { return; }
 			// Validate on click instead of disabling the button up front.
@@ -108,8 +139,12 @@ const loginStore = store( 'buddynext/auth-login', {
 				} );
 				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
-					const msg = ( data && data.message ) || t( 'invalidCredentials', 'That email, username or password is not right.' );
-					c.error = msg;
+					if ( refusedBeforeBuddyNext( r ) && signInTheWordPressWay( c, form ) ) {
+						return;
+					}
+					// A wrong password always arrives with its own message, so a bare
+					// failure is never blamed on what the member typed.
+					c.error = ( data && data.message ) || t( 'genericError', 'Something went wrong. Try again.' );
 					c.submitting = false;
 					return;
 				}
@@ -153,6 +188,13 @@ const loginStore = store( 'buddynext/auth-login', {
 				} );
 				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
+					// Blocked here: the password form still holds what was typed, and
+					// wp-login.php runs the same two-step check (TwoFactorLoginGuard).
+					const passwordForm = document.getElementById( 'bn-login-user' );
+					if ( refusedBeforeBuddyNext( r ) && passwordForm && signInTheWordPressWay( c, passwordForm.form, true ) ) {
+						c.twofaError = c.error;
+						return;
+					}
 					c.twofaError = ( data && data.message ) || t( 'twofaIncorrect', 'That code was not correct.' );
 					c.submitting = false;
 					return;

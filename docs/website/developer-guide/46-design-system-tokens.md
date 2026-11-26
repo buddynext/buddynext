@@ -36,7 +36,7 @@ All tokens are `--bn-` prefixed. The families:
 | --- | --- |
 | Surfaces | `--bn-bg`, `--bn-canvas`, `--bn-surface`, `--bn-sunken`, `--bn-raised` |
 | Ink (text) | `--bn-ink`, `--bn-ink-2`, `--bn-ink-3`, `--bn-ink-4` |
-| Lines / focus | `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-ring` |
+| Lines / focus | `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-line-control`, `--bn-ring` |
 | Accent ramp | `--bn-accent`, `--bn-accent-50` ... `--bn-accent-900`, `--bn-accent-fg` |
 | Semantic | `--bn-success(-bg)`, `--bn-danger(-bg)`, `--bn-info(-bg)`, `--bn-warn(-bg)` |
 | Integration accents | `--bn-jetonomy`, `--bn-media`, `--bn-paid`, `--bn-events`, each with `-bg` and `-border` variants (hues derive from `--bn-hue-{jetonomy,media,paid,events}`) |
@@ -47,6 +47,9 @@ All tokens are `--bn-` prefixed. The families:
 | Motion | `--bn-dur`, `--bn-dur-fast`, `--bn-dur-slow`, `--bn-ease`, `--bn-ease-out` |
 | Layering | `--bn-z-menu`, `--bn-z-modal`, `--bn-z-lightbox`, `--bn-z-toast` |
 | Layout | `--bn-container`, `--bn-content-max`, `--bn-content-wide`, `--bn-railw` |
+| Control edges | `--bn-line-control` is the edge of anything a member operates: outlined buttons, text fields, selects, chips, poll options, switch tracks. It is half the ink colour, so it reaches 3:1 against any BuddyNext surface in light and dark (WCAG 1.4.11). Cards and dividers keep the subtle `--bn-line`. Override it to recolour every control edge at once. |
+| Text on brand and danger | `--bn-accent-text` and `--bn-danger-text` are the brand and danger colours as TEXT (links, counts, Delete and Block in menus): each is mixed toward the ink so it reaches 4.5:1 in light and dark. Fills and badges keep `--bn-accent` and `--bn-danger`. |
+| Reading measure | `--bn-post-measure` - widest line of post text in the feed and on the post page. Not set by default, so text caps at `58ch`; set it to `none` for full-width text. Media, polls and link previews always use the full card. |
 | Toasts and dialogs | `--bn-toast-min-w`, `--bn-toast-max-w`, `--bn-dialog-max-w`, `--bn-dialog-btn-h` |
 
 Bare-named aliases (`--bg`, `--text-1`, `--s4`, ...) exist only for back-compat. Always author against the `--bn-*` names.
@@ -153,6 +156,8 @@ Both are handled by the token system and logical CSS, so token-driven overrides 
 ```
 
 The third selector means that if your theme is BuddyX or Reign, BuddyNext follows the host theme's dark toggle automatically. A `prefers-color-scheme: dark` block also applies when the user has set no explicit theme. Because dark mode flips the `--bn-*` values, anything authored against tokens is dark-safe with no extra work. Verify dark via the real theme toggle, not a hand-set attribute.
+
+**BuddyNext blocks and shortcodes on your own pages.** A small head script stamps the colour mode before the page paints. Community pages always load it. On any other page it loads when the page content holds a BuddyNext block or `[buddynext...]` shortcode, directly or inside a published synced pattern the content references. Only the first five patterns on a page are read, and only one level deep: a pattern nested inside another pattern is not read. There it follows your theme's colour mode only. A BuddyNext block or shortcode placed only in a template part (the Footer, the Header) or a block widget is not seen: it still renders, but in light colours on a dark theme. To get dark mode there, put the block in the page content or in a synced pattern the content references.
 
 ## Overriding markup: the `buddynext_part_*` hooks
 

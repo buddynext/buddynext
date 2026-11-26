@@ -474,6 +474,9 @@ class HashtagService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$old_hashtag_ids = array_keys( $old_stamps );
+		// The tags the object carried before this change, so a page that listed it for a tag it no
+		// longer has (deleted, edited away) can be refreshed too.
+		$old_slugs = $this->slugs_for_ids( $old_hashtag_ids );
 
 		// Remove all existing links for this object first.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -498,6 +501,8 @@ class HashtagService {
 
 		if ( empty( $slugs ) ) {
 			$this->bust_trending_cache();
+			/** This action is documented below. */
+			do_action( 'buddynext_hashtags_synced', $object_type, $object_id, $old_slugs );
 			return;
 		}
 
@@ -563,6 +568,43 @@ class HashtagService {
 		}
 
 		$this->bust_trending_cache();
+
+		/**
+		 * Fires once an object's hashtags are written to the index.
+		 *
+		 * Indexing runs a moment after a post is created (in the background), so this, not the post's
+		 * creation, is when a hashtag page first lists it. The page cache listens here.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param string   $object_type Object type ('post', 'comment').
+		 * @param int      $object_id   Object id.
+		 * @param string[] $slugs       Every tag slug the change touched: the ones now on the object and
+		 *                              the ones it had before (a removed or deleted tag's page lists it too).
+		 */
+		do_action( 'buddynext_hashtags_synced', $object_type, $object_id, array_values( array_unique( array_merge( array_map( array( self::class, 'normalize_slug' ), $slugs ), $old_slugs ) ) ) );
+	}
+
+	/**
+	 * The slugs of some hashtag ids (one indexed read).
+	 *
+	 * @param int[] $ids Hashtag ids.
+	 * @return string[]
+	 */
+	private function slugs_for_ids( array $ids ): array {
+		$ids = array_values( array_filter( array_map( 'absint', $ids ) ) );
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// $in is a run of %d placeholders, one per int-cast id.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$slugs = $wpdb->get_col( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}bn_hashtags WHERE id IN ({$in})", $ids ) );
+		// phpcs:enable
+
+		return array_map( 'strval', (array) $slugs );
 	}
 
 	/**
@@ -1029,7 +1071,7 @@ class HashtagService {
 		// which is correct for a public post but would leak a members-only post in
 		// an open space to non-members. A space-members post needs membership, full
 		// stop — verified: a non-member's query returns 0 rows for such a post.
-		$member_of = " {$alias}.space_id IN ( SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active' )";
+		$member_of = " {$alias}.space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::member_spaces_sql( $viewer_id ) . ' )';
 
 		// A tag page is discovery: a private account's public post is listed for
 		// its approved followers only, the rule Explore applies.
@@ -1072,7 +1114,7 @@ class HashtagService {
 			. " AND {$alias}.privacy = 'public'"
 			. " AND ( {$alias}.space_id IS NULL"
 			. " OR {$alias}.space_id = 0"
-			. " OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' ) )"
+			. " OR {$alias}.space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::public_open_spaces_sql() . ' ) )'
 			. \BuddyNext\SocialGraph\FollowService::private_author_where( 0, "{$alias}.user_id" )
 			// And never a hidden-suspended or shadow-banned author's: the tag feed,
 			// its counts, its contributors and the trending list all read this.
@@ -1099,13 +1141,11 @@ class HashtagService {
 		$sql    = "AND (
 			{$alias}.space_id IS NULL
 			OR {$alias}.space_id = 0
-			OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )";
+			OR {$alias}.space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::public_open_spaces_sql() . ' )';
 		$params = array();
 
 		if ( $viewer_id > 0 ) {
-			$sql     .= " OR {$alias}.space_id IN (
-				SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'
-			)";
+			$sql     .= " OR {$alias}.space_id IN ( " . \BuddyNext\Spaces\SpaceVisibility::member_spaces_sql( $viewer_id ) . ' )';
 			$params[] = $viewer_id;
 		}
 

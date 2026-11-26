@@ -36,6 +36,69 @@ final class EmailDefaults {
 	private const FIELDS = array( 'subject', 'preview_text', 'body_html' );
 
 	/**
+	 * Seeded defaults per locale, built once per request.
+	 *
+	 * @var array<string, array<string, array<string, string>>>
+	 */
+	private static array $seeds = array();
+
+	/**
+	 * Swap every unedited field of a template row for the default in the current locale.
+	 *
+	 * A row is seeded once, in the site language (English before 1.3.0). Call this
+	 * inside switch_to_user_locale() and a member whose language differs from the
+	 * site's gets the default wording in their own language. A field the owner
+	 * edited matches neither seed and is returned as stored.
+	 *
+	 * @param string $type Template type.
+	 * @param object $row  bn_email_templates row (subject, preview_text, body_html).
+	 * @return object The row, with unedited fields localised.
+	 */
+	public static function localise( string $type, object $row ): object {
+		$site_locale = (string) get_option( 'WPLANG' );
+		$site_locale = '' === $site_locale ? 'en_US' : $site_locale;
+		$current     = self::seed_in( determine_locale(), $type );
+		if ( array() === $current ) {
+			return $row;
+		}
+		$seeded = array( self::seed_in( 'en_US', $type ), self::seed_in( $site_locale, $type ) );
+
+		$row = clone $row;
+		foreach ( self::FIELDS as $field ) {
+			$stored = self::normalise( (string) ( $row->$field ?? '' ) );
+			foreach ( $seeded as $seed ) {
+				if ( isset( $seed[ $field ], $current[ $field ] ) && self::normalise( $seed[ $field ] ) === $stored ) {
+					$row->$field = $current[ $field ];
+					break;
+				}
+			}
+		}
+
+		return $row;
+	}
+
+	/**
+	 * The default fields of one template in a locale.
+	 *
+	 * @param string $locale Locale code.
+	 * @param string $type   Template type.
+	 * @return array<string, string>
+	 */
+	private static function seed_in( string $locale, string $type ): array {
+		if ( ! isset( self::$seeds[ $locale ] ) ) {
+			$switched = determine_locale() !== $locale && switch_to_locale( $locale );
+			foreach ( \BuddyNext\Core\Installer::email_template_seeds() as $seed ) {
+				self::$seeds[ $locale ][ (string) $seed['type'] ] = array_intersect_key( $seed, array_flip( self::FIELDS ) );
+			}
+			if ( $switched ) {
+				restore_previous_locale();
+			}
+		}
+
+		return self::$seeds[ $locale ][ $type ] ?? array();
+	}
+
+	/**
 	 * Every registered default change.
 	 *
 	 * @return array<string, array{current: array<string,string>, previous: array<int, array<string,string>>}>

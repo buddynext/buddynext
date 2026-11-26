@@ -13,6 +13,8 @@
  * @package BuddyNext
  *
  * @var int    $total_members Required. Total member count (used in the subtitle).
+ * @var bool   $online_only   Optional. Online only is on: the line reads "N members online". Default false.
+ * @var bool   $filtered      Optional. Any directory filter is on: the line reads "N members found". Default false.
  * @var string $current_type  Optional. Currently-selected member-type slug ('' = all). Default ''.
  * @var string $view_mode     Optional. Reserved for future grid/list view modes. Default 'grid'.
  * @var int    $viewer_id     Optional. Currently-viewing user ID. Default 0.
@@ -37,6 +39,8 @@ $args = array(
 	'view_mode'     => isset( $view_mode ) ? (string) $view_mode : 'grid',
 	'viewer_id'     => isset( $viewer_id ) ? (int) $viewer_id : 0,
 	'classes'       => isset( $classes ) ? (array) $classes : array(),
+	'online_only'   => ! empty( $online_only ),
+	'filtered'      => ! empty( $filtered ),
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -48,14 +52,9 @@ $bn_classes = (array) apply_filters( 'buddynext_part_member_directory_hero_class
 
 $bn_total = (int) $args['total_members'];
 
-// _n(), not a bare plural: with the count now following the active filter, a
-// one-result filter rendered "1 members in the community". Languages with more
-// than two plural forms were never served by the hardcoded string either.
-$bn_subtitle = sprintf(
-	/* translators: %s: formatted member count. */
-	_n( '%s member in the community', '%s members in the community', $bn_total, 'buddynext' ),
-	number_format_i18n( $bn_total )
-);
+// Worded for what the list shows: the community, the members online, or the
+// members a filter found. One builder, shared with the store's live update.
+$bn_subtitle = \BuddyNext\Profile\MemberDirectoryService::directory_subtitle( $bn_total, (bool) $args['online_only'], (bool) $args['filtered'] );
 
 // No header CTA: this is a directory of ALL members, so an "Edit profile" action
 // (which targets the VIEWER's own profile) reads as misplaced here. Editing your
@@ -71,6 +70,8 @@ buddynext_get_template(
 		'title_icon'    => 'users',
 		'heading_level' => 'h1',
 		'classes'       => $bn_classes,
+		// The members store rewords the line when a filter changes without a reload.
+		'subtitle_bind' => 'state.directorySubtitle',
 	)
 );
 

@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Listora">
-  <defs>
-    <linearGradient id="lstFamGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FF6B6B"/>
-      <stop offset="1" stop-color="#EE4036"/>
-    </linearGradient>
-  </defs>
-  <rect x="36" y="36" width="440" height="440" rx="110" fill="url(#lstFamGrad)"/>
-  <path d="M256 100 C182 100 130 156 130 230 C130 310 256 430 256 430 C256 430 382 310 382 230 C382 156 330 100 256 100 Z" fill="#FFFFFF"/>
-  <circle cx="256" cy="224" r="56" fill="url(#lstFamGrad)"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Listora"><defs><linearGradient id="ls1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF8E8E"/><stop offset="1" stop-color="#B76666"/></linearGradient><linearGradient id="ls2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF6B6B"/><stop offset="1" stop-color="#B74D4D"/></linearGradient><linearGradient id="ls3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EE4036"/><stop offset="1" stop-color="#AB2E26"/></linearGradient></defs><path d="M168 96 C104 96 56 144 56 208 C56 282 168 380 168 380 C168 380 280 282 280 208 C280 144 232 96 168 96 Z" fill="url(#ls2)"/><rect x="318" y="136" width="140" height="62" rx="31" fill="url(#ls1)"/><rect x="318" y="222" width="140" height="62" rx="31" fill="url(#ls2)"/><rect x="318" y="308" width="140" height="62" rx="31" fill="url(#ls3)"/><circle cx="168" cy="204" r="50" fill="#FFFFFF"/></svg>

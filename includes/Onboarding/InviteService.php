@@ -121,7 +121,8 @@ class InviteService {
 		// create()) enqueues N fast async sends instead of N blocking wp_mail()
 		// calls that time the request out. Falls back to inline when AS is absent.
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( 'buddynext_async_send_invite_email', array( $payload ), 'buddynext' );
+			// The invite id only: the token never sits in the actions table.
+			as_enqueue_async_action( 'buddynext_async_send_invite_email', array( $invite_id ), 'buddynext' );
 			$status = 'queued';
 		} else {
 			$status = $this->deliver_invite_email( $payload ) ? 'sent' : 'mail_failed';
@@ -569,10 +570,20 @@ class InviteService {
 	 *
 	 * A refused send marks the invite 'bounced'.
 	 *
-	 * @param array<string, mixed> $invite Invite payload { id, email, first_name, token }.
+	 * @param array<string, mixed> $invite Invite payload { id, email, first_name, token },
+	 *                                     or { id } alone, read from the row.
 	 * @return bool True when the email was handed to wp_mail successfully.
 	 */
 	public function deliver_invite_email( array $invite ): bool {
+		if ( ! isset( $invite['token'] ) && ! empty( $invite['id'] ) ) {
+			global $wpdb;
+			// Queued by id: read the invite as it is now; one no longer pending is not sent.
+			$row = $wpdb->get_row( $wpdb->prepare( "SELECT id, email, first_name, token FROM {$wpdb->prefix}bn_invites WHERE id = %d AND status = 'pending'", (int) $invite['id'] ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			if ( ! is_array( $row ) ) {
+				return false;
+			}
+			$invite = $row;
+		}
 		$sent = $this->send_invite_email( $invite );
 
 		// Nobody is waiting on a queued send, so the row is the only place a failure can
@@ -595,6 +606,17 @@ class InviteService {
 	 * @return bool True when the email was handed to wp_mail successfully.
 	 */
 	private function send_invite_email( array $invite ): bool {
+		// An invitee is not a member yet: the email reads in the site's language, never the inviter's.
+		return (bool) \BuddyNext\Notifications\EmailSender::in_recipient_locale( sanitize_email( (string) ( $invite['email'] ?? '' ) ), fn() => $this->send_invite_email_in_locale( $invite ) );
+	}
+
+	/**
+	 * Body of send_invite_email(), run in the recipient's language.
+	 *
+	 * @param array<string, mixed> $invite Invite row (must contain 'email', 'first_name', 'token').
+	 * @return bool
+	 */
+	private function send_invite_email_in_locale( array $invite ): bool {
 		$to = sanitize_email( (string) ( $invite['email'] ?? '' ) );
 		if ( '' === $to ) {
 			return false;
@@ -614,6 +636,7 @@ class InviteService {
 		if ( ! $tpl ) {
 			return false;
 		}
+		$tpl = \BuddyNext\Notifications\EmailDefaults::localise( 'bn.bulk_invite', $tpl );
 
 		$first_name = '' !== ( (string) ( $invite['first_name'] ?? '' ) ) ? (string) $invite['first_name'] : __( 'there', 'buddynext' );
 		// Point the link at the branded registration screen with the token under

@@ -162,6 +162,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	data-bn-new-poll-ms="<?php echo esc_attr( (string) $bn_new_pill_ms ); ?>"
 	data-bn-watermark="<?php echo esc_attr( (string) $bn_feed_watermark ); ?>">
 
+
 	<!-- Post composer -->
 	<?php
 	buddynext_get_template(
@@ -169,6 +170,8 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 		array(
 			'space_id'        => null,
 			'current_user_id' => $current_user_id,
+			// The main What's New composer: Post / Article tabs for a member who can write.
+			'article_tab'     => true,
 		)
 	);
 	?>

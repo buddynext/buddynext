@@ -119,11 +119,12 @@ do_action( 'buddynext_part_notifications_sidecard_muted_before', $args );
 						href="<?php echo esc_url( PageRouter::profile_url( (int) $bn_muted_id ) ); ?>">
 						<?php echo esc_html( $bn_muted_user->display_name ); ?>
 					</a>
-					<span class="bn-notif-sidecard__muted-handle">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $bn_muted_user->ID ) ); ?></span>
+					<span class="bn-notif-sidecard__muted-handle"><bdi dir="ltr">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $bn_muted_user->ID ) ); ?></bdi></span>
 				</div>
 				<button type="button"
-					class="bn-btn bn-btn--sm bn-notif-sidecard__muted-cta"
+					class="bn-btn bn-notif-sidecard__muted-cta"
 					data-variant="ghost"
+					data-size="sm"
 					data-bn-relation-remove
 					aria-label="
 					<?php

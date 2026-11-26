@@ -163,4 +163,49 @@ class CacheService {
 			wp_cache_flush_group( $group );
 		}
 	}
+
+	// ── Last-changed salts ───────────────────────────────────────────────────
+
+	/**
+	 * The last-changed salt of one family of cached reads, for building its keys.
+	 *
+	 * WordPress core's wp_cache_get_last_changed( $group ), narrowed to a family
+	 * inside a group ("this space's feed", "this post's comment thread") so a write
+	 * retires only the reads it affects. Build every key of the family on this
+	 * value and call set_last_changed() after each write.
+	 *
+	 * The salt is a time-based unique id (microseconds plus entropy), never a
+	 * counter. A counter seeded to a constant goes backwards when its key is
+	 * evicted or expires: the next bump lands on a number an older payload is
+	 * still cached under, and that payload is served again. A unique id cannot
+	 * repeat, so an evicted salt only ever makes the family miss once. Stored with no expiry: the salt must outlive
+	 * the data it keys. Works the same with or without a persistent object cache.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $group  Cache group the family's payloads live in.
+	 * @param string $family Family name, unique within the group (e.g. 'space:42').
+	 * @return string
+	 */
+	public static function last_changed( string $group, string $family ): string {
+		$salt = wp_cache_get( 'last_changed:' . $family, $group );
+
+		return ( is_string( $salt ) && '' !== $salt ) ? $salt : self::set_last_changed( $group, $family );
+	}
+
+	/**
+	 * Retire every cached read of a family. Call AFTER the write it invalidates.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $group  Cache group the family's payloads live in.
+	 * @param string $family Family name, unique within the group.
+	 * @return string The new salt.
+	 */
+	public static function set_last_changed( string $group, string $family ): string {
+		$salt = uniqid( '', true );
+		wp_cache_set( 'last_changed:' . $family, $salt, $group );
+
+		return $salt;
+	}
 }

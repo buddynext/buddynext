@@ -14,7 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Comments;
 
 use WP_Error;
-use BuddyNext\Profile\Handle;
+use BuddyNext\Core\CacheService;
 use BuddyNext\Core\RateLimiter;
 use BuddyNext\Moderation\InteractionGuard;
 use BuddyNext\Moderation\ModerationService;
@@ -104,7 +104,7 @@ class CommentService {
 		// write storm at scale. The window can't slide open under steady traffic
 		// the way a TTL-reset counter would.
 		$bn_comment_rate_limit = (int) get_option( 'buddynext_comment_rate_limit', 30 );
-		if ( $bn_comment_rate_limit > 0 && $user_id > 0 ) {
+		if ( $bn_comment_rate_limit > 0 && $user_id > 0 && ! SafeguardService::is_bulk_import() ) {
 			$bn_rate_bucket = 'bn_comment_rate_' . $user_id . '_' . (int) floor( time() / MINUTE_IN_SECONDS );
 			if ( RateLimiter::hit( $bn_rate_bucket, 2 * MINUTE_IN_SECONDS ) > $bn_comment_rate_limit ) {
 				return new WP_Error(
@@ -280,27 +280,11 @@ class CommentService {
 		 */
 		do_action( 'buddynext_comment_created', $comment_id, $object_type, $object_id, $user_id );
 
-		// Parse @username mentions in the comment and notify each mentioned user.
-		// Mirrors PostService's mention handling; for a comment the deep link is
-		// the post the comment is on, so the existing bn.mention listener
-		// (object_id = post id) resolves correctly with no signature change.
+		// Notify members @mentioned in the comment. For a comment the deep link is
+		// the post it is on, so the bn.mention listener (object_id = post id)
+		// resolves with no signature change. One seam with posts: PostService.
 		if ( 'post' === $object_type ) {
-			preg_match_all( Handle::mention_regex(), $content, $bn_mention_matches );
-			$bn_notified = array();
-			foreach ( $bn_mention_matches[1] as $bn_raw_username ) {
-				$bn_username = (string) $bn_raw_username;
-				if ( '' === $bn_username || isset( $bn_notified[ $bn_username ] ) ) {
-					continue;
-				}
-				$bn_notified[ $bn_username ] = true;
-				// Resolved as a HANDLE, not a login — see PostService for why.
-				$bn_mentioned = Handle::resolve( $bn_username );
-				if ( $bn_mentioned instanceof \WP_User && $bn_mentioned->ID !== $user_id
-					&& $this->mention_allowed( $user_id, (int) $bn_mentioned->ID ) ) {
-					/** This action is documented in includes/Feed/PostService.php */
-					do_action( 'buddynext_user_mentioned', $bn_mentioned->ID, $user_id, $object_id );
-				}
-			}
+			buddynext_service( 'post_service' )->notify_mentions( $user_id, $object_id, $content );
 		}
 
 		if ( 'post' === $object_type ) {
@@ -323,24 +307,6 @@ class CommentService {
 		}
 
 		return $comment_id;
-	}
-
-	/**
-	 * Whether an actor may @mention a target, honouring the target's
-	 * `bn_privacy_mention` audience preference. Mirrors PostService so a comment
-	 * mention obeys the same gate as a post mention. Fails open if the privacy
-	 * service is unavailable.
-	 *
-	 * @param int $actor_id  Comment author.
-	 * @param int $target_id Mentioned user.
-	 * @return bool
-	 */
-	private function mention_allowed( int $actor_id, int $target_id ): bool {
-		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
-		if ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
-			return $privacy->can_mention( $actor_id, $target_id );
-		}
-		return true;
 	}
 
 	/**
@@ -513,6 +479,12 @@ class CommentService {
 		);
 
 		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
+
+		// An edit that adds an @mention tells that member, as create() would have.
+		// Author edits only: a moderator's redaction must not notify in their name.
+		if ( 'post' === $comment['object_type'] && (int) $comment['user_id'] === $user_id ) {
+			buddynext_service( 'post_service' )->notify_mentions( $user_id, (int) $comment['object_id'], $content, (string) $comment['content'] );
+		}
 
 		/**
 		 * Fires after a comment is updated.
@@ -1312,8 +1284,8 @@ class CommentService {
 		$limit     = $per_page;
 		$offset    = ( $page - 1 ) * $per_page;
 		$pinned_id = (int) get_option( 'bn_pinned_comment_' . sanitize_key( $object_type ) . '_' . $object_id, 0 );
-		$gen       = $this->get_generation( $object_type, $object_id );
-		$cache_key = "list_{$object_type}_{$object_id}_{$gen}_{$per_page}_{$page}_{$pinned_id}";
+		$salt      = CacheService::last_changed( self::CACHE_GROUP, "thread:{$object_type}:{$object_id}" );
+		$cache_key = "list_{$object_type}_{$object_id}_{$salt}_{$per_page}_{$page}_{$pinned_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached && is_array( $cached ) ) {
@@ -1406,28 +1378,27 @@ class CommentService {
 	}
 
 	/**
-	 * Return the current cache generation counter for an object.
-	 *
-	 * @param string $object_type Object type.
-	 * @param int    $object_id   Object ID.
-	 * @return int
-	 */
-	private function get_generation( string $object_type, int $object_id ): int {
-		// (int), not is_int(): Redis and Memcached hand an integer back as a numeric
-		// string, and refusing it pinned the generation at 0, so new, deleted and pinned
-		// comments never reached the cached thread until it expired.
-		return (int) wp_cache_get( "gen_{$object_type}_{$object_id}", self::CACHE_GROUP );
-	}
-
-	/**
-	 * Increment the cache generation to invalidate all paginated list keys for an object.
+	 * Retire every cached page of an object's thread (all page sizes, all pages).
 	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
 	 */
 	private function bust_cache( string $object_type, int $object_id ): void {
-		$gen = $this->get_generation( $object_type, $object_id );
-		wp_cache_set( "gen_{$object_type}_{$object_id}", $gen + 1, self::CACHE_GROUP, self::CACHE_TTL );
+		CacheService::set_last_changed( self::CACHE_GROUP, "thread:{$object_type}:{$object_id}" );
+
+		/**
+		 * Fires after a comment thread changed: a comment was added, edited,
+		 * deleted, hidden, restored or brought back.
+		 *
+		 * The one signal for "what this thread shows is different now", so a page
+		 * cache can drop the page that renders it (PageCachePurger listens).
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param string $object_type Thread owner type ('post', ...).
+		 * @param int    $object_id   Thread owner ID.
+		 */
+		do_action( 'buddynext_comment_thread_changed', $object_type, $object_id );
 	}
 
 	/**

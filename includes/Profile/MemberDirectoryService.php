@@ -15,6 +15,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Profile;
 
+use BuddyNext\Core\CacheService;
 use BuddyNext\Realtime\PresenceService;
 
 /**
@@ -25,7 +26,7 @@ class MemberDirectoryService {
 	/**
 	 * Default members per page.
 	 */
-	private const DEFAULT_LIMIT = 20;
+	private const DEFAULT_LIMIT = 24;
 
 	/**
 	 * The part of a bio that the headline has not already said.
@@ -124,7 +125,7 @@ class MemberDirectoryService {
 	public function directory_total( int $viewer_id, array $filters = array() ): int {
 		global $wpdb;
 
-		$cache_ver = (int) wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_ver = CacheService::last_changed( self::CACHE_GROUP, 'dir:' . $viewer_id );
 		$cache_key = 'bn_dir_total_' . md5( (string) wp_json_encode( array( $viewer_id, $filters, $cache_ver ) ) );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -161,12 +162,12 @@ class MemberDirectoryService {
 		$user_col = $wpdb->users . '.ID';
 
 		// Same exclusion set the GRID uses, or the number will not match what it shows.
-		// directory_exclusion_subqueries() drops suspended / shadow-banned / directory
+		// exclusion_clauses() drops suspended / shadow-banned / directory
 		// opt-out members (param-free NOT EXISTS strings); directory_filter_sql() adds the
 		// viewer-self, block, member_type and online_only clauses. list_members() combines
 		// exactly these two for its own count -- reusing both here is what keeps the header
 		// total and the grid honest with each other.
-		$clauses = $this->directory_exclusion_subqueries( $user_col );
+		$clauses = self::exclusion_clauses( $user_col );
 
 		list( $frag, $frag_params ) = $this->directory_filter_sql( $viewer_id, $filters, $user_col );
 		if ( '' !== trim( (string) $frag ) ) {
@@ -239,6 +240,28 @@ class MemberDirectoryService {
 	private const TYPE_COUNTS_TTL = 3600;
 
 	/**
+	 * Members shown per directory page.
+	 *
+	 * 24 divides evenly into the 1, 2, 3 and 4 column grids, so no page ends on a
+	 * part-filled row that reads as the end of the list. The server-rendered
+	 * page, the pager and the REST default all read this one value.
+	 *
+	 * @return int Between 1 and 50.
+	 */
+	public static function page_size(): int {
+		/**
+		 * Filters how many members one directory page shows.
+		 *
+		 * Pick a multiple of 12 to keep every grid width full.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param int $per_page Members per page, default 24.
+		 */
+		return max( 1, min( 50, (int) apply_filters( 'buddynext_member_directory_per_page', self::DEFAULT_LIMIT ) ) );
+	}
+
+	/**
 	 * Return a cursor-paginated list of members.
 	 *
 	 * Supported $filters keys:
@@ -254,7 +277,7 @@ class MemberDirectoryService {
 	 *   'space_id'          (int)     — restrict to active members of this space.
 	 *   'connection_status' (string)  — 'connections' restricts to accepted connections
 	 *                                   of the viewer. 'everyone' (default) applies no filter.
-	 *   'online_only'       (bool)    — restrict to users active within the last 5 minutes.
+	 *   'online_only'       (bool)    — restrict to users active within PresenceService::online_window().
 	 *   'sort'              (string)  — 'newest' (default), 'alphabetical', 'most_active',
 	 *                                   or 'online' (alias: implies online_only + most_active order).
 	 *   'with_total'        (bool)    — false skips the exact COUNT (total is null) for
@@ -266,10 +289,10 @@ class MemberDirectoryService {
 	 * @param array       $filters   Optional associative filter/sort options.
 	 * @return array{items: array[], next_cursor: string|null, total: int|null} total is null when $filters['with_total'] is false.
 	 */
-	public function list_members( int $viewer_id = 0, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, array $filters = array() ): array {
+	public function list_members( int $viewer_id = 0, ?string $cursor = null, int $per_page = 0, array $filters = array() ): array {
 		global $wpdb;
 
-		$per_page    = min( $per_page, 50 );
+		$per_page    = min( $per_page > 0 ? $per_page : self::page_size(), 50 );
 		$cursor_data = $this->decode_cursor( $cursor );
 
 		// Normalise filter values.
@@ -325,7 +348,7 @@ class MemberDirectoryService {
 		// invalidates a blocker's cached pages the instant their block list changes
 		// — without enumerating every cursor/filter key, and works with or without a
 		// persistent object cache. 60-second TTL otherwise balances freshness vs load.
-		$cache_ver     = (int) wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_ver     = CacheService::last_changed( self::CACHE_GROUP, 'dir:' . $viewer_id );
 		$cache_key     = 'bn_dir_' . md5( (string) wp_json_encode( array( $viewer_id, $cursor, $per_page, $filters, $cache_ver ) ) );
 		$cached_result = wp_cache_get( $cache_key, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( false !== $cached_result ) {
@@ -420,10 +443,10 @@ class MemberDirectoryService {
 		// (not NOT IN) both avoids the MySQL 5.7 "Can't reopen table" error with the
 		// self-joined mutual subquery AND stays bounded at scale. The three clauses
 		// are the canonical set shared with the server-rendered directory
-		// (directory_exclusion_subqueries) so the two surfaces never diverge.
+		// (exclusion_clauses) so the two surfaces never diverge.
 		$where_clauses = array_merge(
 			array( 'u.ID != %d' ),
-			$this->directory_exclusion_subqueries( 'u.ID' )
+			self::exclusion_clauses( 'u.ID' )
 		);
 
 		// Bidirectional block exclusion — viewer should not see users they have
@@ -480,7 +503,7 @@ class MemberDirectoryService {
 		}
 
 		if ( $online_only ) {
-			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::ONLINE_WINDOW;
+			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::online_window() . PresenceService::hidden_sql( 'u.ID', (int) $viewer_id );
 		}
 
 		// Snapshot the filter-only WHERE for the bounded total (A6e): the count must NOT
@@ -827,27 +850,33 @@ class MemberDirectoryService {
 		return $result;
 	}
 
+
 	/**
-	 * The three literal exclusion subqueries every directory surface applies:
-	 * active suspensions, shadow-bans, and the "Show me in the member directory"
-	 * opt-out. Correlated `NOT EXISTS` (each indexed by user_id / meta_key) so the
-	 * cost is bounded and there is no materialised id list. Shared verbatim by
-	 * list_members() (REST) and directory_filter_sql() (SSR) so the two never
-	 * diverge. The fragments carry NO placeholders — $user_col is a caller-supplied
-	 * column reference (`u.ID` / `wp_users.ID`), never user input.
+	 * Who may be FOUND: the one rule every member-discovery surface applies.
 	 *
-	 * The suspension + shadow-ban part is the shared DISCOVERY gate (ANY active
-	 * suspension, the discoverability rule) — identical to
-	 * ModerationService::discovery_exclude_sql(), emitted as NOT EXISTS (not NOT IN)
-	 * because a NOT IN subquery can't be reopened alongside this query's self-joined
-	 * mutual-connection subquery on MySQL 5.7. Do NOT converge onto
-	 * moderation_exclude_sql() — that is the hide_posts content gate, a different rule.
+	 * The directory, its search, "People to follow" (friends-of-friends, shared
+	 * interests and the random fill) and the Explore people deck all read this,
+	 * so a member hidden from one is hidden from all. Excluded: an active
+	 * suspension, a shadow-ban, the "Show me in the member directory" opt-out,
+	 * and an account still waiting for administrator approval (it cannot sign in
+	 * and has not been admitted; the owner reviews it on the Members screen).
+	 * Each is a correlated NOT EXISTS on an indexed user_id / meta_key, so the
+	 * cost is bounded per candidate row and there is no materialised id list.
+	 * NOT EXISTS rather than NOT IN: a NOT IN subquery cannot be reopened beside
+	 * the directory's self-joined mutual-connection subquery on MySQL 5.7. Never
+	 * swap in moderation_exclude_sql(): that is the hide_posts CONTENT gate, a
+	 * different rule, and it let a suspended member be suggested.
 	 *
-	 * @param string $user_col Correlated user-id column for the outer query.
-	 * @return string[] The `NOT EXISTS (...)` clause strings, plus the network member scope.
+	 * @since 1.3.0 Public, shared by every suggestion source; adds the approval hold.
+	 *
+	 * @param string $user_col Correlated user-id column of the outer query, always
+	 *                         table-qualified (`u.ID`, `f.following_id`).
+	 * @return string[] Literal `NOT EXISTS (...)` clauses, plus the network member scope.
 	 */
-	private function directory_exclusion_subqueries( string $user_col ): array {
+	public static function exclusion_clauses( string $user_col ): array {
 		global $wpdb;
+
+		$user_col = (string) preg_replace( '/[^a-zA-Z0-9_.]/', '', $user_col );
 
 		$clauses = array(
 			"NOT EXISTS (
@@ -867,6 +896,12 @@ class MemberDirectoryService {
 			    WHERE um_dir.user_id = {$user_col}
 			      AND um_dir.meta_key = 'bn_privacy_show_in_directory'
 			      AND um_dir.meta_value = '0'
+			  )",
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->usermeta} um_hold
+			    WHERE um_hold.user_id = {$user_col}
+			      AND um_hold.meta_key = 'bn_pending_approval'
+			      AND um_hold.meta_value = '1'
 			  )",
 		);
 
@@ -936,7 +971,7 @@ class MemberDirectoryService {
 
 		// The gate fragments carry NO placeholders (they interpolate only trusted
 		// table names / literal meta keys), so they are safe to embed directly.
-		$exclusions = implode( "\n     AND ", $this->directory_exclusion_subqueries( 'u.ID' ) );
+		$exclusions = implode( "\n     AND ", self::exclusion_clauses( 'u.ID' ) );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
@@ -974,7 +1009,7 @@ class MemberDirectoryService {
 	private function viewer_directory_type_ids( int $viewer_id ): array {
 		global $wpdb;
 
-		$exclusions = implode( "\n     AND ", $this->directory_exclusion_subqueries( 'u.ID' ) );
+		$exclusions = implode( "\n     AND ", self::exclusion_clauses( 'u.ID' ) );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$ids = $wpdb->get_col(
@@ -1026,10 +1061,10 @@ class MemberDirectoryService {
 		$bn_count_viewer = ! empty( $args['count_viewer'] );
 
 		$clauses = $bn_count_viewer
-			? $this->directory_exclusion_subqueries( $user_col )
+			? self::exclusion_clauses( $user_col )
 			: array_merge(
 				array( "{$user_col} != %d" ),
-				$this->directory_exclusion_subqueries( $user_col )
+				self::exclusion_clauses( $user_col )
 			);
 		$params  = $bn_count_viewer ? array() : array( $viewer_id );
 
@@ -1062,8 +1097,8 @@ class MemberDirectoryService {
 		// so the count path matches list_members' own gated online_only and an
 		// anonymous visitor cannot narrow the community to its online members.
 		if ( ! empty( $args['online_only'] ) && PresenceService::visible_to_viewer( $viewer_id ) ) {
-			$online_window = PresenceService::ONLINE_WINDOW;
-			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )";
+			$online_window = PresenceService::online_window();
+			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )" . PresenceService::hidden_sql( $user_col, (int) $viewer_id );
 		}
 
 		return array( implode( ' AND ', $clauses ), $params );
@@ -1134,7 +1169,10 @@ class MemberDirectoryService {
 		$search      = sanitize_text_field( wp_unslash( (string) ( $request['s'] ?? '' ) ) );
 		$orderby     = sanitize_key( (string) ( $request['orderby'] ?? 'registered' ) );
 		$relation    = sanitize_key( (string) ( $request['relation'] ?? 'all' ) );
-		$online_only = '1' === sanitize_key( wp_unslash( (string) ( $request['online'] ?? '' ) ) );
+		$online_only = '1' === sanitize_key( wp_unslash( (string) ( $request['online'] ?? '' ) ) )
+			// A viewer who cannot see presence gets no Online only filter (the bar
+			// hides it), so a shared ?online=1 link shows them no filters-active state.
+			&& PresenceService::visible_to_viewer( $viewer_id );
 		// Member type comes from ?type=, the one filter contract on this screen.
 		$member_type = sanitize_key( wp_unslash( (string) ( $request['type'] ?? '' ) ) );
 
@@ -1149,7 +1187,7 @@ class MemberDirectoryService {
 		$query_orderby = 'display_name' === $orderby ? 'display_name' : 'ID';
 
 		$query_args = array(
-			'number'      => self::DEFAULT_LIMIT,
+			'number'      => self::page_size(),
 			'paged'       => $page,
 			'orderby'     => $query_orderby,
 			'order'       => 'display_name' === $query_orderby ? 'ASC' : 'DESC',
@@ -1204,7 +1242,7 @@ class MemberDirectoryService {
 
 		return array(
 			'page'           => $page,
-			'per_page'       => self::DEFAULT_LIMIT,
+			'per_page'       => self::page_size(),
 			'search'         => $search,
 			'orderby'        => $orderby,
 			'relation'       => $relation,
@@ -1222,7 +1260,7 @@ class MemberDirectoryService {
 	 *
 	 * The landing's first paint ran an uncached WP_User_Query on every load while
 	 * only the REST re-fetches were cached. This runs that query (with the same
-	 * pre_user_query filter injection) once behind the per-viewer cache_version
+	 * pre_user_query filter injection) once behind the per-viewer last-changed
 	 * salt, so a block / membership / directory-opt-out change busts BOTH surfaces
 	 * together. Returns IDs only (count_total off — the total comes from the
 	 * already-cached directory_total()); the caller hydrates WP_User objects from
@@ -1234,10 +1272,7 @@ class MemberDirectoryService {
 	 * @return int[] Ordered member IDs for the page.
 	 */
 	public function ssr_page_user_ids( int $viewer_id, array $query_args, array $filter_args ): array {
-		$cache_ver = wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP );
-		if ( false === $cache_ver ) {
-			$cache_ver = 0;
-		}
+		$cache_ver = CacheService::last_changed( self::CACHE_GROUP, 'dir:' . $viewer_id );
 		$cache_key = 'bn_dir_ssr_' . md5( (string) wp_json_encode( array( $viewer_id, $query_args, $filter_args, $cache_ver ) ) );
 
 		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -1277,7 +1312,7 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * User IDs active within the online window (last 5 minutes).
+	 * User IDs active within the online window (PresenceService::online_window()).
 	 *
 	 * Used to apply the "Online only" filter to the server-rendered first page's
 	 * WP_User_Query (include set) so the rendered members AND the pager total
@@ -1292,7 +1327,7 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * Of a page of member IDs, which are active within the online window (<5 min).
+	 * Of a page of member IDs, which are active within the online window (PresenceService::online_window()).
 	 *
 	 * One bounded `IN` query over the indexed bn_presence table, replacing the
 	 * per-card `PresenceService::last_active_at()` lookup (uncached, one query each)
@@ -1321,13 +1356,14 @@ class MemberDirectoryService {
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE user_id IN ({$in}) AND last_active >= %d",
-				time() - PresenceService::ONLINE_WINDOW
+				time() - PresenceService::online_window()
 			)
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		// Members who hide their status show no dot (staff still see it).
 		$map = array();
-		foreach ( (array) $rows as $uid ) {
+		foreach ( PresenceService::without_hidden( array_map( 'intval', (array) $rows ), get_current_user_id() ) as $uid ) {
 			$map[ (int) $uid ] = true;
 		}
 		return $map;
@@ -1393,6 +1429,34 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * The directory header's count line, worded for what the list is showing.
+	 *
+	 * Unfiltered it states the community size ("1,225 members in the community").
+	 * With a filter on, that wording claimed the filtered number was the whole
+	 * community, and with Online only it did not say the people were online at
+	 * all. The members store words the same line for a live filter change from the
+	 * matching i18n keys (AssetService, buddynext/members: subtitle*).
+	 *
+	 * @param int  $total       The count the header states.
+	 * @param bool $online_only Online only is on.
+	 * @param bool $filtered    Any filter is on (search, relation, member type, online).
+	 * @return string
+	 */
+	public static function directory_subtitle( int $total, bool $online_only, bool $filtered ): string {
+		$count = number_format_i18n( $total );
+		if ( $online_only ) {
+			/* translators: %s: formatted number of members online. */
+			return sprintf( _n( '%s member online', '%s members online', $total, 'buddynext' ), $count );
+		}
+		if ( $filtered ) {
+			/* translators: %s: formatted number of members matching the filters. */
+			return sprintf( _n( '%s member found', '%s members found', $total, 'buddynext' ), $count );
+		}
+		/* translators: %s: formatted member count. */
+		return sprintf( _n( '%s member in the community', '%s members in the community', $total, 'buddynext' ), $count );
+	}
+
+	/**
 	 * Most-recently-active members for the "Online now" sidebar widget.
 	 *
 	 * Returns lightweight rows (ID, display_name, handle) for users active
@@ -1430,7 +1494,7 @@ class MemberDirectoryService {
 		// Same discovery gate the directory queries use — reuse the one canonical
 		// builder instead of re-inlining the suspended / shadow-banned / opt-out
 		// NOT EXISTS clauses here, so the two surfaces can never drift apart.
-		$exclusions = implode( ' AND ', $this->directory_exclusion_subqueries( 'u.ID' ) );
+		$exclusions = implode( ' AND ', self::exclusion_clauses( 'u.ID' ) );
 
 		// Bidirectional block exclusion, through the SAME canonical builder the
 		// member directory uses (see list_members) so the two surfaces cannot
@@ -1469,6 +1533,8 @@ class MemberDirectoryService {
 		$self_where = $viewer_id > 0
 			? $wpdb->prepare( ' AND u.ID <> %d', $viewer_id )
 			: '';
+		// Members who hide their status are not listed as online (staff still see them).
+		$hidden_where = PresenceService::hidden_sql( 'u.ID', (int) $viewer_id );
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -1479,9 +1545,10 @@ class MemberDirectoryService {
 				    AND {$exclusions}
 				    {$block_where}
 				    {$self_where}
+				    {$hidden_where}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
-				time() - PresenceService::ONLINE_WINDOW,
+				time() - PresenceService::online_window(),
 				$fetch
 			)
 		);
@@ -1762,16 +1829,6 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * Object-cache key holding a viewer's directory cache version salt.
-	 *
-	 * @param int $viewer_id Viewer whose directory pages are versioned.
-	 * @return string
-	 */
-	private static function cache_version_key( int $viewer_id ): string {
-		return 'bn_dir_ver_' . $viewer_id;
-	}
-
-	/**
 	 * Invalidate a viewer's cached directory pages by bumping their version salt.
 	 *
 	 * Block/unblock changes viewer-aware exclusion, so a blocker's (and the
@@ -1786,12 +1843,7 @@ class MemberDirectoryService {
 		if ( $viewer_id <= 0 ) {
 			return;
 		}
-		$key = self::cache_version_key( $viewer_id );
-		// wp_cache_incr seeds nothing when the key is absent, so set a baseline first.
-		if ( false === wp_cache_get( $key, self::CACHE_GROUP ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
-			wp_cache_set( $key, 0, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
-		}
-		wp_cache_incr( $key, 1, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		CacheService::set_last_changed( self::CACHE_GROUP, 'dir:' . $viewer_id );
 	}
 
 	/**

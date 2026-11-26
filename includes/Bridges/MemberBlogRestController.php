@@ -72,9 +72,20 @@ final class MemberBlogRestController extends BaseRestController {
 		if ( $id <= 0 || ! get_userdata( $id ) ) {
 			return new WP_Error( 'bn_member_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
-		$page     = max( 1, (int) $request->get_param( 'page' ) );
-		$per_page = (int) $request->get_param( 'per_page' );
-		$data     = ( new MemberBlogBridge() )->articles_data( $id, get_current_user_id(), $page, $per_page );
+		$page      = max( 1, (int) $request->get_param( 'page' ) );
+		$per_page  = (int) $request->get_param( 'per_page' );
+		$viewer_id = get_current_user_id();
+
+		// The canonical profile gate (blocks + public/followers/connections), the
+		// same one every sibling profile-panel route asks. A viewer who may not
+		// see the profile gets the empty read model (articles_data() for no
+		// member), so denial reads as "no articles", like the member-type route.
+		$privacy = buddynext_service( 'privacy' );
+		if ( ! $privacy instanceof \BuddyNext\SocialGraph\PrivacyService || ! $privacy->can_view_profile( $viewer_id, $id ) ) {
+			$id = 0;
+		}
+
+		$data = ( new MemberBlogBridge() )->articles_data( $id, $viewer_id, $page, $per_page );
 		return new WP_REST_Response( $data, 200 );
 	}
 }

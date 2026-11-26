@@ -34,7 +34,7 @@ If your browser blocks notifications, the panel tells you so and explains that y
 
 ### Choose which notifications push
 
-Below the enable control is a list of notification types with a toggle each - new follower, connection request, reaction on your post, comment, mention, space activity, moderation notices, and the rest. Turn a type off and that type stops pushing to your devices while still showing in your in-app notifications. Each toggle saves on its own the moment you change it.
+Below the enable control is a list of notification types with a toggle each - new follower, connection request, reaction on your post, comment, mention, space activity, moderation notices, and the rest. Turn a type off and that type stops pushing to your devices while still showing in your in-app notifications. Each toggle saves on its own the moment you change it. A push about a follow request or a connection request opens the recipient's own **Followers** or **Connections** tab, where the request is accepted or declined, not the sender's profile.
 
 ### Mute or turn off push on a device
 

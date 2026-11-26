@@ -106,10 +106,8 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						data-wp-class--bn-ep-slug-ok="state.slugIsOk"
 						data-wp-class--bn-ep-slug-err="state.slugIsTaken">
 						<span hidden data-wp-bind--hidden="!state.slugIsOk"><?php buddynext_icon( 'check' ); ?></span>
-						<span hidden data-wp-bind--hidden="!state.slugIsTaken"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
+						<span hidden data-wp-bind--hidden="!state.slugIsTaken" data-wp-text="state.slugStatusText"><?php esc_html_e( 'Not available', 'buddynext' ); ?></span>
 					</span>
-					<?php // The other half of what this field controls, shown rather than explained. ?>
-					<span class="bn-ep-slug-handle" data-wp-text="state.slugHandlePreview" aria-hidden="true">@<?php echo esc_html( $profile_slug ); ?></span>
 				</div>
 				<button class="bn-btn"
 					type="button"
@@ -121,6 +119,18 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 					<span hidden data-wp-bind--hidden="!context.slugSaved"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
 				</button>
 			</div>
+			<?php
+			// The other half of what this field controls, shown rather than explained.
+			// Below the row, not inside the input's wrapper: inside it made the wrapper
+			// taller than the input, so the row centred the button on the wrong line.
+			?>
+			<p class="bn-ep-slug-handle">
+				<?php
+				/* translators: Label before the member's @mention name, e.g. "Mentioned as @alex". */
+				esc_html_e( 'Mentioned as', 'buddynext' );
+				?>
+				<span class="bn-ep-slug-handle__name" data-wp-text="state.slugHandlePreview"><bdi dir="ltr">@<?php echo esc_html( $profile_slug ); ?></bdi></span>
+			</p>
 		</div>
 		<?php endif; ?>
 
@@ -268,6 +278,10 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 		ob_start();
 		?>
 		<div class="bn-2fa">
+			<?php // The state at a glance: On or Off, drawn from the same flag the stages below follow. ?>
+			<p class="bn-2fa-status">
+				<span class="bn-badge" data-wp-bind--data-tone="state.twofaStatusTone" data-wp-text="state.twofaStatusText"><?php echo esc_html( $twofa_enabled ? __( 'On', 'buddynext' ) : __( 'Off', 'buddynext' ) ); ?></span>
+			</p>
 			<?php /* Stage: not enrolled — offer set-up. */ ?>
 			<div class="bn-2fa-stage" data-wp-bind--hidden="!state.twofaShowStart">
 				<p class="bn-2fa-desc"><?php esc_html_e( 'Use an authenticator app (Google Authenticator, Authy, 1Password, …) to generate a one-time code at sign-in. Backup codes cover you if you lose your device.', 'buddynext' ); ?></p>
@@ -286,6 +300,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 				<div class="bn-2fa-qr" data-bn-2fa-qr hidden></div>
 				<p class="bn-2fa-desc"><?php esc_html_e( 'Cannot scan? Enter this setup key by hand instead:', 'buddynext' ); ?></p>
 				<code class="bn-2fa-secret" data-wp-text="context.twofaSecret"></code>
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.copyTwofaSecret"><?php esc_html_e( 'Copy setup key', 'buddynext' ); ?></button>
 				<p class="bn-2fa-desc"><a data-wp-bind--href="context.twofaUri"><?php esc_html_e( 'Or tap here on your phone to add it automatically.', 'buddynext' ); ?></a></p>
 				<div class="bn-ep-field bn-ep-field--full">
 					<label class="bn-ep-label" for="bn-2fa-confirm-code"><?php esc_html_e( 'Enter the 6-digit code to confirm', 'buddynext' ); ?></label>
@@ -306,6 +321,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						<li data-wp-text="context.item"></li>
 					</template>
 				</ul>
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.copyTwofaCodes"><?php esc_html_e( 'Copy backup codes', 'buddynext' ); ?></button>
 				<button type="button" class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="actions.finishTwofa"><?php esc_html_e( 'I have saved my codes', 'buddynext' ); ?></button>
 			</div>
 

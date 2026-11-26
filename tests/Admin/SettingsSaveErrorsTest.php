@@ -48,6 +48,26 @@ class SettingsSaveErrorsTest extends \WP_UnitTestCase {
 		$html = (string) ob_get_clean();
 
 		$this->assertStringContainsString( 'That choice is not available, so the setting was not changed.', $html );
-		$this->assertStringContainsString( 'Settings saved.', $html );
+		// As in core: a refused value and a green confirmation never appear together.
+		$this->assertStringNotContainsString( 'Settings saved.', $html );
+	}
+
+	public function test_an_email_setting_that_is_not_an_email_keeps_its_value_and_says_so(): void {
+		update_option( 'buddynext_admin_alert_email', 'owner@example.test' );
+		$field = new \BuddyNext\Admin\Settings\Field(
+			array(
+				'key'      => 'buddynext_admin_alert_email',
+				'type'     => 'text',
+				'sanitize' => 'sanitize_email',
+			)
+		);
+		$clean = $field->sanitizer();
+
+		$this->assertSame( 'owner@example.test', $clean( 'not-an-email' ), 'The stored address is kept, not emptied.' );
+		$codes = wp_list_pluck( get_settings_errors( 'buddynext_admin_alert_email' ), 'code' );
+		$this->assertContains( 'invalid_email', $codes );
+
+		$this->assertSame( 'new@example.test', $clean( ' new@example.test ' ), 'A valid address is saved.' );
+		$this->assertSame( '', $clean( '' ), 'Empty stays empty: the field uses the WordPress admin email then.' );
 	}
 }

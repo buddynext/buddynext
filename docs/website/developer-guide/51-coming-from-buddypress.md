@@ -186,7 +186,7 @@ The action you hooked in BuddyPress has a BuddyNext counterpart with a different
 | BuddyPress / BuddyBoss | BuddyNext | Signature (verified) |
 |---|---|---|
 | `bp_activity_add` / `bp_activity_posted_update` | `buddynext_post_created` | `( $post_id, $user_id, $type )` |
-| `bp_activity_deleted_activities` | `buddynext_post_deleted` | `( $post_id, $user_id )` |
+| `bp_activity_deleted_activities` | `buddynext_post_deleted` | `( $post_id, $user_id, $author_id )` |
 | `friends_friendship_requested` | `buddynext_connection_requested` | `( $connection_id, $requester_id, $recipient_id, $note )` |
 | `friends_friendship_accepted` | `buddynext_connection_accepted` | `( $connection_id, $requester_id, $recipient_id )` |
 | `friends_friendship_rejected` | `buddynext_connection_declined` | `( $connection_id, $requester_id, $recipient_id )` |

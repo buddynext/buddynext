@@ -491,6 +491,64 @@ class PermissionService {
 	}
 
 	/**
+	 * Answer is_space_banned()'s hard-ban half for a page of spaces in one query.
+	 *
+	 * A directory or feed page asked once per card (one COUNT per space). This
+	 * fills the same request memo is_space_banned() reads, so the per-card calls
+	 * are memo hits; it never touches the object cache, for the reason given
+	 * there. The soft-ban half reads SpaceMemberService::get_status(), which
+	 * membership_map() primes.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int   $user_id   Viewer.
+	 * @param int[] $space_ids Spaces about to render.
+	 * @return void
+	 */
+	public function prime_space_bans( int $user_id, array $space_ids ): void {
+		$space_ids = array_values( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) );
+		if ( $user_id <= 0 || empty( $space_ids ) ) {
+			return;
+		}
+		$this->hook_ban_memo();
+
+		global $wpdb;
+		$placeholders = implode( ', ', array_fill( 0, count( $space_ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- placeholders built from array_fill( %d ), every id bound.
+		$banned = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT space_id FROM {$wpdb->prefix}bn_space_bans WHERE user_id = %d AND space_id IN ( {$placeholders} )",
+					$user_id,
+					...$space_ids
+				)
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		foreach ( $space_ids as $space_id ) {
+			self::$hard_ban_memo[ $space_id . ':' . $user_id ] = in_array( $space_id, $banned, true );
+		}
+	}
+
+	/**
+	 * Register, once, the hooks that forget the hard-ban memo on a ban write.
+	 *
+	 * @return void
+	 */
+	private function hook_ban_memo(): void {
+		if ( self::$ban_memo_hooked ) {
+			return;
+		}
+		self::$ban_memo_hooked = true;
+		$forget                = static function (): void {
+			self::$hard_ban_memo = array();
+		};
+		add_action( 'buddynext_space_user_banned', $forget );
+		add_action( 'buddynext_space_user_unbanned', $forget );
+	}
+
+	/**
 	 * Check whether a user is banned from a specific space.
 	 *
 	 * Checks both the bn_space_bans table (hard bans) and the
@@ -508,14 +566,7 @@ class PermissionService {
 		// allowed. It is remembered for this request only, so a feed of posts from
 		// one space asks once, and every ban/unban write (they all fire these
 		// hooks) forgets it at once.
-		if ( ! self::$ban_memo_hooked ) {
-			self::$ban_memo_hooked = true;
-			$forget                = static function (): void {
-				self::$hard_ban_memo = array();
-			};
-			add_action( 'buddynext_space_user_banned', $forget );
-			add_action( 'buddynext_space_user_unbanned', $forget );
-		}
+		$this->hook_ban_memo();
 
 		$key = $space_id . ':' . $user_id;
 		if ( ! isset( self::$hard_ban_memo[ $key ] ) ) {

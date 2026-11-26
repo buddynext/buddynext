@@ -49,7 +49,16 @@ class MemberExport {
 		header( 'Pragma: no-cache' );
 		header( 'Expires: 0' );
 
-		$this->export_members_csv();
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- the nonce is checked above.
+		$this->export_members_csv(
+			array(
+				'search'      => sanitize_text_field( wp_unslash( $_POST['s'] ?? '' ) ),
+				'role'        => sanitize_key( wp_unslash( $_POST['role'] ?? '' ) ),
+				'member_type' => sanitize_key( wp_unslash( $_POST['member_type'] ?? '' ) ),
+				'status'      => sanitize_key( wp_unslash( $_POST['status'] ?? '' ) ),
+			)
+		);
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		exit;
 	}
 
@@ -60,11 +69,16 @@ class MemberExport {
 	 * sites. Suspension status is pre-fetched in a single query per batch so
 	 * there are no per-row DB round-trips.
 	 *
-	 * Columns: ID, Login, Email, Display Name, Registered, Suspended.
+	 * Follows the filter the owner had on screen: search, WordPress role, member type and the Active or Suspended tab.
 	 *
+	 * Columns: ID, Login, Email, Display Name, Registered, Suspended, Member type. Rows go
+	 * through Core\Csv::row(), which defuses member-controlled cells such as a
+	 * display name of `=HYPERLINK(...)`.
+	 *
+	 * @param array{search?:string,role?:string,member_type?:string,status?:string} $filters Active list filters.
 	 * @return void
 	 */
-	public function export_members_csv(): void {
+	public function export_members_csv( array $filters = array() ): void {
 		global $wpdb;
 
 		$output = fopen( 'php://output', 'w' );
@@ -73,7 +87,7 @@ class MemberExport {
 		}
 
 		// Header row.
-		fputcsv(
+		\BuddyNext\Core\Csv::row(
 			$output,
 			array(
 				__( 'ID', 'buddynext' ),
@@ -82,6 +96,7 @@ class MemberExport {
 				__( 'Display name', 'buddynext' ),
 				__( 'Registered', 'buddynext' ),
 				__( 'Suspended', 'buddynext' ),
+				__( 'Member type', 'buddynext' ),
 			)
 		);
 
@@ -99,16 +114,38 @@ class MemberExport {
 		$offset     = 0;
 		$batch_size = 500;
 
+		$query_args = array(
+			'number'  => $batch_size,
+			'fields'  => array( 'ID', 'user_login', 'user_email', 'display_name', 'user_registered' ),
+			'orderby' => 'ID',
+			'order'   => 'ASC',
+		);
+		if ( '' !== (string) ( $filters['search'] ?? '' ) ) {
+			$query_args['search']         = '*' . $filters['search'] . '*';
+			$query_args['search_columns'] = array( 'user_login', 'user_email', 'display_name' );
+		}
+		if ( '' !== (string) ( $filters['role'] ?? '' ) ) {
+			$query_args['role'] = $filters['role'];
+		}
+		// The Active and Suspended tabs: suspended lists only the suspended, active lists everyone else.
+		$status = (string) ( $filters['status'] ?? '' );
+		if ( 'suspended' === $status ) {
+			if ( array() === $suspended_ids ) {
+				fclose( $output ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+				return;
+			}
+			$query_args['include'] = array_keys( $suspended_ids );
+		} elseif ( 'active' === $status && array() !== $suspended_ids ) {
+			$query_args['exclude'] = array_keys( $suspended_ids );
+		}
+		$type_slug = (string) ( $filters['member_type'] ?? '' );
+		$types     = buddynext_service( 'member_types' );
+
 		while ( true ) {
-			$users = get_users(
-				array(
-					'number'  => $batch_size,
-					'offset'  => $offset,
-					'fields'  => array( 'ID', 'user_login', 'user_email', 'display_name', 'user_registered' ),
-					'orderby' => 'ID',
-					'order'   => 'ASC',
-				)
-			);
+			$query_args['offset'] = $offset;
+			$users                = '' !== $type_slug
+				? $types->within_type( $type_slug, static fn() => get_users( $query_args ) )
+				: get_users( $query_args );
 
 			if ( empty( $users ) ) {
 				break;
@@ -117,10 +154,11 @@ class MemberExport {
 			// Prime usermeta cache for this batch — prevents extra queries if any
 			// downstream hook reads meta during or after this loop.
 			update_meta_cache( 'user', wp_list_pluck( $users, 'ID' ) );
+			$type_names = $types->names_for_users( wp_list_pluck( $users, 'ID' ) );
 
 			foreach ( $users as $user ) {
 				$suspended = isset( $suspended_ids[ $user->ID ] ) ? 'yes' : 'no';
-				fputcsv(
+				\BuddyNext\Core\Csv::row(
 					$output,
 					array(
 						$user->ID,
@@ -129,6 +167,7 @@ class MemberExport {
 						$user->display_name,
 						$user->user_registered,
 						$suspended,
+						implode( ', ', $type_names[ (int) $user->ID ] ?? array() ),
 					)
 				);
 			}

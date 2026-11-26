@@ -88,7 +88,7 @@ class RealtimeController {
 			array(
 				'online'  => true,
 				'written' => $written,
-				'window'  => 300,
+				'window'  => PresenceService::online_window(),
 			),
 			200
 		);

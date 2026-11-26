@@ -1,6 +1,6 @@
 /* BuddyNext — Space Members Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnConfirm, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnPrompt, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
 import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -12,6 +12,12 @@ import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
  * fmt() fills sprintf-style '%s'/'%d' placeholders. */
 let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+/** The name of the member a row's button acts on, so a confirm names the person instead of "this member". */
+function memberNameOf( btn ) {
+	const row = btn && btn.closest ? btn.closest( '.bn-space-settings__member-row, .bn-md-card, li, article' ) : null;
+	const el  = row && row.querySelector( '.bn-space-settings__member-name, .bn-md-card__name, [class*="__name"]' );
+	return el ? ( el.textContent || '' ).trim() : '';
+}
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
 
 /**
@@ -83,7 +89,7 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 			if ( ! btn || ! ctx.restNonce || ! ctx.spaceId ) { return; }
 			ctx.menuOpen = false;
 			const ok = yield bnConfirm( {
-				title: t( 'removeMemberTitle', 'Remove this member?' ),
+				title: memberNameOf( btn ) ? fmt( t( 'removeNamedTitle', 'Remove %s from this space?' ), memberNameOf( btn ) ) : t( 'removeMemberTitle', 'Remove this member?' ),
 				body: t( 'removeMemberBody', 'They will lose access to this space immediately.' ),
 				confirmLabel: t( 'remove', 'Remove' ),
 				tone: 'danger',
@@ -133,18 +139,22 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 			const btn = event.target.closest( '[data-user-id]' );
 			if ( ! btn || ! ctx.restNonce || ! ctx.spaceId ) { return; }
 			ctx.menuOpen = false;
-			const ok = yield bnConfirm( {
-				title: t( 'banMemberTitle', 'Ban this member?' ),
+			// The reason is optional and is kept with the ban (the moderation log and the member's removed notice read it).
+			const reason = yield bnPrompt( {
+				title: memberNameOf( btn ) ? fmt( t( 'banNamedTitle', 'Ban %s from this space?' ), memberNameOf( btn ) ) : t( 'banMemberTitle', 'Ban this member?' ),
 				body: t( 'banMemberBody', 'They will be removed and blocked from rejoining this space.' ),
+				placeholder: t( 'banReasonPlaceholder', 'Reason (optional, kept in the moderation log)' ),
+				inputLabel: t( 'banReasonLabel', 'Reason for the ban' ),
+				maxLength: 500,
 				confirmLabel: t( 'ban', 'Ban' ),
 				tone: 'danger',
 			} );
-			if ( ! ok ) { return; }
+			if ( null === reason ) { return; }
 			try {
 				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/bans', {
 					method: 'POST',
 					nonce: ctx.restNonce,
-					body: { user_id: parseInt( btn.dataset.userId, 10 ) },
+					body: { user_id: parseInt( btn.dataset.userId, 10 ), reason },
 					toastOnError: false,
 				} );
 				if ( res.ok ) {

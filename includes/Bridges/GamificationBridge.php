@@ -17,6 +17,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+defined( 'ABSPATH' ) || exit;
+
 use BuddyNext\Feed\IntegrationActivity;
 
 /**
@@ -121,7 +123,21 @@ class GamificationBridge {
 		// feed. Unshare WITHDRAWS the card reversibly (draft), so a re-share brings the
 		// same card — id, date, reactions, comments — back rather than minting a new one.
 		add_action( 'wb_gam_badge_shared', array( $this, 'on_badge_shared_activity' ), 10, 2 );
+		// Badge cards from before the facts line get one, from the member's current totals.
+		add_filter(
+			'buddynext_card_facts_backfill',
+			function ( $builders ) {
+				$builders          = is_array( $builders ) ? $builders : array();
+				$builders['badge'] = fn( array $card ): array => $this->badge_facts( (int) $card['user_id'] );
+				return $builders;
+			}
+		);
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
+		// A badge card shows the member's level and the badge's name as they are now, for old cards and new alike.
+		add_filter( 'buddynext_card_live', array( $this, 'live_badge_cards' ), 10, 3 );
+		// A badge card names the level and nothing that changes: the points total describes the member, not the badge,
+		// and goes stale the day after. Cards made before this keep their stored points in the data but never draw them.
+		add_filter( 'buddynext_card_facts', array( $this, 'drop_points_fact' ), 10, 2 );
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 
@@ -212,6 +228,111 @@ class GamificationBridge {
 		// offering its own public-profile switches, which BuddyNext members cannot
 		// reach: its /u/ page redirects to the BuddyNext profile (card 10343975769).
 		add_filter( 'wb_gam_can_view_public_profile', array( $this, 'can_view_public_profile' ), 10, 3 );
+
+		// One join, one award: a join BuddyNext copies from the forum, and the forum
+		// join an approved request admits, are paid by the award the original earns.
+		add_filter( 'wb_gam_before_evaluate', array( $this, 'skip_copied_awards' ), 10, 2 );
+
+		// A suspended member earns nothing while suspended: BuddyNext owns the moderation state, and
+		// wb-gamification's one earning gate asks this filter. Points earned before stay.
+		add_filter( 'wb_gam_user_can_earn', array( $this, 'no_earning_while_suspended' ), 10, 2 );
+
+		// ...and does not appear on the leaderboard while suspended (owner decision 2026-11-26). Inside
+		// wb-gamification's leaderboard SQL, so ranks and page counts stay right. Inert on a wb-gamification
+		// without this filter (added in 1.7.0).
+		add_filter( 'wb_gam_leaderboard_exclusion_sql', array( $this, 'leaderboard_skips_suspended' ), 10, 2 );
+		// The board is cached and snapshotted; refresh it so a suspension or its lifting shows at once.
+		add_action( 'buddynext_user_suspended', array( __CLASS__, 'refresh_leaderboard' ) );
+		add_action( 'buddynext_user_unsuspended', array( __CLASS__, 'refresh_leaderboard' ) );
+	}
+
+	/**
+	 * Drop wb-gamification's cached boards (public since its 1.7.0; no-op on older versions).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public static function refresh_leaderboard(): void {
+		$invalidate = array( 'WBGam\\Engine\\LeaderboardEngine', 'invalidate_cache' );
+		if ( is_callable( $invalidate ) ) {
+			call_user_func( $invalidate );
+		}
+	}
+
+	/**
+	 * Append "not currently suspended" to wb-gamification's leaderboard exclusion SQL.
+	 *
+	 * Index-backed by bn_user_suspensions KEY user_active (user_id, expires_at); binds no values. The active
+	 * rule matches ModerationService::is_suspended().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array{0:string,1:array<int,mixed>}|mixed $fragment SQL fragment and its bound values so far.
+	 * @param string                                   $alias    Table alias whose user_id is the member.
+	 * @return array{0:string,1:array<int,mixed>}
+	 */
+	public function leaderboard_skips_suspended( $fragment, $alias = '' ): array {
+		global $wpdb;
+
+		$fragment = is_array( $fragment ) ? $fragment + array( '', array() ) : array( '', array() );
+		$alias    = preg_replace( '/[^A-Za-z0-9_]/', '', (string) $alias );
+		if ( '' === $alias ) {
+			return array( (string) $fragment[0], (array) $fragment[1] );
+		}
+
+		$sql = ' AND NOT EXISTS ( SELECT 1 FROM ' . $wpdb->prefix . 'bn_user_suspensions bs WHERE bs.user_id = ' . $alias . '.user_id'
+			. ' AND bs.lifted_at IS NULL AND ( bs.expires_at IS NULL OR bs.expires_at > UTC_TIMESTAMP() ) )';
+
+		return array( (string) $fragment[0] . $sql, (array) $fragment[1] );
+	}
+
+	/**
+	 * Refuse earning for a suspended member (no points, so no badge, level or toast follows).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param bool $can     Whether wb-gamification would let the member earn.
+	 * @param int  $user_id Member.
+	 * @return bool
+	 */
+	public function no_earning_while_suspended( $can, $user_id ): bool {
+		if ( ! $can || (int) $user_id <= 0 ) {
+			return (bool) $can;
+		}
+
+		return ! buddynext_service( 'moderation' )->is_suspended( (int) $user_id );
+	}
+
+	/**
+	 * Refuse the extra award a single join used to add (card 10526710521).
+	 *
+	 * - A write BuddyNext makes as a copy of another plugin's action (the space join a
+	 *   forum-side join or a forum link copies over) is not paid: the original was.
+	 *   This is WB Gamification's own HostActivity::is_copy() contract, enforced here for
+	 *   every trigger, so a trigger without its own check (bn_space_joined) cannot pay twice.
+	 * - The forum join an approved request admits is not paid as a join: the approval
+	 *   award (jetonomy_join_request_approved) is the one award for that entry.
+	 *
+	 * @param bool   $proceed Whether WB Gamification may award.
+	 * @param object $event   WB Gamification event (action_id, user_id, metadata, created_at).
+	 * @return bool
+	 */
+	public function skip_copied_awards( $proceed, $event ): bool {
+		if ( ! $proceed || ! is_object( $event ) ) {
+			return (bool) $proceed;
+		}
+		if ( IntegrationActivity::is_mirror() || IntegrationActivity::is_system_publish() ) {
+			return false;
+		}
+		if ( 'jetonomy_space_joined' === ( $event->action_id ?? '' ) ) {
+			return null === JetonomyBridge::approved_request(
+				(int) ( $event->metadata['space_id'] ?? 0 ),
+				(int) ( $event->user_id ?? 0 ),
+				(string) ( $event->created_at ?? '' )
+			);
+		}
+		return true;
 	}
 
 	/**
@@ -625,7 +746,14 @@ class GamificationBridge {
 			// show the achievement rather than a bare name.
 			(string) ( $def['description'] ?? '' ),
 			0,
-			'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array()
+			// A badge is earned, not shared: it never notifies a whole Space.
+			array_merge(
+				'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array(),
+				array(
+					'notify_space' => false,
+					'facts'        => $this->badge_facts( $user_id ),
+				)
+			)
 		);
 	}
 
@@ -672,6 +800,107 @@ class GamificationBridge {
 			return;
 		}
 		IntegrationActivity::withdraw( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+	}
+
+	/**
+	 * The member's points and level when they shared the badge, as the card's facts.
+	 *
+	 * The member's level now; a card also stores it when shared, for the app and for a partner that is off.
+	 *
+	 * @param int $user_id Member.
+	 * @return array<int,array{icon:string,text:string}>
+	 */
+	private function badge_facts( int $user_id ): array {
+		$facts = array();
+		if ( function_exists( 'wb_gam_get_user_level' ) ) {
+			$level = wb_gam_get_user_level( $user_id );
+			if ( is_array( $level ) && '' !== trim( (string) ( $level['name'] ?? '' ) ) ) {
+				$facts[] = array(
+					'icon' => 'award',
+					'text' => (string) $level['name'],
+				);
+			}
+		}
+		return $facts;
+	}
+
+	/**
+	 * Answer `buddynext_card_live` for badge cards: the level the member holds now and the badge's current name.
+	 *
+	 * A card made when the member held one level otherwise kept saying it after a promotion, and kept a renamed
+	 * badge's old name. One read for the whole page, not one per member: every member's level name comes from the
+	 * partner's own cached `wb_gam_level_name` user meta, primed for all of them in one query (the same field the
+	 * partner's member lists read, kept current by its own engine), and a badge's name from its definition, memoised
+	 * per distinct badge.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array> $answers Answers so far.
+	 * @param string           $type    Card post type.
+	 * @param array<int,array> $cards   Post id => stored link meta plus user_id.
+	 * @return array<int,array>
+	 */
+	public function live_badge_cards( array $answers, string $type, array $cards ): array {
+		if ( 'badge' !== $type || ! class_exists( 'WBGam\\Engine\\BadgeEngine' ) ) {
+			return $answers;
+		}
+
+		$user_ids = array();
+		foreach ( $cards as $meta ) {
+			$user_id = (int) ( $meta['user_id'] ?? 0 );
+			if ( $user_id > 0 ) {
+				$user_ids[ $user_id ] = $user_id;
+			}
+		}
+		if ( array() === $user_ids ) {
+			return $answers;
+		}
+		update_meta_cache( 'user', array_values( $user_ids ) );
+
+		foreach ( $cards as $post_id => $meta ) {
+			$user_id = (int) ( $meta['user_id'] ?? 0 );
+			if ( $user_id <= 0 ) {
+				continue;
+			}
+			$answer = array();
+
+			// A level that cannot be read leaves the stored one showing instead of blanking the card.
+			$level = trim( (string) get_user_meta( $user_id, 'wb_gam_level_name', true ) );
+			if ( '' !== $level ) {
+				$answer['facts'] = array(
+					array(
+						'icon' => 'award',
+						'text' => $level,
+					),
+				);
+			}
+
+			$def = self::badge_def_for_url( (string) ( $meta['url'] ?? '' ) );
+			if ( is_array( $def ) && '' !== (string) ( $def['name'] ?? '' ) ) {
+				$answer['title'] = (string) $def['name'];
+			}
+
+			if ( array() !== $answer ) {
+				$answers[ (int) $post_id ] = $answer;
+			}
+		}
+		return $answers;
+	}
+
+	/**
+	 * Leave the points total off a badge card, including the cards that stored one.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array{icon:string,text:string}> $facts The card's facts.
+	 * @param string                                    $type  Card post type.
+	 * @return array<int,array{icon:string,text:string}>
+	 */
+	public function drop_points_fact( array $facts, string $type ): array {
+		if ( 'badge' !== $type ) {
+			return $facts;
+		}
+		return array_values( array_filter( $facts, static fn( $fact ): bool => ! ( is_array( $fact ) && 'zap' === ( $fact['icon'] ?? '' ) ) ) );
 	}
 
 	/**
@@ -728,6 +957,23 @@ class GamificationBridge {
 	}
 
 	/**
+	 * The badge definition a card's `#badge-<id>` address names, memoised per badge for the request.
+	 *
+	 * @param string $url Card address.
+	 * @return array<string,mixed>|null The definition, or null when the address names no badge or it no longer exists.
+	 */
+	private static function badge_def_for_url( string $url ): ?array {
+		if ( ! class_exists( 'WBGam\\Engine\\BadgeEngine' ) || ! preg_match( '/#badge-([^#?\/]+)$/', $url, $m ) ) {
+			return null;
+		}
+		$badge_id = rawurldecode( $m[1] );
+		if ( ! array_key_exists( $badge_id, self::$badge_defs_memo ) ) {
+			self::$badge_defs_memo[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
+		}
+		return self::$badge_defs_memo[ $badge_id ];
+	}
+
+	/**
 	 * Fill a badge card's artwork and description from the badge itself when the
 	 * card was stored without them (every card shared before 1.2.6).
 	 *
@@ -747,14 +993,7 @@ class GamificationBridge {
 		if ( ( '' !== $image && '' !== $desc ) || ! class_exists( 'WBGam\Engine\BadgeEngine' ) ) {
 			return $meta;
 		}
-		if ( ! preg_match( '/#badge-([^#?\/]+)$/', (string) ( $meta['url'] ?? '' ), $m ) ) {
-			return $meta;
-		}
-		$badge_id = rawurldecode( $m[1] );
-		if ( ! array_key_exists( $badge_id, self::$badge_defs_memo ) ) {
-			self::$badge_defs_memo[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
-		}
-		$def = self::$badge_defs_memo[ $badge_id ];
+		$def = self::badge_def_for_url( (string) ( $meta['url'] ?? '' ) );
 		if ( ! is_array( $def ) ) {
 			return $meta;
 		}

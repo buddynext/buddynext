@@ -184,7 +184,7 @@ class NavManager extends AdminPageBase {
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Community hubs', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-field-hint">
-						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Changing a slug changes the address, so links to the old one stop working. Hubs are virtual routes: only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
+						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Changing a slug changes the address, and links to the old address redirect to the new one while the hub has a WordPress page. Hubs are virtual routes: assign a WordPress page if you want a page-builder layout, a real menu entry, page-level SEO, or old links kept after a rename.', 'buddynext' ); ?>
 					</p>
 					<!--
 					Scroll host on the WRAPPER, never the table (admin table contract, rule 3):
@@ -209,6 +209,9 @@ class NavManager extends AdminPageBase {
 							$page_val  = (int) get_option( $cfg['page_opt'], 0 );
 							$field_id  = 'bn-hub-' . sanitize_key( $hub );
 							$page_live = ( $page_val > 0 && 'publish' === get_post_status( $page_val ) );
+							// The hub whose page is the site's front page answers at the site
+							// root; its slug address redirects there. Show the real address.
+							$is_front = $page_live && 'page' === (string) get_option( 'show_on_front' ) && (int) get_option( 'page_on_front' ) === $page_val;
 							?>
 							<tr>
 								<td class="bn-pages-cell--hub">
@@ -232,7 +235,14 @@ class NavManager extends AdminPageBase {
 											pattern="[a-z0-9\-]+"
 											spellcheck="false"
 											placeholder="<?php echo esc_attr( $cfg['default'] ); ?>">
-										<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); // bn-route-ok: admin preview of the slug being edited. ?></span>
+										<?php if ( $is_front ) : ?>
+											<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' ) ) ); // bn-route-ok: admin preview, the hub is the front page. ?></span>
+											<span class="bn-field-hint"><?php esc_html_e( 'This hub is your site\'s front page, so it opens at the site address. Its slug address redirects there.', 'buddynext' ); ?></span>
+										<?php else : ?>
+											<?php // nav-manager.js rewrites this as the owner types (data-bn-slug-preview). ?>
+											<span class="bn-field-hint" data-bn-slug-preview data-base="<?php echo esc_attr( trailingslashit( home_url( '/' ) ) ); ?>" data-default="<?php echo esc_attr( $cfg['default'] ); ?>"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); // bn-route-ok: admin preview of the slug being edited. ?></span>
+										<?php endif; ?>
+										<span class="bn-field-hint"><?php esc_html_e( 'Leave empty to use the default. Old addresses redirect to the new one when the hub has a page.', 'buddynext' ); ?></span>
 										<?php // Live availability feedback target. nav-manager.js fills this from admin/slug-check as the owner types; without the element the whole check bails out. ?>
 										<span class="bn-cf-hint" aria-live="polite"></span>
 									<?php else : ?>
@@ -288,7 +298,7 @@ class NavManager extends AdminPageBase {
 					</div><!-- .bn-table-wrap__scroll -->
 				</div>
 			</div>
-			<p class="submit"><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button></p>
+			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
 	}
@@ -833,16 +843,18 @@ class NavManager extends AdminPageBase {
 					?? ( '' !== (string) ( $item['description'] ?? '' ) ? sanitize_text_field( (string) $item['description'] ) : __( 'Added by another plugin', 'buddynext' ) );
 			}
 			$tabs[ $id ] = array(
-				'slug'         => $id,
-				'label'        => $labels[ $id ],
-				'order'        => (int) ( $item['priority'] ?? 50 ),
-				'icon'         => $known['icon'] ?? $core[ $scope ][ $id ][1] ?? ( '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom' ),
-				'description'  => $description,
-				'capability'   => 'read',
-				'parent'       => isset( $labels[ $parent ] ) ? $parent : '',
-				'parent_label' => $labels[ $parent ] ?? '',
-				'core'         => isset( $known['slug'] ) || isset( $core[ $scope ][ $id ] ),
-				'integration'  => sanitize_key( (string) ( $item['integration'] ?? '' ) ),
+				'slug'            => $id,
+				'label'           => $labels[ $id ],
+				'order'           => (int) ( $item['priority'] ?? 50 ),
+				'icon'            => $known['icon'] ?? $core[ $scope ][ $id ][1] ?? ( '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom' ),
+				'description'     => $description,
+				'capability'      => 'read',
+				'parent'          => isset( $labels[ $parent ] ) ? $parent : '',
+				'parent_label'    => $labels[ $parent ] ?? '',
+				'core'            => isset( $known['slug'] ) || isset( $core[ $scope ][ $id ] ),
+				'integration'     => sanitize_key( (string) ( $item['integration'] ?? '' ) ),
+				// A sub-switch of that integration that also gates this tab (e.g. blog > spaces).
+				'integration_sub' => sanitize_key( (string) ( $item['integration_sub'] ?? '' ) ),
 			);
 		}
 
@@ -1481,7 +1493,8 @@ class NavManager extends AdminPageBase {
 		$integration = (string) ( $tab['integration'] ?? '' );
 		$all_integ   = '' !== $integration ? buddynext_integrations() : array();
 		$integ_label = (string) ( $all_integ[ $integration ]['label'] ?? '' );
-		$integ_off   = '' !== $integ_label && ! buddynext_integration_enabled( $integration, 'nav' );
+		$integ_sub   = (string) ( $tab['integration_sub'] ?? '' );
+		$integ_off   = '' !== $integ_label && ! buddynext_integration_enabled( $integration, 'nav', $integ_sub );
 		$is_child    = '' !== (string) ( $tab['parent'] ?? '' );
 		$from_other  = $is_core && isset( $tab['core'] ) && ! $tab['core'];
 		?>
@@ -1582,6 +1595,13 @@ class NavManager extends AdminPageBase {
 								__( 'Unavailable: install and activate the %s plugin to enable messaging.', 'buddynext' ),
 								$requires
 							)
+						);
+					} elseif ( $integ_off && '' !== $integ_sub && buddynext_integration_enabled( $integration, 'nav' ) ) {
+						printf(
+							/* translators: 1: integration name, 2: link to Integration Settings. */
+							esc_html__( 'Not shown on the site: the sub-tab switch for %1$s is off in %2$s.', 'buddynext' ),
+							esc_html( $integ_label ),
+							'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>'
 						);
 					} elseif ( $integ_off ) {
 						printf(
@@ -1729,11 +1749,11 @@ class NavManager extends AdminPageBase {
 		<div class="bn-config-body">
 
 			<div class="bn-cf">
-				<label for="bn-cfg-label-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-label-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Label', 'buddynext' ); ?>
 				</label>
 				<input type="text"
-						id="bn-cfg-label-<?php echo esc_attr( $slug ); ?>"
+						id="bn-cfg-label-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'label' ) ); ?>"
 						value="<?php echo esc_attr( $label ); ?>"
 						maxlength="50">
@@ -1751,10 +1771,10 @@ class NavManager extends AdminPageBase {
 				}
 				?>
 			<div class="bn-cf">
-				<label for="bn-cfg-icon-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-icon-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Icon', 'buddynext' ); ?>
 				</label>
-				<select id="bn-cfg-icon-<?php echo esc_attr( $slug ); ?>"
+				<select id="bn-cfg-icon-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'icon' ) ); ?>">
 					<?php foreach ( $bn_icon_choices as $bn_icon_slug ) : ?>
 						<option value="<?php echo esc_attr( $bn_icon_slug ); ?>" <?php selected( $icon, $bn_icon_slug ); ?>>
@@ -1781,11 +1801,11 @@ class NavManager extends AdminPageBase {
 			?>
 			<?php if ( ! $bn_position_fixed ) : ?>
 			<div class="bn-cf">
-				<label for="bn-cfg-order-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-order-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Position', 'buddynext' ); ?>
 				</label>
 				<input type="number"
-						id="bn-cfg-order-<?php echo esc_attr( $slug ); ?>"
+						id="bn-cfg-order-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'order' ) ); ?>"
 						value="<?php echo esc_attr( (string) $order ); ?>"
 						min="1"
@@ -1818,10 +1838,10 @@ class NavManager extends AdminPageBase {
 			<?php endif; ?>
 
 			<div class="bn-cf">
-				<label for="bn-cfg-vis-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-vis-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Visibility', 'buddynext' ); ?>
 				</label>
-				<select id="bn-cfg-vis-<?php echo esc_attr( $slug ); ?>"
+				<select id="bn-cfg-vis-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'visibility' ) ); ?>">
 					<option value="all" <?php selected( $visibility, 'all' ); ?>>
 						<?php esc_html_e( 'All members', 'buddynext' ); ?>
@@ -1849,11 +1869,11 @@ class NavManager extends AdminPageBase {
 			<details class="bn-cf-advanced" <?php echo 'cap' === $visibility ? 'open' : ''; ?>>
 				<summary><?php esc_html_e( 'Advanced', 'buddynext' ); ?></summary>
 				<div class="bn-cf">
-					<label for="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>">
+					<label for="bn-cfg-cap-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 						<?php esc_html_e( 'Required capability', 'buddynext' ); ?>
 					</label>
 					<input type="text"
-							id="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>"
+							id="bn-cfg-cap-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 							name="<?php echo esc_attr( $n( 'capability' ) ); ?>"
 							value="<?php echo esc_attr( $capability ); ?>"
 							maxlength="80">
@@ -1868,10 +1888,10 @@ class NavManager extends AdminPageBase {
 			<div class="bn-cf">
 				<div class="bn-config-toggle-row">
 					<div>
-						<div class="bn-config-toggle-label" id="bn-cfg-loginreq-label-<?php echo esc_attr( $slug ); ?>">
+						<div class="bn-config-toggle-label" id="bn-cfg-loginreq-label-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 							<?php esc_html_e( 'Login required', 'buddynext' ); ?>
 						</div>
-						<div class="bn-config-toggle-sub" id="bn-cfg-loginreq-desc-<?php echo esc_attr( $slug ); ?>">
+						<div class="bn-config-toggle-sub" id="bn-cfg-loginreq-desc-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 							<?php esc_html_e( 'Redirect guests to login page', 'buddynext' ); ?>
 						</div>
 					</div>
@@ -1887,18 +1907,18 @@ class NavManager extends AdminPageBase {
 							class="bn-cfg-toggle-chk"
 							name="<?php echo esc_attr( $n( 'login_required' ) ); ?>"
 							value="1"
-							aria-labelledby="bn-cfg-loginreq-label-<?php echo esc_attr( $slug ); ?>"
-							aria-describedby="bn-cfg-loginreq-desc-<?php echo esc_attr( $slug ); ?>"
+							aria-labelledby="bn-cfg-loginreq-label-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
+							aria-describedby="bn-cfg-loginreq-desc-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 							<?php checked( $login_req ); ?>>
 				</div>
 			</div>
 
 			<div class="bn-cf">
-				<label for="bn-cfg-guest-<?php echo esc_attr( $slug ); ?>">
+				<label for="bn-cfg-guest-<?php echo esc_attr( $scope . '-' . $slug ); ?>">
 					<?php esc_html_e( 'Guest label', 'buddynext' ); ?>
 				</label>
 				<input type="text"
-						id="bn-cfg-guest-<?php echo esc_attr( $slug ); ?>"
+						id="bn-cfg-guest-<?php echo esc_attr( $scope . '-' . $slug ); ?>"
 						name="<?php echo esc_attr( $n( 'guest_label' ) ); ?>"
 						value="<?php echo esc_attr( $guest_label ); ?>"
 						placeholder="<?php esc_attr_e( 'Shown to guests instead', 'buddynext' ); ?>"
@@ -2504,17 +2524,19 @@ class NavManager extends AdminPageBase {
 	 */
 	private function partner_main_tabs(): array {
 		$rows = array(
-			'media'       => array( __( 'Media', 'buddynext' ), 'image', 205, __( 'The member\'s own media library.', 'buddynext' ) ),
-			'discussions' => array( __( 'Discussions', 'buddynext' ), 'list', 206, __( 'Discussions the member has started.', 'buddynext' ) ),
-			'events'      => array( __( 'Events', 'buddynext' ), 'calendar', 207, __( 'Events the member is hosting or attending.', 'buddynext' ) ),
-			'leaderboard' => array( __( 'Leaderboard', 'buddynext' ), 'award', 95, __( 'Community points leaderboard.', 'buddynext' ) ),
+			'media'          => array( __( 'Media', 'buddynext' ), 'image', 205, __( 'The member\'s own media library.', 'buddynext' ) ),
+			'discussions'    => array( __( 'Discussions', 'buddynext' ), 'messages-square', 60, __( 'The community forum home.', 'buddynext' ) ),
+			'my-discussions' => array( __( 'My discussions', 'buddynext' ), 'list', 206, __( 'Discussions the member has started.', 'buddynext' ) ),
+			'events'         => array( __( 'Events', 'buddynext' ), 'calendar', 207, __( 'Events the member is hosting or attending.', 'buddynext' ) ),
+			'leaderboard'    => array( __( 'Leaderboard', 'buddynext' ), 'award', 95, __( 'Community points leaderboard.', 'buddynext' ) ),
 		);
 		// Rail key => integration registry key.
 		$integration = array(
-			'media'       => 'media',
-			'discussions' => 'jetonomy',
-			'events'      => 'eventonomy',
-			'leaderboard' => 'gamification',
+			'media'          => 'media',
+			'discussions'    => 'jetonomy',
+			'my-discussions' => 'jetonomy',
+			'events'         => 'eventonomy',
+			'leaderboard'    => 'gamification',
 		);
 		$registered  = buddynext_integrations();
 		$tabs        = array();

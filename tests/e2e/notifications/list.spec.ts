@@ -110,7 +110,7 @@ test.describe('notifications / list', () => {
             await expect.poll(() => unreadCount(page), { timeout: 5_000 }).toBe(0);
             // EFFECT: no unread row is left in the table for this member.
             const p = await tablePrefix();
-            expect(await dbScalar(`SELECT COUNT(*) FROM ${p}bn_notifications WHERE recipient_id = ${me} AND is_read = 0`)).toBe('0');
+            expect(await dbScalar(`SELECT COUNT(*) FROM ${p}bn_notifications WHERE recipient_id = ${me} AND is_read = 0 AND in_app = 1`)).toBe('0'); // rows outside the bell stay unread for the digest
         } finally {
             await wp(['eval', `buddynext_service( 'notifications' )->delete( ${seeded}, ${me} );`]).catch(() => undefined);
         }

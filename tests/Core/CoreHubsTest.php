@@ -49,9 +49,11 @@ class CoreHubsTest extends WP_UnitTestCase {
 		// Every registered hub must be named above. A bare count says only that the
 		// number moved; the diff says WHICH hub appeared, which is the thing the
 		// next person needs in order to act on it.
+		// 'blogwrite' is a bridge hub (Member Blog's two pages in the shell): it only exists while
+		// that plugin is active, so it is not a core hub and has no slug of its own.
 		$this->assertSame(
 			array_keys( $expected ),
-			array_keys( $reg->all() ),
+			array_values( array_diff( array_keys( $reg->all() ), array( 'blogwrite' ) ) ),
 			'A core hub was added or removed without updating this test. Add it to $expected with its slug option, default slug and backing_page.'
 		);
 	}

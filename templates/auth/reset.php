@@ -8,6 +8,10 @@
  *
  * Security is WordPress core's (retrieve_password / check_password_reset_key /
  * reset_password); this screen only provides the branded UX + Interactivity store.
+ * Both forms are POST, so nothing typed ever reaches a URL. When a security plugin
+ * blocks REST for logged-out visitors, the store hands over to WordPress's own
+ * screens: the request form posts to wp-login.php?action=lostpassword (its action)
+ * and the set-new-password step opens wp-login.php?action=rp with the same key.
  *
  * @package BuddyNext
  * @since   1.0.0
@@ -33,6 +37,11 @@ if ( $bn_set_mode ) {
 	$bn_key_check = check_password_reset_key( $bn_reset_key, $bn_reset_login );
 	$bn_key_valid = ! is_wp_error( $bn_key_check );
 }
+
+// WordPress's own reset screen for the same emailed key (the blocked-REST fallback).
+$bn_core_reset_url = $bn_key_valid
+	? site_url( 'wp-login.php?action=rp&key=' . rawurlencode( $bn_reset_key ) . '&login=' . rawurlencode( $bn_reset_login ), 'login' )
+	: '';
 ?>
 
 <div class="bn-auth-page">
@@ -45,17 +54,19 @@ if ( $bn_set_mode ) {
 		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo wp_interactivity_data_wp_context(
 			array(
-				'login'       => '',
-				'password'    => '',
-				'submitting'  => false,
-				'done'        => false,
-				'error'       => '',
-				'notice'      => '',
-				'fieldErrors' => array(),
-				'restNonce'   => $rest_nonce,
-				'restUrl'     => $rest_root,
-				'resetKey'    => $bn_reset_key,
-				'resetLogin'  => $bn_reset_login,
+				'login'          => '',
+				'password'       => '',
+				'submitting'     => false,
+				'done'           => false,
+				'error'          => '',
+				'notice'         => '',
+				'fieldErrors'    => array(),
+				'restNonce'      => $rest_nonce,
+				'restUrl'        => $rest_root,
+				'resetKey'       => $bn_reset_key,
+				'resetLogin'     => $bn_reset_login,
+				'coreResetUrl'   => esc_url_raw( $bn_core_reset_url ),
+				'blockedMessage' => __( 'Your site\'s security settings blocked the community password reset. Taking you to the standard WordPress form.', 'buddynext' ),
 			)
 		);
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -85,7 +96,7 @@ if ( $bn_set_mode ) {
 						data-wp-bind--hidden="!state.error"
 						data-wp-text="state.error"></div>
 
-					<form class="bn-auth-form" novalidate data-wp-on--submit="actions.setNewPassword">
+					<form class="bn-auth-form" method="post" novalidate data-wp-on--submit="actions.setNewPassword">
 						<div class="bn-auth-field">
 							<label class="bn-auth-label" for="bn-reset-password">
 								<?php esc_html_e( 'New password', 'buddynext' ); ?>
@@ -124,7 +135,10 @@ if ( $bn_set_mode ) {
 						data-wp-bind--hidden="!state.done"
 						data-wp-text="state.notice"></div>
 
-					<form class="bn-auth-form" novalidate
+					<form class="bn-auth-form"
+						method="post"
+						action="<?php echo esc_url( site_url( 'wp-login.php?action=lostpassword', 'login_post' ) ); ?>"
+						novalidate
 						data-wp-on--submit="actions.requestReset"
 						data-wp-bind--hidden="state.done">
 						<div class="bn-auth-field">

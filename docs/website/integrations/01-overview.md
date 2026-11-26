@@ -64,6 +64,20 @@ After install, BuddyNext sends you to the right place to finish setup. For most 
 
 > **Tip:** One-click install needs the same permission WordPress requires for installing any plugin. If you do not see the install button, your account does not have the capability to install plugins on this site.
 
+### Free site tools: Wbcom Demo Installer and Wbcom Essential
+
+After the companions, the Add-ons screen lists two free site tools. The **Wbcom Demo Installer** sets up your theme and the Wbcom products with sample people and content, then removes it all in one click. **Wbcom Essential** adds blocks and widgets for designing your home page and community pages. Neither is an integration, so they do not appear on Integration Settings.
+
+Each row shows **Install free**, **Activate** or **Installed**. **Install free** downloads the latest release from the plugin's public GitHub repository (buddynext/wbcom-demo-installer or vapvarun/wbcom-essential), installs it and switches it on. A tool that is already installed is only switched on, never downloaded again. Your own content is never changed.
+
+The BuddyNext **Home** offers the same install for the Demo Installer while setup is open: **Install and set up a demo**, then **Set up a demo** once it is on. With the installer on and no demo built yet, Home shows two demos for your site (the BuddyNext demo for your theme, marked Recommended, and the BuddyNext community demo), each with **Set up this demo**, plus **See all demos**.
+
+If the install cannot finish, for example because your host cannot reach GitHub or does not allow installing plugins from the dashboard, the row or card says why and gives three steps to do it by hand:
+
+1. **Download** the latest release zip from GitHub.
+2. **Upload** it at **Plugins > Add New > Upload Plugin** and activate it.
+3. **Come back** and select **Check again**. The screen picks up the plugin without a full reload.
+
 ### Turn an integration on or off
 
 An integration is only active when its companion plugin is active. There is no separate master switch for an integration on the Features tab: its behaviour is controlled by the switches on **Integration Settings** (below).
@@ -83,6 +97,7 @@ If a sub-tab needs something the partner cannot provide right now, its switch sh
 - **Navigation** - adds (or removes) the integration's tab in member navigation.
 - **Feed** - whether that integration's events (new discussions, new listings, new media, and so on) appear in the community feed.
 - **Search** - whether members can find that integration's content in community search. Offered by the integrations that have content worth searching (discussions, jobs, listings, events).
+- **Option switches** - a few integrations add one more full-width switch under the three above. WB Member Blog has **Articles in Spaces**, which decides whether articles can be written for and listed in Spaces (see [WB Member Blog](09-member-blog.md)).
 - **Navigation sub-tabs** - integrations that add several member tabs (for example WP Career Board's Jobs and Resume, or Learnomy's Learning, Certifications and Teaching) let you switch each sub-tab individually.
 
 In **Settings > Navigation**, the Events and Businesses space tabs name their integration (Eventonomy, WB Listora) and show when Integration Settings has them off.

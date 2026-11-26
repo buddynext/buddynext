@@ -65,6 +65,16 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A legacy row of a hook retired in 1.3.0 has a callback, so Action Scheduler
+	 * completes it instead of failing it.
+	 */
+	public function test_retired_cleanup_hooks_keep_a_noop_callback(): void {
+		$this->scheduler->init();
+		$this->assertNotFalse( has_action( CronScheduler::JOB_CLEANUP_TOKENS ) );
+		$this->assertNotFalse( has_action( CronScheduler::JOB_CLEANUP_REPORTS ) );
+	}
+
+	/**
 	 * Calling init() attaches the schedule action.
 	 */
 	public function test_init_adds_wp_loaded_hook(): void {
@@ -74,29 +84,11 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 		);
 	}
 
-	/**
-	 * No custom intervals are registered — all remaining Free jobs use built-in
-	 * WordPress recurrences so no sub-minute / sub-hour intervals are needed.
-	 */
-	public function test_no_removed_custom_intervals_registered(): void {
-		$schedules = $this->scheduler->add_custom_schedules( array() );
+	public function test_no_custom_intervals_registered(): void {
+		$schedules = wp_get_schedules();
 		$this->assertArrayNotHasKey( 'buddynext_1min', $schedules );
 		$this->assertArrayNotHasKey( 'buddynext_5min', $schedules );
 		$this->assertArrayNotHasKey( 'buddynext_30min', $schedules );
-	}
-
-	/**
-	 * The add_custom_schedules() filter returns the input array unmodified.
-	 */
-	public function test_add_custom_schedules_returns_input_unchanged(): void {
-		$input  = array(
-			'daily' => array(
-				'interval' => DAY_IN_SECONDS,
-				'display'  => 'Once Daily',
-			),
-		);
-		$result = $this->scheduler->add_custom_schedules( $input );
-		$this->assertSame( $input, $result );
 	}
 
 	/**
@@ -116,11 +108,41 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Calling schedule_events() registers the cleanup tokens event.
+	 * Token and report cleanup run inside the one daily retention job: the upgrade
+	 * cancels their own recurring actions and nothing re-arms them.
 	 */
-	public function test_schedule_events_registers_cleanup_tokens(): void {
+	public function test_cleanup_jobs_ride_the_daily_retention_job(): void {
+		as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP );
+		as_schedule_recurring_action( time(), WEEK_IN_SECONDS, 'buddynext_cleanup_reports', array(), CronScheduler::GROUP );
+		$this->scheduler->init();
+		CronScheduler::run_cron_migration(); // The 1.3.0 upgrade step.
 		$this->scheduler->schedule_events();
-		$this->assertTrue( as_has_scheduled_action( 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP ) );
+
+		$this->assertFalse( as_has_scheduled_action( 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP ) );
+		$this->assertFalse( as_has_scheduled_action( 'buddynext_cleanup_reports', array(), CronScheduler::GROUP ) );
+		$this->assertNotFalse( has_action( \BuddyNext\Core\LogRetentionService::HOOK ), 'The retention job carries the cleanup.' );
+
+		// Reports are pruned on every daily run, so a missed run never skips a week.
+		$daily = false;
+		foreach ( $GLOBALS['wp_filter'][ \BuddyNext\Core\LogRetentionService::HOOK ]->callbacks as $callbacks ) {
+			foreach ( $callbacks as $cb ) {
+				$daily = $daily || ( is_array( $cb['function'] ) && 'handle_cleanup_reports' === $cb['function'][1] );
+			}
+		}
+		$this->assertTrue( $daily, 'Report cleanup runs on every daily run, not one weekday.' );
+
+		global $wpdb;
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_verify_tokens',
+			array(
+				'user_id'    => 1,
+				'token'      => 'old-' . wp_rand(),
+				'type'       => 'email',
+				'expires_at' => gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS ),
+			)
+		);
+		do_action( \BuddyNext\Core\LogRetentionService::HOOK );
+		$this->assertSame( '0', (string) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_verify_tokens WHERE expires_at < UTC_TIMESTAMP()" ), 'Expired tokens are pruned by the daily retention run.' );
 	}
 
 	/**
@@ -203,5 +225,80 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 		// After migration the event is cleared; schedule_events() will re-add at 'daily'.
 		// For this unit test, verify it is no longer on the old recurrence.
 		$this->assertNotSame( 'buddynext_5min', wp_get_schedule( 'buddynext_recount_stats' ) );
+	}
+	/**
+	 * Site Health names a stalled background queue in plain words, and is green
+	 * when nothing of ours is overdue (card 10501591033).
+	 */
+	public function test_site_health_reports_a_stalled_background_queue(): void {
+		$this->assertSame( 'good', CronScheduler::site_health_queue_test()['status'] );
+
+		as_schedule_single_action( time() - 2 * HOUR_IN_SECONDS, 'buddynext_async_index_hashtags', array( 'post', 1, '' ), CronScheduler::GROUP );
+		$result = CronScheduler::site_health_queue_test();
+		$this->assertSame( 'recommended', $result['status'] );
+		$this->assertStringContainsString( 'server cron job', $result['description'] );
+
+		$tests = CronScheduler::register_site_health( array( 'direct' => array() ) );
+		$this->assertArrayHasKey( 'buddynext_background_tasks', $tests['direct'] );
+	}
+
+	/**
+	 * A task due a minute ago is a working queue catching up, not a stall.
+	 */
+	public function test_site_health_ignores_a_task_that_is_only_just_due(): void {
+		as_schedule_single_action( time() - MINUTE_IN_SECONDS, 'buddynext_async_index_hashtags', array( 'post', 2, '' ), CronScheduler::GROUP );
+		$this->assertSame( 'good', CronScheduler::site_health_queue_test()['status'] );
+	}
+
+	public function test_ensure_recurring_arms_once_and_returns_the_new_id(): void {
+		$first = CronScheduler::ensure_recurring( 'buddynext_zz_recurring', 0, DAY_IN_SECONDS );
+		$again = CronScheduler::ensure_recurring( 'buddynext_zz_recurring', 0, DAY_IN_SECONDS );
+
+		$this->assertGreaterThan( 0, $first );
+		$this->assertSame( 0, $again, 'Already armed: nothing scheduled.' );
+		$this->assertCount( 1, as_get_scheduled_actions( array( 'hook' => 'buddynext_zz_recurring', 'status' => 'pending' ), 'ids' ) );
+	}
+
+	public function test_a_concurrent_arm_that_passed_the_check_still_adds_no_second_row(): void {
+		CronScheduler::ensure_recurring( 'buddynext_zz_race', 0, DAY_IN_SECONDS );
+		// The other request already passed as_next_scheduled_action(); its insert carries unique.
+		$second = as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_zz_race', array(), CronScheduler::GROUP, true );
+
+		$this->assertSame( 0, (int) $second );
+		$this->assertCount( 1, as_get_scheduled_actions( array( 'hook' => 'buddynext_zz_race', 'status' => 'pending' ), 'ids' ) );
+	}
+
+	public function test_ensure_recurring_does_nothing_on_an_ordinary_request(): void {
+		remove_filter( 'wp_doing_cron', '__return_true' );
+		$this->assertSame( 0, CronScheduler::ensure_recurring( 'buddynext_zz_front', 0, DAY_IN_SECONDS ) );
+		$this->assertFalse( as_next_scheduled_action( 'buddynext_zz_front' ) );
+		add_filter( 'wp_doing_cron', '__return_true' );
+	}
+
+	/**
+	 * has_pending() is an existence check, so it asks the store for no order: sorting a hook's pending rows by
+	 * date is work an answer of yes or no never uses.
+	 */
+	public function test_has_pending_asks_for_existence_without_sorting(): void {
+		as_schedule_single_action( time() + HOUR_IN_SECONDS, 'bn_test_pending_probe', array(), CronScheduler::GROUP );
+
+		$selects = array();
+		$capture = static function ( $sql ) use ( &$selects ) {
+			if ( 0 === stripos( ltrim( (string) $sql ), 'SELECT' ) && false !== stripos( (string) $sql, 'actionscheduler_actions' ) ) {
+				$selects[] = (string) $sql;
+			}
+			return $sql;
+		};
+		add_filter( 'query', $capture );
+		$found   = CronScheduler::has_pending( 'bn_test_pending_probe' );
+		$missing = CronScheduler::has_pending( 'bn_test_never_scheduled' );
+		remove_filter( 'query', $capture );
+
+		$this->assertTrue( $found, 'A pending action is found.' );
+		$this->assertFalse( $missing, 'An unscheduled hook is not.' );
+		$this->assertNotEmpty( $selects, 'The store was asked.' );
+		foreach ( $selects as $sql ) {
+			$this->assertStringNotContainsStringIgnoringCase( 'ORDER BY', $sql, 'No sorting for a yes or no.' );
+		}
 	}
 }

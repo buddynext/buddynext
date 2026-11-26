@@ -44,11 +44,14 @@
 	gap: var(--bn-s2);
 	flex: 1 1 420px;
 	min-width: 0;
+	/* Four controls (search, role, member type, sort) wrap to a second line instead of squeezing each other. */
+	flex-wrap: wrap;
 }
 
 .bn-members-filter .bn-input {
-	flex: 1 1 220px;
-	min-width: 160px;
+	/* The search takes what the selects leave, from a 160px floor, so search, role, type, sort and Filter share one row. */
+	flex: 1 1 160px;
+	min-width: 140px;
 }
 
 /*
@@ -57,9 +60,9 @@
  * specific than a bare two-class rule and re-widened this select.
  */
 .bn-settings-section .bn-members-filter .bn-select {
-	flex: 0 1 auto;
+	flex: 0 1 150px;
 	width: auto;
-	min-width: 130px;
+	min-width: 140px;
 	max-width: 180px;
 }
 
@@ -71,7 +74,8 @@
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
-	flex: 0 0 auto;
+	/* Bulk actions have their own row under the filters, never floating beside the search. */
+	flex: 1 1 100%;
 	margin: 0;
 }
 
@@ -148,7 +152,7 @@
 }
 
 .bn-table .bn-more-btn:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -245,7 +249,7 @@
 }
 
 .bn-pagination .bn-page-link:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -483,7 +487,7 @@
 }
 
 .bn-repeater-remove:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -508,7 +512,7 @@
 }
 
 .bn-repeater-add:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -822,7 +826,7 @@
 }
 
 .bn-admin-hub select.bn-pf-head-select:hover {
-	border-color: var(--bn-a-border);
+	border-color: var(--bn-a-input-border);
 	color: var(--bn-a-text-1);
 }
 
@@ -1014,7 +1018,7 @@
 
 .bn-pf-vis-field {
 	font-size: var(--bn-a-text-xs);
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: 5px var(--bn-a-s2);
 	background: var(--bn-a-bg);
@@ -1376,7 +1380,7 @@
 .bn-pf-ag-row .bn-pf-ag-field select {
 	font-size: var(--bn-a-text-sm);
 	width: 100%;
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: var(--bn-a-s2) var(--bn-a-s3);
 	background: var(--bn-a-bg);
@@ -1590,7 +1594,7 @@
 }
 
 .bn-image-picker-controls input[type="text"] {
-	border: 1px solid var(--bn-a-border);
+	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-r-sm);
 	padding: 7px var(--bn-a-s3);
 	font-size: var(--bn-a-text-sm);
@@ -1950,4 +1954,11 @@ dialog.bn-approval-details .bn-approval-details__title {
 	margin: 0;
 	color: var(--bn-danger);
 	font-size: var(--bn-text-sm);
+}
+
+/* Profile Fields: header labels and the type chip stay on one line, so "Field name" and "Location (map)" are never
+   split across two. On a phone the table scrolls instead of squashing. */
+.bn-pf-table th,
+.bn-pf-table .bn-badge {
+	white-space: nowrap;
 }

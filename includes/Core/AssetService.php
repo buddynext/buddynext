@@ -193,6 +193,36 @@ class AssetService {
 	}
 
 	/**
+	 * Register the two focus modules shared by the front end and wp-admin.
+	 *
+	 * `@buddynext/focus-trap` holds trapFocus(), keepFocus() and returnFocus() and has no side
+	 * effects. `@buddynext/modal-a11y` is the ONE modal keyboard-accessibility
+	 * primitive: focus-in, focus-trap, focus-return and Escape-to-close for every
+	 * .bn-modal-backdrop, plus keepFocus() on the page so a busy or swapped button
+	 * keeps focus. On the front end it is a side-effect import of nav-init, so it
+	 * loads wherever any feature store loads and its observers persist across
+	 * client navigations. In wp-admin it is enqueued directly on BuddyNext screens;
+	 * it does not pull in shell-dialog, whose window.bnConfirm / bnToast would
+	 * replace the admin versions (bn-admin-dialogs.js).
+	 *
+	 * @return void
+	 */
+	private function register_focus_modules(): void {
+		wp_register_script_module(
+			'@buddynext/focus-trap',
+			$this->assets_url . 'js/shell/focus-trap.js',
+			array(),
+			$this->module_version( 'js/shell/focus-trap.js' )
+		);
+		wp_register_script_module(
+			'@buddynext/modal-a11y',
+			$this->assets_url . 'js/shell/modal-a11y.js',
+			array( array( 'id' => '@buddynext/focus-trap' ) ),
+			$this->module_version( 'js/shell/modal-a11y.js' )
+		);
+	}
+
+	/**
 	 * Enqueue BuddyNext admin CSS on BuddyNext admin pages.
 	 *
 	 * Only fires when the current admin page slug contains 'buddynext'
@@ -244,6 +274,13 @@ class AssetService {
 		// register_admin_dialogs) so off-hub surfaces can depend on it too.
 		wp_enqueue_style( 'bn-admin-dialogs' );
 		wp_enqueue_script( 'bn-admin-dialogs' );
+
+		// Keyboard focus for every admin modal (.bn-modal-backdrop: Tab trap,
+		// focus-in, focus-return, Escape) and for buttons that disable themselves
+		// while they work. bn-admin-dialogs.js reaches the same trap through
+		// window.bnTrapFocus, which this module sets.
+		$this->register_focus_modules();
+		wp_enqueue_script_module( '@buddynext/modal-a11y' );
 
 		// Members admin (Members + Member Types + Profile Fields + Avatar
 		// Settings + Member Type Field). Lives at ?page=buddynext-members.
@@ -468,10 +505,18 @@ class AssetService {
 		// Loaded in the footer so it can hydrate any shell-level UI surfaces.
 		// Data is localized by PageRouter::enqueue_hub_assets() into
 		// window.bnShellData before this script runs.
+		// The bottom bar's More sheet, alone so the Jetonomy bridge can load it without the shell.
+		wp_register_script(
+			'bn-mobile-more',
+			$this->assets_url . 'js/shell/mobile-more.js',
+			array(),
+			$v,
+			true
+		);
 		wp_register_script(
 			'bn-shell-extras',
 			$this->assets_url . 'js/shell/extras.js',
-			array( 'wp-i18n' ),
+			array( 'wp-i18n', 'bn-mobile-more' ),
 			$v,
 			true
 		);
@@ -553,10 +598,11 @@ class AssetService {
 		// Shared shell modules — used as dependencies by feature stores.
 		// `@buddynext/shell-dialog` exposes bnConfirm/bnPrompt/bnToast for
 		// stores that need accessible replacements for window.confirm/prompt.
+		$this->register_focus_modules();
 		wp_register_script_module(
 			'@buddynext/shell-dialog',
 			$this->assets_url . 'js/shell/dialog.js',
-			array(),
+			array( array( 'id' => '@buddynext/focus-trap' ) ),
 			$this->module_version( 'js/shell/dialog.js' )
 		);
 
@@ -606,19 +652,6 @@ class AssetService {
 			$this->module_version( 'js/shell/slug.js' )
 		);
 
-		// `@buddynext/modal-a11y` is the ONE modal keyboard-accessibility primitive:
-		// focus-in, focus-trap, focus-return and Escape-to-close for every
-		// .bn-modal-backdrop, store-agnostic, so features render modal markup and do
-		// not each re-solve dialog behaviour. It is a side-effect import of nav-init
-		// (below), so it loads once wherever any feature store loads — i.e. wherever
-		// a modal can appear — and its observer persists across client navigations.
-		wp_register_script_module(
-			'@buddynext/modal-a11y',
-			$this->assets_url . 'js/shell/modal-a11y.js',
-			array( array( 'id' => '@buddynext/shell-dialog' ) ),
-			$this->module_version( 'js/shell/modal-a11y.js' )
-		);
-
 		// `@buddynext/nav-init` exposes onNavReady() — the uniform init binder
 		// every store uses so imperative setup re-runs after a client-side
 		// navigation (buddynext:navigated), not only on DOMContentLoaded. It also
@@ -631,9 +664,39 @@ class AssetService {
 			$this->module_version( 'js/shell/nav-init.js' )
 		);
 
+		// `@buddynext/presence` keeps a signed-in member "online" across client
+		// navigation, a tab coming back into view, and page-cached views: an
+		// event-driven POST to /me/presence/heartbeat, at most once per ~4 minutes
+		// per tab. No timer. Enqueued by PresenceService::enqueue_ping().
+		wp_register_script_module(
+			'@buddynext/presence',
+			$this->assets_url . 'js/shell/presence.js',
+			array( array( 'id' => '@buddynext/rest-client' ) ),
+			$this->module_version( 'js/shell/presence.js' )
+		);
+
 		// `@buddynext/navigate` owns the bare-`buddynext` store's navigate
 		// action. The Interactivity router loads as a dynamic dependency, so it
 		// is fetched once on the first client-side navigation and reused.
+		// Write hub (Member Blog's post page in the shell): fills Member Blog's
+		// empty title field with the title typed in the composer's Article tab.
+		// Enqueued by MemberBlogBridge::enqueue_title_prefill() only when there
+		// is a title to carry.
+		wp_register_script_module(
+			'@buddynext/blog-write-prefill',
+			$this->assets_url . 'js/blog/write-prefill.js',
+			array(),
+			$this->module_version( 'js/blog/write-prefill.js' )
+		);
+
+		// Write hub: the crop preview under Member Blog's featured-image box.
+		wp_register_script_module(
+			'@buddynext/blog-write-crop',
+			$this->assets_url . 'js/blog/write-crop.js',
+			array(),
+			$this->module_version( 'js/blog/write-crop.js' )
+		);
+
 		wp_register_script_module(
 			'@buddynext/navigate',
 			$this->assets_url . 'js/shell/navigate.js',
@@ -897,7 +960,8 @@ class AssetService {
 		$map = array();
 		foreach ( array( array( 0xC0, 0x24F ), array( 0x1E00, 0x1EFF ) ) as $range ) {
 			for ( $cp = $range[0]; $cp <= $range[1]; $cp++ ) {
-				$char = mb_chr( $cp, 'UTF-8' );
+				// The entity form needs no mbstring extension (Plugin Check flagged it).
+				$char = html_entity_decode( '&#' . $cp . ';', ENT_QUOTES, 'UTF-8' );
 				$out  = remove_accents( $char );
 				if ( $out !== $char ) {
 					$map[ $char ] = $out;
@@ -1018,6 +1082,7 @@ class AssetService {
 					'ariaCancelRequest'       => __( 'Cancel follow request', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
 					'toastUnfollowed'         => __( 'Unfollowed @%s', 'buddynext' ),
+					'undo'                    => __( 'Undo', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
 					'toastRequestCancelled'   => __( 'Follow request to @%s cancelled', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
@@ -1090,7 +1155,7 @@ class AssetService {
 				'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $viewer_id ),
 				'mediaMaxMB'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( $viewer_id ),
 				'mediaMaxCount'     => \BuddyNext\Feed\PostService::max_media_per_post(),
-				'reactDefaultLabel' => __( 'React', 'buddynext' ),
+				'reactDefaultLabel' => __( 'Like', 'buddynext' ),
 			)
 		);
 
@@ -1159,6 +1224,7 @@ class AssetService {
 					'networkError'              => __( 'Network error. Try again.', 'buddynext' ),
 					'emoji'                     => __( 'Emoji', 'buddynext' ),
 					'insertEmoji'               => __( 'Insert emoji', 'buddynext' ),
+					'close'                     => __( 'Close', 'buddynext' ),
 					'image'                     => __( 'image', 'buddynext' ),
 					'react'                     => __( 'React', 'buddynext' ),
 					'chooseReaction'            => __( 'Choose reaction', 'buddynext' ),
@@ -1388,6 +1454,7 @@ class AssetService {
 					'memberFallback'                => __( 'member', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
 					'toastUnfollowed'               => __( 'Unfollowed @%s', 'buddynext' ),
+					'undo'                          => __( 'Undo', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
 					'toastNowFollowing'             => __( 'Now following @%s', 'buddynext' ),
 					/* translators: %s: the member's public handle. */
@@ -1427,6 +1494,20 @@ class AssetService {
 					'toastReportSubmitted'          => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'toastCouldNotReport'           => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'errorLoadMembers'              => __( 'Could not load members. Check your connection and try again.', 'buddynext' ),
+					// Header count line on a live filter change; worded like
+					// MemberDirectoryService::directory_subtitle(). One / many forms.
+					/* translators: %s: formatted member count (exactly 1). */
+					'subtitleCommunityOne'          => _n( '%s member in the community', '%s members in the community', 1, 'buddynext' ),
+					/* translators: %s: formatted member count. */
+					'subtitleCommunity'             => _n( '%s member in the community', '%s members in the community', 2, 'buddynext' ),
+					/* translators: %s: formatted number of members online (exactly 1). */
+					'subtitleOnlineOne'             => _n( '%s member online', '%s members online', 1, 'buddynext' ),
+					/* translators: %s: formatted number of members online. */
+					'subtitleOnline'                => _n( '%s member online', '%s members online', 2, 'buddynext' ),
+					/* translators: %s: formatted number of members found (exactly 1). */
+					'subtitleFoundOne'              => _n( '%s member found', '%s members found', 1, 'buddynext' ),
+					/* translators: %s: formatted number of members found. */
+					'subtitleFound'                 => _n( '%s member found', '%s members found', 2, 'buddynext' ),
 				),
 			)
 		);
@@ -1514,6 +1595,11 @@ class AssetService {
 					// Gap B).
 					'repositionCover'                 => __( 'Reposition cover photo', 'buddynext' ),
 					'coverDragHint'                   => __( 'Drag to reposition · scroll or use the slider to zoom', 'buddynext' ),
+					'coverFraming'                    => __( 'Cover framing. Use the arrow keys to move the picture, plus and minus to zoom.', 'buddynext' ),
+					'reposition'                      => __( 'Reposition', 'buddynext' ),
+					'coverPositionFailed'             => __( 'Could not save the position. Try again.', 'buddynext' ),
+					'coverPositionSaved'              => __( 'Cover position saved.', 'buddynext' ),
+					'coverPositionReady'              => __( 'Position ready: click Save changes to keep it', 'buddynext' ),
 					'zoom'                            => __( 'Zoom', 'buddynext' ),
 					'apply'                           => __( 'Apply', 'buddynext' ),
 					'reportPost'                      => __( 'Report post', 'buddynext' ),
@@ -1560,6 +1646,9 @@ class AssetService {
 					'confirm'                         => __( 'Confirm', 'buddynext' ),
 					'leaveSpaceTitle'                 => __( 'Leave this space?', 'buddynext' ),
 					'leaveSpaceConfirm'               => __( 'You will stop seeing its posts and can join again later.', 'buddynext' ),
+					'leaveSpaceInviteOnly'            => __( 'You will lose access to its posts, and you will need a new invitation to come back.', 'buddynext' ),
+					'leaveSpaceRequestOnly'           => __( 'You will lose access to its posts, and you will have to ask to join again and be approved.', 'buddynext' ),
+					'leaveSpaceLoseRole'              => __( 'You will also lose your moderator role here, and it is not restored if you join again.', 'buddynext' ),
 					'leaveSpaceOk'                    => __( 'Leave', 'buddynext' ),
 					'reportSpaceTitle'                => __( 'Report this space', 'buddynext' ),
 					'toastReportSubmitted'            => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
@@ -1602,6 +1691,7 @@ class AssetService {
 					// Space feed search + join request. Read by spaces/store.js via
 					// t() but never injected, so they always rendered English.
 					'discussionSearchFailed'          => __( 'Could not search discussions. Check your connection and try again.', 'buddynext' ),
+					'discussionNoMatch'               => __( 'No discussions found. Leave this empty to create a new one.', 'buddynext' ),
 					'unlinkDiscussionTitle'           => __( 'Unlink this discussion?', 'buddynext' ),
 					'unlinkDiscussionBody'            => __( 'The discussion and its posts stay where they are, and everyone who is a member of this space stays a member. New discussion posts stop appearing in this space. You can turn Discussion on again later to create or link one.', 'buddynext' ),
 					'unlinkDiscussionOk'              => __( 'Unlink', 'buddynext' ),
@@ -1800,6 +1890,13 @@ class AssetService {
 			array(
 				'i18n' => array(
 					'cropAvatar'                       => __( 'Crop avatar', 'buddynext' ),
+					'avatarNotAnImage'                 => __( 'Choose a JPG, PNG, GIF or WebP picture.', 'buddynext' ),
+					'twofaSecretCopied'                => __( 'Setup key copied', 'buddynext' ),
+					'twofaBadgeOn'                     => __( 'On', 'buddynext' ),
+					'twofaBadgeOff'                    => __( 'Off', 'buddynext' ),
+					'twofaCodesCopied'                 => __( 'Backup codes copied', 'buddynext' ),
+					'couldNotCopyManual'               => __( 'Could not copy. Select the text and copy it yourself.', 'buddynext' ),
+					'avatarUnreadable'                 => __( 'That picture could not be opened. Choose a different JPG, PNG, GIF or WebP file.', 'buddynext' ),
 					'positionAvatar'                   => __( 'Position your avatar', 'buddynext' ),
 					'zoom'                             => __( 'Zoom', 'buddynext' ),
 					'cancel'                           => __( 'Cancel', 'buddynext' ),
@@ -1807,6 +1904,12 @@ class AssetService {
 					'couldNotProcessImage'             => __( 'Could not process the image. Try a different file.', 'buddynext' ),
 					'repositionCover'                  => __( 'Reposition cover photo', 'buddynext' ),
 					'coverDragHint'                    => __( 'Drag to reposition · scroll or use the slider to zoom', 'buddynext' ),
+					'coverFraming'                     => __( 'Cover framing. Use the arrow keys to move the picture, plus and minus to zoom.', 'buddynext' ),
+					'saving'                           => __( 'Saving...', 'buddynext' ),
+					'reposition'                       => __( 'Reposition', 'buddynext' ),
+					'coverPositionFailed'              => __( 'Could not save the position. Try again.', 'buddynext' ),
+					'coverPositionSaved'               => __( 'Cover position saved.', 'buddynext' ),
+					'coverPositionReady'               => __( 'Position ready: click Save changes to keep it', 'buddynext' ),
 					'thisField'                        => __( 'This field', 'buddynext' ),
 					'avatarSaveFailed'                 => __( 'Avatar could not be saved', 'buddynext' ),
 					'coverSaveFailed'                  => __( 'Cover could not be saved', 'buddynext' ),
@@ -1814,6 +1917,9 @@ class AssetService {
 					'profileSaved'                     => __( 'Profile saved', 'buddynext' ),
 					'fieldsNeedAttention'              => __( 'Some fields need attention', 'buddynext' ),
 					'saveFailed'                       => __( 'Could not save. Try again.', 'buddynext' ),
+					'handleReserved'                   => __( 'Reserved', 'buddynext' ),
+					'handleTaken'                      => __( 'Taken', 'buddynext' ),
+					'handleUnavailable'                => __( 'Not available', 'buddynext' ),
 					'present'                          => __( 'Present', 'buddynext' ),
 					'unmute'                           => __( 'Unmute', 'buddynext' ),
 					'mute'                             => __( 'Mute', 'buddynext' ),
@@ -1884,6 +1990,7 @@ class AssetService {
 					'unmuted'                          => __( 'Unmuted', 'buddynext' ),
 					'muted'                            => __( 'Muted', 'buddynext' ),
 					'muteFailed'                       => __( 'Could not update mute state', 'buddynext' ),
+					'undo'                             => __( 'Undo', 'buddynext' ),
 					'noLongerRestricted'               => __( 'No longer restricted', 'buddynext' ),
 					'restricted'                       => __( 'Restricted. They can still see your profile, but their comments are hidden from others.', 'buddynext' ),
 					'restrictFailed'                   => __( 'Could not update restrict state', 'buddynext' ),
@@ -2085,7 +2192,11 @@ class AssetService {
 					'previewBio'               => __( "Add a short bio so people know what you're into.", 'buddynext' ),
 					'usernameChecking'         => __( 'Checking…', 'buddynext' ),
 					'usernameAvailable'        => __( 'Available', 'buddynext' ),
+					// Badge words by the server's refusal code: reserved and taken are
+					// different advice (a free variant of a reserved word is still reserved).
 					'usernameTaken'            => __( 'Taken', 'buddynext' ),
+					'usernameReserved'         => __( 'Reserved', 'buddynext' ),
+					'usernameUnavailable'      => __( 'Not available', 'buddynext' ),
 					'btnJoin'                  => __( 'Join', 'buddynext' ),
 					'btnJoined'                => __( 'Joined', 'buddynext' ),
 					'btnFollow'                => __( 'Follow', 'buddynext' ),
@@ -2114,7 +2225,7 @@ class AssetService {
 					// success screen. Each failure now keeps the member on the wizard with
 					// the reason, so their data is never lost behind "You're all set".
 					'errorProfileSaveFailed'   => __( 'Your profile could not be saved. Please check your details and try again.', 'buddynext' ),
-					'errorHandleTaken'         => __( 'That username is already taken. Please choose another.', 'buddynext' ),
+					'errorHandleTaken'         => __( 'That username is not available. Please choose another.', 'buddynext' ),
 					'errorChannelsSaveFailed'  => __( 'Your notification settings could not be saved. Try again.', 'buddynext' ),
 				),
 
@@ -2309,22 +2420,28 @@ class AssetService {
 			'buddynext/space-members',
 			array(
 				'i18n' => array(
-					'removeMemberTitle'  => __( 'Remove this member?', 'buddynext' ),
-					'removeMemberBody'   => __( 'They will lose access to this space immediately.', 'buddynext' ),
-					'remove'             => __( 'Remove', 'buddynext' ),
-					'removeMemberFailed' => __( 'Could not remove member. Try again.', 'buddynext' ),
-					'updateRoleFailed'   => __( 'Could not update role. Try again.', 'buddynext' ),
-					'banMemberTitle'     => __( 'Ban this member?', 'buddynext' ),
-					'banMemberBody'      => __( 'They will be removed and blocked from rejoining this space.', 'buddynext' ),
-					'ban'                => __( 'Ban', 'buddynext' ),
-					'banMemberFailed'    => __( 'Could not ban member. Try again.', 'buddynext' ),
-					'unbanMemberTitle'   => __( 'Unban this member?', 'buddynext' ),
-					'unbanMemberBody'    => __( 'They will be able to request or join this space again.', 'buddynext' ),
-					'unban'              => __( 'Unban', 'buddynext' ),
-					'unbanMemberFailed'  => __( 'Could not unban member. Try again.', 'buddynext' ),
-					'enterIdentifier'    => __( 'Enter a username or email address.', 'buddynext' ),
-					'inviteSent'         => __( 'Invitation sent', 'buddynext' ),
-					'inviteFailed'       => __( 'Could not send the invitation.', 'buddynext' ),
+					'removeMemberTitle'    => __( 'Remove this member?', 'buddynext' ),
+					/* translators: %s: the member's name. */
+					'removeNamedTitle'     => __( 'Remove %s from this space?', 'buddynext' ),
+					/* translators: %s: the member's name. */
+					'banNamedTitle'        => __( 'Ban %s from this space?', 'buddynext' ),
+					'banReasonPlaceholder' => __( 'Reason (optional, kept in the moderation log)', 'buddynext' ),
+					'banReasonLabel'       => __( 'Reason for the ban', 'buddynext' ),
+					'removeMemberBody'     => __( 'They will lose access to this space immediately.', 'buddynext' ),
+					'remove'               => __( 'Remove', 'buddynext' ),
+					'removeMemberFailed'   => __( 'Could not remove member. Try again.', 'buddynext' ),
+					'updateRoleFailed'     => __( 'Could not update role. Try again.', 'buddynext' ),
+					'banMemberTitle'       => __( 'Ban this member?', 'buddynext' ),
+					'banMemberBody'        => __( 'They will be removed and blocked from rejoining this space.', 'buddynext' ),
+					'ban'                  => __( 'Ban', 'buddynext' ),
+					'banMemberFailed'      => __( 'Could not ban member. Try again.', 'buddynext' ),
+					'unbanMemberTitle'     => __( 'Unban this member?', 'buddynext' ),
+					'unbanMemberBody'      => __( 'They will be able to request or join this space again.', 'buddynext' ),
+					'unban'                => __( 'Unban', 'buddynext' ),
+					'unbanMemberFailed'    => __( 'Could not unban member. Try again.', 'buddynext' ),
+					'enterIdentifier'      => __( 'Enter a username or email address.', 'buddynext' ),
+					'inviteSent'           => __( 'Invitation sent', 'buddynext' ),
+					'inviteFailed'         => __( 'Could not send the invitation.', 'buddynext' ),
 				),
 			)
 		);
@@ -2411,6 +2528,9 @@ class AssetService {
 					'strengthGood'     => __( 'Good', 'buddynext' ),
 					'strengthStrong'   => __( 'Strong', 'buddynext' ),
 					'fillRequired'     => __( 'Please fill in your email and password.', 'buddynext' ),
+					'fillPassword'     => __( 'Please enter a password.', 'buddynext' ),
+					'fillEmail'        => __( 'Please enter your email address.', 'buddynext' ),
+					'invalidEmail'     => __( 'Please enter a valid email address.', 'buddynext' ),
 					'agreeTerms'       => __( 'Please agree to the Terms of Service and Privacy Policy to continue.', 'buddynext' ),
 					'answerChallenge'  => __( 'Please answer the verification question.', 'buddynext' ),
 					'createFailed'     => __( 'Could not create your account.', 'buddynext' ),

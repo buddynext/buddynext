@@ -97,6 +97,27 @@ class PageRouter {
 			function (): void {
 				foreach ( HubRegistry::instance()->all() as $bn_hub ) {
 					add_action( 'update_option_' . $bn_hub->slug_option, array( $this, 'flush_on_slug_change' ) );
+					add_action( 'add_option_' . $bn_hub->slug_option, array( $this, 'flush_on_slug_change' ) );
+					// Remember the slug a hub is leaving so its old links 301 (see
+					// redirect_renamed_hub()). The option write is the one place every
+					// rename passes: Settings > Pages, the setup wizard, the installer,
+					// WP-CLI. A first rename creates the option, so its old slug is the default.
+					add_action(
+						'update_option_' . $bn_hub->slug_option,
+						static function ( $old_slug, $new_slug ) use ( $bn_hub ): void {
+							self::remember_hub_slug( $bn_hub, (string) $old_slug, (string) $new_slug );
+						},
+						10,
+						2
+					);
+					add_action(
+						'add_option_' . $bn_hub->slug_option,
+						static function ( $option, $new_slug ) use ( $bn_hub ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- add_option_{name} passes the name first.
+							self::remember_hub_slug( $bn_hub, $bn_hub->default_slug, (string) $new_slug );
+						},
+						10,
+						2
+					);
 				}
 			},
 			1
@@ -129,6 +150,8 @@ class PageRouter {
 		add_action( 'wp', array( $this, 'detach_front_page_from_subroute' ), 1 );
 
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
+		// Before redirect_canonical (10), which would otherwise guess at a 404.
+		add_action( 'template_redirect', array( $this, 'redirect_renamed_hub' ), 9 );
 
 		// The theme's search results page links to the community results.
 		add_action( 'loop_start', array( $this, 'community_search_note' ) );
@@ -989,6 +1012,8 @@ class PageRouter {
 				wp_safe_redirect( self::activity_url() );
 				exit;
 			}
+			// The member is starting the wizard: make sure their reminder nudges exist (once).
+			( new \BuddyNext\Onboarding\OnboardingListener() )->ensure_nudges( get_current_user_id() );
 		}
 
 		// ── No-cache: token-bearing pages ─────────────────────────────────
@@ -1108,6 +1133,16 @@ class PageRouter {
 		if ( 'people' === $hub
 			&& '' !== (string) get_query_var( 'bn_user_slug', '' )
 			&& empty( $context['user_id'] ) ) {
+			$this->send_404();
+			return;
+		}
+
+		// ── Unknown tab gate ──────────────────────────────────────────────
+		// /members/lena/zzzz/ and /spaces/x/zzzz/ showed the profile or the Space with a 200: the
+		// first unknown path level was read as "open the default tab". A made-up tab, and a real one
+		// this viewer cannot see, now answer 404 like any other dead link. Decided here, before any
+		// output, for the same reason as the gates around it.
+		if ( $this->is_unknown_tab( $hub, $context ) ) {
 			$this->send_404();
 			return;
 		}
@@ -1779,6 +1814,81 @@ class PageRouter {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Whether the address names a profile or Space tab that does not exist for this viewer.
+	 *
+	 * A tab is valid when it is in the navigation this viewer gets for that profile or Space (the same
+	 * resolved nav the page renders, memoised per request, so this costs the page nothing extra), or it
+	 * is one of the few routes with a page of their own. Anything else, a typo or a tab hidden from this
+	 * viewer, is not found. The default (no tab in the address) is always valid.
+	 *
+	 * @param string              $hub     Hub key ('people' or 'spaces' are checked).
+	 * @param array<string,mixed> $context Resolved route context (user_id / space_id).
+	 * @return bool True when the address should answer 404.
+	 */
+	private function is_unknown_tab( string $hub, array $context ): bool {
+		$viewer = get_current_user_id();
+
+		if ( 'people' === $hub && ! empty( $context['user_id'] ) ) {
+			$tab = sanitize_key( (string) get_query_var( 'bn_profile_action', '' ) );
+			// The edit screen is a page of its own (it handles who may open it).
+			if ( '' === $tab || 'edit' === $tab ) {
+				return false;
+			}
+			$nav   = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', (int) $context['user_id'], (int) $viewer ) );
+			$known = array();
+			foreach ( $nav->layer( 'primary' ) as $item ) {
+				$known[] = (string) $item->id;
+				foreach ( $item->children as $child ) {
+					$known[] = (string) $child->id;
+				}
+			}
+			foreach ( $nav->layer( 'metric' ) as $item ) {
+				$known[] = (string) $item->id;
+			}
+			$surface = 'profile';
+		} elseif ( 'spaces' === $hub && ! empty( $context['space_id'] ) ) {
+			$tab = sanitize_key( (string) get_query_var( 'bn_space_action', '' ) );
+			// The core tabs and pages keep answering for everyone: each explains access itself (the
+			// join prompt on a private Space, the manager screens check their own permission).
+			if ( '' === $tab || in_array( $tab, array( 'feed', 'about', 'members', 'moderation', 'settings', 'admin' ), true ) ) {
+				return false;
+			}
+			$space_id = (int) $context['space_id'];
+			$members  = new \BuddyNext\Spaces\SpaceMemberService();
+			$active   = $viewer > 0 && 'active' === (string) $members->get_status( $space_id, $viewer );
+			$role     = $active ? (string) $members->get_role( $space_id, $viewer ) : '';
+			$nav      = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', $space_id, (int) $viewer, $role ) );
+			$known    = array();
+			foreach ( $nav->layer( 'primary' ) as $item ) {
+				$known[] = (string) $item->id;
+				foreach ( $item->children as $child ) {
+					$known[] = (string) $child->id;
+				}
+			}
+			$surface = 'space';
+		} else {
+			return false;
+		}
+
+		$is_known = in_array( $tab, $known, true );
+
+		/**
+		 * Filter whether a profile or Space tab address is a real route.
+		 *
+		 * Lets an add-on that serves a tab outside the navigation (a deep link its own page handles)
+		 * keep it from answering 404.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param bool                $is_known Whether the tab is in the viewer's navigation.
+		 * @param string              $surface  'profile' or 'space'.
+		 * @param string              $tab      The tab slug in the address.
+		 * @param array<string,mixed> $context  Resolved route context.
+		 */
+		return ! (bool) apply_filters( 'buddynext_route_tab_exists', $is_known, $surface, $tab, $context );
 	}
 
 	/**
@@ -3558,6 +3668,120 @@ class PageRouter {
 	}
 
 	/**
+	 * Post meta holding the slugs a hub's backing page answered to before.
+	 *
+	 * WordPress core's own key for a post's previous slugs. Core records and
+	 * redirects it only for non-hierarchical posts, never for pages, so the hub
+	 * writes it (remember_hub_slug()) and answers it (redirect_renamed_hub()).
+	 */
+	public const OLD_SLUG_META = '_wp_old_slug';
+
+	/**
+	 * Record the slug a hub is leaving on its backing page.
+	 *
+	 * Renaming back to a slug clears it from the history (no redirect loop), and
+	 * a slug another hub takes over is cleared from every hub, so an old link
+	 * never points past the hub that now owns that address. Without a backing
+	 * page there is nowhere to keep the history, and old links simply 404.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param HubDescriptor $hub Hub being renamed.
+	 * @param string        $old_slug Previous slug option value.
+	 * @param string        $new_slug New slug option value.
+	 * @return void
+	 */
+	public static function remember_hub_slug( HubDescriptor $hub, string $old_slug, string $new_slug ): void {
+		$old = trim( $old_slug );
+		$new = trim( $new_slug );
+		$old = '' !== $old ? $old : $hub->default_slug;
+		$new = '' !== $new ? $new : $hub->default_slug;
+		if ( $old === $new ) {
+			return;
+		}
+
+		foreach ( HubRegistry::instance()->all() as $other ) {
+			$other_page = self::hub_page_id( $other->key );
+			if ( $other_page > 0 ) {
+				delete_post_meta( $other_page, self::OLD_SLUG_META, $new );
+			}
+		}
+
+		$page_id = self::hub_page_id( $hub->key );
+		if ( $page_id > 0 && ! in_array( $old, get_post_meta( $page_id, self::OLD_SLUG_META, false ), true ) ) {
+			add_post_meta( $page_id, self::OLD_SLUG_META, $old );
+		}
+	}
+
+	/**
+	 * Send a link to a renamed hub's old address to the same place under its new one.
+	 *
+	 * /members/jane/?tab=about becomes /people/jane/?tab=about with a 301, so
+	 * bookmarks, emailed links and search results keep working after an owner
+	 * renames a hub. Runs only on a 404: an address that a page, a post, another
+	 * hub or a core route (/feed/, /wp-json/) answers is never touched.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return void
+	 */
+	public function redirect_renamed_hub(): void {
+		$target = is_404() ? self::renamed_hub_url( (string) wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- parsed into path segments and compared to stored slugs; the target is built from home_url().
+		if ( '' === $target ) {
+			return;
+		}
+
+		wp_safe_redirect( $target, 301 );
+		exit;
+	}
+
+	/**
+	 * Where a request URI under a hub's old slug lives now, or '' when it is not one.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $request_uri Request URI (path and query).
+	 * @return string
+	 */
+	public static function renamed_hub_url( string $request_uri ): string {
+		$home_path = trailingslashit( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ) );
+		$path      = (string) wp_parse_url( $request_uri, PHP_URL_PATH );
+		$query     = (string) wp_parse_url( $request_uri, PHP_URL_QUERY );
+		if ( 0 !== strpos( $path, $home_path ) ) {
+			return '';
+		}
+
+		$parts = explode( '/', substr( $path, strlen( $home_path ) ), 2 );
+		$first = strtolower( rawurldecode( $parts[0] ) );
+		if ( '' === $first ) {
+			return '';
+		}
+
+		$pages = array();
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			$page_id = self::hub_page_id( $hub->key );
+			if ( $page_id > 0 ) {
+				$pages[ $page_id ] = $hub;
+			}
+		}
+		update_meta_cache( 'post', array_keys( $pages ) );
+
+		foreach ( $pages as $page_id => $hub ) {
+			if ( ! in_array( $first, get_post_meta( $page_id, self::OLD_SLUG_META, false ), true ) ) {
+				continue;
+			}
+			$slug = self::hub_slug( $hub->slug_option, $hub->default_slug );
+			if ( $slug === $first ) {
+				return '';
+			}
+			$url = home_url( '/' . $slug . '/' . ( $parts[1] ?? '' ) );
+			return '' !== $query ? $url . '?' . $query : $url;
+		}
+
+		return '';
+	}
+
+	/**
 	 * Return true when the current request is a BuddyNext hub route.
 	 *
 	 * Safe to call from any hook after parse_request.
@@ -4430,14 +4654,39 @@ class PageRouter {
 	 *
 	 * @since 1.0.0
 	 *
-	 * @param string $slug    Proposed slug (sanitized with sanitize_title internally).
-	 * @param int    $user_id User requesting the slug (excluded from conflict checks).
+	 * @since 1.3.0 Added $is_admin_actor.
+	 *
+	 * @param string $slug           Proposed slug (sanitized with sanitize_title internally).
+	 * @param int    $user_id        User requesting the slug (excluded from conflict checks).
+	 * @param bool   $is_admin_actor True when a site administrator assigns the slug
+	 *                               (wp-admin Edit Member): impersonation words are
+	 *                               allowed, route words still are not.
 	 * @return bool True when the slug is available.
 	 */
-	public static function is_slug_available( string $slug, int $user_id ): bool {
+	public static function is_slug_available( string $slug, int $user_id, bool $is_admin_actor = false ): bool {
+		return null === self::slug_refusal( $slug, $user_id, $is_admin_actor );
+	}
+
+	/**
+	 * Why a profile slug cannot be claimed by this user, or null when it can.
+	 *
+	 * The same checks as is_slug_available(), with the answer a member needs:
+	 * an unusable handle (Handle::validate()'s own error), a reserved word
+	 * (`handle_reserved`) or one somebody holds (`slug_taken`). A reserved word
+	 * used to read as "already taken", which sent people hunting for a free
+	 * variant of a name nobody may use.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $slug           Proposed slug (sanitized with sanitize_title internally).
+	 * @param int    $user_id        User requesting the slug.
+	 * @param bool   $is_admin_actor True when a site administrator assigns the slug.
+	 * @return \WP_Error|null
+	 */
+	public static function slug_refusal( string $slug, int $user_id, bool $is_admin_actor = false ): ?\WP_Error {
 		$slug = sanitize_title( $slug );
 		if ( '' === $slug ) {
-			return false;
+			return \BuddyNext\Profile\Handle::taken_error();
 		}
 
 		// Usable at all? Charset and length, before any uniqueness lookup — an
@@ -4452,17 +4701,18 @@ class PageRouter {
 		// Handle::mention_regex() stops at `%`, so the member could never be
 		// @mentioned again. HandleRepair already used is_safe() to repair
 		// nicenames in that state; nothing stopped a member creating one here.
-		if ( is_wp_error( \BuddyNext\Profile\Handle::validate( $slug ) ) ) {
-			return false;
+		$valid = \BuddyNext\Profile\Handle::validate( $slug );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
 		}
 
 		// Block the reserved "user-{id}" pattern for any other user's ID.
 		if ( preg_match( '/^user-(\d+)$/', $slug, $m ) && (int) $m[1] !== $user_id ) {
-			return false;
+			return \BuddyNext\Profile\Handle::taken_error();
 		}
 
-		if ( in_array( $slug, self::reserved_profile_slugs(), true ) ) {
-			return false;
+		if ( self::is_reserved_profile_slug( $slug, $is_admin_actor ) ) {
+			return \BuddyNext\Profile\Handle::reserved_error();
 		}
 
 		// A handle somebody USED to hold stays theirs. Without this, Alice renames,
@@ -4473,7 +4723,7 @@ class PageRouter {
 		// is the same record that keeps her old links working.
 		$previous_owner = \BuddyNext\Profile\Handle::previous_owner( $slug );
 		if ( $previous_owner instanceof \WP_User && (int) $previous_owner->ID !== $user_id ) {
-			return false;
+			return \BuddyNext\Profile\Handle::taken_error();
 		}
 
 		// user_nicename. Checked EVEN IF that member also has a custom slug: the
@@ -4481,7 +4731,7 @@ class PageRouter {
 		// reaches them and handing it to someone else would silently redirect it.
 		$nicename_owner = get_user_by( 'slug', $slug );
 		if ( $nicename_owner instanceof \WP_User && (int) $nicename_owner->ID !== $user_id ) {
-			return false;
+			return \BuddyNext\Profile\Handle::taken_error();
 		}
 
 		// Check bn_profile_slug usermeta (indexed; slow-query warning is a false positive).
@@ -4497,49 +4747,108 @@ class PageRouter {
 		);
 		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 
-		return empty( $taken_by_meta );
+		return empty( $taken_by_meta ) ? null : \BuddyNext\Profile\Handle::taken_error();
 	}
 
 	/**
-	 * Profile slugs no member may claim.
+	 * Route words: no one may hold these, administrators included.
 	 *
-	 * Deliberately SHORT, and honest about what it is: defence in depth, not a
-	 * fix for a live collision. Measured on 1.1.6 — a member holding the slug
-	 * `edit` gets /members/edit/ and it resolves to them, while
-	 * /members/someone/edit/ still reaches the edit screen. The members rewrite
-	 * takes the first segment as a slug and the second as the action, so a
-	 * one-word slug cannot shadow a two-segment route today.
+	 * Each is, or is about to be, a path segment BuddyNext routes itself:
+	 * /me/..., /members/page/N/ (the directory pager), and the listing words a
+	 * members-base route would claim (search, new, all...). A member holding one
+	 * shadows the route, and by then the word is in links people have shared.
 	 *
-	 * What it guards is tomorrow: the moment anyone adds a LISTING route under
-	 * the members base — /members/search/, /members/online/ — a member already
-	 * holding that word shadows it, and by then the slug is in their profile URL
-	 * and in links other people have shared. Refusing a handful of routing words
-	 * now costs nothing; reclaiming one later costs a member their URL.
+	 * @since 1.3.0
+	 */
+	public const RESERVED_ROUTE_SLUGS = array( 'me', 'edit', 'settings', 'admin', 'search', 'new', 'all', 'page' );
+
+	/**
+	 * Impersonation words: a member may not take these, an administrator may assign them.
 	 *
-	 * `me` is here for a second reason: BuddyNext already routes /me/... at the
-	 * top level, and a member whose profile is /members/me/ makes every "me"
-	 * link in support ambiguous to read.
+	 * Handles a member could use to pose as the site or its staff ("@support",
+	 * "@moderator") or as one of its doors. A community that runs a real support
+	 * account gives it the handle from wp-admin > Edit Member.
 	 *
-	 * Owners extend it — a brand term, a landing page they intend to add — and
-	 * an owner who wants none of it can return an empty array.
+	 * @since 1.3.0
+	 */
+	public const RESERVED_IMPERSONATION_SLUGS = array(
+		'administrator',
+		'moderator',
+		'mod',
+		'support',
+		'help',
+		'staff',
+		'team',
+		'official',
+		'system',
+		'root',
+		'login',
+		'logout',
+		'register',
+		'api',
+		'wp-admin',
+		'members',
+		'spaces',
+		'activity',
+	);
+
+	/**
+	 * Profile slugs the given actor may not claim.
+	 *
+	 * The ONE reserved-names list, in two tiers: route words block everyone;
+	 * impersonation words block members but an administrator may assign them.
+	 * Every handle door reads it through is_slug_available(),
+	 * is_reserved_profile_slug(), Handle::set() or the registration checks, so
+	 * the sign-up form, the email-derived login, profile edit, REST and
+	 * wp-admin cannot disagree.
+	 *
+	 * The list gates CLAIMS, not holders: a member who already holds a word
+	 * keeps it (Handle::set() lets a member keep their own handle).
+	 *
+	 * Owners extend it through the filter (a brand term, a landing page they
+	 * intend to add); an owner who wants none of it can return an empty array.
 	 *
 	 * @since 1.1.6
+	 * @since 1.3.0 Two tiers; added $is_admin_actor.
 	 *
+	 * @param bool $is_admin_actor True when a site administrator assigns the slug.
 	 * @return string[] Sanitized, lowercase slugs.
 	 */
-	public static function reserved_profile_slugs(): array {
-		$reserved = array( 'me', 'edit', 'settings', 'admin', 'search', 'new', 'all' );
+	public static function reserved_profile_slugs( bool $is_admin_actor = false ): array {
+		$reserved = $is_admin_actor
+			? self::RESERVED_ROUTE_SLUGS
+			: array_merge( self::RESERVED_ROUTE_SLUGS, self::RESERVED_IMPERSONATION_SLUGS );
 
 		/**
 		 * Filter the profile slugs no member may claim.
 		 *
 		 * @since 1.1.6
+		 * @since 1.3.0 Added $is_admin_actor. The default list for an
+		 *              administrator holds route words only.
 		 *
-		 * @param string[] $reserved Default reserved slugs.
+		 * @param string[] $reserved       Reserved slugs for this actor.
+		 * @param bool     $is_admin_actor True when a site administrator assigns the slug.
 		 */
-		$reserved = (array) apply_filters( 'buddynext_reserved_profile_slugs', $reserved );
+		$reserved = (array) apply_filters( 'buddynext_reserved_profile_slugs', $reserved, $is_admin_actor );
 
 		return array_values( array_filter( array_map( 'sanitize_title', $reserved ) ) );
+	}
+
+	/**
+	 * Whether a handle or login is reserved for the given actor.
+	 *
+	 * Normalised the way WordPress turns a login into a nicename
+	 * (sanitize_title), so "Support", "support." and "SUPPORT" all match.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $slug           Proposed handle or login.
+	 * @param bool   $is_admin_actor True when a site administrator assigns it.
+	 * @return bool
+	 */
+	public static function is_reserved_profile_slug( string $slug, bool $is_admin_actor = false ): bool {
+		$slug = sanitize_title( $slug );
+		return '' !== $slug && in_array( $slug, self::reserved_profile_slugs( $is_admin_actor ), true );
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

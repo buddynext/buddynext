@@ -102,6 +102,11 @@ do_action( 'buddynext_part_space_about_panel_before', $args );
 		<p class="bn-sh-about__desc"><?php esc_html_e( 'No description yet.', 'buddynext' ); ?></p>
 	<?php endif; ?>
 
+	<?php $bn_location = trim( (string) buddynext_get_space_field( (int) ( $bn_space->id ?? 0 ), 'location' ) ); ?>
+	<?php if ( '' !== $bn_location ) : ?>
+		<p class="bn-sh-about__location"><?php buddynext_icon( 'map-pin' ); ?> <span class="screen-reader-text"><?php esc_html_e( 'Location:', 'buddynext' ); ?></span> <span class="bn-sh-about__location-text"><?php echo esc_html( $bn_location ); ?></span></p>
+	<?php endif; ?>
+
 	<?php if ( ! empty( $bn_rules ) ) : ?>
 		<section class="bn-sh-about__rules">
 			<h3 class="bn-sh-about__section-title"><?php esc_html_e( 'House rules', 'buddynext' ); ?></h3>
@@ -157,7 +162,7 @@ do_action( 'buddynext_part_space_about_panel_before', $args );
 		<?php if ( ! empty( $bn_space->created_at ) ) : ?>
 			<div>
 				<dt><?php esc_html_e( 'Created', 'buddynext' ); ?></dt>
-				<dd><?php echo buddynext_date_local( (string) $bn_space->created_at ); ?></dd>
+				<dd><?php echo wp_kses_post( buddynext_date_local( (string) $bn_space->created_at ) ); ?></dd>
 			</div>
 		<?php endif; ?>
 		<div>

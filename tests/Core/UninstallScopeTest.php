@@ -31,22 +31,43 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		include dirname( __DIR__, 2 ) . '/uninstall.php';
 	}
 
+	/**
+	 * Run Free's real uninstall script from a folder with another name, as a GitHub zip leaves it
+	 * (`buddynext-main`): the licence SDK names its options after the folder.
+	 *
+	 * The real Installer class is already loaded, so the copy's own require_once gets an empty stand-in.
+	 *
+	 * @param string $folder Folder name the plugin sits in.
+	 * @return void
+	 */
+	private function uninstall_from_folder( string $folder ): void {
+		$root = trailingslashit( get_temp_dir() ) . 'bn-uninstall-' . wp_generate_password( 8, false ) . '/' . $folder;
+		wp_mkdir_p( $root . '/includes/Core' );
+		copy( dirname( __DIR__, 2 ) . '/uninstall.php', $root . '/uninstall.php' );
+		file_put_contents( $root . '/includes/Core/Installer.php', "<?php\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+			define( 'WP_UNINSTALL_PLUGIN', $folder . '/buddynext.php' );
+		}
+		include $root . '/uninstall.php';
+		unlink( $root . '/uninstall.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+		unlink( $root . '/includes/Core/Installer.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+	}
+
 	public function test_pro_jobs_survive_a_free_uninstall(): void {
 		global $wpdb;
 		delete_option( 'buddynext_delete_data_on_uninstall' );
-		foreach ( array( 'buddynext_digest_weekly', 'buddynextpro_drip_tick', 'buddynext_pro_learnomy_backfill_chunk' ) as $hook ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-			$wpdb->insert(
-				$wpdb->prefix . 'actionscheduler_actions',
-				array(
-					'hook'                 => $hook,
-					'status'               => 'pending',
-					'scheduled_date_gmt'   => gmdate( 'Y-m-d H:i:s' ),
-					'scheduled_date_local' => gmdate( 'Y-m-d H:i:s' ),
-					'args'                 => '[]',
-				)
-			);
+		foreach ( array(
+			'buddynext_digest_weekly'               => 'buddynext',
+			'buddynextpro_drip_tick'                => 'buddynextpro_email',
+			'buddynext_pro_learnomy_backfill_chunk' => 'buddynext',
+			'buddynext_lookalike_job'               => 'other-plugin',
+		) as $hook => $group ) {
+			as_schedule_single_action( time() + HOUR_IN_SECONDS, $hook, array(), $group );
 		}
+		// 1.2.x nudges: no group, canceled, with a log row; plus another plugin's ungrouped job.
+		$nudge = as_schedule_single_action( time() + HOUR_IN_SECONDS, 'bn_onboarding_nudge_72h', array( 7 ) );
+		as_unschedule_action( 'bn_onboarding_nudge_72h', array( 7 ) );
+		as_schedule_single_action( time() + HOUR_IN_SECONDS, 'other_ungrouped_job', array() );
 
 		$this->uninstall();
 
@@ -55,6 +76,10 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		$this->assertNotContains( 'buddynext_digest_weekly', $hooks, 'Free\'s own job goes.' );
 		$this->assertContains( 'buddynextpro_drip_tick', $hooks );
 		$this->assertContains( 'buddynext_pro_learnomy_backfill_chunk', $hooks );
+		$this->assertContains( 'buddynext_lookalike_job', $hooks, 'Another plugin\'s group is never read.' );
+		$this->assertNotContains( 'bn_onboarding_nudge_72h', $hooks, 'Ungrouped 1.2.x nudges go, whatever their status.' );
+		$this->assertSame( '0', (string) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}actionscheduler_logs WHERE action_id = %d", $nudge ) ), 'With their log rows.' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$this->assertContains( 'other_ungrouped_job', $hooks, 'Another plugin\'s ungrouped job stays.' );
 	}
 
 	public function test_a_subsite_opt_in_cannot_wipe_network_wide_member_meta(): void {
@@ -74,6 +99,68 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		$this->uninstall();
 
 		$this->assertSame( '1', get_user_meta( $user_id, 'bn_onboarding_done', true ), 'Only the network owner\'s choice reaches user meta.' );
+	}
+
+	public function test_a_default_uninstall_keeps_the_owners_settings(): void {
+		delete_option( 'buddynext_delete_data_on_uninstall' );
+		update_option( 'buddynext_keep_me_probe', 'configured' );
+
+		$this->uninstall();
+
+		$this->assertSame( 'configured', get_option( 'buddynext_keep_me_probe' ), 'The screen promises a delete keeps settings.' );
+	}
+
+	public function test_the_opt_in_uninstall_removes_the_settings(): void {
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
+		update_option( 'buddynext_keep_me_probe', 'configured' );
+
+		$this->uninstall();
+		wp_cache_flush(); // The script deletes options straight from the table.
+
+		$this->assertFalse( get_option( 'buddynext_keep_me_probe' ) );
+	}
+
+	/**
+	 * The licence SDK's update cache for BuddyNext goes with the opt-in wipe; another
+	 * plugin's cache row on the same SDK stays, and a default uninstall keeps both.
+	 */
+	public function test_the_opt_in_wipe_removes_only_our_licence_update_cache(): void {
+		update_option( 'buddynext_license_key', 'probe-key' );
+		$ours = 'edd_sl_' . md5( (string) wp_json_encode( array( 'buddynext', 'probe-key', 0 ) ) );
+		update_option( $ours, array( 'timeout' => time() + 60 ) );
+		update_option( 'edd_sl_0123456789abcdef0123456789abcdef', array( 'timeout' => time() + 60 ) );
+
+		delete_option( 'buddynext_delete_data_on_uninstall' );
+		$this->uninstall();
+		wp_cache_flush();
+		$this->assertNotFalse( get_option( $ours ), 'Data kept: the update cache stays with the key.' );
+		$this->assertSame( 'probe-key', get_option( 'buddynext_license_key' ) );
+
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
+		$this->uninstall();
+		wp_cache_flush();
+		$this->assertFalse( get_option( $ours ) );
+		$this->assertFalse( get_option( 'buddynext_license_key' ) );
+		$this->assertNotFalse( get_option( 'edd_sl_0123456789abcdef0123456789abcdef' ), 'Another plugin\'s cache is not ours.' );
+	}
+
+	/**
+	 * A GitHub zip extracts as `buddynext-main`, and the licence SDK names its options after the
+	 * folder: its update cache row and key were left behind by an uninstall that assumed `buddynext`.
+	 */
+	public function test_the_opt_in_wipe_clears_the_licence_cache_of_a_renamed_folder(): void {
+		update_option( 'buddynext-main_license_key', 'probe-key' );
+		$ours = 'edd_sl_' . md5( (string) wp_json_encode( array( 'buddynext-main', 'probe-key', 0 ) ) );
+		update_option( $ours, array( 'timeout' => time() + 60 ) );
+		update_option( 'edd_sl_0123456789abcdef0123456789abcdef', array( 'timeout' => time() + 60 ) );
+
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
+		$this->uninstall_from_folder( 'buddynext-main' );
+		wp_cache_flush();
+
+		$this->assertFalse( get_option( $ours ), 'The update cache named after the real folder goes.' );
+		$this->assertFalse( get_option( 'buddynext-main_license_key' ) );
+		$this->assertNotFalse( get_option( 'edd_sl_0123456789abcdef0123456789abcdef' ), 'Another plugin\'s cache is not ours.' );
 	}
 
 	public function test_the_main_site_opt_in_wipes_member_meta(): void {

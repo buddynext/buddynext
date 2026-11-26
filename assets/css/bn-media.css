@@ -521,6 +521,22 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-size: var( --bn-text-sm, 0.875rem );
 	line-height: var( --bn-leading-snug, 1.4 );
 }
+/* The rest of a long thread lives on the post (lightbox.js renderComments). */
+.bn-lightbox__comments-more {
+	align-self: flex-start;
+	padding-block: var(--bn-s1);
+	color: var(--bn-accent-text, var(--bn-accent));
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+.bn-lightbox__comments-more:hover { text-decoration-thickness: 2px; }
+.bn-lightbox__comments-more:focus-visible {
+	outline: 2px solid var(--bn-focus);
+	outline-offset: 2px;
+	border-radius: var(--bn-r-sm);
+}
 /* Comment row: avatar on the left, author/text/actions stacked beside it, with
    clear separation between comments (card 10268182721). */
 .bn-lightbox__comment {

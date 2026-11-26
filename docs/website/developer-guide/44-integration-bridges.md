@@ -86,6 +86,7 @@ add_filter(
 - **Explore uses the stored card details.** A registered type gets an Explore card with the type label and icon, cover (`image`), title, description, and for events a date tile (`month`, `day`) and place (`city`). An unregistered type shows the plain text teaser.
 - **Details resolved at render time** (per viewer, or for cards stored before a field existed) come from `buddynext_integration_card_preview( array $meta, string $type )`. MediaVerse uses it for the viewer-gated title and cover, WB Gamification for the artwork and description of badges shared before 1.2.6.
 - **Check both surfaces when you add a type.** A new bridge activity is not done until its feed card and its Explore card are both reviewed.
+- **Older untyped cards are adopted.** Before a bridge passed a type, its cards were stored as `link`. Since 1.3.0, `publish()`, `remove()`, `withdraw()`, `restore()`, `refresh()` and `rewrite()` find such a card by its URL and retype it to the type you pass, so an update or delete reaches it and a re-publish does not duplicate it. A member's own link post is never touched. The signatures are unchanged.
 
 ## Version floors and the staleness gate
 
@@ -115,7 +116,31 @@ Current declared values (update the row when you re-verify a bridge against a ne
 | `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.8.0 |
 | `jetonomy` | `JETONOMY_VERSION` | (none) | 2.0.1 |
 | `listora` | `WB_LISTORA_VERSION` | (none) | 1.9.0 |
-| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.3.0 |
+| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.5.3 |
+
+## Product icons
+
+Integration Settings and the Add-ons tab show a square icon beside every product name, decorative (the name sits next to it), drawn by `BuddyNext\Admin\ProductIcon`. It resolves in this order:
+
+1. The active companion's `icon` (see the companion install model), else its mark bundled in BuddyNext at `assets/img/companions/{companion-slug}.svg`. The Wbcom family ships there, so those plugins declare nothing.
+2. The integration's own `icon` key on its `buddynext_integrations` entry, for an integration with no companion.
+3. The first letter of the name on a tile.
+
+An `icon` is an `https://` or `http://` URL, or a path relative to the plugins folder; anything else is ignored. A third-party add-on gets its icon by declaring it next to its label and version:
+
+```php
+add_filter( 'buddynext_integrations', static function ( array $items ): array {
+    $items['my_addon'] = array(
+        'label'    => 'My Add-on',
+        'version'  => MY_ADDON_VERSION,
+        'icon'     => 'my-addon/assets/icon.svg', // or plugins_url( 'assets/icon.svg', MY_ADDON_FILE )
+        'has_feed' => true,
+    );
+    return $items;
+} );
+```
+
+Use a square SVG or PNG with no scripts or external references; it is drawn at 40 by 40 pixels.
 
 ## Identity takeover (BuddyNext is master)
 
@@ -138,8 +163,13 @@ Routes Jetonomy forum events into BuddyNext search, the activity feed, the navig
 | `jetonomy_after_delete_post` | action (`$post_id`) | A discussion is purged | `on_post_hard_deleted` |
 | `jetonomy_reply_publish_transition` | action (`$reply_id`, `$delta`, `$created_at`) | A reply enters or leaves `publish` | `sync_reply_mirror` |
 | `jetonomy_reply_updated` | action (`$reply_id`, ...) | A reply is edited | `sync_reply_edit_to_feed` |
+| `jetonomy_after_create_flag` | action (`$flag`, `$context`) | A member flags a topic or reply | `queue_forum_flag` |
+| `jetonomy_flag_resolved` | action (`$flag_id`, `$status`, `$user_id`) | A forum moderator resolves a flag | `close_bn_report_for_flag` |
+| `jetonomy_content_moderated` | action (`$action`, `$type`, `$id`, `$user_id`) | A topic or reply is approved, marked spam or trashed by a moderator | `close_bn_report_for_moderated` |
 
 `sync_discussion()` reads the discussion as it is now, so every path gives the same answer. A published topic is indexed into `bn_search_index` as `object_type = 'discussion'` (visibility `public`, or `private` for a private topic). A published topic in a public forum gets a `discussion` feed card via `Feed\IntegrationActivity`: a withdrawn card is restored with its date, reactions and comments, an existing card is refreshed, and a topic with no card (for example one just approved) gets its first. Anything not published loses its search row and its card is withdrawn (hidden, not deleted), so a restore brings the same card back. A purge removes the card and its comments. The discussion URL is rebuilt from the `jt_posts` / `jt_spaces` slugs as `{base}/s/{space}/t/{post}/`.
+
+A member's flag on a topic or reply is copied into the BuddyNext moderation queue as a `jetonomy_topic` or `jetonomy_reply` report (an automatic flag, or a flag on a member, is not). Remove content trashes the item through Jetonomy's system moderation entry, so a BuddyNext moderator needs no forum capability; removing a reported discussion card or mirrored comment trashes its forum twin too. Closing a report on either side closes the other, and a card and its topic (or a comment and its reply) close together so the same content cannot be struck twice. The queue labels a forum item by kind and forum only, never by its title.
 
 A reply's comment on the card follows the reply the same way: a new or approved reply is copied onto the card (as Jetonomy's plain-text copy, dated when the reply was written), a trashed or unapproved reply's comment is removed, and a restore brings back the same comment. Edits sync both ways.
 
@@ -169,7 +199,8 @@ BuddyNext owns the member profile. Opening Jetonomy's own profile directly (`{ba
 
 | Hook / surface | Purpose |
 |---|---|
-| `buddynext_rail_items` (filter) | Adds a "Discussions" item to the BuddyNext left rail, linking to the Jetonomy community home. Active state derived from `REQUEST_URI`. |
+| `buddynext_rail_items` (filter) | Adds two rail items: `discussions` (the Jetonomy forum home, shown to guests too) and `my-discussions` (the member's own profile Discussions tab, in the `you` group, active state derived from `REQUEST_URI`). |
+| `jetonomy_breadcrumb_html` (filter, consumed) | On a forum linked to a space, prepends a "Back to <space>" link to Jetonomy's breadcrumb when the viewer can see that space. |
 | `buddynext_register_nav` (action) | Registers a "Discussions" tab on both the profile surface (with a lazy count badge of the member's published discussions) and the space surface (linking to the linked forum, or the on-demand provision trigger). |
 | `buddynext_context_nav` (filter) | Injects Home / Search / Leaderboard sub-nav when the active section is `discussions`. |
 | `buddynext_hashtag_related_discussions` (filter) | Returns Jetonomy discussions sharing a hashtag slug, so the hashtag feed can show "Related Discussions". |
@@ -205,6 +236,7 @@ Cross-cutting rules:
 - **Deleting cleans up.** A permanently deleted object removes its bell rows through the plugin's `_removed` action.
 - **Collect-only.** The plugin sends its own email; BuddyNext never emails these types.
 - **Minimum version.** A plugin release without the contract sends nothing to the bell, so the release that adds it is the minimum BuddyNext supports.
+- **One bell, not two.** Before a plugin hides its own bell it asks `apply_filters( 'buddynext_inbox_active', false, $source, $user_id )`, where `$source` is its source slug (`career_board`) or its hook prefix (`wcb`). BuddyNext answers `true` only when that plugin has adopted the contract (declared its types), so a release that BuddyNext does not mirror keeps its bell. With BuddyNext inactive nobody answers and the default `false` stands, so no `function_exists` check is needed. It does not say whether a bell is drawn on the page being rendered; that depends on the theme header.
 
 ## WPMediaVerseBridge
 
@@ -256,6 +288,8 @@ A non-photo media upload (video / audio) becomes a `'media'` integration feed ca
 | `mvs_media_restored` | `on_media_restored` - re-publish the card (reference-only, so it reconstructs exactly; idempotent by URL) |
 | `mvs_media_privacy_changed` | *not hooked* - privacy is resolved at render instead: `hydrate_media_preview()` gates BOTH title and cover behind `PrivacyService::can_view()`, so a viewer who may not see the media gets the coverless, titleless compact card. Per viewer, for every transition - a blunt privacy-change withdrawal would also hide members-scoped media from members who may still see it. |
 
+**Comments follow the media onto its card.** A comment made in the media lightbox shows on the video or audio card too, and comments made before the card existed are copied onto it when it is created. Cards created before 1.3.0 pick up their earlier comments the next time someone comments. Comments flow one way, from MediaVerse into the feed. A notification about a media comment opens the post it was shared in, or the media page when **Media links** is set to a dedicated media page.
+
 **Photo posts** are native `photo` posts holding media ids, not permalink cards, so `sync_photo_posts()` (called from the three media hooks above) keeps them in step. On trash, a post with no photo left to show goes to `draft` stamped `link_meta.media_withdrawn` (a post that still shows other photos stays; the renderer skips the trashed one). On restore, only stamped drafts come back, in place, so a member's own draft holding the same photo is never published. On permanent delete, the id is dropped from every post and a post left with no media is deleted through the normal cascade. The upload's own photo post is created inside `IntegrationActivity::as_mirror()`, so reward listeners do not pay the upload twice.
 
 A **composer document card** follows its document the same way, keyed on `link_meta.doc_id`: every trash (member or admin) goes through the repository's `trash()`, which fires `mvs_media_trashed`, so `on_media_trashed()` withdraws the card; `on_media_restored()` brings the same card back with its text, reactions and comments; a permanent delete removes it. (Before 1.2.2 a trashed document's card was deleted and never restored; withdrawing keeps the post text, so restore is now safe.)
@@ -303,8 +337,101 @@ Surfaces a member's published WordPress posts as an **Articles** profile tab. Un
 - **Guard:** `MemberBlogBridge::available()` checks `defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' )` - the plugin's own bootstrap constant - evaluated lazily inside each surface (the nav condition, the REST handler), not at `init()`. Hooks attach unconditionally because `plugins_loaded:25` can still run before Member Blog's own late bootstrap on some sites; a presence check at hook time would silently disable the tab where the plugin is in fact present.
 - **The feed side is NOT this bridge.** Free's `Feed\BlogPostListener` already publishes an `article` card on `publish` for every tracked post type, independent of Member Blog. This bridge only adds the profile surface and the owner's route back to Member Blog's dashboard.
 - **Registry entry:** merges the `nav` aspect onto the SAME `blog` integration key `BlogPostListener` already registers for `feed` (`register_integration()` on `buddynext_integrations`, merge not replace, so neither side can silently turn the other off). Reports `version` / `tested_version` (`4.1.0`) only once Member Blog is actually present; while the plugin is absent, site tracking's own `null` version is left untouched.
-- **Surfaces:** an "Articles" profile tab (priority 65, after Discussions) listing the member's published posts with pagination - the same list for every viewer, owner included; drafts are managed in the Member Blog dashboard. `articles_data()` / `MemberBlogRestController` expose the same list as JSON for the app.
+- **Surfaces:** an "Articles" profile tab (priority 65, after Discussions) listing the member's published posts with pagination - the same list for every viewer, owner included. Only posts everyone may read are listed: private and password-protected posts never appear (not their title, cover or excerpt), nor do drafts, pending or scheduled posts; the author manages all of those in the Member Blog dashboard. The same rule holds for the tab count, the REST list and the feed card (an article card is withdrawn when its post turns private or gains a password, and any reader that still reaches it gets no title, excerpt or cover). `articles_data()` / `MemberBlogRestController` expose the same list as JSON for the app.
 - **Dashboard link:** `dashboard_url()` prefers Member Blog's own `Member_Blog_Compat::get_dashboard_url()` when it happens to be loaded, falls back to the configured dashboard page option, then to wp-admin for a member who can reach it, and returns `''` (no link rendered) rather than a URL that 404s or bounces off a login wall.
+- **Write pages in the shell (1.3.0):** Member Blog's Add new post page (`bp_post_page`) and My Blog Dashboard page (`bp_dashboard_page`) render inside the BuddyNext shell through the `blogwrite` hub (no rewrite rule, no backing page). Same pages, same URLs, no redirect; the page content is Member Blog's own form or dashboard. A heading and two tabs (New post, My articles) frame it, and members Member Blog lets write get a "Write a post" rail item in the You group. A member who cannot write sees no tabs and no rail item, and the page shows Member Blog's own notice. A suspended member, or one whose sign-up awaits approval, sees the heading and a BuddyNext notice saying why, with no tabs, no rail item and no form; BuddyNext also answers `false` through Member Blog's own `bpmb_can_create_post` and `bpmb_can_edit_post` filters for them, so Member Blog's form submit, autosave, dashboard actions, `/wp/v2/posts` gate and scheduled publish refuse too (site admins are exempt). An edit link (`?post_id=`) to a post that is missing or not the member's to edit shows "That post could not be found." with a link to My articles instead of the form. The browser tab reads "Write a post" on the post page and "My articles" on the dashboard. A guest is sent to the BuddyNext sign-in and back. Both pages follow the `blog` integration's `nav` switch and the same private-community gate as every other hub (no article-specific rule), and always full-load (never a client-side swap).
+- **`buddynext_blog_write_in_shell`** (filter, `bool $in_shell`, `int $page_id`, since 1.3.0): return `false` to keep the theme's own page template for these two pages. Return `false` for guests only (`is_user_logged_in() ? $in_shell : false`) to show Member Blog's own sign-in state instead of the redirect to sign-in.
+
+- **`subtab_options`** (integration registry key, since 1.3.0): a map of declared sub-tab key to a hint. Those sub-tabs render as a full-width option card with the hint instead of a pill. The stored flag is the sub-tab option, so Member Blog's **Articles in Spaces** is `buddynext_integration_blog_subtab_spaces` (default on). `BlogPostListener::spaces_enabled()` reads it. Off: the Space Blog tab, **Write for this Space** and the write form's Space choice are gone, and `space_accepts_article()` refuses a new association; the stored `_bn_space_id` is kept. Cards re-place in batches (`buddynext_resync_article_spaces`, Action Scheduler, 25 per batch, cursor on the postmeta id): an open Space's card goes site-wide while off and returns when on, a private or secret Space's card never moves.
+- **Per Space (1.3.0):** `MemberBlogBridge` registers the boolean Space field `articles_tab` (section `integrations`, default on, owner writable) while Member Blog is active, so it is read and written through the Space object's fields like the other tab switches. `BlogPostListener::space_enabled( $space_id )` is the site-wide switch AND this field, and gates the Blog tab, `space_accepts_article()` and the card placement. A real change (the new `$changed` argument of `buddynext_space_fields_saved`) queues `buddynext_resync_article_spaces` for that one Space.
+- **`buddynext_integration_subtab_changed`** (action, `string $key`, `string $sub`, `bool $on`, since 1.3.0): fires once when a sub-tab switch is saved with a different value. Re-saving the screen is silent. Changing the option outside the screen (WP-CLI, a direct `update_option()`) does not fire it, so no re-sort is queued: save the screen, or run `BlogPostListener::resync_space_cards( 0 )`. A nav tab may declare `integration_sub` so Settings > Navigation can say the sub-tab switch is off.
+
+### Facts line on a bridge card (1.3.0)
+
+A bridge card can carry a short facts line under its title (who is hiring, where, what it costs, how long it is), so a member can judge the card without opening it. The bridge writes it when it publishes: put `'facts' => array( array( 'icon' => 'map-pin', 'text' => 'Remote' ), ... )` in the card's `$meta` (stored in `link_meta`). `icon` is a BuddyNext icon slug (optional), `text` one short line. Empty facts are left out, a text is kept to 80 characters with markup removed, and no more than four are drawn (`IntegrationActivity::facts()`). A bridge that must resolve facts per viewer, as MediaVerse does for a clip's length, sets `facts` in the `link_preview` it hands to `render_bridge_card()` instead. `buddynext_card_facts` (filter, `array $facts, string $type, array $link_meta`, since 1.3.0) lets a site add, remove or reword them. Cards published before the facts line get one in the background: a bridge registers `type => callable( array $card ): array` on `buddynext_card_facts_backfill` (since 1.3.0) and `CardFactsBackfill` fills the cards of that type that have no `facts` key yet, 50 at a time through Action Scheduler, checked at most twice a day from wp-admin; a card is written once, an empty list included. A value that changes after publishing (spots left, solved, open now) is answered live instead: a bridge returns `post id => array( 'facts' => ..., 'actions' => ... )` on `buddynext_card_live` (filter, `array $answers, string $type, array $cards, int $viewer`, since 1.3.0; each entry of `$cards` is the stored link meta plus `user_id`, the member the card is about). BuddyNext asks once per card type for the whole page, on the web feed and on REST alike, so load the ids in one call, never one per card. An old card and a new one are answered the same way, so a card published before a bridge learned a fact shows it on the next page load with no job to run. A bridge whose plugin is off or too old answers nothing and the stored facts stand. A live answer may also carry `'title'`, `'text'` and `'url'` to replace the stored title, the short text under it and the address the title opens (a candidate's headline instead of their name, the course instead of its certificate); an empty value keeps the stored one. A card can also carry up to two buttons, the main one first and an optional secondary: `'actions' => array( array( 'label' => 'View job', 'url' => ... ) )` in the card's meta or in the live answer, and `buddynext_card_actions` (filter, `array $actions, string $type, array $link_meta, int $post_id`, since 1.3.0) lets a site change them. A label is kept to 30 characters and only http and https addresses are drawn. A button that goes to the same address as the card's own title is never drawn, whoever supplies it (the title is already the link), so give a card a button only for something the title cannot do, such as a download. Partner cards show one picture at most, as a square thumbnail at the side at every width (a badge keeps its round emblem plate); a card with no picture, or whose picture fails to load, is text only. The footer (React, Comment, Share, Save) and the three-dot menu are never changed by a card; a REST feed item carries the same list as `card.facts` and `card.actions`; an app reads `card`, because `link_meta.facts` is only the snapshot stored when the card was made and can be out of date. Rating and badge totals are snapshots taken when the card was published or last refreshed: Listora refreshes a listing's rating when a review changes. A badge card shows the member's level and the badge's name as they are now; the level stored when it was shared is only what an app or a bridge whose partner is off falls back to.
+
+### Which Space a partner card goes in (1.3.0)
+
+An event or listing made for a Space puts its card in that Space's own feed only when the Space is open and not gated by a plan; for a private or secret Space the card stays in the site feed (the item is public and stays public) and the Space shows it on its own tab. A bridge passes `IntegrationActivity::card_space( $space_id )` as the card's Space instead of the raw id. `buddynext_partner_card_space` (filter, `int $card_space, int $space_id`, since 1.3.0) lets a site change it, for example to return 0 and keep every card site-wide. A card follows its Space's own "Share activity to the main feed" setting for the site feed, like any Space post. An item tied to several Spaces (an event's own Space plus Spaces it was linked to, or a listing approved into several) has one card: pass `card_space()` the Space ids in order and the first open one wins (the item's own Space, then the earliest-linked). The card does not move when later Spaces are linked; it moves when the Space it sits in is unlinked, becomes private or secret, or is deleted, falling to the next open Space and then to the site feed. The other Spaces still list the item on their own tab. Career Board jobs have no Space link, so their cards stay site-wide.
+
+### Which cards notify a Space (1.3.0)
+
+A new card in a Space notifies the Space's members only when someone wrote it to share with them. A bridge says so when it publishes: put `'notify_space' => false` in the card's `$meta` (stored in `link_meta`, default is to notify). Set it for a card that records something that happened to the member (a course completed, a badge earned) or that the partner already announces to its own audience (a Jetonomy topic, a Listora review, a MediaVerse upload). Cards published before this change keep their old behaviour. `buddynext_notify_space_of_post` (filter, `bool $notify, int $post_id, int $space_id, string $type`, since 1.3.0) has the last word, in either direction.
+
+### Article provider (1.3.0)
+
+Every doorway to "write an article" (the profile Articles tab links, the write hub tabs, the rail entry, and `posting.article_provider` in `GET /buddynext/v1/app/config`) reads one payload, `BuddyNext\Feed\ArticleProvider::for_user( $user_id )`, resolved once per request per member. BuddyNext owns the surfaces; the editor is a provider.
+
+| Key | Type | Meaning |
+|---|---|---|
+| `key` | string | Provider slug (`member-blog`, `wordpress`, or yours). |
+| `label` | string | Label for the Article tab. |
+| `icon` | string | BuddyNext icon slug. |
+| `can_write` | bool | Whether this member may write. The one answer every doorway uses. |
+| `new_url` | string | Where a new article starts. |
+| `drafts_url` | string | The member's drafts. |
+| `my_articles_url` | string | Where the member manages their articles. |
+| `pending_url` | string | The member's articles waiting for review (Member Blog's dashboard `?tab=pending`; the WordPress editor's Pending list for the fallback). |
+| `title_arg` | string | Query arg the editor reads to prefill the title (`post_title` for the WordPress editor); `''` when it reads none. |
+| `supports_space` | bool | Whether the editor can post into a space (false for both built-in providers). |
+
+Resolution order: the `buddynext_article_provider` filter (default `null`); WB Member Blog registers itself from BuddyNext's side at priority 10 while the Articles tab is available (Member Blog active and the Blog posts "Show in navigation" switch on), and only when nothing earlier claimed the slot. Its `title_arg` is `''` because Member Blog's editor reads no title query arg. With no provider, a member with `edit_posts` gets the WordPress editor (`post-new.php`, `can_write` true unless they are suspended or their sign-up awaits approval); everyone else, and every guest, gets `null`. The "Write a post" rail entry and the write hub tabs appear only for the Member Blog provider; the WordPress fallback has neither.
+
+- **`buddynext_article_provider`** (filter, `array|null $provider`, `int $user_id`, since 1.3.0): return the payload above, or `null` for "nowhere to write". Missing keys are filled with empty defaults.
+- **`buddynext_composer_article_tab`** (filter, `bool $show`, `array $context`, since 1.3.0): whether the feed composer offers the Article tab beside Post. `$context` carries `surface` (`feed` for the main What's New composer, `space` in a space, `profile` on a profile's Posts tab), `space_id` (null outside a space), and `user_id`. Default: the member has a provider with `can_write`, the Blog posts "Show in navigation" switch (`buddynext_integration_blog_nav`) is on, and `surface` is `feed`. Read it through `ArticleProvider::show_composer_tab( $user_id, $context )`. The tab is never drawn for a provider with an empty `new_url`, whatever the filter returns.
+
+#### The composer's Article tab
+
+`templates/partials/composer.php` draws the Post / Article tabs (`role="tablist"`, arrow keys, Home and End, roving tabindex) when the filter above says yes; `templates/feed/home.php` marks the main What's New composer with `'article_tab' => true`. The Post panel is the composer as it always was, hidden rather than removed while Article is selected, so a half-written post survives the switch. The Article panel (`templates/partials/composer-article.php`, theme-overridable) is a plain GET form to the provider's `new_url`, so Start writing works without JavaScript:
+
+- The title field is named by the provider's `title_arg`, or `bn_title` when that is `''`. On the Member Blog write hub BuddyNext reads `bn_title` (plain text, tags stripped, 200 characters), renders it as `data-bn-prefill-title` on the hub frame and `assets/js/blog/write-prefill.js` puts it in Member Blog's title field when that field is empty. It never overwrites a title, never runs on an edit link (`post_id`), and never runs for a member the hub does not give tabs (non-writers, suspended or pending members).
+- Query args already on `new_url` (a plain-permalink `?page_id=`) travel as hidden fields, because a GET form replaces the action's query string.
+- **My drafts** counts the member's `post` posts with status `draft`; **My articles** counts `publish` + `private`: the statuses Member Blog's Drafts and Published lists show. **Pending** counts `pending` only (waiting for review): Member Blog's Pending list shows just those, so the number matches the list it opens; scheduled (`future`) posts join the count once Member Blog lists them. `ArticleProvider::composer_summary( $user_id )` returns `drafts`, `articles` and `pending` from one grouped COUNT on `post_author`, cached per member in the `buddynext` object-cache group (a per-request memo without a persistent cache). The cache is dropped (`ArticleProvider::flush_counts( $user_id )`) when one of the member's posts changes status (`transition_post_status`), moves to another author (`post_updated`, both authors) or is deleted (`deleted_post`). Co-authored posts (Member Blog Pro) are not counted.
+- The Article panel is the explainer plus one row (title input and **Start writing**), the same height as the Post panel, so the feed does not jump when the tabs switch. **My drafts** and **My articles** sit beside the tabs (shown with the Article tab; on Post their space is kept, so the tab row is the same height on both tabs) and link to the provider's `drafts_url` and `my_articles_url`; an unfinished draft is reached from My drafts. A third link, **Pending (n)**, to the provider's `pending_url`, is rendered only while the member has a pending or scheduled post.
+
+`posting.article_provider` in `GET /buddynext/v1/app/config` is this payload plus `counts` (`drafts`, `articles`, `pending`, the same `composer_summary()` numbers). It is `null` for a guest and for any member whose provider says `can_write` false (a suspended member, one whose sign-up awaits approval, or a role the provider does not let write), so the app shows no links and no counts.
+
+The write hub also shows writers a **Back to What's New** link to the activity hub on both of its tabs.
+
+Registering another editor as the provider:
+
+```php
+add_filter(
+	'buddynext_article_provider',
+	function ( $provider, int $user_id ) {
+		if ( ! user_can( $user_id, 'my_editor_write' ) ) {
+			return $provider;
+		}
+		return array(
+			'key'             => 'my-editor',
+			'label'           => __( 'Article', 'my-editor' ),
+			'icon'            => 'file-text',
+			'can_write'       => true,
+			'new_url'         => home_url( '/write/' ),
+			'drafts_url'      => home_url( '/write/drafts/' ),
+			'my_articles_url' => home_url( '/write/mine/' ),
+			'title_arg'       => 'title',
+			'supports_space'  => false,
+		);
+	},
+	20, // After Member Blog (10), so this one wins.
+	2
+);
+
+// Offer the Article tab in space composers too.
+add_filter(
+	'buddynext_composer_article_tab',
+	function ( bool $show, array $context ): bool {
+		if ( 'space' !== ( $context['surface'] ?? '' ) ) {
+			return $show;
+		}
+		$provider = \BuddyNext\Feed\ArticleProvider::for_user( (int) $context['user_id'] );
+		return null !== $provider && $provider['can_write'];
+	},
+	10,
+	2
+);
+```
 
 ## WP Career Board bridge (registered in Pro)
 
@@ -312,7 +439,7 @@ WP Career Board is two Pro files (jobs are an application layer on the social co
 
 - **`CareerBoardBridge`** (event sync) - a pure inbound listener on `buddynext_load_bridges`, gated on its Integration Settings aspects and `defined( 'WCB_VERSION' )`. It consumes `wcb_job_created`, `wcb_job_updated`, `wcb_job_expired`, `wcbp_resume_published`, `wcb_notification_created`, plus WP core `transition_post_status` / `before_delete_post`. Jobs and (Pro) resumes become uniform `job` / `resume` feed cards via `Feed\IntegrationActivity`, are indexed into `bn_search_index`, and `wcb_notification_created` (fired by WCB's email layer in free and the notifications-bell module in Pro) is mirrored into `bn_notifications`. `wcb_job_created` passes a `WP_REST_Request` the bridge ignores - title/description/author are read from the job post (`post_author`).
   - **Job-edit sync:** `on_job_updated` (on `wcb_job_updated`) refreshes a published job's card in place via `IntegrationActivity::refresh` (`transition_post_status` ignores a no-status-change edit and `publish()` is idempotent, so a plain edit would otherwise leave a stale card). Resumes already re-fire `wcbp_resume_published` on update.
-- **`CareerBoardSocial`** (`AbstractSuitePanelProvider`) - the member profile Jobs panel (`/wcb/v1/jobs?author=`) and, with Pro (`WCBP_VERSION`), the Resume panel (`/wcb/v1/resumes?author=`). Both render on BuddyNext with BuddyNext identity.
+- **`CareerBoardSocial`** (`AbstractSuitePanelProvider`) - the member profile Jobs panel (`/wcb/v1/jobs?author=`), with Pro (`WCBP_VERSION`) the Resume panel (`/wcb/v1/resumes?author=`), and the owner-only Applications panel (`/wcb/v1/candidates/{id}/applications`, built only in the member's own request because the route answers for the current user). Owner links deep-link to Career Board's dashboard tabs by hash (`#jobs`, `#resumes`, `#applications`, `#post-job`). A member with `wcb_post_jobs` gets an `owner_primary` "Post a job" action (Career Board's `post_job_page`, else the employer dashboard `#post-job`); with no jobs the panel becomes an owner-only empty state (`owner_empty`). `CareerBoardBridge` refreshes the applicant's cached panels on `wcb_application_submitted`, `_withdrawn`, `_status_updated` and `_deleted`. All render on BuddyNext with BuddyNext identity.
 
 **Identity:** WP Career Board exposes no profile-URL / display-name / avatar filter (only generic `wcb_rest_prepare_*` REST shapers), so there is no seam to fill the way Jetonomy/MediaVerse are filled. Job/resume cards and profile panels are BuddyNext-rendered and already use BuddyNext identity; WCB's own `/jobs/` board and company pages remain WCB's surface.
 
@@ -340,7 +467,7 @@ Learnomy is a custom-table LMS. Its Space (B2B team) and cohort models are Pro (
 
 `EventonomyBridge` connects the Eventonomy events engine (custom `evnm_*` tables, not CPTs). The most complete suite bridge - it needs no host takeover because events are **natively space-aware**: `evnm_events.space_id` links an event to a BuddyNext Space, and the bridge simply reads it.
 
-- **Feed activity, space-scoped:** `evnm_after_create_event` → "scheduled an event", `evnm_after_create_rsvp`/`_update_rsvp` (status `going`) → "is attending". Both `IntegrationActivity::publish(..., (int) $event['space_id'], ...)`, so an event bound to a Space posts to that Space's feed AND the member's profile; unbound events stay profile/main-feed. `evnm_event_status_changed` publishes on → published and removes on cancel; `evnm_after_delete_event` removes.
+- **Feed activity, space-scoped:** `evnm_after_create_event` → "scheduled an event", `evnm_after_create_rsvp`/`_update_rsvp` (status `going`) notifies the organiser and posts no card (since 1.3.0 a plain RSVP is not announced; a card from before is retracted when the RSVP changes away from going). The event card is `IntegrationActivity::publish(..., (int) $event['space_id'], ...)`, so an event bound to a Space posts to that Space's feed AND the member's profile; unbound events stay profile/main-feed. `evnm_event_status_changed` publishes on → published and removes on cancel; `evnm_after_delete_event` removes.
 - **Edit sync:** `on_event_updated` → `publish_event_surfaces`, which re-indexes search and, when `publish()` dedups an existing card (returns 0), calls `IntegrationActivity::refresh()` to update the card in place. Note the refresh payload must include `title` + `description` alongside `event_card_meta()` (image/date/venue) - the card's headline and preview are `link_meta['title']`/`['description']`, which `event_card_meta` does not carry; passing only the meta refreshed the date/venue but left the headline stale (fixed on 1.2.1).
 - **Surfaces:** profile **Events** tab (Organizing / Going / Interested / Maybe), space **Events** tab (`render_space_events` - a **List / Calendar** toggle + **Create event** button), left-rail item, an upcoming-events sidebar widget, and notification mirroring via `evnm_notification_dispatch`.
 - **Identity:** Eventonomy's `evnm_user_display_names` default is already WP `display_name` (= BuddyNext's), avatars use core `get_avatar()` (BuddyNext's `AvatarService` wins), and event pages are Eventonomy's own surface (linked via `evnm_event_permalink`) - so nothing to take over.

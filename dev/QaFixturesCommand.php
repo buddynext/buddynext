@@ -144,6 +144,7 @@ final class QaFixturesCommand {
 		// nothing is orphaned mid-teardown.
 		$wpdb->query( "DELETE FROM {$p}bn_invites WHERE token LIKE 'QAFX%'" ); // phpcs:ignore WordPress.DB
 		$wpdb->query( "DELETE FROM {$p}bn_reports WHERE notes LIKE 'qa-fx:%'" ); // phpcs:ignore WordPress.DB
+		$this->delete_money_matrix();
 
 		$spaces = new SpaceService();
 		foreach ( (array) ( $m['spaces'] ?? array() ) as $sid ) {
@@ -182,6 +183,20 @@ final class QaFixturesCommand {
 			);
 			$wpdb->delete( $p . 'bn_bookmarks', array( 'post_id' => $pid ), array( '%d' ) );
 			$wpdb->delete( $p . 'bn_posts', array( 'id' => $pid ), array( '%d' ) );
+		}
+
+		foreach ( (array) ( $m['pages'] ?? array() ) as $page_id ) {
+			wp_delete_post( (int) $page_id, true );
+		}
+
+		// The admin side of the fixture DM thread: leaving clears it from the admin's
+		// inbox (WPMediaVerse has no hard delete for a pair thread; the member's side
+		// went with the member).
+		$messaging = class_exists( \BuddyNext\Media\MediaClient::class ) ? \BuddyNext\Media\MediaClient::messaging() : null;
+		foreach ( (array) ( $m['dm'] ?? array() ) as $dm ) {
+			if ( is_object( $messaging ) && method_exists( $messaging, 'leave_conversation' ) ) {
+				$messaging->leave_conversation( (int) $dm[0], (int) $dm[1] );
+			}
 		}
 
 		delete_option( self::MANIFEST );
@@ -341,7 +356,7 @@ final class QaFixturesCommand {
 		}
 		foreach ( array_chunk( $rows, 500 ) as $chunk ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$wpdb->query( "INSERT IGNORE INTO {$p}bn_space_members (space_id, user_id, role, status, created_at) VALUES " . implode( ',', $chunk ) );
+			$wpdb->query( "INSERT IGNORE INTO {$p}bn_space_members (space_id, user_id, role, status, joined_at) VALUES " . implode( ',', $chunk ) );
 		}
 		\WP_CLI::log( '  ' . count( $rows ) . ' space memberships' );
 
@@ -444,6 +459,24 @@ final class QaFixturesCommand {
 	}
 
 	/**
+	 * Delete the subscription and invoice rows the money matrix created (tagged
+	 * qafx_ / QAFX-). Deleting the buyer does not remove them: financial records
+	 * outlive a deleted member by design.
+	 *
+	 * @return void
+	 */
+	private function delete_money_matrix(): void {
+		global $wpdb;
+		$p = $wpdb->prefix;
+		if ( $this->table_exists( $p . 'bn_subscriptions' ) ) {
+			$wpdb->query( "DELETE FROM {$p}bn_subscriptions WHERE external_id LIKE 'qafx\\_%'" ); // phpcs:ignore WordPress.DB
+		}
+		if ( $this->table_exists( $p . 'bn_invoices' ) ) {
+			$wpdb->query( "DELETE FROM {$p}bn_invoices WHERE number LIKE 'QAFX-%'" ); // phpcs:ignore WordPress.DB
+		}
+	}
+
+	/**
 	 * A plausible member name, so the directory does not read as "user 417".
 	 *
 	 * @param int $i Index.
@@ -452,7 +485,7 @@ final class QaFixturesCommand {
 	private static function community_name( int $i ): string {
 		$first = array( 'Alex', 'Sara', 'Marcus', 'Amina', 'Lucia', 'Yuki', 'Diego', 'Fatima', 'Noah', 'Priya', 'Omar', 'Hana', 'Theo', 'Lena', 'Jamal', 'Grace' );
 		$last  = array( 'Rivera', 'Lindqvist', "O'Brien", 'Diallo', 'Ferrari', 'Tanaka', 'Morales', 'Zahra', 'Bergman', 'Nair', 'Haddad', 'Kim', 'Novak', 'Fischer', 'Okafor', 'Bennett' );
-		return $first[ $i % 16 ] . ' ' . $last[ ( $i / 16 ) % 16 ] . ( $i > 255 ? ' ' . (int) ( $i / 256 ) : '' );
+		return $first[ $i % 16 ] . ' ' . $last[ intdiv( $i, 16 ) % 16 ] . ( $i > 255 ? ' ' . intdiv( $i, 256 ) : '' );
 	}
 
 	/**
@@ -489,10 +522,72 @@ final class QaFixturesCommand {
 
 		\WP_CLI::log( 'Edge fixtures…' );
 
+		// A member mid-onboarding (saved on step 2, not complete): the crawler's
+		// onboarding set signs in as this user to measure each wizard step.
+		$ob_user = $this->make_user( 'onboarding', 'QA Onboarding' );
+		if ( $ob_user > 0 ) {
+			delete_user_meta( $ob_user, 'bn_onboarding_complete' );
+			update_user_meta( $ob_user, 'bn_onboarding_step', 2 );
+		}
+
+		// Seeded already: every row below is created once, so a second run would
+		// duplicate invites and logs and fail on the taken space slugs. Run cleanup to
+		// reseed.
+		if ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$p}bn_spaces WHERE slug = %s", self::SLUG_PREFIX . 'succession' ) ) ) { // phpcs:ignore WordPress.DB
+			\WP_CLI::log( '  already seeded; skipped (run cleanup first to reseed)' );
+			return;
+		}
+
+		// Two plain pages outside the community shell: one holds our blocks, one our
+		// shortcode. The control-contrast crawler (bin/control-contrast-crawler.js) and the
+		// theme bootstrap checks read them.
+		$fixture_pages = array(
+			'qa-fx-block-page'     => '<!-- wp:buddynext/membership-plans /--><!-- wp:buddynext/member-directory {"perPage":6} /-->',
+			'qa-fx-shortcode-page' => '[buddynext_people]',
+		);
+		foreach ( $fixture_pages as $slug => $content ) {
+			$existing = get_page_by_path( $slug );
+			if ( $existing instanceof \WP_Post ) {
+				continue;
+			}
+			$m['pages'][] = wp_insert_post(
+				array(
+					'post_type'    => 'page',
+					'post_status'  => 'publish',
+					'post_name'    => $slug,
+					'post_title'   => 'QA ' . $slug,
+					'post_content' => $content,
+				)
+			);
+		}
+
 		$owner  = $this->make_user( 'owner', 'QA Owner' );
 		$doomed = $this->make_user( 'doomed', 'QA Doomed Owner' );
 		$mod    = $this->make_user( 'heir', 'QA Heir' );
 		$member = $this->make_user( 'member', 'QA Member' );
+
+		// A direct-message thread with the first administrator, so /messages/ renders its
+		// rail and composer for an admin session (WPMediaVerse only). Cleanup clears it from
+		// the admin's inbox.
+		$messaging = class_exists( \BuddyNext\Media\MediaClient::class ) ? \BuddyNext\Media\MediaClient::messaging() : null;
+		$admins    = get_users(
+			array(
+				'role'    => 'administrator',
+				'number'  => 1,
+				'orderby' => 'ID',
+				'fields'  => 'ID',
+			)
+		);
+		if ( is_object( $messaging ) && method_exists( $messaging, 'find_or_create_conversation' ) && method_exists( $messaging, 'send_message' ) && $admins ) {
+			$conv    = $messaging->find_or_create_conversation( (int) $admins[0], $member );
+			$conv_id = is_array( $conv ) ? (int) ( $conv['conversation_id'] ?? 0 ) : 0;
+			if ( $conv_id > 0 ) {
+				$messaging->send_message( $conv_id, $member, array( 'content' => 'QA fixture: hello from QA Member.' ) );
+				$messaging->send_message( $conv_id, (int) $admins[0], array( 'content' => 'QA fixture: reply from the admin.' ) );
+				$m['dm'][] = array( $conv_id, (int) $admins[0] );
+				\WP_CLI::log( "  direct-message thread #$conv_id (admin and QA Member)" );
+			}
+		}
 
 		$spaces = new SpaceService();
 
@@ -550,11 +645,11 @@ final class QaFixturesCommand {
 			$wpdb->insert(
 				$p . 'bn_space_members',
 				array(
-					'space_id'   => $succ,
-					'user_id'    => $mod,
-					'role'       => 'moderator',
-					'status'     => 'active',
-					'created_at' => gmdate( 'Y-m-d H:i:s' ),
+					'space_id'  => $succ,
+					'user_id'   => $mod,
+					'role'      => 'moderator',
+					'status'    => 'active',
+					'joined_at' => gmdate( 'Y-m-d H:i:s' ),
 				),
 				array( '%d', '%d', '%s', '%s', '%s' )
 			);
@@ -569,7 +664,7 @@ final class QaFixturesCommand {
 			array( 'QAFX-PENDING-0001', 'qa-invitee-pending@example.test', 'pending', $now + 7 * DAY_IN_SECONDS, 0 ),
 			array( 'QAFX-EXPIRED-0002', 'qa-invitee-expired@example.test', 'pending', $now - 2 * DAY_IN_SECONDS, 0 ),
 			array( 'QAFX-USED-0003', 'qa-invitee-used@example.test', 'registered', $now + 7 * DAY_IN_SECONDS, 0 ),
-			array( 'QAFX-SPACE-0004', 'qa-invitee-space@example.test', 'pending', $now + 7 * DAY_IN_SECONDS, $succ ),
+			array( 'QAFX-SPACE-0004', 'qa-invitee-space@example.test', 'pending', $now + 7 * DAY_IN_SECONDS, is_int( $succ ) ? $succ : 0 ),
 		);
 		foreach ( $invites as $inv ) {
 			$wpdb->insert(
@@ -649,6 +744,7 @@ final class QaFixturesCommand {
 		// fixture existed for "invoice written with no transaction reference",
 		// so refund_invoice() was never exercised against one.
 		if ( $this->table_exists( $p . 'bn_subscriptions' ) && $this->table_exists( $p . 'bn_invoices' ) ) {
+			$this->delete_money_matrix(); // A reseed replaces the matrix instead of adding a second copy.
 			$buyer  = $this->make_user( 'buyer', 'QA Buyer' );
 			$matrix = array(
 				array( 'stripe', 'active', '{"transaction_id":"ch_qafx_active"}' ),

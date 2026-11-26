@@ -67,7 +67,11 @@ class GetStartedScreen {
 						// done, so on a configured site this pointed at nothing - the one
 						// sentence orienting a new owner referred to a card that was not
 						// on screen.
-						esc_html_e( 'This is your community control room. Finish setting up, load demo data to see how everything looks, then jump to any area below.', 'buddynext' );
+						echo esc_html(
+							SetupChecklist::is_done()
+								? __( 'This is your community control room. Jump to any area below.', 'buddynext' )
+								: __( 'This is your community control room. Finish setting up, load demo data to see how everything looks, then jump to any area below.', 'buddynext' )
+						);
 						?>
 					</p>
 				</div>
@@ -80,17 +84,21 @@ class GetStartedScreen {
 				// It sits here as a secondary action rather than a headline: the
 				// checklist below is the answer to "am I set up", and the wizard is one
 				// way to work through it, not a competing scoreboard.
-				?>
+				if ( ! SetupChecklist::is_done() ) :
+					?>
 				<div class="bn-setup-card__actions">
 					<a
 						class="bn-btn"
-						data-variant="secondary"
+						data-variant="primary"
 						data-size="sm"
 						href="<?php echo esc_url( add_query_arg( 'page', 'buddynext-setup', admin_url( 'admin.php' ) ) ); ?>"
 					>
 						<?php esc_html_e( 'Run guided setup', 'buddynext' ); ?>
 					</a>
 				</div>
+					<?php
+				endif;
+				?>
 			</div>
 		</div>
 
@@ -99,8 +107,10 @@ class GetStartedScreen {
 		// not as section chrome above it. The setup checklist self-hides once
 		// dismissed or complete; the demo card owns its own seeded/empty state and
 		// was previously buried three levels deep on Platform -> Tools.
+		$demo = new \BuddyNext\Demo\DemoAdmin();
+		$demo->render_installer_card();
 		SetupChecklist::maybe_render( AdminHub::section_slug( 'get-started' ) );
-		( new \BuddyNext\Demo\DemoAdmin() )->render_promo();
+		$demo->render_promo();
 		$this->render_theme_card();
 		?>
 
@@ -162,7 +172,7 @@ class GetStartedScreen {
 				foreach ( SetupChecklist::theme_links() as $i => $link ) {
 					printf(
 						'<a class="bn-btn %1$s" href="%2$s"%3$s>%4$s</a>',
-						0 === $i ? 'bn-btn-primary' : 'bn-btn-secondary',
+						'bn-btn-secondary',
 						esc_url( $link['url'] ),
 						! empty( $link['external'] ) ? ' target="_blank" rel="noopener"' : '',
 						esc_html( $link['label'] )

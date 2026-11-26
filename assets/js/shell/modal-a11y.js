@@ -21,13 +21,20 @@
  * @package BuddyNext
  */
 
-import { trapFocus } from '@buddynext/shell-dialog';
+import { trapFocus, keepFocus, returnFocus } from '@buddynext/focus-trap';
 
 /** Every modal in the product is one of these. */
 const SELECTOR = '.bn-modal-backdrop';
 
 /** backdrop element -> { trigger, release }, in open order (topmost = last). */
 const openModals = new Map();
+
+/**
+ * The last element focused outside any modal. A screen that moves focus into its
+ * modal itself as it opens (the admin email editor focuses the first field) has
+ * already left the opener by the time the observer runs, so this is the opener.
+ */
+let lastOutside = null;
 
 /**
  * Whether a backdrop is currently hidden (closed).
@@ -76,7 +83,9 @@ function activate( backdrop ) {
 		return;
 	}
 
-	const trigger = document.activeElement;
+	const active  = document.activeElement;
+	// <body> as the active element (WebKit after a button click) names nobody: fall back to the pressed control.
+	const trigger = backdrop.contains( active ) || ! active || active === document.body ? lastOutside : active;
 	const panel   = panelOf( backdrop );
 
 	// Focus synchronously — not in requestAnimationFrame. We are only called from
@@ -88,7 +97,9 @@ function activate( backdrop ) {
 		panel.setAttribute( 'tabindex', '-1' );
 	}
 	if ( ! panel.contains( document.activeElement ) ) {
-		panel.focus();
+		// A confirm that names a safe choice (Cancel) takes focus on it; the panel itself only when it names none.
+		const preferred = panel.querySelector( '[data-bn-initial-focus]' );
+		( preferred || panel ).focus();
 	}
 	const release = trapFocus( backdrop );
 
@@ -100,20 +111,9 @@ function activate( backdrop ) {
 				released = true;
 				release();
 			}
-			// Return focus to the opener, but only if it is still there AND still
-			// visible. A modal opened from an overflow menu that collapses on open
-			// leaves its trigger in the DOM but hidden; focusing a hidden element
-			// silently dumps focus to <body>, so in that case we leave the browser's
-			// default rather than pretend we restored it. offsetParent is null for a
-			// display:none element (and for position:fixed, which no trigger is).
-			if (
-				trigger &&
-				typeof trigger.focus === 'function' &&
-				document.contains( trigger ) &&
-				null !== trigger.offsetParent
-			) {
-				trigger.focus();
-			}
+			// Return focus to the opener, or to the control that opened its menu
+			// when the opener is a menu item hidden by now.
+			returnFocus( trigger );
 		},
 	} );
 }
@@ -209,11 +209,35 @@ function boot() {
 	}
 	window.__bnModalA11y = true;
 
+	// Classic scripts (the wp-admin confirm dialog, the media lightbox) reach the
+	// same trap through the window; on the front end dialog.js sets the same function.
+	if ( 'function' !== typeof window.bnTrapFocus ) {
+		window.bnTrapFocus = trapFocus;
+	}
+
+	// A busy or swapped control keeps keyboard focus (Follow, Connect, every
+	// data-wp-bind--disabled button) instead of dropping it to <body>.
+	keepFocus( document.body );
+
 	// Capture phase: Escape layering is top-down. Transient dialogs (window,
 	// capture) run first, these modals next, and surfaces that sit beneath a modal
 	// (the media lightbox, menus) listen in the bubble phase and skip an event that
 	// is already defaultPrevented. So one Escape closes exactly one layer.
 	document.addEventListener( 'keydown', onEscape, true );
+	document.addEventListener( 'focusin', function ( ev ) {
+		if ( ev.target.closest && ! ev.target.closest( SELECTOR ) ) {
+			lastOutside = ev.target;
+		}
+	}, true );
+
+	// WebKit (Safari, every iOS browser) does not focus a button on click, so no focusin names the opener of a
+	// dialog that a button click opens. The press itself does.
+	document.addEventListener( 'pointerdown', function ( ev ) {
+		const hit = ev.target && ev.target.closest ? ev.target.closest( 'button, a[href], [role="button"], [tabindex]' ) : null;
+		if ( hit && ! hit.closest( SELECTOR ) ) {
+			lastOutside = hit;
+		}
+	}, true );
 
 	const observer = new MutationObserver( function ( mutations ) {
 		mutations.forEach( function ( m ) {

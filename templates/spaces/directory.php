@@ -158,6 +158,8 @@ $membership_map = array();
 if ( $current_user_id && ! empty( $bn_spaces ) ) {
 	$bn_space_ids   = array_map( static fn( $s ) => (int) $s['id'], $bn_spaces );
 	$membership_map = ( new \BuddyNext\Spaces\SpaceMemberService() )->membership_map( $current_user_id, $bn_space_ids );
+	// Each card's Join gate asks about a space ban: one query for the page instead.
+	buddynext_service( 'permissions' )->prime_space_bans( $current_user_id, $bn_space_ids );
 }
 
 // ── Visibility-scoped sub-space count for every rendered card (one query) ─────

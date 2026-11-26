@@ -145,7 +145,19 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		);
 		$organiser = IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/event/9/', 'Meetup', 'event', '', 0, $facts + array( 'relation' => 'organizing' ) );
 		$going     = IntegrationActivity::publish( $attendee, 'is attending', 'https://example.test/event/9/?going=' . $attendee, 'Meetup', 'event', '', 0, $facts + array( 'relation' => 'attending' ) );
-		$other     = IntegrationActivity::publish( $attendee, 'is attending', 'https://example.test/event/10/', 'Other', 'event', '', 0, array( 'event_id' => 10, 'day' => '20' ) );
+		$other     = IntegrationActivity::publish(
+			$attendee,
+			'is attending',
+			'https://example.test/event/10/',
+			'Other',
+			'event',
+			'',
+			0,
+			array(
+				'event_id' => 10,
+				'day'      => '20',
+			)
+		);
 		$meta      = static fn( int $id ): array => (array) ( new \BuddyNext\Feed\PostService() )->get( $id )['link_meta'];
 
 		$this->assertSame(
@@ -206,7 +218,21 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$their = IntegrationActivity::publish( $other, 'completed a course', 'https://example.test/course/go/?bn_learner=2', 'Go', 'course', '', 0, array( 'course_id' => 2 ) );
 		$when  = $wpdb->get_var( $wpdb->prepare( "SELECT created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $mine ) );
 
-		$this->assertSame( 1, IntegrationActivity::rewrite( 'https://example.test/course/go/?bn_learner=1', 'course', 'earned a certificate', 'https://example.test/verify/a/', 'Go', '', array( 'course_id' => 2, 'certificate_id' => 9 ) ) );
+		$this->assertSame(
+			1,
+			IntegrationActivity::rewrite(
+				'https://example.test/course/go/?bn_learner=1',
+				'course',
+				'earned a certificate',
+				'https://example.test/verify/a/',
+				'Go',
+				'',
+				array(
+					'course_id'      => 2,
+					'certificate_id' => 9,
+				)
+			)
+		);
 
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT content, link_url, link_meta, created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $mine ) );
 		$this->assertSame( 'earned a certificate', $row->content );
@@ -456,6 +482,44 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The verb belongs in the post header ("Alice added a new listing"), never
+	 * inside the card body, and is not printed again over a title that is the verb.
+	 *
+	 * @return void
+	 */
+	public function test_action_line_moves_the_verb_out_of_the_card_body(): void {
+		add_filter(
+			'buddynext_integration_card_types',
+			static function ( array $types ): array {
+				$types['listing'] = array(
+					'label' => 'Listing',
+					'icon'  => 'store',
+				);
+				return $types;
+			}
+		);
+
+		$this->assertSame( 'added a new listing', IntegrationActivity::action_line( 'listing', ' added a new listing ', 'Corner Cafe' ) );
+		$this->assertSame( '', IntegrationActivity::action_line( 'listing', 'added a new listing', 'added a new listing' ), 'a verb that is the title is not said twice' );
+		$this->assertSame( '', IntegrationActivity::action_line( 'text', 'hello there', 'Corner Cafe' ), 'a member\'s own post has no action line' );
+
+		$html = IntegrationActivity::render_bridge_card(
+			array(
+				'bn_post_type' => 'listing',
+				'post_content' => 'added a new listing',
+				'link_preview' => array(
+					'url'   => 'https://example.test/l/9/',
+					'title' => 'Corner Cafe',
+				),
+			),
+			'store',
+			'Listing'
+		);
+		$this->assertStringNotContainsString( 'added a new listing', $html, 'the card body shows the item only; the header names the action' );
+		$this->assertStringContainsString( 'Corner Cafe', $html );
+	}
+
+	/**
 	 * Deletes the card for a partner page.
 	 *
 	 * @return void
@@ -521,7 +585,7 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.event_id' ) ) AS UNSIGNED ) = 70"
 			);
 		};
-		$ids_70 = static function () use ( $wpdb ): array {
+		$ids_70       = static function () use ( $wpdb ): array {
 			return array_map(
 				'intval',
 				(array) $wpdb->get_col(
@@ -569,14 +633,24 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$other = self::factory()->user->create();
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
-			array( 'object_type' => 'post', 'object_id' => $id, 'user_id' => $other, 'content' => 'nice' ),
+			array(
+				'object_type' => 'post',
+				'object_id'   => $id,
+				'user_id'     => $other,
+				'content'     => 'nice',
+			),
 			array( '%s', '%d', '%d', '%s' )
 		);
 		$comment_id = (int) $wpdb->insert_id;
 		$this->assertGreaterThan( 0, $comment_id );
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_reactions',
-			array( 'object_type' => 'comment', 'object_id' => $comment_id, 'user_id' => $other, 'emoji' => 'like' ),
+			array(
+				'object_type' => 'comment',
+				'object_id'   => $comment_id,
+				'user_id'     => $other,
+				'emoji'       => 'like',
+			),
 			array( '%s', '%d', '%d', '%s' )
 		);
 
@@ -617,5 +691,109 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 			unset( $e );
 		}
 		$this->assertFalse( IntegrationActivity::is_mirror(), 'a throwing write does not leave the flag stuck' );
+	}
+	/**
+	 * Store a card the way a 1.0.x integration did: no type, so a plain `link`.
+	 *
+	 * @param string $url Partner page.
+	 * @return int Card id.
+	 */
+	private function legacy_card( string $url ): int {
+		return (int) IntegrationActivity::publish( $this->member_id, 'added a new listing', $url, 'Old listing' );
+	}
+
+	/**
+	 * Rows for a link, by type.
+	 *
+	 * @param string $url Partner page.
+	 * @return array<string,int>
+	 */
+	private function cards_for( string $url ): array {
+		global $wpdb;
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT type, COUNT(*) AS n FROM {$wpdb->prefix}bn_posts WHERE link_url = %s GROUP BY type", $url ), ARRAY_A );
+		$out  = array();
+		foreach ( $rows as $row ) {
+			$out[ $row['type'] ] = (int) $row['n'];
+		}
+		return $out;
+	}
+
+	/**
+	 * A listing re-saved after the 1.1.0 type change becomes the old card, not a
+	 * second one (card 10516739330).
+	 *
+	 * @return void
+	 */
+	public function test_publish_adopts_the_legacy_link_card_instead_of_duplicating_it(): void {
+		$url = 'https://example.test/listing/legacy-one/';
+		$old = $this->legacy_card( $url );
+
+		$this->assertSame( 0, IntegrationActivity::publish( $this->member_id, 'added a new listing', $url, 'Old listing', 'listing' ), 'no second card' );
+		$this->assertSame( array( 'listing' => 1 ), $this->cards_for( $url ) );
+		$this->assertSame( 'listing', ( new \BuddyNext\Feed\PostService() )->get( $old )['type'], 'same card, now typed' );
+
+		$this->assertTrue( IntegrationActivity::refresh( $url, 'listing', array( 'image' => 'https://example.test/cover.jpg' ) ), 'and it takes the typed snapshot' );
+	}
+
+	public function test_withdraw_and_remove_reach_the_legacy_card(): void {
+		$url = 'https://example.test/listing/legacy-two/';
+		$this->legacy_card( $url );
+		$this->assertTrue( IntegrationActivity::withdraw( $url, 'listing' ), 'an unpublished item hides its old card' );
+
+		$this->assertSame( 1, IntegrationActivity::remove( $url, 'listing' ) );
+		$this->assertSame( array(), $this->cards_for( $url ), 'a deleted item leaves no old card behind' );
+	}
+
+	/**
+	 * A site that already has the duplicate: removing the item removes both cards.
+	 *
+	 * @return void
+	 */
+	public function test_remove_deletes_an_existing_legacy_duplicate_too(): void {
+		global $wpdb;
+		$url = 'https://example.test/listing/legacy-three/';
+		$this->legacy_card( $url );
+		// The duplicate an earlier re-save made, written past the adoption.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'user_id'    => $this->member_id,
+				'type'       => 'listing',
+				'content'    => 'added a new listing',
+				'status'     => 'published',
+				'privacy'    => 'public',
+				'link_url'   => $url,
+				'created_at' => current_time( 'mysql', true ),
+			)
+		);
+
+		$this->assertSame( 2, IntegrationActivity::remove( $url, 'listing' ) );
+		$this->assertSame( array(), $this->cards_for( $url ) );
+	}
+
+	/**
+	 * A member's own link post to the same page is theirs, not the integration's.
+	 *
+	 * @return void
+	 */
+	public function test_a_members_own_link_post_is_never_adopted(): void {
+		$url  = 'https://example.test/listing/shared-by-hand/';
+		$mine = ( new \BuddyNext\Feed\PostService() )->create(
+			$this->member_id,
+			array(
+				'type'      => 'link',
+				'content'   => 'Look at this place',
+				'link_url'  => $url,
+				'link_meta' => array(
+					'title'       => 'A place',
+					'description' => '',
+					'thumbnail'   => '',
+				),
+			)
+		);
+		$this->assertIsInt( $mine );
+
+		IntegrationActivity::remove( $url, 'listing' );
+		$this->assertSame( array( 'link' => 1 ), $this->cards_for( $url ) );
 	}
 }

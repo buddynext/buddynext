@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Feed;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Feed\FeedController;
 use BuddyNext\Feed\PostService;
 use BuddyNext\REST\Router;
 use BuddyNext\SocialGraph\FollowService;
@@ -43,6 +44,16 @@ class FeedControllerTest extends \WP_UnitTestCase {
 		global $wp_rest_server;
 		$wp_rest_server = null;
 		parent::tear_down();
+	}
+
+	/**
+	 * A row without a type (a partial row from an add-on or an old cache) is shaped
+	 * as an unavailable card, without an undefined "type" key warning.
+	 */
+	public function test_a_row_without_a_type_is_enriched_without_a_warning(): void {
+		$items = ( new FeedController() )->enrich_for_rest( array( array( 'id' => 999999, 'user_id' => $this->alice, 'content' => '' ) ), $this->alice );
+
+		$this->assertTrue( $items[0]['card_unavailable'] );
 	}
 
 	public function test_home_feed_requires_auth(): void {

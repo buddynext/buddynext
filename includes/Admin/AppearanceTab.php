@@ -72,9 +72,10 @@ class AppearanceTab {
 		$css    = (string) get_option( 'buddynext_custom_css', '' );
 		$brand  = \BuddyNext\Theme\Appearance::display_brand();
 		$themes = array(
-			'auto'  => __( 'Auto (follow the visitor’s device)', 'buddynext' ),
-			'light' => __( 'Light', 'buddynext' ),
-			'dark'  => __( 'Dark', 'buddynext' ),
+			'auto'   => __( 'Match the theme (recommended)', 'buddynext' ),
+			'system' => __( 'Follow the visitor’s device', 'buddynext' ),
+			'light'  => __( 'Light', 'buddynext' ),
+			'dark'   => __( 'Dark', 'buddynext' ),
 		);
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-admin-hub__form-bare bn-settings-content">
@@ -118,7 +119,7 @@ class AppearanceTab {
 			<div class="bn-settings-section">
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Default theme', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
-					<p class="bn-av-section-desc"><?php esc_html_e( 'Applies to visitors who have not picked a theme themselves.', 'buddynext' ); ?></p>
+					<p class="bn-av-section-desc"><?php esc_html_e( 'Applies to visitors who have not picked a theme themselves. Match the theme shows dark only when your site theme is in dark mode or follows the visitor’s device, and light otherwise, so community pages never clash with the rest of your site.', 'buddynext' ); ?></p>
 					<?php if ( self::host_theme_sets_color_mode() ) : ?>
 						<p class="bn-av-section-desc">
 							<?php
@@ -204,7 +205,7 @@ class AppearanceTab {
 
 		// Default theme.
 		$theme = isset( $_POST['bn_default_theme'] ) ? sanitize_key( wp_unslash( (string) $_POST['bn_default_theme'] ) ) : 'auto';
-		update_option( 'buddynext_default_theme', in_array( $theme, array( 'auto', 'light', 'dark' ), true ) ? $theme : 'auto' );
+		update_option( 'buddynext_default_theme', in_array( $theme, array( 'auto', 'system', 'light', 'dark' ), true ) ? $theme : 'auto' );
 
 		// Layout: full width (default), theme width, or a custom width clamped to the
 		// range Appearance::container_width() enforces.

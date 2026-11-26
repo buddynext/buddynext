@@ -97,6 +97,12 @@ class OnboardingService {
 			return false;
 		}
 
+		// A suspended member is not sent to the wizard: it refuses them (403), and it would hide the
+		// account-status page where they read the reason and appeal. A moderation state outranks the welcome wizard.
+		if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) {
+			return false;
+		}
+
 		// Grandfather the existing community: the wizard is for *new* members and
 		// must never retroactively trap members who registered before onboarding
 		// was switched on. Record the moment the gate first goes live and only
@@ -153,7 +159,7 @@ class OnboardingService {
 			'icon'  => 'user',
 		);
 
-		if ( array() !== \BuddyNext\Profile\FieldType::category_options() ) {
+		if ( array() !== \BuddyNext\Profile\FieldType::category_options( true ) ) {
 			$steps[] = array(
 				'key'   => 'interests',
 				'label' => __( 'Interests', 'buddynext' ),
@@ -399,9 +405,8 @@ class OnboardingService {
 	 * Persist the chosen profile slug ("handle"), if available.
 	 *
 	 * Returns the slug that was stored, or an empty string when the slug
-	 * was blank, unchanged, or already taken by another member. Collisions
-	 * are non-fatal — the live availability badge in the wizard already
-	 * warned the user before they reached Finish.
+	 * was blank, or refused (taken or reserved). Callers that must tell the
+	 * member why ask slug_refusal() first; the REST finish does.
 	 *
 	 * @param int    $user_id WordPress user ID.
 	 * @param string $slug    Requested slug.
@@ -418,13 +423,32 @@ class OnboardingService {
 			return $slug;
 		}
 
-		if ( class_exists( '\\BuddyNext\\Core\\PageRouter' )
-			&& ! \BuddyNext\Core\PageRouter::is_slug_available( $slug, $user_id ) ) {
+		if ( null !== $this->slug_refusal( $user_id, $slug ) ) {
 			return '';
 		}
 
-		\BuddyNext\Profile\Handle::set( $user_id, $slug );
-		return $slug;
+		return is_wp_error( \BuddyNext\Profile\Handle::set( $user_id, $slug ) ) ? '' : $slug;
+	}
+
+	/**
+	 * Why the member cannot have this handle, or null when they can (or already do).
+	 *
+	 * The onboarding finish asks this first so a refused handle is reported in
+	 * the step instead of being dropped while the wizard says it is done.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $user_id WordPress user ID.
+	 * @param string $slug    Requested slug.
+	 * @return \WP_Error|null
+	 */
+	public function slug_refusal( int $user_id, string $slug ): ?\WP_Error {
+		$slug = sanitize_title( $slug );
+		if ( '' === $slug || \BuddyNext\Profile\Handle::current( $user_id ) === $slug ) {
+			return null;
+		}
+
+		return \BuddyNext\Core\PageRouter::slug_refusal( $slug, $user_id );
 	}
 
 	/**

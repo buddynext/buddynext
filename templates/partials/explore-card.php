@@ -101,11 +101,11 @@ if ( 'member' === $bn_kind ) {
 				<?php if ( '' !== $bn_av ) : ?>
 					<img src="<?php echo esc_url( $bn_av ); ?>" alt="" width="64" height="64" loading="lazy" decoding="async">
 				<?php else : ?>
-					<?php echo esc_html( mb_strtoupper( mb_substr( $bn_name, 0, 1 ) ) ); ?>
+					<?php echo esc_html( \BuddyNext\Support\Text::upper( mb_substr( $bn_name, 0, 1 ) ) ); ?>
 				<?php endif; ?>
 			</span>
 			<span class="ec-member-name"><?php echo esc_html( $bn_name ); ?></span>
-			<span class="ec-member-handle">@<?php echo esc_html( $bn_login ); ?></span>
+			<span class="ec-member-handle"><bdi dir="ltr">@<?php echo esc_html( $bn_login ); ?></bdi></span>
 			<span class="ec-member-meta">
 				<?php
 				if ( '' !== $bn_tag ) {
@@ -275,7 +275,7 @@ $bn_render_foot = static function ( string $av, string $tone, string $name, stri
 				<?php if ( '' !== $av ) : ?>
 					<img src="<?php echo esc_url( $av ); ?>" alt="" width="22" height="22" loading="lazy" decoding="async">
 				<?php else : ?>
-					<?php echo esc_html( mb_strtoupper( mb_substr( $name, 0, 1 ) ) ); ?>
+					<?php echo esc_html( \BuddyNext\Support\Text::upper( mb_substr( $name, 0, 1 ) ) ); ?>
 				<?php endif; ?>
 			</span>
 			<span class="name"><?php echo esc_html( $name ); ?></span>
@@ -350,9 +350,9 @@ if ( 'post-forum' === $bn_kind ) :
 			<div class="ec-kicker">
 				<?php
 				echo '' !== $bn_kicker
-					/* translators: %s: discussion category/context label */
-					? esc_html( sprintf( __( 'Discussion · %s', 'buddynext' ), $bn_kicker ) )
-					: esc_html__( 'Discussion', 'buddynext' );
+					/* translators: %s: topic category/context label */
+					? esc_html( sprintf( __( 'Topic · %s', 'buddynext' ), $bn_kicker ) )
+					: esc_html__( 'Topic', 'buddynext' );
 				?>
 			</div>
 			<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_headline, 16, '…' ) ); ?></div>
@@ -377,7 +377,7 @@ if ( 'post-forum' === $bn_kind ) :
 		</a>
 		<div class="ec-foot ec-foot--forum">
 			<a class="ec-open-thread" href="<?php echo esc_url( $bn_purl ); ?>">
-				<?php esc_html_e( 'Open thread', 'buddynext' ); ?>
+				<?php esc_html_e( 'Open topic', 'buddynext' ); ?>
 				<span aria-hidden="true">&rarr;</span>
 			</a>
 		</div>

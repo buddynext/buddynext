@@ -27,8 +27,14 @@
  * the centred header + left rail by the scrollbar width on every tab change.
  * Reserving the gutter keeps the layout fixed across tab navigations. Scoped via
  * :has() to pages that render a BuddyNext hub so pure host-theme pages are left
- * untouched. */
-html:has( .bn-app__main ) { scrollbar-gutter: stable; }
+ * untouched.
+ *
+ * The reserved gutter is also what keeps the 100vw shell burst-out (bn-shell.css)
+ * inside the page: with a stable gutter 100vw excludes the scrollbar, without one
+ * it includes it and the shell hangs the scrollbar's width past the right edge.
+ * The auth shell (login, signup, verify) has no .bn-app__main, so it is named
+ * too: it scrolled sideways by 7-15px under every classic-scrollbar theme. */
+html:has( .bn-app__main, .bn-app--auth ) { scrollbar-gutter: stable; }
 
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 
@@ -80,6 +86,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
 	--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink)); /* The brand colour as TEXT: mixed toward the ink so links and counts reach 4.5:1 on a light brand (orange, yellow). Fills keep --bn-accent. */
+	--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink)); /* Danger as TEXT (Delete, Block in menus): 4.5:1 on the surface and on --bn-danger-bg. */
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
 	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
 	   white label needs (see the @supports block below). */
@@ -98,6 +105,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-line:        oklch(92% 0.005 var(--bn-hue));
 	--bn-line-strong: oklch(86% 0.008 var(--bn-hue));
 	--bn-line-faint:  oklch(95% 0.003 var(--bn-hue));
+	/* Edge of a control a member operates (outlined button, field, chip, switch track):
+	   half the ink colour, so it reaches 3:1 (WCAG 1.4.11) on any BuddyNext surface in
+	   light and dark. Cards and dividers keep the subtle --bn-line. */
+	--bn-line-control: color-mix(in oklab, var(--bn-ink) 50%, transparent);
 
 	/* Text (AAA contrast) */
 	--bn-ink:    oklch(20% 0.01 var(--bn-hue));
@@ -178,8 +189,9 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	 * Nine rules across bn-feed.css / bn-spaces.css already read this token as
 	 * `var(--bn-tap, 40px)` but it was never declared, so every one of them was
 	 * silently living on its fallback. Declaring it here makes the floor real
-	 * and gives one knob for the whole UI. Touch viewports raise it to 44px in
-	 * the tap-target block near the end of this file. */
+	 * and gives one knob for the whole UI. The admin hub raises it to 44px for a
+	 * coarse pointer (bn-admin-hub.css); member-facing touch floors are set
+	 * directly in the tap-target block near the end of this file. */
 	--bn-tap: 40px;
 
 	/* Radius — single source. Adopt the host theme's global corner radius
@@ -210,7 +222,16 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.04), 0 2px 4px oklch(0% 0 0 / 0.04);
 	--bn-shadow-md: 0 2px 4px oklch(0% 0 0 / 0.04), 0 8px 16px oklch(0% 0 0 / 0.06);
 	--bn-shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.06), 0 24px 48px oklch(0% 0 0 / 0.08);
-	--bn-ring:      0 0 0 3px oklch(58% var(--bn-chroma) var(--bn-hue) / 0.18);
+	/* Focus. --bn-focus is the focus COLOUR (for `outline: 2px solid var(--bn-focus)`);
+	   --bn-ring is the box-shadow ring built from it: a surface-coloured gap, then a
+	   2px solid band. Up to 1.2.9 the ring was a 3px halo at 18% alpha, about 1.3:1
+	   against the page, below the 3:1 WCAG 2.2 asks of a focus indicator. The band is
+	   the brand colour mixed toward the ink (--bn-accent-text, >= 4.5:1 on every
+	   surface by design), so a light brand colour still draws a visible ring.
+	   Redeclared in every mode block: a var() inside a custom property resolves where
+	   it is declared, so an inherited ring would keep the light-mode colour. */
+	--bn-focus:     var(--bn-accent-text);
+	--bn-ring:      0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 
 	/* Scrim/backdrop behind modals and overlays. Mode-aware: a plain dark
 		rgba scrim is nearly invisible over an already-dark page, so the dark
@@ -339,10 +360,14 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--red-bg:      var(--bn-danger-bg);
 	--pink:        oklch(60% 0.20 350);
 
-	/* Auth-page gradient stops */
-	--auth-grad-from: var(--bn-accent);
-	--auth-grad-via:  oklch(50% 0.20 270);
-	--auth-grad-to:   oklch(52% 0.22 295);
+	/* Auth-page gradient stops: three depths of the brand, never fixed hues.
+	   The panel carries white text in light AND dark mode, so these are dark by
+	   design (the @supports block below caps the first stop's luminance exactly
+	   as --bn-accent-solid does, but without flipping light in dark mode).
+	   Browsers without relative colour keep this plain mix toward black. */
+	--auth-grad-from: color-mix(in oklab, var(--bn-accent) 50%, black);
+	--auth-grad-via:  color-mix(in oklab, var(--bn-accent) 38%, black);
+	--auth-grad-to:   color-mix(in oklab, var(--bn-accent) 28%, black);
 
 	/* Spacing */
 	--s1:  var(--bn-s1);
@@ -445,10 +470,11 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-line:        oklch(28% 0.012 var(--bn-hue));
 	--bn-line-strong: oklch(36% 0.014 var(--bn-hue));
 	--bn-line-faint:  oklch(24% 0.01  var(--bn-hue));
+	--bn-line-control: color-mix(in oklab, var(--bn-ink) 50%, transparent);
 
 	--bn-ink:    oklch(96% 0.005 var(--bn-hue));
 	--bn-ink-2:  oklch(78% 0.008 var(--bn-hue));
-	--bn-ink-3:  oklch(60% 0.008 var(--bn-hue));
+	--bn-ink-3:  oklch(64% 0.008 var(--bn-hue)); /* AA on every dark surface up to --bn-raised (5.1:1). Was 60%, 4.4:1 on raised. */
 	--bn-ink-4:  oklch(62% 0.008 var(--bn-hue)); /* AA on the dark canvas and cards. Was 45%, about 2.4:1. */
 
 	--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
@@ -462,6 +488,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
 	--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
+	--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink));
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 	--bn-accent-solid: var(--bn-accent);
 
@@ -487,7 +514,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.4), 0 2px 4px oklch(0% 0 0 / 0.3);
 	--bn-shadow-md: 0 2px 4px oklch(0% 0 0 / 0.3), 0 8px 16px oklch(0% 0 0 / 0.4);
 	--bn-shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.4), 0 24px 48px oklch(0% 0 0 / 0.5);
-	--bn-ring:      0 0 0 3px oklch(72% var(--bn-chroma) var(--bn-hue) / 0.3);
+	--bn-focus:     var(--bn-accent-text);
+	--bn-ring:      0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 
 	/* Heavier scrim so the modal/backdrop separation stays visible on a dark page. */
 	--bn-overlay: oklch(0% 0 0 / 0.66);
@@ -503,16 +531,20 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        oklch(28% 0.012 var(--bn-hue));
 		--bn-line-strong: oklch(36% 0.014 var(--bn-hue));
 		--bn-line-faint:  oklch(24% 0.01  var(--bn-hue));
+		--bn-line-control: color-mix(in oklab, var(--bn-ink) 50%, transparent);
 		--bn-ink:   oklch(96% 0.005 var(--bn-hue));
 		--bn-ink-2: oklch(78% 0.008 var(--bn-hue));
-		--bn-ink-3: oklch(60% 0.008 var(--bn-hue));
+		--bn-ink-3: oklch(64% 0.008 var(--bn-hue));
 		--bn-ink-4: oklch(62% 0.008 var(--bn-hue));
 		--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
 		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink));
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 		--bn-accent-solid: var(--bn-accent);
+		--bn-focus:      var(--bn-accent-text);
+		--bn-ring:       0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 	}
 }
 
@@ -571,6 +603,17 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		   a blue button on a red-accent site. */
 		--bn-accent-fg: var(--bn-accent-fg-auto);
 		--bn-accent-solid: var(--bn-accent-solid-auto);
+
+		/* Auth panel and default profile cover. The brand scaled in linear sRGB to
+		   a luminance of at most 0.15 (white text then reads at 5.25:1, even on
+		   yellow), then two deeper steps of the same colour. Re-declared here, on
+		   the elements that can set --bn-accent, so each follows its own accent. */
+		--auth-grad-from: color(from var(--bn-accent) srgb-linear
+			calc(r * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b)))
+			calc(g * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b)))
+			calc(b * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b))));
+		--auth-grad-via: color-mix(in oklab, var(--auth-grad-from) 80%, black);
+		--auth-grad-to:  color-mix(in oklab, var(--auth-grad-from) 60%, black);
 	}
 
 	/* Dark mode: the accent is light by design; whichever label contrasts more. */
@@ -610,6 +653,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-900: #1c234c;
 		--bn-accent:     #5b67d0;
 		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink));
 		--bn-accent-fg:  #ffffff;
 		--bn-accent-solid: #4754ad;
 
@@ -621,6 +665,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        #e6e6ee;
 		--bn-line-strong: #d4d4de;
 		--bn-line-faint:  #efeff5;
+		--bn-line-control: #8e8f99;
 
 		--bn-ink:   #1f2030;
 		--bn-ink-2: #4d4f60;
@@ -649,7 +694,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.04);
 		--bn-shadow-md: 0 2px 4px rgba(0,0,0,0.04), 0 8px 16px rgba(0,0,0,0.06);
 		--bn-shadow-lg: 0 8px 16px rgba(0,0,0,0.06), 0 24px 48px rgba(0,0,0,0.08);
-		--bn-ring:      0 0 0 3px rgba(91,103,208,0.18);
+		--bn-focus:     var(--bn-accent);
+		--bn-ring:      0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 	}
 
 	[data-bn-theme="dark"],
@@ -663,6 +709,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        #2b2c3a;
 		--bn-line-strong: #3a3c4d;
 		--bn-line-faint:  #23242f;
+		--bn-line-control: #84858f;
 
 		--bn-ink:   #ebebf2;
 		--bn-ink-2: #c2c2cf;
@@ -677,6 +724,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-50:  #1f243b;
 		--bn-accent:     #8d96e0;
 		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-danger-text: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink));
 		--bn-accent-fg:  #15161f;
 		--bn-accent-solid: #8d96e0;
 
@@ -690,7 +738,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-events-bg:   #3a2a1a;
 		--bn-paid-bg:     #1a3a2a;
 
-		--bn-ring: 0 0 0 3px rgba(141,150,224,0.32);
+		--bn-focus: var(--bn-accent);
+		--bn-ring:  0 0 0 2px var(--bn-surface), 0 0 0 4px var(--bn-focus);
 	}
 
 	/* Buttons + badges using color-mix gradients fall back to flat colour. */
@@ -708,8 +757,10 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        oklch(50% 0 0);
 		--bn-line-strong: oklch(35% 0 0);
 		--bn-line-faint:  oklch(60% 0 0);
+		--bn-line-control: oklch(35% 0 0);
 		--bn-ink-3:       oklch(30% 0 0);
 		--bn-ink-4:       oklch(40% 0 0);
+		--bn-focus:       oklch(20% 0 0);
 		--bn-ring:        0 0 0 3px oklch(20% 0 0);
 	}
 	[data-bn-theme="dark"],
@@ -718,8 +769,10 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-line:        oklch(70% 0 0);
 		--bn-line-strong: oklch(85% 0 0);
 		--bn-line-faint:  oklch(60% 0 0);
+		--bn-line-control: oklch(85% 0 0);
 		--bn-ink-3:       oklch(85% 0 0);
 		--bn-ink-4:       oklch(75% 0 0);
+		--bn-focus:       oklch(95% 0 0);
 		--bn-ring:        0 0 0 3px oklch(95% 0 0);
 	}
 }
@@ -846,7 +899,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	   Without popover support the fixed position and --bn-z-toast still apply. */
 	position: fixed;
 	inset: auto;
-	bottom: var(--bn-s6);
+	/* Clears the cookie notice while it shows (--bn-cookie-h is published by consent-banner.js). */
+	bottom: calc(var(--bn-s6) + var(--bn-cookie-h, 0px));
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: var(--bn-z-toast);
@@ -892,17 +946,17 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
    the tap, so after a refused save the member could not press Save again until
    the toast left. The toast sits above the bar on every width. */
 body:has(.bn-ep-save-bar) .bn-toast-container {
-	bottom: calc(var(--bn-save-bar-h) + var(--bn-s4));
+	bottom: calc(var(--bn-save-bar-h) + var(--bn-s4) + var(--bn-cookie-h, 0px));
 }
 
 @media (max-width: 768px) {
 	body:has(.bn-mobile-nav) .bn-toast-container,
 	body:has(.bn-mobile-nav) .bn-unsub-notice {
-		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4) + var(--bn-cookie-h, 0px));
 	}
 
 	body:has(.bn-mobile-nav):has(.bn-ep-save-bar) .bn-toast-container {
-		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-save-bar-h) + var(--bn-s4));
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-save-bar-h) + var(--bn-s4) + var(--bn-cookie-h, 0px));
 	}
 
 	body:has(.bn-mobile-nav) .bn-cookie-consent {
@@ -923,6 +977,18 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 		token itself, this rule becomes a harmless no-op. */
 	body:has(.bn-mobile-nav) .wb-gam-toasts {
 		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+}
+
+/* A modal's action buttons sit at the bottom of a phone screen, where the toast
+   lands, and the toast takes the tap. While a modal is open the toast moves to the
+   top instead. Nothing is held back: many toasts are the answer to a button pressed
+   inside that modal. An open modal is a .bn-modal-backdrop that is neither [hidden]
+   nor .is-hidden (the two conventions modal-a11y.js recognises). */
+@media (max-width: 640px) {
+	body:has(.bn-modal-backdrop:not([hidden]):not(.is-hidden), dialog[open]) .bn-toast-container {
+		top: calc(env(safe-area-inset-top, 0px) + var(--bn-s4));
+		bottom: auto;
 	}
 }
 .bn-toast {
@@ -969,9 +1035,16 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-toast__text {
 	display: flex;
 	flex-direction: column;
+	flex: 1 1 auto;
 	gap: var(--bn-s1);
 	min-width: 0;
 	overflow-wrap: anywhere;
+}
+/* A toast with a link beside its words is a message, not a pill: the large radius, the words take the room and the
+   link wraps instead of squeezing the text into a one-word column. */
+.bn-toast:has(.bn-toast__action) {
+	align-items: flex-start;
+	border-radius: var(--bn-r-lg);
 }
 .bn-toast__body {
 	font-weight: var(--bn-fw-normal);
@@ -1020,8 +1093,16 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	color: inherit;
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: underline;
-	white-space: nowrap;
+	/* The Undo toast uses a real <button>: reset the browser's (and a host theme's) button fill, border and font so
+	   it reads as the same inline action as the appeal link. */
+	background: none;
+	border: 0;
+	padding: 0;
+	font: inherit;
+	font-weight: var(--bn-fw-semibold);
+	cursor: pointer;
 }
+button.bn-toast__action:hover { text-decoration-thickness: 2px; background: none; color: inherit; }
 .bn-toast__action { align-self: center; }
 /* On a two-line toast the action sits under the text, aligned with it. */
 .bn-toast__text > .bn-toast__action {
@@ -1148,7 +1229,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	min-inline-size: 36px;
 	min-block-size: 36px;
 	padding-inline: var(--bn-s3);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink-2);
@@ -1186,7 +1267,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	min-inline-size: 40px;
 	min-block-size: 40px;
 	padding-inline: var(--bn-s2);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 	color: var(--bn-ink-2);
@@ -1287,12 +1368,51 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	grid-template-areas:
 		"avatar meta"
 		"avatar content"
+		"avatar marks"
 		"avatar context";
 	column-gap: var(--bn-s3);
 }
 .bn-reply-card--avatar .bn-reply-card__meta { grid-area: meta; }
 .bn-reply-card--avatar .bn-reply-card__content { grid-area: content; }
 .bn-reply-card--avatar .bn-reply-card__context { grid-area: context; }
+.bn-reply-card--avatar .bn-reply-card__marks { grid-area: marks; }
+
+/* A topic's state (Pinned, Solved, Closed) and up to two tags, between its title and its counts. State is words, not
+   colour alone; tags are quieter. */
+.bn-reply-card__marks {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s1) var(--bn-s2);
+	margin-block-start: var(--bn-s1);
+}
+.bn-reply-card__mark,
+.bn-reply-card__tag {
+	display: inline-flex;
+	align-items: center;
+	background: var(--bn-sunken);
+	padding: 0 var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	font-size: var(--bn-text-xs);
+	line-height: 20px;
+}
+.bn-reply-card__mark {
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
+	border: 1px solid var(--bn-line-control);
+}
+.bn-reply-card__tag {
+	color: var(--bn-ink-2);
+}
+
+.bn-space-discussions__more {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	margin: var(--bn-s3) 0 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
 .bn-reply-card__avatar {
 	grid-area: avatar;
 	align-self: start;
@@ -1312,6 +1432,8 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 /* In-hub space Discussions panel — header action sits above the thread list. */
 .bn-space-discussions__head {
 	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
 	justify-content: flex-end;
 	margin-block-end: var(--bn-s3);
 }
@@ -1380,8 +1502,8 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	   flex:1 items on each side lands on the viewport centre only while the bar
 	   has exactly 5 slots. See templates/partials/nav.php — do not add a 6th. */
 	.bn-mobile-nav__item--create {
-		background: var(--brand);
-		color: var(--text-on-brand);
+		background: var(--bn-accent-solid);
+		color: var(--bn-accent-fg);
 		width: 52px;
 		height: 52px;
 		border-radius: 50%;
@@ -1512,6 +1634,30 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	/* Add bottom padding to page content so it doesn't hide behind the nav */
 	.bn-hub-shell,
 	.bn-profile-container { padding-bottom: 72px; }
+}
+
+/* ── The bar on Jetonomy pages (JetonomyBridge::maybe_add_mobile_bar) ─────
+   Jetonomy renders no bar under BuddyNext, so the forum gets ours. The
+   forum's content clears it, Jetonomy's floating Reply button (which sits
+   where the bar goes) is hidden because the inline Reply stays, and the bar
+   slides away while a composer or field has focus (the phone keyboard is
+   up), then returns on blur. Scoped to .jt-app + :has(.bn-mobile-nav) so no
+   other page changes. */
+@media (max-width: 768px) {
+	body:has(.bn-mobile-nav) .jt-app {
+		padding-block-end: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+	body:has(.bn-mobile-nav) .jt-app a.jt-reply-fab {
+		display: none;
+	}
+	body:has(.bn-mobile-nav) .bn-mobile-nav {
+		transition: transform var(--bn-dur) var(--bn-ease), visibility 0s;
+	}
+	body:has(.jt-app :is(textarea, input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"]), [contenteditable="true"]):focus) .bn-mobile-nav {
+		transform: translateY(100%);
+		visibility: hidden;
+		transition: transform var(--bn-dur) var(--bn-ease), visibility 0s var(--bn-dur);
+	}
 }
 
 /* ── Search overlay (cmd+K) ───────────────────────────────────────────── */
@@ -1664,10 +1810,10 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	font-size: var(--text-sm); font-weight: var(--fw-semibold); cursor: pointer;
 	transition: all 0.15s ease;
 }
-.bn-hover-card__follow:hover { background: var(--brand); color: var(--text-on-brand); }
+.bn-hover-card__follow:hover { background: var(--bn-accent-solid); color: var(--bn-accent-fg); }
 /* Already-following state mirrors the post-card "Following" affordance: filled,
 	neutral, and reverting to an "Unfollow" cue on hover. */
-.bn-hover-card__follow.is-following { background: var(--brand); color: var(--text-on-brand); }
+.bn-hover-card__follow.is-following { background: var(--bn-accent-solid); color: var(--bn-accent-fg); }
 .bn-hover-card__follow.is-following:hover { background: var(--red); border-color: var(--red); }
 
 /* ── Box-sizing reset ───────────────────────────────────────────────────── */
@@ -1948,13 +2094,13 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 
 .bn-btn-primary {
-	background: var(--brand);
-	color: var(--white);
+	background: var(--bn-accent-solid);
+	color: var(--bn-accent-fg);
 }
 
 .bn-btn-primary:hover {
-	background: var(--brand-hover);
-	color: var(--white);
+	background: color-mix(in oklch, var(--bn-accent-solid) 82%, black);
+	color: var(--bn-accent-fg);
 }
 
 .bn-btn-ghost {
@@ -2444,7 +2590,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	font-family: var(--font-body);
 	transition: background 0.14s, color 0.14s;
 }
-.bn-sbar-row__action:hover { background: var(--brand); color: var(--text-on-brand); }
+.bn-sbar-row__action:hover { background: var(--bn-accent-solid); color: var(--bn-accent-fg); }
 
 /* See-all link. Scoped under the card + explicit accent so a host theme's own
    anchor colour (BuddyX renders bare links crimson) can't win the cascade and
@@ -2860,10 +3006,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
+/* The doubled class is deliberate: themes style typed inputs by element +
+   attribute (Reign: input[type="search"]:focus, specificity 0,2,1), which beat a
+   single-class rule and swapped the ring for a 10% tint nobody can see, as on the
+   Messages "Search conversations" box. 0,3,0 wins on any theme, and a component
+   rule that styles its own focus (.x .bn-input:focus-visible) still loads later. */
 .bn-btn:focus-visible,
-.bn-input:focus-visible,
-.bn-textarea:focus-visible,
-.bn-select:focus-visible {
+.bn-input.bn-input:focus-visible,
+.bn-textarea.bn-textarea:focus-visible,
+.bn-select.bn-select:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
@@ -2942,10 +3093,24 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-btn[data-variant="primary"]:hover { background: color-mix(in oklch, var(--bn-accent-solid) 82%, black); }
 
+/* Dark mode: the light accent used for text and rings is too pale as a button fill (it reads as disabled). The primary
+   button gets a deeper fill with a white label (white on L55 is 4.5:1 or better), the same family as the light theme. */
+[data-bn-theme="dark"] .bn-btn[data-variant="primary"],
+[data-theme="dark"] .bn-btn[data-variant="primary"],
+[data-bx-mode="dark"] .bn-btn[data-variant="primary"] {
+	background: oklch(52% var(--bn-chroma, 0.15) var(--bn-hue));
+	color: oklch(99% 0 0);
+}
+[data-bn-theme="dark"] .bn-btn[data-variant="primary"]:hover,
+[data-theme="dark"] .bn-btn[data-variant="primary"]:hover,
+[data-bx-mode="dark"] .bn-btn[data-variant="primary"]:hover {
+	background: oklch(58% var(--bn-chroma, 0.15) var(--bn-hue));
+}
+
 .bn-btn[data-variant="secondary"] {
 	background: var(--bn-surface);
 	color: var(--bn-ink);
-	border-color: var(--bn-line-strong);
+	border-color: var(--bn-line-control);
 }
 .bn-btn[data-variant="secondary"]:hover { background: var(--bn-sunken); }
 
@@ -2956,7 +3121,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-btn[data-variant="ghost"]:hover { background: var(--bn-sunken); color: var(--bn-ink); }
 /* Quiet destructive action (e.g. Revoke next to Reset): ghost weight, danger ink. */
 .bn-btn[data-variant="ghost"][data-tone="danger"],
-.bn-btn[data-variant="ghost"][data-tone="danger"]:hover { color: var(--bn-danger); }
+.bn-btn[data-variant="ghost"][data-tone="danger"]:hover { color: var(--bn-danger-text); }
 .bn-btn[data-variant="ghost"][data-tone="danger"]:hover { background: var(--bn-danger-bg); }
 
 .bn-btn[data-variant="danger"] {
@@ -2972,9 +3137,20 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 
 .bn-btn[data-variant][disabled],
 .bn-btn[data-variant][aria-disabled="true"] {
-	opacity: 0.55;
+	/* Disabled reads as disabled by its flat grey fill, not by fading the label into the page: the text and the edge
+	   keep their contrast (4.5:1 and 3:1) so the button is still legible. */
+	opacity: 1;
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	border-color: var(--bn-line-control);
+	filter: none;
 	cursor: not-allowed;
 	transform: none;
+}
+.bn-btn[data-variant="danger"][disabled],
+.bn-btn[data-variant="primary"][disabled] {
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
 }
 
 /* ── Input / Textarea / Select — v2 ─────────────────────────────────── */
@@ -2987,7 +3163,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	padding: 0 var(--bn-s3);
 	height: 40px;
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font-family: var(--bn-font-ui);
@@ -3012,7 +3188,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-textarea::placeholder { color: var(--bn-ink-4); }
 .bn-input:disabled,
 .bn-textarea:disabled,
-.bn-select:disabled {
+.bn-select:disabled,
+.bn-input[readonly],
+.bn-textarea[readonly] {
 	background: var(--bn-sunken);
 	color: var(--bn-ink-3);
 	cursor: not-allowed;
@@ -3223,7 +3401,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-field-checkbox-group .bn-field-checkbox:has(input:focus-visible),
 .bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -3270,7 +3448,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink);
 }
 .bn-field-checkbox:not(.bn-field-checkbox-group .bn-field-checkbox):has(input:focus-visible) {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 	border-radius: var(--bn-r-sm);
 }
@@ -3549,7 +3727,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	background-color: var(--bn-surface);
 }
 .bn-app input.bn-input:where( :not( :focus, :disabled, [aria-invalid="true"], .bn-input--error ) ) {
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 }
 /* Selects and textareas: a theme's `:focus` can blank the fill (Blocksy turns it
    transparent). Focus only, so every resting look is untouched. The DM composer
@@ -3578,7 +3756,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	width: 40px;
 	height: 22px;
 	border-radius: var(--bn-r-full);
-	background: var(--bn-line-strong);
+	background: var(--bn-line-control);
 	cursor: pointer;
 	transition: background var(--bn-dur) var(--bn-ease);
 	border: none;
@@ -3600,7 +3778,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	Checked fills still win: [aria-checked="true"] (0,2,0, later in this
 	sheet), :has(:checked) (0,2,1), and `:checked + .bn-toggle` (later sheet). */
 .bn-app .bn-toggle {
-	background-color: var(--bn-line-strong);
+	background-color: var(--bn-line-control);
 }
 .bn-toggle::before {
 	content: '';
@@ -3613,6 +3791,18 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	background: var(--bn-surface);
 	box-shadow: var(--bn-shadow-xs);
 	transition: transform var(--bn-dur) var(--bn-ease);
+}
+/* Touch target: the track stays its drawn size, an invisible layer around it reaches
+   44px (WCAG 2.5.8 / Apple HIG) whatever the size variant. Centered, so it is the same
+   under RTL. */
+.bn-toggle::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: max( 100%, 44px );
+	height: max( 100%, 44px );
+	transform: translate( -50%, -50% );
 }
 .bn-toggle[aria-checked="true"] {
 	background: var(--bn-accent);
@@ -4677,9 +4867,12 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-section-head__actions {
 	display: inline-flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-s2);
-	flex-shrink: 0;
+	/* Wraps instead of pushing the page sideways when two actions do not fit (320px). */
+	min-inline-size: 0;
+	max-inline-size: 100%;
 }
 
 /* ── Filter strip — top-of-list chrome wrapping .bn-tabs + filters ─── */
@@ -4987,6 +5180,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	width: 100%;
 	height: 6px;
 	background: var(--bn-sunken);
+	/* The track edge reaches 3:1 against the page (WCAG 1.4.11), so the meter reads as a meter when empty. */
+	box-shadow: inset 0 0 0 1px var(--bn-line-control);
 	border-radius: var(--bn-r-full);
 	overflow: hidden;
 	position: relative;
@@ -5325,7 +5520,76 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-guest-banner h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); margin-bottom: var(--bn-s1); color: var(--text-1); }
 .bn-guest-banner p  { font-size: var(--text-sm); color: var(--text-2); margin-bottom: var(--bn-s4); line-height: 1.6; }
 .bn-banner-btns     { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }
-.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--brand); color: var(--bn-accent-fg, #fff); border-color: var(--brand); }
-.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
-.bn-guest-banner .bn-btn[data-variant="ghost"] { color: var(--text-1); border-color: var(--border); background: transparent; }
-.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: var(--bg-hover); }
+.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--bn-accent-solid); color: var(--bn-accent-fg); border-color: var(--bn-accent-solid); }
+.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: color-mix(in oklch, var(--bn-accent-solid) 82%, black); border-color: transparent; }
+.bn-guest-banner .bn-btn[data-variant="ghost"],
+.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { color: var(--bn-ink); border-color: var(--bn-line-control); }
+.bn-guest-banner .bn-btn[data-variant="ghost"] { background: transparent; }
+.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: var(--bn-sunken); }
+
+
+/* ── Text that does not fit its field ends in an ellipsis, never a hard cut ─────────────────────────────────────
+   A placeholder or a selected option wider than its field (a long Explore search hint on a phone, a long privacy
+   choice) is clipped mid-word by default. Ellipsis shows that there is more, and the full text is the field's label. */
+.bn-input,
+.bn-select,
+.bn-app select,
+.bn-app input[type="search"],
+.bn-app input[type="text"],
+.bn-app input[type="email"] {
+	text-overflow: ellipsis;
+}
+.bn-input::placeholder,
+.bn-app input::placeholder {
+	text-overflow: ellipsis;
+}
+
+/* ── Phone tap targets: a finger needs 40px ───────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	/* Element-qualified so these win over the component rules that set the 28-32px sizes and load after this file. */
+	button.bn-composer__draft-discard,
+	a.bn-btn.bn-sh-side-mod__msg {
+		inline-size: 40px;
+		block-size: 40px;
+	}
+	.bn-media-subnav__tab,
+	.bn-files__tool-btn,
+	.bn-files-link__submit,
+	.bn-search-recent__clear,
+	.gam-nudge__action {
+		min-block-size: 40px;
+	}
+	/* A switch keeps its look; its touch area grows past the track without changing the layout. */
+	.bn-toggle {
+		position: relative;
+	}
+	.bn-toggle::after {
+		content: "";
+		position: absolute;
+		inset: -9px -4px;
+	}
+	button.bn-ob-avatar-row__cta,
+	button.bn-composer__schedule-clear,
+	.bn-post-card__menu-item,
+	.bn-md-card__menu-item {
+		min-block-size: 40px;
+	}
+	button.bn-composer__schedule-clear {
+		min-inline-size: 40px;
+	}
+	.bn-search-aside__card label,
+	.bn-prefs-toggle {
+		display: inline-flex;
+		align-items: center;
+		min-block-size: 40px;
+	}
+	.bn-search-aside__card label {
+		display: flex;
+	}
+}
+
+
+/* A dialog is open: the page behind it does not scroll. */
+body.bn-modal-open {
+	overflow: hidden;
+}

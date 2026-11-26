@@ -32,6 +32,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Spaces;
 
 use BuddyNext\REST\BaseRestController;
+use BuddyNext\Profile\CoverFocal;
 use BuddyNext\Media\MediaRenderer;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
@@ -680,6 +681,17 @@ class SpaceController extends BaseRestController {
 					'callback'            => array( $this, 'delete_space_cover' ),
 					'permission_callback' => array( $this, 'require_auth' ),
 				),
+			)
+		);
+
+		// Reposition a Space cover that is already set: saves the pan and zoom only, no picture.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/cover/position',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'set_space_cover_position' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -2345,9 +2357,18 @@ class SpaceController extends BaseRestController {
 			$repo->prefetch( array_values( array_unique( $all_ids ) ) );
 		}
 
+		// A picture the viewer may not see is left out whole: the descriptor of a private one still carries its title,
+		// permalink and date with only the file address blank, which told a guest that it exists. Same per-picture
+		// check the web Media tab makes (FeedService::space_media_page).
+		$privacy = \BuddyNext\Media\MediaClient::privacy();
+		$can_see = static fn( int $mid ): bool => null === $privacy || ! is_callable( array( $privacy, 'can_view' ) ) || (bool) $privacy->can_view( $mid, $viewer_id );
+
 		$items = array();
 		foreach ( $rows as $row ) {
 			foreach ( $row['media_ids'] as $media_id ) {
+				if ( ! $can_see( (int) $media_id ) ) {
+					continue;
+				}
 				$descriptor = \BuddyNext\Media\MediaUrlResolver::descriptor( $media_id );
 
 				// Null means deleted, or not visible to THIS viewer — the engine
@@ -3693,7 +3714,13 @@ class SpaceController extends BaseRestController {
 		}
 
 		if ( empty( $check['type'] ) || ! in_array( $check['type'], $allowed, true ) ) {
-			return new WP_Error( 'image_invalid_type', __( 'Only JPEG, PNG, or WebP images are accepted.', 'buddynext' ), array( 'status' => 422 ) );
+			// The message names exactly what this kind accepts (avatars take GIF,
+			// covers do not), worded as the member photo uploads word it.
+			return new WP_Error(
+				'image_invalid_type',
+				'avatar' === $kind ? __( 'Only JPEG, PNG, GIF, or WebP images are accepted.', 'buddynext' ) : __( 'Only JPEG, PNG, or WebP images are accepted.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
 		}
 
 		$stored = ( new \BuddyNext\Media\ImageStorageService() )->store( $tmp_name, $kind, 'space', $space_id );
@@ -3733,31 +3760,61 @@ class SpaceController extends BaseRestController {
 	 */
 	private function store_space_cover_focal( int $space_id ): void {
 		/*
-		 * The REST nonce is verified before this callback runs, and each value is
-		 * unslashed then cast to float; WPCS sees neither layer for a $_POST read,
-		 * so suppress both sniffs for the three reads (mirrors ProfileController).
+		 * The REST nonce is verified before this callback runs; the values are validated and
+		 * clamped by CoverFocal, so WPCS's $_POST sniffs do not apply to the read.
 		 *
 		 * phpcs:disable WordPress.Security.NonceVerification.Missing
 		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		 */
-		$focal_x    = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1.0;
-		$focal_y    = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1.0;
-		$focal_zoom = isset( $_POST['focal_zoom'] ) ? (float) wp_unslash( (string) $_POST['focal_zoom'] ) : 1.0;
+		$focal = CoverFocal::from_params( wp_unslash( $_POST ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
-		if ( $focal_x < 0.0 || $focal_x > 100.0 || $focal_y < 0.0 || $focal_y > 100.0 ) {
+		if ( null === $focal ) {
+			// A replacement picture sent without a position starts centred: the old framing was
+			// chosen for the old picture and must not carry over to the new one.
+			delete_space_meta( $space_id, CoverFocal::META_KEY );
 			return;
 		}
 
-		update_space_meta(
-			$space_id,
-			'buddynext_cover_focal',
+		update_space_meta( $space_id, CoverFocal::META_KEY, $focal );
+	}
+
+	/**
+	 * POST /spaces/{id}/cover/position: save the framing of a Space cover that is already set.
+	 *
+	 * Same gate as uploading the cover (the Space owner or a moderator); the picture is not touched.
+	 *
+	 * @param WP_REST_Request $request Request carrying focal_x, focal_y and focal_zoom.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function set_space_cover_position( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+
+		$gate = $this->require_space_manager( $space_id, get_current_user_id() );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space || '' === (string) ( $space['cover_image_url'] ?? '' ) ) {
+			return new WP_Error( 'cover_missing', __( 'There is no cover photo to reposition.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
+		$focal = CoverFocal::from_params( (array) $request->get_params() );
+		if ( null === $focal ) {
+			return new WP_Error( 'focal_invalid', __( 'That position is not valid.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		update_space_meta( $space_id, CoverFocal::META_KEY, $focal );
+
+		return new WP_REST_Response(
 			array(
-				'x'    => round( $focal_x, 2 ),
-				'y'    => round( $focal_y, 2 ),
-				'zoom' => round( max( 1.0, min( 3.0, $focal_zoom ) ), 3 ),
-			)
+				'focal_x'    => $focal['x'],
+				'focal_y'    => $focal['y'],
+				'focal_zoom' => $focal['zoom'],
+			),
+			200
 		);
 	}
 
@@ -3783,7 +3840,7 @@ class SpaceController extends BaseRestController {
 		// rather than inheriting the removed image's framing (mirror of the member
 		// cover cleanup in Admin\Members).
 		if ( 'cover' === $kind ) {
-			delete_space_meta( $space_id, 'buddynext_cover_focal' );
+			delete_space_meta( $space_id, CoverFocal::META_KEY );
 		}
 
 		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';

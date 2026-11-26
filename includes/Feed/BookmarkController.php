@@ -107,8 +107,9 @@ class BookmarkController extends BaseRestController {
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 
-		if ( ! buddynext_feature_enabled( 'bookmarks' ) ) {
-			return new WP_REST_Response( array( 'code' => 'bookmarks_disabled' ), 403 );
+		$off = buddynext_feature_refusal( 'bookmarks', 'bookmarks_disabled', __( 'Bookmarks are turned off on this community.', 'buddynext' ) );
+		if ( $off ) {
+			return $off;
 		}
 
 		// Same gate the read endpoints use: no engagement with a post the viewer

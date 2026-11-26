@@ -11,7 +11,13 @@
  *      Optional: data-bn-confirm-tone="danger" | "warn" | "neutral",
  *                data-bn-confirm-title="…",
  *                data-bn-confirm-ok="Delete",
- *                data-bn-confirm-cancel="Cancel".
+ *                data-bn-confirm-cancel="Cancel",
+ *                data-bn-confirm-require="DELETE" (the owner types it to enable the button),
+ *                data-bn-confirm-require-label="Type DELETE to confirm",
+ *                data-bn-confirm-when="<selector>" (ask only while the element's form
+ *                matches it, e.g. a destructive checkbox being switched on).
+ *   A form input marked data-bn-confirm-field receives the -require word once the
+ *   owner confirms, so the server can insist on it too.
  *
  *   2. Imperative:
  *      bnConfirm({ title, message, tone, okLabel, cancelLabel })
@@ -145,10 +151,25 @@
 		opts = opts || {};
 		return new Promise( function ( resolve ) {
 			var m = createModal( opts );
+			// WebKit does not focus a button on click, so activeElement is <body>: the click being dispatched names the opener.
 			var lastActive = document.activeElement;
+			if ( ! lastActive || lastActive === document.body ) {
+				var openerEvent = window.event;
+				lastActive = openerEvent && openerEvent.target && openerEvent.target.closest
+					? openerEvent.target.closest( 'button, a[href], [role="button"], input, select, textarea, [tabindex]' )
+					: null;
+			}
+
+			// Tab stays inside the dialog (aria-modal promises it). The shared trap is
+			// set by the modal-a11y module on BuddyNext screens; off-hub screens that
+			// only load this script keep Escape and focus return.
+			var releaseTrap = 'function' === typeof window.bnTrapFocus ? window.bnTrapFocus( m.backdrop ) : null;
 
 			function close( result ) {
 				document.removeEventListener( 'keydown', onKey );
+				if ( releaseTrap ) {
+					releaseTrap();
+				}
 				m.destroy();
 				if ( lastActive && typeof lastActive.focus === 'function' ) {
 					lastActive.focus();
@@ -176,7 +197,8 @@
 			function onKey( e ) {
 				if ( e.key === 'Escape' ) {
 					close( false );
-				} else if ( e.key === 'Enter' && satisfied() ) {
+				} else if ( e.key === 'Enter' && satisfied() && ! ( e.target && e.target.closest && e.target.closest( 'button' ) ) ) {
+					// Enter on a button is that button's own press: Enter on Cancel cancels, it never confirms.
 					close( true );
 				}
 			}
@@ -197,7 +219,10 @@
 
 			// Focus the field the member has to act on, not the button they
 			// cannot use yet.
-			setTimeout( function () { ( input || m.okBtn ).focus(); }, 0 );
+			// A destructive or warning confirm with nothing to type opens on Cancel, the safe choice, not on the button that destroys.
+			setTimeout( function () {
+				( input || ( ( 'danger' === opts.tone || 'warn' === opts.tone ) && m.cancelBtn ? m.cancelBtn : m.okBtn ) ).focus();
+			}, 0 );
 		} );
 	}
 
@@ -254,6 +279,11 @@
 			return;
 		}
 
+		var when = target.dataset.bnConfirmWhen;
+		if ( when && ! ( target.form || target.closest( 'form' ) || document ).querySelector( when ) ) {
+			return;
+		}
+
 		e.preventDefault();
 		e.stopImmediatePropagation();
 
@@ -263,11 +293,19 @@
 			tone:        target.dataset.bnConfirmTone   || 'neutral',
 			okLabel:     target.dataset.bnConfirmOk     || __( 'Confirm', 'buddynext' ),
 			cancelLabel: target.dataset.bnConfirmCancel || __( 'Cancel', 'buddynext' ),
+			requireText:  target.dataset.bnConfirmRequire || '',
+			requireLabel: target.dataset.bnConfirmRequireLabel || '',
 		} ).then( function ( ok ) {
 			if ( ! ok ) {
 				return;
 			}
 			target.dataset.bnConfirmed = '1';
+			// A form that checks the typed word on the server gets it in its
+			// [data-bn-confirm-field] input.
+			var field = target.dataset.bnConfirmRequire ? ( target.form || target.closest( 'form' ) || document ).querySelector( '[data-bn-confirm-field]' ) : null;
+			if ( field ) {
+				field.value = target.dataset.bnConfirmRequire;
+			}
 			if ( target.tagName === 'FORM' ) {
 				target.submit();
 			} else {

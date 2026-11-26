@@ -68,7 +68,7 @@ class ToolsTab {
 		if ( '' !== $done ) {
 			$msg = $this->result_message( $done );
 			if ( '' !== $msg ) {
-				$is_error = in_array( $done, array( 'import_failed', 'import_empty', 'db_partial' ), true );
+				$is_error = in_array( $done, array( 'import_failed', 'import_empty', 'import_no_fileinfo', 'db_partial', 'uninstall_wipe_unconfirmed' ), true );
 				printf(
 					'<div class="notice %s is-dismissible"><p>%s</p></div>',
 					$is_error ? 'notice-error' : 'notice-success',
@@ -552,13 +552,48 @@ class ToolsTab {
 					<input type="hidden" name="action" value="bn_tools_uninstall_policy">
 					<?php wp_nonce_field( 'bn_tools_uninstall_policy' ); ?>
 					<label class="bn-checkbox-row">
-						<input type="checkbox" name="delete_data" value="1" <?php checked( $bn_delete ); ?>>
+						<input type="checkbox" name="delete_data" value="1" <?php checked( $bn_delete ); ?><?php echo $bn_delete ? ' data-was-on' : ''; ?>>
 						<span><?php esc_html_e( 'Delete all BuddyNext data when the plugin is uninstalled', 'buddynext' ); ?></span>
 					</label>
 					<p class="description">
-						<?php esc_html_e( 'Default is off: a delete keeps your spaces, posts, members and settings so a reinstall restores everything. Turn this on only if you want deleting the plugin to permanently erase all community content. Financial records (invoices and subscriptions) are always kept.', 'buddynext' ); ?>
+						<?php esc_html_e( 'Default is off: a delete keeps your spaces, posts, members and settings so a reinstall restores everything. When on, deleting BuddyNext removes every community table, setting and member preference, and the pages BuddyNext created (Activity, Members, Spaces and the other community pages). BuddyNext Pro follows the same choice when you delete it. Financial records (invoices and subscriptions) are always kept.', 'buddynext' ); ?>
 					</p>
-					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
+					<p class="description">
+						<?php
+						printf(
+							/* translators: %s: the site's uploads folder path, e.g. wp-content/uploads */
+							esc_html__( 'Uploaded files are never deleted: avatars and covers stay in %s (the bn-avatars, bn-covers, bn-space-avatars and bn-space-covers folders) and photos shared in posts stay where they were uploaded (the Media Library, or MediaVerse when it handles your media), so you can remove them yourself.', 'buddynext' ),
+							'<code>' . esc_html( str_replace( ABSPATH, '', (string) wp_upload_dir( null, false )['basedir'] ) ) . '</code>'
+						);
+						?>
+					</p>
+					<p class="description"><strong><?php esc_html_e( 'This cannot be undone. Take a database backup before you delete the plugin with this on.', 'buddynext' ); ?></strong>
+						<a href="<?php echo esc_url( AdminHub::DOCS_BASE . 'getting-started/08c-uninstall-and-your-data/' ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'What a delete removes and keeps', 'buddynext' ); ?></a>
+					</p>
+					<input type="hidden" name="confirm_wipe" value="" data-bn-confirm-field>
+					<noscript>
+						<p>
+							<label for="bn-confirm-wipe">
+								<?php
+								/* translators: %s: the word to type, e.g. DELETE */
+								echo esc_html( sprintf( __( 'To switch data removal on, type %s', 'buddynext' ), self::confirm_word() ) );
+								?>
+							</label>
+							<input type="text" id="bn-confirm-wipe" name="confirm_wipe" autocomplete="off">
+						</p>
+					</noscript>
+					<?php
+					// Switching the wipe ON is the one save that asks: the owner reads what goes and
+					// what stays, and types the word, before it is stored. Turning it off never asks.
+					?>
+					<button type="submit" class="bn-btn" data-variant="primary"
+						data-bn-confirm="<?php esc_attr_e( 'Deleting BuddyNext will then permanently remove your members\' community data (profiles, follows, connections, preferences), every space, post, comment and reaction, all BuddyNext settings, and the community pages BuddyNext created. Kept: uploaded files (avatars, covers and post photos) and financial records (invoices and subscriptions).', 'buddynext' ); ?>"
+						data-bn-confirm-title="<?php esc_attr_e( 'Delete all community data on uninstall?', 'buddynext' ); ?>"
+						data-bn-confirm-tone="danger"
+						data-bn-confirm-ok="<?php esc_attr_e( 'Turn on data removal', 'buddynext' ); ?>"
+						data-bn-confirm-require="<?php echo esc_attr( self::confirm_word() ); ?>"
+						data-bn-confirm-require-label="<?php echo esc_attr( sprintf( /* translators: %s: the word to type, e.g. DELETE */ __( 'Type %s to confirm', 'buddynext' ), self::confirm_word() ) ); ?>"
+						data-bn-confirm-when="[name=delete_data]:checked:not([data-was-on])"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 				</form>
 			</div>
 		</div>
@@ -680,9 +715,28 @@ class ToolsTab {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- guard() verifies the nonce.
 		$delete = isset( $_POST['delete_data'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['delete_data'] ) );
+
+		// Switching the wipe ON needs the typed word, whether it came from the dialog
+		// (which writes it into the hidden field) or, with JavaScript off, from the
+		// field the form shows instead. Turning it off, or re-saving it on, never does.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- guard() verifies the nonce.
+		$typed = isset( $_POST['confirm_wipe'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['confirm_wipe'] ) ) ) : '';
+		if ( $delete && ! get_option( 'buddynext_delete_data_on_uninstall', false ) && self::confirm_word() !== $typed ) {
+			$this->redirect_back( 'uninstall_wipe_unconfirmed' );
+		}
+
 		update_option( 'buddynext_delete_data_on_uninstall', $delete ? 1 : 0 );
 
 		$this->redirect_back( $delete ? 'uninstall_wipe_on' : 'uninstall_wipe_off' );
+	}
+
+	/**
+	 * The word an owner types to switch the data wipe on.
+	 *
+	 * @return string
+	 */
+	private static function confirm_word(): string {
+		return _x( 'DELETE', 'word typed to confirm data removal', 'buddynext' );
 	}
 
 	/**
@@ -763,11 +817,12 @@ class ToolsTab {
 		// (the browser-sent type is never trusted). The JSON structure is still
 		// validated below — this is defence in depth, matching the CSV-invite
 		// import guard in InviteController.
-		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
-		$detected = $finfo ? (string) finfo_file( $finfo, $tmp ) : '';
-		// No finfo_close(): the resource became a proper object in PHP 8.1 and is
-		// freed by refcount, so the call is a deprecated no-op on 8.5+ (this
-		// plugin requires 8.1+, so there is no version to keep it for).
+		// Without fileinfo the server cannot check the file, so the import is refused
+		// with a message naming the missing extension rather than fataling.
+		$detected = \BuddyNext\Support\Text::file_mime( $tmp );
+		if ( null === $detected ) {
+			$this->redirect_back( 'import_no_fileinfo' );
+		}
 		$allowed_mime = array( 'application/json', 'text/json', 'text/plain' );
 		if ( '' !== $detected && ! in_array( $detected, $allowed_mime, true ) ) {
 			$this->redirect_back( 'import_failed' );
@@ -808,9 +863,10 @@ class ToolsTab {
 	 * Options that are the site's own bookkeeping, not settings: schema and
 	 * version markers, "already seeded" flags, setup state and the hub page IDs.
 	 * Moving them to another site would roll its migrations back or point its hub
-	 * pages at pages that do not exist there.
+	 * pages at pages that do not exist there. Also the uninstall data wipe: only the
+	 * Tools form, with the typed word, may switch it on, so a file never carries it.
 	 */
-	private const INTERNAL_STATE = '/(_version|_v|_seeded|_migrated|_migration|_schema_alters|_sig|setup_complete|_gate_since|_last_reindex|_preset_activated|_email_defaults|_flag_convergence)$|^buddynext_(pro_)?page_/';
+	private const INTERNAL_STATE = '/(_version|_v|_seeded|_migrated|_migration|_schema_alters|_sig|setup_complete|_gate_since|_last_reindex|_preset_activated|_email_defaults|_flag_convergence)$|^buddynext_(pro_)?page_|^buddynext_delete_data_on_uninstall$/';
 
 	/**
 	 * Whether a settings export carries this option, and an import may write it.
@@ -885,8 +941,9 @@ class ToolsTab {
 	 * @return bool
 	 */
 	private function is_sensitive_option( string $name ): bool {
-		$needles   = array( 'token', 'secret', 'api_key', 'apikey', 'license_key', 'private_key', 'access_token', 'service_account', 'password', '_salt' );
-		$sensitive = false;
+		$needles = array( 'token', 'secret', 'api_key', 'apikey', 'license_key', 'private_key', 'access_token', 'service_account', 'password', '_salt' );
+		// Holds each provider's client secret under a name the needles miss.
+		$sensitive = 'buddynext_social_login' === $name;
 		foreach ( $needles as $needle ) {
 			if ( false !== strpos( $name, $needle ) ) {
 				$sensitive = true;
@@ -1025,6 +1082,12 @@ class ToolsTab {
 				return __( 'Processed a batch of background tasks. Large backlogs clear over several runs.', 'buddynext' );
 			case 'uninstall_wipe_on':
 				return __( 'Saved. Deleting BuddyNext will now erase all community data (except financial records).', 'buddynext' );
+			case 'uninstall_wipe_unconfirmed':
+				return sprintf(
+					/* translators: %s: the word to type, e.g. DELETE */
+					__( 'Not saved. To switch data removal on, tick the box and type %s to confirm.', 'buddynext' ),
+					self::confirm_word()
+				);
 			case 'uninstall_wipe_off':
 				return __( 'Saved. Deleting BuddyNext will keep your community data so a reinstall restores it.', 'buddynext' );
 			case 'imported':
@@ -1034,6 +1097,8 @@ class ToolsTab {
 				return __( 'Import file had no recognised BuddyNext settings.', 'buddynext' );
 			case 'import_failed':
 				return __( 'Could not read that import file.', 'buddynext' );
+			case 'import_no_fileinfo':
+				return __( 'This server cannot check uploaded files because the PHP fileinfo extension is missing. Ask your host to enable it, then import again.', 'buddynext' );
 			default:
 				return '';
 		}

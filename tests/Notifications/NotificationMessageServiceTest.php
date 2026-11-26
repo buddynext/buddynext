@@ -278,6 +278,33 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A page of space notifications names its spaces with a fixed number of
+	 * queries. Each "posted in <space>" row used to look up the post's space and
+	 * then the space's name, two queries per row on a cold cache.
+	 *
+	 * @return void
+	 */
+	public function test_compose_batch_names_spaces_without_a_query_per_row(): void {
+		global $wpdb;
+		$rows = array();
+		for ( $i = 0; $i < 6; $i++ ) {
+			$wpdb->insert( $wpdb->prefix . 'bn_spaces', array( 'name' => 'Batch space ' . $i, 'slug' => 'batch-space-' . $i . '-' . wp_rand(), 'type' => 'open', 'owner_id' => 1, 'created_at' => current_time( 'mysql', true ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+			$space_id = (int) $wpdb->insert_id;
+			$wpdb->insert( $wpdb->prefix . 'bn_posts', array( 'user_id' => $this->actor_id, 'content' => 'x', 'type' => 'text', 'privacy' => 'public', 'status' => 'published', 'space_id' => $space_id, 'created_at' => current_time( 'mysql', true ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+			$rows[] = $this->row( 'bn.space_new_post', array( 'object_id' => (int) $wpdb->insert_id ) );
+			$rows[] = $this->row( 'bn.space_join', array( 'object_id' => $space_id ) );
+		}
+		wp_cache_flush();
+
+		$before = $wpdb->num_queries;
+		$out    = ( new \BuddyNext\Notifications\NotificationMessageService() )->compose_batch( $rows );
+		$spent  = $wpdb->num_queries - $before;
+
+		$this->assertStringContainsString( 'Batch space 5', $out[10]['message'] );
+		$this->assertLessThan( 12, $spent, 'Space names for 12 rows must not cost a query per row.' );
+	}
+
+	/**
 	 * Data JSON string is decoded transparently.
 	 */
 	public function test_data_json_string_is_decoded(): void {

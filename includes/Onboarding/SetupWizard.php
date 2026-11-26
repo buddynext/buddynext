@@ -291,14 +291,14 @@ class SetupWizard {
 		$requested = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( (string) $_GET['step'] ) ) : ( isset( $_POST['step'] ) ? sanitize_key( wp_unslash( (string) $_POST['step'] ) ) : '' );
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing
 		if ( '' !== $requested ) {
-			$requested_key = ctype_digit( $requested )
+			$requested_key = \BuddyNext\Support\Text::is_digits( $requested )
 				? ( $keys[ max( 1, (int) $requested ) - 1 ] ?? '' )
 				: $requested;
 
 			if ( '' !== $requested_key && in_array( $requested_key, $keys, true ) ) {
 				$furthest = $this->is_complete()
 					? count( $keys ) - 1
-					: (int) ( array_search( ctype_digit( $stored ) ? ( $keys[ max( 1, (int) $stored ) - 1 ] ?? $keys[0] ) : $stored, $keys, true ) ?: 0 );
+					: (int) ( array_search( \BuddyNext\Support\Text::is_digits( $stored ) ? ( $keys[ max( 1, (int) $stored ) - 1 ] ?? $keys[0] ) : $stored, $keys, true ) ?: 0 );
 
 				if ( (int) array_search( $requested_key, $keys, true ) <= $furthest ) {
 					return $requested_key;
@@ -306,7 +306,7 @@ class SetupWizard {
 			}
 		}
 
-		if ( ctype_digit( $stored ) ) {
+		if ( \BuddyNext\Support\Text::is_digits( $stored ) ) {
 			$idx = max( 1, (int) $stored ) - 1;
 			return $keys[ $idx ] ?? $keys[ count( $keys ) - 1 ];
 		}
@@ -865,7 +865,7 @@ class SetupWizard {
 	 * Every step calls this so layout, spacing, and reassurance copy stay
 	 * identical across the wizard. Pass an empty $reassure to suppress the pill.
 	 *
-	 * @param string $title    The H2 question or label.
+	 * @param string $title    The step question or label, the page's one h1.
 	 * @param string $sub      One-line context under the title.
 	 * @param string $reassure Where the setting can be changed later (free text).
 	 * @return void
@@ -873,7 +873,7 @@ class SetupWizard {
 	private function render_step_head( string $title, string $sub, string $reassure = '' ): void {
 		?>
 		<div class="bn-wizard__head">
-			<h2 class="bn-wizard__title"><?php echo esc_html( $title ); ?></h2>
+			<h1 class="bn-wizard__title"><?php echo esc_html( $title ); ?></h1>
 			<?php if ( '' !== $sub ) : ?>
 				<p class="bn-wizard__sub"><?php echo esc_html( $sub ); ?></p>
 			<?php endif; ?>
@@ -1527,7 +1527,7 @@ class SetupWizard {
 			<div class="bn-wizard__done-icon" aria-hidden="true">
 				<?php echo \BuddyNext\Core\IconService::render( 'sparkles' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
 			</div>
-			<h2 class="bn-wizard__title bn-wizard__title--done"><?php esc_html_e( 'Your community is ready.', 'buddynext' ); ?></h2>
+			<h1 class="bn-wizard__title bn-wizard__title--done"><?php esc_html_e( 'Your community is ready.', 'buddynext' ); ?></h1>
 			<p class="bn-wizard__sub"><?php esc_html_e( 'Everything is configured. Open your dashboard to start inviting members, or jump to the front-end to see what they’ll see.', 'buddynext' ); ?></p>
 
 			<div class="bn-wizard__sample">

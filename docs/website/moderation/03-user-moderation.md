@@ -34,6 +34,8 @@ Each action below is a deliberate step a moderator or admin takes against a memb
 
 A suspension always needs a reason. Every suspend screen (the moderation queue in Community Admin and in wp-admin, Members, and bulk suspend) asks you to pick one - Spam or scams, Harassment or abuse, Hate speech, Impersonation, Off-topic or disruptive, or Other - and add an optional note (required for Other, up to 300 characters). The same dialog sets the length (Indefinite, 1 day, 7 days, 30 days or 90 days) and whether their posts are hidden. The member sees the reason and the end date on their account status page and in the suspension email, and can appeal from there. Developers can change the list with the `buddynext_suspension_reasons` filter.
 
+Nobody can suspend the site owner's account (the user whose email is the **Administration Email Address** under **Settings > General**), and the owner cannot be given strikes, so strike thresholds and automated rules never suspend them either. Administrators can still suspend other administrators, and nobody can suspend themselves.
+
 ## How strike thresholds escalate
 
 Strikes are the engine that turns repeat offenses into automatic consequences. Each time you issue a strike, BuddyNext counts the member's active (non-reversed) strikes and applies the strongest threshold that has been reached:
@@ -63,6 +65,7 @@ Strike thresholds and the report auto-hide limit live under **BuddyNext > Automa
 - **A suspended member cannot post.** While a suspension is active, the member is blocked from creating posts and comments. Reading the community still works - the block is on contributing, not on access.
 - **Shadow-banned content is hidden from others, not from the member.** (A shadow-ban is applied through the REST API; no screen has a button for it.) The shadow-banned member sees their own posts exactly as before and receives no warning. To everyone else, their content does not appear in feeds or search. This is what makes it effective against spammers who would otherwise just register again.
 - **Suspensions can be temporary or indefinite.** A suspension with a duration in days lifts itself automatically when it expires. A suspension with no duration stays in place until a moderator lifts it (or an appeal is approved).
+- **Nobody suspends themselves.** An administrator cannot suspend their own account, from the row action, bulk suspend or the API. The Members list and Edit Member screen do not offer Suspend where it would be refused, and a refused bulk action names the real reason (your own account, a higher role, a network super admin) instead of a generic permission error. On a multisite network a site administrator also cannot suspend a network super admin.
 - **Re-suspending is safe.** Suspending an already-suspended member does not stack a second suspension - the existing one is returned unchanged.
 - **Reversing a non-existent or already-reversed strike fails clearly** rather than reporting a false success, so you always know whether the reversal actually changed anything.
 - **Every action is logged.** Warnings, strikes, suspensions, shadow-bans, and reversals each write a permanent entry to the moderation log, so there is always a record of who did what and why.
@@ -70,6 +73,12 @@ Strike thresholds and the report auto-hide limit live under **BuddyNext > Automa
 ## Free vs Pro
 
 The full warn, strike, suspend, shadow-ban, and automatic-threshold system described here is included in BuddyNext free. Pro adds advanced moderation tooling on top - bulk moderation, a moderation rules engine, and member labels - but the per-member actions and the strike ladder are part of the free plugin.
+
+## What changed in 1.3.0
+
+- A suspended member sees one banner on every community page. It says they can read but not post or react, and links to the account status page where they can appeal.
+- While suspended, the mobile Create button, the streak card and the Follow buttons on people rows are not shown.
+- The suspension email carries no Unsubscribe link, because it is a notice about the member's own account.
 
 ## Related
 

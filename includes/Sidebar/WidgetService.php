@@ -401,7 +401,7 @@ class WidgetService {
 	public function joined_spaces( int $user_id, int $limit = 4 ): array {
 		$user_id = max( 0, $user_id );
 		$limit   = max( 1, min( $limit, 20 ) );
-		return (array) $this->cache->get(
+		$rows    = (array) $this->cache->get(
 			WidgetCache::key_spaces( $user_id, $limit ),
 			WidgetCache::GROUP_USER,
 			WidgetCache::TTL_USER,
@@ -474,6 +474,46 @@ class WidgetService {
 				return is_array( $rows ) ? $rows : array();
 			}
 		);
+
+		return $this->with_live_member_counts( $rows );
+	}
+
+	/**
+	 * Put the current member count on rows read from the per-user cache.
+	 *
+	 * The cached rows hold which spaces the viewer is in, their names and order. The member count is
+	 * the one field that other people change (every join and leave), and it cannot be cleared per viewer
+	 * when someone joins a space of 100k members, so a viewer kept reading the number from the day the
+	 * row was cached. One primary-key lookup on at most 20 ids reads it fresh.
+	 *
+	 * @param array<int,object> $rows Rows from the cache.
+	 * @return array<int,object>
+	 */
+	private function with_live_member_counts( array $rows ): array {
+		$ids = array_values( array_filter( array_map( static fn( $row ): int => is_object( $row ) ? (int) ( $row->id ?? 0 ) : 0, $rows ) ) );
+		if ( empty( $ids ) ) {
+			return $rows;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$live = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT id, member_count FROM ' . $wpdb->prefix . 'bn_spaces WHERE id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')',
+				$ids
+			),
+			OBJECT_K
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		foreach ( $rows as $i => $row ) {
+			if ( is_object( $row ) && isset( $live[ (int) ( $row->id ?? 0 ) ] ) ) {
+				$row               = clone $row;
+				$row->member_count = (int) $live[ (int) $row->id ]->member_count;
+				$rows[ $i ]        = $row;
+			}
+		}
+		return $rows;
 	}
 
 	/**
@@ -521,6 +561,11 @@ class WidgetService {
 		$start = wp_rand( 1, $max_id );
 		$found = array();
 
+		// The directory's own "who may be found" rule (suspended, shadow-banned,
+		// directory opt-out, awaiting approval, network scope), so a member the
+		// directory hides is never offered as someone to follow.
+		$discoverable = implode( ' AND ', \BuddyNext\Profile\MemberDirectoryService::exclusion_clauses( 'u.ID' ) );
+
 		// Pass 1 reads forward from the random point; pass 2 wraps around to the start and
 		// picks up whatever is still missing.
 		foreach ( array( array( '>=', $start ), array( '<', $start ) ) as $pass ) {
@@ -543,7 +588,8 @@ class WidgetService {
 					'SELECT u.ID
 					 FROM ' . $wpdb->users . ' u
 					 WHERE u.ID ' . $op . ' %d
-					   AND u.ID NOT IN (' . $skip_ph . ') ' . buddynext_member_scope_sql( 'u.ID', ' AND ' ) . '
+					   AND u.ID NOT IN (' . $skip_ph . ')
+					   AND ' . $discoverable . '
 					   AND NOT EXISTS (
 						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
 						   WHERE f.follower_id = %d AND f.following_id = u.ID
@@ -553,20 +599,8 @@ class WidgetService {
 						   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
 							  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
 					   )
-					   AND NOT EXISTS (
-						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_user_suspensions s_ex
-						   WHERE s_ex.user_id = u.ID
-							 AND s_ex.lifted_at IS NULL
-							 AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() )
-					   )
-					   AND NOT EXISTS (
-						   SELECT 1 FROM ' . $wpdb->usermeta . " um_ban
-						   WHERE um_ban.user_id = u.ID
-							 AND um_ban.meta_key = 'bn_shadow_banned'
-							 AND um_ban.meta_value = '1'
-					   )
 					 ORDER BY u.ID ASC
-					 LIMIT %d",
+					 LIMIT %d',
 					array_merge(
 						array( $boundary ),
 						$skip,

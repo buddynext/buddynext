@@ -18,6 +18,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Contracts\ListenerInterface;
 
 /**
@@ -43,6 +44,39 @@ class BlogPostListener implements ListenerInterface {
 	 * found is a card that can never be retracted.
 	 */
 	public const META_POST_ID = 'source_post_id';
+
+	/**
+	 * Post meta on the WordPress post: the BuddyNext space its author wrote it for.
+	 *
+	 * Written by MemberBlogBridge from Member Blog's form. The same key is used on
+	 * MediaVerse albums (Media\Galleries::SPACE_META), so it is only ever read from
+	 * a post of type 'post', never queried by key alone.
+	 *
+	 * @since 1.3.0
+	 */
+	public const SPACE_META = '_bn_space_id';
+
+	/**
+	 * Action Scheduler hook that re-places article cards after the "Articles in
+	 * Spaces" switch changes.
+	 *
+	 * @since 1.3.0
+	 */
+	public const RESYNC_HOOK = 'buddynext_resync_article_spaces';
+
+	/**
+	 * Articles per resync batch.
+	 *
+	 * @since 1.3.0
+	 */
+	private const RESYNC_BATCH = 25;
+
+	/**
+	 * Posts per batch of the one-time article crop pass.
+	 *
+	 * @since 1.3.0
+	 */
+	private const CROP_BATCH = 20;
 
 	/**
 	 * The feed card for a post, if one exists.
@@ -95,8 +129,30 @@ class BlogPostListener implements ListenerInterface {
 		add_action( 'wp_after_insert_post', array( $this, 'on_after_insert' ), 10, 4 );
 		add_action( 'before_delete_post', array( $this, 'on_delete' ) );
 		add_action( 'buddynext_user_verified', array( $this, 'on_user_verified' ) );
+		// A deleted space's article cards go back to the site-wide feed before its
+		// posts are removed: the big-space path deletes posts in background chunks
+		// right after the queued hook, the one-request path right after deleting.
+		add_action( 'buddynext_space_delete_queued', array( $this, 'on_space_deleting' ) );
+		add_action( 'buddynext_space_deleting', array( $this, 'on_space_deleting' ) );
 		add_filter( 'buddynext_render_post_body_' . self::TYPE, array( $this, 'render_card' ), 10, 2 );
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+
+		// Article cover and thumbnail crops: cut for a published article's featured
+		// image only, never for every upload. The meta hooks catch a featured image
+		// set after the post was saved (Member Blog writes _thumbnail_id once
+		// wp_insert_post() has returned, so wp_after_insert_post sees none).
+		ArticleImage::register();
+		add_action( 'added_post_meta', array( $this, 'on_thumbnail_set' ), 10, 4 );
+		add_action( 'updated_post_meta', array( $this, 'on_thumbnail_set' ), 10, 4 );
+		add_action( ArticleImage::REGEN_HOOK, array( $this, 'regen_crops_batch' ), 10, 2 );
+
+		// The "Articles in Spaces" switch: its flip re-places the cards in batches.
+		add_action( 'buddynext_integration_subtab_changed', array( $this, 'on_subtab_changed' ), 10, 3 );
+		add_action( self::RESYNC_HOOK, array( $this, 'resync_space_cards' ), 10, 2 );
+		add_action( 'buddynext_space_fields_saved', array( $this, 'on_space_fields_saved' ), 10, 3 );
+
+		// The composer and app article counts drop their cache when a post changes.
+		ArticleProvider::register();
 	}
 
 	/**
@@ -118,6 +174,8 @@ class BlogPostListener implements ListenerInterface {
 			'has_nav'    => false,
 			'has_feed'   => true,
 			'has_search' => false,
+			// Site blog tracking is core, so its row carries the BuddyNext mark.
+			'icon'       => BUDDYNEXT_URL . 'assets/img/companions/buddynext.svg',
 		);
 
 		return $items;
@@ -171,20 +229,395 @@ class BlogPostListener implements ListenerInterface {
 			return;
 		}
 
-		if ( ! $this->is_shareable( $post ) ) {
+		if ( ! self::is_shareable( $post ) ) {
 			IntegrationActivity::withdraw_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID );
 			return;
 		}
 
+		// Before the feed toggle: the profile Articles tab reads the crops too.
+		ArticleImage::ensure_crops( (int) get_post_thumbnail_id( $post ) );
+
 		if ( ! buddynext_integration_enabled( 'blog', 'feed' ) ) {
 			return;
 		}
+
+		// The space first, then the status: a card restored here is never live in a
+		// space the post no longer belongs to. Moves the one existing card in place;
+		// a no-op when there is none yet or it is already where it belongs.
+		IntegrationActivity::set_space_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID, self::space_for( $post ) );
 
 		if ( IntegrationActivity::restore_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID ) > 0 ) {
 			return;
 		}
 
 		$this->publish_card( $post );
+	}
+
+	/**
+	 * Cut the article crops when a published article's featured image is set or replaced.
+	 *
+	 * The card reads the image live, so a replaced image's old crop is simply no
+	 * longer used; its files are left alone because another post may share them.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $meta_id    Meta row id.
+	 * @param int    $object_id  Post id.
+	 * @param string $meta_key   Meta key.
+	 * @param mixed  $meta_value New value (the attachment id for _thumbnail_id).
+	 * @return void
+	 */
+	public function on_thumbnail_set( $meta_id, $object_id, $meta_key, $meta_value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- the meta hooks pass the row id first.
+		if ( '_thumbnail_id' !== $meta_key ) {
+			return;
+		}
+		$post = get_post( (int) $object_id );
+		if ( ! $post instanceof \WP_Post || ! in_array( $post->post_type, $this->tracked_types(), true ) || ! self::is_shareable( $post ) ) {
+			return;
+		}
+		ArticleImage::ensure_crops( (int) $meta_value );
+	}
+
+	/**
+	 * One batch of the one-time crop pass over articles published before 1.3.0.
+	 *
+	 * Walks published, unprotected tracked-type posts that have a featured image,
+	 * 20 at a time in post id order (keyset on the primary key, the cursor in the
+	 * action args), and cuts the crops each featured image lacks. Images that
+	 * already have both are skipped without being loaded, so a re-run or a resumed
+	 * chain does no work. Queues the next batch with the last id seen; an empty
+	 * batch ends the chain with one full page-cache purge, only if any crop was cut.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $cursor  Last post id handled.
+	 * @param int $changed 1 once any batch of this chain cut a crop.
+	 * @return void
+	 */
+	public function regen_crops_batch( $cursor = 0, $changed = 0 ): void {
+		global $wpdb;
+
+		$cursor  = max( 0, (int) $cursor );
+		$changed = (int) $changed;
+		$types   = $this->tracked_types();
+		if ( array() === $types ) {
+			return;
+		}
+
+		$in = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in is a counted list of %s placeholders; every value is bound.
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.ID, pm.meta_value AS thumb FROM {$wpdb->posts} p
+				 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_thumbnail_id'
+				 WHERE p.ID > %d AND p.post_status = 'publish' AND p.post_password = '' AND p.post_type IN ( {$in} )
+				 ORDER BY p.ID ASC
+				 LIMIT %d",
+				array_merge( array( $cursor ), $types, array( self::CROP_BATCH ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		if ( array() === $rows ) {
+			if ( $changed > 0 ) {
+				\BuddyNext\Core\PageCachePurger::purge_all();
+			}
+			return;
+		}
+
+		foreach ( $rows as $row ) {
+			if ( ArticleImage::ensure_crops( (int) $row['thumb'] ) ) {
+				$changed = 1;
+			}
+		}
+
+		self::queue_crop_batch( (int) end( $rows )['ID'], $changed );
+	}
+
+	/**
+	 * Queue a crop batch through Action Scheduler, or WP-Cron where it is absent.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $cursor  Last post id handled.
+	 * @param int $changed 1 once any crop was cut.
+	 * @return void
+	 */
+	public static function queue_crop_batch( int $cursor, int $changed = 0 ): void {
+		$args = array( $cursor, $changed );
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( ArticleImage::REGEN_HOOK, $args, 'buddynext' );
+			return;
+		}
+		if ( ! wp_next_scheduled( ArticleImage::REGEN_HOOK, $args ) ) {
+			wp_schedule_single_event( time(), ArticleImage::REGEN_HOOK, $args );
+		}
+	}
+
+	/**
+	 * Whether articles may be written for, and listed in, a Space.
+	 *
+	 * The owner's "Articles in Spaces" switch (Integration Settings, Blog row; on by
+	 * default). It reads the stored switch alone, not the Navigation switch or Member
+	 * Blog's presence: those hide the surface, but where an existing card lives must
+	 * not shuffle because a partner was deactivated.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return bool
+	 */
+	public static function spaces_enabled(): bool {
+		return '0' !== (string) get_option( 'buddynext_integration_' . MemberBlogBridge::INTEGRATION . '_subtab_spaces', '1' );
+	}
+
+	/**
+	 * Whether articles may be written for, and listed in, one particular Space.
+	 *
+	 * The site-wide switch AND the Space owner's "Articles tab" switch (on by default,
+	 * stored with the Space's other tab switches).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	public static function space_enabled( int $space_id ): bool {
+		// A boolean field reads back as a real bool: only an explicit off is false.
+		return self::spaces_enabled() && false !== buddynext_get_space_field( $space_id, MemberBlogBridge::SPACE_FIELD );
+	}
+
+	/**
+	 * Re-place the article cards when "Articles in Spaces" is switched.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $key Integration key.
+	 * @param string $sub Sub-tab key.
+	 * @param bool   $on  New state.
+	 * @return void
+	 */
+	public function on_subtab_changed( $key, $sub, $on ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- hook signature.
+		if ( MemberBlogBridge::INTEGRATION !== $key || 'spaces' !== $sub ) {
+			return;
+		}
+		self::queue_resync( 0 );
+	}
+
+	/**
+	 * Re-place one Space's article cards when its owner switches its Articles tab.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int                 $space_id Space id.
+	 * @param array<string,mixed> $saved    Saved fields (unused).
+	 * @param string[]            $changed  Keys whose value changed.
+	 * @return void
+	 */
+	public function on_space_fields_saved( $space_id, $saved = array(), $changed = array() ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- hook signature.
+		if ( in_array( MemberBlogBridge::SPACE_FIELD, (array) $changed, true ) ) {
+			self::queue_resync( 0, (int) $space_id );
+		}
+	}
+
+	/**
+	 * Queue one resync batch.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $cursor   Last postmeta id handled.
+	 * @param int $space_id Limit the batch to one Space (0 = every Space).
+	 * @return void
+	 */
+	private static function queue_resync( int $cursor, int $space_id = 0 ): void {
+		$args = array( $cursor, $space_id );
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::RESYNC_HOOK, $args, 'buddynext' );
+			return;
+		}
+		if ( ! wp_next_scheduled( self::RESYNC_HOOK, $args ) ) {
+			wp_schedule_single_event( time(), self::RESYNC_HOOK, $args );
+		}
+	}
+
+	/**
+	 * One batch of the card re-placement.
+	 *
+	 * Walks the articles that carry a Space on the core meta_key index, in meta_id
+	 * order, and moves each one's card to where space_for() now says it belongs: an
+	 * open Space's card goes site-wide while the switch is off and back when it is on,
+	 * a private or secret Space's card never moves. Idempotent, so a rerun is harmless.
+	 * Posts only: MediaVerse albums use the same meta key.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $cursor   Last postmeta id handled.
+	 * @param int $space_id Limit the batch to one Space (0 = every Space).
+	 * @return void
+	 */
+	public function resync_space_cards( $cursor = 0, $space_id = 0 ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT pm.meta_id, pm.post_id FROM {$wpdb->postmeta} pm
+				 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+				 WHERE pm.meta_key = %s AND pm.meta_id > %d AND p.post_type = 'post' AND ( %d = 0 OR pm.meta_value = %s )
+				 ORDER BY pm.meta_id ASC LIMIT %d",
+				self::SPACE_META,
+				(int) $cursor,
+				(int) $space_id,
+				(string) (int) $space_id,
+				self::RESYNC_BATCH
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$last = (int) $cursor;
+		foreach ( $rows as $row ) {
+			$last = (int) $row['meta_id'];
+			$post = get_post( (int) $row['post_id'] );
+			if ( $post instanceof \WP_Post ) {
+				IntegrationActivity::set_space_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID, self::space_for( $post ) );
+			}
+		}
+
+		if ( self::RESYNC_BATCH === count( $rows ) ) {
+			self::queue_resync( $last, (int) $space_id );
+			return;
+		}
+
+		// Last batch: the pages that list these cards were cached before they moved.
+		\BuddyNext\Core\PageCachePurger::purge_all();
+	}
+
+	/**
+	 * Whether an article by this author may be newly associated with this space.
+	 *
+	 * The check for a new or changed association (space_for() decides for one
+	 * already stored). Public (open) spaces only: an article is public at its own URL, so it may
+	 * only be listed where everyone can read. The space must exist, not be archived
+	 * or on its way out, and the author must be allowed to post there (active
+	 * member meeting "Who can post"; SpacePostGuard::can_contribute()).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space id.
+	 * @param int $author   Article author.
+	 * @return bool
+	 */
+	public static function space_accepts_article( int $space_id, int $author ): bool {
+		if ( $space_id <= 0 || $author <= 0 || ! self::space_enabled( $space_id ) ) {
+			return false;
+		}
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		if ( null === $space || \BuddyNext\Spaces\SpaceService::TYPE_OPEN !== (string) ( $space['type'] ?? '' ) ) {
+			return false;
+		}
+		return \BuddyNext\Spaces\SpacePostGuard::can_contribute( $space_id, $author );
+	}
+
+	/**
+	 * The space a post's card belongs in: the stored association while it holds,
+	 * else 0 (site-wide).
+	 *
+	 * The association was validated when it was made (MemberBlogBridge). On every
+	 * later save it is only re-checked for an open space: an author who can no
+	 * longer post there moves the card site-wide. A space that has since become
+	 * private or secret keeps the card, members-only (privacy space_members), even
+	 * if the author has left it, so the members who saw it keep seeing it and it
+	 * never turns public. A deleted space sends the card site-wide.
+	 *
+	 * @param \WP_Post $post Source post.
+	 * @return int
+	 */
+	private static function space_for( \WP_Post $post ): int {
+		if ( 'post' !== $post->post_type ) {
+			return 0;
+		}
+		$space_id = (int) get_post_meta( (int) $post->ID, self::SPACE_META, true );
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		if ( null === $space ) {
+			return 0;
+		}
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_OPEN !== (string) ( $space['type'] ?? '' ) ) {
+			return $space_id;
+		}
+		return self::space_accepts_article( $space_id, (int) $post->post_author ) ? $space_id : 0;
+	}
+
+	/**
+	 * Move a space's article cards to the site-wide feed before the space goes.
+	 *
+	 * The article stays public at its own URL, so its card outlives the space
+	 * rather than being deleted with it. The articles' stale association is
+	 * removed too, so a later save cannot point the card at the space again.
+	 * Safe to run twice.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space being deleted.
+	 * @return void
+	 */
+	public function on_space_deleting( $space_id ): void {
+		( new PostService() )->move_space_type_to_site( (int) $space_id, self::TYPE );
+		self::forget_space( (int) $space_id );
+	}
+
+	/**
+	 * Remove a space's id from the articles written for it, in one query.
+	 *
+	 * Scoped to posts of type 'post': MediaVerse albums store the same meta key
+	 * (Media\Galleries::SPACE_META) and are handled by their own listener.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space being deleted.
+	 * @return void
+	 */
+	private static function forget_space( int $space_id ): void {
+		global $wpdb;
+
+		if ( $space_id <= 0 ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT pm.post_id FROM {$wpdb->postmeta} pm
+					 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+					 WHERE p.post_type = 'post' AND pm.meta_key = %s AND pm.meta_value = %s",
+					self::SPACE_META,
+					(string) $space_id
+				)
+			)
+		);
+		if ( array() === $post_ids ) {
+			return;
+		}
+
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE pm FROM {$wpdb->postmeta} pm
+				 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+				 WHERE p.post_type = 'post' AND pm.meta_key = %s AND pm.meta_value = %s",
+				self::SPACE_META,
+				(string) $space_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( $post_ids as $post_id ) {
+			wp_cache_delete( $post_id, 'post_meta' );
+		}
 	}
 
 	/**
@@ -246,7 +679,7 @@ class BlogPostListener implements ListenerInterface {
 			return;
 		}
 
-		if ( ! $this->is_shareable( $post ) ) {
+		if ( ! self::is_shareable( $post ) ) {
 			return;
 		}
 
@@ -297,9 +730,9 @@ class BlogPostListener implements ListenerInterface {
 			self::title_for( $post ),
 			self::TYPE,
 			self::excerpt_for( $post ),
-			0,
+			self::space_for( $post ),
 			array(
-				'image'            => self::image_for( $post ),
+				'image'            => (string) ( ArticleImage::for_post( $post, 'cover' )['url'] ?? '' ),
 				self::META_POST_ID => (int) $post->ID,
 			)
 		);
@@ -324,11 +757,21 @@ class BlogPostListener implements ListenerInterface {
 	public static function live_link_meta( array $meta ): array {
 		$post_id = (int) ( $meta[ self::META_POST_ID ] ?? 0 );
 		$post    = $post_id > 0 ? get_post( $post_id ) : null;
-		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) {
+		if ( ! $post instanceof \WP_Post ) {
+			return $meta;
+		}
+		// Private or password protected now: the card is withdrawn, and any reader
+		// that still reaches it (a reshare, a cached copy) gets no title, excerpt or
+		// cover from the stored snapshot either.
+		if ( ! self::is_shareable( $post ) ) {
+			unset( $meta['title'], $meta['description'], $meta['image'], $meta['thumbnail'], $meta['cover_image'], $meta['thumb_image'] );
 			return $meta;
 		}
 
-		$image = self::image_for( $post );
+		// cover_image / thumb_image ({url,width,height} or null) are what a card
+		// renders; image and thumbnail stay plain strings carrying the cover URL
+		// for every reader that predates them (Explore, reshares, OG, the app).
+		$cover = ArticleImage::for_post( $post, 'cover' );
 
 		return array_merge(
 			$meta,
@@ -336,8 +779,10 @@ class BlogPostListener implements ListenerInterface {
 				'url'         => IntegrationActivity::published_permalink( $post ),
 				'title'       => self::title_for( $post ),
 				'description' => self::excerpt_for( $post ),
-				'image'       => $image,
-				'thumbnail'   => $image,
+				'image'       => (string) ( $cover['url'] ?? '' ),
+				'thumbnail'   => (string) ( $cover['url'] ?? '' ),
+				'cover_image' => $cover,
+				'thumb_image' => ArticleImage::for_post( $post, 'thumb' ),
 			)
 		);
 	}
@@ -416,7 +861,7 @@ class BlogPostListener implements ListenerInterface {
 	 * @param \WP_Post $post Source post.
 	 * @return bool
 	 */
-	private function is_shareable( \WP_Post $post ): bool {
+	private static function is_shareable( \WP_Post $post ): bool {
 		if ( '' !== (string) $post->post_password ) {
 			return false;
 		}
@@ -444,39 +889,26 @@ class BlogPostListener implements ListenerInterface {
 	 * The post is LOCAL: everything the card needs is already in memory, so the
 	 * meta is always supplied and that fetch never runs.
 	 *
-	 * @param \WP_Post $post Source post.
+	 * @param \WP_Post $post  Source post.
+	 * @param int      $words Word limit.
 	 * @return string
 	 */
-	private static function excerpt_for( \WP_Post $post ): string {
+	public static function excerpt_for( \WP_Post $post, int $words = 32 ): string {
 		$excerpt = wp_strip_all_tags( (string) $post->post_excerpt );
 
 		if ( '' === trim( $excerpt ) ) {
 			$excerpt = wp_strip_all_tags( strip_shortcodes( (string) $post->post_content ) );
 		}
 
-		return wp_trim_words( $excerpt, 32, '…' );
+		return wp_trim_words( $excerpt, $words, '…' );
 	}
 
 	/**
-	 * The featured image, at a size wide enough to head a feed card.
+	 * Render the article card in the feed: the shared article card, cover variant.
 	 *
-	 * @param \WP_Post $post Source post.
-	 * @return string Image URL, or '' when the post has no featured image.
-	 */
-	private static function image_for( \WP_Post $post ): string {
-		$url = get_the_post_thumbnail_url( $post, 'medium_large' );
-
-		return is_string( $url ) ? $url : '';
-	}
-
-	/**
-	 * Render the article card.
-	 *
-	 * A dedicated card rather than the shared bridge row: WordPress is a
-	 * blogging platform, a member publishing an article is a first-class piece
-	 * of community content, and it deserves to look like one - a wide cover
-	 * image, the headline, and a readable excerpt. The whole card is one link,
-	 * so the entire surface is the target rather than a small title anchor.
+	 * The image comes from the card's live link_meta (cover_image). A card whose
+	 * source post is gone carries only the stored URL, rendered in the same 16:9
+	 * box without known dimensions.
 	 *
 	 * @param string               $html Existing HTML (empty unless another filter ran).
 	 * @param array<string, mixed> $args Renderer args from templates/parts/post-body.php.
@@ -487,45 +919,34 @@ class BlogPostListener implements ListenerInterface {
 			return (string) $html;
 		}
 
-		$link  = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
-		$url   = isset( $link['url'] ) ? (string) $link['url'] : '';
-		$title = isset( $link['title'] ) ? (string) $link['title'] : '';
-		$desc  = isset( $link['desc'] ) ? (string) $link['desc'] : '';
-		$thumb = isset( $link['thumb'] ) ? (string) $link['thumb'] : '';
+		$link = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
+		$meta = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
+		$url  = isset( $link['url'] ) ? (string) $link['url'] : '';
 
 		if ( '' === $url ) {
-			// Nothing to point at — let the default branch render the plain body.
+			// Nothing to point at - let the default branch render the plain body.
 			return '';
 		}
 
-		$out = '<a class="bn-post-card__article" href="' . esc_url( $url ) . '">';
-
-		if ( '' !== $thumb ) {
-			$out .= '<span class="bn-post-card__article-cover">';
-			$out .= '<img src="' . esc_url( $thumb ) . '" alt="" loading="lazy" decoding="async">';
-			$out .= '</span>';
+		if ( array_key_exists( 'cover_image', $meta ) ) {
+			$image = is_array( $meta['cover_image'] ) ? $meta['cover_image'] : null;
+		} else {
+			$thumb = isset( $link['thumb'] ) ? (string) $link['thumb'] : '';
+			$image = '' !== $thumb ? array( 'url' => $thumb ) : null;
 		}
 
-		$out .= '<span class="bn-post-card__article-body">';
-		$out .= '<span class="bn-post-card__article-kicker">';
-		$out .= buddynext_get_icon( 'file-text' );
-		$out .= esc_html__( 'Article', 'buddynext' );
-		$out .= '</span>';
+		ob_start();
+		buddynext_get_template(
+			'parts/article-card.php',
+			array(
+				'variant' => 'cover',
+				'url'     => $url,
+				'title'   => isset( $link['title'] ) ? (string) $link['title'] : '',
+				'excerpt' => isset( $link['desc'] ) ? (string) $link['desc'] : '',
+				'image'   => $image,
+			)
+		);
 
-		if ( '' !== $title ) {
-			$out .= '<span class="bn-post-card__article-title">' . esc_html( $title ) . '</span>';
-		}
-		if ( '' !== $desc ) {
-			$out .= '<span class="bn-post-card__article-excerpt">' . esc_html( $desc ) . '</span>';
-		}
-
-		$domain = (string) wp_parse_url( $url, PHP_URL_HOST );
-		if ( '' !== $domain ) {
-			$out .= '<span class="bn-post-card__article-meta">' . esc_html( $domain ) . '</span>';
-		}
-
-		$out .= '</span></a>';
-
-		return $out;
+		return (string) ob_get_clean();
 	}
 }

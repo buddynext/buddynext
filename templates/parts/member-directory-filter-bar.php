@@ -207,19 +207,26 @@ do_action( 'buddynext_part_member_directory_filter_bar_before', $args );
 			</select>
 		<?php endif; ?>
 
-		<label class="bn-md-strip__online">
-			<input
-				type="checkbox"
-				class="bn-md-strip__online-input"
-				value="1"
-				<?php checked( $bn_online_only ); ?>
-				data-wp-on--change="actions.toggleOnlineOnly"
-			>
-			<span class="bn-md-strip__online-label">
-				<span class="bn-md-strip__online-dot" aria-hidden="true"></span>
-				<?php esc_html_e( 'Online only', 'buddynext' ); ?>
-			</span>
-		</label>
+		<?php
+		// Only for viewers who can see presence (logged-out visitors cannot, by
+		// owner decision): for them the server ignores the filter, so a checkbox
+		// would be a control that does nothing.
+		if ( \BuddyNext\Realtime\PresenceService::visible_to_viewer( get_current_user_id() ) ) :
+			?>
+			<label class="bn-md-strip__online">
+				<input
+					type="checkbox"
+					class="bn-md-strip__online-input"
+					value="1"
+					<?php checked( $bn_online_only ); ?>
+					data-wp-on--change="actions.toggleOnlineOnly"
+				>
+				<span class="bn-md-strip__online-label">
+					<span class="bn-md-strip__online-dot" aria-hidden="true"></span>
+					<?php esc_html_e( 'Online only', 'buddynext' ); ?>
+				</span>
+			</label>
+		<?php endif; ?>
 
 		<select
 			class="bn-select bn-md-strip__sort"

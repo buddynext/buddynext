@@ -95,6 +95,24 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Gate on: the native app's pre-sign-in handshake stays reachable. Both
+	 * routes are documented public (developer guide, REST contract): the app
+	 * themes its sign-in screen from them before it has credentials. Other /app
+	 * routes stay gated.
+	 */
+	public function test_gate_on_keeps_the_app_handshake_open(): void {
+		update_option( PrivateCommunity::OPTION, true );
+		wp_set_current_user( 0 );
+
+		$this->assertNull( PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'GET', '/buddynext/v1/app/config' ) ) );
+		$this->assertNull( PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'POST', '/buddynext/v1/app/strings' ) ) );
+		$this->assertSame( 200, rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/app/config' ) )->get_status(), 'the real route answers a guest' );
+
+		$other = PrivateCommunity::gate_rest( null, null, new WP_REST_Request( 'GET', '/buddynext/v1/app/configx' ) );
+		$this->assertInstanceOf( \WP_Error::class, $other, 'a lookalike route stays gated' );
+	}
+
+	/**
 	 * Gate on: a guest cannot bypass it by changing the route's case.
 	 *
 	 * WordPress dispatches routes case-insensitively (WP_REST_Server matches with
@@ -182,5 +200,73 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 
 		update_option( PrivateCommunity::OPTION, 1 );
 		$this->assertTrue( PrivateCommunity::require_login_for_learnomy( false ), 'Community private: gated.' );
+	}
+
+	/**
+	 * Eventonomy 2.0.0 has the same two-filter wall as Learnomy and MediaVerse. One Private Community switch
+	 * closes event pages, lists, REST, ICS and the embed through it, and adds to (never replaces) the
+	 * wall Eventonomy's own setting can raise.
+	 */
+	public function test_eventonomy_wall_follows_the_switch_and_keeps_its_own(): void {
+		PrivateCommunity::register();
+
+		$this->assertFalse( (bool) apply_filters( 'evnm_require_login_for_content', false ), 'Both off: events stay public.' );
+		$this->assertTrue( (bool) apply_filters( 'evnm_require_login_for_content', true ), 'Eventonomy\'s own wall is kept.' );
+
+		update_option( PrivateCommunity::OPTION, 1 );
+		$this->assertTrue( (bool) apply_filters( 'evnm_require_login_for_content', false ), 'Private community: events are walled.' );
+	}
+
+	public function test_eventonomy_wall_lets_a_member_in_and_keeps_a_guest_out(): void {
+		PrivateCommunity::register();
+		update_option( PrivateCommunity::OPTION, 1 );
+		$member = self::factory()->user->create();
+
+		wp_set_current_user( 0 );
+		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', false, 0 ), 'A guest is refused.' );
+		wp_set_current_user( $member );
+		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $member ), 'A signed-in member passes.' );
+
+		add_filter( 'buddynext_private_community_can_access', '__return_false' );
+		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', true, $member ), 'A membership plugin can still refuse.' );
+	}
+
+	public function test_a_held_member_is_kept_out_of_event_pages_while_the_community_is_private(): void {
+		PrivateCommunity::register();
+		$held   = self::factory()->user->create();
+		$active = self::factory()->user->create();
+		add_filter( 'buddynext_member_hold', static fn( $hold, $uid ) => (int) $uid === $held ? array( 'url' => home_url( '/hold/' ), 'code' => 'x', 'message' => 'x' ) : $hold, 10, 2 );
+
+		update_option( PrivateCommunity::OPTION, 1 );
+		wp_set_current_user( $held );
+		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', true, $held ), 'Held: events stay closed.' );
+		$this->assertFalse( (bool) apply_filters( 'learnomy_content_can_access', true, $held ), 'Held: Learnomy stays closed too.' );
+		wp_set_current_user( $active );
+		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $active ), 'Not held: passes.' );
+
+		delete_option( PrivateCommunity::OPTION );
+		wp_set_current_user( $held );
+		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $held ), 'A public community is not walled for anyone.' );
+	}
+
+	public function test_a_member_held_by_an_unverified_email_is_kept_out_of_event_pages_while_private(): void {
+		PrivateCommunity::register();
+		update_option( 'buddynext_email_verify', 1 );
+		update_option( 'buddynext_verify_enforcement', 'full' );
+		update_option( PrivateCommunity::OPTION, 1 );
+		$unverified = self::factory()->user->create();
+		delete_user_meta( $unverified, 'buddynext_email_verified' );
+		wp_update_user( array( 'ID' => $unverified, 'user_registered' => gmdate( 'Y-m-d H:i:s' ) ) );
+
+		wp_set_current_user( $unverified );
+		$this->assertFalse( (bool) apply_filters( 'evnm_content_can_access', true, $unverified ), 'An unverified email is a hold too.' );
+
+		$verified = self::factory()->user->create();
+		wp_set_current_user( $verified );
+		update_user_meta( $verified, 'buddynext_email_verified', 1 );
+		$this->assertTrue( (bool) apply_filters( 'evnm_content_can_access', true, $verified ), 'A verified member passes.' );
+
+		delete_option( 'buddynext_email_verify' );
+		delete_option( 'buddynext_verify_enforcement' );
 	}
 }

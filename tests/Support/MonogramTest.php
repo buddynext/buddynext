@@ -30,6 +30,13 @@ class MonogramTest extends \WP_UnitTestCase {
 		$this->assertSame( 'BP', Monogram::initials( 'Backend Engineer — Payments' ) );
 	}
 
+	public function test_punctuation_is_never_an_initial(): void {
+		// A Career Board job card showed "S(" for "Senior Frontend Engineer (Remote)".
+		$this->assertSame( 'SR', Monogram::initials( 'Senior Frontend Engineer (Remote)' ) );
+		$this->assertSame( 'AI', Monogram::initials( '"Acme" - Inc.' ) );
+		$this->assertSame( '•', Monogram::initials( '( - )' ) );
+	}
+
 	public function test_empty_falls_back_to_bullet(): void {
 		$this->assertSame( '•', Monogram::initials( '   ' ) );
 		$this->assertSame( '•', Monogram::initials( '' ) );

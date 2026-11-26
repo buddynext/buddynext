@@ -244,7 +244,7 @@ function mirrorReaction( card, postId, d ) {
 	card.ctx.reactionType  = type;
 	card.ctx.reactionLabel = type
 		? ( option?.getAttribute( 'title' ) || option?.getAttribute( 'aria-label' ) || type )
-		: ( viewer().reactDefaultLabel || 'React' );
+		: ( viewer().reactDefaultLabel || 'Like' );
 	updateReactionSummary( card.el, d.body || {} );
 }
 
@@ -287,6 +287,20 @@ document.addEventListener( 'buddynext:post-counts', ( event ) => {
 			setCommentCount( card.el, d.comments );
 		}
 	} );
+
+	// A comment added or removed elsewhere on this page (the media lightbox):
+	// mirror it in the open thread. Only an already-open thread; a closed one
+	// fetches the fresh list when it opens.
+	const list = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
+	if ( ! list || ! list.dataset.loaded ) return;
+	const removed = Number( d.removedCommentId ) || 0;
+	if ( removed ) {
+		list.querySelector( `[data-comment-id="${ removed }"]` )?.remove();
+	}
+	const added = Number( d.addedCommentId ) || 0;
+	if ( added ) {
+		bnShowLiveComments( list, [ added ] );
+	}
 } );
 
 /**
@@ -1494,8 +1508,8 @@ store( 'buddynext/post-card', {
 		get reactionLabel() {
 			try {
 				const ctx = getContext();
-				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'react', 'React' );
-			} catch ( _e ) { return t( 'react', 'React' ); }
+				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'react', 'Like' );
+			} catch ( _e ) { return t( 'react', 'Like' ); }
 		},
 		get pollOptionPctText() {
 			try {
@@ -1543,6 +1557,9 @@ store( 'buddynext/post-card', {
 				const n = getContext().pollTotalVotes || 0;
 				return n === 1 ? t( 'oneVote', '1 vote' ) : fmt( t( 'manyVotes', '%d votes' ), n );
 			} catch ( _e ) { return fmt( t( 'manyVotes', '%d votes' ), 0 ); }
+		},
+		get reactPressed() {
+			try { return !! getContext().reactionType; } catch ( _e ) { return false; }
 		},
 		get reactBtnClass() {
 			try {
@@ -1826,9 +1843,38 @@ store( 'buddynext/post-card', {
 		revealContent() {
 			getContext().showContent = true;
 		},
-		toggleOptionsMenu() {
+		toggleOptionsMenu( event ) {
 			const ctx      = getContext();
 			ctx.optionsOpen = ! ctx.optionsOpen;
+			// Opened from the keyboard (Enter or Space reports no pointer): land on the first item, as a menu does.
+			if ( ctx.optionsOpen && event && 0 === event.detail ) {
+				const wrap = event.currentTarget && event.currentTarget.closest( '.bn-post-card__menu-wrap' );
+				requestAnimationFrame( () => {
+					const first = wrap && wrap.querySelector( '.bn-post-card__options-menu a, .bn-post-card__options-menu button' );
+					if ( first ) { first.focus(); }
+				} );
+			}
+		},
+		/**
+		 * Arrow keys, Home and End move between the menu's items.
+		 *
+		 * @param {KeyboardEvent} event The keydown event on the menu.
+		 */
+		optionsMenuKeys( event ) {
+			const move = { ArrowDown: 1, ArrowUp: -1 };
+			if ( ! ( event.key in move ) && 'Home' !== event.key && 'End' !== event.key ) {
+				return;
+			}
+			const items = Array.prototype.filter.call(
+				event.currentTarget.querySelectorAll( 'a, button' ),
+				( el ) => el.getClientRects().length > 0 && ! el.disabled
+			);
+			if ( ! items.length ) { return; }
+			event.preventDefault();
+			let next = items.indexOf( document.activeElement ) + ( move[ event.key ] || 0 );
+			if ( 'Home' === event.key ) { next = 0; }
+			if ( 'End' === event.key ) { next = items.length - 1; }
+			items[ ( next + items.length ) % items.length ].focus();
 		},
 		/**
 		 * Toggle this card's "who reacted" popover. The panel is SSR-present
@@ -1965,9 +2011,14 @@ store( 'buddynext/post-card', {
 		},
 		* deletePost() {
 			const ctx = getContext();
+			// The menu that offered Delete closes behind the dialog, and the dialog says which post it is about.
+			ctx.optionsOpen = false;
+			const postEl = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
+			const bodyEl = postEl ? postEl.querySelector( '.bn-post-card__body, .bn-post-card__text, .bn-post-card__content' ) : null;
+			const snippet = bodyEl ? ( bodyEl.textContent || '' ).replace( /\s+/g, ' ' ).trim().slice( 0, 90 ) : '';
 			const ok = yield bnConfirm( {
 				title: t( 'deletePostTitle', 'Delete this post?' ),
-				body: t( 'cannotBeUndone', 'This cannot be undone.' ),
+				body: ( snippet ? '\u201C' + snippet + ( snippet.length >= 90 ? '\u2026' : '' ) + '\u201D ' : '' ) + t( 'cannotBeUndone', 'This cannot be undone.' ),
 				confirmLabel: t( 'delete', 'Delete' ),
 				tone: 'danger',
 			} );
@@ -2073,6 +2124,8 @@ store( 'buddynext/post-card', {
 		},
 		* reportPost() {
 			const ctx    = getContext();
+			// The menu that offered Report closes behind the dialog instead of staying open under it.
+			ctx.optionsOpen = false;
 			const result = yield bnReportDialog( {
 				title: t( 'reportPost', 'Report this post' ),
 			} );
@@ -2470,6 +2523,27 @@ store( 'buddynext/post-card', {
 				}
 			};
 
+			// Escape cancels the edit from anywhere in the form, as it does in every other editor.
+			// While the caret sits in an @mention or #hashtag being typed, the suggestion list takes the first Escape
+			// (it may not have drawn yet): only a later Escape cancels the edit.
+			let listEscape = false;
+			ta.addEventListener( 'input', () => { listEscape = false; } );
+			form.addEventListener( 'keydown', ( e ) => {
+				if ( 'Escape' !== e.key ) { return; }
+				const typing = ! listEscape && /(^|\s)[@#][\w-]*$/.test( ta.value.slice( 0, ta.selectionStart || 0 ) );
+				if ( typing ) {
+					listEscape = true;
+					return;
+				}
+				{
+					e.preventDefault();
+					e.stopPropagation();
+					cancelBtn.click();
+					// The form is gone: hand focus to the post's "..." button it was opened from.
+					const menuBtn = card.querySelector( 'button.bn-post-card__menu' );
+					if ( menuBtn ) { menuBtn.focus(); }
+				}
+			} );
 			cancelBtn.addEventListener( 'click', () => {
 				// Hiding the preview is only a preview of the consequence — nothing
 				// was saved, so cancelling has to put it back.
@@ -2604,11 +2678,22 @@ store( 'buddynext/post-card', {
 			if ( ! ctx.commentsOpen ) {
 				return;
 			}
+			// The form opens: put the caret in its box so the next keystroke is the comment, by mouse or keyboard.
+			const focusInput = () => {
+				const input = document.querySelector( '[data-comment-input="' + ctx.postId + '"]' );
+				if ( input && input.getClientRects().length ) { input.focus( { preventScroll: false } ); }
+			};
+			requestAnimationFrame( focusInput );
 			// Delegate to the shared module-level generator (see bnLoadComments)
 			// — `this.loadComments()` / `actions.loadComments()` both fail in
 			// the Interactivity API runtime (undefined `this`; wrapped action
 			// not yield*-iterable), which left the thread stuck on skeletons.
 			yield* bnLoadComments( ctx );
+			// Re-focus after the thread draws, unless the member has already moved on to something else.
+			const now = document.activeElement;
+			if ( ! now || now === document.body || ( now.closest && now.closest( '[data-wp-on--click="actions.openComments"]' ) ) ) {
+				focusInput();
+			}
 		},
 		* submitComment() {
 			const ctx     = getContext();
@@ -2803,3 +2888,25 @@ store( 'buddynext/post-card', {
 		},
 	},
 } );
+
+/*
+ * A partner card whose picture fails to load (deleted file, blocked host, hotlink refused) falls back to the layout
+ * it has with no picture, so the feed never shows an empty grey square. An error does not bubble, so it is caught
+ * on the way down, once for the whole page.
+ */
+document.addEventListener(
+	'error',
+	( event ) => {
+		const img = event.target;
+		if ( ! ( img instanceof HTMLImageElement ) ) {
+			return;
+		}
+		const cover = img.closest( '.bn-post-card__bridge-cover' );
+		if ( ! cover ) {
+			return;
+		}
+		cover.closest( '.bn-post-card__bridge-card' )?.classList.remove( 'has-cover' );
+		cover.remove();
+	},
+	true
+);

@@ -25,6 +25,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Core\CacheService;
 use BuddyNext\SocialGraph\FollowService;
 
 defined( 'ABSPATH' ) || exit;
@@ -42,6 +43,21 @@ class ExploreService {
 	public const FILTERS = array( 'all', 'members', 'spaces', 'posts', 'discussions', 'media' );
 
 	/**
+	 * The filters this site can actually serve.
+	 *
+	 * Discussions need Jetonomy with its feed integration on; without them the
+	 * facet only ever shows an empty state that invites a post nobody can make.
+	 *
+	 * @return string[]
+	 */
+	public static function available_filters(): array {
+		if ( class_exists( 'Jetonomy\\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'feed' ) ) {
+			return self::FILTERS;
+		}
+		return array_values( array_diff( self::FILTERS, array( 'discussions' ) ) );
+	}
+
+	/**
 	 * Object-cache group for the Explore decks.
 	 */
 	private const CACHE_GROUP = 'buddynext_explore';
@@ -50,11 +66,6 @@ class ExploreService {
 	 * Deck TTL. A backstop — the events that matter (a block, a new post) bust explicitly.
 	 */
 	private const CACHE_TTL = 300;
-
-	/**
-	 * Version counter for every cached deck.
-	 */
-	private const DECK_VERSION_KEY = 'explore_deck_version';
 
 	/**
 	 * How many new members to weave into the blended "all" first page.
@@ -106,7 +117,7 @@ class ExploreService {
 	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null, filter: string}
 	 */
 	public function deck( string $filter, ?string $cursor = null, int $per_page = 12 ): array {
-		$filter   = in_array( $filter, self::FILTERS, true ) ? $filter : 'all';
+		$filter   = in_array( $filter, self::available_filters(), true ) ? $filter : 'all';
 		$per_page = max( 1, min( $per_page, FeedService::MAX_PER_PAGE ) );
 
 		// The deck IS viewer-dependent, even though nothing in the signature says so: it
@@ -117,8 +128,8 @@ class ExploreService {
 		// which is correct: no blocks, no interests, one identical deck.
 		$viewer    = get_current_user_id();
 		$cache_key = sprintf(
-			'deck_v%d_%s_%s_%d_u%d',
-			self::deck_version(),
+			'deck_v%s_%s_%s_%d_u%d',
+			CacheService::last_changed( self::CACHE_GROUP, 'explore_decks' ),
 			$filter,
 			null === $cursor ? '' : md5( $cursor ),
 			$per_page,
@@ -128,7 +139,7 @@ class ExploreService {
 		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
-			self::prime_card_users( (array) ( $cached['items'] ?? array() ) );
+			self::prime_card_users( (array) ( $cached['items'] ?? array() ), $viewer );
 			return $cached;
 		}
 
@@ -152,43 +163,41 @@ class ExploreService {
 		$result['filter'] = $filter;
 
 		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
-		self::prime_card_users( (array) ( $result['items'] ?? array() ) );
+		self::prime_card_users( (array) ( $result['items'] ?? array() ), $viewer );
 
 		return $result;
 	}
 
 	/**
-	 * Warm the users and avatars a deck renders: member cards and post authors.
+	 * Warm the users and avatars a deck renders: member cards and post authors,
+	 * and the viewer's follow / pending / block state toward the member cards
+	 * (each card's Follow button asked those three, one query each per card).
 	 *
 	 * Runs on a cache hit too, because the deck cache holds rows, not the user
 	 * and avatar caches the cards read.
 	 *
-	 * @param array<int,array<string,mixed>> $items Deck cards.
+	 * @param array<int,array<string,mixed>> $items  Deck cards.
+	 * @param int                            $viewer Current user (0 = guest).
 	 * @return void
 	 */
-	private static function prime_card_users( array $items ): void {
-		$ids = array();
+	private static function prime_card_users( array $items, int $viewer = 0 ): void {
+		$ids     = array();
+		$members = array();
 		foreach ( $items as $card ) {
 			$ids[] = (int) ( $card['user_id'] ?? 0 );
 			$ids[] = (int) ( $card['post']['user_id'] ?? 0 );
+			if ( (int) ( $card['user_id'] ?? 0 ) > 0 ) {
+				$members[] = (int) $card['user_id'];
+			}
 		}
 		\BuddyNext\Profile\AvatarService::prime( $ids );
-	}
 
-	/**
-	 * Current version of the Explore decks.
-	 *
-	 * @return int
-	 */
-	private static function deck_version(): int {
-		$version = wp_cache_get( self::DECK_VERSION_KEY, self::CACHE_GROUP );
-
-		if ( false === $version ) {
-			$version = 1;
-			wp_cache_set( self::DECK_VERSION_KEY, $version, self::CACHE_GROUP );
+		$peers = array_values( array_diff( array_unique( $members ), array( $viewer ) ) );
+		if ( $viewer > 0 && $peers ) {
+			buddynext_service( 'follows' )->following_map( $viewer, $peers );
+			buddynext_service( 'follows' )->pending_map( $viewer, $peers );
+			buddynext_service( 'blocks' )->blocking_either_map( $viewer, $peers );
 		}
-
-		return (int) $version;
 	}
 
 	/**
@@ -209,7 +218,7 @@ class ExploreService {
 	 * @return void
 	 */
 	public static function flush_decks(): void {
-		wp_cache_set( self::DECK_VERSION_KEY, self::deck_version() + 1, self::CACHE_GROUP );
+		CacheService::set_last_changed( self::CACHE_GROUP, 'explore_decks' );
 	}
 
 	/**
@@ -407,16 +416,40 @@ class ExploreService {
 	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
 	private function newest_members( int $limit, ?string $cursor ): array {
+		global $wpdb;
+
 		$offset = $this->decode_offset( $cursor );
+
+		// Who may be found is the member directory's rule (suspended, shadow-banned,
+		// directory opt-out, awaiting approval), applied in the query as correlated
+		// NOT EXISTS; only the viewer and their blocks are an id list. The newest
+		// members are exactly where held sign-ups sit, so this deck needs the hold.
+		$skip     = $this->excluded_member_ids();
+		$where    = implode( ' AND ', \BuddyNext\Profile\MemberDirectoryService::exclusion_clauses( 'u.ID' ) );
+		$skip_sql = '';
+		if ( ! empty( $skip ) ) {
+			$skip_sql = ' AND u.ID NOT IN (' . implode( ',', array_map( 'intval', $skip ) ) . ')';
+		}
+
+		// $where is literal SQL from the shared seam; $skip_sql is an int-cast list.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$ids = (array) $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT u.ID FROM {$wpdb->users} u
+				  WHERE {$where}{$skip_sql}
+				  ORDER BY u.user_registered DESC, u.ID DESC
+				  LIMIT %d OFFSET %d",
+				$limit + 1,
+				$offset
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$query = new \WP_User_Query(
 			array(
-				'number'      => $limit + 1,
-				'offset'      => $offset,
-				'orderby'     => 'registered',
-				'order'       => 'DESC',
+				'include'     => empty( $ids ) ? array( 0 ) : array_map( 'intval', $ids ),
+				'orderby'     => 'include',
 				'fields'      => 'all',
-				'exclude'     => $this->excluded_member_ids(),
 				'count_total' => false,
 			)
 		);
@@ -677,33 +710,14 @@ class ExploreService {
 	}
 
 	/**
-	 * User IDs to exclude from member discovery: active suspensions,
-	 * shadow-banned users, and (for a logged-in viewer) blocked users.
+	 * The viewer and the members they have a block with (either direction).
+	 *
+	 * Everything else that hides a member from discovery is the directory's
+	 * rule, applied in the query (MemberDirectoryService::exclusion_clauses()).
 	 *
 	 * @return array<int,int>
 	 */
 	private function excluded_member_ids(): array {
-		global $wpdb;
-
-		// This is the shared discovery gate (ANY active suspension + shadow-ban — see
-		// ModerationService::discovery_exclude_sql(), NOT the hide_posts content gate),
-		// but resolved to an ID list here on purpose: Explore merges it with the
-		// viewer's bidirectional blocks into one exclusion set, which the deck applies
-		// as IDs. Same gate, materialised differently — do not converge onto the SQL
-		// helper, and never onto moderation_exclude_sql() (wrong, hide_posts, gate).
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$suspended = $wpdb->get_col(
-			"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
-		);
-		$shadow    = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s AND meta_value = '1'",
-				'bn_shadow_banned'
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
 		$viewer  = get_current_user_id();
 		$blocked = array();
 		if ( $viewer > 0 && function_exists( 'buddynext_service' ) ) {
@@ -721,8 +735,6 @@ class ExploreService {
 				array_map(
 					'intval',
 					array_merge(
-						(array) $suspended,
-						(array) $shadow,
 						$blocked,
 						$viewer > 0 ? array( $viewer ) : array()
 					)

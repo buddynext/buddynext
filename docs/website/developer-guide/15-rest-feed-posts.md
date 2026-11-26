@@ -92,7 +92,7 @@ The related service seams - `PostService::set_schedule()`, `clear_schedule()`, `
 |---|---|---|---|
 | POST | `/posts/(?P<id>[\d]+)/bookmark` | auth | Bookmark a post. Gated by the `bookmarks` feature flag (`buddynext_feature_enabled( 'bookmarks' )`); returns `bookmarks_disabled` (403) when off. |
 | DELETE | `/posts/(?P<id>[\d]+)/bookmark` | auth | Remove a bookmark. Gated by the same `bookmarks` feature flag. |
-| GET | `/me/bookmarks` | auth | The current user's bookmarks. Accepts `?expand=posts` to hydrate full post objects (default returns IDs), plus `?per_page=`. |
+| GET | `/me/bookmarks` | auth | The current user's bookmarks. Accepts `?expand=posts` to hydrate full post objects (default returns IDs), plus `?page=` and `?per_page=` (1-50, default 20, only with `expand=posts`). Returns `{ items, total, page, per_page, has_more }` when expanded. While the Bookmarks feature is off, saving (`POST /posts/{id}/bookmark`) returns `403 bookmarks_disabled`. |
 
 ### Content-warning routes
 
@@ -199,3 +199,4 @@ Calling the same route again with the same `emoji` removes the reaction (`has_re
 - `object_type` is a free-form key, so reactions and comments extend to any future content type without new routes; the current surfaces are `post` and `comment`.
 - The explore and announcement routes are the REST mirror of the public `/explore/` page gate; keep the `buddynext_public_explore` setting in mind when building a guest-facing client.
 - Free vs Pro: every route on this page is in the free plugin. Pro adds push delivery on top of the same content events but does not change these routes.
+- Post `content` is plain text, for `POST /posts` and for importers writing through `PostService::create()` alike. On display every HTML tag is escaped and shown as text; the only formatting is line breaks, `**bold**`, `_italic_`, `` `code` ``, `[label](https://url)`, bare links, #hashtags and @mentions. An importer converts source HTML to that text before writing. Long-form content with headings, images and layout belongs in a WordPress post, which the feed shows as an article card while the "Blog posts" integration is on.

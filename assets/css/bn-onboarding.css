@@ -67,7 +67,7 @@
 	padding: var(--bn-s6);
 	background:
 		radial-gradient(circle at 25% 30%, color-mix(in oklch, var(--bn-accent) 20%, transparent), transparent 55%),
-		radial-gradient(circle at 80% 70%, color-mix(in oklch, oklch(60% 0.20 290) 14%, transparent), transparent 50%),
+		radial-gradient(circle at 80% 70%, color-mix(in oklch, oklch(60% 0.20 calc(var(--bn-hue) + 20)) 14%, transparent), transparent 50%),
 		var(--bn-canvas);
 }
 .bn-ob-canvas::after {
@@ -96,6 +96,11 @@
 }
 @media (max-width: 768px) {
 	.bn-ob-form { padding: var(--bn-s5) var(--bn-s4); }
+	/* Both side gutters are set as logical padding, so a host theme's right-to-left sheet that resets one physical
+	   side cannot leave the start edge of the form flush against the screen. */
+	.bn-ob-wrap .bn-ob-form {
+		padding-inline: var(--bn-s4);
+	}
 }
 
 /* ── Form column inner sections ───────────────────────────────────────── */
@@ -222,7 +227,7 @@
 	height: 72px;
 	border-radius: 50%;
 	background: var(--bn-sunken);
-	border: 1px dashed var(--bn-line);
+	border: 1px dashed var(--bn-line-control); /* the upload control's edge (3:1) */
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -336,7 +341,7 @@
 	width: 100%;
 	padding: 10px var(--bn-s3);
 	background: var(--bn-canvas);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font: inherit;
@@ -351,7 +356,7 @@
 .bn-ob-username:focus,
 .bn-ob-bio:focus {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-ob-bio {
 	min-height: 84px;
@@ -365,7 +370,7 @@
 .bn-ob-input-prefix {
 	display: flex;
 	align-items: stretch;
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-canvas);
 	transition: border-color var(--bn-dur) var(--bn-ease), box-shadow var(--bn-dur) var(--bn-ease);
@@ -373,7 +378,7 @@
 }
 .bn-ob-input-prefix:focus-within {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-ob-input-prefix__prefix {
 	background: var(--bn-sunken);
@@ -570,7 +575,7 @@
 	width: 38px;
 	height: 22px;
 	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control); /* the off switch's edge (3:1) */
 	border-radius: 999px;
 	position: relative;
 	cursor: pointer;
@@ -660,6 +665,13 @@
 	font-size: var(--bn-text-sm);
 }
 .bn-ob-error[hidden] { display: none; }
+.bn-ob-avatar__spinner[hidden] { display: none; }
+.bn-ob-noscript {
+	max-width: 520px;
+	margin: var(--bn-s3) auto 0;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
 
 /* ── Empty state (fallback when a step has no data) ──────────────────── */
 
@@ -916,7 +928,7 @@
 	text-decoration: underline;
 }
 .bn-wizard__step-link:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -1049,7 +1061,7 @@
 	min-height: 44px;
 	padding: 10px var(--bn-s3);
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font: inherit;
@@ -1061,7 +1073,7 @@
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 
 /* ── Colour picker ───────────────────────────────────────────────────── */
@@ -1086,7 +1098,7 @@
 .bn-wizard__swatch:hover { border-color: var(--bn-accent); }
 .bn-wizard__swatch:focus-within {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 22%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-wizard__swatch-fill {
 	position: absolute;
@@ -1154,7 +1166,7 @@
 .bn-wizard__option:hover { border-color: var(--bn-line-strong); }
 .bn-wizard__option:focus-within {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-wizard__option[data-selected="true"] {
 	border-color: var(--bn-accent);
@@ -1306,7 +1318,7 @@
 .bn-wizard__switch:hover { border-color: color-mix(in oklch, var(--bn-accent) 50%, var(--bn-line)); }
 .bn-wizard__switch:focus-within {
 	border-color: var(--bn-accent);
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-wizard__switch-text {
 	display: flex;
@@ -1612,9 +1624,9 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	color: var(--bn-ink);
 }
 .bn-wizard__btn-continue {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg, #fff);
-	border-color: var(--bn-accent);
+	border-color: var(--bn-accent-solid);
 	box-shadow: 0 1px 2px color-mix(in oklch, var(--bn-ink) 12%, transparent);
 }
 .bn-wizard__btn-continue:hover {
@@ -1627,7 +1639,7 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 .bn-wizard__btn-secondary:focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+	box-shadow: var(--bn-ring);
 }
 .bn-wizard__btn-secondary,
 .bn-wizard__btn-secondary:hover,

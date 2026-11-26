@@ -83,7 +83,7 @@ A delivery counts as successful when your destination confirms it received the m
 
 A destination that keeps failing is switched off on its own. After three failed deliveries in a row, BuddyNext deactivates it and stops sending new events there, so it is not wasting time on an address that is no longer answering. Its status in the table changes from **Active** to **Disabled**.
 
-> **Note:** Deactivation is silent - there is no email or alert when it happens, and the screen has no "reactivate" button. To bring a switched-off destination back, fix the receiving address, then delete the destination and add it again. A developer can also re-enable it through the REST API.
+> **Note:** You are told when this happens: BuddyNext emails the site administrator (the address under Settings > General) naming the destination, and a developer can show a dashboard notice from the `buddynext_webhook_auto_disabled` hook. To bring a switched-off destination back, fix the receiving address, then select **Re-enable** on its row. A developer can also re-enable it through the REST API.
 
 ### The delivery log
 

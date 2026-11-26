@@ -290,7 +290,11 @@ class NotificationControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 2, $tabs['follow'], 'Follows tab: a follow and a connection.' );
 		$this->assertSame( 1, $tabs['mention'] );
 		$this->assertSame( 0, $tabs['message'] );
-		$this->assertSame( array_merge( array( 'unread' ), array_keys( \BuddyNext\Notifications\NotificationService::TAB_TYPES ) ), array_keys( $tabs ) );
+		// The integration tabs (Jobs, Achievements) report alongside the fixed ones.
+		$this->assertSame(
+			array_merge( array( 'unread' ), array_keys( \BuddyNext\Notifications\NotificationService::TAB_TYPES ), array_keys( \BuddyNext\Notifications\NotificationService::SOURCE_TABS ) ),
+			array_keys( $tabs )
+		);
 	}
 
 	/**

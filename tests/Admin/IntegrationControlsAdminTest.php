@@ -40,7 +40,7 @@ class IntegrationControlsAdminTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Each surface is a switch in its column, a missing surface is a dash, and
+	 * Each surface is a switch on its card, a missing surface says so, and
 	 * the field names the save handler reads are unchanged.
 	 */
 	public function test_each_integration_is_one_row_with_a_switch_per_surface(): void {
@@ -48,12 +48,45 @@ class IntegrationControlsAdminTest extends \WP_UnitTestCase {
 		( new IntegrationControlsAdmin() )->render_page();
 		$html = (string) ob_get_clean();
 
-		$this->assertStringContainsString( 'class="bn-table bn-int-matrix"', $html );
+		$this->assertStringContainsString( 'class="bn-int-card"', $html );
 		$this->assertStringContainsString( 'name="nav[qaint]"', $html );
 		$this->assertStringContainsString( 'name="feed[qaint]"', $html );
 		$this->assertStringNotContainsString( 'name="search[qaint]"', $html, 'No search surface, so no search switch.' );
-		$this->assertStringContainsString( 'bn-int-matrix__none', $html, 'The missing surface shows a dash.' );
+		$this->assertStringContainsString( 'Not offered by this integration.', $html, 'The missing surface says so.' );
 		$this->assertStringContainsString( 'name="subtab[qaint][one]"', $html );
-		$this->assertSame( 1, substr_count( $html, 'bn-int-matrix__title">QA Integration' ), 'One row per integration.' );
+		$this->assertSame( 1, substr_count( $html, 'bn-int-card__title">QA Integration' ), 'One card per integration.' );
+	}
+
+	/**
+	 * A row backed by an active Wbcom companion shows its bundled mark; an
+	 * integration that declares no icon keeps the letter tile.
+	 */
+	public function test_row_shows_product_icon_or_letter(): void {
+		add_filter(
+			'buddynext_integrations',
+			static function ( array $items ): array {
+				$items['qafam'] = array( 'label' => 'QA Family', 'has_feed' => true );
+				return $items;
+			}
+		);
+		add_filter(
+			'buddynext_companions',
+			static fn( array $all ): array => array(
+				'jetonomy' => array(
+					'label'       => 'Jetonomy',
+					'integration' => 'qafam',
+					'detect'      => static fn(): bool => true,
+				),
+			) + $all
+		);
+		\BuddyNext\Integrations\IntegrationRegistry::instance()->reset();
+
+		ob_start();
+		( new IntegrationControlsAdmin() )->render_page();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'assets/img/companions/jetonomy.svg', $html, 'First-party product shows its mark.' );
+		$this->assertStringContainsString( '<span class="bn-int-tile" aria-hidden="true">Q</span>', $html, 'Unknown integration keeps the letter tile.' );
+		$this->assertStringNotContainsString( 'style="background:', $html, 'No hashed colour tiles.' );
 	}
 }

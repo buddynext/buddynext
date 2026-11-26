@@ -649,6 +649,78 @@ class MemberTypeService {
 		return is_array( $ids ) ? array_map( 'absint', $ids ) : array();
 	}
 
+	/**
+	 * Member type names for a set of users, in one query.
+	 *
+	 * For the Members admin list and the CSV export, which show the type of a whole page of people at once.
+	 * A member with no type is absent from the result.
+	 *
+	 * @param int[] $user_ids User IDs (a page, not the whole site).
+	 * @return array<int,string[]> User ID => type names.
+	 */
+	public function names_for_users( array $user_ids ): array {
+		$user_ids = array_values( array_filter( array_map( 'absint', $user_ids ) ) );
+		if ( array() === $user_ids ) {
+			return array();
+		}
+
+		global $wpdb;
+		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
+		$types_table       = $wpdb->prefix . 'bn_member_types';
+		$placeholders      = implode( ',', array_fill( 0, count( $user_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT a.user_id, t.name
+				   FROM {$assignments_table} a
+				   INNER JOIN {$types_table} t ON t.id = a.type_id
+				   WHERE a.user_id IN ({$placeholders})
+				   ORDER BY t.sort_order ASC, t.id ASC",
+				...$user_ids
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		$out = array();
+		foreach ( $rows as $row ) {
+			$out[ (int) $row['user_id'] ][] = (string) $row['name'];
+		}
+		return $out;
+	}
+
+	/**
+	 * Run a WP_User_Query only for the members of one type.
+	 *
+	 * Adds one indexed condition (assignments.type_id) to that single query and removes itself straight after,
+	 * so it never touches another query in the request. Paging and the total stay in SQL; there is no loop over
+	 * users. An unknown slug returns nothing rather than everyone.
+	 *
+	 * @param string   $slug Type slug.
+	 * @param callable $run  Runs the query; its return value is passed back.
+	 * @return mixed
+	 */
+	public function within_type( string $slug, callable $run ) {
+		$type    = '' !== $slug ? $this->get_by_slug( $slug ) : null;
+		$type_id = (int) ( $type['id'] ?? 0 );
+
+		$restrict = static function ( \WP_User_Query $query ) use ( $type_id ): void {
+			global $wpdb;
+			$query->query_where .= $wpdb->prepare(
+				" AND {$wpdb->users}.ID IN (SELECT user_id FROM {$wpdb->prefix}bn_member_type_assignments WHERE type_id = %d)",
+				$type_id
+			);
+		};
+
+		add_action( 'pre_user_query', $restrict );
+		try {
+			return $run();
+		} finally {
+			remove_action( 'pre_user_query', $restrict );
+		}
+	}
+
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**

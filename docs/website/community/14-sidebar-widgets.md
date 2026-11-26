@@ -20,7 +20,7 @@ The feed discovery set appears on the main activity feed and on the pages that s
 
 - **Greeting and streak** - a personal welcome ("Good morning, ...") with the member's posting streak and a nudge to post today.
 - **Trending Topics** - the hashtags the community is using most right now.
-- **People to Follow** - suggested members to follow, with a follow control on each. Suggestions skip the member, anyone they already follow, and anyone involved in a block.
+- **People to Follow** - suggested members to follow, with a follow control on each. Suggestions skip the member, anyone they already follow, anyone involved in a block, and anyone the member directory hides (suspended, shadow-banned, awaiting approval, or opted out of the directory).
 - **Your Spaces** - the spaces the member belongs to. Guests see **Discover Spaces** (popular open spaces) instead.
 
 ### Explore

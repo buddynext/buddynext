@@ -22,6 +22,11 @@ use BuddyNext\Core\PageRouter;
 class ModerationListener implements ListenerInterface {
 
 	/**
+	 * Daily moderation queue check (recurring, group 'buddynext').
+	 */
+	public const QUEUE_CHECK_HOOK = 'buddynext_daily_queue_check';
+
+	/**
 	 * Register all moderation event hook listeners.
 	 */
 	public function register(): void {
@@ -51,7 +56,7 @@ class ModerationListener implements ListenerInterface {
 		add_action( 'buddynext_report_created', array( $this, 'on_report_created' ), 10, 4 );
 		add_action( 'buddynext_user_shadow_banned', array( $this, 'on_user_shadow_banned' ), 10, 1 );
 		add_action( 'buddynext_user_shadow_ban_removed', array( $this, 'on_user_shadow_ban_removed' ), 10, 1 );
-		add_action( 'buddynext_daily_queue_check', array( $this, 'on_daily_queue_check' ), 10, 0 );
+		add_action( self::QUEUE_CHECK_HOOK, array( $this, 'on_daily_queue_check' ), 10, 0 );
 
 		// Pre-moderation decisions — tell the author when their held post is
 		// approved (now live) or rejected, so they are never left guessing.
@@ -75,22 +80,7 @@ class ModerationListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function schedule_queue_check(): void {
-		if ( ! \BuddyNext\Core\CronScheduler::is_scheduling_request() ) {
-			return;
-		}
-		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
-			if ( false === as_next_scheduled_action( 'buddynext_daily_queue_check', array(), 'buddynext' ) ) {
-				if ( wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
-					wp_clear_scheduled_hook( 'buddynext_daily_queue_check' );
-				}
-				as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_daily_queue_check', array(), 'buddynext' );
-			}
-			return;
-		}
-
-		if ( ! wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
-			wp_schedule_event( time(), 'daily', 'buddynext_daily_queue_check' );
-		}
+		\BuddyNext\Core\CronScheduler::ensure_recurring( self::QUEUE_CHECK_HOOK, 0, DAY_IN_SECONDS );
 	}
 
 	/**
@@ -237,12 +227,12 @@ class ModerationListener implements ListenerInterface {
 		}
 
 		// Member-facing values for {{reason}} / {{expires_at}}: a real reason or a plain
-		// fallback, and a site-formatted date (the hook passes UTC) or "until lifted".
+		// fallback, and a site-formatted date (the hook passes UTC) or "further notice" (the template reads "Suspended until: ...").
 		$bn_reason     = \BuddyNext\Moderation\ModerationService::member_facing_reason( $reason );
 		$reason        = '' !== $bn_reason ? $bn_reason : __( 'No reason was recorded. Contact the site team if you think this is a mistake.', 'buddynext' );
 		$expires_label = null !== $expires_at && '' !== $expires_at
 			? buddynext_date_local( $expires_at )
-			: __( 'until the suspension is lifted', 'buddynext' );
+			: __( 'further notice', 'buddynext' );
 
 		// reason + expires_at are passed as top-level scalars so EmailSender::
 		// render() exposes them as {{reason}} / {{expires_at}} tokens for any
@@ -861,22 +851,28 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
-		$alert_subject = __( 'BuddyNext: Moderation queue threshold reached', 'buddynext' );
-		$alert_body    = sprintf(
-			/* translators: %1$d: current queue count, %2$d: configured threshold */
-			__(
-				"Your BuddyNext moderation queue currently has %1\$d pending or escalated report(s), which meets or exceeds the configured alert threshold of %2\$d.\n\nPlease review the queue at your earliest convenience.",
-				'buddynext'
-			),
-			$count,
-			$threshold
-		);
+		// In the alert recipient's language when that address is a member's.
+		\BuddyNext\Notifications\EmailSender::in_recipient_locale(
+			(string) $alert_email,
+			static function () use ( $count, $threshold, $alert_email ): void {
+				$alert_subject = __( 'BuddyNext: Moderation queue threshold reached', 'buddynext' );
+				$alert_body    = sprintf(
+					/* translators: %1$d: current queue count, %2$d: configured threshold */
+					__(
+						"Your BuddyNext moderation queue currently has %1\$d pending or escalated report(s), which meets or exceeds the configured alert threshold of %2\$d.\n\nPlease review the queue at your earliest convenience.",
+						'buddynext'
+					),
+					$count,
+					$threshold
+				);
 
-		\BuddyNext\Notifications\EmailSender::send_with_identity(
-			$alert_email,
-			$alert_subject,
-			\BuddyNext\Notifications\EmailSender::brand_wrap( wpautop( esc_html( $alert_body ) ), $alert_subject ),
-			array( 'Content-Type: text/html; charset=UTF-8' )
+				\BuddyNext\Notifications\EmailSender::send_with_identity(
+					$alert_email,
+					$alert_subject,
+					\BuddyNext\Notifications\EmailSender::brand_wrap( wpautop( esc_html( $alert_body ) ), $alert_subject ),
+					array( 'Content-Type: text/html; charset=UTF-8' )
+				);
+			}
 		);
 	}
 }

@@ -9,6 +9,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+defined( 'ABSPATH' ) || exit;
+
 use WP_CLI;
 
 /**
@@ -37,6 +39,9 @@ class DiscussionVisibilityRepairCommand {
 
 	/**
 	 * Realign linked discussions with their space's privacy.
+	 *
+	 * Also lists, without changing anything, any discussion linked to more than
+	 * one space.
 	 *
 	 * ## OPTIONS
 	 *
@@ -92,7 +97,12 @@ class DiscussionVisibilityRepairCommand {
 				}
 
 				$have = (string) ( $discussion->visibility ?? '' );
-				$want = JetonomyBridge::discussion_visibility_for( (string) $space->type );
+				// The same shaping every other path uses: a plan-gated open space is private for its forum, so a repair
+				// never publishes a forum the space would ask people to pay for.
+				$hydrated = buddynext_service( 'spaces' )->get( $space_id );
+				$want     = JetonomyBridge::discussion_visibility_for(
+					JetonomyBridge::forum_type_for( is_array( $hydrated ) ? $hydrated : array( 'type' => (string) $space->type ) )
+				);
 				if ( $have === $want ) {
 					continue;
 				}
@@ -112,12 +122,14 @@ class DiscussionVisibilityRepairCommand {
 				);
 
 				if ( ! $dry_run ) {
-					\Jetonomy\Models\Space::update( $forum_id, array( 'visibility' => $want ) );
+					\BuddyNext\Bridges\JetonomyBridge::write_forum( $forum_id, array( 'visibility' => $want ) );
 				}
 			}
 
 			$offset += self::CHUNK;
 		} while ( self::CHUNK === $in_chunk );
+
+		self::report_shared_discussions();
 
 		WP_CLI::success(
 			sprintf(
@@ -127,5 +139,28 @@ class DiscussionVisibilityRepairCommand {
 				$dry_run ? 'would be corrected' : 'corrected'
 			)
 		);
+	}
+
+	/**
+	 * List discussions linked to more than one space. Read-only.
+	 *
+	 * A discussion belongs to one space; older data can still hold a
+	 * discussion two spaces both link to. Nothing is unlinked here, because which
+	 * space keeps it is the owner's call: unlink it from the others in their
+	 * Space settings > Integrations.
+	 *
+	 * @return void
+	 */
+	private static function report_shared_discussions(): void {
+		$shared = JetonomyBridge::duplicate_forum_links();
+		if ( array() === $shared ) {
+			WP_CLI::log( 'No discussion is linked to more than one space.' );
+			return;
+		}
+
+		WP_CLI::warning( sprintf( '%d discussion(s) are linked to more than one space. Nothing was changed; the first space listed is the one BuddyNext uses.', count( $shared ) ) );
+		foreach ( $shared as $forum_id => $space_ids ) {
+			WP_CLI::log( sprintf( 'Discussion #%d is linked to spaces #%s. Unlink it from the spaces that should not have it in Space settings > Integrations.', $forum_id, implode( ', #', $space_ids ) ) );
+		}
 	}
 }

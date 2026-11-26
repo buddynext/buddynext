@@ -22,6 +22,11 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+defined( 'ABSPATH' ) || exit;
+
+use BuddyNext\Auth\MemberHold;
+use BuddyNext\Auth\RestHoldGate;
+use BuddyNext\Core\RestRoute;
 use BuddyNext\Profile\Handle;
 use BuddyNext\Search\SearchService;
 use BuddyNext\Feed\IntegrationActivity;
@@ -46,6 +51,41 @@ class JetonomyBridge {
 	 */
 	private ?bool $anonymous_supported = null;
 
+
+	/**
+	 * True only while a Jetonomy flag is being copied into the BuddyNext queue, so
+	 * forum types are reportable for that one report() call and never through the
+	 * member report route.
+	 *
+	 * @var bool
+	 */
+	private static bool $copying_flag = false;
+
+	/**
+	 * Echo guard for closing a report on both sides. Raised around every write
+	 * that fires the other side's close hook, so the close never bounces back.
+	 * Separate from self::$syncing on purpose: the comment and card sync must
+	 * still run while a moderator's removal trashes the forum item.
+	 *
+	 * @var bool
+	 */
+	private static bool $mirroring_report = false;
+
+	/**
+	 * Per-request forum item facts (author, forum id, forum title and visibility),
+	 * keyed "type:id". The queue asks for the author and the label once per row.
+	 *
+	 * @var array<string, array{author_id:int, space_id:int, title:string, visibility:string}|null>
+	 */
+	private array $forum_items = array();
+
+	/**
+	 * Jetonomy flag type => BuddyNext report type.
+	 */
+	private const BN_FORUM_TYPES = array(
+		'post'  => 'jetonomy_topic',
+		'reply' => 'jetonomy_reply',
+	);
 
 	/**
 	 * Object-cache group for the bridge's per-view count/list reads.
@@ -129,6 +169,9 @@ class JetonomyBridge {
 
 		// jetonomy_after_create_post fires ($post_id, $space_id) — 2 args only.
 		add_action( 'jetonomy_after_create_post', array( $this, 'on_post_created' ), 10, 2 );
+		// A forum import running in this request is not flooding: lift the post and comment rate limits for
+		// it only (Jetonomy's flag is request-local). Banned words and blocked links still apply.
+		add_filter( 'buddynext_rate_limit_exempt', array( $this, 'exempt_import_from_rate_limit' ) );
 
 		// Keep mirrored rows in step with the forum's anonymous flag: clears what a
 		// version before 1.2.5 stored, and any later drift. Admin-only, daily.
@@ -143,25 +186,51 @@ class JetonomyBridge {
 		// fired by Post::create/update/delete for create, approve, restore, trash,
 		// scheduled publish and purge - card 10344390418).
 		add_action( 'jetonomy_post_updated', array( $this, 'sync_discussion' ), 10, 2 );
+		// Jetonomy fires no event when a topic moves to another forum, so the move is read off
+		// its own REST route once it has succeeded.
+		add_filter( 'rest_request_after_callbacks', array( $this, 'on_move_response' ), 10, 3 );
+		// Banned words and the Pro rules apply to forum topics, titles and replies like any other post.
+		add_filter( 'jetonomy_before_create_post', array( $this, 'check_new_topic' ), 10, 1 );
+		add_filter( 'jetonomy_before_create_reply', array( $this, 'check_new_reply' ), 10, 1 );
+		// Jetonomy runs no check when a topic or reply is edited, so the edit routes are checked here.
+		add_filter( 'rest_request_before_callbacks', array( $this, 'check_forum_edit' ), 10, 3 );
+		// A forum linked to a Space is as open as the Space: no writer of the forum (REST, wp-admin, access rules, WP-CLI,
+		// the BuddyPress and Learnomy integrations) may say otherwise. The Space's own writes go through write_forum().
+		add_filter( 'jetonomy_before_update_space', array( $this, 'refuse_forum_drift' ), 10, 3 );
 		add_action( 'jetonomy_post_publish_transition', array( $this, 'sync_discussion' ), 10, 1 );
+		// An import writes topics without the create events (so it stays quiet and fast) and says what it made once
+		// per batch; the topics get their cards, at their own dates, from that.
+		add_action( 'jetonomy_import_batch_imported', array( $this, 'on_import_batch' ), 10, 3 );
+		add_action( self::IMPORT_CARDS_HOOK, array( $this, 'import_cards_chunk' ), 10, 1 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
 		// from the soft delete above. Mirrors jetonomy_after_delete_reply, which
 		// the reply side already hooks.
 		add_action( 'jetonomy_after_delete_post', array( $this, 'on_post_hard_deleted' ), 10, 1 );
+		// A Space purge removes its topics in bulk, so jetonomy_after_delete_post never fires for them; Jetonomy tells the
+		// host community with this instead, once per purged topic. The ids are gathered and removed in batches.
+		add_action( 'jetonomy_community_notification_removed', array( $this, 'on_purged_object_removed' ), 10, 2 );
 
 		// A card must never link to a discussion the viewer cannot open. Checked as
 		// it renders, because some causes fire no hook: a forum switched private in
 		// Jetonomy, or a card published before post_id was stamped (2026-09-19) whose
 		// discussion was later deleted. See verify_discussion_card().
 		add_filter( 'buddynext_discussion_card_url', array( $this, 'verify_discussion_card' ), 10, 2 );
+		// A discussion card shows its replies, votes, state and tags as the forum has them now, loaded once per page.
+		add_filter( 'buddynext_card_live', array( $this, 'live_discussion_cards' ), 10, 3 );
 
-		// Forum email choices (Jetonomy Pro's digest) live in BuddyNext's notification
-		// settings: Jetonomy renders and saves them, BuddyNext only gives them a place.
+		// Forum email choices live in BuddyNext's notification settings: one switch per
+		// forum type plus Jetonomy's own fields (Pro's digest), saved to Jetonomy.
 		add_action( 'buddynext_notification_prefs_after', array( $this, 'render_partner_prefs' ), 20 );
+		// BuddyNext's Email channel is the master switch: off there, no forum email either.
+		add_filter( 'jetonomy_send_instant_email', array( $this, 'filter_forum_email' ), 10, 4 );
+		add_filter( 'buddynext_integration_notification_payload', array( $this, 'drop_duplicate_report_notice' ), 10, 2 );
 
-		// Inject a Discussions link into the BuddyNext left navigation rail.
+		// Inject the forum and "My discussions" links into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
+
+		// A forum linked to a Space leads back to it from Jetonomy's breadcrumb.
+		add_filter( 'jetonomy_breadcrumb_html', array( $this, 'add_space_breadcrumb' ), 10, 1 );
 
 		// Bridge: hashtag ↔ tag — when BuddyNext renders a hashtag feed, pull
 		// related Jetonomy discussions that share the same tag slug.
@@ -170,10 +239,10 @@ class JetonomyBridge {
 		// Level 2 context nav: Discussion sub-pages (Home / Search / Leaderboard).
 		add_filter( 'buddynext_context_nav', array( $this, 'inject_discussion_context_nav' ), 10, 2 );
 
-		// Jetonomy pages (e.g. /community/) render as the plugin's own default —
-		// BuddyNext does not inject its nav/wrapper or suppress Jetonomy's own
-		// navigation. (Owner rule: BN must not touch Jetonomy pages.) The link
-		// INTO discussions lives on BuddyNext's own rail (inject_discussions_nav_item).
+		// Jetonomy pages (e.g. /community/) render as the plugin's own default, with one
+		// exception the owner decided (2026-11-22): on a phone they carry BuddyNext's
+		// bottom bar, so a member has the same bar everywhere under BuddyNext.
+		add_action( 'wp', array( $this, 'maybe_add_mobile_bar' ) );
 
 		// Register Discussions on BOTH the member-profile and space nav surfaces via
 		// the unified Nav API (one registry, one renderer) — profile tab carries a
@@ -184,6 +253,14 @@ class JetonomyBridge {
 		// alone would let the leak back in the first time an owner locks a
 		// space down.
 		add_action( 'buddynext_space_updated', array( $this, 'sync_discussion_visibility' ), 10, 3 );
+
+		// The forum follows the space's lifecycle, not only its type: archived, being deleted.
+		add_action( 'buddynext_space_archived', array( $this, 'sync_discussion_visibility' ), 10, 1 );
+		add_action( 'buddynext_space_unarchived', array( $this, 'sync_discussion_visibility' ), 10, 1 );
+		add_action( 'buddynext_space_delete_queued', array( $this, 'retire_space_forum' ), 10, 1 );
+		add_action( 'buddynext_space_deleting', array( $this, 'retire_space_forum' ), 10, 1 );
+		add_action( 'buddynext_async_withdraw_forum_surfaces', array( $this, 'withdraw_forum_surfaces' ), 10, 2 );
+		add_action( 'buddynext_async_reindex_forum_discussions', array( $this, 'reindex_forum_discussions' ), 10, 2 );
 		// The space's "who can post" holds in its forum too.
 		add_action( 'buddynext_space_fields_saved', array( $this, 'sync_discussion_posting' ), 10, 2 );
 		add_action( 'admin_init', array( $this, 'backfill_discussion_posting' ) );
@@ -193,16 +270,36 @@ class JetonomyBridge {
 		// The space decides who is in its linked forum: every active member is on the
 		// forum roster, and leaving, removal or a ban takes them off it. Linking is
 		// caught at the meta write, so every link path (provision, adopt, link an
-		// existing forum, a third party) backfills the members already there.
+		// existing forum, a third party) backfills the members already there. The
+		// meta listener is always on: it also resets the forum => space lookup memo.
+		add_action( 'added_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
+		add_action( 'updated_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
 		if ( class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
-			add_action( 'added_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
-			add_action( 'updated_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
 			add_action( self::GRANT_MEMBERS_HOOK, array( $this, 'grant_space_members' ), 10, 3 );
 			add_action( 'buddynext_space_member_joined', array( $this, 'grant_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_role_changed', array( $this, 'grant_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_member_left', array( $this, 'revoke_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_member_removed', array( $this, 'revoke_forum_access' ), 10, 2 );
 			add_action( 'buddynext_space_user_banned', array( $this, 'revoke_forum_access' ), 10, 2 );
+			add_action( 'buddynext_space_user_banned', array( $this, 'restrict_forum_for_ban' ), 10, 2 );
+			add_action( 'buddynext_space_user_unbanned', array( $this, 'lift_forum_ban' ), 10, 2 );
+			add_filter( 'jetonomy_before_join_space', array( $this, 'veto_forum_join' ), 10, 3 );
+
+			// The other direction: the forum's own joins, leaves and role edits. The
+			// space stays the authority, so none of these can bypass its approval or
+			// hand out a power the space did not give.
+			add_action( 'jetonomy_space_member_joined', array( $this, 'on_forum_member_joined' ), 10, 2 );
+			add_action( 'jetonomy_space_member_left', array( $this, 'on_forum_member_left' ), 10, 2 );
+			add_action( 'jetonomy_space_member_role_changed', array( $this, 'on_forum_role_changed' ), 10, 3 );
+
+			// One join request, asked or answered in either place. Before Jetonomy's own
+			// notices (priority 10), so they can tell BuddyNext has already answered.
+			add_action( 'jetonomy_join_request_created', array( $this, 'on_forum_request_created' ), 5, 2 );
+			add_action( 'jetonomy_join_request_denied', array( $this, 'on_forum_request_denied' ), 5, 3 );
+			add_action( 'jetonomy_join_request_withdrawn', array( $this, 'on_forum_request_withdrawn' ), 5, 2 );
+			add_action( 'buddynext_space_join_approved', array( $this, 'settle_forum_request' ), 10, 2 );
+			add_action( 'buddynext_space_join_declined', array( $this, 'settle_forum_request' ), 10, 2 );
+			add_action( 'buddynext_space_join_request_cancelled', array( $this, 'settle_forum_request' ), 10, 2 );
 		}
 
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
@@ -225,10 +322,22 @@ class JetonomyBridge {
 		// (/spaces/?bn_provision_forum=N) shows the directory instead.
 		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ), 5 );
 		add_action( 'buddynext_part_space_hero_after', array( $this, 'render_provision_failure_notice' ) );
+		// The owner of a space with no forum is pointed at the switch that adds one.
+		add_action( 'buddynext_part_space_about_panel_before', array( $this, 'render_discussion_owner_hint' ) );
 
 		// BuddyNext owns the member profile: Jetonomy's own profile pages hand over
 		// to it, as its generated links already do (filter_jetonomy_profile_url).
 		add_action( 'template_redirect', array( $this, 'redirect_forum_profile' ), 5 );
+		// One inbox: once BuddyNext shows the forum notifications, Jetonomy's own list
+		// hands over to the BuddyNext notifications page.
+		add_action( 'template_redirect', array( $this, 'redirect_forum_notifications' ), 5 );
+
+		// A held member (e.g. "Paying members only" without a plan) is held off
+		// the forum too: Jetonomy has no hold of its own, so the bridge applies
+		// BuddyNext's hold to its pages and to jetonomy(-pro)/v1, with the same
+		// answer the community routes give.
+		add_action( 'template_redirect', array( $this, 'hold_forum_pages' ), 8 );
+		add_filter( 'rest_pre_dispatch', array( $this, 'hold_forum_rest' ), 11, 3 );
 
 		// Two-way discussion sync: a comment on a discussion card in the BuddyNext
 		// feed becomes a reply in the originating Jetonomy forum topic, and a reply
@@ -246,6 +355,8 @@ class JetonomyBridge {
 		// Same rule on Jetonomy's side: the mirrored reply fires Jetonomy's own listeners,
 		// so its bell row, email and mention notices are muted for the write too.
 		add_filter( 'jetonomy_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
+		// One push per event: when BuddyNext shows the notification and can push, its push is the one that goes out.
+		add_filter( 'jetonomy_pro_push_should_send', array( $this, 'leave_push_to_buddynext' ), 10, 2 );
 		// A forum reply's comment on the card follows the reply in and out of
 		// publish: create, approve, restore, trash, purge (card 10344390418).
 		add_action( 'jetonomy_reply_publish_transition', array( $this, 'sync_reply_mirror' ), 10, 3 );
@@ -292,6 +403,22 @@ class JetonomyBridge {
 		// (REST included); an older Jetonomy never calls them.
 		add_filter( 'jetonomy_user_is_silenced', array( $this, 'filter_jetonomy_user_is_silenced' ), 10, 2 );
 		add_filter( 'jetonomy_blocked_user_ids', array( $this, 'filter_jetonomy_blocked_user_ids' ), 10, 2 );
+
+		// One moderation queue: a member's flag on a topic or reply is copied into
+		// the BuddyNext queue, where Remove, Strike and Suspend work for a BuddyNext
+		// moderator who holds no forum capability. Closing on either side closes
+		// the other, and a card or comment report closes its forum twin's too.
+		add_action( 'jetonomy_after_create_flag', array( $this, 'queue_forum_flag' ), 10, 1 );
+		add_filter( 'buddynext_reportable_object_types', array( $this, 'reportable_forum_types' ) );
+		add_filter( 'buddynext_removable_object_types', array( $this, 'removable_forum_types' ) );
+		// Priority 9: a removed discussion card or mirrored comment trashes its
+		// forum twin before core takes the card or comment down at 10.
+		add_filter( 'buddynext_content_removal_handled', array( $this, 'remove_reported_forum_item' ), 9, 4 );
+		add_filter( 'buddynext_removed_content_author', array( $this, 'reported_forum_author' ), 10, 3 );
+		add_filter( 'buddynext_object_label', array( $this, 'forum_object_label' ), 10, 3 );
+		add_action( 'buddynext_reports_actioned', array( $this, 'close_forum_flags' ), 10, 4 );
+		add_action( 'jetonomy_flag_resolved', array( $this, 'close_bn_report_for_flag' ), 10, 3 );
+		add_action( 'jetonomy_content_moderated', array( $this, 'close_bn_report_for_moderated' ), 10, 4 );
 	}
 
 	/**
@@ -471,6 +598,21 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Treat a forum import run from this request as exempt from the post rate limits.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param bool $exempt Whether the author is already exempt.
+	 * @return bool
+	 */
+	public function exempt_import_from_rate_limit( $exempt ): bool {
+		// Jetonomy older than 2.0.8 has no flag: nothing is lifted.
+		$flag      = array( '\\Jetonomy\\Import\\Import_Manager', 'is_running' );
+		$importing = is_callable( $flag ) && (bool) call_user_func( $flag );
+		return (bool) $exempt || $importing;
+	}
+
+	/**
 	 * Announce a new Jetonomy discussion and refresh cached counts.
 	 *
 	 * Hooked on: jetonomy_after_create_post( int $post_id, int $space_id ).
@@ -554,7 +696,7 @@ class JetonomyBridge {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT space_id, author_id, title, content_plain, is_private, status{$this->anonymous_column()} FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- a fixed column name or ''.
+				"SELECT space_id, author_id, title, content_plain, is_private, status, created_at{$this->anonymous_column()} FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- a fixed column name or ''.
 				$post_id
 			)
 		);
@@ -571,7 +713,10 @@ class JetonomyBridge {
 		$title     = (string) $post->title;
 		$content   = (string) $post->content_plain;
 		$anonymous = ! empty( $post->is_anonymous );
-		$is_public = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status, $anonymous );
+		// A space whose Discussions are switched off keeps the forum's data but shows none of it:
+		// no card, no search row. Switching back on republishes both.
+		$off       = $this->discussions_off( $this->space_id_for_forum( $space_id ) );
+		$is_public = ! $off && $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status, $anonymous );
 
 		// Search index: drop, then re-index while published. A private topic keeps a
 		// 'private' row (space members can find it); the search gate reads the
@@ -588,7 +733,7 @@ class JetonomyBridge {
 				array( '%s', '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			if ( 'publish' === (string) $post->status && ! $anonymous ) {
+			if ( 'publish' === (string) $post->status && ! $anonymous && ! $off ) {
 				( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, $is_public ? 'public' : 'private', $this->space_id_for_forum( $space_id ) );
 			}
 		}
@@ -635,7 +780,14 @@ class JetonomyBridge {
 						'discussion',
 						$excerpt,
 						$this->space_id_for_forum( $space_id ),
-						array( 'post_id' => $post_id )
+						// Jetonomy notifies its own members of a topic: the Space is not told twice.
+						array(
+							'post_id'      => $post_id,
+							'notify_space' => false,
+						),
+						// The topic's own date (Jetonomy stamps the moment it went live, in UTC): an imported
+						// or backdated topic is not announced as new today. A topic made now gets now.
+						(string) $post->created_at
 					);
 				}
 			} else {
@@ -650,6 +802,219 @@ class JetonomyBridge {
 
 		$this->invalidate_member_caches( $author_id );
 		$this->invalidate_space_caches( $space_id );
+	}
+
+	/**
+	 * A forum import created a batch of topics: queue their cards, a chunk at a time.
+	 *
+	 * Nothing happens for replies, for an older Jetonomy (the action never fires) or with the feed integration off.
+	 * With Action Scheduler each chunk of 100 is its own job, so a failing chunk leaves the later ones queued; without
+	 * it (local, tests) the chunks run now.
+	 *
+	 * @param mixed $source Importer id (unused).
+	 * @param mixed $type   'topic' or 'reply'.
+	 * @param mixed $ids    Ids the batch created.
+	 * @return void
+	 */
+	public function on_import_batch( $source, $type, $ids ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		if ( 'topic' !== (string) $type || ! buddynext_integration_enabled( 'jetonomy', 'feed' ) ) {
+			return;
+		}
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', (array) $ids ) ) ) );
+		foreach ( array_chunk( $ids, self::IMPORT_CHUNK ) as $chunk ) {
+			if ( ! \BuddyNext\Core\CronScheduler::enqueue_once( self::IMPORT_CARDS_HOOK, array( $chunk ) ) ) {
+				$this->import_cards_chunk( $chunk );
+			}
+		}
+	}
+
+	/**
+	 * Give a chunk of imported topics their cards.
+	 *
+	 * The same method every topic goes through (sync_discussion): the topic's own date, the card placement rule, no
+	 * notice to the Space, and one card per topic whatever happens. A topic that already has a card is skipped, so a
+	 * chunk delivered twice or a resume after a crash costs one cheap lookup per topic, not a second sync. One topic
+	 * failing does not stop the rest of the chunk.
+	 *
+	 * @param mixed $ids Topic ids.
+	 * @return void
+	 */
+	public function import_cards_chunk( $ids ): void {
+		foreach ( array_map( 'intval', (array) $ids ) as $post_id ) {
+			// A topic that already has a card (made when it was created, or by an earlier delivery) is left alone.
+			if ( $post_id <= 0 || IntegrationActivity::has_card_by_meta( 'discussion', 'post_id', $post_id ) ) {
+				continue;
+			}
+			try {
+				$this->sync_discussion( $post_id );
+			} catch ( \Throwable $e ) {
+				error_log( 'BuddyNext: card for imported topic ' . $post_id . ' failed: ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			}
+		}
+	}
+
+	/**
+	 * Answer `buddynext_card_live` for discussion cards: one read of the topics and one of their tags for the whole page.
+	 *
+	 * Older cards carry the topic id only from 2026-09-19; a card without it keeps what it stored.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array> $answers Answers so far.
+	 * @param string           $type    Card post type.
+	 * @param array<int,array> $cards   Post id => stored link meta.
+	 * @return array<int,array>
+	 */
+	public function live_discussion_cards( array $answers, string $type, array $cards ): array {
+		if ( 'discussion' !== $type ) {
+			return $answers;
+		}
+
+		$topic_ids = array();
+		foreach ( $cards as $post_id => $meta ) {
+			$topic = (int) ( $meta['post_id'] ?? 0 );
+			if ( $topic > 0 ) {
+				$topic_ids[ (int) $post_id ] = $topic;
+			}
+		}
+		if ( array() === $topic_ids ) {
+			return $answers;
+		}
+
+		global $wpdb;
+		$unique = array_values( array_unique( $topic_ids ) );
+		$in     = implode( ',', array_fill( 0, count( $unique ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- one bounded read per page; placeholders are built from the id count.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT id, is_resolved, is_closed, vote_score, reply_count, accepted_reply_id FROM {$wpdb->prefix}jt_posts WHERE id IN ({$in})", $unique ),
+			OBJECT_K
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		// The tags come from the same helper the Space Discussions list uses: one read, the first two names.
+		$rows = $this->with_tags( (array) $rows );
+
+		foreach ( $topic_ids as $post_id => $topic ) {
+			if ( ! isset( $rows[ $topic ] ) ) {
+				continue;
+			}
+			$answers[ $post_id ] = self::discussion_card( (array) $rows[ $topic ], $rows[ $topic ]->tags );
+		}
+
+		return $answers;
+	}
+
+	/**
+	 * The facts of one discussion card. The title is the way in, so there is no button.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string,mixed> $topic jt_posts columns (reply_count, vote_score, is_resolved, is_closed, accepted_reply_id).
+	 * @param string[]            $tags  The topic's tag names.
+	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>}
+	 */
+	public static function discussion_card( array $topic, array $tags ): array {
+		$replies = max( 0, (int) ( $topic['reply_count'] ?? 0 ) );
+		$votes   = (int) ( $topic['vote_score'] ?? 0 );
+		$facts   = array(
+			array(
+				'icon' => 'message-circle',
+				/* translators: %d: number of replies. */
+				'text' => sprintf( _n( '%d reply', '%d replies', $replies, 'buddynext' ), $replies ),
+			),
+		);
+		if ( 0 !== $votes ) {
+			$facts[] = array(
+				'icon' => 'arrow-up',
+				/* translators: %d: vote score. */
+				'text' => sprintf( _n( '%d vote', '%d votes', abs( $votes ), 'buddynext' ), $votes ),
+			);
+		}
+		$state = self::topic_state( (object) $topic );
+		if ( 'solved' === $state ) {
+			$facts[] = array(
+				'icon' => 'check-circle',
+				'text' => __( 'Solved', 'buddynext' ),
+			);
+		} elseif ( 'closed' === $state ) {
+			$facts[] = array(
+				'icon' => 'lock',
+				'text' => __( 'Closed', 'buddynext' ),
+			);
+		}
+		if ( array() !== $tags ) {
+			$facts[] = array(
+				'icon' => 'tag',
+				'text' => implode( ', ', array_slice( $tags, 0, 2 ) ),
+			);
+		}
+
+		return array(
+			'facts'   => $facts,
+			'actions' => array(),
+		);
+	}
+
+	/**
+	 * Topic ids a Space purge removed, waiting to have their feed cards and search rows removed.
+	 *
+	 * @var int[]
+	 */
+	private array $purged_topics = array();
+
+	/**
+	 * Purged topics removed per batch.
+	 */
+	private const PURGED_TOPIC_BATCH = 200;
+
+	/**
+	 * A Jetonomy Space purge removed a topic in bulk: queue its card and search row for removal.
+	 *
+	 * Jetonomy fires this once per removed object ('post' for a topic, 'reply'); only topics have a feed card. The ids are
+	 * removed in batches of PURGED_TOPIC_BATCH with one lookup each, and the remainder when the request ends, so purging
+	 * a large Space is not one scan of the discussion cards per topic.
+	 *
+	 * @param string $object_type 'post' or 'reply'.
+	 * @param int    $object_id   Removed object ID.
+	 * @return void
+	 */
+	public function on_purged_object_removed( $object_type, $object_id ): void {
+		if ( 'post' !== $object_type || (int) $object_id <= 0 ) {
+			return;
+		}
+		if ( array() === $this->purged_topics ) {
+			add_action( 'shutdown', array( $this, 'flush_purged_topics' ) );
+		}
+		$this->purged_topics[] = (int) $object_id;
+		if ( count( $this->purged_topics ) >= self::PURGED_TOPIC_BATCH ) {
+			$this->flush_purged_topics();
+		}
+	}
+
+	/**
+	 * Remove the feed cards and search rows of the topics queued by on_purged_object_removed().
+	 *
+	 * @return void
+	 */
+	public function flush_purged_topics(): void {
+		$ids                 = array_values( array_unique( $this->purged_topics ) );
+		$this->purged_topics = array();
+		if ( array() === $ids ) {
+			return;
+		}
+
+		IntegrationActivity::remove_by_meta_many( 'discussion', 'post_id', $ids );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- one placeholder per id.
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id IN (" . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')',
+				$ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**
@@ -790,6 +1155,16 @@ class JetonomyBridge {
 	public const REPAIR_ANONYMOUS_HOOK = 'buddynext_jetonomy_repair_anonymous';
 
 	/**
+	 * Action Scheduler job that gives a chunk of imported topics their feed cards.
+	 */
+	public const IMPORT_CARDS_HOOK = 'buddynext_jetonomy_import_cards';
+
+	/**
+	 * Imported topics per chunk. Each chunk is its own job, so one that fails never stops the others.
+	 */
+	private const IMPORT_CHUNK = 100;
+
+	/**
 	 * Ask for the anonymous-content check: once a day after a clean run, and
 	 * again within the hour while a run is still owed.
 	 *
@@ -825,9 +1200,9 @@ class JetonomyBridge {
 	 */
 	private static function enqueue_anonymous_repair(): void {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::REPAIR_ANONYMOUS_HOOK, array(), 'buddynext' ) ) {
-				as_enqueue_async_action( self::REPAIR_ANONYMOUS_HOOK, array(), 'buddynext' );
-			}
+			// enqueue_once() counts PENDING copies only: the job re-queues itself from inside
+			// its own run, and a check that counted the running action ended the chain.
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::REPAIR_ANONYMOUS_HOOK, array() );
 			return;
 		}
 
@@ -1031,6 +1406,23 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * The forum home URL (no trailing slash), through \Jetonomy\base_url() so the
+	 * owner's configured base slug is honoured. Falls back to the stored
+	 * `jetonomy_settings['base_slug']` (Jetonomy's default `community`) only when the
+	 * Jetonomy helper is unavailable.
+	 *
+	 * @return string
+	 */
+	private function forum_home_url(): string {
+		if ( function_exists( 'Jetonomy\base_url' ) ) {
+			return untrailingslashit( (string) \Jetonomy\base_url() );
+		}
+		$settings  = get_option( 'jetonomy_settings', array() );
+		$base_slug = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
+		return home_url( '/' . ltrim( $base_slug, '/' ) ); // bn-route-ok: built from Jetonomy's configured base slug.
+	}
+
+	/**
 	 * Build a Jetonomy discussion (topic) permalink from its space + post slug.
 	 *
 	 * Single source of truth for the discussion URL shape. The base segment always
@@ -1049,13 +1441,7 @@ class JetonomyBridge {
 			return '';
 		}
 
-		if ( function_exists( 'Jetonomy\base_url' ) ) {
-			$base = (string) \Jetonomy\base_url();
-		} else {
-			$settings  = get_option( 'jetonomy_settings', array() );
-			$base_slug = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
-			$base      = home_url( '/' . ltrim( $base_slug, '/' ) ); // bn-route-ok: built from Jetonomy's configured base slug.
-		}
+		$base = $this->forum_home_url();
 
 		// Slugs are used as stored, the way Jetonomy's own templates build this link:
 		// sanitize_title() already keeps them URL-safe and stores non-ASCII as
@@ -1065,12 +1451,15 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Inject a person-specific Discussions link into the BuddyNext left rail.
+	 * Inject the Jetonomy links into the BuddyNext left rail.
 	 *
-	 * Appends a "Discussions" rail item pointing at the logged-in member's OWN
-	 * profile Discussions tab (their authored discussions), not the global forum
-	 * home — a "my discussions" shortcut. Hidden for guests. The `active` flag is
-	 * computed from the current REQUEST_URI against that profile-tab path.
+	 * Two items, both hidden under Integration Settings > Show in navigation:
+	 * - `discussions`: the forum home, shown to guests too. It keeps the rail key the
+	 *   single Discussions item always had, so an owner's saved rename, hide or
+	 *   reorder of "Discussions" (admin nav overrides are keyed by rail key) still
+	 *   applies. No `active` flag: the rail is not drawn on Jetonomy pages.
+	 * - `my-discussions`: the logged-in member's own profile Discussions tab, in the
+	 *   personal "You" group, active while that tab is open.
 	 *
 	 * Hooked on: buddynext_rail_items( array $items, string $hub )
 	 *
@@ -1078,15 +1467,21 @@ class JetonomyBridge {
 	 * @return array<int, array{key: string, label: string, url: string, icon: string, show: bool, active?: bool}>
 	 */
 	public function inject_discussions_nav_item( array $items ): array {
-		// Person-specific: the rail "Discussions" link points the viewer at their
-		// OWN profile Discussions tab (the in-hub panel listing the discussions they
-		// authored), not the global forum landing page. Only shown when logged in —
-		// there is no "my discussions" for a guest.
+		if ( ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
+			return $items;
+		}
+
+		$items[] = array(
+			'key'   => 'discussions',
+			'label' => __( 'Discussions', 'buddynext' ),
+			'url'   => trailingslashit( $this->forum_home_url() ),
+			'icon'  => 'messages-square',
+			'show'  => true,
+			'order' => 60,
+		);
+
 		$uid = get_current_user_id();
-		// Hidden under Integration Settings > Show in navigation: the profile tab
-		// this links to is gated on the same flag, so the rail must follow it (the
-		// Leaderboard, Media and Events rail items already do).
-		if ( $uid <= 0 || ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
+		if ( $uid <= 0 ) {
 			return $items;
 		}
 
@@ -1095,22 +1490,92 @@ class JetonomyBridge {
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
 		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
-		$is_active   = '' !== $disc_path && str_starts_with( rtrim( $request_uri, '/' ), $disc_path );
 
 		$items[] = array(
-			'key'    => 'discussions',
-			'label'  => __( 'Discussions', 'buddynext' ),
+			'key'    => 'my-discussions',
+			'label'  => __( 'My discussions', 'buddynext' ),
 			'url'    => $disc_url,
 			'icon'   => 'list',
 			'show'   => true,
-			'active' => $is_active,
-			// Personal "You" group — it is the viewer's own discussions, so it sits
-			// with Profile / Media / Bookmarks, not in the community group up top.
+			'active' => '' !== $disc_path && str_starts_with( rtrim( $request_uri, '/' ), $disc_path ),
 			'group'  => 'you',
 			'order'  => 206,
 		);
 
 		return $items;
+	}
+
+	/**
+	 * On a Jetonomy page, show BuddyNext's mobile bottom bar (owner decision 2026-11-22).
+	 *
+	 * Jetonomy renders no bar under BuddyNext. The bar is the same partial the hubs use,
+	 * with the forum slot marked current; bn-base.css (already on these pages) styles it,
+	 * hides Jetonomy's floating Reply button and slides the bar away while a composer has focus.
+	 *
+	 * @return void
+	 */
+	public function maybe_add_mobile_bar(): void {
+		if ( '' === (string) get_query_var( 'jetonomy_route' ) ) {
+			return;
+		}
+		// The member's saved text size (and colour mode) is applied by this script on every other BuddyNext
+		// page, whether or not the forum shows BuddyNext's bottom bar. A forum page is painted by the theme,
+		// so it follows the theme's colour mode only.
+		add_action(
+			'wp_enqueue_scripts',
+			static function (): void {
+				wp_enqueue_script( 'bn-shell-font-scale' );
+				wp_add_inline_script( 'bn-shell-font-scale', 'window.bnThemeHostOnly=true;', 'before' );
+			}
+		);
+		if ( ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
+			return;
+		}
+		add_filter( 'buddynext_mobile_nav_items', array( $this, 'forum_bar_items' ) );
+		add_action(
+			'wp_enqueue_scripts',
+			static function (): void {
+				wp_enqueue_style( 'bn-base' );
+				wp_enqueue_script( 'bn-mobile-more' );
+			}
+		);
+		add_action(
+			'wp_footer',
+			static function (): void {
+				buddynext_get_template( 'partials/mobile-nav.php' );
+			}
+		);
+	}
+
+	/**
+	 * Bottom-bar slots on a Jetonomy page: Activity, the forum (current), Spaces, then
+	 * Messages and Profile for a member or Log in for a guest (approved mockup).
+	 *
+	 * Built from the rail's resolved items so owner relabels, hidden items and feature
+	 * switches carry over. Profile folds into More, as on every other page.
+	 *
+	 * @param array<int,array<string,mixed>> $items Default bar items.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function forum_bar_items( array $items ): array {
+		$uid  = get_current_user_id();
+		$rail = array_column( buddynext_service( 'shell_nav' )->resolve( $uid )['items'], null, 'key' );
+		$own  = array_column( $items, null, 'key' );
+		$keys = $uid > 0 ? array( 'feed', 'discussions', 'spaces', 'messages', 'profile' ) : array( 'feed', 'discussions', 'spaces', 'login' );
+		$bar  = array();
+		foreach ( $keys as $key ) {
+			$item = $rail[ $key ] ?? $own[ $key ] ?? null;
+			if ( null === $item ) {
+				continue;
+			}
+			$item['show']   = $item['show'] ?? true;
+			$item['active'] = 'discussions' === $key;
+			if ( ! empty( $item['badge'] ) && ! isset( $item['badge_count'] ) ) {
+				$item['badge_count'] = (int) $item['badge'];
+			}
+			$bar[] = $item;
+		}
+		return $bar;
 	}
 
 	/**
@@ -1158,19 +1623,32 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Whether the owner explicitly switched a space's Discussions off. A missing flag (a space
+	 * linked before it existed) is not off, so its forum is never closed for lack of a flag.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return bool
+	 */
+	private function discussions_off( int $space_id ): bool {
+		return $space_id > 0 && '0' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
+	}
+
+	/**
 	 * Whether a space's dedicated Discussion is currently ENABLED (shown to
 	 * members). A space keeps its one dedicated discussion for its lifetime; the
 	 * owner toggles it on/off with this flag, which hides the tab without ever
 	 * discarding the discussion or its content.
 	 *
 	 * @param int $space_id BuddyNext space ID.
-	 * @return bool True when a discussion exists AND is toggled on.
+	 * @return bool True when a discussion exists and the owner has not switched it off.
 	 */
 	public function space_discussion_enabled( int $space_id ): bool {
 		if ( ! $this->space_has_discussion( $space_id ) ) {
 			return false;
 		}
-		return '1' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
+		// Same reading as discussions_off(): only an explicit '0' is off, so a forum
+		// linked before the flag existed still shows its tab.
+		return ! $this->discussions_off( $space_id );
 	}
 
 	/**
@@ -1206,7 +1684,7 @@ class JetonomyBridge {
 		$args = array( $space_id, $forum_id, $after_id );
 
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::COPY_MEMBERS_HOOK, $args, 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::COPY_MEMBERS_HOOK, $args, 'buddynext' );
 			return;
 		}
 		if ( ! wp_next_scheduled( self::COPY_MEMBERS_HOOK, $args ) ) {
@@ -1275,25 +1753,29 @@ class JetonomyBridge {
 		$moderation = new \BuddyNext\Moderation\ModerationService();
 		$can_ban    = class_exists( '\\Jetonomy\\Models\\Restriction' );
 		$last_id    = $after_id;
-		foreach ( $rows as $row ) {
-			$user_id = (int) $row->user_id;
-			$last_id = max( $last_id, $user_id );
+		// An exception inside the batch must not leave the quiet filter on for the rest
+		// of the request, which would swallow every other join notification.
+		try {
+			foreach ( $rows as $row ) {
+				$user_id = (int) $row->user_id;
+				$last_id = max( $last_id, $user_id );
 
-			// An allow list: only the two ways a person puts themselves in a forum.
-			// ponytail: one ban lookup per member (memoised by Jetonomy), in a
-			// background batch of 200; a set query if a forum of many thousands is slow.
-			if ( $user_id <= 0 || false === get_userdata( $user_id )
-				|| ! in_array( (string) $row->source, array( 'manual', 'invite' ), true )
-				|| ( $can_ban && \Jetonomy\Models\Restriction::is_banned( $user_id ) )
-				|| $moderation->is_suspended( $user_id ) ) {
-				continue;
+				// An allow list: only the two ways a person puts themselves in a forum.
+				// ponytail: one ban lookup per member (memoised by Jetonomy), in a
+				// background batch of 200; a set query if a forum of many thousands is slow.
+				if ( $user_id <= 0 || false === get_userdata( $user_id )
+					|| ! in_array( (string) $row->source, array( 'manual', 'invite' ), true )
+					|| ( $can_ban && \Jetonomy\Models\Restriction::is_banned( $user_id ) )
+					|| $moderation->is_suspended( $user_id ) ) {
+					continue;
+				}
+
+				// A copy of the forum's roster. A refusal (banned from the space, gated) leaves them out.
+				\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $members->join( $space_id, $user_id ) );
 			}
-
-			// A copy of the forum's roster. A refusal (banned from the space, gated) leaves them out.
-			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $members->join( $space_id, $user_id ) );
+		} finally {
+			remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
 		}
-
-		remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
 
 		if ( count( $rows ) >= self::COPY_MEMBERS_BATCH ) {
 			self::queue_member_copy( $space_id, $forum_id, $last_id );
@@ -1325,6 +1807,14 @@ class JetonomyBridge {
 	 * @var string
 	 */
 	private const UNLINKED_META = 'jetonomy_unlinked_forums';
+
+	/**
+	 * Space meta holding the id of the forum this bridge created for the space. Only that
+	 * forum may be removed with the space; one an owner linked or an add-on adopted is not.
+	 *
+	 * @var string
+	 */
+	private const PROVISIONED_META = 'jetonomy_forum_provisioned';
 
 	/**
 	 * Forums this space has unlinked, oldest first.
@@ -1373,7 +1863,13 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function on_forum_linked( $meta_id, $space_id, $key, $value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- metadata hook signature.
-		if ( 'jetonomy_forum_id' === $key && (int) $value > 0 ) {
+		if ( 'jetonomy_forum_id' !== $key ) {
+			return;
+		}
+		// Any link write (link, relink, unlink) changes forum => space answers,
+		// including remembered misses.
+		self::$forum_space_memo = array();
+		if ( (int) $value > 0 && class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
 			self::queue_grant( (int) $space_id, (int) $value, 0 );
 		}
 	}
@@ -1389,7 +1885,7 @@ class JetonomyBridge {
 	private static function queue_grant( int $space_id, int $forum_id, int $after_id ): void {
 		$args = array( $space_id, $forum_id, $after_id );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::GRANT_MEMBERS_HOOK, $args, 'buddynext' );
+			\BuddyNext\Core\CronScheduler::enqueue_once( self::GRANT_MEMBERS_HOOK, $args, 'buddynext' );
 		} elseif ( ! wp_next_scheduled( self::GRANT_MEMBERS_HOOK, $args ) ) {
 			wp_schedule_single_event( time() + 1, self::GRANT_MEMBERS_HOOK, $args );
 		}
@@ -1450,6 +1946,377 @@ class JetonomyBridge {
 		if ( 'active' === $members->get_status( (int) $space_id, (int) $user_id ) ) {
 			$this->put_on_forum( $forum_id, (int) $user_id, (string) $members->get_role( (int) $space_id, (int) $user_id ) );
 		}
+	}
+
+	/**
+	 * Someone joined the linked forum from the forum side.
+	 *
+	 * One member list, not two that drift: a join into the forum of an OPEN space
+	 * makes them a member of the space. A private or secret space is never entered
+	 * through its forum: the roster row is withdrawn and, for a private space, the
+	 * person's request goes to the space's own approval. Joins the space itself
+	 * wrote (active members) are left alone, which also ends the loop.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $user_id  Member who joined.
+	 * @return void
+	 */
+	public function on_forum_member_joined( $forum_id, $user_id ): void {
+		$forum_id = (int) $forum_id;
+		$user_id  = (int) $user_id;
+		$space_id = $this->space_id_for_forum( $forum_id );
+		if ( $space_id <= 0 || $user_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
+			return;
+		}
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		if ( 'active' === $members->get_status( $space_id, $user_id ) ) {
+			return;
+		}
+
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		$type  = (string) ( $space['type'] ?? '' );
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_OPEN === $type ) {
+			// One join, made in the forum: the space's copy of it must not be rewarded again.
+			IntegrationActivity::as_mirror( fn() => $members->join( $space_id, $user_id ) );
+			return;
+		}
+
+		// A request approved in the forum's queue is an approval of the space request:
+		// veto_forum_join() has already checked the reviewer may approve it here.
+		$request = self::approved_request( $forum_id, $user_id );
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === $type && null !== $request && $this->admit_approved( $space_id, $forum_id, $user_id, (int) $request->reviewed_by ) ) {
+			return;
+		}
+
+		\Jetonomy\Models\SpaceMember::remove( $forum_id, $user_id );
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === $type && null === $members->get_status( $space_id, $user_id ) ) {
+			$members->request_join( $space_id, $user_id );
+		}
+		$this->invalidate_member_caches( $user_id );
+	}
+
+	/**
+	 * Admit a member whose request the forum's queue approved into the private space.
+	 *
+	 * The forum row stays and is marked as the space's grant (leaving the space takes
+	 * it away again). The space records the request if it never saw it, then approves
+	 * it as the forum reviewer: the member gets the space's approval notice, and the
+	 * forum's approval award is the one award for this entry.
+	 *
+	 * @param int $space_id    BuddyNext space.
+	 * @param int $forum_id    Linked forum.
+	 * @param int $user_id     Approved member.
+	 * @param int $reviewer_id Who approved it in the forum.
+	 * @return bool True when the member is now active in the space.
+	 */
+	private function admit_approved( int $space_id, int $forum_id, int $user_id, int $reviewer_id ): bool {
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$status  = $members->get_status( $space_id, $user_id );
+		if ( null === $status ) {
+			// Recorded only to be approved at once: nobody is asked to review it.
+			self::mirror( static fn() => $members->request_join( $space_id, $user_id ) );
+		}
+
+		$admitted = IntegrationActivity::as_mirror(
+			static fn() => 'invited' === $status
+				? $members->join( $space_id, $user_id )
+				: $members->approve_request( $space_id, $reviewer_id, $user_id )
+		);
+		if ( true !== $admitted ) {
+			return false;
+		}
+
+		if ( ! in_array( (string) $forum_id, (array) get_user_meta( $user_id, self::GRANTED_META, false ), true ) ) {
+			add_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
+		}
+		self::$answered_in_space[ $forum_id . ':' . $user_id ] = true;
+		$this->invalidate_member_caches( $user_id );
+		return true;
+	}
+
+	/**
+	 * The approved forum join request a join at that moment admits, or null.
+	 *
+	 * Jetonomy writes the approval and then the roster row in one request, so the two
+	 * times are seconds apart. An approval from a membership that ended earlier is long
+	 * before the new join and does not count.
+	 *
+	 * @param int    $forum_id Jetonomy forum.
+	 * @param int    $user_id  Member.
+	 * @param string $at       When the join happened (UTC); empty means now.
+	 * @return object|null Request row (reviewed_by, reviewed_at).
+	 */
+	public static function approved_request( int $forum_id, int $user_id, string $at = '' ): ?object {
+		$joined = '' === $at ? time() : strtotime( $at );
+		if ( $forum_id <= 0 || $user_id <= 0 || false === $joined || ! class_exists( '\Jetonomy\Models\JoinRequest' ) ) {
+			return null;
+		}
+
+		global $wpdb;
+		// JoinRequest has no read by member and status; (space_id, user_id, status) is its unique key.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT reviewed_by, reviewed_at FROM {$wpdb->prefix}jt_join_requests WHERE space_id = %d AND user_id = %d AND status = 'approved'",
+				$forum_id,
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$reviewed = is_object( $row ) && null !== $row->reviewed_at ? strtotime( $row->reviewed_at . ' UTC' ) : false;
+
+		return false !== $reviewed && abs( $joined - $reviewed ) <= MINUTE_IN_SECONDS ? $row : null;
+	}
+
+	/**
+	 * A member asked to join a private space's forum: the space holds the request.
+	 *
+	 * The space's own staff are told by the space; the forum's notice to the same
+	 * owner is dropped as a duplicate (drop_duplicate_report_notice()).
+	 *
+	 * @param int $forum_id Jetonomy forum.
+	 * @param int $user_id  Requester.
+	 * @return void
+	 */
+	public function on_forum_request_created( $forum_id, $user_id ): void {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		if ( $space_id <= 0 || IntegrationActivity::is_mirror() ) {
+			return;
+		}
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		if ( \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === (string) ( $space['type'] ?? '' ) ) {
+			( new \BuddyNext\Spaces\SpaceMemberService() )->request_join( $space_id, (int) $user_id );
+		}
+	}
+
+	/**
+	 * A request was denied in the forum's queue: the space declines it too.
+	 *
+	 * A reviewer the space would not let decline leaves the space request pending,
+	 * and keeps the forum's own notice, so the member is still told.
+	 *
+	 * @param int $forum_id    Jetonomy forum.
+	 * @param int $user_id     Requester.
+	 * @param int $reviewer_id Reviewer.
+	 * @return void
+	 */
+	public function on_forum_request_denied( $forum_id, $user_id, $reviewer_id = 0 ): void {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		if ( $space_id <= 0 || IntegrationActivity::is_mirror() ) {
+			return;
+		}
+		$members  = new \BuddyNext\Spaces\SpaceMemberService();
+		$declined = IntegrationActivity::as_mirror( static fn() => $members->decline_request( $space_id, (int) $reviewer_id, (int) $user_id ) );
+		if ( true === $declined ) {
+			self::$answered_in_space[ (int) $forum_id . ':' . (int) $user_id ] = true;
+		}
+	}
+
+	/**
+	 * A member withdrew their forum request: the space request goes with it.
+	 *
+	 * @param int $forum_id Jetonomy forum.
+	 * @param int $user_id  Requester.
+	 * @return void
+	 */
+	public function on_forum_request_withdrawn( $forum_id, $user_id ): void {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		if ( $space_id <= 0 || IntegrationActivity::is_mirror() ) {
+			return;
+		}
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		IntegrationActivity::as_mirror( static fn() => $members->cancel_request( $space_id, (int) $user_id ) );
+	}
+
+	/**
+	 * The space decided or cancelled a request: no forum request stays pending.
+	 *
+	 * Left pending, it could be approved again in the forum's queue later and pay a
+	 * second award for an entry the space already made. Withdrawing also clears the
+	 * forum's "new join request" notices to its staff.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @param int $user_id  Requester.
+	 * @return void
+	 */
+	public function settle_forum_request( $space_id, $user_id ): void {
+		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		if ( $forum_id <= 0 || IntegrationActivity::is_mirror() || ! class_exists( '\Jetonomy\Models\JoinRequest' ) ) {
+			return;
+		}
+		IntegrationActivity::as_mirror( static fn() => \Jetonomy\Models\JoinRequest::withdraw( $forum_id, (int) $user_id ) );
+	}
+
+	/**
+	 * Someone left the linked forum: an ordinary member leaves the space too.
+	 *
+	 * Owners and moderators keep their place: their role comes from the space, and
+	 * the space puts the forum row back when they next act.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $user_id  Member who left.
+	 * @return void
+	 */
+	public function on_forum_member_left( $forum_id, $user_id ): void {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		$user_id  = (int) $user_id;
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return;
+		}
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		if ( 'active' !== $members->get_status( $space_id, $user_id ) || 'member' !== (string) $members->get_role( $space_id, $user_id ) ) {
+			return;
+		}
+		$members->leave( $space_id, $user_id );
+	}
+
+	/**
+	 * A role was changed inside the forum: the space's role wins.
+	 *
+	 * A space owner or moderator is a forum admin or moderator because the space
+	 * says so. A role set only in the forum is put back to what the space gave, and
+	 * a person the space does not know cannot be made a forum moderator, so no
+	 * power is created on a screen the space owner is not watching.
+	 *
+	 * @param int    $forum_id Jetonomy forum id.
+	 * @param int    $user_id  Member.
+	 * @param string $role     New forum role.
+	 * @return void
+	 */
+	public function on_forum_role_changed( $forum_id, $user_id, $role ): void {
+		$forum_id = (int) $forum_id;
+		$user_id  = (int) $user_id;
+		$space_id = $this->space_id_for_forum( $forum_id );
+		if ( $space_id <= 0 || $user_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
+			return;
+		}
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$active  = 'active' === $members->get_status( $space_id, $user_id );
+		$bn_role = $active ? (string) $members->get_role( $space_id, $user_id ) : '';
+		$want    = in_array( $bn_role, array( 'owner', 'admin' ), true ) ? 'admin' : ( 'moderator' === $bn_role ? 'moderator' : 'member' );
+		if ( (string) $role === $want ) {
+			return;
+		}
+
+		// Setting the wanted role fires this hook again, now equal, which ends it.
+		\Jetonomy\Models\SpaceMember::set_role( $forum_id, $user_id, $want );
+		$this->invalidate_member_caches( $user_id );
+	}
+
+	/**
+	 * A member banned from a space cannot post in, or rejoin, its forum. Issued as the system (0):
+	 * BuddyNext already decided who may ban whom.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $space_id BuddyNext space ID.
+	 * @param int|string $user_id  Banned member.
+	 * @return void
+	 */
+	public function restrict_forum_for_ban( $space_id, $user_id ): void {
+		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		if ( $forum_id > 0 && class_exists( '\\Jetonomy\\Models\\Restriction' ) ) {
+			\Jetonomy\Models\Restriction::ban( (int) $user_id, 'space_ban', 0, $forum_id, 'Banned from the BuddyNext space' );
+			$this->invalidate_member_caches( (int) $user_id );
+		}
+	}
+
+	/**
+	 * Carry a space's existing bans into the forum it has just been linked to, through the same writer a new
+	 * ban uses (restrict_forum_for_ban), so a member banned before Discussions was on cannot post there.
+	 * Jetonomy reads only its own restriction rows, so the space ban list is replayed once at link time;
+	 * later bans and unbans follow through the ban hooks. Safe to repeat: Jetonomy keeps one row per ban.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return void
+	 */
+	private function carry_space_bans( int $space_id ): void {
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$after   = 0;
+		do {
+			$ids  = $members->banned_user_ids( $space_id, $after );
+			$full = 500 === count( $ids );
+			foreach ( $ids as $user_id ) {
+				$this->restrict_forum_for_ban( $space_id, $user_id );
+				$after = $user_id;
+			}
+		} while ( $full );
+	}
+
+	/**
+	 * Lift the forum restriction when the space ban is lifted.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $space_id BuddyNext space ID.
+	 * @param int|string $user_id  Member whose ban was lifted.
+	 * @return void
+	 */
+	public function lift_forum_ban( $space_id, $user_id ): void {
+		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		if ( $forum_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\Restriction' ) ) {
+			return;
+		}
+
+		foreach ( \Jetonomy\Models\Restriction::active_rows_for_users( array( (int) $user_id ), $forum_id ) as $row ) {
+			\Jetonomy\Models\Restriction::remove_ban( (int) $row->id );
+		}
+		$this->invalidate_member_caches( (int) $user_id );
+	}
+
+	/**
+	 * Refuse a forum-side join the space itself would refuse (banned, archived, plan-gated). Members
+	 * already in the space and the bridge's own roster copies pass.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param true|\WP_Error $proceed  Answer so far.
+	 * @param int            $user_id  Member joining.
+	 * @param int            $forum_id Jetonomy forum.
+	 * @return true|\WP_Error
+	 */
+	public function veto_forum_join( $proceed, $user_id = 0, $forum_id = 0 ) {
+		$space_id = $this->space_id_for_forum( (int) $forum_id );
+		if ( is_wp_error( $proceed ) || $space_id <= 0 || IntegrationActivity::is_mirror() ) {
+			return $proceed;
+		}
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$space   = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		if ( null === $space || 'active' === $members->get_status( $space_id, (int) $user_id ) ) {
+			return $proceed;
+		}
+		// Approving a private space's forum request admits the member to the space, so
+		// the reviewer must be someone the space lets approve (owner, moderator, site
+		// admin), and the space's own gate (a paid plan, a seat cap) must pass. The
+		// space words that refusal for the reviewer; Jetonomy hands the request back as pending.
+		$request = \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE === (string) ( $space['type'] ?? '' )
+			? self::approved_request( (int) $forum_id, (int) $user_id )
+			: null;
+		$refused = null === $request ? null : $members->approval_refusal( $space_id, (int) $request->reviewed_by, (int) $user_id, false );
+		if ( null !== $refused ) {
+			return new \WP_Error( 'bn_space_approval_refused', $refused->get_error_message(), array( 'status' => 403 ) );
+		}
+
+		if ( ! $members->can_join( $space, (int) $user_id ) ) {
+			// A reviewer approving a request is told why it stays pending (the space's gate: a plan, a
+			// seat cap, a ban); a member asking to join gets the plain refusal.
+			$approving = null !== self::approved_request( (int) $forum_id, (int) $user_id );
+			return new \WP_Error(
+				'bn_space_join_refused',
+				$approving
+					? __( 'This member cannot join this space, so the request stays pending.', 'buddynext' )
+					: __( 'You cannot join this discussion right now.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return $proceed;
 	}
 
 	/**
@@ -1532,6 +2399,8 @@ class JetonomyBridge {
 	 */
 	public function set_discussion_enabled( int $space_id, bool $enabled ): void {
 		update_space_meta( absint( $space_id ), 'discussion_enabled', $enabled ? '1' : '0' );
+		// The forum follows the switch: off hides and locks it, on opens it again.
+		$this->sync_discussion_visibility( $space_id );
 	}
 
 	/**
@@ -1559,6 +2428,10 @@ class JetonomyBridge {
 		}
 
 		if ( ! $this->space_has_discussion( $space_id ) ) {
+			// One forum, one space: a forum another space holds is never linked twice.
+			if ( $link_id > 0 && ! $this->forum_free_for( $link_id, $space_id ) ) {
+				return new \WP_Error( 'bn_discussion_taken', __( 'That discussion already belongs to another space. Pick a different one, or start a new discussion.', 'buddynext' ), array( 'status' => 409 ) );
+			}
 			$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
 			$previous = $this->previous_discussion( $space_id );
 			$may_link = $link_id > 0 && (
@@ -1570,6 +2443,7 @@ class JetonomyBridge {
 			);
 			if ( $may_link ) {
 				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
+				$this->carry_space_bans( $space_id );
 				// An existing forum comes with its people (an imported wpForo or
 				// bbPress forum can have thousands): bring them into an open space,
 				// once, in the background. Membership is not mirrored after this.
@@ -1579,6 +2453,9 @@ class JetonomyBridge {
 				return new \WP_Error( 'bn_discussion_not_created', __( 'The discussion could not be created, so it was not enabled.', 'buddynext' ), array( 'status' => 500 ) );
 			}
 		}
+
+		// A forum linked to a private or secret space must not stay open to everyone.
+		$this->sync_discussion_visibility( $space_id );
 
 		$this->set_discussion_enabled( $space_id, true );
 		return true;
@@ -1722,12 +2599,16 @@ class JetonomyBridge {
 	 * to restrict to that member's OWN discussions; pass 0 for the admin-only
 	 * "search across all discussions" scope.
 	 *
-	 * @param string $q        Title query (substring match).
-	 * @param int    $owner_id Restrict to this author; 0 = all authors (admin scope).
-	 * @param int    $limit    Max rows (1-50). Default 20.
+	 * A forum already linked to another space is left out: a forum belongs to one
+	 * space, so offering it would only lead to a refused save.
+	 *
+	 * @param string $q            Title query (substring match).
+	 * @param int    $owner_id     Restrict to this author; 0 = all authors (admin scope).
+	 * @param int    $limit        Max rows (1-50). Default 20.
+	 * @param int    $for_space_id Space the picker is for; its own forum stays listed.
 	 * @return array<int,array{id:int,title:string}>
 	 */
-	public function search_discussions( string $q, int $owner_id, int $limit = 20 ): array {
+	public function search_discussions( string $q, int $owner_id, int $limit = 20, int $for_space_id = 0 ): array {
 		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
 			return array();
 		}
@@ -1737,11 +2618,20 @@ class JetonomyBridge {
 		global $wpdb;
 		$like = '%' . $wpdb->esc_like( trim( $q ) ) . '%';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// ponytail: anti-join on bn_space_meta (indexed by meta_key, value unindexed,
+		// the same shape as a WP postmeta lookup). Fine for a LIMITed typeahead; add a
+		// value index if a site with tens of thousands of linked spaces shows it slow.
+		$not_linked_elsewhere = $wpdb->prepare(
+			"NOT EXISTS ( SELECT 1 FROM {$wpdb->bn_spacemeta} m
+				WHERE m.meta_key = 'jetonomy_forum_id' AND m.meta_value = s.id AND m.bn_space_id <> %d )",
+			absint( $for_space_id )
+		);
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $not_linked_elsewhere is prepared above.
 		if ( $owner_id > 0 ) {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE author_id = %d AND status = 'active' AND title LIKE %s ORDER BY title ASC LIMIT %d",
+					"SELECT s.id, s.title FROM {$wpdb->prefix}jt_spaces s WHERE s.author_id = %d AND s.status = 'active' AND s.title LIKE %s AND {$not_linked_elsewhere} ORDER BY s.title ASC LIMIT %d",
 					absint( $owner_id ),
 					$like,
 					$limit
@@ -1750,13 +2640,13 @@ class JetonomyBridge {
 		} else {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE status = 'active' AND title LIKE %s ORDER BY title ASC LIMIT %d",
+					"SELECT s.id, s.title FROM {$wpdb->prefix}jt_spaces s WHERE s.status = 'active' AND s.title LIKE %s AND {$not_linked_elsewhere} ORDER BY s.title ASC LIMIT %d",
 					$like,
 					$limit
 				)
 			);
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$out = array();
 		foreach ( (array) $rows as $bn_sd_row ) {
@@ -1769,6 +2659,196 @@ class JetonomyBridge {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * What happens to a space's forum when the space is deleted.
+	 *
+	 * 'purge': the bridge made it for this space, so it goes with it. 'hide': an owner linked
+	 * it, so it is closed to the public and locked but its content is kept. 'unlink': an
+	 * add-on claimed it (a course discussion), so it is left exactly as it is. 'none': no forum.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return string purge | hide | unlink | none
+	 */
+	public function forum_fate_on_delete( int $space_id ): string {
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 ) {
+			return 'none';
+		}
+
+		/**
+		 * Whether an add-on has claimed a space's forum as its own (a course discussion).
+		 *
+		 * A claimed forum outlives the space: deleting the community only unlinks it.
+		 *
+		 * @since 1.3.1
+		 *
+		 * @param bool $claimed  Whether the forum belongs to something other than the space.
+		 * @param int  $space_id BuddyNext space ID.
+		 * @param int  $forum_id Linked Jetonomy forum.
+		 */
+		if ( apply_filters( 'buddynext_space_forum_claimed', false, $space_id, $forum_id ) ) {
+			return 'unlink';
+		}
+
+		return $this->forum_made_for_space( $space_id, $forum_id ) ? 'purge' : 'hide';
+	}
+
+	/**
+	 * Whether the bridge made the forum for this space. A forum from before the marker counts only
+	 * when its slug is the one provisioning generates and it was created no earlier than the space.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @param int $forum_id Linked Jetonomy forum.
+	 * @return bool
+	 */
+	private function forum_made_for_space( int $space_id, int $forum_id ): bool {
+		$marked = (int) buddynext_get_space_field( $space_id, self::PROVISIONED_META );
+		if ( $marked > 0 ) {
+			return $marked === $forum_id;
+		}
+
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		$forum = is_callable( array( '\Jetonomy\Models\Space', 'find' ) ) ? \Jetonomy\Models\Space::find( $forum_id ) : null;
+		if ( null === $space || null === $forum || empty( $space['slug'] ) ) {
+			return false;
+		}
+
+		$slug       = (string) $forum->slug;
+		$forum_born = (int) strtotime( (string) ( $forum->created_at ?? '' ) );
+		$space_born = (int) strtotime( (string) ( $space['created_at'] ?? '' ) );
+
+		return ( $slug === $space['slug'] || $slug === $space['slug'] . '-' . $space_id )
+			&& $forum_born > 0 && $space_born > 0 && $forum_born >= $space_born - MINUTE_IN_SECONDS;
+	}
+
+	/**
+	 * Close a deleted space's forum at once, then remove it if it is ours. Safe to run twice (a big
+	 * space fires this again when its background deletion ends). Below Jetonomy 2.0.3 a delete would
+	 * orphan every topic, so there the forum only stays hidden.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $space_id BuddyNext space ID.
+	 * @return void
+	 */
+	public function retire_space_forum( $space_id ): void {
+		$space_id = (int) $space_id;
+		$fate     = $this->forum_fate_on_delete( $space_id );
+		if ( in_array( $fate, array( 'none', 'unlink' ), true ) || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return;
+		}
+
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( null === \Jetonomy\Models\Space::find( $forum_id ) ) {
+			return;
+		}
+
+		self::write_forum(
+			$forum_id,
+			array(
+				'visibility' => 'hidden',
+				'status'     => 'locked',
+			)
+		);
+
+		// The forum's topics were indexed under this space; Jetonomy's bulk purge fires no
+		// per-topic hook, so the rows would outlive both the forum and the space.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_search_index',
+			array(
+				'object_type' => 'discussion',
+				'space_id'    => $space_id,
+			),
+			array( '%s', '%d' )
+		);
+		$this->invalidate_space_caches( $forum_id );
+		$this->purge_forum_pages( $forum_id );
+
+		if ( 'hide' === $fate ) {
+			// Topics of a forum linked after it filled have cards that belong to no space, so the
+			// space's own deletion never reaches them.
+			$this->withdraw_forum_surfaces( $forum_id, 0 );
+		}
+
+		if ( 'purge' === $fate && defined( 'JETONOMY_VERSION' ) && version_compare( JETONOMY_VERSION, '2.0.3', '>=' ) ) {
+			\Jetonomy\Models\Space::delete( $forum_id );
+			// Each member was granted the forum with a usermeta row; none of them point anywhere now.
+			delete_metadata( 'user', 0, self::GRANTED_META, (string) $forum_id, true );
+		}
+	}
+
+	/**
+	 * Take a forum's topics off the feed and out of search, in batches.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $forum_id Jetonomy forum id.
+	 * @param int|string $after    Last topic id already handled.
+	 * @return void
+	 */
+	public function withdraw_forum_surfaces( $forum_id, $after = 0 ): void {
+		global $wpdb;
+		$forum_id = (int) $forum_id;
+		$after    = (int) $after;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND id > %d ORDER BY id ASC LIMIT 200", $forum_id, $after )
+			)
+		);
+		foreach ( $ids as $id ) {
+			$url = $this->discussion_url( $id, $forum_id );
+			if ( '' !== $url ) {
+				IntegrationActivity::withdraw( $url, 'discussion' );
+			}
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_search_index',
+				array(
+					'object_type' => 'discussion',
+					'object_id'   => $id,
+				),
+				array( '%s', '%d' )
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( 200 === count( $ids ) && function_exists( 'as_enqueue_async_action' ) ) {
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_withdraw_forum_surfaces', array( $forum_id, end( $ids ) ), 'buddynext' );
+		}
+	}
+
+	/**
+	 * Purge the community pages from the page cache, and Jetonomy's own sidebar list (kept five
+	 * minutes, not cleared when a forum is hidden), so guests stop seeing a closed forum.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @return void
+	 */
+	private function purge_forum_pages( int $forum_id ): void {
+		// Jetonomy keeps its sidebar "Trending" list for five minutes and does not clear it when a
+		// forum is hidden or removed, so a closed forum's topic title kept showing to guests.
+		if ( is_callable( array( '\\Jetonomy\\Cache', 'delete_many' ) ) ) {
+			\Jetonomy\Cache::delete_many( array( 'sidebar:trending:0:guest', 'sidebar:trending:0:priv', "sidebar:trending:{$forum_id}:guest", "sidebar:trending:{$forum_id}:priv" ) );
+		}
+
+		if ( ! function_exists( '\\Jetonomy\\base_url' ) ) {
+			return;
+		}
+
+		$base  = trailingslashit( \Jetonomy\base_url() );
+		$forum = class_exists( '\\Jetonomy\\Models\\Space' ) ? \Jetonomy\Models\Space::find( $forum_id ) : null;
+		\BuddyNext\Core\PageCachePurger::purge( $base );
+		if ( null !== $forum && '' !== (string) $forum->slug ) {
+			\BuddyNext\Core\PageCachePurger::purge( $base . 's/' . $forum->slug . '/' );
+		}
 	}
 
 	/**
@@ -1794,7 +2874,6 @@ class JetonomyBridge {
 		// remembered so re-enabling offers it back and a later ban still revokes it.
 		$this->set_discussion_enabled( $space_id, false );
 		update_space_meta( $space_id, self::UNLINKED_META, implode( ',', array_unique( array_merge( $this->unlinked_forum_ids( $space_id ), array( $forum_id ) ) ) ) );
-		unset( self::$forum_space_memo[ $forum_id ] );
 		$this->invalidate_space_caches( $forum_id );
 
 		/**
@@ -1806,6 +2885,21 @@ class JetonomyBridge {
 		 * @param int $forum_id Jetonomy forum that was linked.
 		 */
 		do_action( 'buddynext_space_discussion_unlinked', $space_id, $forum_id );
+	}
+
+	/**
+	 * The space type the forum is shaped by: a plan-gated open space is private for its forum, so
+	 * the forum is not public to people the space would ask to pay.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param array<string, mixed> $space Hydrated space.
+	 * @return string open | private | secret
+	 */
+	public static function forum_type_for( array $space ): string {
+		$type = (string) ( $space['type'] ?? '' );
+
+		return ( \BuddyNext\Spaces\SpaceService::TYPE_OPEN === $type && ! empty( $space['is_gated'] ) ) ? \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE : $type;
 	}
 
 	/**
@@ -1840,6 +2934,247 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Answer Jetonomy Pro's "send this push?" with no, when BuddyNext sends it instead.
+	 *
+	 * BuddyNext mirrors each forum notification into its bell once Jetonomy has declared its types, and its
+	 * own push follows that row under the member's Push switch. Both plugins pushed the same event, so a
+	 * member with both set up got two. BuddyNext's push is the one kept, but only for a member it will really
+	 * reach (Push is on for them and they hold a token this site can send to, which BuddyNext Pro answers through
+	 * buddynext_push_reaches_user): a member who only subscribed in Jetonomy keeps Jetonomy Pro's push.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $send    Answer so far.
+	 * @param mixed $user_id Recipient.
+	 * @return bool
+	 */
+	public function leave_push_to_buddynext( $send, $user_id = 0 ): bool {
+		return (bool) $send && ! (
+			\BuddyNext\Notifications\IntegrationNotificationListener::adopted( 'jetonomy' )
+			/**
+			 * Whether BuddyNext's own push will reach this member (Pro answers: Push on and a token this site can send to).
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param bool $reaches Default false.
+			 * @param int  $user_id Member.
+			 */
+			&& (bool) apply_filters( 'buddynext_push_reaches_user', false, (int) $user_id )
+		);
+	}
+
+	/**
+	 * Run the shared banned-content check on a new forum topic (title and body).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $data Topic data Jetonomy is about to write.
+	 * @return mixed The data, or a WP_Error that refuses the topic.
+	 */
+	public function check_new_topic( $data ) {
+		return is_array( $data ) ? $this->scan_forum_text( $data, trim( ( $data['title'] ?? '' ) . "\n" . ( $data['content'] ?? '' ) ), $this->space_id_for_forum( (int) ( $data['space_id'] ?? 0 ) ) ) : $data;
+	}
+
+	/**
+	 * Run the same check when a topic or reply is edited, so a clean post cannot be edited into a banned one.
+	 *
+	 * Jetonomy has no before-update filter, so the edit routes (PATCH on a topic or a reply) are
+	 * read here before their callback runs. Only create-time rules are skipped (the 'edit' context).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed            $response Response so far.
+	 * @param array            $handler  Matched route handler (unused).
+	 * @param \WP_REST_Request $request  The request.
+	 * @return mixed The response, or a WP_Error that refuses the edit.
+	 */
+	public function check_forum_edit( $response, $handler, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- filter signature.
+		if ( ! $request instanceof \WP_REST_Request || 'PATCH' !== $request->get_method() || ! preg_match( '#^/jetonomy/v1/(?:posts|replies)/\d+$#', $request->get_route() ) ) {
+			return $response;
+		}
+		$text = trim( (string) $request->get_param( 'title' ) . "\n" . (string) $request->get_param( 'content' ) );
+		if ( '' === $text || is_wp_error( $response ) ) {
+			return $response;
+		}
+		$checked = $this->scan_forum_text( array( 'author_id' => get_current_user_id() ), $text );
+		return is_wp_error( $checked ) ? $checked : $response;
+	}
+
+	/**
+	 * How many of the bridge's own forum writes are in progress (a counter, so a write inside a write does not clear the
+	 * marker early), so its own sync is never refused by the guard below.
+	 *
+	 * @var int
+	 */
+	private static int $own_write = 0;
+
+	/**
+	 * Write a forum's state on behalf of its BuddyNext Space (the sync, closing a forum, the visibility repair).
+	 *
+	 * Marked as the Space's own write so refuse_forum_drift() lets it through.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int                 $forum_id Jetonomy forum id.
+	 * @param array<string,mixed> $fields   Column data.
+	 * @return bool|\WP_Error What Space::update() answered.
+	 */
+	public static function write_forum( int $forum_id, array $fields ) {
+		// Jetonomy off or too old to have the model: nothing to write, and never a fatal.
+		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return new \WP_Error( 'bn_forum_unavailable', __( 'Discussions are not available right now.', 'buddynext' ) );
+		}
+		++self::$own_write;
+		try {
+			return \Jetonomy\Models\Space::update( $forum_id, $fields );
+		} finally {
+			--self::$own_write;
+		}
+	}
+
+	/**
+	 * Refuse a write that would make a linked forum disagree with its BuddyNext Space.
+	 *
+	 * The Space is the authority for who can see and join its forum and whether it is open (visibility, join_policy,
+	 * status): the sync writes them on every Space change. Jetonomy's Space::update() is the one place every other
+	 * writer passes through (the REST PATCH and DELETE, the wp-admin forms, access rules, WP-CLI, the BuddyPress and
+	 * Learnomy integrations), so a value that differs from the forum's current one is refused here with a 409. A form
+	 * that re-sends today's values, title and description edits, and forums with no Space are untouched.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $proceed  Answer so far (true, or another plugin's WP_Error).
+	 * @param mixed $forum_id Jetonomy forum id.
+	 * @param mixed $data     Column data about to be written.
+	 * @return mixed True to allow, or a WP_Error that refuses the write.
+	 */
+	public function refuse_forum_drift( $proceed, $forum_id, $data ) {
+		if ( true !== $proceed || self::$own_write > 0 || ! is_array( $data ) || ! class_exists( '\Jetonomy\Models\Space' ) || $this->space_id_for_forum( (int) $forum_id ) <= 0 ) {
+			return $proceed;
+		}
+		$forum = \Jetonomy\Models\Space::find( (int) $forum_id );
+		if ( ! $forum ) {
+			return $proceed;
+		}
+		foreach ( array( 'visibility', 'join_policy', 'status' ) as $field ) {
+			if ( array_key_exists( $field, $data ) && (string) ( $forum->$field ?? '' ) !== (string) $data[ $field ] ) {
+				return new \WP_Error(
+					'bn_forum_follows_space',
+					__( 'This discussion follows its Space. Change who can see or join it in the Space settings.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
+			}
+		}
+		return $proceed;
+	}
+
+	/**
+	 * Run the shared banned-content check on a new forum reply.
+	 *
+	 * @param mixed $data Reply data Jetonomy is about to write.
+	 * @return mixed The data, or a WP_Error that refuses the reply.
+	 */
+	public function check_new_reply( $data ) {
+		return is_array( $data ) ? $this->scan_forum_text( $data, (string) ( $data['content'] ?? '' ) ) : $data;
+	}
+
+	/**
+	 * The one check behind both: banned words, blocked links and the Pro rules.
+	 *
+	 * Only a hard block refuses the write (a flag verdict lets it through, as it does for a comment). The
+	 * member sees one generic line; which word or rule fired is not told to them.
+	 *
+	 * @param array<string,mixed> $data Row Jetonomy is about to write.
+	 * @param string              $text What the member wrote.
+	 * @param int                 $bn_space_id The BuddyNext Space the forum belongs to (0 = none), for its own banned-word list.
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	private function scan_forum_text( array $data, string $text, int $bn_space_id = 0 ) {
+		if ( '' === trim( $text ) || ! function_exists( 'buddynext_service' ) ) {
+			return $data;
+		}
+		// Forum text is HTML: scan the words without the markup, but keep every link target, so a blocked
+		// domain inside an anchor is still seen. Content rules only ('edit' context): Jetonomy has its own
+		// post limits, and a rate-limit refusal must not be shown as "banned content".
+		preg_match_all( '/href\s*=\s*["\']([^"\']+)/i', $text, $links );
+		$scan    = trim( wp_strip_all_tags( $text ) . "\n" . implode( "\n", $links[1] ) );
+		$verdict = buddynext_service( 'safeguard' )->check_content( $scan, '', (int) ( $data['author_id'] ?? 0 ), $bn_space_id, 'edit', 'post' );
+		if ( ! is_wp_error( $verdict ) || \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $verdict ) ) {
+			return $data;
+		}
+		return new \WP_Error( 'bn_forum_content_blocked', __( 'This cannot be posted because it contains content that is not allowed in this community.', 'buddynext' ), array( 'status' => 422 ) );
+	}
+
+	/**
+	 * Re-place a topic's card and search row when it moves to another forum.
+	 *
+	 * Jetonomy's move changes the topic's forum and fires nothing, so the card kept its old
+	 * Space and address and the search row kept the old Space: a topic moved into a private
+	 * forum stayed findable by its title. Reads the successful response of the move route.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed            $response Response so far.
+	 * @param array            $handler  Matched route handler (unused).
+	 * @param \WP_REST_Request $request  The request.
+	 * @return mixed The response, untouched.
+	 */
+	public function on_move_response( $response, $handler, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- filter signature.
+		if ( ! $request instanceof \WP_REST_Request || 'POST' !== $request->get_method() || $response instanceof \WP_Error ) {
+			return $response;
+		}
+		if ( ! preg_match( '#^/jetonomy/v1/posts/(\d+)/move$#', $request->get_route(), $match ) ) {
+			return $response;
+		}
+		if ( $response instanceof \WP_REST_Response && $response->get_status() >= 300 ) {
+			return $response;
+		}
+		$this->on_topic_moved( (int) $match[1] );
+		return $response;
+	}
+
+	/**
+	 * Point a moved topic's existing card at its new forum and re-index it.
+	 *
+	 * The card keeps its id, date and comments: it is rewritten in place to the new address
+	 * and moved to the new forum's Space, then the normal sync refreshes the search row and
+	 * withdraws the card if the new forum is not public.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $post_id Jetonomy topic id.
+	 * @return void
+	 */
+	public function on_topic_moved( int $post_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT space_id, title, content_plain FROM {$wpdb->prefix}jt_posts WHERE id = %d", $post_id ) );
+		if ( null === $row ) {
+			return;
+		}
+		$space_id = (int) $row->space_id;
+		$url      = $this->discussion_url( $post_id, $space_id );
+		if ( '' !== $url ) {
+			IntegrationActivity::rewrite_by_meta(
+				'discussion',
+				'post_id',
+				$post_id,
+				__( 'started a discussion', 'buddynext' ),
+				$url,
+				(string) $row->title,
+				wp_trim_words( wp_strip_all_tags( (string) $row->content_plain ), 30, '…' ),
+				array(
+					'post_id'      => $post_id,
+					'notify_space' => false,
+				)
+			);
+			IntegrationActivity::set_space_by_meta( 'discussion', 'post_id', $post_id, $this->space_id_for_forum( $space_id ) );
+		}
+		$this->sync_discussion( $post_id, $space_id );
+	}
+
+	/**
 	 * Keep a linked discussion's visibility in step with its space's type.
 	 *
 	 * Creation-time correctness is not enough: an owner who opens a space to
@@ -1867,13 +3202,99 @@ class JetonomyBridge {
 			return;
 		}
 
-		$want = self::discussion_visibility_for( (string) ( $space['type'] ?? '' ) );
+		$type = self::forum_type_for( $space );
+		$want = self::discussion_visibility_for( $type );
+		$join = self::discussion_join_policy_for( $type );
 		$jt   = \Jetonomy\Models\Space::find( $forum_id );
-		if ( ! $jt || (string) ( $jt->visibility ?? '' ) === $want ) {
+		if ( ! $jt ) {
 			return;
 		}
 
-		\Jetonomy\Models\Space::update( $forum_id, array( 'visibility' => $want ) );
+		// The space decides the forum's state: open, read-only while archived, closed while
+		// it is being deleted or its Discussions are off. Without this a type change reopened a forum the delete had hidden.
+		if ( \BuddyNext\Spaces\SpaceService::is_deleting( $space_id ) || $this->discussions_off( $space_id ) ) {
+			$want   = 'hidden';
+			$status = 'locked';
+		} else {
+			$status = ! empty( $space['is_archived'] ) ? 'archived' : 'active';
+		}
+
+		// Visibility and join policy move together: the forum is only as open as
+		// the space. Writing visibility alone left a reopened space's forum on
+		// "approval" and a newly linked public forum open to anyone.
+		$change = array();
+		if ( (string) ( $jt->visibility ?? '' ) !== $want ) {
+			$change['visibility'] = $want;
+		}
+		if ( (string) ( $jt->status ?? '' ) !== $status ) {
+			$change['status'] = $status;
+		}
+		if ( (string) ( $jt->join_policy ?? '' ) !== $join ) {
+			$change['join_policy'] = $join;
+		}
+		if ( empty( $change ) ) {
+			return;
+		}
+
+		self::write_forum( $forum_id, $change );
+		$this->purge_forum_pages( $forum_id );
+
+		// The search rows were written under the old type. Going private is clamped
+		// by the search service, but a reopened space needs each topic decided
+		// again, so re-index them in the background.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_reindex_forum_discussions', array( $forum_id, 0 ), 'buddynext' );
+		} else {
+			$this->reindex_forum_discussions( $forum_id, 0 );
+		}
+	}
+
+	/**
+	 * Re-index one forum's published topics in batches of 200.
+	 *
+	 * Walks by topic id (id > the last one done), not OFFSET: an OFFSET read skips the rows before it
+	 * every time, so a forum with tens of thousands of topics got slower with each batch.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $after_id Last topic id already done (0 to start).
+	 * @return void
+	 */
+	public function reindex_forum_discussions( int $forum_id, int $after_id = 0 ): void {
+		global $wpdb;
+		$batch = 200;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish' AND id > %d ORDER BY id ASC LIMIT %d",
+				$forum_id,
+				$after_id,
+				$batch
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		foreach ( $ids as $id ) {
+			$this->sync_discussion( (int) $id, $forum_id );
+		}
+		if ( count( $ids ) === $batch && function_exists( 'as_enqueue_async_action' ) ) {
+			\BuddyNext\Core\CronScheduler::enqueue_once( 'buddynext_async_reindex_forum_discussions', array( $forum_id, (int) end( $ids ) ), 'buddynext' );
+		}
+	}
+
+	/**
+	 * How a space's linked forum admits people, from the space's type.
+	 *
+	 * @param string $space_type Space type (open, private, secret).
+	 * @return string Jetonomy join_policy: open, approval or invite.
+	 */
+	public static function discussion_join_policy_for( string $space_type ): string {
+		switch ( $space_type ) {
+			case \BuddyNext\Spaces\SpaceService::TYPE_OPEN:
+				return 'open';
+			case \BuddyNext\Spaces\SpaceService::TYPE_PRIVATE:
+				return 'approval';
+			default:
+				return 'invite';
+		}
 	}
 
 	/**
@@ -2006,8 +3427,11 @@ class JetonomyBridge {
 		 * @param array $space    The space row.
 		 */
 		$adopted = (int) apply_filters( 'buddynext_adopt_discussion_space', 0, $space_id, $space );
-		if ( $adopted > 0 ) {
+		// A forum another space already holds is passed over and a fresh one is
+		// made: linking it twice would let two spaces write one forum's access.
+		if ( $adopted > 0 && $this->forum_free_for( $adopted, $space_id ) ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $adopted );
+			$this->carry_space_bans( $space_id );
 			$this->set_discussion_enabled( $space_id, true );
 			$this->apply_discussion_posting( $space_id, false );
 
@@ -2015,30 +3439,29 @@ class JetonomyBridge {
 		}
 
 		$owner_id = (int) ( $space['owner_id'] ?? 0 );
-		$created  = \Jetonomy\Models\Space::create(
-			array(
-				'title'      => (string) ( $space['name'] ?? '' ),
-				'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
-				'author_id'  => $owner_id,
-				'visibility' => self::discussion_visibility_for( (string) ( $space['type'] ?? '' ) ),
-				'status'     => 'active',
-			),
-			$owner_id
+		$args     = array(
+			'title'      => (string) ( $space['name'] ?? '' ),
+			'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
+			'author_id'  => $owner_id,
+			'visibility' => self::discussion_visibility_for( self::forum_type_for( $space ) ),
+			'status'     => 'active',
 		);
+		// The owner's forum admin row is a copy of their space role, not a join of
+		// their own: as a mirror write it earns no forum join award.
+		$created = IntegrationActivity::as_mirror( static fn() => \Jetonomy\Models\Space::create( $args, $owner_id ) );
 		// Jetonomy 2.0.1 can answer with a WP_Error. Casting that to int gives 1,
 		// which would link this space to whichever forum has id 1.
 		$forum_id = is_wp_error( $created ) ? 0 : (int) $created;
 
 		if ( $forum_id > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+			$this->carry_space_bans( $space_id );
+			update_space_meta( $space_id, self::PROVISIONED_META, $forum_id );
 			$this->apply_discussion_posting( $space_id, false );
 
-			// Provisioning a forum IS the intent to use it: the Discussions tab
-			// only renders when BOTH a linked forum exists AND the
-			// discussion_enabled flag is set (space_discussion_enabled()), so a
-			// programmatic provision used to create a working forum members
-			// could never see until someone separately called
-			// set_discussion_enabled(). One call now yields a visible tab.
+			// Provisioning a forum IS the intent to use it: record the flag as on,
+			// so an earlier explicit '0' (space_discussion_enabled() reads only an
+			// explicit '0' as off) cannot hide the forum just created.
 			$this->set_discussion_enabled( $space_id, true );
 
 			/**
@@ -2168,6 +3591,71 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Send a member from Jetonomy's notifications page to BuddyNext's.
+	 *
+	 * Only when BuddyNext's inbox shows the forum notifications (Jetonomy adopted the
+	 * notification contract), and only for a logged-in member. A 302: it depends on
+	 * the viewer and the site setup.
+	 * Template_redirect never runs for REST or admin-ajax, so those stay untouched.
+	 *
+	 * @return void
+	 */
+	public function redirect_forum_notifications(): void {
+		if ( 'notifications' !== (string) get_query_var( 'jetonomy_route', '' ) || ! is_user_logged_in()
+			|| ! \BuddyNext\Notifications\IntegrationNotificationListener::adopted( 'jetonomy' ) ) {
+			return;
+		}
+		// notifications_url() always answers (configured slug, else the default), so
+		// there is no empty case to fall back from.
+		wp_safe_redirect( \BuddyNext\Core\PageRouter::notifications_url(), 302 );
+		exit;
+	}
+
+	/**
+	 * Send a held member from a forum page to the hold's page.
+	 *
+	 * The forum counts as the 'discussions' hub, so a hold that keeps that hub
+	 * open leaves the forum open. Sitemap and RSS routes are left to Jetonomy.
+	 *
+	 * @return void
+	 */
+	public function hold_forum_pages(): void {
+		$route = (string) get_query_var( 'jetonomy_route', '' );
+		if ( '' === $route || 'sitemap' === $route || 'feed' === $route || ! is_user_logged_in() ) {
+			return;
+		}
+
+		$hold = MemberHold::get( get_current_user_id() );
+		if ( null === $hold || in_array( 'discussions', $hold['hubs'], true ) ) {
+			return;
+		}
+
+		wp_safe_redirect( $hold['url'] );
+		exit;
+	}
+
+	/**
+	 * Refuse jetonomy(-pro)/v1 to a held member, as buddynext/v1 does.
+	 *
+	 * @param mixed $result  Pre-dispatch short-circuit, or null.
+	 * @param mixed $server  REST server (unused; part of the signature).
+	 * @param mixed $request Current request.
+	 * @return mixed Unchanged result, or the hold's 403 WP_Error.
+	 */
+	public function hold_forum_rest( $result, $server, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- $server is part of the rest_pre_dispatch signature.
+		if ( null !== $result || ! $request instanceof \WP_REST_Request || ! is_user_logged_in() ) {
+			return $result;
+		}
+
+		$route = RestRoute::normalize( $request );
+		if ( ! preg_match( '#^/jetonomy(?:-pro)?/v1(?:/|$)#', $route ) ) {
+			return $result;
+		}
+
+		return ( new RestHoldGate() )->partner_route_refusal( $route ) ?? $result;
+	}
+
+	/**
 	 * On-demand web flow: provision the forum for `?bn_provision_forum={space}` and
 	 * redirect to it. Fired on template_redirect.
 	 *
@@ -2237,7 +3725,7 @@ class JetonomyBridge {
 		$messages = array(
 			'expired'   => __( 'That link has expired, so no discussion was created.', 'buddynext' ),
 			'failed'    => __( 'The discussion could not be created.', 'buddynext' ),
-			'forbidden' => __( 'Only the space owner or a moderator can start its discussions.', 'buddynext' ),
+			'forbidden' => __( 'Only the space owner or a moderator can start its discussions, once the owner has turned Discussion on.', 'buddynext' ),
 		);
 		if ( ! isset( $messages[ $reason ] ) ) {
 			return;
@@ -2256,21 +3744,100 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Whether a user may provision (create) a space's forum.
+	 * Point the space owner at the Discussion switch while the space has no forum.
 	 *
-	 * Gated on buddynext-moderate-space (space owner/moderator, plus site admins
-	 * via the manage_options passthrough) so provisioning — which mutates the
-	 * space — cannot be triggered by an arbitrary logged-in user.
+	 * Printed above the About panel, for the owner only (can_manage_discussion(), the
+	 * rule the switch itself applies), and only while no forum is linked: a forum the
+	 * owner switched off is a choice already made, so it gets no hint.
+	 *
+	 * @param array $args About panel arguments (space).
+	 * @return void
+	 */
+	public function render_discussion_owner_hint( $args ): void {
+		$space    = is_array( $args ) ? ( $args['space'] ?? null ) : null;
+		$space_id = is_object( $space ) ? (int) ( $space->id ?? 0 ) : 0;
+		if ( $space_id <= 0
+			|| $this->space_has_discussion( $space_id )
+			|| ! $this->can_manage_discussion( $space_id, get_current_user_id() ) ) {
+			return;
+		}
+
+		$url = add_query_arg( 'bn_stab', 'integrations', buddynext_space_settings_url( (string) ( $space->slug ?? '' ) ) );
+		?>
+		<p class="bn-notice">
+			<?php esc_html_e( 'This space has no Discussions tab yet.', 'buddynext' ); ?>
+			<a class="bn-notice__cta" href="<?php echo esc_url( $url ); ?>"><?php esc_html_e( 'Turn on Discussions', 'buddynext' ); ?></a>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Add a "Back to <Space>" link to Jetonomy's breadcrumb on the pages of a forum
+	 * linked to a BuddyNext Space.
+	 *
+	 * The filter does not pass the forum, so it is read from the route: the topic
+	 * route carries the forum slug in jetonomy_space_slug, the forum routes in
+	 * jetonomy_slug. The link is one <a> plus Jetonomy's own "/" separator, placed
+	 * first inside its <nav class="jt-crumb">, so Jetonomy's CSS styles it (RTL and
+	 * dark mode included). A Space the viewer may not see is never named.
+	 *
+	 * Hooked on: jetonomy_breadcrumb_html( string $html, array $crumbs )
+	 *
+	 * @param string $html Rendered breadcrumb markup.
+	 * @return string
+	 */
+	public function add_space_breadcrumb( $html ): string {
+		$html = (string) $html;
+		$nav  = strpos( $html, '<nav class="jt-crumb"' );
+		$open = false !== $nav ? strpos( $html, '>', $nav ) : false;
+		if ( false === $open ) {
+			return $html;
+		}
+
+		$route = (string) get_query_var( 'jetonomy_route', '' );
+		$slug  = 'post' === $route
+			? (string) get_query_var( 'jetonomy_space_slug', '' )
+			: ( in_array( $route, array( 'space', 'space-members', 'space-roadmap', 'space-moderation' ), true ) ? (string) get_query_var( 'jetonomy_slug', '' ) : '' );
+		if ( '' === $slug || ! is_callable( array( '\\Jetonomy\\Models\\Space', 'find_by_slug' ) ) ) {
+			return $html;
+		}
+
+		$forum    = \Jetonomy\Models\Space::find_by_slug( $slug );
+		$space_id = is_object( $forum ) ? $this->space_id_for_forum( (int) ( $forum->id ?? 0 ) ) : 0;
+		$space    = $space_id > 0 ? ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ) : null;
+		if ( null === $space || ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			return $html;
+		}
+
+		$link = sprintf(
+			'<a href="%1$s" dir="auto">%2$s</a> <span aria-hidden="true">/</span> ',
+			esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ),
+			/* translators: %s: space name. */
+			esc_html( sprintf( __( 'Back to %s', 'buddynext' ), (string) ( $space['name'] ?? '' ) ) )
+		);
+
+		return substr( $html, 0, $open + 1 ) . $link . substr( $html, $open + 1 );
+	}
+
+	/**
+	 * Whether a user may create a space's forum on demand ("Start the first
+	 * discussion", POST /spaces/{id}/forum).
+	 *
+	 * Only once the owner has switched Discussion on: whether the space has a
+	 * discussion at all is the owner's choice (can_manage_discussion()), so a
+	 * moderator may start the forum the owner asked for but never create one the
+	 * owner did not. Then gated on buddynext-moderate-space (space owner or
+	 * moderator, plus site admins), so an arbitrary member cannot mutate the space.
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $user_id  Acting user ID.
 	 * @return bool
 	 */
 	private function can_provision_forum( int $space_id, int $user_id ): bool {
-		if ( $space_id <= 0 || $user_id <= 0 ) {
-			return false;
-		}
-		return (bool) buddynext_service( 'permissions' )->can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
+		return $space_id > 0 && $user_id > 0
+			&& self::discussion_switched_on()
+			&& '1' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' )
+			&& buddynext_can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
 	}
 
 	/**
@@ -2337,7 +3904,7 @@ class JetonomyBridge {
 			&& ! \Jetonomy\Permissions\Permission_Engine::can( (int) $user_id, 'edit_others_posts', $space_id ) ) {
 			return new \WP_Error(
 				'bn_discussion_edit_refused',
-				__( 'This comment is also a reply in the forum, and you can no longer post there.', 'buddynext' ),
+				__( 'This comment is also a reply in Discussions, and you can no longer post there.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -2378,16 +3945,22 @@ class JetonomyBridge {
 			return;
 		}
 
+		// A comment that answers another comment becomes a reply to that comment's forum reply.
+		$parent_reply = ! empty( $comment['parent_id'] ) ? ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( (int) $comment['parent_id'] ) : 0;
+
 		self::mirror(
-			function () use ( $topic_id, $user_id, $content, $comment_id ) {
-				$reply_id = \Jetonomy\Models\Reply::create(
-					array(
-						'post_id'       => $topic_id,
-						'author_id'     => $user_id,
-						'content'       => wp_kses_post( $content ),
-						'content_plain' => wp_strip_all_tags( $content ),
-					)
+			function () use ( $topic_id, $user_id, $content, $comment_id, $parent_reply ) {
+				$data     = array(
+					'post_id'       => $topic_id,
+					'author_id'     => $user_id,
+					'content'       => wp_kses_post( $content ),
+					'content_plain' => wp_strip_all_tags( $content ),
 				);
+				$reply_id = \Jetonomy\Models\Reply::create( $parent_reply > 0 ? $data + array( 'parent_id' => $parent_reply ) : $data );
+				if ( $parent_reply > 0 && is_wp_error( $reply_id ) ) {
+					// The forum reply it answers is gone or hidden: keep the reply, as a top-level one.
+					$reply_id = \Jetonomy\Models\Reply::create( $data );
+				}
 				if ( ! is_wp_error( $reply_id ) && (int) $reply_id > 0 ) {
 					// Persist the pair on the comment so edit/delete can propagate later
 					// (both directions resolve through bn_comments.sync_reply_id).
@@ -2470,11 +4043,27 @@ class JetonomyBridge {
 			return; // No real author, or the topic has no feed card to mirror onto.
 		}
 
+		// A reply to a reply stays a reply to that comment. The parent is the comment mirrored from the
+		// parent reply; with none (that reply is private, anonymous or gone) it is a top-level comment.
+		$parent_comment = 0;
+		$parent_reply   = (int) ( $reply['parent_id'] ?? 0 );
+		if ( $parent_reply > 0 ) {
+			$parent         = $comments->find_by_sync_reply_id( $parent_reply );
+			$parent_comment = ( null !== $parent && empty( $parent['is_deleted'] ) ) ? (int) $parent['id'] : 0;
+		}
+
 		self::mirror(
-			static function () use ( $comments, $author_id, $card_id, $content, $reply_id, $created_at ) {
+			static function () use ( $comments, $author_id, $card_id, $content, $reply_id, $created_at, $parent_comment ) {
 				// CommentService applies its own permission/verification gate and sanitizes;
 				// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
-				$comment_id = $comments->create( $author_id, 'post', $card_id, $content, null, '' !== $created_at ? $created_at : null );
+				$at         = '' !== $created_at ? $created_at : null;
+				$comment_id = $comments->create( $author_id, 'post', $card_id, $content, $parent_comment ?: null, $at );
+				while ( $parent_comment > 0 && is_wp_error( $comment_id ) && 'reply_too_deep' === $comment_id->get_error_code() ) {
+					// The card caps nesting shallower than the forum: keep the reply at the deepest level that fits,
+					// walking up the thread one comment at a time (top-level only when nothing deeper is allowed).
+					$parent_comment = (int) ( $comments->get( $parent_comment )['parent_id'] ?? 0 );
+					$comment_id     = $comments->create( $author_id, 'post', $card_id, $content, $parent_comment ?: null, $at );
+				}
 				if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
 					// Persist the pair so edit/delete propagate in both directions.
 					$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
@@ -2627,20 +4216,400 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * REST permission gate for management-only forum routes (discussion-search).
+	 * Copy a member's forum flag into the BuddyNext moderation queue.
 	 *
-	 * @param \WP_REST_Request $request Request.
-	 * @return true|\WP_Error
+	 * Jetonomy reasons BuddyNext does not list are folded into the nearest one,
+	 * with the original named in the note. A duplicate or rate-limited copy just
+	 * makes no row: the member's forum report already went through.
+	 *
+	 * @param object $flag Jetonomy flag row (reporter_id, object_type, object_id, reason, description).
+	 * @return void
 	 */
-	public function rest_provision_permission( \WP_REST_Request $request ) {
-		if ( ! is_user_logged_in() ) {
-			return new \WP_Error( 'rest_not_logged_in', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+	public function queue_forum_flag( $flag ): void {
+		$reporter = (int) ( $flag->reporter_id ?? 0 );
+		$jt_type  = (string) ( $flag->object_type ?? '' );
+		$bn_type  = self::BN_FORUM_TYPES[ $jt_type ] ?? '';
+		$item_id  = (int) ( $flag->object_id ?? 0 );
+		if ( $reporter <= 0 || '' === $bn_type || $item_id <= 0 ) {
+			return; // An automatic flag, or a flagged member (BuddyNext has its own member reports).
 		}
-		$space_id = (int) $request['id'];
-		if ( ! $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
-			return new \WP_Error( 'rest_forbidden', __( 'You do not have permission to set up this space forum.', 'buddynext' ), array( 'status' => 403 ) );
+
+		$map    = array(
+			'offensive' => 'inappropriate',
+			'off_topic' => 'other',
+		);
+		$reason = sanitize_key( (string) ( $flag->reason ?? 'other' ) );
+		$note   = trim( (string) ( $flag->description ?? '' ) );
+		if ( isset( $map[ $reason ] ) ) {
+			$labels = class_exists( '\\Jetonomy\\Models\\Flag' ) && is_callable( array( \Jetonomy\Models\Flag::class, 'reason_labels' ) ) ? \Jetonomy\Models\Flag::reason_labels() : array();
+			$note   = trim(
+				/* translators: %s: the reason the member picked in the Discussions report form. */
+				sprintf( __( 'Reported in Discussions as: %s', 'buddynext' ), (string) ( $labels[ $reason ] ?? $reason ) ) . "\n\n" . $note
+			);
 		}
-		return true;
+
+		self::$copying_flag = true;
+		try {
+			buddynext_service( 'moderation' )->report( $reporter, $bn_type, $item_id, $map[ $reason ] ?? $reason, 0, $note );
+		} finally {
+			self::$copying_flag = false;
+		}
+	}
+
+	/**
+	 * Accept forum types as report targets while a flag is copied in, and only then.
+	 *
+	 * Open to the member report route, any member could file a report on any topic
+	 * id, and the "your report was reviewed" notice could name a topic they cannot see.
+	 *
+	 * @param string[] $types Reportable types.
+	 * @return string[]
+	 */
+	public function reportable_forum_types( $types ): array {
+		$types = (array) $types;
+		return self::$copying_flag ? array_merge( $types, array_values( self::BN_FORUM_TYPES ) ) : $types;
+	}
+
+	/**
+	 * Offer "Remove content" on forum reports, which remove_reported_forum_item() handles.
+	 *
+	 * @param string[] $types Removable types.
+	 * @return string[]
+	 */
+	public function removable_forum_types( $types ): array {
+		return array_merge( (array) $types, array_values( self::BN_FORUM_TYPES ) );
+	}
+
+	/**
+	 * Take reported forum content down: the topic or reply goes to the forum trash.
+	 *
+	 * A reported topic or reply is trashed through Jetonomy's system entry, which
+	 * grants no forum capability: BuddyNext already checked that the actor may act
+	 * on the report. A removed discussion card or mirrored comment trashes its forum
+	 * twin too, and core then takes the card or comment down itself.
+	 *
+	 * @param bool   $handled     Whether an earlier handler already removed it.
+	 * @param string $object_type Reported type.
+	 * @param int    $object_id   Reported id.
+	 * @param int    $actor_id    Moderator (0 = automated).
+	 * @return bool
+	 */
+	public function remove_reported_forum_item( $handled, $object_type, $object_id, $actor_id = 0 ): bool {
+		if ( $handled || ! class_exists( '\Jetonomy\Moderation\Moderation_Service' ) ) {
+			return (bool) $handled;
+		}
+
+		$jt_type = array_search( (string) $object_type, self::BN_FORUM_TYPES, true );
+		if ( false !== $jt_type ) {
+			return $this->trash_forum_item( (string) $jt_type, (int) $object_id, (int) $actor_id );
+		}
+
+		// A card or a comment: best effort. BuddyNext's own content is the
+		// moderator's to remove even when the forum refuses the twin.
+		$twin = $this->forum_twin( (string) $object_type, (int) $object_id );
+		if ( null !== $twin ) {
+			$this->trash_forum_item( $twin[0], $twin[1], (int) $actor_id );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Trash a topic or reply as a BuddyNext moderation action.
+	 *
+	 * The echo guard is raised because the trash fires jetonomy_content_moderated
+	 * synchronously, before the BuddyNext report is closed: answering it would close
+	 * the report first and the moderator would get "already actioned".
+	 *
+	 * @param string $jt_type 'post' (topic) or 'reply'.
+	 * @param int    $id      Item id.
+	 * @param int    $actor   Moderator (0 = automated).
+	 * @return bool True when the item is in the trash (or already gone); false when
+	 *              the forum refused, e.g. a banned or silenced moderator.
+	 */
+	private function trash_forum_item( string $jt_type, int $id, int $actor ): bool {
+		if ( ! class_exists( '\\Jetonomy\\Moderation\\Moderation_Service' ) ) {
+			return false;
+		}
+		self::$mirroring_report = true;
+		try {
+			$done = \Jetonomy\Moderation\Moderation_Service::system_set_object_status( $jt_type, $id, 'trash', $actor );
+		} finally {
+			self::$mirroring_report = false;
+		}
+
+		return ! is_wp_error( $done ) || in_array( $done->get_error_code(), array( 'jetonomy_already_handled', 'jetonomy_not_found' ), true );
+	}
+
+	/**
+	 * Name the author of a reported topic or reply, for Strike, Suspend and the
+	 * takedown notice.
+	 *
+	 * @param int    $author_id   Author resolved so far.
+	 * @param string $object_type Reported type.
+	 * @param int    $object_id   Reported id.
+	 * @return int
+	 */
+	public function reported_forum_author( $author_id, $object_type, $object_id ): int {
+		if ( (int) $author_id > 0 ) {
+			return (int) $author_id;
+		}
+		$item = $this->forum_item( (string) $object_type, (int) $object_id );
+
+		return null !== $item ? $item['author_id'] : 0;
+	}
+
+	/**
+	 * Label a reported topic or reply without its title.
+	 *
+	 * The label reaches the queue and the reporter's notice. A topic title can be
+	 * private, so the label is the kind of item, plus its forum only when the
+	 * viewer can see that forum.
+	 *
+	 * @param string $label       Label so far.
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object id.
+	 * @return string
+	 */
+	public function forum_object_label( $label, $object_type, $object_id ): string {
+		if ( ! in_array( $object_type, self::BN_FORUM_TYPES, true ) ) {
+			return (string) $label;
+		}
+
+		$item   = $this->forum_item( (string) $object_type, (int) $object_id );
+		$forum  = '';
+		$viewer = get_current_user_id();
+		if ( null !== $item && '' !== $item['title'] ) {
+			$visible = class_exists( '\Jetonomy\Permissions\Permission_Engine' )
+				? \Jetonomy\Permissions\Permission_Engine::can( $viewer, 'read', $item['space_id'] )
+				: 'public' === $item['visibility'];
+			$forum   = $visible ? $item['title'] : '';
+		}
+
+		if ( 'jetonomy_topic' === $object_type ) {
+			return '' !== $forum
+				/* translators: 1: discussion id, 2: forum name. */
+				? sprintf( __( 'Discussion #%1$d in %2$s', 'buddynext' ), (int) $object_id, $forum )
+				/* translators: %d: discussion id. */
+				: sprintf( __( 'Discussion #%d', 'buddynext' ), (int) $object_id );
+		}
+
+		return '' !== $forum
+			/* translators: 1: reply id, 2: forum name. */
+			? sprintf( __( 'Discussion reply #%1$d in %2$s', 'buddynext' ), (int) $object_id, $forum )
+			/* translators: %d: reply id. */
+			: sprintf( __( 'Discussion reply #%d', 'buddynext' ), (int) $object_id );
+	}
+
+	/**
+	 * Author and forum of a topic or reply, read once per request.
+	 *
+	 * @param string $object_type jetonomy_topic | jetonomy_reply.
+	 * @param int    $id          Item id.
+	 * @return array{author_id:int, space_id:int, title:string, visibility:string}|null
+	 */
+	private function forum_item( string $object_type, int $id ): ?array {
+		if ( $id <= 0 || ! in_array( $object_type, self::BN_FORUM_TYPES, true ) ) {
+			return null;
+		}
+		$key = $object_type . ':' . $id;
+		if ( array_key_exists( $key, $this->forum_items ) ) {
+			return $this->forum_items[ $key ];
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = 'jetonomy_topic' === $object_type
+			? $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT p.author_id, p.space_id, s.title, s.visibility FROM {$wpdb->prefix}jt_posts p LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE p.id = %d",
+					$id
+				),
+				ARRAY_A
+			)
+			: $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT r.author_id, p.space_id, s.title, s.visibility FROM {$wpdb->prefix}jt_replies r LEFT JOIN {$wpdb->prefix}jt_posts p ON p.id = r.post_id LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE r.id = %d",
+					$id
+				),
+				ARRAY_A
+			);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$this->forum_items[ $key ] = is_array( $row )
+			? array(
+				'author_id'  => (int) $row['author_id'],
+				'space_id'   => (int) $row['space_id'],
+				'title'      => (string) $row['title'],
+				'visibility' => (string) $row['visibility'],
+			)
+			: null;
+
+		return $this->forum_items[ $key ];
+	}
+
+	/**
+	 * The forum twin of a BuddyNext discussion card or mirrored comment.
+	 *
+	 * @param string $object_type 'post' or 'comment'.
+	 * @param int    $object_id   Card or comment id.
+	 * @return array{0:string, 1:int}|null [ 'post'|'reply', forum item id ], or null.
+	 */
+	private function forum_twin( string $object_type, int $object_id ): ?array {
+		if ( 'post' === $object_type ) {
+			$card  = ( new PostService() )->get( $object_id );
+			$topic = null !== $card && 'discussion' === (string) ( $card['type'] ?? '' ) ? $this->topic_id_for_card( $card ) : 0;
+			return $topic > 0 ? array( 'post', $topic ) : null;
+		}
+		if ( 'comment' === $object_type ) {
+			$reply = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $object_id );
+			return $reply > 0 ? array( 'reply', $reply ) : null;
+		}
+
+		return null;
+	}
+
+	/**
+	 * A moderator closed reports in BuddyNext: close the forum flags and the
+	 * BuddyNext report on the twin (card and topic, comment and reply), so the
+	 * same content can never be struck twice.
+	 *
+	 * @param string $object_type Reported type.
+	 * @param int    $object_id   Reported id.
+	 * @param string $status      resolved | dismissed.
+	 * @param int    $actor_id    Moderator recorded on the reports.
+	 * @return void
+	 */
+	public function close_forum_flags( $object_type, $object_id, $status, $actor_id = 0 ): void {
+		if ( self::$mirroring_report ) {
+			return;
+		}
+		$object_type = (string) $object_type;
+		$jt_type     = array_search( $object_type, self::BN_FORUM_TYPES, true );
+		$item        = false !== $jt_type ? array( (string) $jt_type, (int) $object_id ) : $this->forum_twin( $object_type, (int) $object_id );
+		if ( null !== $item ) {
+			$this->settle_forum_reports( $item[0], $item[1], (string) $status, (int) $actor_id, $object_type );
+		}
+	}
+
+	/**
+	 * A forum moderator resolved a flag in Jetonomy: close the BuddyNext copy.
+	 *
+	 * @param int    $flag_id Jetonomy flag id.
+	 * @param string $status  valid | dismissed.
+	 * @param int    $user_id Forum moderator.
+	 * @return void
+	 */
+	public function close_bn_report_for_flag( $flag_id, $status, $user_id = 0 ): void {
+		if ( self::$mirroring_report || ! class_exists( '\Jetonomy\Models\Flag' ) ) {
+			return;
+		}
+		$flag = \Jetonomy\Models\Flag::find( (int) $flag_id );
+		if ( null !== $flag && isset( self::BN_FORUM_TYPES[ (string) $flag->object_type ] ) ) {
+			$this->settle_forum_reports( (string) $flag->object_type, (int) $flag->object_id, 'dismissed' === $status ? 'dismissed' : 'resolved', (int) $user_id, '' );
+		}
+	}
+
+	/**
+	 * A topic or reply was moderated in Jetonomy, which closes its flags without
+	 * firing jetonomy_flag_resolved: close the BuddyNext copy too. A hold keeps
+	 * the flags open, so it keeps the report open.
+	 *
+	 * @param string $action  approve | spam | trash | hold.
+	 * @param string $type    'post' or 'reply'.
+	 * @param int    $id      Item id.
+	 * @param int    $user_id Forum moderator (0 = system).
+	 * @return void
+	 */
+	public function close_bn_report_for_moderated( $action, $type, $id, $user_id = 0 ): void {
+		$status = array(
+			'approve' => 'dismissed',
+			'spam'    => 'resolved',
+			'trash'   => 'resolved',
+		)[ (string) $action ] ?? '';
+		if ( self::$mirroring_report || '' === $status || ! isset( self::BN_FORUM_TYPES[ (string) $type ] ) ) {
+			return;
+		}
+		$this->settle_forum_reports( (string) $type, (int) $id, $status, (int) $user_id, '' );
+	}
+
+	/**
+	 * Close every report on one forum item and its BuddyNext twin, except the one
+	 * the action started from.
+	 *
+	 * @param string $jt_type 'post' (topic) or 'reply'.
+	 * @param int    $jt_id   Forum item id.
+	 * @param string $status  resolved | dismissed.
+	 * @param int    $actor   Who acted.
+	 * @param string $origin  BuddyNext type the close started from; '' when it
+	 *                        started in Jetonomy, whose flags are then already closed.
+	 * @return void
+	 */
+	private function settle_forum_reports( string $jt_type, int $jt_id, string $status, int $actor, string $origin ): void {
+		if ( $jt_id <= 0 ) {
+			return;
+		}
+		$moderation = buddynext_service( 'moderation' );
+		$bn_type    = 'post' === $jt_type ? 'post' : 'comment';
+		$bn_id      = 0;
+		if ( $bn_type !== $origin ) {
+			$comment = 'reply' === $jt_type ? ( new \BuddyNext\Comments\CommentService() )->find_by_sync_reply_id( $jt_id ) : null;
+			$bn_id   = 'post' === $jt_type ? $this->card_id_for_topic( $jt_id ) : (int) ( $comment['id'] ?? 0 );
+		}
+
+		self::$mirroring_report = true;
+		try {
+			if ( '' !== $origin && class_exists( '\Jetonomy\Models\Flag' ) ) {
+				\Jetonomy\Models\Flag::resolve_siblings_for( $jt_type, $jt_id, $actor, 'dismissed' === $status ? 'dismissed' : 'valid', 0 );
+			}
+			if ( self::BN_FORUM_TYPES[ $jt_type ] !== $origin ) {
+				$moderation->close_mirrored_reports( self::BN_FORUM_TYPES[ $jt_type ], $jt_id, $status, $actor );
+			}
+
+			// The card or comment is BuddyNext's own content, so its report closes only
+			// under the actor's BuddyNext authority; a forum-only moderator leaves it open.
+			$open = $bn_id > 0 ? $moderation->open_report_id_for( $bn_type, $bn_id ) : 0;
+			if ( $open > 0 ) {
+				$closed = 'dismissed' === $status ? $moderation->dismiss( $open, $actor ) : $moderation->resolve( $open, $actor );
+				// Resolving lifts an auto-hide; re-read the topic so a card whose
+				// topic is gone stays withdrawn.
+				if ( true === $closed && 'post' === $bn_type ) {
+					$this->sync_discussion( $jt_id );
+				}
+			}
+		} finally {
+			self::$mirroring_report = false;
+		}
+	}
+
+	/**
+	 * Whether a user may choose a space's Discussion: turn it on or off, link an
+	 * existing forum, unlink it, or search forums to link.
+	 *
+	 * The one rule behind the web settings save and every /discussion and
+	 * /discussion-search REST verb. The Discussion decides who the space talks
+	 * with and which forum carries its name, so it is the owner's call (site
+	 * admins pass through buddynext-own-space); a space moderator or a member with
+	 * the community moderator rank does not get it. Jetonomy must be active and
+	 * its site switch on, as the settings screen only renders the control then.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  Acting user ID.
+	 * @return bool
+	 */
+	public function can_manage_discussion( int $space_id, int $user_id ): bool {
+		return $space_id > 0 && $user_id > 0
+			&& self::discussion_switched_on()
+			&& buddynext_can( $user_id, 'buddynext-own-space', array( 'space_id' => $space_id ) );
+	}
+
+	/**
+	 * Whether Jetonomy is active and the site admin left its integration on.
+	 *
+	 * @return bool
+	 */
+	private static function discussion_switched_on(): bool {
+		return class_exists( 'Jetonomy\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'nav' );
 	}
 
 	/**
@@ -2733,15 +4702,15 @@ class JetonomyBridge {
 
 		// Typeahead for the "link an existing discussion" picker. Bounded search so
 		// it scales past a bounded <select> on sites with thousands of discussions.
-		// Same manage-space gate as provisioning; scope is role-derived server-side
-		// (admins search all, members only their own) — the client cannot widen it.
+		// Same owner gate as the /discussion verbs; scope is role-derived server-side
+		// (admins search all, owners only their own) - the client cannot widen it.
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>\d+)/discussion-search',
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'rest_search_discussions' ),
-				'permission_callback' => array( $this, 'rest_provision_permission' ),
+				'permission_callback' => array( $this, 'rest_discussion_manage_permission' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
@@ -2766,9 +4735,15 @@ class JetonomyBridge {
 				'callback'            => array( $this, 'rest_member_discussions' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'id' => array(
+					'id'    => array(
 						'required'          => true,
 						'sanitize_callback' => 'absint',
+					),
+					'after' => array(
+						'description'       => 'Cursor from the previous response\'s next_cursor; omit for the newest page.',
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 				),
 			)
@@ -2804,7 +4779,7 @@ class JetonomyBridge {
 			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		$payload = $this->member_discussion_profile( $user_id, 20 );
+		$payload = $this->member_discussion_profile( $user_id, 20, (string) $request->get_param( 'after' ) );
 
 		$discussions = array_map(
 			static function ( $row ): array {
@@ -2828,6 +4803,7 @@ class JetonomyBridge {
 				'trust_level'      => (int) $payload['trust_level'],
 				'discussion_count' => (int) $payload['discussion_count'],
 				'discussions'      => $discussions,
+				'next_cursor'      => $payload['next_cursor'],
 			),
 			200
 		);
@@ -2837,7 +4813,7 @@ class JetonomyBridge {
 	 * REST: typeahead search for the "link an existing discussion" picker.
 	 *
 	 * Scope is derived from the caller's role, NOT the request: a site admin
-	 * searches across all discussions; any other manager searches only the space
+	 * searches across all discussions; the space owner searches only the space
 	 * owner's own discussions — matching the save-time authorization so the client
 	 * can never widen its own scope.
 	 *
@@ -2855,13 +4831,14 @@ class JetonomyBridge {
 		}
 
 		return new \WP_REST_Response(
-			array( 'results' => $this->search_discussions( $q, $owner_id ) ),
+			array( 'results' => $this->search_discussions( $q, $owner_id, 20, $space_id ) ),
 			200
 		);
 	}
 
 	/**
-	 * Permission: the same space-settings capability the web settings page uses.
+	 * Permission for /discussion (GET, POST, DELETE) and /discussion-search:
+	 * can_manage_discussion(), the rule the web settings save applies.
 	 *
 	 * @param \WP_REST_Request $request Request (id).
 	 * @return true|\WP_Error
@@ -2871,8 +4848,11 @@ class JetonomyBridge {
 		if ( true !== $visible ) {
 			return $visible;
 		}
-		if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings', array( 'space_id' => (int) $request['id'] ) ) ) {
-			return new \WP_Error( 'rest_forbidden', __( 'You cannot manage this space.', 'buddynext' ), array( 'status' => 403 ) );
+		if ( ! $this->can_manage_discussion( (int) $request['id'], get_current_user_id() ) ) {
+			$message = self::discussion_switched_on()
+				? __( 'Only the space owner can change its discussion.', 'buddynext' )
+				: __( 'Discussions are turned off on this site.', 'buddynext' );
+			return new \WP_Error( 'rest_forbidden', $message, array( 'status' => 403 ) );
 		}
 		return true;
 	}
@@ -3031,7 +5011,7 @@ class JetonomyBridge {
 				// the partner code at that tag on 2026-10-19 (all present; hook argument
 				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
-				'tested_version'   => '2.0.7', // Verified 2026-11-11 on the 1.2.9 release site against this partner release (functional suite and bridge checks).
+				'tested_version'   => '2.1.0', // Verified 2026-11-23 by QA (J36) on 1.3.0 with MediaVerse 2.7.0 on the same site: discussions tab, My discussions, feed and Explore items, partner deactivation.
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
 				// On 2.0.0 the forum still notifies in its own list and the bell
@@ -3039,6 +5019,8 @@ class JetonomyBridge {
 				// instead of reporting the integration as fine.
 				'feature_versions' => array(
 					__( 'Forum notifications in the BuddyNext bell', 'buddynext' ) => '2.0.1',
+					// Before 2.0.3 deleting a forum left every topic behind, so a deleted Space's forum is only hidden.
+					__( 'Removing a deleted Space\'s forum with its topics', 'buddynext' ) => '2.0.3',
 				),
 				'has_nav'          => true,
 				'nav_label'        => __( 'Discussions', 'buddynext' ),
@@ -3190,7 +5172,7 @@ class JetonomyBridge {
 
 		// Same gate as the feed composer: an active member whose role meets the space's
 		// "who can post", or a site admin, on a non-archived space.
-		$can_post = empty( $space->is_archived ) && \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $viewer_id );
+		$can_post = \BuddyNext\Spaces\SpacePostGuard::can_contribute( $space_id, $viewer_id );
 
 		$forum_ctx = $this->space_forum_context( $space_id );
 
@@ -3199,10 +5181,13 @@ class JetonomyBridge {
 			array(
 				'space'         => $space,
 				'discussions'   => $this->space_discussions( $space_id, 20 ),
+				'total'         => $this->space_discussion_count( $space_id ),
 				'forum_url'     => (string) $forum_ctx['forum_url'],
 				'forum_linked'  => (bool) $forum_ctx['linked'],
 				'provision_url' => (string) $forum_ctx['provision_url'],
 				'empty_state'   => $this->discussion_empty_state( $space, $viewer_id, $can_post, (string) $forum_ctx['forum_url'] ),
+				// The header "Start a discussion" button follows the same rule as the empty-state CTA.
+				'can_post'      => $can_post,
 				// Provisioning (creating the forum) is gated to the space owner /
 				// moderator, unlike posting. The empty-state "Start the first
 				// discussion" CTA must follow provisioning, not posting: a member who
@@ -3298,16 +5283,21 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function render_profile_discussions_panel( int $user_id ): void {
-		$profile = $this->member_discussion_profile( $user_id, 20 );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read-only page cursor, validated against a strict pattern in user_discussions().
+		$after   = isset( $_GET['jt_after'] ) ? sanitize_text_field( wp_unslash( $_GET['jt_after'] ) ) : '';
+		$profile = $this->member_discussion_profile( $user_id, 20, $after );
 		buddynext_get_template(
 			'parts/profile/discussions-panel.php',
 			array(
 				'profile_user_id'  => $user_id,
 				'discussions'      => $profile['discussions'],
+				'next_cursor'      => $profile['next_cursor'],
+				'is_older_page'    => '' !== $after,
 				'discussion_count' => $profile['discussion_count'],
 				'accepted_answers' => $profile['accepted_answers'],
 				'reputation'       => $profile['reputation'],
 				'trust_level'      => $profile['trust_level'],
+				'forum_url'        => trailingslashit( $this->forum_home_url() ),
 			)
 		);
 	}
@@ -3352,6 +5342,38 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Take the viewer's blocked authors out of the shared topic count, so the tab
+	 * badge matches the list under it. Costs a query only for a viewer who has
+	 * blocked someone.
+	 *
+	 * @param int $count    Shared count.
+	 * @param int $forum_id Jetonomy forum id.
+	 * @return int
+	 */
+	private function count_without_blocked( int $count, int $forum_id ): int {
+		$viewer_id = get_current_user_id();
+		if ( $viewer_id <= 0 || $count <= 0 ) {
+			return $count;
+		}
+		$blocked = array_filter( array_map( 'intval', (array) buddynext_service( 'blocks' )->blocked_users( $viewer_id ) ) );
+		if ( empty( $blocked ) ) {
+			return $count;
+		}
+		global $wpdb;
+		$marks = implode( ',', array_fill( 0, count( $blocked ), '%d' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$hidden = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish' AND is_private = 0 AND author_id IN ({$marks})",
+				array_merge( array( $forum_id ), array_values( $blocked ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		return max( 0, $count - $hidden );
+	}
+
+	/**
 	 * Which of a member's topics their profile may list (aliases p = topic, s = forum).
 	 *
 	 * A profile is a public page, so it lists what the feed would mirror: published,
@@ -3370,59 +5392,71 @@ class JetonomyBridge {
 	 * their space for the name/slug. Powers the profile "Discussions" tab so the
 	 * template never reaches into jt_* tables itself (the bridge owns that access).
 	 *
-	 * @param int $user_id Discussion author ID.
-	 * @param int $limit   Max rows (1-50). Default 20.
+	 * Paged by a keyset cursor, not OFFSET: one query reads a row past the page to know whether
+	 * there is more, so a member with thousands of discussions costs the same per page and no COUNT is run.
+	 *
+	 * @param int    $user_id Discussion author ID.
+	 * @param int    $limit   Max rows (1-50). Default 20.
+	 * @param string $after   Cursor from the previous page ('' = newest).
+	 * @param string $next    Out: cursor for the next (older) page, '' when this is the last.
 	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, space_name, space_slug, url.
 	 */
-	public function user_discussions( int $user_id, int $limit = 20 ): array {
+	public function user_discussions( int $user_id, int $limit = 20, string $after = '', string &$next = '' ): array {
+		$next    = '';
 		$user_id = absint( $user_id );
 		if ( $user_id <= 0 || ! class_exists( 'Jetonomy\Models\Post' ) ) {
 			return array();
 		}
-		$limit = max( 1, min( 50, $limit ) );
+		$limit  = max( 1, min( 50, $limit ) );
+		$cursor = preg_match( '/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\|(\d+)$/', $after, $found ) ? $found : array();
 
-		// The profile panel + REST both request the default page; cache that hot
-		// path (invalidated on the member's post create/delete). Non-default limits
-		// are rare and bypass the cache so they never serve a truncated set.
-		$use_cache = ( 20 === $limit );
+		// The newest page is the hot path (the profile panel and REST): cache it, invalidated on the
+		// member's post create/delete. A later page or a non-default size bypasses the cache so it never
+		// serves a truncated set. The cache holds the extra look-ahead row.
+		$use_cache = ( 20 === $limit && ! $cursor );
 		$cache_key = 'jt_ulist_' . $user_id;
-		if ( $use_cache ) {
-			$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
-			if ( is_array( $cached ) ) {
-				return $cached;
+		$rows      = $use_cache ? wp_cache_get( $cache_key, self::CACHE_GROUP ) : false;
+
+		if ( ! is_array( $rows ) ) {
+			global $wpdb;
+
+			$where = $cursor ? $wpdb->prepare( ' AND (p.created_at < %s OR (p.created_at = %s AND p.id < %d))', $cursor[1], $cursor[1], $cursor[2] ) : '';
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+					        s.title AS space_name, s.slug AS space_slug
+					 FROM {$wpdb->prefix}jt_posts p
+					 INNER JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+					 WHERE p.author_id = %d{$this->profile_listable_where()}{$where}
+					 ORDER BY p.created_at DESC, p.id DESC
+					 LIMIT %d",
+					$user_id,
+					$limit + 1
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+			if ( ! is_array( $rows ) ) {
+				return array();
+			}
+
+			// Resolve each discussion's permalink through the base-slug-aware helper so
+			// the template renders a ready URL and never rebuilds the /s/…/t/… path.
+			foreach ( $rows as $row ) {
+				$row->url = $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug );
+			}
+
+			if ( $use_cache ) {
+				wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 			}
 		}
 
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
-				        s.title AS space_name, s.slug AS space_slug
-				 FROM {$wpdb->prefix}jt_posts p
-				 INNER JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
-				 WHERE p.author_id = %d{$this->profile_listable_where()}
-				 ORDER BY p.created_at DESC
-				 LIMIT %d",
-				$user_id,
-				$limit
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		if ( ! is_array( $rows ) ) {
-			return array();
-		}
-
-		// Resolve each discussion's permalink through the base-slug-aware helper so
-		// the template renders a ready URL and never rebuilds the /s/…/t/… path.
-		foreach ( $rows as $row ) {
-			$row->url = $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug );
-		}
-
-		if ( $use_cache ) {
-			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+		if ( count( $rows ) > $limit ) {
+			$rows = array_slice( $rows, 0, $limit );
+			$last = end( $rows );
+			$next = $last->created_at . '|' . $last->id;
 		}
 
 		return $rows;
@@ -3493,15 +5527,18 @@ class JetonomyBridge {
 	 * Credential-first: accepted answers + reputation/trust are the outcomes worth
 	 * showing; the recent-discussions list is supporting context, not the headline.
 	 *
-	 * @param int $user_id Member being viewed.
-	 * @param int $limit   Max discussion rows (1-50). Default 20.
-	 * @return array{discussions:object[],discussion_count:int,accepted_answers:int,reputation:int,trust_level:int}
+	 * @param int    $user_id Member being viewed.
+	 * @param int    $limit   Max discussion rows (1-50). Default 20.
+	 * @param string $after   Cursor of the page before ('' = newest).
+	 * @return array{discussions:object[],next_cursor:string,discussion_count:int,accepted_answers:int,reputation:int,trust_level:int}
 	 */
-	public function member_discussion_profile( int $user_id, int $limit = 20 ): array {
+	public function member_discussion_profile( int $user_id, int $limit = 20, string $after = '' ): array {
 		$credentials = $this->member_reputation( $user_id );
+		$next        = '';
 
 		return array(
-			'discussions'      => $this->user_discussions( $user_id, $limit ),
+			'discussions'      => $this->user_discussions( $user_id, $limit, $after, $next ),
+			'next_cursor'      => $next,
 			'discussion_count' => $this->discussion_count( $user_id ),
 			'accepted_answers' => $this->accepted_answer_count( $user_id ),
 			'reputation'       => $credentials['reputation'],
@@ -3544,7 +5581,15 @@ class JetonomyBridge {
 	 * space's own "Share activity to the main feed" toggle can never suppress it —
 	 * FeedService excludes by `space_id` and lets a NULL space through.
 	 *
-	 * Memoized per request: one discussion hook can fan out to several callers.
+	 * Memoized per request, misses included: it runs on every Jetonomy roster add,
+	 * and a bulk tier sync on unlinked forums would otherwise re-scan space meta per
+	 * member. on_forum_linked() clears the memo whenever a link is written, so a
+	 * forum read before its space is linked (space creation fires Jetonomy's hooks
+	 * before the jetonomy_forum_id meta is written) resolves once the link exists.
+	 *
+	 * A forum belongs to one space. Data written before that was enforced can hold
+	 * a duplicate; the earliest link answers, every time (duplicate_forum_links()
+	 * lists them for the owner).
 	 *
 	 * @param int $forum_id Jetonomy forum id (jt_spaces.id).
 	 * @return int BuddyNext space id, or 0 when the forum is not linked to a space.
@@ -3569,22 +5614,53 @@ class JetonomyBridge {
 			$wpdb->prepare(
 				"SELECT bn_space_id FROM {$wpdb->bn_spacemeta}
 				 WHERE meta_key = 'jetonomy_forum_id' AND meta_value = %s
+				 ORDER BY meta_id ASC
 				 LIMIT 1",
 				(string) $forum_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// Remember only a real link. A forum read before its space is linked (space
-		// creation fires Jetonomy's hooks before the jetonomy_forum_id meta is written)
-		// would otherwise stay 0 for the rest of the request, and every discussion
-		// written after the link would carry no space, slipping past the space's own
-		// "share to the main feed" toggle.
-		if ( $space_id > 0 ) {
-			self::$forum_space_memo[ $forum_id ] = $space_id;
-		}
+		self::$forum_space_memo[ $forum_id ] = $space_id;
 
 		return $space_id;
+	}
+
+	/**
+	 * Whether a forum may be linked to this space: no other space holds it.
+	 *
+	 * @param int $forum_id Jetonomy forum id.
+	 * @param int $space_id Space that wants it.
+	 * @return bool
+	 */
+	private function forum_free_for( int $forum_id, int $space_id ): bool {
+		$holder = $this->space_id_for_forum( $forum_id );
+		return 0 === $holder || $holder === $space_id;
+	}
+
+	/**
+	 * Forums linked to more than one space, from data written before a forum was
+	 * held to one space. Read-only: nothing is unlinked, the owner decides.
+	 *
+	 * @return array<int,int[]> Forum id => space ids, earliest link first.
+	 */
+	public static function duplicate_forum_links(): array {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- admin/CLI report, no cache wanted.
+		$rows = $wpdb->get_results(
+			"SELECT meta_value AS forum_id, GROUP_CONCAT( bn_space_id ORDER BY meta_id ASC ) AS space_ids
+			 FROM {$wpdb->bn_spacemeta}
+			 WHERE meta_key = 'jetonomy_forum_id' AND meta_value <> '' AND meta_value <> '0'
+			 GROUP BY meta_value
+			 HAVING COUNT(*) > 1
+			 ORDER BY MIN( meta_id ) ASC"
+		);
+
+		$out = array();
+		foreach ( (array) $rows as $row ) {
+			$out[ (int) $row->forum_id ] = array_map( 'intval', explode( ',', (string) $row->space_ids ) );
+		}
+		return $out;
 	}
 
 	/**
@@ -3606,7 +5682,7 @@ class JetonomyBridge {
 		$viewer_id = get_current_user_id();
 		$forum_id  = $viewer_id > 0 && class_exists( 'Jetonomy\Models\Post' ) ? $this->forum_id_for_space( $space_id ) : 0;
 		if ( $forum_id <= 0 ) {
-			return $rows;
+			return $this->without_blocked( $rows, $viewer_id );
 		}
 
 		global $wpdb;
@@ -3615,6 +5691,7 @@ class JetonomyBridge {
 		$own = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+				        p.is_sticky, p.is_closed, p.is_resolved, p.accepted_reply_id,
 				        p.author_id, u.display_name AS author_name, u.user_login AS author_login{$this->anonymous_column( 'p' )}
 				 FROM {$wpdb->prefix}jt_posts p
 				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
@@ -3628,13 +5705,35 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( empty( $own ) ) {
-			return $rows;
+			return $this->without_blocked( $rows, $viewer_id );
 		}
 
-		$rows = array_merge( $rows, $own );
+		$rows = array_merge( $rows, $this->with_tags( $own ) );
 		usort( $rows, static fn( $a, $b ): int => strcmp( (string) $b->created_at, (string) $a->created_at ) );
 
-		return array_slice( $rows, 0, $limit );
+		return $this->without_blocked( array_slice( $rows, 0, $limit ), $viewer_id );
+	}
+
+	/**
+	 * Drop topics by members the viewer has blocked.
+	 *
+	 * The shared list is cached once for everyone, so the block is applied per
+	 * viewer on top of it, as the forum itself does through
+	 * jetonomy_blocked_user_ids.
+	 *
+	 * @param array<int,object> $rows      Topic rows.
+	 * @param int               $viewer_id Viewer (0 = logged out).
+	 * @return array<int,object>
+	 */
+	private function without_blocked( array $rows, int $viewer_id ): array {
+		if ( $viewer_id <= 0 || empty( $rows ) ) {
+			return $rows;
+		}
+		$blocked = array_map( 'intval', (array) buddynext_service( 'blocks' )->blocked_users( $viewer_id ) );
+		if ( empty( $blocked ) ) {
+			return $rows;
+		}
+		return array_values( array_filter( $rows, static fn( $row ): bool => ! in_array( (int) $row->author_id, $blocked, true ) ) );
 	}
 
 	/**
@@ -3671,11 +5770,12 @@ class JetonomyBridge {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+				        p.is_sticky, p.is_closed, p.is_resolved, p.accepted_reply_id,
 				        p.author_id, u.display_name AS author_name, u.user_login AS author_login{$this->anonymous_column( 'p' )}
 				 FROM {$wpdb->prefix}jt_posts p
 				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
 				 WHERE p.space_id = %d AND p.status = 'publish' AND p.is_private = 0
-				 ORDER BY p.created_at DESC
+				 ORDER BY p.is_sticky DESC, p.created_at DESC
 				 LIMIT %d",
 				$forum_id,
 				$limit
@@ -3701,11 +5801,84 @@ class JetonomyBridge {
 			}
 		}
 
+		$rows = $this->with_tags( $rows );
+
 		if ( $use_cache ) {
 			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * Put each topic's first two tag names on its row, in one read for the whole list.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,object> $rows Topic rows (id).
+	 * @return array<int,object> The same rows, each with `tags` (string[]).
+	 */
+	private function with_tags( array $rows ): array {
+		$ids = array_values( array_filter( array_map( static fn( $row ): int => (int) ( $row->id ?? 0 ), $rows ) ) );
+		if ( array() === $ids ) {
+			return $rows;
+		}
+
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// One bounded read per list; the query holds only integer placeholders.
+		$query = "SELECT pt.post_id, t.name FROM {$wpdb->prefix}jt_post_tags pt INNER JOIN {$wpdb->prefix}jt_tags t ON t.id = pt.tag_id WHERE pt.post_id IN ({$in}) ORDER BY t.name ASC";
+		$found = $wpdb->get_results( $wpdb->prepare( $query, $ids ), ARRAY_A );
+		// phpcs:enable
+
+		$names = array();
+		foreach ( (array) $found as $tag ) {
+			$names[ (int) $tag['post_id'] ][] = (string) $tag['name'];
+		}
+		foreach ( $rows as $row ) {
+			$row->tags = array_slice( $names[ (int) $row->id ] ?? array(), 0, 2 );
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * The state words a topic row carries in its list, in a fixed order: Pinned, then Solved or Closed.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param object $topic jt_posts columns (is_sticky, is_resolved, accepted_reply_id, is_closed).
+	 * @return string[]
+	 */
+	public static function topic_markers( object $topic ): array {
+		$out = array();
+		if ( ! empty( $topic->is_sticky ) ) {
+			$out[] = __( 'Pinned', 'buddynext' );
+		}
+		$state = self::topic_state( $topic );
+		if ( 'solved' === $state ) {
+			$out[] = __( 'Solved', 'buddynext' );
+		} elseif ( 'closed' === $state ) {
+			$out[] = __( 'Closed', 'buddynext' );
+		}
+		return $out;
+	}
+
+	/**
+	 * Whether a topic reads as solved, closed or neither: Solved wins when it has an accepted reply or is marked resolved.
+	 * The one rule the forum list and the feed card share, so they cannot disagree.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param object $topic jt_posts columns (is_resolved, accepted_reply_id, is_closed).
+	 * @return string 'solved', 'closed' or ''.
+	 */
+	private static function topic_state( object $topic ): string {
+		if ( ! empty( $topic->is_resolved ) || ! empty( $topic->accepted_reply_id ) ) {
+			return 'solved';
+		}
+		return ! empty( $topic->is_closed ) ? 'closed' : '';
 	}
 
 	/**
@@ -3729,7 +5902,7 @@ class JetonomyBridge {
 		$cache_key = 'jt_scount_' . $forum_id;
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
-			return (int) $cached;
+			return $this->count_without_blocked( (int) $cached, $forum_id );
 		}
 
 		global $wpdb;
@@ -3745,7 +5918,7 @@ class JetonomyBridge {
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
-		return $count;
+		return $this->count_without_blocked( $count, $forum_id );
 	}
 
 	/**
@@ -3880,35 +6053,158 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Show Jetonomy's own email choices in the member's notification settings.
+	 * Show the forum's email choices in the member's notification settings.
 	 *
-	 * Jetonomy owns the field, its markup and its storage (PATCH
-	 * /jetonomy/v1/users/me/digest-preferences); BuddyNext sends no forum email and
-	 * keeps no copy. The card renders only when Jetonomy has something to show, so
-	 * a site without Pro's digest sees nothing.
+	 * Jetonomy sends forum email and owns where the choices are stored; the card
+	 * (parts/settings-partner-prefs.php) always shows its email switches, and adds
+	 * Jetonomy's own fields (Pro's digest, saved via PATCH
+	 * /jetonomy/v1/users/me/digest-preferences) when Jetonomy renders any.
 	 *
 	 * @param int $user_id Member whose settings are open.
 	 */
 	public function render_partner_prefs( int $user_id ): void {
-		if ( $user_id <= 0 || ! has_action( 'jetonomy_profile_notification_fields' ) ) {
+		if ( $user_id <= 0 ) {
 			return;
 		}
 
-		ob_start();
-		do_action( 'jetonomy_profile_notification_fields', $user_id );
-		$fields = trim( (string) ob_get_clean() );
-		if ( '' === $fields ) {
-			return;
+		$fields = '';
+		if ( has_action( 'jetonomy_profile_notification_fields' ) ) {
+			ob_start();
+			do_action( 'jetonomy_profile_notification_fields', $user_id );
+			$fields = trim( (string) ob_get_clean() );
 		}
 
 		buddynext_get_template(
 			'parts/settings-partner-prefs.php',
 			array(
-				'bn_pp_fields' => $fields,
-				'bn_pp_rest'   => rest_url( 'jetonomy/v1/users/me/digest-preferences' ),
-				'bn_pp_field'  => 'digest_frequency',
-				'bn_pp_key'    => 'frequency',
+				'bn_pp_user_id' => $user_id,
+				'bn_pp_fields'  => $fields,
+				'bn_pp_rest'    => rest_url( 'jetonomy/v1/users/me/digest-preferences' ),
+				'bn_pp_field'   => 'digest_frequency',
+				'bn_pp_key'     => 'frequency',
 			)
 		);
+	}
+
+	/**
+	 * Recipients whose Jetonomy notice was dropped in favour of BuddyNext's own, keyed to
+	 * the dropped type, so the email Jetonomy sends right after the notice is dropped too.
+	 *
+	 * @var array<int,string>
+	 */
+	private static array $dropped_notice = array();
+
+	/**
+	 * Forum join requests ("forum:user") the space answered in this request, so the
+	 * forum's own answer to the member is not a second notice.
+	 *
+	 * @var array<string,bool>
+	 */
+	private static array $answered_in_space = array();
+
+	/**
+	 * Honour BuddyNext's Email channel on Jetonomy's instant forum email.
+	 *
+	 * The member's Email switch in BuddyNext's notification settings is the master
+	 * switch for every community email, the forum's included: off there means no
+	 * forum email. An absent setting means on, as everywhere in BuddyNext. The read is
+	 * user meta, cached by WordPress after the first recipient lookup. A report-reviewed
+	 * email whose notice was dropped as a duplicate is dropped with it.
+	 *
+	 * @param mixed $send    Whether Jetonomy will send the email.
+	 * @param mixed $user_id Recipient.
+	 * @param mixed $key     Email template key.
+	 * @param mixed $type    Notification type.
+	 * @return bool
+	 */
+	public function filter_forum_email( $send, $user_id = 0, $key = '', $type = '' ): bool {
+		$user_id = (int) $user_id;
+		if ( ! $send || $user_id <= 0 ) {
+			return (bool) $send;
+		}
+		if ( '' !== (string) $type && ( self::$dropped_notice[ $user_id ] ?? '' ) === (string) $type ) {
+			unset( self::$dropped_notice[ $user_id ] );
+			return false;
+		}
+		$channels = buddynext_service( 'notification_prefs' )->get_channel_prefs( $user_id );
+		return ! ( array_key_exists( 'email', $channels ) && empty( $channels['email'] ) );
+	}
+
+	/**
+	 * One notification for one forum event BuddyNext has already told the member about.
+	 *
+	 * A resolved forum report the member also filed in BuddyNext, a join request the
+	 * space answered, or a new request the space owner was told of by the space: Jetonomy
+	 * tells them too, in other words, so the second bell row (and its email) is dropped
+	 * (space_already_told()). Jetonomy's own row is marked read so its unread count does
+	 * not keep an item nobody can open. An event BuddyNext did not tell them of (a report
+	 * it rate-limited, a denial the space refused to follow) keeps Jetonomy's notice, so
+	 * nobody is left untold.
+	 *
+	 * @param mixed $payload Contract payload.
+	 * @param mixed $source  Source slug.
+	 * @return mixed
+	 */
+	public function drop_duplicate_report_notice( $payload, $source = '' ) {
+		if ( 'jetonomy' !== $source || ! is_array( $payload ) ) {
+			return $payload;
+		}
+		$type      = (string) ( $payload['type'] ?? '' );
+		$recipient = (int) ( $payload['recipient_id'] ?? 0 );
+		$object_id = (int) ( $payload['object_id'] ?? 0 );
+		if ( $recipient <= 0 || $object_id <= 0 || ! $this->space_already_told( $type, $payload, $recipient, $object_id ) ) {
+			return $payload;
+		}
+
+		self::$dropped_notice[ $recipient ] = $type;
+		$row_id                             = (int) ( $payload['notification_id'] ?? 0 );
+		if ( $row_id > 0 && class_exists( '\\Jetonomy\\Models\\Notification' ) ) {
+			\Jetonomy\Models\Notification::mark_read_for_user( $recipient, array( $row_id ) );
+		}
+		$payload['recipient_id'] = 0; // BuddyNext stores no row for a payload without a recipient.
+		return $payload;
+	}
+
+	/**
+	 * Whether BuddyNext has already sent this recipient its own notice for a forum event.
+	 *
+	 * - flag_resolved: they reported the forum item in BuddyNext too, which tells them.
+	 * - join_request_result: the space answered the request in this same request.
+	 * - join_request: the recipient owns the space, which already holds the request
+	 *   and tells its owner. Forum moderators and site admins keep the forum's notice.
+	 *
+	 * @param string              $type      Jetonomy notification type.
+	 * @param array<string,mixed> $payload   Contract payload.
+	 * @param int                 $recipient Recipient.
+	 * @param int                 $object_id Object id (a forum id for join requests).
+	 * @return bool
+	 */
+	private function space_already_told( string $type, array $payload, int $recipient, int $object_id ): bool {
+		if ( 'flag_resolved' === $type ) {
+			$bn_type = self::BN_FORUM_TYPES[ (string) ( $payload['object_type'] ?? '' ) ] ?? '';
+			return '' !== $bn_type && buddynext_service( 'moderation' )->user_has_reported( $recipient, $bn_type, $object_id );
+		}
+		if ( 'join_request_result' === $type ) {
+			return ! empty( self::$answered_in_space[ $object_id . ':' . $recipient ] );
+		}
+		if ( 'join_request' === $type ) {
+			$space_id = $this->space_id_for_forum( $object_id );
+			$space    = $space_id > 0 ? ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ) : null;
+			return null !== $space && (int) ( $space['owner_id'] ?? 0 ) === $recipient
+				&& 'pending' === ( new \BuddyNext\Spaces\SpaceMemberService() )->get_status( $space_id, (int) ( $payload['actor_id'] ?? 0 ) );
+		}
+		return false;
+	}
+
+	/**
+	 * Deprecated: REST permission gate for management-only forum routes.
+	 *
+	 * @deprecated 1.3.0 Use rest_discussion_manage_permission().
+	 * @param \WP_REST_Request $request Request.
+	 * @return true|\WP_Error
+	 */
+	public function rest_provision_permission( \WP_REST_Request $request ) {
+		_deprecated_function( __METHOD__, '1.3.0', 'JetonomyBridge::rest_discussion_manage_permission()' );
+		return $this->rest_discussion_manage_permission( $request );
 	}
 }

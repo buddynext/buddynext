@@ -71,7 +71,7 @@ Above the list, Community Admin Moderation has tabs for **Reports**, **Appeals**
 
 Every moderation decision - dismiss, remove, warn, strike, reverse, suspend - is written to a permanent moderation log. The log is the audit trail of who did what and when, so a community can answer "why was this removed" and review its moderators' decisions over time.
 
-You can filter the log and export it to CSV. The background jobs that maintain moderation report their status - and how long log entries are kept - in the admin hub's tools.
+You can filter the log and export it to CSV. The export treats member names and moderator notes as plain text: a cell that starts with `=`, `+`, `-` or `@` gets a leading single quote, so opening the file in a spreadsheet cannot run it as a formula. The background jobs that maintain moderation report their status - and how long log entries are kept - in the admin hub's tools.
 
 When nothing matches the current filter, the queue says so. An empty queue is the normal, healthy state, not an error.
 

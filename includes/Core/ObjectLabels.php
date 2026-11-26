@@ -346,7 +346,7 @@ final class ObjectLabels {
 		if ( '' === $content ) {
 			return '';
 		}
-		return (string) mb_strimwidth( $content, 0, 80, '…' );
+		return (string) \BuddyNext\Support\Text::trim_width( $content, 80, '…' );
 	}
 
 	/**

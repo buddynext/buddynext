@@ -136,13 +136,33 @@ $bn_panel_context = (string) wp_json_encode(
 		'restUrl'   => rest_url( 'buddynext/v1' ),
 	)
 );
+// The "N new posts" pill: a signed-in viewer's open Space feed polls this Space's own count, from the newest post
+// the page already shows. Off when the site turned the indicator off.
+$bn_pill_attrs = '';
+if ( $bn_viewer_id > 0 && ! $bn_is_archived && (bool) get_option( 'buddynext_feed_new_posts_indicator', true ) ) {
+	$bn_pill_attrs = sprintf(
+		' data-bn-space-pill="1" data-bn-new-poll-ms="%d" data-bn-watermark="%d"',
+		max( 0, (int) apply_filters( 'buddynext_feed_new_count_interval', 60 ) ) * 1000,
+		buddynext_service( 'feed' )->space_feed_watermark( $bn_space_id )
+	);
+}
 printf(
-	'<div class="%s" data-wp-interactive="buddynext/spaces" data-space-id="%s" data-wp-context=\'%s\'>',
+	'<div class="%s" data-wp-interactive="buddynext/spaces" data-space-id="%s" data-wp-context=\'%s\'%s>',
 	esc_attr( trim( 'bn-space-feed-panel ' . $bn_wrap_class ) ),
 	esc_attr( (string) $bn_space_id ),
-	esc_attr( $bn_panel_context )
+	esc_attr( $bn_panel_context ),
+	$bn_pill_attrs // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from integers above.
 );
 ?>
+
+<?php
+// A member a moderator removed from this space is told so, rather than left with a feed and no way in.
+if ( $bn_viewer_id > 0 && ! $bn_is_archived && buddynext_service( 'space_members' )->is_banned_from_space( $bn_space_id, $bn_viewer_id ) ) :
+	?>
+	<div class="bn-notice bn-notice--error" role="status">
+		<span><?php esc_html_e( 'You were removed from this space by a moderator, so you can read it but not post or join.', 'buddynext' ); ?></span>
+	</div>
+<?php endif; ?>
 
 <?php if ( $bn_is_archived ) : ?>
 	<?php

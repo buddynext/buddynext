@@ -122,7 +122,7 @@
 	font-weight: var(--bn-a-fw-medium);
 }
 .bn-scope-tip__dev summary:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 	border-radius: var(--bn-a-r-sm);
 }
@@ -350,7 +350,7 @@
 }
 
 .bn-config-btn:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 }
 
@@ -395,7 +395,7 @@
 }
 
 .bn-add-tab-btn:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: -2px;
 }
 
@@ -488,7 +488,7 @@
 }
 
 .bn-cf-advanced > summary:focus-visible {
-	outline: 2px solid var(--bn-ring);
+	outline: 2px solid var(--bn-focus);
 	outline-offset: 2px;
 	border-radius: var(--bn-a-r-sm);
 }

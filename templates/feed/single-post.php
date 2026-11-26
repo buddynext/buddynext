@@ -48,6 +48,8 @@ $bn_post_record = $bn_post_id > 0 ? ( new PostService() )->get( $bn_post_id ) : 
 $bn_visible = null !== $bn_post_record;
 
 if ( $bn_visible ) {
+	// The same one-call-per-page priming the feed does, so a partner card on its own page shows live values.
+	buddynext_service( 'feed' )->prime_viewer_state( array( $bn_post_record ), $bn_viewer_id );
 	$bn_author_id = (int) ( $bn_post_record['user_id'] ?? 0 );
 
 	// Gate: status must be published.

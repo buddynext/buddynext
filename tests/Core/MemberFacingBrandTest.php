@@ -30,7 +30,11 @@ class MemberFacingBrandTest extends \WP_UnitTestCase {
 		'includes/Core/Plugin.php',                 // Admin notice, menu locations.
 		'includes/Core/PresetActivation.php',       // Licence notices.
 		'includes/Core/Installer.php',              // Site Health.
+		'includes/Core/CronScheduler.php',          // Site Health: background tasks.
+		'includes/Realtime/PresenceService.php',    // Site Health: presence is being recorded.
+		'includes/Moderation/SafeguardService.php', // Site Health: visitor addresses.
 		'includes/Auth/CoreRegistration.php',       // Admin registration notices.
+		'includes/Auth/AuthRestHealth.php',         // Site Health test (owner-facing).
 		'includes/Bridges/JetonomyBridge.php',      // Integrations toggle label.
 		'includes/Integrations/CompanionRegistry.php', // Wizard companion list.
 		'includes/Outbound/AccessWebhookController.php', // API errors for integrators.

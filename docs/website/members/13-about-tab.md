@@ -44,7 +44,7 @@ The header already shows the spine of Basic Info - name, headline, bio, pronouns
 
 ## Good to know
 
-- **The tab hides itself when there is nothing to show.** About only appears when the member has filled in at least one field the viewer is allowed to see. It never renders an empty shell.
+- **The tab hides itself when there is nothing to show.** About only appears when the member has filled in at least one field the viewer is allowed to see. It never renders an empty shell. A value that would show as nothing, such as an unticked checkbox, does not count as something to show.
 - **Privacy is applied before the page is built.** A field a viewer cannot see is dropped on the server, so it is genuinely absent - not hidden with a style that could be peeked at. The strictest of the group setting, the field setting, and the member's own per-field choice always wins.
 - **Custom sections are first-class.** A group you invented sits alongside the built-in ones and renders with the same care. There is no "supported groups" list to stay inside.
 - **Chips for lists, links for links, paragraphs for prose.** You never have to think about presentation - the field type you chose when building the field decides how it looks, consistently, on every profile.

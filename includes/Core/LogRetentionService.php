@@ -100,8 +100,43 @@ class LogRetentionService {
 
 	/**
 	 * Action Scheduler group.
+	 *
+	 * @deprecated 1.3.0 Use CronScheduler::GROUP.
 	 */
-	public const AS_GROUP = 'buddynext';
+	public const AS_GROUP = CronScheduler::GROUP;
+
+	/**
+	 * Days a completed BuddyNext Action Scheduler row is kept (filterable, not stored).
+	 */
+	public const FINISHED_RETENTION_DAYS = 7;
+
+	/**
+	 * Days a failed BuddyNext Action Scheduler row is kept, for diagnosis (the family rule).
+	 */
+	public const FAILED_RETENTION_DAYS = 90;
+
+	/**
+	 * Scheduler rows removed per statement, the per-run cap (10,000 rows a day, the
+	 * family number) and the seconds a run may spend; the rest waits for the next
+	 * day, and Action Scheduler's own cleaner is the backstop beyond that.
+	 */
+	public const ACTION_BATCH       = 200;
+	public const MAX_ACTION_BATCHES = 50;
+	private const ACTION_SECONDS    = 10;
+
+	/**
+	 * Seconds this listener's whole run may spend (tables and scheduler rows). Each
+	 * listener on HOOK keeps its own budget, so one slow table cannot starve another
+	 * plugin's prune of the same job.
+	 */
+	private const RUN_SECONDS = 15;
+
+	/**
+	 * When the current run must stop (INF outside a run).
+	 *
+	 * @var float
+	 */
+	private float $deadline = INF;
 
 	/**
 	 * Hook the worker and arm the daily schedule.
@@ -121,32 +156,12 @@ class LogRetentionService {
 	}
 
 	/**
-	 * Arm the daily recurring action, exactly once.
-	 *
-	 * The as_has_scheduled_action guard stops it re-arming on every request — without
-	 * it, every page view would enqueue another copy.
+	 * Arm the daily recurring action, exactly once (CronScheduler::ensure_recurring()).
 	 *
 	 * @return void
 	 */
 	public static function arm(): void {
-		if ( ! \BuddyNext\Core\CronScheduler::is_scheduling_request() ) {
-			return;
-		}
-		if ( ! function_exists( 'as_has_scheduled_action' ) || ! function_exists( 'as_schedule_recurring_action' ) ) {
-			return;
-		}
-
-		if ( as_has_scheduled_action( self::HOOK, array(), self::AS_GROUP ) ) {
-			return;
-		}
-
-		as_schedule_recurring_action(
-			time() + HOUR_IN_SECONDS,
-			DAY_IN_SECONDS,
-			self::HOOK,
-			array(),
-			self::AS_GROUP
-		);
+		CronScheduler::ensure_recurring( self::HOOK, time() + HOUR_IN_SECONDS, DAY_IN_SECONDS );
 	}
 
 	/**
@@ -167,10 +182,12 @@ class LogRetentionService {
 	/**
 	 * Delete aged rows from both log tables, in batches.
 	 *
-	 * @return array{notifications:int,email_log:int,webhook_log:int,presence:int} Rows deleted, per table.
+	 * @return array{notifications:int,email_log:int,webhook_log:int,presence:int,invites:int,orphaned_notifications:int,scheduler_actions:int} Rows deleted, per table.
 	 */
 	public function purge(): array {
 		global $wpdb;
+
+		$this->deadline = microtime( true ) + self::RUN_SECONDS;
 
 		$window        = self::window_days();
 		$read_cutoff   = gmdate( 'Y-m-d H:i:s', time() - ( $window * DAY_IN_SECONDS ) );
@@ -269,17 +286,136 @@ class LogRetentionService {
 		// ID — MySQL column names are case-insensitive, so the join's o.id resolves.
 		$deleted['orphaned_notifications'] += $this->delete_orphans_batched( 'user', 'users' );
 
+		// Our own finished Action Scheduler rows. Fan-out and async jobs leave many
+		// completed rows; this keeps a week of them and leaves every other plugin's
+		// rows (and the site-wide retention setting) alone.
+		$deleted['scheduler_actions'] = $this->purge_finished_actions();
+
 		/**
 		 * Fires after a retention purge, so a site can log or monitor it.
 		 *
 		 * @since 1.0.8
 		 *
-		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int,invites:int,orphaned_notifications:int} $deleted Rows removed per table.
+		 * @param array{notifications:int,email_log:int,webhook_log:int,presence:int,invites:int,orphaned_notifications:int,scheduler_actions:int} $deleted Rows removed per table.
 		 * @param int                                    $window  The window used, in days.
 		 */
 		do_action( 'buddynext_logs_purged', $deleted, $window );
 
 		return $deleted;
+	}
+
+	/**
+	 * Days BuddyNext's completed and canceled Action Scheduler rows are kept (filtered, at least 1).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return int
+	 */
+	public static function finished_retention_days(): int {
+		/**
+		 * Days to keep BuddyNext's completed and canceled Action Scheduler rows
+		 * before the daily retention job deletes them (with their logs). Failed rows
+		 * are kept 90 days; pending and running rows and other plugins' rows are
+		 * never touched. Below 3 days, a member registered longer ago than the value
+		 * gets no restored onboarding nudge after a deactivation (a sent nudge's row
+		 * may already be gone, so it cannot be told from a canceled one).
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int $days Whole days. Default 7 (LogRetentionService::FINISHED_RETENTION_DAYS); values below 1 count as 1.
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_finished_action_retention_days', self::FINISHED_RETENTION_DAYS ) );
+	}
+
+	/**
+	 * Delete BuddyNext's finished Action Scheduler rows, with their logs.
+	 *
+	 * Completed and canceled rows go after a week (deactivation cancels a whole
+	 * queue at once), failed rows after 90 days.
+	 *
+	 * Matched by exact group name (every BuddyNext action is scheduled in one of
+	 * them; Pro adds its own through buddynext_finished_action_groups), on the same
+	 * status + scheduled-date index Action Scheduler's own cleaner uses. Log rows
+	 * go first so none are orphaned; 200 rows per statement keeps locks short.
+	 *
+	 * @return int Action rows deleted.
+	 */
+	private function purge_finished_actions(): int {
+		global $wpdb;
+		$days = self::finished_retention_days();
+
+		/**
+		 * Action Scheduler groups whose completed rows the daily retention job may
+		 * delete. An add-on that runs its jobs in its own group adds it here
+		 * (BuddyNext Pro adds its groups); never add another plugin's group.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param string[] $groups Group slugs. Default array( 'buddynext' ).
+		 */
+		$groups = array_values( array_filter( array_map( 'strval', (array) apply_filters( 'buddynext_finished_action_groups', array( CronScheduler::GROUP ) ) ) ) );
+		if ( array() === $groups ) {
+			return 0;
+		}
+
+		$actions = $wpdb->prefix . 'actionscheduler_actions';
+		$logs    = $wpdb->prefix . 'actionscheduler_logs';
+		$cutoff  = gmdate( 'Y-m-d H:i:s', time() - ( $days * DAY_IN_SECONDS ) );
+		$total   = 0;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$group_ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT group_id FROM {$wpdb->prefix}actionscheduler_groups WHERE slug IN (" . implode( ',', array_fill( 0, count( $groups ), '%s' ) ) . ')',
+					$groups
+				)
+			)
+		);
+		if ( array() === $group_ids ) {
+			return 0;
+		}
+		$in = implode( ',', $group_ids );
+
+		// One pass per status, each on the status + scheduled-date index, sharing
+		// one per-run cap of batches.
+		$passes   = array(
+			'complete' => $cutoff,
+			'canceled' => $cutoff,
+			'failed'   => gmdate( 'Y-m-d H:i:s', time() - ( self::FAILED_RETENTION_DAYS * DAY_IN_SECONDS ) ),
+		);
+		$batches  = 0;
+		$deadline = microtime( true ) + self::ACTION_SECONDS; // Its own budget, not what is left of the run.
+		foreach ( $passes as $status => $before ) {
+			while ( $batches < self::MAX_ACTION_BATCHES && microtime( true ) < $deadline ) {
+				++$batches;
+				$ids = array_map(
+					'intval',
+					(array) $wpdb->get_col(
+						$wpdb->prepare(
+							"SELECT action_id FROM {$actions} WHERE status = %s AND scheduled_date_gmt < %s AND group_id IN ({$in}) LIMIT %d",
+							$status,
+							$before,
+							self::ACTION_BATCH
+						)
+					)
+				);
+				if ( array() === $ids ) {
+					break;
+				}
+				$list = implode( ',', $ids );
+				$wpdb->query( "DELETE FROM {$logs} WHERE action_id IN ({$list})" );
+				$done   = (int) $wpdb->query( "DELETE FROM {$actions} WHERE action_id IN ({$list})" );
+				$total += $done;
+				if ( $done < self::ACTION_BATCH ) {
+					break;
+				}
+			}
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return $total;
 	}
 
 	/**
@@ -309,6 +445,9 @@ class LogRetentionService {
 		// prepare(), so the block is disabled and re-enabled around the two queries.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		for ( $i = 0; $i < self::MAX_BATCHES_PER_RUN; $i++ ) {
+			if ( microtime( true ) >= $this->deadline ) {
+				break;
+			}
 			$ids = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT n.id FROM {$notifs} n
@@ -359,6 +498,9 @@ class LogRetentionService {
 		// $sql is a caller-supplied literal with a %s cutoff + %d limit; both are bound.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		for ( $i = 0; $i < self::MAX_BATCHES_PER_RUN; $i++ ) {
+			if ( microtime( true ) >= $this->deadline ) {
+				break;
+			}
 			$rows = (int) $wpdb->query( $wpdb->prepare( $sql, $cutoff, self::BATCH ) );
 
 			$total += $rows;

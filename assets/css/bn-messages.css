@@ -1025,10 +1025,15 @@
 	align-items: flex-end;
 	gap: var(--bn-s2);
 	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control); /* the message field's boundary (3:1) */
 	border-radius: var(--bn-r-xl);
 	padding: var(--bn-s2);
 	transition: border-color var(--bn-dur-fast) var(--bn-ease);
+}
+
+/* Icon-only toolbar buttons have no text to identify them: draw the control edge. */
+.bn-dm-pane__actions .bn-btn[data-variant="ghost"] {
+	border-color: var(--bn-line-control);
 }
 
 .bn-dm-composer__row:focus-within {
@@ -2104,7 +2109,7 @@
 [data-bx-mode="dark"] .bn-dm-compose__group-name {
 	background: var(--bn-surface);
 	color: var(--bn-ink);
-	border-color: var(--bn-line-strong);
+	border-color: var(--bn-line-control);
 }
 
 
@@ -2337,7 +2342,13 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 	background: none;
 	font-size: var(--bn-text-sm, 0.875rem);
 	color: var(--bn-ink, inherit);
-	outline: none;
+}
+
+/* Doubled class: the theme's input[type="search"]:focus (0,2,1) out-ranked it. */
+.bn-dm-search__input.bn-dm-search__input:focus-visible {
+	outline: 2px solid transparent;
+	box-shadow: var(--bn-ring);
+	border-radius: var(--bn-r-sm);
 }
 
 .bn-dm-search__results {

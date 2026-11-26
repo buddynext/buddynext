@@ -1007,7 +1007,7 @@ class MemberCleanupService {
 	private function schedule_continuation( int $user_id, string $context ): void {
 		$args = array( $user_id, $context );
 
-		if ( ! function_exists( 'as_enqueue_async_action' ) || ! function_exists( 'as_next_scheduled_action' ) ) {
+		if ( ! function_exists( 'as_enqueue_async_action' ) || ! function_exists( 'as_get_scheduled_actions' ) ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log(
 				sprintf(
@@ -1020,7 +1020,10 @@ class MemberCleanupService {
 			return;
 		}
 
-		if ( false !== as_next_scheduled_action( self::CONTINUE_HOOK, $args, self::AS_GROUP ) ) {
+		// Dedupe on PENDING rows only: this runs from inside continue_purge, and a
+		// check that counted the running action stopped a purge needing three or more
+		// passes after the second, with the member half-erased.
+		if ( \BuddyNext\Core\CronScheduler::has_pending( self::CONTINUE_HOOK, $args, self::AS_GROUP ) ) {
 			return; // Already queued.
 		}
 

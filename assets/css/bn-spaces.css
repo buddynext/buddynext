@@ -79,7 +79,7 @@
 	   in sync automatically (no separate per-state re-lock needed). */
 	--bn-tab-px: var(--bn-s4);
 	padding: var(--bn-s2) var(--bn-tab-px);
-	border: 1px solid var(--bn-line);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-full);
 	background: var(--bn-surface);
 	color: var(--bn-ink-2);
@@ -117,7 +117,7 @@
 }
 
 .bn-tab.bn-sd-chip:hover {
-	border-color: var(--bn-line-strong);
+	border-color: var(--bn-line-control);
 	color: var(--bn-ink);
 }
 
@@ -1233,6 +1233,26 @@ a.bn-sh-statpill:focus-visible {
 	margin: 0;
 }
 
+.bn-sh-about__location {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin: 0 0 var(--bn-s4);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-sh-about__location-text {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.bn-sh-about__location svg {
+	flex: 0 0 auto;
+	width: 1rem;
+	height: 1rem;
+}
+
 .bn-sh-about__desc {
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-2);
@@ -1616,7 +1636,8 @@ a.bn-sh-statpill:focus-visible {
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
-	overflow: hidden;
+	/* No overflow clip here: the tab strip's More menu opens below the header and a
+	 * clip cut off its last items. The cover rounds its own top corners instead. */
 	margin-block-end: var(--bn-s4);
 }
 
@@ -1625,6 +1646,8 @@ a.bn-sh-statpill:focus-visible {
 	background: linear-gradient(135deg, var(--bn-accent-100), var(--bn-sunken));
 	position: relative;
 	overflow: hidden;
+	border-start-start-radius: calc(var(--bn-r-lg) - 1px);
+	border-start-end-radius: calc(var(--bn-r-lg) - 1px);
 }
 
 .bn-sh-cover img {
@@ -2117,7 +2140,7 @@ a.bn-sh-statpill:focus-visible {
 	position: relative;
 	block-size: 96px;
 	border-radius: var(--bn-r-md);
-	border: 2px dashed var(--bn-line);
+	border: 2px dashed var(--bn-line-control); /* a drop zone is a control: 3:1 edge */
 	background: var(--bn-sunken);
 	display: flex;
 	align-items: center;
@@ -2182,9 +2205,17 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-space-settings__cover-actions {
-	display: inline-flex;
+	display: flex;
+	flex-wrap: wrap;
 	gap: var(--bn-s2);
 	margin-block-start: var(--bn-s2);
+}
+/* Upload, Reposition and Remove are 44px targets, and wrap rather than overflow on a phone. */
+.bn-space-settings__cover-actions .bn-btn {
+	min-block-size: 44px;
+}
+.bn-space-settings__cover-actions .bn-btn[hidden] {
+	display: none;
 }
 
 .bn-space-settings__cover-empty[hidden] {
@@ -2287,6 +2318,14 @@ a.bn-sh-statpill:focus-visible {
 	background: var(--bn-accent-100);
 	outline: 2px solid transparent;
 	outline-offset: 2px;
+}
+
+/* No match: a plain line in the open list, not a pickable row. */
+.bn-space-settings__discussion-empty {
+	padding: var(--bn-s2) var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	cursor: default;
 }
 
 /* Toggle shell — checkbox-input bridged to a .bn-toggle visual track. */
@@ -2402,6 +2441,13 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 	margin: 0;
+	/* A ban reason can be a long unbroken string or URL: wrap it and keep it to a few lines. */
+	overflow-wrap: anywhere;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	overflow: hidden;
 }
 
 .bn-space-settings__member-actions {
@@ -3199,6 +3245,11 @@ a.bn-sh-statpill:focus-visible {
 	position: relative;
 }
 
+/* The bell is icon-only: draw the control edge like the hero's other buttons. */
+.bn-sh-notif > .bn-btn[data-variant="ghost"] {
+	border-color: var(--bn-line-control);
+}
+
 .bn-sh-notif__list {
 	position: absolute;
 	inset-inline-end: 0;
@@ -3518,7 +3569,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-paywall__lock {
 	position: absolute;
 	inset-block-start: 50%;
-	inset-inline-start: 50%;
+	left: 50%; /* physical: pairs with the physical translate, so RTL centres too */
 	transform: translate(-50%, -50%);
 	display: inline-flex;
 	align-items: center;
@@ -4219,3 +4270,37 @@ a.bn-sh-statpill:focus-visible {
 	white-space: nowrap;
 }
 .bn-reported-label svg { inline-size: 16px; block-size: 16px; }
+
+/* Space Blog tab: header (title + Write for this Space), then the feed's own cards. */
+.bn-space-blog__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+}
+.bn-space-blog__title {
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+}
+.bn-space-blog__write {
+	min-block-size: 44px;
+}
+.bn-space-blog__write svg {
+	inline-size: 16px;
+	block-size: 16px;
+}
+
+@media (max-width: 640px) {
+	.bn-space-blog__title {
+		font-size: var(--bn-text-lg);
+	}
+	.bn-space-blog__write {
+		inline-size: 100%;
+		justify-content: center;
+	}
+}

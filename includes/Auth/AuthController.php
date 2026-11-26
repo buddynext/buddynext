@@ -35,6 +35,8 @@ class AuthController {
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
+		add_filter( 'rest_request_after_callbacks', array( self::class, 'mark_own_refusal' ), 10, 3 );
+
 		register_rest_route(
 			'buddynext/v1',
 			'/auth/login',
@@ -444,6 +446,35 @@ class AuthController {
 	}
 
 	/**
+	 * Mark a 401/403 from a BuddyNext auth route as BuddyNext's own answer.
+	 *
+	 * Security plugins and host firewalls that block REST for logged-out visitors
+	 * answer before any route runs, often with a 401/403 that reads like a wrong
+	 * password. Core skips this filter for those refusals (rest_authentication_errors,
+	 * wp_die, a proxy's HTML page), so only a refusal from a route that actually ran
+	 * carries `data.buddynext`. The auth screens read a 401/403 without it as "blocked
+	 * by the site's security settings" and fall back to the WordPress form.
+	 *
+	 * @param mixed           $response Callback result.
+	 * @param mixed           $handler  Route handler (unused).
+	 * @param WP_REST_Request $request  Request.
+	 * @return mixed
+	 */
+	public static function mark_own_refusal( $response, $handler, $request ) {
+		unset( $handler );
+		if ( ! $response instanceof WP_Error || ! $request instanceof WP_REST_Request || ! str_starts_with( strtolower( $request->get_route() ), '/buddynext/v1/auth/' ) ) {
+			return $response;
+		}
+
+		$data = $response->get_error_data();
+		if ( is_array( $data ) && in_array( (int) ( $data['status'] ?? 0 ), array( 401, 403 ), true ) ) {
+			$response->add_data( array_merge( $data, array( 'buddynext' => true ) ) );
+		}
+
+		return $response;
+	}
+
+	/**
 	 * POST /auth/app-connect — the bridge's mint step.
 	 *
 	 * Runs only for a member who is signed in IN THIS BROWSER and holds a
@@ -608,7 +639,7 @@ class AuthController {
 
 		// wp_set_password() destroys all session tokens — re-authenticate so the
 		// current request's cookie stays valid for the response/redirect chain.
-		wp_set_auth_cookie( $user_id, false, is_ssl() );
+		SessionIssuer::reissue_cookie( $user_id );
 
 		return new WP_REST_Response(
 			array( 'saved' => true ),
@@ -706,7 +737,7 @@ class AuthController {
 
 		// Re-issue a cookie for the current device so the user can see the
 		// confirmation toast without being booted on the response.
-		wp_set_auth_cookie( $user_id, false, is_ssl() );
+		SessionIssuer::reissue_cookie( $user_id );
 
 		return new WP_REST_Response(
 			array( 'signed_out' => true ),
@@ -732,7 +763,9 @@ class AuthController {
 	 * @return WP_Error|null 429 error when over the cap, else null.
 	 */
 	private function rate_limit_guard( string $action, string $identifier, bool $per_ip_only = false ): ?WP_Error {
-		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		// One resolver for every IP reader (buddynext_client_ip applied, validated).
+		// An unresolvable address fails open, the documented client_ip() contract.
+		$ip = \BuddyNext\Moderation\SafeguardService::client_ip();
 		if ( '' === $ip ) {
 			return null;
 		}
@@ -901,19 +934,7 @@ class AuthController {
 		$gate_shut = is_wp_error( $gate );
 		$refusal   = $gate_shut ? $gate : $error;
 		$code      = (string) $refusal->get_error_code();
-		/**
-		 * Filter the sign-in refusals a member may read once they proved their password.
-		 *
-		 * Add a code here so your wp_authenticate_user or authenticate gate tells a member
-		 * why they are held. Everything else gets the generic failure. Never add a network
-		 * or anti-automation refusal (IP block, lockout, bot check): reporting it confirms
-		 * the password to whoever is being refused.
-		 *
-		 * @since 1.2.8
-		 *
-		 * @param string[] $codes Reportable WP_Error codes.
-		 */
-		$allowed = (array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) );
+		$allowed   = SessionIssuer::reportable_codes();
 
 		// Every code in play must be harmless: a reportable gate must not speak over
 		// something unreportable, such as an IP block, that also refused this sign-in.
@@ -1045,7 +1066,7 @@ class AuthController {
 			);
 		}
 
-		$this->complete_login( $user, $remember );
+		buddynext_service( 'session' )->sign_in( $user, $remember );
 
 		$payload = array(
 			'success'     => true,
@@ -1269,19 +1290,19 @@ class AuthController {
 
 		TwoFactorService::consume_login_challenge( $token );
 
-		$user = get_userdata( $ticket['user'] );
-		if ( ! $user ) {
-			return new WP_Error( 'rest_2fa_failed', __( 'Account not found.', 'buddynext' ), array( 'status' => 404 ) );
+		// The ticket can be minutes old: replay the approval and blocked-network
+		// gates before handing out the cookie, as every other door does.
+		$session = buddynext_service( 'session' )->finish_second_factor( (int) $ticket['user'], (bool) $ticket['remember'] );
+		if ( is_wp_error( $session ) ) {
+			return new WP_Error( 'rest_2fa_refused', SessionIssuer::refusal_message( $session ), array( 'status' => 403 ) );
 		}
-
-		$this->complete_login( $user, $ticket['remember'] );
 
 		$redirect_to = self::safe_destination( (string) $request->get_param( 'redirect_to' ) );
 
 		return new WP_REST_Response(
 			array(
 				'success'     => true,
-				'user_id'     => (int) $user->ID,
+				'user_id'     => (int) $ticket['user'],
 				'redirect_to' => esc_url_raw( SessionIssuer::first_page_url( $redirect_to ) ),
 			),
 			200
@@ -1312,22 +1333,6 @@ class AuthController {
 			),
 			200
 		);
-	}
-
-	/**
-	 * Complete sign-in for a verified user: set the current user, issue the auth
-	 * cookie, and fire wp_login (the tail of wp_signon, split out so a 2FA step
-	 * can run between password verification and session creation).
-	 *
-	 * @param \WP_User $user     Verified user.
-	 * @param bool     $remember Persistent cookie.
-	 * @return void
-	 */
-	private function complete_login( \WP_User $user, bool $remember ): void {
-		wp_set_current_user( $user->ID );
-		wp_set_auth_cookie( $user->ID, $remember, is_ssl() );
-		/** This action is documented in wp-includes/user.php (wp_signon). */
-		do_action( 'wp_login', $user->user_login, $user );
 	}
 
 	/**
@@ -1410,6 +1415,10 @@ class AuthController {
 				$errors['user_login'] = __( 'Username contains invalid characters.', 'buddynext' );
 			} elseif ( username_exists( $user_login ) ) {
 				$errors['user_login'] = __( 'This username is already taken.', 'buddynext' );
+			} elseif ( \BuddyNext\Core\PageRouter::is_reserved_profile_slug( $user_login ) ) {
+				// The login becomes the @handle. Say it is reserved, not taken, so
+				// nobody hunts for a free variant; the list itself is not named.
+				$errors['user_login'] = __( 'This username is reserved. Please choose another.', 'buddynext' );
 			}
 		}
 
@@ -1456,7 +1465,7 @@ class AuthController {
 				'source'           => RegistrationPolicy::SOURCE_FORM,
 				'email'            => $email,
 				'user_login'       => $user_login,
-				'ip'               => self::client_ip(),
+				'ip'               => \BuddyNext\Moderation\SafeguardService::client_ip(),
 				'honeypot'         => (string) $request->get_param( RegistrationGuard::honeypot_field() ),
 				'token'            => (string) $request->get_param( 'reg_token' ),
 				'challenge_token'  => (string) $request->get_param( 'challenge_token' ),
@@ -1729,17 +1738,6 @@ class AuthController {
 	}
 
 	/**
-	 * The caller's IP address, for the rate limiter.
-	 *
-	 * @return string
-	 */
-	public static function client_ip(): string {
-		return isset( $_SERVER['REMOTE_ADDR'] )
-			? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) )
-			: '';
-	}
-
-	/**
 	 * User meta holding the page a visitor signed up from, until they are sent back.
 	 *
 	 * @var string
@@ -1810,10 +1808,17 @@ class AuthController {
 				&& buddynext_service( 'features' )->is_enabled( 'onboarding' );
 
 			// Nothing stands between the new member and the community, so this is
-			// the moment to take them back to the page they signed up from.
+			// the moment to take them back to the page they signed up from, or into
+			// the space whose invite link they came with.
 			$url = $onboarding_on
 				? \BuddyNext\Core\PageRouter::onboarding_url()
 				: self::take_signup_return( $user_id, \BuddyNext\Core\PageRouter::activity_url() );
+			if ( ! $onboarding_on && $user_id > 0 ) {
+				$space_id = ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->settle_pending( $user_id );
+				if ( $space_id > 0 ) {
+					$url = \BuddyNext\Core\PageRouter::space_url( $space_id );
+				}
+			}
 		}
 
 		/**
@@ -1973,6 +1978,16 @@ class AuthController {
 	 * @return bool Whether the email was handed to the mailer.
 	 */
 	public static function send_set_password_email( \WP_User $user ): bool {
+		return (bool) \BuddyNext\Notifications\EmailSender::in_recipient_locale( (int) $user->ID, static fn() => self::send_set_password_email_in_locale( $user ) );
+	}
+
+	/**
+	 * Body of send_set_password_email(), run in the member's language.
+	 *
+	 * @param \WP_User $user The new member.
+	 * @return bool
+	 */
+	private static function send_set_password_email_in_locale( \WP_User $user ): bool {
 		$key = get_password_reset_key( $user );
 		if ( is_wp_error( $key ) ) {
 			return false;
@@ -2447,5 +2462,16 @@ class AuthController {
 		}
 
 		return wp_validate_redirect( $requested, $fallback );
+	}
+
+	/**
+	 * Deprecated: the caller's IP address.
+	 *
+	 * @deprecated 1.3.0 Use \BuddyNext\Moderation\SafeguardService::client_ip().
+	 * @return string
+	 */
+	public static function client_ip(): string {
+		_deprecated_function( __METHOD__, '1.3.0', '\\BuddyNext\\Moderation\\SafeguardService::client_ip()' );
+		return \BuddyNext\Moderation\SafeguardService::client_ip();
 	}
 }

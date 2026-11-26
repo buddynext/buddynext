@@ -401,6 +401,16 @@ class TwoFactorService {
 	 * @return bool True when the mail was handed off to wp_mail().
 	 */
 	public static function send_email_code( int $user_id ): bool {
+		return (bool) \BuddyNext\Notifications\EmailSender::in_recipient_locale( $user_id, static fn() => self::send_email_code_in_locale( $user_id ) );
+	}
+
+	/**
+	 * Body of send_email_code(), run in the member's language.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	private static function send_email_code_in_locale( int $user_id ): bool {
 		$user = get_userdata( $user_id );
 		if ( ! $user || '' === (string) $user->user_email ) {
 			return false;

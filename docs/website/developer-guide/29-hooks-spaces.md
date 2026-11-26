@@ -19,6 +19,7 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 |---|---|---|---|
 | `buddynext_space_can_view_roster` | filter | A surface resolves whether a viewer may see a space's member roster | `bool $can_view, int $space_id, int $viewer_id, string $type` |
 | `buddynext_rest_space_item` | filter | The single-space REST item is built (`GET buddynext/v1/spaces/{id}`). Add the fields your space-page UI needs (Pro adds its linked-course banner); add fields only, never remove. Since 1.2.4. | `array $space, int $viewer_id` |
+| `buddynext_space_post_recipients` | filter | A new post or card in a Space is about to notify its members, one page of the roster at a time (a few hundred ids, not one call per member). Return the ids that may still open it; Pro leaves out a member whose plan on a plan-gated Space has ended. | `int[] $candidates, int $post_id, int $space_id` |
 | `buddynext_can_view_space_content` | filter | A viewer's access to a space's **content** is resolved, before it is rendered or cached. Return `false` to withhold the space's posts while leaving the space itself visible. Fired from `SpaceVisibility` and again in `FeedService` when building a space feed, so an add-on that gates content only has to answer once. Default `true`. | `bool $can_view, int $space_id, int $viewer_id` |
 | `buddynext_space_files_tab_for_guests` | filter | The space nav decides whether to show the Files tab to a logged-out visitor. Default `false`: MediaVerse refuses anonymous document reads, so on a public space the tab could only ever render its empty state. Return `true` if your MediaVerse serves anonymous reads. | `bool $show, int $space_id` |
 | `buddynext_document_card_url` | filter | Where a feed document card links, for a viewer allowed to open the file. Default: the space's file page (preview + Download) when the post is in a space whose Files tab this viewer gets, otherwise a direct download. | `string $url, int $doc_id, array $post` |
@@ -52,7 +53,10 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_archived` | action | A space is archived | `int $space_id, int $actor_id` |
 | `buddynext_space_unarchived` | action | A space is unarchived | `int $space_id, int $actor_id` |
 | `buddynext_space_ownership_transferred` | action | A space's ownership moves to a new owner | `int $space_id, int $new_owner_id, int $actor_id, int $previous_owner_id` |
-| `buddynext_space_deleted` | action | A space is deleted | `int $space_id, int $user_id` |
+| `buddynext_space_deleted` | action | A space is deleted; for a big space this fires once, when the last background job finishes | `int $space_id, int $user_id` |
+| `buddynext_space_deleting` | action | A space is about to be torn down, while its links and settings still exist; may fire twice for a big space | `int $space_id, int $user_id` |
+| `buddynext_space_delete_queued` | action | A space with more posts than one chunk is hidden at once and queued for background deletion | `int $space_id, int $user_id` |
+| `buddynext_space_delete_chunk_size` | filter | Posts removed per background deletion job (default 100) | `int $size` |
 
 `buddynext_space_archived` and `buddynext_space_unarchived` are dispatched from a single call site that selects the hook name by state, so a listener only fires on the transition it registered for.
 
@@ -134,7 +138,11 @@ Narrower hooks around space rendering, fields, limits, and cleanup. Same table s
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_prepare_space` | filter | A space is hydrated for any payload (single-space REST responses and list rows), so add-ons can attach computed fields on every surface. | `array $space, array $row` (`$row` is the raw `bn_spaces` row) |
-| `buddynext_space_fields_saved` | action | Space custom fields are saved, for any field. Unlike `buddynext_space_updated`, which only fires when a searchable public field changed. | `int $space_id, array $saved` (field key => REST value) |
+| `buddynext_space_blog_tab_visible` | filter | Whether a Space's Blog tab shows for a viewer. Default: the Space has an article the viewer can see, or the viewer may write one. Never applies on a private or secret Space. Since 1.3.0. | `bool $show, int $space_id, int $viewer_id` |
+| `buddynext_space_events_tab_visible` | filter | Whether a Space's Events tab shows (BuddyNext Pro, Eventonomy). Default: the Space has events, or the viewer may add one. Since 1.3.0. | `bool $show, int $space_id, int $viewer_id` |
+| `buddynext_space_businesses_tab_visible` | filter | Whether a Space's Businesses tab shows (BuddyNext Pro, WB Listora). Default: the Space showcases a business, or the viewer can submit one or review the queue. Since 1.3.0. | `bool $show, int $space_id, int $viewer_id` |
+| `buddynext_notify_space_of_post` | filter | Whether a new post or card in a Space notifies the Space's members. Default: yes, unless the bridge set `notify_space` to false in the card's meta. Since 1.3.0. | `bool $notify, int $post_id, int $space_id, string $type` |
+| `buddynext_space_fields_saved` | action | Space custom fields are saved, for any field. Unlike `buddynext_space_updated`, which only fires when a searchable public field changed. | `int $space_id, array $saved` (field key => REST value), `string[] $changed` (keys whose stored value actually changed, since 1.3.0) |
 | `buddynext_space_discussion_unlinked` | action | A space owner unlinks the space discussion (Jetonomy active). The forum and the space members are kept; only the link is cleared. Since 1.2.6. | `int $space_id, int $forum_id` |
 | `buddynext_sanitize_space_required_ability` | filter | A space's required ability is about to be saved. Return the validated slug, `''` to clear, or `null` to ignore. | `string\|null $ability, mixed $raw, int $space_id, int $user_id` |
 | `buddynext_plan_limit_error` | filter | A pinned-post or space-creation cap is reached and the `WP_Error` is built. Listeners must return a `WP_Error`. | `WP_Error $error, string $limit_key, int $limit, int $user_id` (`$limit_key` is `pinned_posts` or `spaces_created`) |

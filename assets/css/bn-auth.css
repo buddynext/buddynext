@@ -82,13 +82,17 @@
 	overflow: hidden;
 }
 
-/* Cover photo + a brand-tinted scrim so overlaid text stays legible on any image. */
+/* Cover photo + a brand-tinted scrim so overlaid text stays legible on any image.
+ * The brand gradient is the bottom layer: the shipped artwork is transparent (texture
+ * only) so it shows through and the panel follows the brand colour, while an uploaded
+ * photo is opaque and simply covers it. */
 .bn-auth-aside[data-has-image] {
 	background-image:
 		linear-gradient(165deg, color-mix(in oklab, var(--auth-grad-from) 62%, transparent) 0%, color-mix(in oklab, var(--auth-grad-to) 72%, transparent) 100%),
-		var(--bn-auth-aside-image);
-	background-size: cover, cover;
-	background-position: center, center;
+		var(--bn-auth-aside-image),
+		linear-gradient(150deg, var(--auth-grad-from) 0%, var(--auth-grad-via) 55%, var(--auth-grad-to) 100%);
+	background-size: cover, cover, cover;
+	background-position: center, center, center;
 }
 
 .bn-auth-aside__inner {
@@ -196,7 +200,7 @@
 /* Gradient hero strip (logo + brand) sits above the card body. */
 .bn-auth-hero {
 	background: linear-gradient(135deg, var(--auth-grad-from) 0%, var(--auth-grad-via) 60%, var(--auth-grad-to) 100%);
-	color: var(--bn-accent-fg);
+	color: #fff;
 	padding: var(--bn-s5) var(--bn-s6);
 	display: flex;
 	align-items: center;
@@ -337,17 +341,43 @@
 	min-height: 0;
 }
 
+/* The form-level message (login, sign-up, 2FA, reset, held) is one alert component: a tinted box with an edge, the
+   same box in every auth step, with a gap above the first label so it never sits on it. */
+.bn-auth-field__msg[role="alert"] {
+	margin-block: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-danger);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger-text, var(--bn-ink));
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-normal);
+}
+.bn-auth-field__msg[role="alert"][hidden],
+.bn-auth-field__msg[role="alert"]:empty { display: none; }
+.bn-auth-field__msg[role="alert"][data-tone="success"] {
+	border-inline-start-color: var(--bn-success);
+	background: var(--bn-success-bg);
+	color: var(--bn-ink);
+}
+
 /*
  * Honeypot — taken out of the visual + a11y tree without display:none or
  * [hidden] (which well-behaved bots skip). Kept in the layout flow but pushed
  * off-screen and made non-interactive so real users never see or tab into it.
  */
 .bn-auth-hp {
+	/* Clipped to nothing in place: pushing it 9999px off with `left` made the page 10,000px wide in a right-to-left
+	   locale. */
 	position: absolute;
-	left: -9999px;
-	width: 1px;
-	height: 1px;
+	inline-size: 1px;
+	block-size: 1px;
+	margin: -1px;
+	padding: 0;
 	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 /* Link-styled button (e.g. "Email me a code instead" on the 2FA step). */
@@ -702,7 +732,7 @@
 	padding: 0 var(--bn-s3);
 	height: 36px;
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-line-strong);
+	border: 1px solid var(--bn-line-control);
 	border-radius: var(--bn-r-md);
 	color: var(--bn-ink);
 	font-family: var(--bn-font-ui);
@@ -964,4 +994,13 @@ body.bn-hub-auth .bn-auth-page {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
+}
+
+
+/* The Show / Hide password control is a finger target on a phone. */
+@media (max-width: 640px) {
+	button.bn-auth-pw__toggle {
+		min-block-size: 40px;
+		min-inline-size: 40px;
+	}
 }

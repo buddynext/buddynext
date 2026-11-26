@@ -20,9 +20,15 @@ Under **Settings > Appearance**, **Brand color** is your community's accent. Unt
 
 Under **Settings > Appearance**, the **Logo** (labelled **Logo image** on the field, with a **Select logo** button) is shown at the top of the navigation rail. A wide PNG or SVG around 160 by 40 pixels works best. You can select an image from the WordPress media library or paste an image URL. Leave it empty and BuddyNext shows your community name in its place, so there is always something branded in the corner.
 
-## Default theme (auto, light, or dark)
+## Default theme (match the theme, device, light, or dark)
 
-The **Default theme** setting chooses what new visitors see to start with. It offers three choices - **Auto** (follow the visitor's own device setting), **Light**, and **Dark** - and defaults to Auto, so someone whose phone or laptop is in dark mode sees a dark community without doing anything. It applies only to people who have not picked a theme for themselves - once a member chooses, their choice sticks.
+The **Default theme** setting chooses what new visitors see to start with. It offers four choices:
+
+- **Match the theme** (the default) - the community follows your WordPress theme. It shows dark only when your theme is in dark mode, or when your theme itself follows the visitor's device; on a theme that is light only, the community stays light, so it never clashes with the rest of your site.
+- **Follow the visitor's device** - dark for anyone whose phone or laptop is in dark mode, whatever your theme does.
+- **Light** and **Dark** - always that mode.
+
+It applies only to people who have not picked a theme for themselves - once a member chooses, their choice sticks.
 
 On BuddyX, BuddyX Pro and Reign the theme sets light or dark mode for the whole site, and its own color mode setting wins over this one. The field says so and links to that setting in the Customizer.
 

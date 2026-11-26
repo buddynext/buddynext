@@ -33,6 +33,28 @@ See [Email Verification](../accounts-access/04-email-verification.md).
 
 See [Login](../accounts-access/02-login.md).
 
+## Login says you are not authorized
+
+**Symptom:** Members cannot sign in, sign up or reset a password on the community screens. The login form says "You are not authorized to perform this action", or a message from a security plugin, or it sends members to the standard WordPress sign-in with a note that your site's security settings blocked the community sign-in. The standard WordPress login (wp-login.php) still works.
+
+**Cause:** The community login, sign-up and password reset screens talk to your site through its REST API, at `/wp-json/buddynext/v1/auth/`. Some security plugins and hosts block the REST API for visitors who are not signed in, which blocks those screens too.
+
+**What members see:** BuddyNext notices the block. Sign-in and password reset hand over to the standard WordPress forms with a short message, so members can still get in. Sign-up tells the member the site's security settings blocked it, and links to the standard WordPress sign-up form only when you allow it. Allowing the route below brings back the community screens.
+
+**Check it:** Go to **Tools > Site Health**. The **BuddyNext sign-in route** test tries the login route as a visitor who is not signed in (it never sends a password). If something blocks it, the test names the security plugin it found and the setting to change.
+
+**Fix:** Allow visitors who are not signed in to reach `/wp-json/buddynext/v1/auth/`:
+
+- **All In One Security:** in **WP Security**, open the firewall settings for the REST API and add `buddynext` to the whitelisted REST routes. Or turn off **Disallow unauthorized REST requests**.
+- **Wordfence:** check its firewall and login security rules, and allow `/wp-json/buddynext/v1/auth/` for visitors who are not signed in.
+- **Solid Security:** in **Security > Settings > Advanced > WordPress Tweaks**, set the REST API option so visitors who are not signed in can reach `/wp-json/buddynext/v1/auth/`.
+- **Disable REST API:** in **Settings > Disable REST API**, allow the `buddynext/v1` auth routes for unauthenticated users.
+- **No security plugin, or the block persists:** a host or firewall rule (a web application firewall, Cloudflare rule or server config) is blocking it. Ask your host to allow requests from visitors to `/wp-json/buddynext/v1/auth/`.
+
+After the change, run the Site Health test again. It should say visitors can reach the BuddyNext sign-in route.
+
+See [Login](../accounts-access/02-login.md).
+
 ## I cannot find the approval queue
 
 **Fix:** The **Pending** tab under **BuddyNext > Members** stays available while anyone is waiting, even after you switch the registration mode away from Admin Approval. Switching the mode does not approve anyone, so a notice links to the queue. Approve each member from the tab, or with **Approve** on their row.
@@ -68,8 +90,9 @@ See [Two-Factor Authentication](../accounts-access/05-two-factor-authentication.
 **Likely causes and fixes:**
 
 - **It's genuinely taken**, or it's a reserved system address belonging to a different member. Handles are unique across the whole community - try a different one.
+- **It is a reserved word.** Words such as `support`, `staff`, `moderator` or `admin` cannot be claimed by members. The availability check shows **Not available**, and saving says the handle is reserved, so the member knows to pick a different word rather than a variant. If a real staff account needs one, an administrator can assign it from **BuddyNext > Members > Directory > Edit Member**. Words BuddyNext uses in its own addresses (`me`, `settings`, `edit`, `search`, `new`, `all`, `page`, `admin`) stay blocked for everyone.
 - **They haven't set one yet.** By default, BuddyNext assigns a system address; a member claims a custom handle from their profile settings, with live availability checking as they type.
-- **The handle contains characters that don't survive conversion.** Handles are converted to a clean, URL-safe form automatically (lowercase, spaces and punctuation turned into hyphens) - what gets saved may look different from what was typed, which is expected.
+- **The handle contains characters that don't survive conversion.** Handles are converted to a clean, URL-safe form automatically (lowercase; spaces and periods turned into hyphens; anything other than letters, numbers, underscores and hyphens removed) - what gets saved may look different from what was typed, which is expected.
 
 See [Member Profiles](../members/01-member-profiles.md).
 

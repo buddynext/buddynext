@@ -70,6 +70,19 @@ class FieldType {
 	);
 
 	/**
+	 * Default limits for every other text and paragraph field (owner-made fields).
+	 *
+	 * A searchable text field is mirrored into usermeta and the search index, so
+	 * an unlimited one let a single paste bloat both and break cards and the
+	 * directory. Same source as TEXT_CAPS: the form's maxlength and the server's
+	 * refusal on every write path (profile edit, REST, admin edit, sign-up).
+	 */
+	public const DEFAULT_TEXT_CAPS = array(
+		'text'     => 255,
+		'textarea' => 5000,
+	);
+
+	/**
 	 * Built-in type registry.
 	 *
 	 * Keyed by type slug; each entry is:
@@ -679,16 +692,23 @@ class FieldType {
 	 * error. (This is the engine's one deliberate data dependency; see the
 	 * file header.)
 	 *
+	 * @param bool $for_members Only the categories a member may pick as an
+	 *                          interest (SpaceCategoryService::get_for_members()).
+	 *                          Default false: every category, for labels and
+	 *                          for accepting values already saved.
 	 * @return array<int|string,string> Category ID => name (PHP coerces the
 	 *                                  numeric-string keys to int).
 	 */
-	public static function category_options(): array {
+	public static function category_options( bool $for_members = false ): array {
 		if ( ! class_exists( '\BuddyNext\Spaces\SpaceCategoryService' ) ) {
 			return array();
 		}
 
+		$service    = new \BuddyNext\Spaces\SpaceCategoryService();
+		$categories = $for_members ? $service->get_for_members() : $service->get_all();
+
 		$pairs = array();
-		foreach ( ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_all() as $category ) {
+		foreach ( $categories as $category ) {
 			$id = isset( $category['id'] ) ? (int) $category['id'] : 0;
 			if ( $id <= 0 ) {
 				continue;
@@ -1180,8 +1200,9 @@ class FieldType {
 			case 'category_multiselect':
 				// Same checkbox-grid control with live category choices. An owner
 				// with zero categories gets an intentional empty state instead of
-				// a bare fieldset with an orphaned label.
-				if ( array() === self::options( $field ) ) {
+				// a bare fieldset with an orphaned label. Counts what the control
+				// offers: member-facing categories plus the member's own picks.
+				if ( array() === self::category_options( true ) && array() === self::multi_values( $value ) ) {
 					return '<span class="bn-field-value">' . esc_html__( 'No categories are available yet.', 'buddynext' ) . '</span>';
 				}
 				return self::render_multiselect_input( $field, $value, $name, $id, $required );
@@ -1287,21 +1308,35 @@ class FieldType {
 	}
 
 	/**
-	 * The most characters a built-in plain-text field holds; 0 when it has no cap.
+	 * The most characters a plain-text field holds; 0 when it has no cap.
 	 *
-	 * A built-in key re-typed to a structured type (Location -> Map) stores a
-	 * payload this limit does not describe, so the cap only applies to text and
-	 * textarea.
+	 * The built-in fields keep their own limits (TEXT_CAPS); every other text or
+	 * paragraph field gets DEFAULT_TEXT_CAPS. A built-in key re-typed to a
+	 * structured type (Location -> Map) stores a payload this limit does not
+	 * describe, so the cap only applies to text and textarea.
 	 *
 	 * @param array $field Field definition.
 	 * @return int
 	 */
 	public static function text_cap( array $field ): int {
 		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
-		if ( ! in_array( $type, array( 'text', 'textarea' ), true ) ) {
+		if ( ! isset( self::DEFAULT_TEXT_CAPS[ $type ] ) ) {
 			return 0;
 		}
-		return self::TEXT_CAPS[ (string) ( $field['field_key'] ?? '' ) ] ?? 0;
+		$cap = self::TEXT_CAPS[ (string) ( $field['field_key'] ?? '' ) ] ?? self::DEFAULT_TEXT_CAPS[ $type ];
+
+		/**
+		 * Filter the character limit of a text or paragraph profile field.
+		 *
+		 * The same number sets the form's maxlength and the server's refusal.
+		 * Return 0 for no limit.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int                  $cap   Limit in characters.
+		 * @param array<string, mixed> $field Field definition.
+		 */
+		return max( 0, (int) apply_filters( 'buddynext_profile_text_cap', $cap, $field ) );
 	}
 
 	/**
@@ -1534,6 +1569,63 @@ class FieldType {
 	}
 
 	/**
+	 * Render a profile field for a registration form, tagged for the sign-up store.
+	 *
+	 * The one renderer behind BOTH registration forms: the sign-up form
+	 * (auth/signup.php) and the social "finish sign-up" form (auth/complete.php).
+	 * They used to carry two copies of this tagging; the finish-sign-up copy
+	 * tagged only the FIRST control of a group, so picking any radio or
+	 * member-type option but the first (or more than one checkbox) sent an empty
+	 * value and a required field returned 422 forever.
+	 *
+	 * - Every input / select / textarea gets `data-bn-reg-field`, the attribute
+	 *   signup-store.js collects on.
+	 * - A group (radio, member_type, the multiselect family) gets
+	 *   `aria-labelledby` pointing at the visible label, since it has no single
+	 *   control a `<label for>` could target.
+	 * - Only radio groups get `required` on their inputs (native "pick one"); on
+	 *   a checkbox group it would mean "tick them all", so those are checked by
+	 *   the server instead.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<string,mixed> $field    Field row (field_key, type, options...).
+	 * @param string              $name     Submitted name, e.g. `bn_field_role`.
+	 * @param bool                $required Whether the form requires this field.
+	 * @return array{html:string,is_group:bool,control_id:string,label_id:string}
+	 *         Escaped markup; whether it is a group; the id a `<label for>` uses
+	 *         (single controls); the id the visible label must carry (groups).
+	 */
+	public static function render_registration_input( array $field, string $name, bool $required ): array {
+		$field['is_required'] = $required ? 1 : 0;
+
+		$control_id = self::input_id( $name );
+		$label_id   = $control_id . '-label';
+		$html       = self::render_input( $field, '', $name );
+		$is_group   = false !== strpos( $html, '<fieldset' );
+
+		$html = str_replace(
+			array( '<input ', '<select ', '<textarea ' ),
+			array( '<input data-bn-reg-field ', '<select data-bn-reg-field ', '<textarea data-bn-reg-field ' ),
+			$html
+		);
+
+		if ( $is_group ) {
+			$html = str_replace( '<fieldset ', '<fieldset aria-labelledby="' . esc_attr( $label_id ) . '" ', $html );
+			if ( $required && false !== strpos( $html, 'bn-field-radio-group' ) ) {
+				$html = str_replace( '<input data-bn-reg-field type="radio"', '<input data-bn-reg-field required type="radio"', $html );
+			}
+		}
+
+		return array(
+			'html'       => $html,
+			'is_group'   => $is_group,
+			'control_id' => $control_id,
+			'label_id'   => $label_id,
+		);
+	}
+
+	/**
 	 * Render a multi-select field as a checkbox group.
 	 *
 	 * @param array  $field    Field definition (its options source).
@@ -1546,6 +1638,18 @@ class FieldType {
 	private static function render_multiselect_input( array $field, $value, string $name, string $id, string $required = '' ): string {
 		$options  = self::options( $field );
 		$selected = self::multi_values( $value );
+
+		// Interests offer only the categories a member may pick, plus any the member
+		// already holds, so an earlier pick of a now-hidden category stays checked
+		// and is not dropped when the form is saved.
+		if ( 'category_multiselect' === (string) ( $field['type'] ?? '' ) ) {
+			$offer   = self::category_options( true );
+			$options = array_filter(
+				$options,
+				static fn( $key ): bool => isset( $offer[ (string) $key ] ) || in_array( (string) $key, $selected, true ),
+				ARRAY_FILTER_USE_KEY
+			);
+		}
 
 		$html = '<fieldset class="bn-field-checkbox-group"' . self::group_required_attrs( $required ) . '>';
 		$i    = 0;

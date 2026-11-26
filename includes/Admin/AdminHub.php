@@ -66,27 +66,32 @@ class AdminHub {
 			// sits at the bottom, where owners go occasionally; Upgrade is last (it is
 			// a link out).
 			'get-started'          => array(
+				'group' => 'home',
 				'slug'  => 'buddynext',
 				'label' => __( 'Get Started', 'buddynext' ),
 				'icon'  => 'sparkles',
 				'top'   => true,
 			),
 			'members'              => array(
+				'group' => 'people',
 				'slug'  => 'buddynext-members',
 				'label' => __( 'Members', 'buddynext' ),
 				'icon'  => 'users',
 			),
 			'spaces'               => array(
+				'group' => 'community',
 				'slug'  => 'buddynext-spaces',
 				'label' => __( 'Spaces', 'buddynext' ),
 				'icon'  => 'grid',
 			),
 			'engagement'           => array(
+				'group' => 'community',
 				'slug'  => 'buddynext-engagement',
 				'label' => __( 'Engagement', 'buddynext' ),
 				'icon'  => 'heart',
 			),
 			'notifications'        => array(
+				'group' => 'messaging',
 				'slug'  => 'buddynext-notifications',
 				'label' => __( 'Notifications', 'buddynext' ),
 				'icon'  => 'bell',
@@ -99,34 +104,28 @@ class AdminHub {
 			// place a new owner had to hunt. This replaces the merge made on card
 			// 10114177928. The reporting and auto-hide controls open Automation.
 			'moderation'           => array(
+				'group' => 'moderation',
 				'slug'  => 'buddynext-moderation',
 				'label' => __( 'Moderation', 'buddynext' ),
 				'icon'  => 'shield',
 			),
 			'automation'           => array(
+				'group' => 'moderation',
 				'slug'  => 'buddynext-automation',
 				'label' => __( 'Automation', 'buddynext' ),
 				'icon'  => 'cpu',
 			),
 			'monetization'         => array(
+				'group' => 'monetization',
 				'slug'  => 'buddynext-monetization',
 				'label' => __( 'Monetization', 'buddynext' ),
 				'icon'  => 'store',
 			),
 			'campaigns'            => array(
+				'group' => 'messaging',
 				'slug'  => 'buddynext-campaigns',
 				'label' => __( 'Campaigns', 'buddynext' ),
 				'icon'  => 'megaphone',
-			),
-			'realtime'             => array(
-				'slug'  => 'buddynext-realtime',
-				'label' => __( 'Realtime & Push', 'buddynext' ),
-				'icon'  => 'zap',
-			),
-			'platform'             => array(
-				'slug'  => 'buddynext-platform',
-				'label' => __( 'Platform', 'buddynext' ),
-				'icon'  => 'layers',
 			),
 			// Integration Settings is its own top-level section, not a tab under
 			// Platform (owner decision 3 on card 10114177928): managing the family
@@ -134,14 +133,28 @@ class AdminHub {
 			// (Features, Add-ons, Tools, Webhooks, Plugin isolation). It sits next to
 			// Platform, in the configuration band at the bottom.
 			'integration-settings' => array(
+				'group' => 'connect',
 				'slug'  => 'buddynext-integration-settings',
 				'label' => __( 'Integration Settings', 'buddynext' ),
 				'icon'  => 'link',
 			),
 			'settings'             => array(
+				'group' => 'settings',
 				'slug'  => 'buddynext-settings',
 				'label' => __( 'Settings', 'buddynext' ),
 				'icon'  => 'settings',
+			),
+			'platform'             => array(
+				'group' => 'settings',
+				'slug'  => 'buddynext-platform',
+				'label' => __( 'Platform', 'buddynext' ),
+				'icon'  => 'layers',
+			),
+			'realtime'             => array(
+				'group' => 'messaging',
+				'slug'  => 'buddynext-realtime',
+				'label' => __( 'Realtime & Push', 'buddynext' ),
+				'icon'  => 'zap',
 			),
 			'upgrade'              => array(
 				'slug'  => 'buddynext-upgrade',
@@ -165,7 +178,11 @@ class AdminHub {
 	 * `bn_admin_hub_tab_placement` filter — `array( 'hidden' => true )` drops
 	 * a tab, a different `section`/`position` moves it — without touching code.
 	 *
-	 * @var array<string, array{section?:string, position?:int, group?:string, hidden?:bool}>
+	 * `nav_group` shows one tab under a different top-bar group than its section's own
+	 * (Add-ons and Webhooks sit in the Platform section but show under Connect). It
+	 * changes only which group's rail lists the tab, never its URL.
+	 *
+	 * @var array<string, array{section?:string, position?:int, group?:string, nav_group?:string, hidden?:bool}>
 	 */
 	private const TAB_PLACEMENT = array(
 		// Settings — identity & look.
@@ -194,8 +211,9 @@ class AdminHub {
 			'position' => 10,
 		),
 		'settings:integrations'         => array(
-			'section'  => 'platform',
-			'position' => 20,
+			'section'   => 'platform',
+			'position'  => 20,
+			'nav_group' => 'connect',
 		),
 		'settings:integration-controls' => array(
 			'section'  => 'integration-settings',
@@ -232,8 +250,9 @@ class AdminHub {
 		// live (Integrations, Tools), so the tab is at home and the Pro section
 		// can hide as designed.
 		'settings:webhooks'             => array(
-			'section'  => 'platform',
-			'position' => 50,
+			'section'   => 'platform',
+			'position'  => 50,
+			'nav_group' => 'connect',
 		),
 
 		// Members — roster, access, registration.
@@ -308,8 +327,9 @@ class AdminHub {
 
 		// Realtime & Push (Pro). Hidden in free (no tabs register).
 		'settings:realtime'             => array(
-			'section'  => 'realtime',
-			'position' => 10,
+			'section'   => 'realtime',
+			'position'  => 10,
+			'nav_group' => 'connect',
 		),
 		'settings:push'                 => array(
 			'section'  => 'realtime',
@@ -411,8 +431,9 @@ class AdminHub {
 		// (General, Appearance, Navigation, Pages & URLs, White-label) is genuinely
 		// about how the community looks and is addressed.
 		'settings:license'              => array(
-			'section'  => 'get-started',
-			'position' => 90,
+			'section'   => 'get-started',
+			'position'  => 90,
+			'nav_group' => 'settings',
 		),
 		// A diagnostic, so it sits with Tools and Features rather than with the
 		// look-and-feel tabs it was filed among.
@@ -792,6 +813,16 @@ class AdminHub {
 			true
 		);
 
+		// Save bar: "Unsaved changes" indicator + leave-page guard on every settings tab.
+		wp_enqueue_script(
+			'bn-admin-save-bar',
+			$assets_url . 'js/admin/save-bar.js',
+			array(),
+			$version,
+			true
+		);
+		wp_localize_script( 'bn-admin-save-bar', 'bnSaveBar', array( 'unsaved' => __( 'Unsaved changes', 'buddynext' ) ) );
+
 		// Register every BuddyNext admin screen into WordPress core's native
 		// command palette (Cmd/Ctrl+K) — no competing overlay. Indexed from the
 		// AdminHub registry (Free + standalone), capability-filtered.
@@ -824,6 +855,18 @@ class AdminHub {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Whether the current admin screen may carry an owner notice: the Plugins screen or a BuddyNext screen.
+	 *
+	 * Owner rule: BuddyNext notices (licence, server checks) never spread across the whole of wp-admin.
+	 *
+	 * @return bool
+	 */
+	public static function is_notice_screen(): bool {
+		$hook_suffix = (string) ( $GLOBALS['hook_suffix'] ?? '' );
+		return 'plugins.php' === $hook_suffix || self::is_hub_screen( $hook_suffix );
 	}
 
 	/**
@@ -1004,15 +1047,15 @@ class AdminHub {
 	 *
 	 * Back-compat: passing a capability string as the 5th arg still works.
 	 *
-	 * @param string                                                                                                                                                     $section Section key.
-	 * @param string                                                                                                                                                     $slug    Tab slug — URL `?tab=` value.
-	 * @param string                                                                                                                                                     $label   Visible tab label (already translated).
-	 * @param callable                                                                                                                                                   $render  Render callback for the tab body.
-	 *                     `legacy_page` names the standalone `?page=` slug this tab replaced. Declaring
-	 *                     it makes AdminHub forward that slug here — see redirect_legacy_pages() for why
-	 *                     that is a live flow fix and not just bookmark hygiene.
+	 * @param string                                                                                                                                                                                                                       $section Section key.
+	 * @param string                                                                                                                                                                                                                       $slug    Tab slug — URL `?tab=` value.
+	 * @param string                                                                                                                                                                                                                       $label   Visible tab label (already translated).
+	 * @param callable                                                                                                                                                                                                                     $render  Render callback for the tab body.
+	 *                                                                                       `legacy_page` names the standalone `?page=` slug this tab replaced. Declaring
+	 *                                                                                       it makes AdminHub forward that slug here — see redirect_legacy_pages() for why
+	 *                                                                                       that is a live flow fix and not just bookmark hygiene.
 	 *
-	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string,subtitle?:string,action?:string,legacy_page?:string}|string|null $args    Extension args, or capability string.
+	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string,subtitle?:string,action?:string,legacy_page?:string,subtab_titles?:array<string,array{title:string,subtitle?:string}>}|string|null $args    Extension args, or capability string.
 	 * @return void
 	 */
 	public static function register_tab( string $section, string $slug, string $label, callable $render, array|string|null $args = null ): void {
@@ -1041,6 +1084,9 @@ class AdminHub {
 			// the rule sets one, so legacy "Advanced" eyebrows don't leak into
 			// the flat, capped sections.
 			$args['group'] = isset( $rule['group'] ) ? (string) $rule['group'] : '';
+			if ( isset( $rule['nav_group'] ) ) {
+				$args['nav_group'] = (string) $rule['nav_group'];
+			}
 		}
 
 		if ( ! isset( self::sections()[ $section ] ) ) {
@@ -1048,23 +1094,27 @@ class AdminHub {
 		}
 
 		self::$tabs[ $section ][ $slug ] = array(
-			'label'    => $label,
-			'render'   => $render,
-			'cap'      => isset( $args['cap'] ) ? (string) $args['cap'] : 'manage_options',
-			'position' => isset( $args['position'] ) ? (int) $args['position'] : 50,
-			'layout'   => isset( $args['layout'] ) && 'wide' === $args['layout'] ? 'wide' : 'sidebar',
-			'badge'    => isset( $args['badge'] ) && is_callable( $args['badge'] ) ? $args['badge'] : null,
-			'icon'     => isset( $args['icon'] ) ? (string) $args['icon'] : self::default_icon_for( $slug ),
-			'group'    => isset( $args['group'] ) ? (string) $args['group'] : '',
-			'order'    => count( self::$tabs[ $section ] ?? array() ),
-			'subtitle' => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
-			'action'   => isset( $args['action'] ) ? (string) $args['action'] : '',
+			'label'         => $label,
+			'render'        => $render,
+			'cap'           => isset( $args['cap'] ) ? (string) $args['cap'] : 'manage_options',
+			'position'      => isset( $args['position'] ) ? (int) $args['position'] : 50,
+			'layout'        => isset( $args['layout'] ) && 'wide' === $args['layout'] ? 'wide' : 'sidebar',
+			'badge'         => isset( $args['badge'] ) && is_callable( $args['badge'] ) ? $args['badge'] : null,
+			'icon'          => isset( $args['icon'] ) ? (string) $args['icon'] : self::default_icon_for( $slug ),
+			'group'         => isset( $args['group'] ) ? (string) $args['group'] : '',
+			'nav_group'     => isset( $args['nav_group'] ) ? (string) $args['nav_group'] : '',
+			'order'         => count( self::$tabs[ $section ] ?? array() ),
+			'subtitle'      => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
+			'action'        => isset( $args['action'] ) ? (string) $args['action'] : '',
 			// Nested tab slugs this tab's own page consumes via the SAME ?tab= var
 			// (e.g. Members: invites, profile-fields). They are not hub tabs, so the
 			// misroute guard in render_section() would otherwise flag them as broken
 			// links; declaring them here tells the router the slug is valid and which
 			// hub tab owns it (card 10264294727).
-			'subtabs'  => isset( $args['subtabs'] ) && is_array( $args['subtabs'] ) ? array_map( 'sanitize_key', $args['subtabs'] ) : array(),
+			'subtabs'       => isset( $args['subtabs'] ) && is_array( $args['subtabs'] ) ? array_map( 'sanitize_key', $args['subtabs'] ) : array(),
+			// Heading and one-line description per nested tab, [ slug => [ 'title' => ..., 'subtitle' => ... ] ], so the
+			// page's h1 names the panel being shown instead of repeating the tab's own name on every nested panel.
+			'subtab_titles' => isset( $args['subtab_titles'] ) && is_array( $args['subtab_titles'] ) ? $args['subtab_titles'] : array(),
 		);
 
 		// Claim the old standalone page slug, if this tab replaced one.
@@ -1573,7 +1623,9 @@ class AdminHub {
 				$bn_linked ? self::TOP_SLUG : null,
 				$section['label'],
 				$section['label'],
-				'manage_options',
+				// Core registers the page (and its menu row) only for a user holding
+				// this cap, so a section opens to whoever may open one of its tabs.
+				self::section_capability( (string) $key ),
 				$section['slug'],
 				array( $this, 'render_section' )
 			);
@@ -1714,16 +1766,15 @@ class AdminHub {
 	 * @return void
 	 */
 	public function render_section(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to view this page.', 'buddynext' ) );
-		}
-
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only screen routing.
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( (string) $_GET['page'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		$section_key = $this->section_from_slug( $page );
-		$tabs        = null !== $section_key ? self::get_tabs( $section_key ) : array();
+		if ( ! current_user_can( null !== $section_key ? self::section_capability( $section_key ) : 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to view this page.', 'buddynext' ) );
+		}
+		$tabs = null !== $section_key ? self::get_tabs( $section_key ) : array();
 		if ( null === $section_key || empty( $tabs ) ) {
 			echo '<div class="wrap"><h1>' . esc_html__( 'BuddyNext', 'buddynext' ) . '</h1><p>'
 				. esc_html__( 'Nothing is registered here yet.', 'buddynext' )
@@ -1757,15 +1808,18 @@ class AdminHub {
 					break;
 				}
 			}
-			$active_slug      = '' !== $bn_owner ? $bn_owner : (string) array_key_first( $tabs );
+			// With no usable request, open the first tab this user may see, so a
+			// section that also holds admin-only tabs still opens for a moderator.
+			$active_slug      = '' !== $bn_owner ? $bn_owner : (string) array_key_first( self::visible_tabs( $section_key ) ?: $tabs ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found
 			$bn_tab_misrouted = ( '' === $bn_owner && '' !== $bn_requested_tab );
 		}
 		// A tab the placement map knows for this section but nobody registered belongs
 		// to a feature that is off (or a plugin that is inactive), not to a moved setting.
+		// The filtered map, so a tab an add-on places through bn_admin_hub_tab_placement counts too.
 		$bn_tab_unavailable = false;
 		if ( $bn_tab_misrouted ) {
-			foreach ( self::TAB_PLACEMENT as $bn_key => $bn_place ) {
-				if ( str_ends_with( (string) $bn_key, ':' . $bn_requested_tab ) && $bn_place['section'] === $section_key ) {
+			foreach ( self::tab_placement() as $bn_key => $bn_place ) {
+				if ( str_ends_with( (string) $bn_key, ':' . $bn_requested_tab ) && ( $bn_place['section'] ?? '' ) === $section_key ) {
 					$bn_tab_unavailable = true;
 					break;
 				}
@@ -1785,13 +1839,25 @@ class AdminHub {
 		// since the panel already conveys the section context.
 		echo '<div class="wrap bn-admin-hub bn-admin-hub--paneled' . ( $is_wide ? ' is-wide' : '' ) . '" data-section="' . esc_attr( $section_key ) . '">';
 		$this->render_brand_bar( (string) $section_key, $active_slug );
+		$this->render_group_bar( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__shell">';
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
-		$this->render_header( (string) $active['label'] );
+		// Home does not repeat its name as a visible title: the top bar and the rail already say it.
+		// A nested panel names itself (h1 and description) when its owning tab says how.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only tab name for a heading.
+		$bn_nested = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( '' !== $bn_nested && isset( $active['subtab_titles'][ $bn_nested ]['title'] ) ) {
+			$active['label']    = (string) $active['subtab_titles'][ $bn_nested ]['title'];
+			$active['subtitle'] = (string) ( $active['subtab_titles'][ $bn_nested ]['subtitle'] ?? $active['subtitle'] );
+		}
+		$this->render_header( (string) $active['label'], 'get-started' === $section_key && 'home' === $active_slug );
 		$this->render_subhead( $active );
 		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );
-		printf( '<main class="%s" id="bn-admin-hub-panel" role="region" tabindex="0">', esc_attr( $main_classes ) );
+		// A named region, not a second main landmark: WordPress already marks #wpbody
+		// as main. Named by the page h1; no tabindex, so it is not a stray Tab stop.
+		printf( '<main class="%s" id="bn-admin-hub-panel" role="region" aria-labelledby="bn-admin-hub-title">', esc_attr( $main_classes ) );
 
 		// Tell the owner when they were misrouted, instead of silently swapping the
 		// destination (card 10264294727).
@@ -1809,15 +1875,20 @@ class AdminHub {
 				esc_html__( 'Turn features on or off', 'buddynext' )
 			);
 		} elseif ( $bn_tab_misrouted ) {
+			// Not every tab is in the placement map (add-on tabs keep their own home), so an
+			// unknown slug may still be a feature that is off. Say what may be true and point
+			// to Features, rather than claiming the tab is gone.
 			printf(
-				'<div class="notice notice-warning"><p>%s</p></div>',
+				'<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
 				esc_html(
 					sprintf(
 						/* translators: %s: the tab actually shown. */
-						__( 'That setting has moved: showing “%s” instead. The link you followed pointed at a tab that no longer exists.', 'buddynext' ),
+						__( 'The screen you asked for is not available here. It may belong to a feature that is turned off or a plugin that is not active, or the setting may have moved. Showing “%s” instead.', 'buddynext' ),
 						(string) $active['label']
 					)
-				)
+				),
+				esc_url( self::tab_url( 'settings', 'features' ) ),
+				esc_html__( 'Turn features on or off', 'buddynext' )
 			);
 		}
 		call_user_func( $active['render'] );
@@ -1881,7 +1952,7 @@ class AdminHub {
 	/**
 	 * Base URL of the public documentation site.
 	 */
-	private const DOCS_BASE = 'https://buddynext.com/docs/';
+	public const DOCS_BASE = 'https://buddynext.com/docs/';
 
 	/**
 	 * Map an admin section + tab to its most relevant documentation page.
@@ -1957,6 +2028,146 @@ class AdminHub {
 	}
 
 	/**
+	 * The owner-facing groups, in the order the top bar shows them.
+	 *
+	 * Groups are display only: a section keeps its own `?page=` slug and its tabs,
+	 * and says which group it sits under with a `group` key. Nothing about a tab's
+	 * URL, registration or capability depends on its group. A section with no
+	 * `group` (a Pro or third-party section added through `bn_admin_hub_sections`)
+	 * becomes a top-bar entry of its own, so it is never lost.
+	 *
+	 * @return array<string, string> Group key => label.
+	 */
+	private static function groups(): array {
+		return array(
+			'home'         => __( 'Home', 'buddynext' ),
+			'people'       => __( 'People', 'buddynext' ),
+			'community'    => __( 'Community', 'buddynext' ),
+			'moderation'   => __( 'Moderation', 'buddynext' ),
+			'messaging'    => __( 'Messaging', 'buddynext' ),
+			'monetization' => __( 'Monetization', 'buddynext' ),
+			'connect'      => __( 'Connect', 'buddynext' ),
+			'settings'     => __( 'Settings', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * The group a section is shown under. A section that names none is its own group.
+	 *
+	 * @param string $section_key Section key.
+	 * @return string Group key.
+	 */
+	private static function section_group( string $section_key ): string {
+		$group = (string) ( self::sections()[ $section_key ]['group'] ?? '' );
+		return '' !== $group ? $group : $section_key;
+	}
+
+	/**
+	 * The group a tab is shown under: its own `nav_group` when the placement map sets
+	 * one, otherwise its section's group.
+	 *
+	 * @param string               $section_key Section key.
+	 * @param array<string, mixed> $tab         Tab.
+	 * @return string Group key.
+	 */
+	private static function tab_group( string $section_key, array $tab ): string {
+		$group = (string) ( $tab['nav_group'] ?? '' );
+		return '' !== $group ? $group : self::section_group( $section_key );
+	}
+
+	/**
+	 * The tabs of a section that the current user may open.
+	 *
+	 * @param string $section_key Section key.
+	 * @return array<string, array<string, mixed>> Tab slug => tab.
+	 */
+	private static function visible_tabs( string $section_key ): array {
+		$visible = array();
+		foreach ( self::get_tabs( $section_key ) as $tslug => $tab ) {
+			if ( current_user_can( (string) ( $tab['cap'] ?? 'manage_options' ) ) ) {
+				$visible[ $tslug ] = $tab;
+			}
+		}
+		return $visible;
+	}
+
+	/**
+	 * The capability that opens a section's page for the current user.
+	 *
+	 * A site admin gets manage_options, as does anyone with no tab here; anyone
+	 * else gets the capability of the first tab they may open. Every built-in tab
+	 * except the daily Moderation tabs needs manage_options, so every other
+	 * section still refuses a community moderator.
+	 *
+	 * @param string $section_key Section key.
+	 * @return string
+	 */
+	private static function section_capability( string $section_key ): string {
+		if ( current_user_can( 'manage_options' ) ) {
+			return 'manage_options';
+		}
+		$visible = self::visible_tabs( $section_key );
+		return empty( $visible ) ? 'manage_options' : (string) reset( $visible )['cap'];
+	}
+
+	/**
+	 * Every group that has at least one tab the user can open, in bar order, each
+	 * with its label and the first tab it opens.
+	 *
+	 * @return array<string, array{label:string, url:string}> Group key => entry.
+	 */
+	private static function visible_groups(): array {
+		$labels = self::groups();
+		$found  = array();
+		foreach ( self::sections() as $skey => $section ) {
+			foreach ( self::visible_tabs( (string) $skey ) as $tslug => $tab ) {
+				$gkey = self::tab_group( (string) $skey, $tab );
+				// A group opens on a tab of its own sections; a tab lent by another
+				// section (License from Get Started) is only the fallback.
+				if ( isset( $found[ $gkey ] ) && ( ! empty( $found[ $gkey ]['own'] ) || self::section_group( (string) $skey ) !== $gkey ) ) {
+					continue;
+				}
+				$found[ $gkey ] = array(
+					'label' => isset( $labels[ $gkey ] ) ? $labels[ $gkey ] : (string) ( $section['label'] ?? $gkey ),
+					'url'   => self::tab_url( (string) $skey, (string) $tslug ),
+					'own'   => self::section_group( (string) $skey ) === $gkey,
+				);
+			}
+		}
+		// Known groups first, in their fixed order; any other group after them.
+		$ordered = array();
+		foreach ( array_keys( $labels ) as $gkey ) {
+			if ( isset( $found[ $gkey ] ) ) {
+				$ordered[ $gkey ] = $found[ $gkey ];
+			}
+		}
+		return $ordered + $found;
+	}
+
+	/**
+	 * The top bar of groups. The left rail then lists only the current group's tabs.
+	 *
+	 * @param string $active_section Active section key.
+	 * @param string $active_slug    Active tab slug.
+	 * @return void
+	 */
+	private function render_group_bar( string $active_section, string $active_slug ): void {
+		$active_group = self::tab_group( $active_section, self::get_tabs( $active_section )[ $active_slug ] ?? array() );
+		echo '<nav class="bn-hub-groupbar" aria-label="' . esc_attr__( 'BuddyNext sections', 'buddynext' ) . '">';
+		foreach ( self::visible_groups() as $gkey => $group ) {
+			$is_active = ( (string) $gkey === $active_group );
+			printf(
+				'<a class="bn-hub-groupbar__item%1$s" href="%2$s"%3$s>%4$s</a>',
+				$is_active ? ' is-active' : '',
+				esc_url( $group['url'] ),
+				$is_active ? ' aria-current="page"' : '',
+				esc_html( $group['label'] )
+			);
+		}
+		echo '</nav>';
+	}
+
+	/**
 	 * Render the unified left navigation panel.
 	 *
 	 * One in-page rail listing every capability-visible section as a group, each
@@ -1974,21 +2185,50 @@ class AdminHub {
 		// Phones: the whole menu folds behind one button naming where you are, so
 		// the page's own content comes first instead of a screen of nav. Shown and
 		// wired by nav-accordion.js only, so without JS the full list stays visible.
-		$bn_here_section = (string) ( self::sections()[ $active_section ]['label'] ?? '' );
+		$active_group    = self::tab_group( $active_section, self::get_tabs( $active_section )[ $active_slug ] ?? array() );
+		$bn_here_section = (string) ( self::visible_groups()[ $active_group ]['label'] ?? ( self::sections()[ $active_section ]['label'] ?? '' ) );
 		$bn_here_tab     = (string) ( self::get_tabs( $active_section )[ $active_slug ]['label'] ?? '' );
 		printf(
 			'<button type="button" class="bn-hub-nav-toggle" aria-expanded="false" aria-controls="bn-hub-nav-list" hidden><span class="bn-hub-nav-toggle__label">%1$s</span>%2$s</button>',
 			esc_html( implode( ' › ', array_filter( array( $bn_here_section, $bn_here_tab ) ) ) ?: __( 'Menu', 'buddynext' ) ),
 			\BuddyNext\Core\IconService::render( 'chevron-down', 'bn-hub-nav-toggle__chevron' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
 		);
-		echo '<div class="bn-hub-nav-list" id="bn-hub-nav-list">';
+		// A group with only a few tabs reads better as one plain list than as sections
+		// with their own headings; past six tabs the section headings earn their place.
+		$bn_group_tabs = 0;
 		foreach ( self::sections() as $skey => $section ) {
-			$visible = array();
-			foreach ( self::get_tabs( (string) $skey ) as $tslug => $tab ) {
-				if ( current_user_can( (string) ( $tab['cap'] ?? 'manage_options' ) ) ) {
-					$visible[ $tslug ] = $tab;
+			foreach ( self::visible_tabs( (string) $skey ) as $tab ) {
+				if ( self::tab_group( (string) $skey, $tab ) === $active_group ) {
+					++$bn_group_tabs;
 				}
 			}
+		}
+		echo '<div class="bn-hub-nav-list' . ( $bn_group_tabs <= 6 ? ' is-flat' : '' ) . '" id="bn-hub-nav-list">';
+		// Phones have no room for the top bar, so the same groups sit at the head of
+		// the opened menu (hidden from 783px up, where the bar is shown instead).
+		echo '<nav class="bn-hub-nav-groups" aria-label="' . esc_attr__( 'BuddyNext sections', 'buddynext' ) . '">';
+		foreach ( self::visible_groups() as $gkey => $group ) {
+			printf(
+				'<a class="bn-hub-nav-groups__item%1$s" href="%2$s">%3$s</a>',
+				(string) $gkey === $active_group ? ' is-active' : '',
+				esc_url( $group['url'] ),
+				esc_html( $group['label'] )
+			);
+		}
+		echo '</nav>';
+		// The group's own sections first, then any section lending it a tab (License comes
+		// from Get Started, Add-ons and Webhooks from Platform), so borrowed tabs sit last.
+		$bn_rail_sections = self::sections();
+		uksort(
+			$bn_rail_sections,
+			static fn( $a, $b ): int => (int) ( self::section_group( (string) $b ) === $active_group ) <=> (int) ( self::section_group( (string) $a ) === $active_group )
+		);
+		foreach ( $bn_rail_sections as $skey => $section ) {
+			// The rail lists only the tabs of the group being viewed.
+			$visible = array_filter(
+				self::visible_tabs( (string) $skey ),
+				static fn( array $tab ): bool => self::tab_group( (string) $skey, $tab ) === $active_group
+			);
 			if ( empty( $visible ) ) {
 				continue;
 			}
@@ -1999,9 +2239,9 @@ class AdminHub {
 			$is_current_section = ( (string) $skey === $active_section );
 			printf(
 				'<details class="bn-hub-nav-group%1$s" data-bn-nav-group="%2$s"%3$s>',
-				$is_current_section ? ' is-current' : '',
+				( $is_current_section ? ' is-current' : '' ) . ( self::section_group( (string) $skey ) === $active_group ? '' : ' is-borrowed' ),
 				esc_attr( (string) $skey ),
-				$is_current_section ? ' open' : ''
+				' open'
 			);
 			$section_icon = ! empty( $section['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $section['icon'], 'bn-hub-nav-group__icon' ) : '';
 			printf(
@@ -2036,19 +2276,68 @@ class AdminHub {
 			echo '</div>';
 			echo '</details>';
 		}
+		$this->render_resources( $active_section, $active_slug );
 		echo '</div>';
 		echo '</aside>';
 	}
 
 	/**
-	 * Render the section page header (single H1, no sub-text).
+	 * Help links under the rail, the same on every group so the rail never ends in empty space.
 	 *
-	 * @param string $label Section label.
+	 * @param string $active_section Active section key.
+	 * @param string $active_slug    Active tab slug.
 	 * @return void
 	 */
-	private function render_header( string $label ): void {
-		echo '<header class="bn-admin-hub__header">';
-		echo '<h1 class="bn-admin-hub__title">' . esc_html__( $label, 'buddynext' ) . '</h1>'; // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
+	private function render_resources( string $active_section, string $active_slug ): void {
+		$links = array(
+			array(
+				'label' => __( 'Guide for this page', 'buddynext' ),
+				'icon'  => 'book-open',
+				'url'   => (string) apply_filters( 'buddynext_admin_docs_url', $this->docs_url_for( $active_section, $active_slug ), $active_section, $active_slug ),
+			),
+			array(
+				'label' => __( 'FAQ', 'buddynext' ),
+				'icon'  => 'message-circle',
+				'url'   => self::DOCS_BASE . 'faq/',
+			),
+		);
+		// Developer resources are for whoever runs the site, not a community moderator.
+		if ( current_user_can( 'manage_options' ) ) {
+			$links[] = array(
+				'label' => __( 'API docs', 'buddynext' ),
+				'icon'  => 'code',
+				'url'   => self::DOCS_BASE . 'developer-guide/14-rest-contract/',
+			);
+			$links[] = array(
+				'label' => __( 'Code snippets on GitHub', 'buddynext' ),
+				'icon'  => 'github',
+				'url'   => 'https://github.com/buddynext/buddynext-snippets',
+			);
+		}
+		echo '<nav class="bn-hub-resources" aria-label="' . esc_attr__( 'Help and resources', 'buddynext' ) . '">';
+		echo '<p class="bn-hub-resources__title">' . esc_html__( 'Help and resources', 'buddynext' ) . '</p>';
+		foreach ( $links as $link ) {
+			$icon = \BuddyNext\Core\IconService::has( (string) $link['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $link['icon'], 'bn-hub-nav-link__icon' ) : '';
+			printf(
+				'<a class="bn-hub-resources__link" href="%1$s" target="_blank" rel="noopener">%2$s<span>%3$s</span></a>',
+				esc_url( (string) $link['url'] ),
+				$icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
+				esc_html( (string) $link['label'] )
+			);
+		}
+		echo '</nav>';
+	}
+
+	/**
+	 * Render the section page header (single H1, no sub-text).
+	 *
+	 * @param string $label           Section label.
+	 * @param bool   $visually_hidden Keep the H1 for screen readers but do not show it.
+	 * @return void
+	 */
+	private function render_header( string $label, bool $visually_hidden = false ): void {
+		echo '<header class="bn-admin-hub__header' . ( $visually_hidden ? ' is-title-hidden' : '' ) . '">';
+		echo '<h1 id="bn-admin-hub-title" class="bn-admin-hub__title' . ( $visually_hidden ? ' screen-reader-text' : '' ) . '">' . esc_html__( $label, 'buddynext' ) . '</h1>'; // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
 		echo '</header>';
 		// WordPress core hoists admin notices to just after the first <h1>, which
 		// here lands them inside the flex header and squishes them to a sliver.

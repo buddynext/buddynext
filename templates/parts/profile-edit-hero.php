@@ -101,6 +101,9 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 	<div class="bn-pf-cover<?php echo '' !== $bn_ep_cover ? ' bn-pf-cover--has-image' : ''; ?>" data-wp-bind--aria-busy="context.coverUploading">
 		<img class="bn-pf-cover__img"
 			data-bn-cover-preview
+			data-focal-x="<?php echo esc_attr( (string) $bn_ep_fx ); ?>"
+			data-focal-y="<?php echo esc_attr( (string) $bn_ep_fy ); ?>"
+			data-focal-zoom="<?php echo esc_attr( (string) $bn_ep_zoom ); ?>"
 			src="<?php echo esc_url( $bn_ep_cover ); ?>"
 			alt=""
 			style="object-position:<?php echo esc_attr( (string) $bn_ep_fx ); ?>% <?php echo esc_attr( (string) $bn_ep_fy ); ?>%;transform:scale(<?php echo esc_attr( (string) $bn_ep_zoom ); ?>);<?php echo '' === $bn_ep_cover ? 'display:none;' : ''; ?>" />
@@ -121,6 +124,16 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 				data-wp-on--click="actions.triggerCoverUpload">
 				<?php buddynext_icon( 'camera' ); ?>
 				<span><?php esc_html_e( 'Change cover', 'buddynext' ); ?></span>
+			</button>
+			<?php // Frames the cover that is already set; shown only while there is a cover (assets/js/profile/store.js keeps it in step). ?>
+			<button class="bn-pf-cover__edit bn-ep-cover-btn"
+				type="button"
+				data-bn-cover-reposition
+				data-wp-bind--disabled="context.coverUploading"
+				<?php echo '' !== $bn_ep_cover ? '' : 'hidden'; ?>
+				data-wp-on--click="actions.repositionCover">
+				<?php buddynext_icon( 'move' ); ?>
+				<span><?php esc_html_e( 'Reposition', 'buddynext' ); ?></span>
 			</button>
 		</div>
 	</div>
@@ -211,7 +224,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 				</span>
 			</div>
 			<div class="bn-ep-hero-handle">
-				<span class="bn-badge" data-tone="accent">@<?php echo esc_html( $bn_ep_login ); ?></span>
+				<span class="bn-badge" data-tone="accent"><bdi dir="ltr">@<?php echo esc_html( $bn_ep_login ); ?></bdi></span>
 			</div>
 		</div>
 	</div>
@@ -230,6 +243,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 	<input
 		type="file"
 		id="bn-ep-avatar-file"
+		data-bn-autosave
 		accept="image/jpeg,image/png,image/gif,image/webp"
 		class="bn-ep-file-hidden"
 		tabindex="-1"
@@ -239,7 +253,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 	<input
 		type="file"
 		id="bn-ep-cover-file"
-		accept="image/jpeg,image/png,image/gif,image/webp"
+		accept="image/jpeg,image/png,image/webp"
 		class="bn-ep-file-hidden"
 		tabindex="-1"
 		aria-hidden="true"

@@ -71,33 +71,46 @@
 		if ( toggle ) {
 			toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
 		}
+		if ( open ) {
+			keepInView( root.querySelector( '.bn-notif-panel, .bn-header-user__dropdown' ) );
+		}
 		if ( open && root.querySelector( '.bn-notif-panel' ) ) {
-			keepInView( root.querySelector( '.bn-notif-panel' ) );
 			loadNotifications( root.querySelector( '.bn-notif-panel' ), root );
 		}
 	}
 
 	/**
-	 * Keep the panel off the screen edge.
+	 * Keep a panel (bell preview or account menu) inside the screen.
 	 *
-	 * It hangs from the bell's end edge, and a theme that puts the bell at the
-	 * very edge of a narrow (tablet) header would leave the panel's border flush
-	 * against the screen. Nudge it inward to an 8px gutter, in either direction.
+	 * Both hang from their control's end edge, which suits a control at the end
+	 * of the header. A block theme lets the owner place the header blocks
+	 * anywhere: at the START of the header the panel ran off the other side
+	 * (the bell panel's left edge sat at -272px at 1280, the account menu at
+	 * -81px at 390). Whichever edge it crosses, shift it back to an 8px gutter.
+	 * The shift is physical (left/right), so it is the same rule in RTL.
 	 *
-	 * @param {HTMLElement} panel Panel.
+	 * @param {HTMLElement|null} panel Panel.
 	 * @return {void}
 	 */
 	function keepInView( panel ) {
+		if ( ! panel ) {
+			return;
+		}
 		var gutter = 8;
-		var rtl    = 'rtl' === getComputedStyle( panel ).direction;
+		var width  = document.documentElement.clientWidth;
+		var shift  = 0;
 		var r;
 
-		panel.style.marginInlineEnd = '';
+		panel.style.translate = '';
 		r = panel.getBoundingClientRect();
 
-		var overflow = rtl ? gutter - r.left : r.right - ( document.documentElement.clientWidth - gutter );
-		if ( overflow > 0 ) {
-			panel.style.marginInlineEnd = overflow + 'px';
+		if ( r.left < gutter ) {
+			shift = gutter - r.left;
+		} else if ( r.right > width - gutter ) {
+			shift = ( width - gutter ) - r.right;
+		}
+		if ( shift ) {
+			panel.style.translate = Math.round( shift ) + 'px 0';
 		}
 	}
 

@@ -163,6 +163,10 @@ class IntegrationActivity {
 		$type    = '' !== $type ? $type : 'link';
 		$service = new PostService();
 
+		// This member's card from before 1.1.0, stored as a plain `link`, becomes
+		// this card instead of a duplicate (see PostService::adopt_legacy_link_cards()).
+		$service->adopt_legacy_link_cards( $type, $link_url, $member_id );
+
 		// Idempotent: one activity card per partner page, even if the partner
 		// hook fires more than once. Match on the same type the card is stored as.
 		if ( $service->exists_by_link( $type, $link_url ) ) {
@@ -260,6 +264,11 @@ class IntegrationActivity {
 	/**
 	 * Remove the activity card for a partner page (e.g. when the content is deleted).
 	 *
+	 * With a real type, also removes the same page's card from before 1.1.0, when
+	 * integrations stored their cards as a plain `link` (see
+	 * PostService::adopt_legacy_link_cards()). publish(), withdraw(), restore(),
+	 * refresh() and rewrite() adopt that card the same way; signatures unchanged.
+	 *
 	 * @param string $link_url The partner page the card linked to.
 	 * @param string $type     Post type the card was stored as. Defaults to 'link';
 	 *                         pass the same type used at publish() time.
@@ -271,7 +280,10 @@ class IntegrationActivity {
 		if ( '' === $link_url ) {
 			return 0;
 		}
-		return ( new PostService() )->delete_by_link( '' !== $type ? $type : 'link', $link_url );
+		$type    = '' !== $type ? $type : 'link';
+		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $link_url );
+		return $service->delete_by_link( $type, $link_url );
 	}
 
 	/**
@@ -295,7 +307,10 @@ class IntegrationActivity {
 		if ( '' === $link_url ) {
 			return false;
 		}
-		return ( new PostService() )->transition_link_status( '' !== $type ? $type : 'link', $link_url, 'published', 'draft' ) > 0;
+		$type    = '' !== $type ? $type : 'link';
+		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $link_url );
+		return $service->transition_link_status( $type, $link_url, 'published', 'draft' ) > 0;
 	}
 
 	/**
@@ -317,7 +332,10 @@ class IntegrationActivity {
 		if ( '' === $link_url ) {
 			return false;
 		}
-		return ( new PostService() )->transition_link_status( '' !== $type ? $type : 'link', $link_url, 'draft', 'published' ) > 0;
+		$type    = '' !== $type ? $type : 'link';
+		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $link_url );
+		return $service->transition_link_status( $type, $link_url, 'draft', 'published' ) > 0;
 	}
 
 	/**
@@ -353,11 +371,19 @@ class IntegrationActivity {
 		}
 
 		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $link_url );
+
+		$stored = $service->get_link_meta( $type, $link_url );
+		// A caller that names the picture owns it: normalise_link_meta() prefers `thumbnail`, so the stored one would
+		// otherwise win over a replaced picture, and an empty value (the picture was removed) could never clear it.
+		if ( array_key_exists( 'image', $meta ) || array_key_exists( 'thumbnail', $meta ) ) {
+			unset( $stored['image'], $stored['thumbnail'] );
+		}
 
 		return $service->update_link_meta(
 			$type,
 			$link_url,
-			self::normalise_link_meta( array_merge( $service->get_link_meta( $type, $link_url ), $meta ) )
+			self::normalise_link_meta( array_merge( $stored, $meta ) )
 		);
 	}
 
@@ -415,6 +441,44 @@ class IntegrationActivity {
 			return 0;
 		}
 		return ( new PostService() )->delete_by_link_meta_int( $type, $meta_key, $value );
+	}
+
+	/**
+	 * Delete the cards of SEVERAL partner ids in one lookup (the batch counterpart of remove_by_meta).
+	 *
+	 * For a bulk delete on the partner's side, such as a forum Space purge removing thousands of topics: one query finds
+	 * every card of the ids, where calling remove_by_meta() once per id scans the type's cards once per id.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $type     Card post type (e.g. 'discussion').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'post_id').
+	 * @param int[]  $values   The partner ids whose cards to remove.
+	 * @return int Rows removed.
+	 *
+	 * @api
+	 */
+	public static function remove_by_meta_many( string $type, string $meta_key, array $values ): int {
+		if ( '' === $type || '' === $meta_key || array() === array_filter( array_map( 'absint', $values ) ) ) {
+			return 0;
+		}
+		return ( new PostService() )->delete_by_link_meta_int( $type, $meta_key, $values );
+	}
+
+	/**
+	 * Whether a card of a type already carries this link_meta value, live or withdrawn.
+	 *
+	 * A bridge asks it to keep one card for a group of items, such as the dates of a repeating event.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field (e.g. 'series_id').
+	 * @param int    $value    The value to look for.
+	 * @return bool
+	 *
+	 * @api
+	 */
+	public static function has_card_by_meta( string $type, string $meta_key, int $value ): bool {
+		return ( new PostService() )->has_link_meta_card( $type, $meta_key, $value );
 	}
 
 	/**
@@ -517,7 +581,9 @@ class IntegrationActivity {
 		if ( '' === $old_link_url || '' === $type || '' === $link_url ) {
 			return 0;
 		}
-		return ( new PostService() )->rewrite_link_card( $type, $old_link_url, $content, $link_url, self::card_meta( $link_url, $link_title, $excerpt, $meta ) );
+		$service = new PostService();
+		$service->adopt_legacy_link_cards( $type, $old_link_url );
+		return $service->rewrite_link_card( $type, $old_link_url, $content, $link_url, self::card_meta( $link_url, $link_title, $excerpt, $meta ) );
 	}
 
 	/**
@@ -565,6 +631,67 @@ class IntegrationActivity {
 			return 0;
 		}
 		return ( new PostService() )->move_link_meta_space( $type, $meta_key, $value, $space_id );
+	}
+
+	/**
+	 * Put a partner item's card(s) into another Space, found by the link the card points at.
+	 *
+	 * For items a partner identifies by URL only (a Listora listing); see set_space_by_meta() for the id form.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $type     Card post type (e.g. 'listing').
+	 * @param string $link_url The card's link.
+	 * @param int    $space_id Target Space id, or 0 for site-wide.
+	 * @return int Cards moved.
+	 */
+	public static function set_space_by_link( string $type, string $link_url, int $space_id ): int {
+		if ( '' === $type || '' === $link_url || $space_id < 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->move_link_url_space( $type, $link_url, $space_id );
+	}
+
+	/**
+	 * Run a bridge's re-placing now for a small set of items, or in background chunks for a large one.
+	 *
+	 * A Space with thousands of partner items must not re-place them inside the owner's save: up to
+	 * $inline_max items run at once (the normal case, so the result is immediate); more are queued on
+	 * Action Scheduler in chunks, each running the bridge's own handler on the given hook. Without
+	 * Action Scheduler everything runs inline.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string                $hook       Action the bridge listens on; it receives one chunk (array).
+	 * @param array<int,int|string> $items      Item ids (or links) to re-place.
+	 * @param callable              $now        Runs one item inline.
+	 * @param int                   $inline_max Most items run inline.
+	 * @param int                   $chunk      Items per queued chunk.
+	 * @param string                $group      Action Scheduler group (an add-on passes its own).
+	 * @return void
+	 */
+	public static function run_in_chunks( string $hook, array $items, callable $now, int $inline_max = 25, int $chunk = 100, string $group = \BuddyNext\Core\CronScheduler::GROUP ): void {
+		$items = array_values( array_unique( array_filter( $items ) ) );
+		if ( count( $items ) <= $inline_max || ! function_exists( 'as_enqueue_async_action' ) ) {
+			array_map( $now, $items );
+			return;
+		}
+		foreach ( array_chunk( $items, max( 1, $chunk ) ) as $part ) {
+			as_enqueue_async_action( $hook, array( $part ), $group );
+		}
+	}
+
+	/**
+	 * The cards of a type sitting in a Space (link and link_meta), for re-placing them.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $space_id Space id.
+	 * @param string $type     Card post type.
+	 * @return array<int,array{link_url:string,link_meta:array<string,mixed>}>
+	 */
+	public static function cards_in_space( int $space_id, string $type ): array {
+		return ( new PostService() )->cards_in_space( $space_id, $type );
 	}
 
 	/**
@@ -647,6 +774,31 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * The member's own words for what they did ("posted a new job", "completed a
+	 * course"), for the post header: "Alice added a new listing".
+	 *
+	 * Every bridge stores this as the post content. The header is where a feed
+	 * names who did what (Facebook, LinkedIn), so the card body shows only the
+	 * item itself. One helper for the feed card, the Explore card and the
+	 * Community Activity block, so a bridge never needs its own.
+	 *
+	 * @param string $type    Post type.
+	 * @param string $content Stored post content (the verb).
+	 * @param string $title   The card's own title, when it has one.
+	 * @return string Plain text, '' when the post is not an integration card or the
+	 *                verb is only the title said again.
+	 *
+	 * @api
+	 */
+	public static function action_line( string $type, string $content, string $title = '' ): string {
+		if ( ! isset( self::card_types()[ $type ] ) ) {
+			return '';
+		}
+		$verb = trim( wp_strip_all_tags( $content ) );
+		return ( '' !== $verb && trim( $title ) !== $verb ) ? $verb : '';
+	}
+
+	/**
 	 * Render the uniform integration feed card for a typed bridge post.
 	 *
 	 * The single card style every bridge shares: an icon + a source label + the
@@ -688,18 +840,6 @@ class IntegrationActivity {
 			$title = wp_trim_words( wp_strip_all_tags( (string) ( $args['post_content'] ?? '' ) ), 14 );
 		}
 
-		// The member's own words for what happened ("posted a new job", "completed
-		// a course"). Every bridge passes one and none of them were ever shown: it
-		// was read only as a FALLBACK title, so on a card that had a title it was
-		// silently dropped. The event card has always printed its verb as a lead,
-		// and the result of bridge cards not doing so was that "completed a course"
-		// and "earned a certificate" rendered as two identical cards.
-		//
-		// Skipped when it was already promoted to the title above, so a card with
-		// no title of its own does not say the same thing twice.
-		$verb = trim( wp_strip_all_tags( (string) ( $args['post_content'] ?? '' ) ) );
-		$lead = ( '' !== $verb && $verb !== $title ) ? $verb : '';
-
 		// Cover art, when the partner has one. Listings, courses and jobs often do
 		// and just as often do not, so this is strictly optional: no image means no
 		// element at all, and the card keeps the compact single-column shape it has
@@ -711,9 +851,26 @@ class IntegrationActivity {
 		// missing the first time.
 		$image = (string) ( $link['thumb'] ?? $link['image'] ?? '' );
 
-		$classes = 'bn-post-card__bridge-card bn-post-card__bridge-card--' . sanitize_html_class( $type );
+		$classes = 'bn-post-card__bridge-card bn-post-card__bridge-card--grid bn-post-card__bridge-card--' . sanitize_html_class( $type );
 		if ( '' !== $image ) {
 			$classes .= ' has-cover';
+		}
+
+		// What a member needs to judge the card without opening it, and what they can do from it.
+		$link_meta = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
+		$resolved  = self::resolve( $type, $link, $link_meta, (int) ( $args['bn_post_id'] ?? 0 ) );
+		$facts     = $resolved['facts'];
+		$actions   = $resolved['actions'];
+		// A partner may know a better title (a candidate's headline) or the right destination (the course, not its
+		// certificate) than what was stored when the card was made.
+		if ( '' !== $resolved['title'] ) {
+			$title = $resolved['title'];
+		}
+		if ( '' !== $resolved['url'] ) {
+			$url = $resolved['url'];
+		}
+		if ( '' !== $resolved['text'] ) {
+			$desc = $resolved['text'];
 		}
 
 		$html = '<div class="' . esc_attr( $classes ) . '">';
@@ -726,20 +883,337 @@ class IntegrationActivity {
 			$html .= '</a>';
 		}
 
-		$html .= '<span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( $icon ) . '</span>';
+		// The type icon sits in front of the label, so the text has the card's full width.
 		$html .= '<div class="bn-post-card__bridge-content">';
+		$html .= '<span class="bn-post-card__bridge-kind"><span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( $icon ) . '</span>';
 		if ( '' !== $label ) {
 			$html .= '<span class="bn-post-card__bridge-source">' . esc_html( $label ) . '</span>';
 		}
-		if ( '' !== $lead ) {
-			$html .= '<p class="bn-post-card__bridge-lead">' . esc_html( $lead ) . '</p>';
-		}
+		$html .= '</span>';
 		$html .= '<a class="bn-post-card__bridge-title" href="' . esc_url( $url ) . '">' . esc_html( $title ) . '</a>';
+		$html .= self::render_parts( $facts, $actions );
+		$html .= '</div>';
 		if ( '' !== $desc ) {
 			$html .= '<p class="bn-post-card__bridge-text">' . esc_html( $desc ) . '</p>';
 		}
-		$html .= '</div></div>';
+		$html .= '</div>';
 
 		return $html;
+	}
+
+	/**
+	 * Live values for the cards on this page, by post id: array{facts, actions}.
+	 *
+	 * @var array<int,array{facts:array<int,mixed>,actions:array<int,mixed>}>
+	 */
+	private static array $live = array();
+
+	/**
+	 * Load the live facts and actions of a whole page of partner cards, one call per card type.
+	 *
+	 * A card's facts are written when it publishes, so a value that changes afterwards (spots left,
+	 * solved, open now) would go stale, and a card made before a bridge learned a fact would never
+	 * show it. A bridge answers `buddynext_card_live` for its type from its own plugin's data; an old
+	 * card and a new one are answered the same way. Nothing is asked for a type with no card on the
+	 * page, and a bridge whose plugin is off or too old answers nothing, so the stored facts stand.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array $items  Hydrated feed rows about to render.
+	 * @param int   $viewer Current user ID (0 = logged out).
+	 * @return void
+	 */
+	public static function prime_live( array $items, int $viewer ): void {
+		$types = array_flip( self::live_types() );
+
+		$by_type = array();
+		foreach ( $items as $item ) {
+			$type = (string) ( $item['type'] ?? '' );
+			$id   = (int) ( $item['id'] ?? 0 );
+			if ( $id > 0 && isset( $types[ $type ] ) && ! isset( self::$live[ $id ] ) ) {
+				// The member the card is about rides along, so a partner can answer for them without a lookup per card.
+				$by_type[ $type ][ $id ] = self::link_meta_of( $item ) + array( 'user_id' => (int) ( $item['user_id'] ?? 0 ) );
+			}
+		}
+
+		foreach ( $by_type as $type => $cards ) {
+			/**
+			 * Live facts and actions for the partner cards of one type on this page.
+			 *
+			 * Return `array( post_id => array( 'facts' => array( array( 'icon' => ..., 'text' => ... ) ), 'actions' => array( array( 'label' => ..., 'url' => ... ) ) ) )`
+			 * for the ids you can answer. Load them in ONE call, not one per card. The first action is
+			 * the card's main button, the second is secondary, and no more than two are shown.
+			 *
+			 * @since 1.3.0
+			 *
+			 * @param array<int,array>   $answers Post id => { facts, actions }; empty by default.
+			 * @param string             $type    Card post type ('job', 'listing', ...).
+			 * @param array<int,array>   $cards   Post id => the card's stored link meta, plus `user_id` (the member it is about).
+			 * @param int                $viewer  Current user ID (0 = logged out).
+			 */
+			$answers = (array) apply_filters( 'buddynext_card_live', array(), (string) $type, $cards, $viewer );
+			foreach ( $cards as $id => $unused ) {
+				self::$live[ (int) $id ] = isset( $answers[ $id ] ) && is_array( $answers[ $id ] ) ? $answers[ $id ] : array();
+			}
+		}
+	}
+
+	/**
+	 * Put the card's facts and actions on a REST feed item, so the app reads what the page shows.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array $item   The enriched item.
+	 * @param int   $viewer Current user ID (0 = logged out).
+	 * @return array
+	 */
+	public static function enrich_item( array $item, int $viewer ): array {
+		unset( $viewer );
+		$type = (string) ( $item['type'] ?? '' );
+		if ( ! in_array( $type, self::live_types(), true ) ) {
+			return $item;
+		}
+		$resolved     = self::resolve( $type, array(), self::link_meta_of( $item ), (int) ( $item['id'] ?? 0 ) );
+		$item['card'] = $resolved;
+		return $item;
+	}
+
+	/**
+	 * A feed row's stored link meta as an array (the column is JSON until a hydrate decodes it).
+	 *
+	 * @param array $item Feed row.
+	 * @return array<string,mixed>
+	 */
+	private static function link_meta_of( array $item ): array {
+		$meta = $item['link_meta'] ?? array();
+		if ( is_string( $meta ) ) {
+			$meta = json_decode( $meta, true );
+		}
+		return is_array( $meta ) ? $meta : array();
+	}
+
+	/**
+	 * The facts line and button row of a card, ready to echo (escaped).
+	 *
+	 * One markup for every card, so the hand-written discussion card and the shared bridge card cannot drift.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,array{icon:string,text:string}> $facts   Cleaned facts (see facts()).
+	 * @param array<int,array{label:string,url:string}> $actions Cleaned buttons (see actions()).
+	 * @return string
+	 */
+	public static function render_parts( array $facts, array $actions ): string {
+		$html = '';
+		if ( array() !== $facts ) {
+			$html .= '<ul class="bn-post-card__bridge-facts">';
+			foreach ( $facts as $fact ) {
+				$html .= '<li>' . ( '' !== $fact['icon'] ? '<span class="bn-post-card__bridge-fact-icon" aria-hidden="true">' . buddynext_get_icon( $fact['icon'] ) . '</span>' : '' ) . '<span>' . esc_html( $fact['text'] ) . '</span></li>';
+			}
+			$html .= '</ul>';
+		}
+		if ( array() !== $actions ) {
+			$html .= '<div class="bn-post-card__bridge-actions">';
+			foreach ( $actions as $i => $action ) {
+				$html .= '<a class="bn-btn" data-size="sm" data-variant="' . ( 0 === $i ? 'primary' : 'secondary' ) . '" href="' . esc_url( $action['url'] ) . '">' . esc_html( $action['label'] ) . '</a>';
+			}
+			$html .= '</div>';
+		}
+		return $html;
+	}
+
+	/**
+	 * Card types a bridge can answer live: every registered card type, and the discussion card.
+	 *
+	 * @return string[]
+	 */
+	private static function live_types(): array {
+		return array_merge( array_keys( self::card_types() ), array( 'discussion' ) );
+	}
+
+	/**
+	 * The facts and actions one card shows: the partner's live answer for this page when it gave
+	 * one, else what was stored when the card published, then the site's filters.
+	 *
+	 * @param string              $type      Card post type.
+	 * @param array<string,mixed> $link      The card's link preview.
+	 * @param array<string,mixed> $link_meta The card's stored link meta.
+	 * @param int                 $post_id   Post id (0 when unknown).
+	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>,title:string,text:string,url:string} A live answer may also name a better title, the short text under it and the address the title opens; '' = keep the stored ones.
+	 */
+	public static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
+		$live  = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
+		$facts = ! empty( $live['facts'] ) ? (array) $live['facts'] : (array) ( $link['facts'] ?? $link_meta['facts'] ?? array() );
+
+		/**
+		 * Filter the facts line of a bridge card (company, place, type, rating, length ...).
+		 *
+		 * Each fact is `array( 'icon' => icon slug, 'text' => string )`. The list is cut to four
+		 * and empty facts are dropped after this filter, so a site may add, remove or reword.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array<int,array{icon:string,text:string}> $facts     The partner's facts.
+		 * @param string                                    $type      Card post type ('job', 'listing', ...).
+		 * @param array<string,mixed>                       $link_meta The card's stored link meta.
+		 */
+		$facts = self::facts( (array) apply_filters( 'buddynext_card_facts', $facts, $type, $link_meta ) );
+
+		$actions = ! empty( $live['actions'] ) ? (array) $live['actions'] : (array) ( $link['actions'] ?? $link_meta['actions'] ?? array() );
+
+		/**
+		 * Filter the buttons of a bridge card: the main one and an optional secondary.
+		 *
+		 * Each is `array( 'label' => string, 'url' => string )`. At most two are shown and a link to
+		 * another site is allowed. The footer (React, Comment, Share, Save) and the three-dot menu are
+		 * not touched by this: a card only adds what is specific to its type.
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param array<int,array{label:string,url:string}> $actions   The partner's buttons.
+		 * @param string                                    $type      Card post type.
+		 * @param array<string,mixed>                       $link_meta The card's stored link meta.
+		 * @param int                                       $post_id   Post id.
+		 */
+		$actions = self::actions( (array) apply_filters( 'buddynext_card_actions', $actions, $type, $link_meta, $post_id ) );
+
+		// A button that goes where the card's own title already goes adds a second tab stop and nothing else, so it is
+		// never drawn, whoever supplied it. What stays is an action the title cannot do (download, a different page).
+		$title   = trim( (string) ( $live['title'] ?? '' ) );
+		$text    = trim( wp_strip_all_tags( (string) ( $live['text'] ?? '' ) ) );
+		$url     = trim( (string) ( $live['url'] ?? '' ) );
+		$here    = self::same_address_key( '' !== $url ? $url : (string) ( $link['url'] ?? $link_meta['url'] ?? '' ) );
+		$actions = array_values(
+			array_filter(
+				$actions,
+				static fn( array $action ): bool => '' === $here || self::same_address_key( $action['url'] ) !== $here
+			)
+		);
+
+		return array(
+			'facts'   => $facts,
+			'actions' => $actions,
+			'title'   => $title,
+			'text'    => $text,
+			'url'     => esc_url_raw( $url, array( 'http', 'https' ) ),
+		);
+	}
+
+	/**
+	 * An address reduced to what decides whether two links go to the same place: no fragment, no trailing slash.
+	 *
+	 * @param string $url Address.
+	 * @return string
+	 */
+	private static function same_address_key( string $url ): string {
+		return untrailingslashit( (string) strtok( $url, '#' ) );
+	}
+
+	/**
+	 * The buttons of a bridge card, cleaned: a short label, a real address, no more than two.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,mixed> $actions Raw buttons.
+	 * @return array<int,array{label:string,url:string}>
+	 */
+	public static function actions( array $actions ): array {
+		$out = array();
+		foreach ( $actions as $action ) {
+			if ( ! is_array( $action ) ) {
+				continue;
+			}
+			$label = trim( wp_strip_all_tags( (string) ( $action['label'] ?? '' ) ) );
+			$url   = esc_url_raw( (string) ( $action['url'] ?? '' ), array( 'http', 'https' ) );
+			if ( '' === $label || '' === $url ) {
+				continue;
+			}
+			$out[] = array(
+				'label' => mb_substr( $label, 0, 30 ),
+				'url'   => $url,
+			);
+			if ( count( $out ) >= 2 ) {
+				break;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * The Space a partner item's card may live in: an open Space, else none (site-wide).
+	 *
+	 * An event or listing is public, and its card must stay public. In an open Space the card
+	 * also shows in that Space's own feed; for a private or secret Space it stays in the site
+	 * feed, and the Space shows the item on its own tab. Pass the result as the card's space.
+	 *
+	 * @since 1.3.0
+	 *
+	 * An item tied to several Spaces gets one card: pass the Space ids in order of preference (the
+	 * item's own Space first, then the Spaces it was linked to, earliest first) and the first OPEN
+	 * one wins.
+	 *
+	 * @param int|int[] $space_id The Space the item was made for (0 = none), or several in order.
+	 * @return int The first open Space id that is not plan-gated, else 0.
+	 */
+	public static function card_space( $space_id ): int {
+		$card_space = 0;
+		$space_ids  = array_values( array_filter( array_map( 'intval', (array) $space_id ) ) );
+		if ( array() !== $space_ids && function_exists( 'buddynext_service' ) ) {
+			foreach ( $space_ids as $id ) {
+				$space = buddynext_service( 'spaces' )->get( $id );
+				// Open, and not gated by a plan or ability: a gated Space is members-only in practice, so a
+				// public item's card stays in the site feed instead of going into it.
+				if ( null !== $space && \BuddyNext\Spaces\SpaceService::TYPE_OPEN === (string) ( $space['type'] ?? '' ) && '' === (string) ( $space['required_ability'] ?? '' ) ) {
+					$card_space = $id;
+					break;
+				}
+			}
+		}
+
+		/**
+		 * Filter the Space a partner item's card is placed in.
+		 *
+		 * Defaults to the item's Space when it is open, else 0 (site-wide).
+		 *
+		 * @since 1.3.0
+		 *
+		 * @param int       $card_space The Space the card goes in (0 = site-wide).
+		 * @param int|int[] $space_id   The Space(s) the item belongs to, in order of preference.
+		 */
+		return max( 0, (int) apply_filters( 'buddynext_partner_card_space', $card_space, $space_id ) );
+	}
+
+	/**
+	 * The facts line of a bridge card, cleaned.
+	 *
+	 * A bridge passes `'facts' => array( array( 'icon' => 'map-pin', 'text' => 'Remote' ), ... )`
+	 * in the card's meta when it publishes. An empty fact is left out, a text is kept to one short
+	 * line, an unknown icon slug is dropped (the text stays), and no more than four are kept:
+	 * the partner's own page always has the rest.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array<int,mixed> $facts Raw facts.
+	 * @return array<int,array{icon:string,text:string}>
+	 */
+	public static function facts( array $facts ): array {
+		$out = array();
+		foreach ( $facts as $fact ) {
+			if ( ! is_array( $fact ) ) {
+				continue;
+			}
+			$text = trim( wp_strip_all_tags( (string) ( $fact['text'] ?? '' ) ) );
+			if ( '' === $text ) {
+				continue;
+			}
+			$out[] = array(
+				'icon' => sanitize_key( (string) ( $fact['icon'] ?? '' ) ),
+				'text' => mb_substr( $text, 0, 80 ),
+			);
+			if ( count( $out ) >= 4 ) {
+				break;
+			}
+		}
+		return $out;
 	}
 }

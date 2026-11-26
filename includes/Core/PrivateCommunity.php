@@ -56,6 +56,22 @@ final class PrivateCommunity {
 	 * @return bool
 	 */
 	public static function require_login_for_learnomy( $required ): bool {
+		return self::require_login( $required );
+	}
+
+	/**
+	 * A partner's own "require login for content" gate with this community's added.
+	 *
+	 * On when the partner's own setting is on OR this community is private. It adds to the partner's value
+	 * and never replaces it, so an owner who runs a public academy or event calendar inside a private
+	 * community can still return false from the partner's filter after this one.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $required The partner's own require-login setting.
+	 * @return bool
+	 */
+	public static function require_login( $required ): bool {
 		return (bool) $required || self::is_enabled();
 	}
 
@@ -156,6 +172,14 @@ final class PrivateCommunity {
 		// site running BuddyNext.
 		add_filter( 'learnomy_require_login_for_content', array( self::class, 'require_login_for_learnomy' ) );
 		add_filter( 'learnomy_content_can_access', array( self::class, 'can_access_user' ), 10, 2 );
+
+		// Eventonomy 2.0.0 exposes the same pair, and the wall it raises covers the event page, the embed, the
+		// calendar and place pages, the event lists, REST, ICS and the sitemaps. Its pages are served outside
+		// BuddyNext's page router, so these filters are the only wall they have. A guest is sent through
+		// wp_login_url(), which BuddyNext already points at the community login (PageRouter::core_login_url),
+		// and returns to the event afterwards. Inert on an Eventonomy that never asks.
+		add_filter( 'evnm_require_login_for_content', array( self::class, 'require_login' ) );
+		add_filter( 'evnm_content_can_access', array( self::class, 'can_access_user' ), 10, 2 );
 	}
 
 	/**
@@ -175,6 +199,12 @@ final class PrivateCommunity {
 	public static function can_access_user( $allowed, $user_id = 0 ): bool {
 		if ( get_current_user_id() !== (int) $user_id ) {
 			return (bool) $allowed;
+		}
+
+		// A member held out of the community (an unverified email, a plan the community requires) is held out of
+		// a partner's pages too: the private community wall is about who may be inside, not only who is signed in.
+		if ( self::is_enabled() && ( new \BuddyNext\Auth\RestHoldGate() )->current_member_is_held() ) {
+			return false;
 		}
 
 		return self::can_access( $allowed );
@@ -223,18 +253,23 @@ final class PrivateCommunity {
 		 * own, so the list is now declarative and Pro adds its own.
 		 *
 		 * Built-ins: /auth so a guest can sign in at all (the whole point of a
-		 * login page), and /pwa because browsers fetch the manifest without
+		 * login page), /pwa because browsers fetch the manifest without
 		 * credentials and the service worker without a nonce — app-shell assets
-		 * only, no member data.
+		 * only, no member data — and the native app's pre-sign-in handshake,
+		 * /app/config and /app/strings (site identity, colours, feature flags,
+		 * translations: what the sign-in screen needs, no member data). Without
+		 * them the app could not even show its sign-in screen on a private
+		 * community. Other /app routes stay gated.
 		 *
 		 * @since 1.1.3
+		 * @since 1.3.0 /app/config and /app/strings are exempt by default.
 		 *
 		 * @param string[]         $exempt  Exempt route prefixes.
 		 * @param \WP_REST_Request $request Current request.
 		 */
 		$exempt = (array) apply_filters(
 			'buddynext_private_community_exempt_routes',
-			array( '/buddynext/v1/auth', '/buddynext/v1/pwa' ),
+			array( '/buddynext/v1/auth', '/buddynext/v1/pwa', '/buddynext/v1/app/config', '/buddynext/v1/app/strings' ),
 			$request
 		);
 
