@@ -72,4 +72,35 @@ class SiteOwnerSuspendTest extends \WP_UnitTestCase {
 		// A peer admin is still reachable by the same path.
 		$this->assertTrue( true === $mod->suspend( $peer, 'Automatic suspension: strike threshold reached.', 0, false, $admin ) );
 	}
+
+	/**
+	 * An automated rule (actor 0, the way Pro moderation rules call suspend_user) cannot suspend the site owner,
+	 * and nobody can strike themselves.
+	 *
+	 * @return void
+	 */
+	public function test_an_automated_rule_cannot_suspend_the_owner_and_nobody_strikes_themselves(): void {
+		$owner = self::factory()->user->create(
+			array(
+				'role'       => 'administrator',
+				'user_email' => 'owner-rule@example.org',
+			)
+		);
+		update_option( 'admin_email', 'owner-rule@example.org' );
+		$member = self::factory()->user->create();
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$mod    = buddynext_service( 'moderation' );
+
+		$rule = $mod->suspend_user( $owner, 0, 'Automatic suspension: 2 reports in 24 hours.', array( 'duration_days' => 3 ) );
+		$this->assertWPError( $rule, 'An automated rule suspended the site owner.' );
+		$this->assertSame( 'site_owner', $rule->get_error_data()['reason'] ?? '' );
+		$this->assertFalse( $mod->is_suspended( $owner ) );
+
+		// The same rule still reaches an ordinary member.
+		$this->assertIsInt( $mod->suspend_user( $member, 0, 'Automatic suspension: 2 reports in 24 hours.', array( 'duration_days' => 3 ) ) );
+
+		$self = $mod->issue_strike( $admin, $admin, 'Testing myself' );
+		$this->assertWPError( $self, 'An admin could strike themselves.' );
+		$this->assertSame( 'self', $self->get_error_data()['reason'] ?? '' );
+	}
 }

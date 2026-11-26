@@ -1335,6 +1335,18 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// Nobody strikes themselves: enough of them would suspend the account issuing them.
+		if ( $actor_id === $user_id ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot give yourself a strike.', 'buddynext' ),
+				array(
+					'status' => 403,
+					'reason' => 'self',
+				)
+			);
+		}
+
 		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be given a strike.', 'buddynext' ) );
 		if ( null !== $owner_refusal ) {
 			return $owner_refusal;
@@ -2355,6 +2367,12 @@ class ModerationService {
 	 * @return WP_Error|null
 	 */
 	public function suspend_refusal( int $user_id, int $actor_id ): ?WP_Error {
+		// The site owner is refused whoever acts, the system actor (0) of an automated rule included.
+		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be suspended.', 'buddynext' ) );
+		if ( null !== $owner_refusal ) {
+			return $owner_refusal;
+		}
+
 		if ( $actor_id <= 0 ) {
 			return null;
 		}
@@ -2394,11 +2412,6 @@ class ModerationService {
 					'reason' => 'network_admin',
 				)
 			);
-		}
-
-		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be suspended.', 'buddynext' ) );
-		if ( null !== $owner_refusal ) {
-			return $owner_refusal;
 		}
 
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
