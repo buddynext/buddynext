@@ -97,6 +97,12 @@ class OnboardingService {
 			return false;
 		}
 
+		// A suspended member is not sent to the wizard: it refuses them (403), and it would hide the
+		// account-status page where they read the reason and appeal. A moderation state outranks the welcome wizard.
+		if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) {
+			return false;
+		}
+
 		// Grandfather the existing community: the wizard is for *new* members and
 		// must never retroactively trap members who registered before onboarding
 		// was switched on. Record the moment the gate first goes live and only
