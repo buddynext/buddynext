@@ -273,6 +273,13 @@ final class StateReset implements BeforeTestHook {
 	 * @return void
 	 */
 	public function executeBeforeTest( string $test ): void {
+		// The nav registry is filled from the buddynext_register_nav action the first time it is resolved. A test that
+		// resets it, or removes that action, would otherwise leave every later test with a stripped registry: start
+		// each test with a fresh resolve, so the providers fire again from the hooks the test sees.
+		if ( class_exists( '\BuddyNext\Nav\NavRegistry' ) ) {
+			\BuddyNext\Nav\NavRegistry::instance()->reset();
+		}
+
 		foreach ( self::MEMOS as $class => $properties ) {
 			if ( ! class_exists( $class ) ) {
 				continue;

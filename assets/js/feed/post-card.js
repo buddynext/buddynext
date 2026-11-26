@@ -2524,8 +2524,18 @@ store( 'buddynext/post-card', {
 			};
 
 			// Escape cancels the edit from anywhere in the form, as it does in every other editor.
+			// While the caret sits in an @mention or #hashtag being typed, the suggestion list takes the first Escape
+			// (it may not have drawn yet): only a later Escape cancels the edit.
+			let listEscape = false;
+			ta.addEventListener( 'input', () => { listEscape = false; } );
 			form.addEventListener( 'keydown', ( e ) => {
-				if ( 'Escape' === e.key ) {
+				if ( 'Escape' !== e.key ) { return; }
+				const typing = ! listEscape && /(^|\s)[@#][\w-]*$/.test( ta.value.slice( 0, ta.selectionStart || 0 ) );
+				if ( typing ) {
+					listEscape = true;
+					return;
+				}
+				{
 					e.preventDefault();
 					e.stopPropagation();
 					cancelBtn.click();
