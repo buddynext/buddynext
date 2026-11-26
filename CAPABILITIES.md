@@ -68,7 +68,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Keep a draft in the composer so it isn't lost? | YES | `Feed\ComposerDraftController`; `GET`/`POST`/`DELETE /me/composer-draft` |
 | Show a preview card for a pasted link? | YES | `PostController::link_preview` + `PostService::og_meta`; the scrape runs off the member's request (`buddynext_async_fetch_link_meta`), so a slow or dead link never blocks the post |
 | Open a post permalink with its replies visible? | YES | `templates/feed/single-post.php` seeds `commentsOpen` for `context === 'single'`; paging is the same control as the feed |
-| Edit or delete your own post? | YES | `PostService::update()` / `PostService::delete()`; `PUT`/`DELETE /posts/{id}` |
+| Edit or delete your own post? | YES | `PostService::update()` / `PostService::delete()`; `PUT`/`DELETE /posts/{id}`; Escape cancels the inline edit (after a mention or hashtag list has had its first Escape) and focus returns to the post menu |
 | Mention another member with @ and notify them? | YES | `PostService`/`CommentService` parse `@username` and fire `buddynext_user_mentioned`, handled by `Notifications\NotificationListener::on_user_mentioned` |
 | Let members react, comment and reply? | YES | `bn_reactions`, `bn_comments`; 4 `/reactions` + 3 `/comments` routes |
 | Pin a post to a profile, or pin a comment on a post? | YES | `PostService::pin()`/`unpin()` (profile-only, capped by the `buddynext_post_pin_limit` filter, default 1); `CommentController::pin()`/`unpin()` caps one pinned top-level comment per object via `bn_pinned_comment_*` option |
