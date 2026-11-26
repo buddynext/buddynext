@@ -94,6 +94,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	public function tear_down(): void {
+		// A test above resets the shared nav registry and leaves only this bridge's items in it: start the next test clean.
+		\BuddyNext\Nav\NavRegistry::instance()->reset();
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_posts" );
