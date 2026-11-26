@@ -1093,7 +1093,16 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	color: inherit;
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: underline;
+	/* The Undo toast uses a real <button>: reset the browser's (and a host theme's) button fill, border and font so
+	   it reads as the same inline action as the appeal link. */
+	background: none;
+	border: 0;
+	padding: 0;
+	font: inherit;
+	font-weight: var(--bn-fw-semibold);
+	cursor: pointer;
 }
+button.bn-toast__action:hover { text-decoration-thickness: 2px; background: none; color: inherit; }
 .bn-toast__action { align-self: center; }
 /* On a two-line toast the action sits under the text, aligned with it. */
 .bn-toast__text > .bn-toast__action {

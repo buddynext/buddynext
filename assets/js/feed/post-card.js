@@ -2668,11 +2668,22 @@ store( 'buddynext/post-card', {
 			if ( ! ctx.commentsOpen ) {
 				return;
 			}
+			// The form opens: put the caret in its box so the next keystroke is the comment, by mouse or keyboard.
+			const focusInput = () => {
+				const input = document.querySelector( '[data-comment-input="' + ctx.postId + '"]' );
+				if ( input && input.getClientRects().length ) { input.focus( { preventScroll: false } ); }
+			};
+			requestAnimationFrame( focusInput );
 			// Delegate to the shared module-level generator (see bnLoadComments)
 			// — `this.loadComments()` / `actions.loadComments()` both fail in
 			// the Interactivity API runtime (undefined `this`; wrapped action
 			// not yield*-iterable), which left the thread stuck on skeletons.
 			yield* bnLoadComments( ctx );
+			// Re-focus after the thread draws, unless the member has already moved on to something else.
+			const now = document.activeElement;
+			if ( ! now || now === document.body || ( now.closest && now.closest( '[data-wp-on--click="actions.openComments"]' ) ) ) {
+				focusInput();
+			}
 		},
 		* submitComment() {
 			const ctx     = getContext();

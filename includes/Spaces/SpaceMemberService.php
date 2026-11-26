@@ -29,6 +29,14 @@ use WP_Error;
 class SpaceMemberService {
 
 	/**
+	 * Longest ban reason kept, in characters.
+	 *
+	 * @var int
+	 */
+	public const BAN_REASON_MAX = 500;
+
+
+	/**
 	 * Cache group.
 	 */
 	private const CACHE_GROUP = 'buddynext_space_members';
@@ -977,6 +985,11 @@ class SpaceMemberService {
 		}
 
 		if ( 'owner' === $this->get_role( $space_id, $user_id ) ) {
+			return false;
+		}
+
+		// Removing yourself is leaving; a moderator doing it here would drop their own role with no confirm.
+		if ( $user_id === $acting_user_id ) {
 			return false;
 		}
 
@@ -2479,6 +2492,11 @@ class SpaceMemberService {
 			return new WP_Error( 'cannot_ban_owner', __( 'The space owner cannot be banned from their own space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// Nobody bans themselves: a moderator doing it would just strip their own role (leaving is the way out).
+		if ( $banned_by > 0 && $banned_by === $user_id ) {
+			return new WP_Error( 'cannot_ban_self', __( 'You cannot ban yourself from a space. Leave it instead.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
 		// INSERT IGNORE on the (space_id, user_id) key: a repeat or a racing second
 		// request inserts nothing, and only the request that wrote the row goes on.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2488,7 +2506,7 @@ class SpaceMemberService {
 				$space_id,
 				$user_id,
 				max( 0, $banned_by ),
-				sanitize_textarea_field( $reason ),
+				mb_substr( sanitize_textarea_field( $reason ), 0, self::BAN_REASON_MAX ),
 				current_time( 'mysql', true )
 			)
 		);

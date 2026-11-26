@@ -2441,6 +2441,13 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 	margin: 0;
+	/* A ban reason can be a long unbroken string or URL: wrap it and keep it to a few lines. */
+	overflow-wrap: anywhere;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	overflow: hidden;
 }
 
 .bn-space-settings__member-actions {

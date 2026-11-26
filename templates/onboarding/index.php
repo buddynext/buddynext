@@ -834,7 +834,12 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			data-wp-bind--hidden="!state.error"
 			data-wp-text="state.error"></div>
 		<noscript>
-			<p class="bn-ob-noscript"><?php esc_html_e( 'JavaScript is needed to move between the steps. Turn it on in your browser to finish setting up.', 'buddynext' ); ?></p>
+			<p class="bn-ob-noscript"><?php esc_html_e( 'JavaScript is needed to move between the steps. Turn it on in your browser to finish setting up, or skip setup for now.', 'buddynext' ); ?></p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-ob-noscript">
+				<input type="hidden" name="action" value="bn_onboarding_skip">
+				<?php wp_nonce_field( 'bn_onboarding_skip' ); ?>
+				<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Skip setup', 'buddynext' ); ?></button>
+			</form>
 		</noscript>
 
 		</div><!-- /.bn-ob-form-body -->

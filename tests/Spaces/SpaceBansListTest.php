@@ -119,4 +119,23 @@ class SpaceBansListTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $removed, 'Listeners that revoke membership grants (forum access) must hear the ban.' );
 		$this->assertFalse( $this->service->is_member( $space_id, $user_id ) );
 	}
+
+	public function test_a_long_reason_is_capped_on_the_server(): void {
+		$user_id = self::factory()->user->create();
+		$admin   = self::factory()->user->create( array( 'role' => 'administrator' ) );
+
+		$this->service->ban_from_space( 7, $user_id, $admin, str_repeat( 'x', 1000 ) );
+
+		$bans = $this->service->get_space_bans( 7 );
+		$this->assertSame( SpaceMemberService::BAN_REASON_MAX, mb_strlen( (string) $bans[0]['reason'] ) );
+	}
+
+	public function test_nobody_can_ban_themselves(): void {
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$result = $this->service->ban_from_space( 8, $admin, $admin, 'oops' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'cannot_ban_self', $result->get_error_code() );
+		$this->assertSame( array(), $this->service->get_space_bans( 8 ) );
+	}
 }

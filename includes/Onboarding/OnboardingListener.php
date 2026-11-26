@@ -30,6 +30,8 @@ class OnboardingListener implements ListenerInterface {
 	 * bootstrapped, so buddynext_service() is available to every handler.
 	 */
 	public function register(): void {
+		// The no-script way out of the wizard: a plain form post that skips it (the steps themselves need JavaScript).
+		add_action( 'admin_post_bn_onboarding_skip', array( $this, 'handle_skip' ) );
 		add_action( 'user_register', array( $this, 'reconcile_invites_on_register' ), 16, 1 );
 		// Schedule the two onboarding nudges the moment the member registers, each as
 		// an Action Scheduler single action due at its offset (card 10264295353).
@@ -403,5 +405,20 @@ class OnboardingListener implements ListenerInterface {
 				'onboarding_url' => \BuddyNext\Core\PageRouter::onboarding_url(),
 			)
 		);
+	}
+
+	/**
+	 * Skip the wizard from a plain form post (the member's own session, nonce checked), then land on the feed.
+	 *
+	 * @return void
+	 */
+	public function handle_skip(): void {
+		check_admin_referer( 'bn_onboarding_skip' );
+		$user_id = get_current_user_id();
+		if ( $user_id > 0 ) {
+			buddynext_service( 'onboarding' )->finish( $user_id );
+		}
+		wp_safe_redirect( \BuddyNext\Core\PageRouter::activity_url() );
+		exit;
 	}
 }
