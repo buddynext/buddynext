@@ -81,7 +81,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Make a space private or secret? | YES | `Spaces\SpaceVisibility`; secret spaces stay out of search and 404 to non-members |
 | Give a space its own photo albums? | YES | 1.1.1. `Media\Galleries` + `SpaceAlbumListener`; needs the space Media tab on |
 | Categorise spaces? | YES | `bn_space_categories`, 2 `/space-categories` routes |
-| Ban a member from one space without site-wide action? | YES | `bn_space_bans`; the ban carries an optional reason (`SpaceMemberService::BAN_REASON_MAX`, 500 characters) shown in the Banned members list; nobody can ban or remove themselves, and the owner can never be banned |
+| Ban a member from one space without site-wide action? | YES | `bn_space_bans`; the ban carries an optional reason (`SpaceMemberService::BAN_REASON_MAX`, 500 characters) shown in the Banned members list; nobody can ban or remove themselves, and the owner can never be banned; bans made before Discussions was on carry into the forum when it is created or linked (`JetonomyBridge::carry_space_bans`, keyset over `SpaceMemberService::banned_user_ids`). |
 | Invite people to a space with a shareable link? | YES | `Spaces\SpaceInviteLinkService::create()`/`validate()`/`consume()`; expiring, use-capped invite links plus direct member invites via `SpaceMemberService::invite()`. 1.2.2: owners and moderators can revoke a link (`SpaceInviteLinkService::revoke()`, `DELETE /spaces/{id}/invite-link`) without issuing a new one. 1.2.3: for a secret space the viewer cannot see, all three invite-link routes answer 404 like `GET /spaces/{id}` |
 | Organise a space's files in folders, with a trash? | PARTIAL | 1.2.2. Space Files tab (`Nav\Providers\RendersDriveFiles::render_drive_files()`): create, rename and trash folders, restore them from a Trash view. Needs WPMediaVerse Pro documents; who may manage a folder is WPMediaVerse's rule |
 | Manage space membership - change a member's role, transfer ownership, or remove someone? | YES | `SpaceMemberService::change_role()` / `remove()`; ownership transfer is its own `SpaceService::transfer_ownership()` (`POST /spaces/{id}/transfer-ownership`), never assigned as a plain role |
@@ -130,7 +130,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Can it... | Status | How |
 |---|---|---|
 | Let members report content? | YES | `bn_reports`, 6 `/reports` routes |
-| Warn, suspend or shadow-ban? | YES | `bn_user_strikes`, `bn_user_suspensions`, `bn_mod_log` |
+| Warn, suspend or shadow-ban? | YES | `bn_user_strikes`, `bn_user_suspensions`, `bn_mod_log`; the site owner's account (admin_email user) cannot be suspended (`ModerationService::suspend_refusal`). |
 | Let a suspended member appeal? | YES | `bn_appeals`, 5 `/appeals` routes; the appeal page stays reachable while suspended, and `parts/suspended-banner.php` (printed by `shell/hub-shell.php`, resolved by the router's feed section) points to it on every community page  A suspended member who has not finished onboarding is not sent to the wizard (`OnboardingService::is_required_for`), so the appeal page is reachable. |
 | Rate-limit abuse? | PARTIAL | `bn_rate_limits` table backs it on every site; the fast object-cache path needs Redis or Memcached |
 | Filter banned words / safeguards? | YES | `Moderation\SafeguardService` |
