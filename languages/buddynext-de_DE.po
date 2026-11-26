@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.3.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-11-26T06:53:47+00:00\n"
+"POT-Creation-Date: 2026-11-26T14:45:42+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -2469,8 +2469,8 @@ msgstr "Ankündigungen und Zusammenfassungen"
 
 #: includes/Admin/EmailLog.php:533 includes/Admin/EmailLog.php:549
 #: includes/Moderation/ModerationService.php:202
-#: includes/Moderation/ModerationService.php:2234
-#: includes/Moderation/ModerationService.php:2248
+#: includes/Moderation/ModerationService.php:2268
+#: includes/Moderation/ModerationService.php:2282
 msgid "Other"
 msgstr "Sonstiges"
 
@@ -11961,12 +11961,12 @@ msgstr "Punkte"
 msgid "Badge"
 msgstr "Abzeichen"
 
-#: includes/Bridges/GamificationBridge.php:462
+#: includes/Bridges/GamificationBridge.php:532
 msgid "Getting started"
 msgstr "Erste Schritte"
 
 #. translators: %s: badge name.
-#: includes/Bridges/GamificationBridge.php:671
+#: includes/Bridges/GamificationBridge.php:741
 #, php-format
 msgid "earned the %s badge"
 msgstr "hat das %s-Badge erhalten"
@@ -12282,7 +12282,7 @@ msgstr ""
 
 #: includes/Bridges/MemberBlogBridge.php:749
 #: includes/Core/AssetService.php:1346
-#: includes/Moderation/ModerationService.php:2779
+#: includes/Moderation/ModerationService.php:2804
 #: templates/partials/composer.php:107 templates/partials/composer.php:347
 #: templates/profile/edit.php:66
 msgid "Review your account status"
@@ -15099,7 +15099,7 @@ msgid "Strike reversed"
 msgstr "Verwarnung aufgehoben"
 
 #: includes/Core/AssetService.php:2115
-#: includes/Moderation/ModerationService.php:1495
+#: includes/Moderation/ModerationService.php:1529
 msgid "Could not reverse the strike. Try again."
 msgstr "Die Verwarnung konnte nicht aufgehoben werden. Versuche es erneut."
 
@@ -16660,7 +16660,7 @@ msgstr "Unangemessene Inhalte"
 #: includes/Core/PageRouter.php:2350
 #: includes/Moderation/ModerationService.php:118
 #: includes/Moderation/ModerationService.php:201
-#: includes/Moderation/ModerationService.php:2232
+#: includes/Moderation/ModerationService.php:2266
 msgid "Impersonation"
 msgstr "Identitätsdiebstahl"
 
@@ -16777,7 +16777,7 @@ msgid "This community is private. Please log in to view it."
 msgstr "Diese Community ist privat. Bitte melde dich an, um sie anzusehen."
 
 #: includes/Core/RoleService.php:167
-#: includes/Moderation/ModerationService.php:2357
+#: includes/Moderation/ModerationService.php:2391
 msgid ""
 "You cannot take moderation action against someone with more authority than "
 "you."
@@ -18004,8 +18004,8 @@ msgstr "Du kannst dieses Mitglied nicht verwarnen."
 
 #: includes/Moderation/ModerationController.php:1628
 #: includes/Moderation/ModerationController.php:1662
-#: includes/Moderation/ModerationService.php:4106
-#: includes/Moderation/ModerationService.php:4328
+#: includes/Moderation/ModerationService.php:4131
+#: includes/Moderation/ModerationService.php:4360
 msgid "Invalid user ID."
 msgstr "Ungültige Benutzer-ID."
 
@@ -18173,7 +18173,7 @@ msgid "You do not have permission to remove content."
 msgstr "Du hast keine Berechtigung, Inhalte zu entfernen."
 
 #: includes/Moderation/ModerationService.php:1043
-#: includes/Moderation/ModerationService.php:3679
+#: includes/Moderation/ModerationService.php:3704
 msgid "Report not found."
 msgstr "Bericht nicht gefunden."
 
@@ -18189,93 +18189,98 @@ msgstr ""
 "Dieser Inhalt konnte nicht automatisch entfernt werden. Löse den Bericht "
 "manuell auf, nachdem du ihn entfernt hast."
 
-#: includes/Moderation/ModerationService.php:1306
+#: includes/Moderation/ModerationService.php:1335
 msgid "You do not have permission to issue strikes."
 msgstr "Du hast keine Berechtigung, Verwarnungspunkte zu erteilen."
 
-#: includes/Moderation/ModerationService.php:1314
+#: includes/Moderation/ModerationService.php:1338
+msgid "The site owner's account cannot be given a strike."
+msgstr ""
+
+#: includes/Moderation/ModerationService.php:1348
 msgid "Add a reason for the strike. The member sees it on their account page."
 msgstr ""
 "Gib einen Grund für die Verwarnung an. Das Mitglied sieht ihn auf seiner "
 "Kontoseite."
 
-#: includes/Moderation/ModerationService.php:1388
+#: includes/Moderation/ModerationService.php:1422
 msgid "You do not have permission to issue warnings."
 msgstr "Du hast keine Berechtigung, Verwarnungen auszusprechen."
 
-#: includes/Moderation/ModerationService.php:1405
+#: includes/Moderation/ModerationService.php:1439
 msgid "You can only warn members of a space you moderate."
 msgstr ""
 "Du kannst nur Mitglieder in einem Bereich verwarnen, den du moderierst."
 
-#: includes/Moderation/ModerationService.php:1410
+#: includes/Moderation/ModerationService.php:1444
 msgid "Add a message for the warning. The member sees it in their notice."
 msgstr ""
 "Gib eine Nachricht für die Verwarnung an. Das Mitglied sieht sie in seiner "
 "Mitteilung."
 
-#: includes/Moderation/ModerationService.php:1454
+#: includes/Moderation/ModerationService.php:1488
 msgid "You do not have permission to reverse strikes."
 msgstr "Du hast keine Berechtigung, Verwarnungen rückgängig zu machen."
 
-#: includes/Moderation/ModerationService.php:1474
+#: includes/Moderation/ModerationService.php:1508
 msgid "That strike does not exist or has already been reversed."
 msgstr ""
 "Diese Verwarnung existiert nicht oder wurde bereits rückgängig gemacht."
 
-#: includes/Moderation/ModerationService.php:2229
+#: includes/Moderation/ModerationService.php:2263
 msgid "Spam or scams"
 msgstr "Spam oder Betrug"
 
-#: includes/Moderation/ModerationService.php:2230
+#: includes/Moderation/ModerationService.php:2264
 msgid "Harassment or abuse"
 msgstr "Belästigung oder Missbrauch"
 
-#: includes/Moderation/ModerationService.php:2231
+#: includes/Moderation/ModerationService.php:2265
 msgid "Hate speech"
 msgstr "Hassrede"
 
-#: includes/Moderation/ModerationService.php:2233
+#: includes/Moderation/ModerationService.php:2267
 msgid "Off-topic or disruptive"
 msgstr "Themenfremd oder störend"
 
-#: includes/Moderation/ModerationService.php:2266
+#: includes/Moderation/ModerationService.php:2300
 msgid "Suspended from the moderation queue."
 msgstr "Aus der Moderationswarteschlange suspendiert."
 
-#: includes/Moderation/ModerationService.php:2293
+#: includes/Moderation/ModerationService.php:2327
 msgid "Choose a reason from the list."
 msgstr "Wähle einen Grund aus der Liste."
 
-#: includes/Moderation/ModerationService.php:2298
+#: includes/Moderation/ModerationService.php:2332
 msgid "Describe the reason when you choose Other."
 msgstr "Beschreibe den Grund, wenn du „Sonstiges“ wählst."
 
 #. translators: 1: a label or name, 2: its value or detail.
-#: includes/Moderation/ModerationService.php:2303
+#: includes/Moderation/ModerationService.php:2337
 #: includes/Spaces/CrossSpaceActivityService.php:173
 #, php-format
 msgid "%1$s: %2$s"
 msgstr "%1$s: %2$s"
 
-#: includes/Moderation/ModerationService.php:2331
+#: includes/Moderation/ModerationService.php:2365
 msgid "You do not have permission to suspend members."
 msgstr "Du hast keine Berechtigung, Mitglieder zu sperren."
 
-#: includes/Moderation/ModerationService.php:2344
+#: includes/Moderation/ModerationService.php:2378
 msgid "You cannot suspend your own account."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2371
+#: includes/Moderation/ModerationService.php:2399
+#: includes/Moderation/ModerationService.php:4136
 msgid "The site owner's account cannot be suspended."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2441
-#: includes/Moderation/ModerationService.php:4113
+#: includes/Moderation/ModerationService.php:2466
+#: includes/Moderation/ModerationService.php:4145
 msgid "Choose a reason for the suspension. The member will see it."
 msgstr "Wähle einen Grund für die Sperre. Das Mitglied wird ihn sehen."
 
-#: includes/Moderation/ModerationService.php:2454
+#: includes/Moderation/ModerationService.php:2479
 msgid ""
 "Only a community or site admin can suspend a member indefinitely. Set a "
 "duration to suspend as a moderator."
@@ -18283,73 +18288,73 @@ msgstr ""
 "Nur ein Community- oder Site-Administrator kann ein Mitglied auf unbestimmte "
 "Zeit sperren. Als Moderator legst du eine Dauer für die Sperre fest."
 
-#: includes/Moderation/ModerationService.php:2557
+#: includes/Moderation/ModerationService.php:2582
 msgid "You do not have permission to lift suspensions."
 msgstr "Du hast keine Berechtigung, Sperren aufzuheben."
 
-#: includes/Moderation/ModerationService.php:2599
+#: includes/Moderation/ModerationService.php:2624
 msgid "That member is not currently suspended."
 msgstr "Dieses Mitglied ist derzeit nicht gesperrt."
 
-#: includes/Moderation/ModerationService.php:2634
-#: includes/Moderation/ModerationService.php:2673
+#: includes/Moderation/ModerationService.php:2659
+#: includes/Moderation/ModerationService.php:2698
 #: includes/Onboarding/SetupWizard.php:452
 msgid "Insufficient permissions."
 msgstr "Unzureichende Berechtigung."
 
-#: includes/Moderation/ModerationService.php:3399
+#: includes/Moderation/ModerationService.php:3424
 msgid "No matching suspension found."
 msgstr "Keine übereinstimmende Sperrung gefunden."
 
-#: includes/Moderation/ModerationService.php:3419
-#: includes/Moderation/ModerationService.php:4365
+#: includes/Moderation/ModerationService.php:3444
+#: includes/Moderation/ModerationService.php:4397
 msgid "You have already appealed this. A moderator will review it."
 msgstr ""
 "Du hast dagegen bereits Einspruch erhoben. Ein Moderator wird es überprüfen."
 
-#: includes/Moderation/ModerationService.php:3493
+#: includes/Moderation/ModerationService.php:3518
 msgid "You do not have permission to resolve appeals."
 msgstr "Du hast keine Berechtigung, Einsprüche zu lösen."
 
-#: includes/Moderation/ModerationService.php:3497
+#: includes/Moderation/ModerationService.php:3522
 msgid "Decision must be \"approved\" or \"denied\"."
 msgstr "Entscheidung muss \"approved\" oder \"denied\" sein."
 
-#: includes/Moderation/ModerationService.php:3520
+#: includes/Moderation/ModerationService.php:3545
 msgid "That appeal no longer exists."
 msgstr "Dieser Einspruch existiert nicht mehr."
 
-#: includes/Moderation/ModerationService.php:3529
+#: includes/Moderation/ModerationService.php:3554
 msgid "That appeal has already been resolved."
 msgstr "Dieser Einspruch wurde bereits bearbeitet."
 
-#: includes/Moderation/ModerationService.php:3649
+#: includes/Moderation/ModerationService.php:3674
 msgid "You do not have permission to action reports."
 msgstr "Du hast keine Berechtigung, Berichte zu bearbeiten."
 
-#: includes/Moderation/ModerationService.php:3733
+#: includes/Moderation/ModerationService.php:3758
 msgid "Database error updating report status."
 msgstr "Datenbankfehler beim Aktualisieren des Berichtstatus."
 
-#: includes/Moderation/ModerationService.php:3745
+#: includes/Moderation/ModerationService.php:3770
 msgid "This report was already escalated or actioned by another moderator."
 msgstr ""
 "Diese Meldung wurde bereits von einem anderen Moderator eskaliert oder "
 "bearbeitet."
 
-#: includes/Moderation/ModerationService.php:3746
+#: includes/Moderation/ModerationService.php:3771
 msgid "This report was already actioned by another moderator."
 msgstr "Dieser Bericht wurde bereits von einem anderen Moderator bearbeitet."
 
-#: includes/Moderation/ModerationService.php:4159
+#: includes/Moderation/ModerationService.php:4191
 msgid "Could not save the suspension. Please try again."
 msgstr "Die Sperre konnte nicht gespeichert werden. Bitte versuche es erneut."
 
-#: includes/Moderation/ModerationService.php:4338
+#: includes/Moderation/ModerationService.php:4370
 msgid "You do not have an active suspension to appeal."
 msgstr "Du hast keine aktive Sperrung, gegen die du Einspruch einlegen kannst."
 
-#: includes/Moderation/ModerationService.php:4385
+#: includes/Moderation/ModerationService.php:4417
 msgid "Could not send your appeal. Please try again."
 msgstr ""
 "Dein Widerspruch konnte nicht gesendet werden. Bitte versuche es erneut."
@@ -30184,8 +30189,8 @@ msgstr "Beitrag-Komponist"
 
 #: blocks/bn-post-composer/block.json
 msgctxt "block description"
-msgid "Post creation box — what's on your mind."
-msgstr "Beitragserstell-Feld – woran denkst du?"
+msgid "Post creation box: what's on your mind."
+msgstr ""
 
 #: blocks/bn-post-composer/block.json
 msgctxt "block keyword"
@@ -30365,3 +30370,7 @@ msgstr "Im Trend"
 msgctxt "block keyword"
 msgid "topics"
 msgstr "Themen"
+
+#~ msgctxt "block description"
+#~ msgid "Post creation box — what's on your mind."
+#~ msgstr "Beitragserstell-Feld – woran denkst du?"

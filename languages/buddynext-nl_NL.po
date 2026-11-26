@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.3.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-11-26T06:53:47+00:00\n"
+"POT-Creation-Date: 2026-11-26T14:45:42+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -2464,8 +2464,8 @@ msgstr "Aankondigingen en samenvattingen"
 
 #: includes/Admin/EmailLog.php:533 includes/Admin/EmailLog.php:549
 #: includes/Moderation/ModerationService.php:202
-#: includes/Moderation/ModerationService.php:2234
-#: includes/Moderation/ModerationService.php:2248
+#: includes/Moderation/ModerationService.php:2268
+#: includes/Moderation/ModerationService.php:2282
 msgid "Other"
 msgstr "Overige"
 
@@ -11857,12 +11857,12 @@ msgstr "Punten"
 msgid "Badge"
 msgstr "Badge"
 
-#: includes/Bridges/GamificationBridge.php:462
+#: includes/Bridges/GamificationBridge.php:532
 msgid "Getting started"
 msgstr "Aan de slag"
 
 #. translators: %s: badge name.
-#: includes/Bridges/GamificationBridge.php:671
+#: includes/Bridges/GamificationBridge.php:741
 #, php-format
 msgid "earned the %s badge"
 msgstr "heeft de badge %s verdiend"
@@ -12175,7 +12175,7 @@ msgstr "Je account is geschorst, dus je kunt nu geen bericht plaatsen."
 
 #: includes/Bridges/MemberBlogBridge.php:749
 #: includes/Core/AssetService.php:1346
-#: includes/Moderation/ModerationService.php:2779
+#: includes/Moderation/ModerationService.php:2804
 #: templates/partials/composer.php:107 templates/partials/composer.php:347
 #: templates/profile/edit.php:66
 msgid "Review your account status"
@@ -14974,7 +14974,7 @@ msgid "Strike reversed"
 msgstr "Strike ongedaan gemaakt"
 
 #: includes/Core/AssetService.php:2115
-#: includes/Moderation/ModerationService.php:1495
+#: includes/Moderation/ModerationService.php:1529
 msgid "Could not reverse the strike. Try again."
 msgstr "De strike kon niet ongedaan worden gemaakt. Probeer het opnieuw."
 
@@ -16528,7 +16528,7 @@ msgstr "Ongepaste inhoud"
 #: includes/Core/PageRouter.php:2350
 #: includes/Moderation/ModerationService.php:118
 #: includes/Moderation/ModerationService.php:201
-#: includes/Moderation/ModerationService.php:2232
+#: includes/Moderation/ModerationService.php:2266
 msgid "Impersonation"
 msgstr "Identiteitsfraude"
 
@@ -16646,7 +16646,7 @@ msgid "This community is private. Please log in to view it."
 msgstr "Deze community is privé. Log in om haar te bekijken."
 
 #: includes/Core/RoleService.php:167
-#: includes/Moderation/ModerationService.php:2357
+#: includes/Moderation/ModerationService.php:2391
 msgid ""
 "You cannot take moderation action against someone with more authority than "
 "you."
@@ -17876,8 +17876,8 @@ msgstr "Je kunt dit lid niet waarschuwen."
 
 #: includes/Moderation/ModerationController.php:1628
 #: includes/Moderation/ModerationController.php:1662
-#: includes/Moderation/ModerationService.php:4106
-#: includes/Moderation/ModerationService.php:4328
+#: includes/Moderation/ModerationService.php:4131
+#: includes/Moderation/ModerationService.php:4360
 msgid "Invalid user ID."
 msgstr "Ongeldig gebruikers-ID."
 
@@ -18043,7 +18043,7 @@ msgid "You do not have permission to remove content."
 msgstr "Je hebt geen toestemming om inhoud te verwijderen."
 
 #: includes/Moderation/ModerationService.php:1043
-#: includes/Moderation/ModerationService.php:3679
+#: includes/Moderation/ModerationService.php:3704
 msgid "Report not found."
 msgstr "Melding niet gevonden."
 
@@ -18059,91 +18059,96 @@ msgstr ""
 "Deze inhoud kon niet automatisch worden verwijderd. Los de melding handmatig "
 "op nadat je de inhoud hebt verwijderd."
 
-#: includes/Moderation/ModerationService.php:1306
+#: includes/Moderation/ModerationService.php:1335
 msgid "You do not have permission to issue strikes."
 msgstr "Je hebt geen toestemming om strikes uit te delen."
 
-#: includes/Moderation/ModerationService.php:1314
+#: includes/Moderation/ModerationService.php:1338
+msgid "The site owner's account cannot be given a strike."
+msgstr ""
+
+#: includes/Moderation/ModerationService.php:1348
 msgid "Add a reason for the strike. The member sees it on their account page."
 msgstr ""
 "Voeg een reden voor de waarschuwing toe. Het lid ziet deze op de "
 "accountpagina."
 
-#: includes/Moderation/ModerationService.php:1388
+#: includes/Moderation/ModerationService.php:1422
 msgid "You do not have permission to issue warnings."
 msgstr "Je hebt geen toestemming om waarschuwingen uit te delen."
 
-#: includes/Moderation/ModerationService.php:1405
+#: includes/Moderation/ModerationService.php:1439
 msgid "You can only warn members of a space you moderate."
 msgstr "Je kunt alleen leden waarschuwen in ruimten die je modereert."
 
-#: includes/Moderation/ModerationService.php:1410
+#: includes/Moderation/ModerationService.php:1444
 msgid "Add a message for the warning. The member sees it in their notice."
 msgstr ""
 "Voeg een bericht bij de waarschuwing toe. Het lid ziet dit in de "
 "waarschuwing."
 
-#: includes/Moderation/ModerationService.php:1454
+#: includes/Moderation/ModerationService.php:1488
 msgid "You do not have permission to reverse strikes."
 msgstr "Je hebt geen toestemming om straffen ongedaan te maken."
 
-#: includes/Moderation/ModerationService.php:1474
+#: includes/Moderation/ModerationService.php:1508
 msgid "That strike does not exist or has already been reversed."
 msgstr "Die straf bestaat niet of is al ongedaan gemaakt."
 
-#: includes/Moderation/ModerationService.php:2229
+#: includes/Moderation/ModerationService.php:2263
 msgid "Spam or scams"
 msgstr "Spam of oplichting"
 
-#: includes/Moderation/ModerationService.php:2230
+#: includes/Moderation/ModerationService.php:2264
 msgid "Harassment or abuse"
 msgstr "Intimidatie of misbruik"
 
-#: includes/Moderation/ModerationService.php:2231
+#: includes/Moderation/ModerationService.php:2265
 msgid "Hate speech"
 msgstr "Haatspraak"
 
-#: includes/Moderation/ModerationService.php:2233
+#: includes/Moderation/ModerationService.php:2267
 msgid "Off-topic or disruptive"
 msgstr "Off-topic of storend"
 
-#: includes/Moderation/ModerationService.php:2266
+#: includes/Moderation/ModerationService.php:2300
 msgid "Suspended from the moderation queue."
 msgstr "Geschorst uit de moderatiewachtrij."
 
-#: includes/Moderation/ModerationService.php:2293
+#: includes/Moderation/ModerationService.php:2327
 msgid "Choose a reason from the list."
 msgstr "Kies een reden uit de lijst."
 
-#: includes/Moderation/ModerationService.php:2298
+#: includes/Moderation/ModerationService.php:2332
 msgid "Describe the reason when you choose Other."
 msgstr "Beschrijf de reden als je „Anders” kiest."
 
 #. translators: 1: a label or name, 2: its value or detail.
-#: includes/Moderation/ModerationService.php:2303
+#: includes/Moderation/ModerationService.php:2337
 #: includes/Spaces/CrossSpaceActivityService.php:173
 #, php-format
 msgid "%1$s: %2$s"
 msgstr "%1$s: %2$s"
 
-#: includes/Moderation/ModerationService.php:2331
+#: includes/Moderation/ModerationService.php:2365
 msgid "You do not have permission to suspend members."
 msgstr "Je hebt geen toestemming om leden te schorsen."
 
-#: includes/Moderation/ModerationService.php:2344
+#: includes/Moderation/ModerationService.php:2378
 msgid "You cannot suspend your own account."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2371
+#: includes/Moderation/ModerationService.php:2399
+#: includes/Moderation/ModerationService.php:4136
 msgid "The site owner's account cannot be suspended."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2441
-#: includes/Moderation/ModerationService.php:4113
+#: includes/Moderation/ModerationService.php:2466
+#: includes/Moderation/ModerationService.php:4145
 msgid "Choose a reason for the suspension. The member will see it."
 msgstr "Kies een reden voor de schorsing. Het lid ziet deze reden."
 
-#: includes/Moderation/ModerationService.php:2454
+#: includes/Moderation/ModerationService.php:2479
 msgid ""
 "Only a community or site admin can suspend a member indefinitely. Set a "
 "duration to suspend as a moderator."
@@ -18151,71 +18156,71 @@ msgstr ""
 "Alleen een community- of sitebeheerder kan een lid voor onbepaalde tijd "
 "schorsen. Als moderator stel je een duur in."
 
-#: includes/Moderation/ModerationService.php:2557
+#: includes/Moderation/ModerationService.php:2582
 msgid "You do not have permission to lift suspensions."
 msgstr "Je hebt geen toestemming om schorsingen op te heffen."
 
-#: includes/Moderation/ModerationService.php:2599
+#: includes/Moderation/ModerationService.php:2624
 msgid "That member is not currently suspended."
 msgstr "Dit lid is momenteel niet geschorst."
 
-#: includes/Moderation/ModerationService.php:2634
-#: includes/Moderation/ModerationService.php:2673
+#: includes/Moderation/ModerationService.php:2659
+#: includes/Moderation/ModerationService.php:2698
 #: includes/Onboarding/SetupWizard.php:452
 msgid "Insufficient permissions."
 msgstr "Onvoldoende machtigingen."
 
-#: includes/Moderation/ModerationService.php:3399
+#: includes/Moderation/ModerationService.php:3424
 msgid "No matching suspension found."
 msgstr "Geen overeenkomende schorsing gevonden."
 
-#: includes/Moderation/ModerationService.php:3419
-#: includes/Moderation/ModerationService.php:4365
+#: includes/Moderation/ModerationService.php:3444
+#: includes/Moderation/ModerationService.php:4397
 msgid "You have already appealed this. A moderator will review it."
 msgstr "Je hebt hier al bezwaar tegen gemaakt. Een moderator bekijkt dit."
 
-#: includes/Moderation/ModerationService.php:3493
+#: includes/Moderation/ModerationService.php:3518
 msgid "You do not have permission to resolve appeals."
 msgstr "Je hebt geen toestemming om bezwaren af te handelen."
 
-#: includes/Moderation/ModerationService.php:3497
+#: includes/Moderation/ModerationService.php:3522
 msgid "Decision must be \"approved\" or \"denied\"."
 msgstr "Beslissing moet \"approved\" of \"denied\" zijn."
 
-#: includes/Moderation/ModerationService.php:3520
+#: includes/Moderation/ModerationService.php:3545
 msgid "That appeal no longer exists."
 msgstr "Dit bezwaar bestaat niet meer."
 
-#: includes/Moderation/ModerationService.php:3529
+#: includes/Moderation/ModerationService.php:3554
 msgid "That appeal has already been resolved."
 msgstr "Dit bezwaar is al afgehandeld."
 
-#: includes/Moderation/ModerationService.php:3649
+#: includes/Moderation/ModerationService.php:3674
 msgid "You do not have permission to action reports."
 msgstr "Je hebt geen toestemming om acties op meldingen uit te voeren."
 
-#: includes/Moderation/ModerationService.php:3733
+#: includes/Moderation/ModerationService.php:3758
 msgid "Database error updating report status."
 msgstr "Databasefout bij het bijwerken van de status van de melding."
 
-#: includes/Moderation/ModerationService.php:3745
+#: includes/Moderation/ModerationService.php:3770
 msgid "This report was already escalated or actioned by another moderator."
 msgstr ""
 "Deze melding is al door een andere moderator doorgestuurd of afgehandeld."
 
-#: includes/Moderation/ModerationService.php:3746
+#: includes/Moderation/ModerationService.php:3771
 msgid "This report was already actioned by another moderator."
 msgstr "Deze melding is al door een andere moderator afgehandeld."
 
-#: includes/Moderation/ModerationService.php:4159
+#: includes/Moderation/ModerationService.php:4191
 msgid "Could not save the suspension. Please try again."
 msgstr "De schorsing kon niet worden opgeslagen. Probeer het opnieuw."
 
-#: includes/Moderation/ModerationService.php:4338
+#: includes/Moderation/ModerationService.php:4370
 msgid "You do not have an active suspension to appeal."
 msgstr "Je hebt geen actieve schorsing waartegen je bezwaar kunt maken."
 
-#: includes/Moderation/ModerationService.php:4385
+#: includes/Moderation/ModerationService.php:4417
 msgid "Could not send your appeal. Please try again."
 msgstr "Je bezwaar kon niet worden verzonden. Probeer het opnieuw."
 
@@ -29966,8 +29971,8 @@ msgstr "Berichtencomposer"
 
 #: blocks/bn-post-composer/block.json
 msgctxt "block description"
-msgid "Post creation box — what's on your mind."
-msgstr "Berichtvak — waar denk je aan?"
+msgid "Post creation box: what's on your mind."
+msgstr ""
 
 #: blocks/bn-post-composer/block.json
 msgctxt "block keyword"
@@ -30148,3 +30153,7 @@ msgstr "populair"
 msgctxt "block keyword"
 msgid "topics"
 msgstr "onderwerpen"
+
+#~ msgctxt "block description"
+#~ msgid "Post creation box — what's on your mind."
+#~ msgstr "Berichtvak — waar denk je aan?"

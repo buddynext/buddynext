@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-26T06:53:47+00:00\n"
+"POT-Creation-Date: 2026-11-26T14:45:42+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: buddynext\n"
@@ -2618,8 +2618,8 @@ msgstr ""
 #: includes/Admin/EmailLog.php:533
 #: includes/Admin/EmailLog.php:549
 #: includes/Moderation/ModerationService.php:202
-#: includes/Moderation/ModerationService.php:2234
-#: includes/Moderation/ModerationService.php:2248
+#: includes/Moderation/ModerationService.php:2268
+#: includes/Moderation/ModerationService.php:2282
 msgid "Other"
 msgstr ""
 
@@ -10760,12 +10760,12 @@ msgstr ""
 msgid "Badge"
 msgstr ""
 
-#: includes/Bridges/GamificationBridge.php:462
+#: includes/Bridges/GamificationBridge.php:532
 msgid "Getting started"
 msgstr ""
 
 #. translators: %s: badge name.
-#: includes/Bridges/GamificationBridge.php:671
+#: includes/Bridges/GamificationBridge.php:741
 #, php-format
 msgid "earned the %s badge"
 msgstr ""
@@ -11082,7 +11082,7 @@ msgstr ""
 
 #: includes/Bridges/MemberBlogBridge.php:749
 #: includes/Core/AssetService.php:1346
-#: includes/Moderation/ModerationService.php:2779
+#: includes/Moderation/ModerationService.php:2804
 #: templates/partials/composer.php:107
 #: templates/partials/composer.php:347
 #: templates/profile/edit.php:66
@@ -13962,7 +13962,7 @@ msgid "Strike reversed"
 msgstr ""
 
 #: includes/Core/AssetService.php:2115
-#: includes/Moderation/ModerationService.php:1495
+#: includes/Moderation/ModerationService.php:1529
 msgid "Could not reverse the strike. Try again."
 msgstr ""
 
@@ -15334,7 +15334,7 @@ msgstr ""
 #: includes/Core/PageRouter.php:2350
 #: includes/Moderation/ModerationService.php:118
 #: includes/Moderation/ModerationService.php:201
-#: includes/Moderation/ModerationService.php:2232
+#: includes/Moderation/ModerationService.php:2266
 msgid "Impersonation"
 msgstr ""
 
@@ -15436,7 +15436,7 @@ msgid "This community is private. Please log in to view it."
 msgstr ""
 
 #: includes/Core/RoleService.php:167
-#: includes/Moderation/ModerationService.php:2357
+#: includes/Moderation/ModerationService.php:2391
 msgid "You cannot take moderation action against someone with more authority than you."
 msgstr ""
 
@@ -16541,8 +16541,8 @@ msgstr ""
 
 #: includes/Moderation/ModerationController.php:1628
 #: includes/Moderation/ModerationController.php:1662
-#: includes/Moderation/ModerationService.php:4106
-#: includes/Moderation/ModerationService.php:4328
+#: includes/Moderation/ModerationService.php:4131
+#: includes/Moderation/ModerationService.php:4360
 msgid "Invalid user ID."
 msgstr ""
 
@@ -16694,7 +16694,7 @@ msgid "You do not have permission to remove content."
 msgstr ""
 
 #: includes/Moderation/ModerationService.php:1043
-#: includes/Moderation/ModerationService.php:3679
+#: includes/Moderation/ModerationService.php:3704
 msgid "Report not found."
 msgstr ""
 
@@ -16706,154 +16706,159 @@ msgstr ""
 msgid "This content could not be removed automatically. Resolve the report manually after taking it down."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:1306
+#: includes/Moderation/ModerationService.php:1335
 msgid "You do not have permission to issue strikes."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:1314
+#: includes/Moderation/ModerationService.php:1338
+msgid "The site owner's account cannot be given a strike."
+msgstr ""
+
+#: includes/Moderation/ModerationService.php:1348
 msgid "Add a reason for the strike. The member sees it on their account page."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:1388
+#: includes/Moderation/ModerationService.php:1422
 msgid "You do not have permission to issue warnings."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:1405
+#: includes/Moderation/ModerationService.php:1439
 msgid "You can only warn members of a space you moderate."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:1410
+#: includes/Moderation/ModerationService.php:1444
 msgid "Add a message for the warning. The member sees it in their notice."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:1454
+#: includes/Moderation/ModerationService.php:1488
 msgid "You do not have permission to reverse strikes."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:1474
+#: includes/Moderation/ModerationService.php:1508
 msgid "That strike does not exist or has already been reversed."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2229
+#: includes/Moderation/ModerationService.php:2263
 msgid "Spam or scams"
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2230
+#: includes/Moderation/ModerationService.php:2264
 msgid "Harassment or abuse"
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2231
+#: includes/Moderation/ModerationService.php:2265
 msgid "Hate speech"
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2233
+#: includes/Moderation/ModerationService.php:2267
 msgid "Off-topic or disruptive"
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2266
+#: includes/Moderation/ModerationService.php:2300
 msgid "Suspended from the moderation queue."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2293
+#: includes/Moderation/ModerationService.php:2327
 msgid "Choose a reason from the list."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2298
+#: includes/Moderation/ModerationService.php:2332
 msgid "Describe the reason when you choose Other."
 msgstr ""
 
 #. translators: 1: a label or name, 2: its value or detail.
-#: includes/Moderation/ModerationService.php:2303
+#: includes/Moderation/ModerationService.php:2337
 #: includes/Spaces/CrossSpaceActivityService.php:173
 #, php-format
 msgid "%1$s: %2$s"
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2331
+#: includes/Moderation/ModerationService.php:2365
 msgid "You do not have permission to suspend members."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2344
+#: includes/Moderation/ModerationService.php:2378
 msgid "You cannot suspend your own account."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2371
+#: includes/Moderation/ModerationService.php:2399
+#: includes/Moderation/ModerationService.php:4136
 msgid "The site owner's account cannot be suspended."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2441
-#: includes/Moderation/ModerationService.php:4113
+#: includes/Moderation/ModerationService.php:2466
+#: includes/Moderation/ModerationService.php:4145
 msgid "Choose a reason for the suspension. The member will see it."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2454
+#: includes/Moderation/ModerationService.php:2479
 msgid "Only a community or site admin can suspend a member indefinitely. Set a duration to suspend as a moderator."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2557
+#: includes/Moderation/ModerationService.php:2582
 msgid "You do not have permission to lift suspensions."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2599
+#: includes/Moderation/ModerationService.php:2624
 msgid "That member is not currently suspended."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2634
-#: includes/Moderation/ModerationService.php:2673
+#: includes/Moderation/ModerationService.php:2659
+#: includes/Moderation/ModerationService.php:2698
 #: includes/Onboarding/SetupWizard.php:452
 msgid "Insufficient permissions."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3399
+#: includes/Moderation/ModerationService.php:3424
 msgid "No matching suspension found."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3419
-#: includes/Moderation/ModerationService.php:4365
+#: includes/Moderation/ModerationService.php:3444
+#: includes/Moderation/ModerationService.php:4397
 msgid "You have already appealed this. A moderator will review it."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3493
+#: includes/Moderation/ModerationService.php:3518
 msgid "You do not have permission to resolve appeals."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3497
+#: includes/Moderation/ModerationService.php:3522
 msgid "Decision must be \"approved\" or \"denied\"."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3520
+#: includes/Moderation/ModerationService.php:3545
 msgid "That appeal no longer exists."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3529
+#: includes/Moderation/ModerationService.php:3554
 msgid "That appeal has already been resolved."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3649
+#: includes/Moderation/ModerationService.php:3674
 msgid "You do not have permission to action reports."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3733
+#: includes/Moderation/ModerationService.php:3758
 msgid "Database error updating report status."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3745
+#: includes/Moderation/ModerationService.php:3770
 msgid "This report was already escalated or actioned by another moderator."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:3746
+#: includes/Moderation/ModerationService.php:3771
 msgid "This report was already actioned by another moderator."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:4159
+#: includes/Moderation/ModerationService.php:4191
 msgid "Could not save the suspension. Please try again."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:4338
+#: includes/Moderation/ModerationService.php:4370
 msgid "You do not have an active suspension to appeal."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:4385
+#: includes/Moderation/ModerationService.php:4417
 msgid "Could not send your appeal. Please try again."
 msgstr ""
 
@@ -27725,7 +27730,7 @@ msgstr ""
 
 #: blocks/bn-post-composer/block.json
 msgctxt "block description"
-msgid "Post creation box — what's on your mind."
+msgid "Post creation box: what's on your mind."
 msgstr ""
 
 #: blocks/bn-post-composer/block.json
