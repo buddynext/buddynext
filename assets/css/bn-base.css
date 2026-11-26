@@ -3137,9 +3137,20 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 
 .bn-btn[data-variant][disabled],
 .bn-btn[data-variant][aria-disabled="true"] {
-	opacity: 0.55;
+	/* Disabled reads as disabled by its flat grey fill, not by fading the label into the page: the text and the edge
+	   keep their contrast (4.5:1 and 3:1) so the button is still legible. */
+	opacity: 1;
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	border-color: var(--bn-line-control);
+	filter: none;
 	cursor: not-allowed;
 	transform: none;
+}
+.bn-btn[data-variant="danger"][disabled],
+.bn-btn[data-variant="primary"][disabled] {
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
 }
 
 /* ── Input / Textarea / Select — v2 ─────────────────────────────────── */
