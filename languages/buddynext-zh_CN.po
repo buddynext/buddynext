@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.3.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-11-26T14:45:42+00:00\n"
+"POT-Creation-Date: 2026-11-26T15:19:36+00:00\n"
 "PO-Revision-Date: 2026-07-08T06:01:07+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -2404,8 +2404,8 @@ msgstr "公告与摘要"
 
 #: includes/Admin/EmailLog.php:533 includes/Admin/EmailLog.php:549
 #: includes/Moderation/ModerationService.php:202
-#: includes/Moderation/ModerationService.php:2268
-#: includes/Moderation/ModerationService.php:2282
+#: includes/Moderation/ModerationService.php:2280
+#: includes/Moderation/ModerationService.php:2294
 msgid "Other"
 msgstr "其他"
 
@@ -11608,7 +11608,7 @@ msgstr "您的账户已被暂停,目前无法发布内容。"
 
 #: includes/Bridges/MemberBlogBridge.php:749
 #: includes/Core/AssetService.php:1346
-#: includes/Moderation/ModerationService.php:2804
+#: includes/Moderation/ModerationService.php:2817
 #: templates/partials/composer.php:107 templates/partials/composer.php:347
 #: templates/profile/edit.php:66
 msgid "Review your account status"
@@ -14355,7 +14355,7 @@ msgid "Strike reversed"
 msgstr "违规记录已撤销"
 
 #: includes/Core/AssetService.php:2115
-#: includes/Moderation/ModerationService.php:1529
+#: includes/Moderation/ModerationService.php:1541
 msgid "Could not reverse the strike. Try again."
 msgstr "无法撤销违规记录,请重试。"
 
@@ -15856,7 +15856,7 @@ msgstr "不当内容"
 #: includes/Core/PageRouter.php:2350
 #: includes/Moderation/ModerationService.php:118
 #: includes/Moderation/ModerationService.php:201
-#: includes/Moderation/ModerationService.php:2266
+#: includes/Moderation/ModerationService.php:2278
 msgid "Impersonation"
 msgstr "冒充他人"
 
@@ -15969,7 +15969,7 @@ msgid "This community is private. Please log in to view it."
 msgstr "此社区为私密社区，请登录后查看。"
 
 #: includes/Core/RoleService.php:167
-#: includes/Moderation/ModerationService.php:2391
+#: includes/Moderation/ModerationService.php:2409
 msgid ""
 "You cannot take moderation action against someone with more authority than "
 "you."
@@ -17132,8 +17132,8 @@ msgstr "你无法警告该成员。"
 
 #: includes/Moderation/ModerationController.php:1628
 #: includes/Moderation/ModerationController.php:1662
-#: includes/Moderation/ModerationService.php:4131
-#: includes/Moderation/ModerationService.php:4360
+#: includes/Moderation/ModerationService.php:4144
+#: includes/Moderation/ModerationService.php:4373
 msgid "Invalid user ID."
 msgstr "无效的用户 ID。"
 
@@ -17293,7 +17293,7 @@ msgid "You do not have permission to remove content."
 msgstr "您没有删除内容的权限。"
 
 #: includes/Moderation/ModerationService.php:1043
-#: includes/Moderation/ModerationService.php:3704
+#: includes/Moderation/ModerationService.php:3717
 msgid "Report not found."
 msgstr "未找到该举报。"
 
@@ -17311,157 +17311,161 @@ msgstr "该内容无法自动删除。请在下架后手动处理此举报。"
 msgid "You do not have permission to issue strikes."
 msgstr "您没有发出警告记录的权限。"
 
-#: includes/Moderation/ModerationService.php:1338
+#: includes/Moderation/ModerationService.php:1342
+msgid "You cannot give yourself a strike."
+msgstr ""
+
+#: includes/Moderation/ModerationService.php:1350
 msgid "The site owner's account cannot be given a strike."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:1348
+#: includes/Moderation/ModerationService.php:1360
 msgid "Add a reason for the strike. The member sees it on their account page."
 msgstr "请填写违规原因。成员可以在其账户页面看到该原因。"
 
-#: includes/Moderation/ModerationService.php:1422
+#: includes/Moderation/ModerationService.php:1434
 msgid "You do not have permission to issue warnings."
 msgstr "您没有发出警告的权限。"
 
-#: includes/Moderation/ModerationService.php:1439
+#: includes/Moderation/ModerationService.php:1451
 msgid "You can only warn members of a space you moderate."
 msgstr "您只能警告您所管理空间中的成员。"
 
-#: includes/Moderation/ModerationService.php:1444
+#: includes/Moderation/ModerationService.php:1456
 msgid "Add a message for the warning. The member sees it in their notice."
 msgstr "请填写警告内容。成员可以在其通知中看到该内容。"
 
-#: includes/Moderation/ModerationService.php:1488
+#: includes/Moderation/ModerationService.php:1500
 msgid "You do not have permission to reverse strikes."
 msgstr "您没有撤销警告记录的权限。"
 
-#: includes/Moderation/ModerationService.php:1508
+#: includes/Moderation/ModerationService.php:1520
 msgid "That strike does not exist or has already been reversed."
 msgstr "该警告记录不存在或已被撤销。"
 
-#: includes/Moderation/ModerationService.php:2263
+#: includes/Moderation/ModerationService.php:2275
 msgid "Spam or scams"
 msgstr "垃圾信息或诈骗"
 
-#: includes/Moderation/ModerationService.php:2264
+#: includes/Moderation/ModerationService.php:2276
 msgid "Harassment or abuse"
 msgstr "骚扰或辱骂"
 
-#: includes/Moderation/ModerationService.php:2265
+#: includes/Moderation/ModerationService.php:2277
 msgid "Hate speech"
 msgstr "仇恨言论"
 
-#: includes/Moderation/ModerationService.php:2267
+#: includes/Moderation/ModerationService.php:2279
 msgid "Off-topic or disruptive"
 msgstr "偏离主题或扰乱秩序"
 
-#: includes/Moderation/ModerationService.php:2300
+#: includes/Moderation/ModerationService.php:2312
 msgid "Suspended from the moderation queue."
 msgstr "已被移出版主审核队列。"
 
-#: includes/Moderation/ModerationService.php:2327
+#: includes/Moderation/ModerationService.php:2339
 msgid "Choose a reason from the list."
 msgstr "请从列表中选择一个原因。"
 
-#: includes/Moderation/ModerationService.php:2332
+#: includes/Moderation/ModerationService.php:2344
 msgid "Describe the reason when you choose Other."
 msgstr "选择“其他”时，请说明原因。"
 
 #. translators: 1: a label or name, 2: its value or detail.
-#: includes/Moderation/ModerationService.php:2337
+#: includes/Moderation/ModerationService.php:2349
 #: includes/Spaces/CrossSpaceActivityService.php:173
 #, php-format
 msgid "%1$s: %2$s"
 msgstr "%1$s：%2$s"
 
-#: includes/Moderation/ModerationService.php:2365
-msgid "You do not have permission to suspend members."
-msgstr "您没有停用成员的权限。"
-
-#: includes/Moderation/ModerationService.php:2378
-msgid "You cannot suspend your own account."
-msgstr ""
-
-#: includes/Moderation/ModerationService.php:2399
-#: includes/Moderation/ModerationService.php:4136
+#: includes/Moderation/ModerationService.php:2371
+#: includes/Moderation/ModerationService.php:4149
 msgid "The site owner's account cannot be suspended."
 msgstr ""
 
-#: includes/Moderation/ModerationService.php:2466
-#: includes/Moderation/ModerationService.php:4145
+#: includes/Moderation/ModerationService.php:2383
+msgid "You do not have permission to suspend members."
+msgstr "您没有停用成员的权限。"
+
+#: includes/Moderation/ModerationService.php:2396
+msgid "You cannot suspend your own account."
+msgstr ""
+
+#: includes/Moderation/ModerationService.php:2479
+#: includes/Moderation/ModerationService.php:4158
 msgid "Choose a reason for the suspension. The member will see it."
 msgstr "请选择停用原因。成员将能看到该原因。"
 
-#: includes/Moderation/ModerationService.php:2479
+#: includes/Moderation/ModerationService.php:2492
 msgid ""
 "Only a community or site admin can suspend a member indefinitely. Set a "
 "duration to suspend as a moderator."
 msgstr "只有社区或网站管理员可以无限期暂停成员。版主需设置暂停时长。"
 
-#: includes/Moderation/ModerationService.php:2582
+#: includes/Moderation/ModerationService.php:2595
 msgid "You do not have permission to lift suspensions."
 msgstr "您没有解除停用的权限。"
 
-#: includes/Moderation/ModerationService.php:2624
+#: includes/Moderation/ModerationService.php:2637
 msgid "That member is not currently suspended."
 msgstr "该成员目前未被停用。"
 
-#: includes/Moderation/ModerationService.php:2659
-#: includes/Moderation/ModerationService.php:2698
+#: includes/Moderation/ModerationService.php:2672
+#: includes/Moderation/ModerationService.php:2711
 #: includes/Onboarding/SetupWizard.php:452
 msgid "Insufficient permissions."
 msgstr "权限不足。"
 
-#: includes/Moderation/ModerationService.php:3424
+#: includes/Moderation/ModerationService.php:3437
 msgid "No matching suspension found."
 msgstr "未找到匹配的停用记录。"
 
-#: includes/Moderation/ModerationService.php:3444
-#: includes/Moderation/ModerationService.php:4397
+#: includes/Moderation/ModerationService.php:3457
+#: includes/Moderation/ModerationService.php:4410
 msgid "You have already appealed this. A moderator will review it."
 msgstr "您已提交过申诉。版主将进行审核。"
 
-#: includes/Moderation/ModerationService.php:3518
+#: includes/Moderation/ModerationService.php:3531
 msgid "You do not have permission to resolve appeals."
 msgstr "您没有处理申诉的权限。"
 
-#: includes/Moderation/ModerationService.php:3522
+#: includes/Moderation/ModerationService.php:3535
 msgid "Decision must be \"approved\" or \"denied\"."
 msgstr "处理结果必须为“通过”或“驳回”。"
 
-#: includes/Moderation/ModerationService.php:3545
+#: includes/Moderation/ModerationService.php:3558
 msgid "That appeal no longer exists."
 msgstr "该申诉已不存在。"
 
-#: includes/Moderation/ModerationService.php:3554
+#: includes/Moderation/ModerationService.php:3567
 msgid "That appeal has already been resolved."
 msgstr "该申诉已处理。"
 
-#: includes/Moderation/ModerationService.php:3674
+#: includes/Moderation/ModerationService.php:3687
 msgid "You do not have permission to action reports."
 msgstr "您没有处理举报的权限。"
 
-#: includes/Moderation/ModerationService.php:3758
+#: includes/Moderation/ModerationService.php:3771
 msgid "Database error updating report status."
 msgstr "更新举报状态时发生数据库错误。"
 
-#: includes/Moderation/ModerationService.php:3770
+#: includes/Moderation/ModerationService.php:3783
 msgid "This report was already escalated or actioned by another moderator."
 msgstr "此举报已被其他版主升级处理或已采取措施。"
 
-#: includes/Moderation/ModerationService.php:3771
+#: includes/Moderation/ModerationService.php:3784
 msgid "This report was already actioned by another moderator."
 msgstr "该举报已被其他版主处理。"
 
-#: includes/Moderation/ModerationService.php:4191
+#: includes/Moderation/ModerationService.php:4204
 msgid "Could not save the suspension. Please try again."
 msgstr "无法保存暂停设置，请重试。"
 
-#: includes/Moderation/ModerationService.php:4370
+#: includes/Moderation/ModerationService.php:4383
 msgid "You do not have an active suspension to appeal."
 msgstr "您目前没有可申诉的有效禁言处罚。"
 
-#: includes/Moderation/ModerationService.php:4417
+#: includes/Moderation/ModerationService.php:4430
 msgid "Could not send your appeal. Please try again."
 msgstr "无法提交申诉，请重试。"
 
