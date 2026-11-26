@@ -40,6 +40,9 @@ class CronRetentionTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_purges_only_our_completed_rows_older_than_a_week(): void {
+		// Scheduler rows committed by earlier suites in this database are not ours to count: drain them first.
+		( new LogRetentionService() )->purge();
+
 		$old    = $this->action( 'buddynext_zz_done', 'complete', 8, 'buddynext' );
 		$recent = $this->action( 'buddynext_zz_recent', 'complete', 3, 'buddynext' );
 		$queued = $this->action( 'buddynext_zz_waiting', 'pending', 8, 'buddynext' );

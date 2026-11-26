@@ -19,6 +19,8 @@ use BuddyNext\Core\PageRouter;
  * made private or password protected still shown.
  *
  * @covers \BuddyNext\Core\PageCachePurger
+ * @runTestsInSeparateProcesses
+ * @preserveGlobalState disabled
  */
 class PageCachePurgerArticlesTest extends \WP_UnitTestCase {
 
