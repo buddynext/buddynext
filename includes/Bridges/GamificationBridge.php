@@ -232,6 +232,27 @@ class GamificationBridge {
 		// One join, one award: a join BuddyNext copies from the forum, and the forum
 		// join an approved request admits, are paid by the award the original earns.
 		add_filter( 'wb_gam_before_evaluate', array( $this, 'skip_copied_awards' ), 10, 2 );
+
+		// A suspended member earns nothing while suspended: BuddyNext owns the moderation state, and
+		// wb-gamification's one earning gate asks this filter. Points earned before stay.
+		add_filter( 'wb_gam_user_can_earn', array( $this, 'no_earning_while_suspended' ), 10, 2 );
+	}
+
+	/**
+	 * Refuse earning for a suspended member (no points, so no badge, level or toast follows).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param bool $can     Whether wb-gamification would let the member earn.
+	 * @param int  $user_id Member.
+	 * @return bool
+	 */
+	public function no_earning_while_suspended( $can, $user_id ): bool {
+		if ( ! $can || (int) $user_id <= 0 ) {
+			return (bool) $can;
+		}
+
+		return ! buddynext_service( 'moderation' )->is_suspended( (int) $user_id );
 	}
 
 	/**
