@@ -1955,3 +1955,10 @@ dialog.bn-approval-details .bn-approval-details__title {
 	color: var(--bn-danger);
 	font-size: var(--bn-text-sm);
 }
+
+/* Profile Fields: header labels and the type chip stay on one line, so "Field name" and "Location (map)" are never
+   split across two. On a phone the table scrolls instead of squashing. */
+.bn-pf-table th,
+.bn-pf-table .bn-badge {
+	white-space: nowrap;
+}

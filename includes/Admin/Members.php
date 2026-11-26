@@ -1854,10 +1854,8 @@ class Members extends AdminPageBase {
 			<?php endforeach; ?>
 		</div>
 
+		<?php // No card title: the page heading and the tab already say "Members". ?>
 		<div class="bn-settings-section bn-members-table-wrap">
-			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Members', 'buddynext' ); ?></span>
-			</div>
 			<div class="bn-ss-body">
 			<?php
 			// One toolbar row: the search/filter form and the bulk-action form are

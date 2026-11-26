@@ -65,11 +65,15 @@
 	color: var(--bn-ink-3);
 }
 
-.bn-mu__error {
-	margin-block: var(--bn-s2) 0;
-	color: var(--bn-danger);
+/* A refused file is explained inside the drop zone, where the member just dropped it. */
+.bn-mu__dropzone-error {
+	margin-block-start: var(--bn-s2);
+	color: var(--bn-danger-text, var(--bn-danger));
 	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-align: center;
 }
+.bn-mu__dropzone-error[hidden] { display: none; }
 
 /* ── Staged files ──────────────────────────────────────────────────────────── */
 .bn-mu__staged {

@@ -2261,6 +2261,14 @@ table.bn-table tr:hover td {
 
 .bn-companion-card__unlocks svg { flex-shrink: 0; }
 
+/* Buttons and links in a card's action row share one height, so "Install free" and "Learn more" sit on one line. */
+.bn-companion-card__actions .bn-btn,
+.bn-companion-card__actions .bn-addon-row__action {
+	min-block-size: 36px;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+}
 .bn-companion-card__actions {
 	display: flex;
 	flex-wrap: wrap;

@@ -90,13 +90,12 @@ $bn_mu_ctx = array(
 		<span class="bn-mu__dropzone-icon" aria-hidden="true"><?php buddynext_icon( 'upload' ); ?></span>
 		<span class="bn-mu__dropzone-title"><?php esc_html_e( 'Drag files here or click to upload', 'buddynext' ); ?></span>
 		<span class="bn-mu__dropzone-hint"><?php esc_html_e( 'Photos, video or audio · up to 10 at once', 'buddynext' ); ?></span>
+		<span class="bn-mu__dropzone-error" role="alert" hidden
+			data-wp-text="context.errorMsg"
+			data-wp-bind--hidden="!context.errorMsg"></span>
 		<input class="bn-mu-input" type="file" accept="image/*,video/*,audio/*" multiple
 			data-wp-on--change="actions.onFileSelect" hidden />
 	</div>
-
-	<p class="bn-mu__error" role="alert"
-		data-wp-text="context.errorMsg"
-		data-wp-bind--hidden="!context.errorMsg"></p>
 
 	<div class="bn-mu__staged" data-wp-bind--hidden="!context.hasStaged">
 		<div class="bn-mu__staged-grid">
