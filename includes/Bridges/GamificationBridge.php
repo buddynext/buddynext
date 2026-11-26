@@ -236,6 +236,38 @@ class GamificationBridge {
 		// A suspended member earns nothing while suspended: BuddyNext owns the moderation state, and
 		// wb-gamification's one earning gate asks this filter. Points earned before stay.
 		add_filter( 'wb_gam_user_can_earn', array( $this, 'no_earning_while_suspended' ), 10, 2 );
+
+		// ...and does not appear on the leaderboard while suspended (owner decision 2026-11-26). Inside
+		// wb-gamification's leaderboard SQL, so ranks and page counts stay right. Inert on a wb-gamification
+		// without this filter (added in 1.6.9).
+		add_filter( 'wb_gam_leaderboard_exclusion_sql', array( $this, 'leaderboard_skips_suspended' ), 10, 2 );
+	}
+
+	/**
+	 * Append "not currently suspended" to wb-gamification's leaderboard exclusion SQL.
+	 *
+	 * Index-backed by bn_user_suspensions KEY user_active (user_id, expires_at); binds no values. The active
+	 * rule matches ModerationService::is_suspended().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param array{0:string,1:array<int,mixed>}|mixed $fragment SQL fragment and its bound values so far.
+	 * @param string                                   $alias    Table alias whose user_id is the member.
+	 * @return array{0:string,1:array<int,mixed>}
+	 */
+	public function leaderboard_skips_suspended( $fragment, $alias = '' ): array {
+		global $wpdb;
+
+		$fragment = is_array( $fragment ) ? $fragment + array( '', array() ) : array( '', array() );
+		$alias    = preg_replace( '/[^A-Za-z0-9_]/', '', (string) $alias );
+		if ( '' === $alias ) {
+			return array( (string) $fragment[0], (array) $fragment[1] );
+		}
+
+		$sql = ' AND NOT EXISTS ( SELECT 1 FROM ' . $wpdb->prefix . 'bn_user_suspensions bs WHERE bs.user_id = ' . $alias . '.user_id'
+			. ' AND bs.lifted_at IS NULL AND ( bs.expires_at IS NULL OR bs.expires_at > UTC_TIMESTAMP() ) )';
+
+		return array( (string) $fragment[0] . $sql, (array) $fragment[1] );
 	}
 
 	/**
