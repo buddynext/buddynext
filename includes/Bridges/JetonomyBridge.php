@@ -2225,6 +2225,30 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Carry a space's existing bans into the forum it has just been linked to, through the same writer a new
+	 * ban uses (restrict_forum_for_ban), so a member banned before Discussions was on cannot post there.
+	 * Jetonomy reads only its own restriction rows, so the space ban list is replayed once at link time;
+	 * later bans and unbans follow through the ban hooks. Safe to repeat: Jetonomy keeps one row per ban.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return void
+	 */
+	private function carry_space_bans( int $space_id ): void {
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$after   = 0;
+		do {
+			$ids  = $members->banned_user_ids( $space_id, $after );
+			$full = 500 === count( $ids );
+			foreach ( $ids as $user_id ) {
+				$this->restrict_forum_for_ban( $space_id, $user_id );
+				$after = $user_id;
+			}
+		} while ( $full );
+	}
+
+	/**
 	 * Lift the forum restriction when the space ban is lifted.
 	 *
 	 * @since 1.3.1
@@ -2419,6 +2443,7 @@ class JetonomyBridge {
 			);
 			if ( $may_link ) {
 				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
+				$this->carry_space_bans( $space_id );
 				// An existing forum comes with its people (an imported wpForo or
 				// bbPress forum can have thousands): bring them into an open space,
 				// once, in the background. Membership is not mirrored after this.
@@ -3406,6 +3431,7 @@ class JetonomyBridge {
 		// made: linking it twice would let two spaces write one forum's access.
 		if ( $adopted > 0 && $this->forum_free_for( $adopted, $space_id ) ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $adopted );
+			$this->carry_space_bans( $space_id );
 			$this->set_discussion_enabled( $space_id, true );
 			$this->apply_discussion_posting( $space_id, false );
 
@@ -3429,6 +3455,7 @@ class JetonomyBridge {
 
 		if ( $forum_id > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+			$this->carry_space_bans( $space_id );
 			update_space_meta( $space_id, self::PROVISIONED_META, $forum_id );
 			$this->apply_discussion_posting( $space_id, false );
 

@@ -2635,6 +2635,37 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Banned member ids for a space, one keyset page (PRIMARY KEY space_id, user_id).
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $after_id Return ids above this one (0 for the first page).
+	 * @param int $limit    Page size, 1 to 500.
+	 * @return int[] Ascending user ids.
+	 */
+	public function banned_user_ids( int $space_id, int $after_id = 0, int $limit = 500 ): array {
+		global $wpdb;
+
+		if ( $space_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d AND user_id > %d ORDER BY user_id ASC LIMIT %d",
+				$space_id,
+				max( 0, $after_id ),
+				max( 1, min( 500, $limit ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
 	 * List active bans for a space, oldest first.
 	 *
 	 * @param int $space_id Space ID.
