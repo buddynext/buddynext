@@ -123,7 +123,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - A toast no longer lands on the cookie notice, and a malformed sign-up email says so.
 * Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
 * Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.
-* Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0 and Eventonomy 2.0.0. Install BuddyNext Pro 1.3.0 together with this release.
+* Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0 and Eventonomy 2.0.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
 
 = 1.2.9 - November 2026 =
 
