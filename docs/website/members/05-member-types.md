@@ -51,6 +51,10 @@ Web address, Text color, Sort order, and Icon live under the Advanced section of
 
 Open a member from the admin members list and use the **Member Type** dropdown in the Edit Member view (see [Editing a Member from the Admin](14-admin-editing-a-member.md)). Choose a type to assign it, or choose "No type" to remove the assignment. A member has at most one type at a time.
 
+### Finding and exporting members of one type
+
+Once at least one type exists, the admin members list (**BuddyNext > Members > Directory**) has an **All types** dropdown next to the role filter. Pick a type to list only its members; each row shows the member's type. **Export CSV** then downloads the same filtered list, including a Member type column. See [Exporting members](14-admin-editing-a-member.md#exporting-members).
+
 ### Self-selectable types
 
 If a type has **Allow members to self-assign** turned on, members can set it themselves from their profile edit page - you do not have to assign it. This is useful when the member knows their own category better than you do (a skill track, a role they identify with). Members can also pick "None" to clear a self-selected type and go back to having no type. The profile selector only lists types you have marked self-selectable; if none are self-selectable, no selector appears.

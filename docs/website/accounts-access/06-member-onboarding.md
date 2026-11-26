@@ -117,7 +117,8 @@ Both emails are scheduled the moment a member registers. As soon as the member c
 ## What changed in 1.3.0
 
 - With JavaScript turned off the wizard shows a plain **Skip setup** button that completes onboarding and opens the activity feed, so a member is never stuck on the page.
-- A suspended member is not sent to onboarding.
+- A suspended member is not sent to onboarding. They reach the account status page instead, where they can read the reason and appeal.
+- The wizard shows only its first step while its script is still loading, instead of every step stacked down the page.
 
 ## Related
 

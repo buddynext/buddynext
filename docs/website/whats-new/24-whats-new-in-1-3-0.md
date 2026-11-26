@@ -6,7 +6,7 @@ This release makes your partner plugins show up in the community as live cards, 
 
 ## Better for site owners
 
-- **Live partner cards.** Discussions from Jetonomy, badges from WB Gamification and documents from MediaVerse show their facts as they are now, with up to two buttons. With BuddyNext Pro, job, resume, listing, course and event cards do the same.
+- **Live partner cards.** Discussions from Jetonomy, badges from WB Gamification and documents from MediaVerse show their facts as they are now, with up to two buttons. With BuddyNext Pro, job, resume, listing, course and event cards also show live facts; their title opens the item, a course card adds View certificate when the member has one, and an event card keeps its Going and Maybe buttons.
 - **Events follow your Spaces.** With Eventonomy 2.0, an event can be members-only or open to a Space's members. People who may not open it see a preview with the right button for their situation, and a plan-gated Space uses its own membership wording.
 - **Space Location.** A Space can have an optional Location that Space search matches and the About tab shows.
 - **Members list.** Filter and export by member type, and the CSV follows the Active or Suspended tab.

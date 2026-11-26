@@ -82,7 +82,8 @@ Media reporting is on by default, and the site owner can turn it off in MediaVer
 - **Deleting an album keeps your photos.** Removing an album never deletes the media inside it. The items stay in your gallery; only the grouping goes away.
 - **You can only manage your own media.** Members upload, organize, and remove only their own photos, videos, and albums. Site administrators can moderate media when they need to, but no ordinary member can touch another member's gallery.
 - **Report and Block never appear on your own media.** They show only when you are signed in and looking at someone else's photo or video. If media reporting has been switched off for the site, the Report button is not drawn at all, rather than shown and then refusing to work.
-- **Galleries are built for big profiles.** Both the media grid and album views load a page at a time, so a profile with a very large gallery stays fast.
+- **Galleries are built for big profiles.** The media grid, the album list and the pictures inside an album load a page at a time, so a profile with a very large gallery stays fast. Every item stays reachable: **Load more** under the grid (then **Older media**), **Load more albums** under the album list, and **Load more photos** inside an open album.
+- **Album titles show as typed.** Apostrophes and dashes in an album title show as you typed them, and a long title on a phone no longer makes the album grid scroll sideways.
 
 ## Free vs Pro
 

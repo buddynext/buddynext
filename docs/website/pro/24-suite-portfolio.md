@@ -47,12 +47,30 @@ Each integration's own behaviour - what a job or listing or course does - is con
 
 Pro also adds two tabs to spaces, and both are on in every space by default while their app is active:
 
-- **Events** - from Eventonomy. A space owner can switch it off for their space, and a choice already saved is kept.
-- **Businesses** - from WB Listora. Members of the space add their own listings. With WB Listora 2.1.1 or later, **Your businesses in this space** names every listing the member has there, newest first, up to 50 (with "Your newest 50 of N." beyond that), and the space team's own listing is listed at once without review. The submit message says whether the listing was added or sent for review. An older WB Listora keeps the shorter list and sends every listing for review.
+- **Events** - from Eventonomy. A space owner can switch it off for their space, and a choice already saved is kept. The tab lists **Upcoming** events first. A **Past** link (newest first) appears once the space has a past event the viewer may see. With Eventonomy 2.0.0 or later, an event open only to the space's members is listed only for those members.
+- **Businesses** - from WB Listora. The tab shows when the space has a business listed, or when the viewer can add one (a space member) or review the queue (a space moderator). Developers can change this with the `buddynext_space_businesses_tab_visible` filter. Members of the space add their own listings. With WB Listora 2.1.1 or later, **Your businesses in this space** names every listing the member has there, newest first, up to 50 (with "Your newest 50 of N." beyond that), and the space team's own listing is listed at once without review. The submit message says whether the listing was added or sent for review. An older WB Listora keeps the shorter list and sends every listing for review.
 
 In Settings > Navigation these two tabs are labelled with their app and show when Integration Settings has the app off.
 
 With WB Listora 2.1.1 or later, an approved review of a published listing also posts a card to the community feed ("reviewed a listing", with the rating and an excerpt). Editing the review refreshes the card, and rejecting or deleting it removes the card. This follows the **Feed** switch for WB Listora.
+
+## Partner cards in the feed (1.3.0)
+
+When a member posts a job, a resume, a listing, a course result or an event in a connected app, a card appears in the community feed (while that app's **Feed** switch is on in Integration Settings). Each card reads the item as it is now each time the feed loads, so a changed price or date shows without reposting. The card's title opens the item in the partner app. Cards carry no extra "Open" button that would repeat the title.
+
+| Card | What it shows | Buttons |
+|---|---|---|
+| **Job** (WP Career Board) | Company, place ("Remote" or the location), pay when the employer gave it, job type, and the closing date ("closes" before it, "closed" after it). The job's image follows the job: change or remove it in Career Board and the card follows. | None. The title opens the job. |
+| **Open to Work** (WP Career Board Pro) | The resume headline as the title, then the summary, up to three skills, the location, years of experience, and the resume photo. | None. The headline opens the resume. |
+| **Listing** (WB Listora) | Category, location, and the average rating with the review count once it has reviews. A review card leads with that review's own stars ("Rated 4 of 5"). | None. |
+| **Course** (Learnomy) | Difficulty, number of lessons, length, and the price ("Free" or the amount). | **View certificate**, only on a card for an earned certificate. |
+| **Event** (Eventonomy) | Date, time, city, price and how many are going, with **Cancelled**, **Ended**, **Online**, **Members only** or **Space members** labels when they apply. A repeating event gets one card for the whole series. | **Going** and **Maybe** for a free RSVP event that has not ended. Paid, sold-out and full events open the event page. |
+
+When the source changes, the card changes with it:
+
+- **Open to Work** shows only while the resume is published, public and marked open to work, and while Career Board lets visitors open resumes. If you limit who may open a resume in Career Board Pro, existing cards come down; they come back when you open it up again. Skills saved as rows in Career Board's resume builder show by name.
+- **Jobs** hidden or restored in Career Board moderation take their card, search result and feed items with them.
+- A job or resume that is unpublished leaves the feed, and re-publishing restores the same card with its reactions and comments. Deleting it removes the card.
 
 ## Good to know
 

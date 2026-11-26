@@ -19,7 +19,7 @@ We have kept this honest. Where something is provided by a companion plugin or i
 | Groups (called Spaces) | Free | Unlimited open, request-to-join (private), and hidden (secret) spaces, each with its own feed, members, and optional tabs. Membership-gated (paid or tiered) space access is Pro. |
 | Profiles and profile fields | Free | Avatar, cover, bio, social links, and custom profile fields with per-field privacy. Advanced field types (date, location, multi-select, number) and conditional logic for profile fields are Pro. |
 | Member types | Free | Define categories like Student, Mentor, or Staff. Custom member labels such as Verified, Expert, or Staff badges are Pro. |
-| Member directory | Free | Searchable, filterable directory that stays fast at scale. Member segments, tags, and CSV export are Pro. |
+| Member directory | Free | Searchable, filterable directory that stays fast at scale. A CSV export of the admin members list is free. Member segments and tags are Pro. |
 | Connections and Follows | Free | Both the mutual Connection model and the one-directional Follow model are included, along with block and mute. |
 | Messaging | Companion | One-to-one direct messaging is powered by the free MediaVerse companion - message requests, mute, pin, archive, emoji reactions, and quoted replies. Read receipts, group messaging, and instant real-time delivery are Pro. |
 | Media and albums | Companion | Profile media and albums, plus photo and file posts in the feed, are powered by the free MediaVerse companion, including private albums. |

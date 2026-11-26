@@ -22,6 +22,8 @@ With JavaScript switched off in your browser there is no dialog: the form shows 
 
 Turning removal off again saves straight away, with no confirmation.
 
+A settings export never carries this choice, and a settings import cannot switch removal on. Only this form, with the typed word, can turn it on.
+
 > **Note:** Take a database backup before you delete the plugin with removal on. A delete with removal on cannot be undone.
 
 ## What a delete removes and keeps

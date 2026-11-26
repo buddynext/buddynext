@@ -34,6 +34,8 @@ While a member is reading, the feed quietly checks for new activity in the backg
 
 The count is capped at **99+**, the way every mainstream feed caps it. A busy community reads as alive rather than overwhelming, and nobody acts on "3,412 new posts" differently than on "99+".
 
+A space page has the same pill. It counts only that space's own new posts, and it shows only to people who may read the space's posts, so a non-member of a private space learns nothing about its activity.
+
 ### Infinite scroll
 
 The feed loads a page of posts at a time. As a member scrolls toward the bottom, the next page loads and appends automatically, so reading is continuous without a "next page" click. This keeps the feed fast even in a large community because only what is on screen is ever loaded. After six pages (90 posts) the automatic loading stops and an **Older posts** link takes the member on; it only loads when they click it, so a member who is just scrolling never has the page reload under them.
@@ -78,7 +80,8 @@ The feed is available as an editor block, so you can place it on any page or bui
 - **Empty states are per tab.** A brand-new member who follows no one will see the For you tab fall back to a discovery-style view rather than a blank page, while the Following and Network tabs show a friendly "nothing here yet" prompt that points them toward people and spaces to follow. The Spaces tab is empty until they join a space. None of these are errors.
 - **An empty community.** On a fresh install with no posts, the feed correctly shows its empty state. Seed a few posts and follows to see the blended view.
 - **Link previews load shortly after posting.** When a member shares a link, the preview thumbnail and title are fetched in the background, so a freshly posted link may appear for a moment without its preview card before it fills in.
-- **The new-posts pill shows working posts.** Clicking **N new posts** loads the posts from the server, so React, Comment and Save work on them straight away.
+- **The new-posts pill shows working posts.** Clicking **N new posts** loads the posts from the server, so Like, Comment and Bookmark work on them straight away.
+- **Post action labels.** The reaction button reads **Like** until you react, then shows your reaction (for example **Love**). The save button reads **Bookmark**.
 - **A card whose partner plugin is gone stays harmless.** If the plugin that created a feed card (for example a listing, event or course) is removed, the card keeps its title and a neutral line with no dead link, and its automatic sentence cannot be edited.
 - **Moderation is respected everywhere.** Posts from suspended or shadow-banned authors are hidden from the feed, Explore, and permalinks for everyone except the author and moderators, so moderators can still review them.
 

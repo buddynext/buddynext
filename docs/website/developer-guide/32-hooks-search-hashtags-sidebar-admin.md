@@ -190,7 +190,7 @@ Narrower hooks around the admin screens, URL routing, the page head, and renderi
 | `buddynext_rest_routes_registered` | action | After all core REST routes are registered. Use it to decorate or override a core endpoint. | none |
 | `buddynext_create_hub_page` | filter | A hub's backing page is missing and BuddyNext is about to create it. Return `false` to stop. | `bool $create, object $hub` |
 | `buddynext_client_nav_deny_patterns` | filter | The client router builds the URL patterns it must never swap in place (full page loads only). | `string[] $patterns` (regex fragments) |
-| `buddynext_keyboard_shortcuts_enabled` | filter | The single-key shortcuts (`n`, `/`, `g` then `f`) are switched on or off. On by default; `__return_false` turns them off. | `bool $enabled` |
+| `buddynext_keyboard_shortcuts_enabled` | filter | The single-key shortcuts (`n`, `/`, `g` then `f`) are switched on or off. On by default; `__return_false` turns them off. Since 1.3.0 they do nothing while focus is in a form (a field or any button inside a form), a select, a dialog, or an element marked `data-bn-no-shortcuts`. Ctrl/Cmd+K still opens search there. | `bool $enabled` |
 | `buddynext_meta_description` | filter | The community meta description tag is built. Return `''` to drop the tag. | `string $description` |
 | `buddynext_seo_plugin_active` | filter | BuddyNext decides whether an SEO plugin owns the page head. | `bool $active` |
 | `buddynext_head_meta_image` | filter | The fallback social image is chosen for a surface with no image of its own. | `string $url` |

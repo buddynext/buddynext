@@ -79,6 +79,10 @@ The full warn, strike, suspend, shadow-ban, and automatic-threshold system descr
 - A suspended member sees one banner on every community page. It says they can read but not post or react, and links to the account status page where they can appeal.
 - While suspended, the mobile Create button, the streak card and the Follow buttons on people rows are not shown.
 - The suspension email carries no Unsubscribe link, because it is a notice about the member's own account.
+- A suspended member who had not finished onboarding is no longer sent to the onboarding wizard, so they reach the account status page to read the reason and appeal.
+- A suspended member no longer gets an error message on every page they open.
+- While suspended, the member earns no gamification points, badges or levels and is left off the leaderboard (needs WB Gamification 1.7.0 or later). Points earned before stay. See [Gamification](../engagement/01-gamification.md).
+- A suspended member's profile Media tab and its count show nothing, as their profile does. Site administrators still see it.
 
 ## Related
 

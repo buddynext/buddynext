@@ -69,7 +69,8 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Advanced profile fields (date, location, multi-select, number) | - | Pro |
 | | Conditional logic for profile fields (show a field only when another answer matches) | - | Pro |
 | | Custom member labels (Verified, Expert, Staff) | - | Pro |
-| | Member segments, tags, and CSV export | - | Pro |
+| | Admin members list CSV export (follows search, role, member type and Active or Suspended) | Free | Free |
+| | Member segments and tags | - | Pro |
 | | Profile completeness score and prompts | Free | Free |
 | **Messaging** | 1:1 direct messaging (via MediaVerse) | Free | Free |
 | | Message requests, mute, pin, archive | Free | Free |

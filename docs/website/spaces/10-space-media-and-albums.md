@@ -33,6 +33,8 @@ The Media tab opens with a sub-nav holding two views:
 - **Media** - a flat grid of everything shared in this space, gathered from the space's own posts. Anything a member attaches to a post here shows up in this grid without them doing anything extra.
 - **Albums** - the space's own albums, each with a cover and an item count.
 
+Both views load a page at a time, so a space with a large library stays fast and every item stays reachable: **Load more** under the Media grid (then **Older media**), **Load more albums** under the album list, and **Load more photos** inside an open album.
+
 ## Working with space albums
 
 ### Creating an album

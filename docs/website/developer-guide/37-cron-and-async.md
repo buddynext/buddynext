@@ -176,6 +176,8 @@ A one-off or timed job needs no helper: call `as_enqueue_async_action( $hook, $a
 
 `\BuddyNext\Core\CronScheduler::enqueue_once( string $hook, array $args, string $group = 'buddynext' ): bool` queues an async action unless an identical one (same hook, args and group) is still pending; it returns `true` when a copy is waiting afterwards (queued now or already pending). A running action does not count, so an edit made while the job runs is still picked up. `has_pending( string $hook, ?array $args = null, string $group = 'buddynext' ): bool` is the check on its own (pending only; `null` args match any args). Both return `false` when Action Scheduler is absent, so keep your own fallback.
 
+Since 1.3.0 BuddyNext's own search and hashtag index jobs and every chunked continuation queue through `enqueue_once()`, so the same next chunk is never queued twice. The 1.3.0 upgrade (schema 78) runs `CronScheduler::cancel_duplicate_pending()` once to cancel the identical pending rows older versions left in the `buddynext` and `buddynextpro` groups, keeping the oldest row per hook, group and args. It works in time-boxed batches and continues in a follow-up job when the queue is large.
+
 ```php
 use BuddyNext\Core\CronScheduler;
 

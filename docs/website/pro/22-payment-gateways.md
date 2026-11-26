@@ -107,13 +107,15 @@ The Test gateway lets you walk the entire checkout flow without any real charge,
 
 It is called "Test (sandbox)", needs no setup, and is opt-in and off by default in every environment - you must switch it on explicitly. This is deliberate: a live member's payment is never silently routed to a no-charge sandbox. Use it to try things out, then switch it off and enable Stripe or PayPal for real payments.
 
+A Test purchase is recorded with the source `manual`, the same source as an admin grant. The Subscriptions tab labels it **Test payment** so you can tell it apart.
+
 ## Good to know
 
 - **You can offer more than one gateway at once.** Enable Stripe and PayPal together, set your default, and members can pay whichever way suits them. The final amount is the same on both.
 - **A gateway only appears when it can work.** The Points gateway shows only when WB Gamification is active; a third-party gateway shows only once it registers. You never see a gateway you cannot use.
 - **An expired Pro license never blocks payments.** A Pro license controls update downloads only; every gateway keeps working regardless.
 - **Credentials are masked.** Secrets for every gateway are kept masked on screen once saved.
-- **Misconfiguration warns you, not the member.** A gateway that is enabled but missing credentials says so in its status badge, and a paywall with no working gateway falls back to a plain call-to-action rather than a broken checkout.
+- **Misconfiguration warns you, not the member.** A gateway that is enabled but missing credentials says so in its status badge, and a paywall with no gateway switched on shows "Membership purchase is not configured yet. Please check back soon." with no buy button, rather than a broken checkout. A CTA URL you set on the Paywall tab still shows its button.
 
 ## Free vs Pro
 

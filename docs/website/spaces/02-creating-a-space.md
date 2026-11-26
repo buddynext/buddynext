@@ -124,7 +124,7 @@ By default a space opens on its Feed. You can change the starting tab - the tab 
 
 **Space owner (one space).** In a space's **Settings > General**, the **"Space opens on"** control lets the owner pick a different starting tab for that space alone. The choices are the tabs that space has turned on, including tabs added by add-ons. Leave it on **Site default** to follow the site-wide order. Links to a specific tab or post (for example a shared `/spaces/{slug}/members/` URL or a post permalink) are never affected.
 
-The optional **Location** (for example "Bollington, Cheshire, UK") is plain text shown on the About tab and matched by the Space search, so a member who searches for a place finds the Spaces there. There are no place pages and no distance search; it is a search aid.
+The optional **Location** (for example "Bollington, Cheshire, UK") is plain text, up to 100 characters, shown on the About tab and matched by the Space search, so a member who searches for a place finds the Spaces there. There are no place pages and no distance search; it is a search aid.
 
 A non-member who opens a private space always lands on **About** - its description, rules and the Join button - rather than a locked Feed.
 

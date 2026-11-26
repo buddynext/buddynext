@@ -726,6 +726,45 @@ Never report a duplicate as sent. Only `sent`, `queued` and `attached` mean the 
 
 `InviteService::import_from_csv( $inviter_id, $csv_path )` returns `imported`, `queued`, `mail_failed`, `skipped`, `reasons` (`already_invited`, `existing_member`, `invalid`), `errors`, `not_read` and `max_rows`. `not_read` counts the rows the row cap (filter `buddynext_invite_csv_max_rows`) left unread.
 
+## Recipe 19 - Show live facts and buttons on your card (1.3.0)
+
+Use this when your plugin publishes a typed feed card (see Integration Bridges) and a value on it changes after publishing: seats left, Solved, open now. Answer `buddynext_card_live` once per page for your card type. BuddyNext asks only when a card of that type is on the page, on the web feed and over REST alike.
+
+```php
+add_filter(
+	'buddynext_card_live',
+	static function ( array $answers, string $type, array $cards, int $viewer ): array {
+		if ( 'recipe' !== $type ) {
+			return $answers;
+		}
+		// $cards: feed post id => the card's stored link meta, plus user_id. Read them all in ONE query.
+		$ids  = array_filter( array_map( static fn( $meta ) => (int) ( $meta['recipe_id'] ?? 0 ), $cards ) );
+		$live = my_recipes_load( $ids ); // Your own batch read, keyed by recipe id.
+		foreach ( $cards as $post_id => $meta ) {
+			$recipe = $live[ (int) ( $meta['recipe_id'] ?? 0 ) ] ?? null;
+			if ( null === $recipe ) {
+				continue; // No answer: the facts stored at publish stand.
+			}
+			$answers[ $post_id ] = array(
+				'facts'   => array( array( 'icon' => 'clock', 'text' => $recipe['minutes'] . ' min' ) ),
+				'actions' => array( array( 'label' => 'Shopping list', 'url' => $recipe['list_url'] ) ),
+			);
+		}
+		return $answers;
+	},
+	10,
+	4
+);
+```
+
+- **Limits.** At most four facts (80 characters each) and two buttons (30-character labels, http or https only) are drawn. The first button is the main one.
+- **No duplicate links.** A button that goes where the card's title goes is dropped, so only add a button for something the title cannot do.
+- **Site tweaks.** `buddynext_card_facts` and `buddynext_card_actions` let a site add, remove or reword the result for any card type.
+- **Old cards.** Register a builder on `buddynext_card_facts_backfill` to give cards published before your facts existed a stored facts line, in the background.
+- **Apps.** A REST feed item carries the result as `card.facts` and `card.actions`.
+
+Full contract: Hooks: Feed and Content, and the facts-line section of Integration Bridges.
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.
