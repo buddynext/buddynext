@@ -114,6 +114,11 @@ Both emails are scheduled the moment a member registers. As soon as the member c
 - **Guests cannot access it.** Onboarding is for signed-in members only. Logged-out visitors are not shown the wizard.
 - **It is reliable.** Finishing saves every step together, so a member's choices are kept even if their connection drops during the redirect.
 
+## What changed in 1.3.0
+
+- With JavaScript turned off the wizard shows a plain **Skip setup** button that completes onboarding and opens the activity feed, so a member is never stuck on the page.
+- A suspended member is not sent to onboarding.
+
 ## Related
 
 - [Member Interests](../members/11-interests.md) - the interests picked in the wizard's Interests step

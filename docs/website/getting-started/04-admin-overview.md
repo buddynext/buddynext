@@ -154,3 +154,9 @@ Each section has its own deep-dive in this documentation:
 - For communities, categories, and membership rules, see the [Spaces documentation](../spaces/01-spaces-overview.md).
 - For reactions, notifications, email, and moderation, see the [Activity Feed](../community/01-activity-feed.md), [Notifications](../messaging-notifications/02-notifications.md), and [Moderation Queue](../moderation/02-moderation-queue.md) pages.
 - For Pro sections (Realtime & Push, Campaigns, Monetization) and the Pro moderation tabs, see the [BuddyNext Pro documentation](../pro/01-membership-plans.md). (Insights is a free feature - see [Community Insights](06-community-insights.md).)
+
+## What changed in 1.3.0
+
+- On every settings tab **Save** stays disabled until a field changes, and the Unsaved changes note appears with the first edit.
+- The setup reminder shows on the WordPress dashboard and Settings only. Phone tables keep readable columns and scroll sideways inside their card, with a shadow at the edge that has more.
+- Add-ons cards and Profile Fields headers keep their buttons and labels on one line.

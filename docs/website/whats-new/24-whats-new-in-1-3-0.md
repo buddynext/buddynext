@@ -25,6 +25,15 @@ This release makes your partner plugins show up in the community as live cards, 
 - The For you feed stays fast for members with many connections or interests.
 - Background jobs that continue in chunks no longer queue the same next chunk twice, and the upgrade clears duplicates older versions left queued.
 
+## Polish in this release
+
+- **Undo.** Unfollow and Mute show an Undo button, and banning from a Space can record a reason.
+- **Keyboard and dialogs.** The post menu, the Posting to popover and the emoji sheet work from the keyboard, dialogs hold focus, and warning confirms open on the safe choice.
+- **Suspended members** see one banner with the appeal link on every community page.
+- **Admin.** Save is disabled until a field changes, tables fit their cards on phones, and Insights rows are one height.
+- **Mail** has a dark theme, the main action is the brand button, and moderation notices carry no Unsubscribe link.
+- **Space pill.** A Space page shows an N new posts pill from its own count.
+
 ## Fixes
 
 - A guest no longer learns of private pictures over REST, and a suspended member's Media tab shows nothing.

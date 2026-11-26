@@ -35,6 +35,10 @@ Community Insights covers the essentials every owner needs and is part of the fr
 
 > **Note:** Every number here is calculated from your own community data on your own site. Nothing is sent anywhere, and there is nothing to set up - the figures appear as soon as members start using the community.
 
+## What changed in 1.3.0
+
+- The Insights stat rows are one height, and Engagement rate reads as reactions and comments **per post**.
+
 ## Related
 
 - [Admin Overview](04-admin-overview.md) - where Insights sits in the admin.

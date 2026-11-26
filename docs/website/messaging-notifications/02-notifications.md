@@ -94,6 +94,11 @@ The bell ships as part of the user menu, which you place in your header with the
 
 In-app notifications, the bell, the full Notifications page, grouping, filtering, and automatic background refresh are all part of the free plugin. The free build keeps the bell current by checking for new activity on a short interval, which is enough to feel live for most communities. Pro adds instant web push so a member is alerted even when the tab is not open - see Push Notifications.
 
+## What changed in 1.3.0
+
+- **Mark all read** now updates the page in place: the unread marks and the per-row Mark as read buttons go, and the week tile counts everything as read, without a reload.
+- On a phone each row is compact: the text, then the time and the buttons on one line.
+
 ## Related
 
 - [Notification Preferences](03-notification-preferences.md) - choosing which events notify you and how

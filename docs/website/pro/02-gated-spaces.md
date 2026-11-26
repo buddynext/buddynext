@@ -102,6 +102,10 @@ Gating spaces behind a membership, the paywall prompt, and the per-space overrid
 
 Within Pro, both linking a space to a plan and the paywall prompt are managed from the admin Paywall tab. A visible badge on gated spaces is planned but not part of the current release.
 
+## What changed in 1.3.0
+
+- A guest or a free member who opens a plan-gated space sees the plan prompt and a button to the pricing page (a guest also sees Log in).
+
 ## Related
 
 - [Membership Plans](01-membership-plans.md) - define the plans a gated space can require.

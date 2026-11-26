@@ -109,6 +109,11 @@ The free Jetonomy companion delivers everything described above: the Discussions
 
 Jetonomy's own paid plan extends the forum engine itself (for example its private-messaging extension). Inside a BuddyNext community, direct messaging is owned by BuddyNext through the MediaVerse companion, so when BuddyNext messaging is available it takes over the Messages area and Jetonomy's messaging extension steps aside - members get one consistent inbox rather than two. See MediaVerse and Direct Messaging for how messaging is provided.
 
+## What changed in 1.3.0
+
+- A plan-gated open space gets a **private** discussion forum, so the forum is not public to people the space asks to pay.
+- `wp buddynext repair-discussion-visibility` keeps a gated space's forum private, in the dry run and in the real run.
+
 ## Related
 
 - [Integrations Overview](01-overview.md) - how every companion plugin connects.

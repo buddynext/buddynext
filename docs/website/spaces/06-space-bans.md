@@ -62,6 +62,11 @@ The one related space setting is the default notification preference for new mem
 
 Space bans, the per-space ban list, and unbanning are all included in the free plugin. There is no Pro upgrade required to ban a member from a space.
 
+## What changed in 1.3.0
+
+- A ban can carry a **reason** of up to 500 characters. It is kept with the ban and shown in the Banned members list, wrapped and cut to three lines.
+- Nobody can ban or remove themselves from a space (leave it instead), and the space owner can never be banned or removed.
+
 ## Related
 
 - [Managing Space Members](04-managing-members.md) - removing a member versus banning them

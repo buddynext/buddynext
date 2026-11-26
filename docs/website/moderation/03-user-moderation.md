@@ -72,6 +72,12 @@ Strike thresholds and the report auto-hide limit live under **BuddyNext > Automa
 
 The full warn, strike, suspend, shadow-ban, and automatic-threshold system described here is included in BuddyNext free. Pro adds advanced moderation tooling on top - bulk moderation, a moderation rules engine, and member labels - but the per-member actions and the strike ladder are part of the free plugin.
 
+## What changed in 1.3.0
+
+- A suspended member sees one banner on every community page. It says they can read but not post or react, and links to the account status page where they can appeal.
+- While suspended, the mobile Create button, the streak card and the Follow buttons on people rows are not shown.
+- The suspension email carries no Unsubscribe link, because it is a notice about the member's own account.
+
 ## Related
 
 - [Moderation Queue](02-moderation-queue.md) - where these actions are triggered
