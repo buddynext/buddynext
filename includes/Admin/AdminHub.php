@@ -1845,7 +1845,9 @@ class AdminHub {
 		echo '<div class="bn-admin-hub__content">';
 		// Home does not repeat its name as a visible title: the top bar and the rail already say it.
 		// A nested panel names itself (h1 and description) when its owning tab says how.
-		$bn_nested = sanitize_key( wp_unslash( (string) ( $_GET['tab'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only tab name for a heading.
+		$bn_nested = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		if ( '' !== $bn_nested && isset( $active['subtab_titles'][ $bn_nested ]['title'] ) ) {
 			$active['label']    = (string) $active['subtab_titles'][ $bn_nested ]['title'];
 			$active['subtitle'] = (string) ( $active['subtab_titles'][ $bn_nested ]['subtitle'] ?? $active['subtitle'] );

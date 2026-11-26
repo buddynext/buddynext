@@ -181,7 +181,7 @@ class EventonomyAccess {
 	 * @param mixed $context Caller context (unused).
 	 * @return mixed The data, or a 403 WP_Error.
 	 */
-	public function refuse_held( $data, $context = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+	public function refuse_held( $data, $context = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 		if ( ! is_wp_error( $data ) && is_user_logged_in() && ( new \BuddyNext\Auth\RestHoldGate() )->current_member_is_held() ) {
 			$hold    = \BuddyNext\Auth\MemberHold::get( get_current_user_id() );
 			$message = '' !== (string) ( $hold['message'] ?? '' )
