@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-26T02:52:19+00:00\n"
+"POT-Creation-Date: 2026-11-26T06:06:48+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: buddynext\n"
@@ -1147,7 +1147,7 @@ msgstr ""
 #: includes/Nav/ShellNavService.php:93
 #: includes/Nav/UserLinks.php:107
 #: includes/Notifications/NotificationPrefCatalogue.php:636
-#: includes/Onboarding/OnboardingService.php:166
+#: includes/Onboarding/OnboardingService.php:172
 #: includes/Onboarding/SetupWizard.php:175
 #: includes/Onboarding/SetupWizard.php:1291
 #: includes/Onboarding/SetupWizard.php:1668
@@ -1180,7 +1180,7 @@ msgstr ""
 #: includes/Core/Plugin.php:968
 #: includes/Nav/ShellNavService.php:100
 #: includes/Nav/UserLinks.php:95
-#: includes/Onboarding/OnboardingService.php:176
+#: includes/Onboarding/OnboardingService.php:182
 #: templates/blocks/notification-bell.php:99
 #: templates/blocks/notification-bell.php:105
 #: templates/partials/mobile-nav.php:108
@@ -1191,7 +1191,7 @@ msgid "Notifications"
 msgstr ""
 
 #: includes/Admin/AdminHub.php:109
-#: includes/Admin/AdminHub.php:2044
+#: includes/Admin/AdminHub.php:2046
 #: includes/Admin/EmailEditor.php:250
 #: includes/Admin/EmailLog.php:521
 #: includes/Admin/RolesTab.php:71
@@ -1212,7 +1212,7 @@ msgid "Automation"
 msgstr ""
 
 #: includes/Admin/AdminHub.php:121
-#: includes/Admin/AdminHub.php:2046
+#: includes/Admin/AdminHub.php:2048
 msgid "Monetization"
 msgstr ""
 
@@ -1230,7 +1230,7 @@ msgid "Integration Settings"
 msgstr ""
 
 #: includes/Admin/AdminHub.php:144
-#: includes/Admin/AdminHub.php:2048
+#: includes/Admin/AdminHub.php:2050
 #: includes/Admin/GetStartedScreen.php:228
 #: includes/Admin/NavManager.php:2679
 #: includes/Core/PageRouter.php:1377
@@ -1295,23 +1295,23 @@ msgid "You do not have permission to view this tab."
 msgstr ""
 
 #. translators: %s: the tab actually shown.
-#: includes/Admin/AdminHub.php:1868
+#: includes/Admin/AdminHub.php:1870
 #, php-format
 msgid "The screen you asked for belongs to a feature that is turned off, or to a plugin that is not active. Showing “%s” instead."
 msgstr ""
 
-#: includes/Admin/AdminHub.php:1873
-#: includes/Admin/AdminHub.php:1889
+#: includes/Admin/AdminHub.php:1875
+#: includes/Admin/AdminHub.php:1891
 msgid "Turn features on or off"
 msgstr ""
 
 #. translators: %s: the tab actually shown.
-#: includes/Admin/AdminHub.php:1884
+#: includes/Admin/AdminHub.php:1886
 #, php-format
 msgid "The screen you asked for is not available here. It may belong to a feature that is turned off or a plugin that is not active, or the setting may have moved. Showing “%s” instead."
 msgstr ""
 
-#: includes/Admin/AdminHub.php:1930
+#: includes/Admin/AdminHub.php:1932
 #: includes/Admin/IntegrationControlsAdmin.php:181
 #: includes/Bridges/JetonomyBridge.php:5965
 #: includes/Core/PageRouter.php:1479
@@ -1330,21 +1330,21 @@ msgstr ""
 msgid "Search"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:1945
+#: includes/Admin/AdminHub.php:1947
 msgid "Docs"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2041
+#: includes/Admin/AdminHub.php:2043
 #: includes/Admin/GetStartedScreen.php:38
 #: includes/Bridges/JetonomyBridge.php:5960
 msgid "Home"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2042
+#: includes/Admin/AdminHub.php:2044
 msgid "People"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2043
+#: includes/Admin/AdminHub.php:2045
 #: includes/Admin/SetupVideosScreen.php:38
 #: includes/Onboarding/SetupWizard.php:652
 #: includes/Spaces/SpaceLinkService.php:335
@@ -1352,11 +1352,11 @@ msgstr ""
 msgid "Community"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2045
+#: includes/Admin/AdminHub.php:2047
 msgid "Messaging"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2047
+#: includes/Admin/AdminHub.php:2049
 #: includes/Core/AssetService.php:1104
 #: includes/Core/AssetService.php:1428
 #: includes/Core/AssetService.php:1953
@@ -1368,45 +1368,45 @@ msgstr ""
 msgid "Connect"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2154
-#: includes/Admin/AdminHub.php:2207
+#: includes/Admin/AdminHub.php:2156
+#: includes/Admin/AdminHub.php:2209
 msgid "BuddyNext sections"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2181
+#: includes/Admin/AdminHub.php:2183
 msgid "BuddyNext navigation"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2191
+#: includes/Admin/AdminHub.php:2193
 msgid "Menu"
 msgstr ""
 
 #. translators: %d: number of items awaiting attention on this tab.
-#: includes/Admin/AdminHub.php:2261
+#: includes/Admin/AdminHub.php:2263
 #, php-format
 msgid "%d item awaiting attention"
 msgid_plural "%d items awaiting attention"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Admin/AdminHub.php:2292
+#: includes/Admin/AdminHub.php:2294
 msgid "Guide for this page"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2297
+#: includes/Admin/AdminHub.php:2299
 msgid "FAQ"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2305
+#: includes/Admin/AdminHub.php:2307
 msgid "API docs"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2310
+#: includes/Admin/AdminHub.php:2312
 msgid "Code snippets on GitHub"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2315
-#: includes/Admin/AdminHub.php:2316
+#: includes/Admin/AdminHub.php:2317
+#: includes/Admin/AdminHub.php:2318
 msgid "Help and resources"
 msgstr ""
 
@@ -2771,7 +2771,7 @@ msgid "Connections"
 msgstr ""
 
 #: includes/Admin/Insights.php:125
-#: includes/Onboarding/OnboardingService.php:171
+#: includes/Onboarding/OnboardingService.php:177
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:88
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:117
 #: templates/notifications/index.php:364
@@ -5827,7 +5827,7 @@ msgstr ""
 #: includes/Core/AssetService.php:1947
 #: includes/Core/PageRouter.php:1496
 #: includes/Nav/ShellNavService.php:119
-#: includes/Onboarding/OnboardingService.php:152
+#: includes/Onboarding/OnboardingService.php:158
 #: templates/partials/mobile-nav.php:126
 #: templates/parts/dm-thread-header.php:153
 msgid "Profile"
@@ -17960,7 +17960,7 @@ msgstr ""
 msgid "Onboarding is turned off for this community."
 msgstr ""
 
-#: includes/Onboarding/OnboardingService.php:159
+#: includes/Onboarding/OnboardingService.php:165
 msgid "Interests"
 msgstr ""
 
@@ -24878,6 +24878,10 @@ msgstr ""
 msgid "Who can see my profile"
 msgstr ""
 
+#: templates/parts/settings-privacy-fields.php:136
+msgid "Controls who can open your profile page. Your name and photo can still appear in the Members directory, in search and on posts you share. Use Private account to limit your posts."
+msgstr ""
+
 #: templates/parts/settings-privacy-fields.php:137
 msgid "Who can follow me"
 msgstr ""
@@ -26170,11 +26174,11 @@ msgstr ""
 msgid "No sub-spaces yet"
 msgstr ""
 
-#: templates/parts/suspended-banner.php:24
+#: templates/parts/suspended-banner.php:25
 msgid "Your account is suspended. You can read the community, but you cannot post or react until it is lifted."
 msgstr ""
 
-#: templates/parts/suspended-banner.php:25
+#: templates/parts/suspended-banner.php:26
 msgid "See why and appeal"
 msgstr ""
 

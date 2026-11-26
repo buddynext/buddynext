@@ -251,8 +251,10 @@ class BlogPostSpaceTest extends \WP_UnitTestCase {
 			)
 		);
 
-		$this->assertTrue( ( new SpaceService() )->delete( $space, $this->owner ) );
-		do_action( 'buddynext_space_deleting', $space, $this->owner );
+		// Call this listener's own clean-up directly. Running the whole delete would also run MediaVerse's gallery
+		// listener (when an earlier test left it hooked), which legitimately clears album meta itself and made this
+		// scope assertion depend on test order.
+		( new \ReflectionMethod( BlogPostListener::class, 'forget_space' ) )->invoke( null, $space );
 
 		$this->assertSame( '', get_post_meta( $post_id, BlogPostListener::SPACE_META, true ), 'the article forgets the deleted space' );
 		$this->assertSame( (string) $space, get_post_meta( $album, BlogPostListener::SPACE_META, true ), 'an album with the same key is untouched' );

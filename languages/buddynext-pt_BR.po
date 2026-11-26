@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.3.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-11-26T02:52:19+00:00\n"
+"POT-Creation-Date: 2026-11-26T06:06:48+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -1022,7 +1022,7 @@ msgstr "Membros"
 #: includes/Core/Plugin.php:964 includes/Core/SurfaceMeta.php:78
 #: includes/Nav/ShellNavService.php:93 includes/Nav/UserLinks.php:107
 #: includes/Notifications/NotificationPrefCatalogue.php:636
-#: includes/Onboarding/OnboardingService.php:166
+#: includes/Onboarding/OnboardingService.php:172
 #: includes/Onboarding/SetupWizard.php:175
 #: includes/Onboarding/SetupWizard.php:1291
 #: includes/Onboarding/SetupWizard.php:1668
@@ -1044,7 +1044,7 @@ msgstr "Spaces"
 #: includes/Core/FeatureRegistry.php:457 includes/Core/PageRouter.php:1309
 #: includes/Core/PageRouter.php:4301 includes/Core/Plugin.php:968
 #: includes/Nav/ShellNavService.php:100 includes/Nav/UserLinks.php:95
-#: includes/Onboarding/OnboardingService.php:176
+#: includes/Onboarding/OnboardingService.php:182
 #: templates/blocks/notification-bell.php:99
 #: templates/blocks/notification-bell.php:105
 #: templates/partials/mobile-nav.php:108
@@ -1054,7 +1054,7 @@ msgstr "Spaces"
 msgid "Notifications"
 msgstr "Notificações"
 
-#: includes/Admin/AdminHub.php:109 includes/Admin/AdminHub.php:2044
+#: includes/Admin/AdminHub.php:109 includes/Admin/AdminHub.php:2046
 #: includes/Admin/EmailEditor.php:250 includes/Admin/EmailLog.php:521
 #: includes/Admin/RolesTab.php:71 includes/Admin/Settings.php:2611
 #: includes/Core/FeatureRegistry.php:469 includes/Core/PageRouter.php:1380
@@ -1070,7 +1070,7 @@ msgstr "Moderação"
 msgid "Automation"
 msgstr "Automação"
 
-#: includes/Admin/AdminHub.php:121 includes/Admin/AdminHub.php:2046
+#: includes/Admin/AdminHub.php:121 includes/Admin/AdminHub.php:2048
 msgid "Monetization"
 msgstr "Monetização"
 
@@ -1085,7 +1085,7 @@ msgstr "Campanhas"
 msgid "Integration Settings"
 msgstr "Configurações de integração"
 
-#: includes/Admin/AdminHub.php:144 includes/Admin/AdminHub.php:2048
+#: includes/Admin/AdminHub.php:144 includes/Admin/AdminHub.php:2050
 #: includes/Admin/GetStartedScreen.php:228 includes/Admin/NavManager.php:2679
 #: includes/Core/PageRouter.php:1377 includes/Nav/ShellNavService.php:146
 #: includes/Nav/UserLinks.php:113 templates/community-admin.php:352
@@ -1138,7 +1138,7 @@ msgid "You do not have permission to view this tab."
 msgstr "Você não tem permissão para visualizar esta aba."
 
 #. translators: %s: the tab actually shown.
-#: includes/Admin/AdminHub.php:1868
+#: includes/Admin/AdminHub.php:1870
 #, php-format
 msgid ""
 "The screen you asked for belongs to a feature that is turned off, or to a "
@@ -1147,12 +1147,12 @@ msgstr ""
 "A tela solicitada pertence a um recurso desativado ou a um plugin inativo. "
 "Exibindo “%s” no lugar."
 
-#: includes/Admin/AdminHub.php:1873 includes/Admin/AdminHub.php:1889
+#: includes/Admin/AdminHub.php:1875 includes/Admin/AdminHub.php:1891
 msgid "Turn features on or off"
 msgstr "Ativar ou desativar recursos"
 
 #. translators: %s: the tab actually shown.
-#: includes/Admin/AdminHub.php:1884
+#: includes/Admin/AdminHub.php:1886
 #, php-format
 msgid ""
 "The screen you asked for is not available here. It may belong to a feature "
@@ -1160,7 +1160,7 @@ msgid ""
 "moved. Showing “%s” instead."
 msgstr ""
 
-#: includes/Admin/AdminHub.php:1930
+#: includes/Admin/AdminHub.php:1932
 #: includes/Admin/IntegrationControlsAdmin.php:181
 #: includes/Bridges/JetonomyBridge.php:5965 includes/Core/PageRouter.php:1479
 #: includes/Core/Plugin.php:972 includes/Core/SurfaceMeta.php:134
@@ -1172,31 +1172,31 @@ msgstr ""
 msgid "Search"
 msgstr "Pesquisar"
 
-#: includes/Admin/AdminHub.php:1945
+#: includes/Admin/AdminHub.php:1947
 msgid "Docs"
 msgstr "Documentação"
 
-#: includes/Admin/AdminHub.php:2041 includes/Admin/GetStartedScreen.php:38
+#: includes/Admin/AdminHub.php:2043 includes/Admin/GetStartedScreen.php:38
 #: includes/Bridges/JetonomyBridge.php:5960
 msgid "Home"
 msgstr "Início"
 
-#: includes/Admin/AdminHub.php:2042
+#: includes/Admin/AdminHub.php:2044
 msgid "People"
 msgstr "Pessoas"
 
-#: includes/Admin/AdminHub.php:2043 includes/Admin/SetupVideosScreen.php:38
+#: includes/Admin/AdminHub.php:2045 includes/Admin/SetupVideosScreen.php:38
 #: includes/Onboarding/SetupWizard.php:652
 #: includes/Spaces/SpaceLinkService.php:335
 #: templates/parts/hashtag-sidebar-about.php:86
 msgid "Community"
 msgstr "Comunidade"
 
-#: includes/Admin/AdminHub.php:2045
+#: includes/Admin/AdminHub.php:2047
 msgid "Messaging"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2047 includes/Core/AssetService.php:1104
+#: includes/Admin/AdminHub.php:2049 includes/Core/AssetService.php:1104
 #: includes/Core/AssetService.php:1428 includes/Core/AssetService.php:1953
 #: templates/blocks/connection-button.php:164
 #: templates/partials/connection-button.php:191
@@ -1205,43 +1205,43 @@ msgstr ""
 msgid "Connect"
 msgstr "Conectar"
 
-#: includes/Admin/AdminHub.php:2154 includes/Admin/AdminHub.php:2207
+#: includes/Admin/AdminHub.php:2156 includes/Admin/AdminHub.php:2209
 msgid "BuddyNext sections"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2181
+#: includes/Admin/AdminHub.php:2183
 msgid "BuddyNext navigation"
 msgstr "Navegação BuddyNext"
 
-#: includes/Admin/AdminHub.php:2191
+#: includes/Admin/AdminHub.php:2193
 msgid "Menu"
 msgstr "Menu"
 
 #. translators: %d: number of items awaiting attention on this tab.
-#: includes/Admin/AdminHub.php:2261
+#: includes/Admin/AdminHub.php:2263
 #, php-format
 msgid "%d item awaiting attention"
 msgid_plural "%d items awaiting attention"
 msgstr[0] "%d item aguardando atenção"
 msgstr[1] "%d itens aguardando atenção"
 
-#: includes/Admin/AdminHub.php:2292
+#: includes/Admin/AdminHub.php:2294
 msgid "Guide for this page"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2297
+#: includes/Admin/AdminHub.php:2299
 msgid "FAQ"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2305
+#: includes/Admin/AdminHub.php:2307
 msgid "API docs"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2310
+#: includes/Admin/AdminHub.php:2312
 msgid "Code snippets on GitHub"
 msgstr ""
 
-#: includes/Admin/AdminHub.php:2315 includes/Admin/AdminHub.php:2316
+#: includes/Admin/AdminHub.php:2317 includes/Admin/AdminHub.php:2318
 msgid "Help and resources"
 msgstr ""
 
@@ -2618,7 +2618,7 @@ msgid "Connections"
 msgstr "Conexões"
 
 #: includes/Admin/Insights.php:125
-#: includes/Onboarding/OnboardingService.php:171
+#: includes/Onboarding/OnboardingService.php:177
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:88
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:117
 #: templates/notifications/index.php:364
@@ -5794,7 +5794,7 @@ msgstr "Distintivo de notificação"
 #: includes/Admin/NavManager.php:1162 includes/Admin/NavManager.php:2652
 #: includes/Core/AssetService.php:1947 includes/Core/PageRouter.php:1496
 #: includes/Nav/ShellNavService.php:119
-#: includes/Onboarding/OnboardingService.php:152
+#: includes/Onboarding/OnboardingService.php:158
 #: templates/partials/mobile-nav.php:126
 #: templates/parts/dm-thread-header.php:153
 msgid "Profile"
@@ -19333,7 +19333,7 @@ msgstr "lá"
 msgid "Onboarding is turned off for this community."
 msgstr "A introdução está desativada nesta comunidade."
 
-#: includes/Onboarding/OnboardingService.php:159
+#: includes/Onboarding/OnboardingService.php:165
 msgid "Interests"
 msgstr "Interesses"
 
@@ -26742,6 +26742,13 @@ msgstr ""
 msgid "Who can see my profile"
 msgstr "Quem pode ver meu perfil"
 
+#: templates/parts/settings-privacy-fields.php:136
+msgid ""
+"Controls who can open your profile page. Your name and photo can still "
+"appear in the Members directory, in search and on posts you share. Use "
+"Private account to limit your posts."
+msgstr ""
+
 #: templates/parts/settings-privacy-fields.php:137
 msgid "Who can follow me"
 msgstr "Quem pode me seguir"
@@ -28242,13 +28249,13 @@ msgstr "Secreto: não listado, apenas convites de admin"
 msgid "No sub-spaces yet"
 msgstr "Ainda não há subespaços"
 
-#: templates/parts/suspended-banner.php:24
+#: templates/parts/suspended-banner.php:25
 msgid ""
 "Your account is suspended. You can read the community, but you cannot post "
 "or react until it is lifted."
 msgstr ""
 
-#: templates/parts/suspended-banner.php:25
+#: templates/parts/suspended-banner.php:26
 msgid "See why and appeal"
 msgstr ""
 
