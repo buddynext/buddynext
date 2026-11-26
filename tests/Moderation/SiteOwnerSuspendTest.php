@@ -39,4 +39,37 @@ class SiteOwnerSuspendTest extends \WP_UnitTestCase {
 
 		$this->assertIsInt( buddynext_service( 'moderation' )->suspend_user( $peer, $admin, 'Repeated spam links', array( 'duration_days' => 7 ) ), 'An admin could not suspend a peer admin.' );
 	}
+
+	/**
+	 * Strikes and the shared suspend() refuse the site owner too: a peer admin striking the owner to the
+	 * threshold, the permanent-ban tier and an automated rule (actor 0) all leave the owner unsuspended.
+	 *
+	 * @return void
+	 */
+	public function test_strikes_and_automated_suspension_cannot_reach_the_site_owner(): void {
+		$owner = self::factory()->user->create(
+			array(
+				'role'       => 'administrator',
+				'user_email' => 'owner-strikes@example.org',
+			)
+		);
+		update_option( 'admin_email', 'owner-strikes@example.org' );
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$peer  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$mod   = buddynext_service( 'moderation' );
+
+		for ( $i = 0; $i < 6; $i++ ) {
+			$strike = $mod->issue_strike( $owner, $admin, 'Repeated spam links' );
+			$this->assertWPError( $strike, 'A strike against the site owner was accepted.' );
+			$this->assertSame( 'site_owner', $strike->get_error_data()['reason'] ?? '' );
+		}
+
+		// The permanent-ban tier and the suspend tier both end in suspend(), with a person or the system as actor.
+		$this->assertWPError( $mod->suspend( $owner, 'Automatic permanent ban: strike threshold reached.', 0, true, $admin ) );
+		$this->assertWPError( $mod->suspend( $owner, 'Automatic suspension by a rule.', 0, false, 0 ) );
+		$this->assertFalse( $mod->is_suspended( $owner ), 'The site owner ended up suspended.' );
+
+		// A peer admin is still reachable by the same path.
+		$this->assertTrue( true === $mod->suspend( $peer, 'Automatic suspension: strike threshold reached.', 0, false, $admin ) );
+	}
 }

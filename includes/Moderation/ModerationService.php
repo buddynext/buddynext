@@ -1294,6 +1294,35 @@ class ModerationService {
 	}
 
 	/**
+	 * Refusal for a sanction against the account that owns the site, or null.
+	 *
+	 * The site owner is the user behind Settings > General > Administration Email Address. Suspending them (by
+	 * hand, by strikes reaching a threshold, or by an automated rule) would lock the owner out of their own
+	 * community. Every sanction path asks this one rule; administrators can still sanction other administrators.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $user_id Target member.
+	 * @param string $message Message for the refusal.
+	 * @return WP_Error|null
+	 */
+	public static function site_owner_refusal( int $user_id, string $message ): ?WP_Error {
+		$owner = get_user_by( 'email', (string) get_option( 'admin_email' ) );
+		if ( ! $owner || (int) $owner->ID !== $user_id ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'forbidden',
+			$message,
+			array(
+				'status' => 403,
+				'reason' => 'site_owner',
+			)
+		);
+	}
+
+	/**
 	 * Issue a formal strike against a user.
 	 *
 	 * @param int    $user_id   User receiving the strike.
@@ -1304,6 +1333,11 @@ class ModerationService {
 	public function issue_strike( int $user_id, int $actor_id, string $reason = '' ): int|WP_Error {
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/issue-strike' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be given a strike.', 'buddynext' ) );
+		if ( null !== $owner_refusal ) {
+			return $owner_refusal;
 		}
 
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
@@ -2362,18 +2396,9 @@ class ModerationService {
 			);
 		}
 
-		// Nobody suspends the account that owns the site (the user behind Settings > General > Administration
-		// Email Address): it would lock the owner out of their own community. Admins can still suspend other admins.
-		$owner = get_user_by( 'email', (string) get_option( 'admin_email' ) );
-		if ( $owner && (int) $owner->ID === $user_id ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'The site owner\'s account cannot be suspended.', 'buddynext' ),
-				array(
-					'status' => 403,
-					'reason' => 'site_owner',
-				)
-			);
+		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be suspended.', 'buddynext' ) );
+		if ( null !== $owner_refusal ) {
+			return $owner_refusal;
 		}
 
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
@@ -4104,6 +4129,13 @@ class ModerationService {
 	public function suspend( int $user_id, string $reason, int $duration_days, bool $hide_content = false, int $suspended_by = 0 ): bool|WP_Error {
 		if ( $user_id <= 0 ) {
 			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+
+		// The shared write every suspension path ends in (by hand, strike thresholds, automated rules), so the
+		// site-owner rule holds for all of them, including the system actor (0).
+		$owner_refusal = self::site_owner_refusal( $user_id, __( 'The site owner\'s account cannot be suspended.', 'buddynext' ) );
+		if ( null !== $owner_refusal ) {
+			return $owner_refusal;
 		}
 
 		// Same rule as suspend_user(): a person must give the member a reason.
