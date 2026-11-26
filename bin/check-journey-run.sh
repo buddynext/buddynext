@@ -304,7 +304,9 @@ fi
 
 REPORT="$(mktemp -t bn-journey-XXXXXX.json)"
 REPORTDIR="$(mktemp -d -t bn-journey-XXXXXX)"
-trap 'rm -f "$REPORT"; rm -rf "$REPORTDIR" "${BN_MEM_WRAP_DIR:-}"' EXIT
+# BN_JOURNEY_KEEP=<dir> keeps the per-folder Playwright reports there, so a failure in the full run can be read
+# afterwards (a spec that fails only in the full run cannot be re-run to see its error).
+trap '[ -n "${BN_JOURNEY_KEEP:-}" ] && mkdir -p "$BN_JOURNEY_KEEP" && cp -R "$REPORTDIR"/. "$BN_JOURNEY_KEEP"/ 2>/dev/null; rm -f "$REPORT"; rm -rf "$REPORTDIR" "${BN_MEM_WRAP_DIR:-}"' EXIT
 
 # Run ONE TEST FOLDER AT A TIME, not the whole suite in a single process.
 #
