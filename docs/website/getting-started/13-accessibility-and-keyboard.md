@@ -12,8 +12,8 @@ Some members cannot use a mouse, some use a screen reader, and many only ever se
 - **Avatar cropper.** When you crop a new profile photo, Tab reaches the preview and the arrow keys move the picture under the round mask (hold Shift for bigger steps).
 - **Emoji picker.** Focus moves into the picker, Tab stays inside it, the arrow keys move between emoji, and focus returns to the control that opened it.
 - **Dialogs.** A dialog keeps Tab inside it until you close it, including in Safari and on iPad.
-- **Safe default on risky choices.** A confirmation for something that cannot be undone, or that removes content (for example Report, or **Restore defaults** in the admin), opens with focus on **Cancel**, so pressing Enter by reflex does nothing harmful.
-- **Shortcuts never interrupt your work.** Single-key shortcuts (`/` for search, `n` for a new post, `g` then a letter to go somewhere) do nothing while you are in a form, a dropdown or a dialog. Ctrl/Cmd+K opens search from anywhere. Press `?` on a community page to see the list. Developers can turn the single-key shortcuts off with the `buddynext_keyboard_shortcuts_enabled` filter.
+- **Safe default on risky choices.** A confirmation for something that cannot be undone or that removes content (for example deleting a post, or **Restore defaults** in the admin) opens with focus on **Cancel**, so pressing Enter by reflex does nothing harmful. The Report dialog opens on its **Reason** list, so you choose a reason before anything is sent.
+- **Shortcuts never interrupt your work.** Single-key shortcuts (`/` for search, `n` for a new post, `g` then a letter to go somewhere) do nothing while you are in a form, a dropdown or a dialog. Ctrl/Cmd+K opens search from anywhere. Press `?` on a community page to see the list. Developers can turn keyboard shortcuts off with the `buddynext_keyboard_shortcuts_enabled` filter; that also turns off Ctrl/Cmd+K.
 
 ## Seeing and tapping
 
