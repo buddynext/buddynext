@@ -15,6 +15,7 @@ In short:
 - Feed reads use cursor pagination via `?cursor=` and `?per_page=` (max 50). List reads on comments and shares use `?page=` and `?per_page=`.
 - Several feed routes are additionally gated by an owner setting (`buddynext_public_explore`): when a guest hits explore while that option is off, the route returns `401 rest_explore_members_only`.
 - Reactions and Comments writes are gated by their feature switch (Platform > Features). When the feature is off the toggle/create routes return `403`.
+- Since 1.3.0 a feed item for a partner card (a discussion, badge, document, or any type registered on `buddynext_integration_card_types`) carries a `card` object: `facts` (`{ icon, text }`, at most four), `actions` (`{ label, url }`, at most two, the first is the main button), and `title`, `text` and `url` (a live replacement for the stored ones; `''` keeps the stored value). Read `card`, not `link_meta.facts`, which is only the snapshot taken when the card was published.
 
 > **Note:** The `Auth` column below reflects the route's `permission_callback`. A value of `auth` means an authenticated user is required; `public` means the route is readable by guests; `admin` means `manage_options`; `moderator` is the `require_moderator` gate: any user holding a moderation ability (a WordPress administrator, a community moderator, or a member granted one), not only `manage_options`. Capability checks inside a handler (for example the role-mapped `buddynext-feed/create-post` check on post creation) are noted under the relevant route.
 
@@ -26,7 +27,7 @@ The feed controller serves the home, explore, profile, and space timelines, plus
 |---|---|---|---|
 | GET | `/feed/home` | auth | Home timeline for the current user. Accepts `?filter=` (one of the home filters, default `for-you`). |
 | GET | `/feed/counts` | auth | Per-tab unread/seen counts for the home feed. |
-| GET | `/feed/new-count` | auth | Number of new posts since `?after_id=`, for the "new posts" pill. Accepts `?filter=`. |
+| GET | `/feed/new-count` | auth | Number of new posts since `?after_id=`, for the "new posts" pill. Accepts `?filter=`. With `?space_id=` (since 1.3.0) it counts that Space's own posts, and answers `count: 0` to a viewer who may not read the Space's content (a non-member of a private Space, a banned member, a secret-Space probe). Response `{ count, newest_id }`. |
 | GET | `/feed/viewer-state` | auth | Batch the viewer's reaction/bookmark/vote state for a set of posts. Requires `?post_ids=` (comma-separated IDs; the batch is capped at 100). |
 | GET | `/feed/explore` | public* | Community-wide explore deck. Guests allowed only when `buddynext_public_explore` is on. |
 | GET | `/feed/explore/deck` | public* | The Explore deck as typed cards for the app. Accepts `?filter=` (`all`, `members`, `spaces`, `posts`, `discussions`, `media`; default `all`), `cursor` and `per_page`. Returns `{ items, next_cursor, filter }`; each item is `{ kind, post }`, `{ kind, member }` or `{ kind, space }`. |

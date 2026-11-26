@@ -64,6 +64,7 @@ Open the space settings and go to the Notifications tab.
 - The member control lives in two synced places: the bell control in the space header, and the "Spaces you are in" section of the notification preferences page.
 - The "Spaces you are in" list only shows spaces you are an active member of. Pending requests and spaces you have left do not appear.
 - Choosing a level in the preferences page saves right away, with no extra confirmation step.
+- Big spaces stay fast. A new post in a space notifies its first 200 members straight away and the rest in the background, 200 members per batch, so posting in a space with thousands of members does not slow the author down. Members past the first batch may see the notification a moment after the post appears. Developers can change the batch size with the `buddynext_notification_fanout_batch` filter.
 - A member's own choice always wins over the space default. The owner's default only decides where a brand-new member starts.
 
 ## Free vs Pro

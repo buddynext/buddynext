@@ -75,6 +75,17 @@ Beyond the profile Events tab and community-wide surfacing, a space can run its 
 - **Members only.** Any active community member can open it. Someone whose account is held for approval, who is suspended, or whom the host blocked sees the preview instead. The Space the event sits in plays no part. "Public, members register" and a member ticket price use the same answer.
 - **Space members.** Only members of the event's Space. That is the Space's owner and site administrators, its active members and moderators, and, for a Space gated by a plan, whoever holds that plan now: a holder who has not joined counts, a member whose plan has lapsed does not, the same live rule as the Space's own posts. If the Space has been deleted or the event unlinked from it, the event closes to everyone except its host and administrators. The level is offered in the event editor once the event has a Space.
 
+**What a blocked visitor sees on a Space members event.** Instead of "not found", the event shows a preview (title, date, city and cover) headed "This event is for {Space} members", with one button that fits the visitor:
+- **A guest** gets **Join {Space}**, which opens sign-up, and **Log in**. Both return to the event.
+- **A signed-in member, open Space** gets **Join {Space}**, which opens the Space and returns to the event after joining.
+- **A signed-in member, private Space** gets **Request to join {Space}**. After asking, the preview reads "Your request is waiting for approval" with a disabled **Request sent** button and a **Cancel request** link.
+- **A secret Space** shows no preview. The event stays "not found".
+- **A Space gated by a plan** uses the plan's own wording and price from BuddyNext Pro.
+
+**Held and suspended members cannot register.** A member the community holds out (an unverified email, a pending approval or plan hold, or a suspension) cannot register for an event or buy a ticket. Eventonomy shows them the reason instead. Site administrators are never held. An organiser can still add an attendee.
+
+**A private community keeps events private.** While **Require login to view the community** is on (**Members > Privacy & Data**), a guest who opens an event page, the calendar, a place page, an event list or a calendar download is sent to the community login and returns to the event after signing in.
+
 Space owners and moderators can edit and manage the attendees of their Space's events; orders, refunds and deleting stay with the event's host and site administrators. This part works with BuddyNext Free alone. An Eventonomy older than 2.0.0 does not ask these questions, so nothing changes there.
 
 **Requirements.** Needs BuddyNext Pro. Linking an event into more than one space additionally needs Eventonomy 1.7.0 or newer (the release that added it); the Events tab itself, the List/Calendar toggle, and single-space creation work with earlier Eventonomy releases.

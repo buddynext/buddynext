@@ -160,3 +160,6 @@ Each section has its own deep-dive in this documentation:
 - On every settings tab **Save** stays disabled until a field changes, and the Unsaved changes note appears with the first edit.
 - The setup reminder shows on the WordPress dashboard and Settings only. Phone tables keep readable columns and scroll sideways inside their card, with a shadow at the edge that has more.
 - Add-ons cards and Profile Fields headers keep their buttons and labels on one line.
+- Home, Tools and Add-ons each have one main (filled) button, so the next step on each screen is clear.
+- A mistyped address in an email setting (for example the From address or the admin alert email) is refused with a message ("... is not a valid email address, so the setting was not changed.") and the old value is kept. Before, the field was emptied under "Settings saved".
+- On a tablet the bulk-action bar no longer covers the table, so **Apply** can be tapped.

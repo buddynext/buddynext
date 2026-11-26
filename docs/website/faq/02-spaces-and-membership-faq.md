@@ -36,7 +36,7 @@ Every space can have one shareable invite link, created and reset by the space's
 
 ## Does an invite link work for someone who isn't signed in yet, or already a member?
 
-Yes to both. A signed-out visitor sees "Log in to join" or "Sign up to join" and lands back on the space to join once they finish; an already-signed-in visitor joins immediately; an existing member just opens the space as normal. A banned member is never let back in through the link, and an expired, reset, or limit-reached link tells the person to ask for a new one rather than showing them the space's contents.
+Yes to both. A signed-out visitor sees "Log in to join" or "Sign up to join" and lands back on the space to join once they finish. Someone who signs up from the link joins the space at the end of the welcome wizard, or, when onboarding is off, as soon as the account is usable (right after sign-up, or right after they verify their email); an already-signed-in visitor joins immediately; an existing member just opens the space as normal. A banned member is never let back in through the link, and an expired, reset, or limit-reached link tells the person to ask for a new one rather than showing them the space's contents.
 
 ## Can an invite link skip registration steps or a paywall?
 

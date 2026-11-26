@@ -52,6 +52,10 @@ Card details are never typed on your site. The button hands the buyer to Stripe 
 
 A visitor who is not logged in and picks a paid plan is sent to registration first, carrying that plan with them. Once they create their account, they land straight in checkout for the plan they picked rather than back on the pricing table - so choosing a plan and signing up feels like one continuous step, not two separate ones.
 
+**Back to where they were (1.3.0).** A member sent to buy a plan from a plan-gated Space or an event preview gets a **Continue where you left off** button on the purchase confirmation. It takes them back to that page. The address is kept for one hour, survives sign-up in between, and only ever points to a page on your own site.
+
+**The purchase receipt.** After a paid purchase the member gets a receipt email: one "Hi name," greeting, the plan, the amount charged (with subtotal, discount and tax lines when a coupon or tax changed it), and the **Order reference** from the payment provider when there is one. It is written in the member's own site language.
+
 To show the pricing table somewhere else as well - a marketing landing page, for example - drop this shortcode on any page:
 
 ```text
@@ -81,7 +85,7 @@ To surface a compact version of this plan summary on another page, the shortcode
 
 Monetization is an optional layer and is off by default with Pro. You turn the whole layer on or off under Platform → Features ("Memberships & monetization"): while it is off, the pricing and My Membership pages, checkout, and gated content are all disabled; when you turn it on, the pages are created automatically.
 
-All plan and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage plans, review subscriptions, issue coupons, configure the upgrade prompt and connect gateways across five tabs: Plans, Subscriptions, Coupons, Paywall and Payment Gateways. (Paywall is covered in Gating Spaces, coupons and tax in Coupons and Tax, and gateways in Payment Gateways.)
+All plan and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage plans, review subscriptions, issue coupons, configure the upgrade prompt and connect gateways across five tabs: Plans, Subscriptions, Coupons, Paywall and Payment Gateways. A bookmark to an older standalone Plans, Subscriptions, Paywall or Coupons address opens the same tab inside the Monetization hub. (Paywall is covered in Gating Spaces, coupons and tax in Coupons and Tax, and gateways in Payment Gateways.)
 
 ### Community access
 
@@ -241,7 +245,7 @@ Pricing pages created before 1.2.4 that still have the original one-block layout
 
 Select the **Membership plans** block to shape the plans in the block settings:
 
-- **Recommended plan**: one plan gets a highlighted card and a "Recommended" badge.
+- **Recommended plan**: one plan gets a highlighted card and a "Recommended" badge. If you choose none and two or more paid plans are listed (Active), the first paid plan in sort order is featured. Your own choice always wins over this default.
 - **Plans**: tick the plans this block shows. Leave all unticked to show every listed plan. Three or four plans read best.
 - **Feature wording**: each plan lists the features it actually enables by default. Type your own lines (one per line, up to six) to say it your way; leave a plan empty to keep the default.
 - **Heading**: the title and line above the plans.
@@ -280,7 +284,7 @@ The Subscriptions tab is your record of who has access. It lists each subscripti
 The tab has three views: **Subscriptions**, **Orders**, and **Add order**.
 - **Export to CSV (1.1.5)** - downloads the list carrying whichever filters are on screen, so you export what you are looking at rather than everything. The Orders view has the same button. Cells that could run as a spreadsheet formula are written as plain text with a leading single quote.
 
-A subscription's source tells you how it was created: a gateway name (such as Stripe or PayPal) for a paid purchase, **Granted by admin** for access you granted outside checkout, **Default plan** for the plan every new member is placed on, or **Test payment** for a Test gateway purchase. A membership granted by another system - WooCommerce, Paid Memberships Pro, or any integration that uses the source contract - is named as that source and is deliberately **not** counted as revenue this site collected.
+A subscription's source tells you how it was created: a gateway name (such as Stripe or PayPal) for a paid purchase, **Granted by admin** for access you granted outside checkout, **Default plan** for the plan every new member is placed on, or **Test payment** for a Test gateway purchase. A Test gateway purchase is stored with the source `manual`, the same source as an admin grant. The CSV export uses the **Test payment** label; a member's privacy export lists the stored source, `manual`. A membership granted by another system - WooCommerce, Paid Memberships Pro, or any integration that uses the source contract - is named as that source and is deliberately **not** counted as revenue this site collected.
 
 #### Money received, not just projected (1.1.5)
 
@@ -298,7 +302,7 @@ The edit-member screen carries that member's recent payments and links through t
 
 #### Extending a subscription or changing its renewal date
 
-Each live subscription has two controls in the Subscriptions table:
+A row for a free plan (no price and nothing billed) shows **Free plan** instead of controls: there is nothing to extend or revoke. Every other live subscription has two controls in the Subscriptions table:
 
 - **Add days** - adds the number of days you type to the end date.
 - **Change date** - sets the end date directly, for example to move a member onto the 1st of the month.
@@ -376,6 +380,13 @@ The **Default plan for new members** setting shows you this before you commit: p
 
 > **Tip:** Before you choose a default plan, open its perk list and read it as your free members will experience it. If you want memberships purely to sell access to one thing, edit your default plan to grant everything *except* that thing, rather than accepting a free plan that quietly withdraws five features nobody asked you to withdraw. Site administrators are exempt from all of this, which is exactly why it is easy to miss - it will look perfect while you test it and be wrong for everyone else.
 
+### Privacy requests (1.3.0)
+
+WordPress's own privacy tools (Tools > Export Personal Data and Tools > Erase Personal Data) cover memberships:
+
+- **Export** adds two groups to the member's file: **Memberships** (plan, status, started, expires, source) and **Invoices** (number, plan, date, total, refunded, status, payment method).
+- **Erase** removes nothing from memberships or invoices. When the member has invoices, the erase result says so: "Invoices and the subscriptions behind them are kept as financial records the site is required to retain."
+
 ### Settings reference
 
 Plan details are stored on the plan itself. Four site-wide settings sit on the Plans tab: **Community access**, **Monthly renewal day**, **Default plan for new members**, and the read-only **Plans granted by other systems** panel. The paywall prompt is documented in [Gated Spaces](02-gated-spaces.md), renewal reminder timing in [Renewal Reminders](26-renewal-reminders.md), and coupons and tax in [Coupons and Tax](23-coupons-and-tax.md).
@@ -399,7 +410,7 @@ Every entitlement row in the plan editor carries a one-line explanation of what 
 
 Membership plans, subscriptions, the pricing and my-membership pages, content protection, and gated spaces are all BuddyNext Pro. BuddyNext Free has no paid-plan or subscription layer.
 
-Within Pro, taking real payments needs a payment gateway. Pro is built to work with whichever gateway you connect. Stripe and PayPal are included for card and PayPal payments, a Points gateway lets members redeem gamification points, an Offline gateway lets you record bank transfers yourself, and a Test gateway lets you try checkout without real money. See [Payment Gateways](22-payment-gateways.md). If a plan has no gateway price linked yet, the upgrade prompt falls back to a plain call-to-action link you set, so the offer still points members somewhere even before billing is fully connected.
+Within Pro, taking real payments needs a payment gateway. Pro is built to work with whichever gateway you connect. Stripe and PayPal are included for card and PayPal payments, a Points gateway lets members redeem gamification points, an Offline gateway lets you record bank transfers yourself, and a Test gateway lets you try checkout without real money. See [Payment Gateways](22-payment-gateways.md). Until a payment gateway is switched on, the upgrade prompt on a gated space or post has no buy button and says "Membership purchase is not configured yet. Please check back soon." A CTA URL you set on the Paywall tab is the exception: that button always shows. See [Gated Spaces](02-gated-spaces.md).
 
 ## Requirements
 
@@ -408,8 +419,12 @@ Within Pro, taking real payments needs a payment gateway. Pro is built to work w
 
 ## What changed in 1.3.0
 
-- With paid memberships off, the plans page says so instead of staying empty, and members never see owner setup text.
-- When you have not chosen a Recommended plan and have two or more paid plans, the first paid plan is featured.
+- With paid memberships off, the plans page says "Paid memberships are not open on this community right now. Check back later." instead of staying empty, and members never see owner setup text.
+- When you have not chosen a Recommended plan and two or more paid plans are listed, the first paid plan is featured.
+- A member sent to buy from a gated Space or event gets a **Continue where you left off** button afterwards.
+- The receipt greets the member once and shows the order reference, in the member's language.
+- Free plan rows on the Subscriptions tab carry no Add days or Revoke.
+- Privacy exports include memberships and invoices; erase requests keep invoices.
 
 ## Related
 

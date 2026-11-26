@@ -190,9 +190,9 @@ wp buddynext repair-space-owners
 
 ## wp buddynext repair-discussion-visibility
 
-A one-off sweep for Jetonomy discussions provisioned by the space-forum bridge before a discussion's visibility was derived from its space's type. It walks the affected rows and recomputes visibility from the current space type, chunked so it survives a large install.
+A one-off sweep for Jetonomy discussions provisioned by the space-forum bridge before a discussion's visibility was derived from its space's type. It walks the affected rows and recomputes visibility from the current space type, chunked so it survives a large install. Since 1.3.0 an open space gated by a membership plan counts as private here, so its forum is set private in the dry run and in the real run; run it once after upgrading to fix forums linked before 1.3.0. Each change prints as `WOULD FIX` (dry run) or `FIXED`, with the space, the discussion and the old and new visibility. With Jetonomy inactive the command stops with an error.
 
-It then lists, read-only, any discussion linked to more than one space (older data can hold one; a discussion now belongs to a single space). For each it prints a line such as `Discussion #12 is linked to spaces #3, #9.` and warns that nothing was changed and that the first space listed is the one BuddyNext uses. Nothing is unlinked automatically, because which space keeps it is the owner's call: unlink it from the others in Space settings > Integrations. With no duplicates it prints `No discussion is linked to more than one space.`
+It then lists, read-only, any discussion linked to more than one space (older data can hold one; a discussion now belongs to a single space). For each it prints a line such as `Discussion #12 is linked to spaces #3, #9. Unlink it from the spaces that should not have it in Space settings > Integrations.` and warns that nothing was changed and that the first space listed is the one BuddyNext uses. Nothing is unlinked automatically, because which space keeps it is the owner's call: unlink it from the others in Space settings > Integrations. With no duplicates it prints `No discussion is linked to more than one space.`
 
 | Flag | What it does |
 |---|---|

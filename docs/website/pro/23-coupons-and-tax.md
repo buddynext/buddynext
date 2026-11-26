@@ -4,7 +4,7 @@ BuddyNext Pro lets you run discount codes and apply a flat tax to membership pur
 
 ![The Monetization section, where coupons have their own tab and tax settings sit with the payment gateways](../images/admin-coupons.webp)
 
-![The member-facing pricing page where a plan's price, discount, and tax lead into checkout](../images/membership-pricing.webp)
+![The member-facing pricing page; a coupon's discount and any tax show on the order summary at checkout](../images/membership-pricing.webp)
 
 > **Before you start:** Coupons and tax come with BuddyNext Pro. You need Pro active and the Monetization layer turned on (Platform → Features, "Memberships & monetization"). Both are configured in the Monetization section, but on two different tabs: coupons have their own **Coupons** tab, and tax settings live on the **Payment Gateways** tab. Neither is on Paywall, which is about the upgrade prompt.
 
@@ -35,7 +35,7 @@ The Coupons table lists each code with its discount, scope (All plans or Specifi
 
 ### How members use a coupon
 
-At checkout, a member enters the code. If it is valid - active, not expired, within its redemption limit, and in scope for the plan they are buying - the discount is applied to the price and the reduced amount carries through to the gateway. An invalid or out-of-scope code is simply not applied, and the member sees the normal price.
+At checkout, a member enters the code. If it is valid - active, not expired, within its redemption limit, and in scope for the plan they are buying - the discount is applied to the price and the reduced amount carries through to the gateway. An invalid or out-of-scope code is not applied: the member sees the normal price and a message saying what is wrong (for example "That coupon has reached its redemption limit."). The coupon field is marked as invalid, so a screen reader announces the error on the field.
 
 > **Note:** A money coupon cannot reduce a Gamification Points redemption. Points are not a cash rail, so a percentage or fixed amount-off has nothing to come out of. Coupons apply to money purchases (Stripe, PayPal). See Payment Gateways.
 

@@ -2,7 +2,9 @@
 
 Custom Reactions let you add your own emoji to the six reactions that ship with BuddyNext Free. You pick an emoji, give it a label, and it appears in the reaction picker right alongside the built-in set.
 
-![Members reacting to a post with the custom emoji from the reaction picker](../images/post-detail.webp)
+![A post showing custom emoji reactions alongside the built-in ones](../images/post-detail.webp)
+
+Custom emoji are available to members whose plan includes them; a member without that perk who picks a custom emoji reacts with Like instead.
 
 ![The Engagement Reactions admin tab where you add and manage custom reactions](../images/admin-reactions.webp)
 

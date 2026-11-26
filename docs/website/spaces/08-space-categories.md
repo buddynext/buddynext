@@ -4,7 +4,7 @@ Space categories organize the Spaces directory by topic. Each space can belong t
 
 ![Spaces directory with category filters and category badges on the space cards](../images/spaces-directory.webp)
 
-![Spaces - Settings admin tab where space categories are created, ordered, and colored](../images/admin-spaces-settings.webp)
+![The Spaces directory > Categories admin tab, where space categories are created, ordered, and colored](../images/admin-space-categories.webp)
 
 ## Why use it
 

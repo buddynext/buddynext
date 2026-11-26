@@ -18,7 +18,7 @@ The email system solves three problems for an owner:
 - **One consistent sender.** A single From name, From address, and optional Reply-To apply to every BuddyNext email, so members always recognize the sender. This identity is applied only to BuddyNext's own emails - password resets and other WordPress mail are never affected.
 - **Editable copy.** The subject, preview text, and body of each built-in email are yours to rewrite, enable, or disable, without touching code.
 
-For members, the result is email that is easy to recognize, easy to act on (every email has a clear call-to-action link back to the right place), and easy to opt out of (every notification email carries a one-click unsubscribe link).
+For members, the result is email that is easy to recognize, easy to act on (every email has a clear call-to-action link back to the right place), and easy to opt out of (every notification email carries a one-click unsubscribe link; moderation notices about the member's own account do not).
 
 ## How it works (for members)
 
@@ -27,7 +27,8 @@ Members do not configure the email system. They receive the transactional emails
 - A branded header with your logo or site name, linking back to the community.
 - The message body, personalized with their name and the relevant actor and content.
 - A call-to-action link that takes them straight to the follower, request, post, or space the email is about.
-- An unsubscribe link that turns off that one type of email for them, with no login required (the link is signed, so only the intended recipient can use it).
+- An unsubscribe link that turns off that one type of email for them, with no login required (the link is signed, so only the intended recipient can use it). Moderation notices about the member's own account, such as a suspension, carry no unsubscribe link.
+- The email is written in the member's own language (the language set on their WordPress profile), whatever the language of the person whose action sent it. Someone who is not a member yet, such as an invitee, gets the site language.
 
 Members control which emails they get, and how often, from their notification preferences. See Notification Preferences and Email Digests.
 

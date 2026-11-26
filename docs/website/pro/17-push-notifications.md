@@ -97,6 +97,8 @@ The result message tells you what happened:
 - Web push requires the site to be served over HTTPS, because browsers only allow push on secure origins.
 - If a member already enabled push in a browser, returning to the preferences page may show the panel in its idle state until they interact with it again. Re-enabling is harmless - it does not create a duplicate device.
 - All push delivery is per member: each member only ever receives pushes for their own notifications, on their own registered devices.
+- A push banner is written in the member's own site language, with the same sentence and link the bell shows. A notification from a partner plugin (for example Jetonomy) uses that plugin's own sentence and opens its own link.
+- A partner plugin that can send its own push for the same event (for example Jetonomy Pro) asks BuddyNext first, through the `buddynext_push_reaches_user` filter. BuddyNext says yes only when Push is on for that member and they hold a device this site can really send to, so the member gets one push, not none and not two.
 
 ## Free vs Pro
 

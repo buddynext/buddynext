@@ -24,7 +24,7 @@ Many parts also expose a `buddynext_part_{part}_classes` filter (and occasionall
 
 ### How a part is wired
 
-Every part follows the same shape internally. Reading `templates/parts/post-actions.php` (the post action toolbar - React, Comment, Share, Save buttons), the order is:
+Every part follows the same shape internally. Reading `templates/parts/post-actions.php` (the post action toolbar - Like, Comment, Share and Bookmark buttons), the order is:
 
 1. The part collects and sanitizes its inputs into a single `$args` array.
 2. It runs `$args` through `buddynext_part_{part}_args` so you can add, remove, or rewrite values.

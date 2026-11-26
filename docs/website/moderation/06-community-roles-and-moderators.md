@@ -2,7 +2,7 @@
 
 Your community has three roles that decide who can help run it - **member**, **moderator**, and **admin** - sitting below you, the **site administrator**. Members take part, moderators keep things tidy across the whole community, and admins help you run it. Appointing a couple of trusted people is how a growing community stays healthy without every report and every off-topic thread landing on one person.
 
-![The Community Admin panel, where you promote members to moderators and admins](../images/admin-roles.webp)
+![The Roles and Capabilities screen, where you set what each community role can do](../images/admin-roles.webp)
 
 ## Why use it
 
