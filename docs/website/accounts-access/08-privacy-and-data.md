@@ -101,6 +101,10 @@ This matches the standard expectation that deleting an account removes the perso
 - **Administrators are protected.** A site administrator cannot delete their own account through the member-facing tool, so you cannot accidentally lock yourself out of your own community. Instead of a button, an administrator sees a note under **Delete my account** saying another administrator can remove the account from **Users** in the WordPress dashboard.
 - **Consent and indexing are community-wide.** The cookie banner and the search-engine indexing policy apply to the whole community. Individual members can still choose to hide their own profile from search engines in their Privacy settings.
 
+## Memberships and invoices (BuddyNext Pro)
+
+A member's WordPress privacy export includes their memberships and invoices. A privacy erase request does not remove invoices or the subscriptions behind them: they are financial records the site must keep for tax purposes, and the erase report says so.
+
 ## Related
 
 - [The Guest Experience](09-guest-experience.md) - what a logged-out visitor sees, and Private Community
