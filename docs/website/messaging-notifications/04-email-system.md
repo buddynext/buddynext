@@ -117,7 +117,7 @@ Broadcast and drip emails use the same branded wrapper and sender identity as th
 
 ## What changed in 1.3.0
 
-- The one main action of a mail (View comment, Accept invite, See your account status) is drawn as the brand button.
+- A link that sits alone in its own paragraph, such as View comment, Accept invite or See your account status, is drawn as the brand button. A link inside a sentence stays an inline text link. The new follower, connection request and connection accepted emails keep "View their profile." and "View the request." as inline links. To make one a button, move the link into its own paragraph in the template body.
 - Mail declares its language and direction, has a dark theme for mail apps that support it (links stay readable), and shows the footer address left to right in right-to-left languages.
 - Moderation notices, such as a suspension, have no Unsubscribe link.
 

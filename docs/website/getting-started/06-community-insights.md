@@ -1,6 +1,6 @@
 # Community Insights
 
-Community Insights is your at-a-glance view of how the community is doing, computed from your own data and shown right inside wp-admin. It answers the questions every owner asks - how many members do I have, are they active, is anyone posting - without exporting anything or connecting a third-party analytics tool. You find it under **BuddyNext > Engagement > Insights**, and a compact version also appears on your main WordPress dashboard.
+Community Insights is your at-a-glance view of how the community is doing, computed from your own data and shown right inside wp-admin. It answers the questions every owner asks - how many members do I have, are they active, is anyone posting - without exporting anything or connecting a third-party analytics tool. You find it under **BuddyNext > Community > Engagement > Insights**, and a compact version also appears on your main WordPress dashboard.
 
 ![The BuddyNext Insights screen with member, post, space and engagement metrics and a new-members chart](../images/admin-insights.webp)
 

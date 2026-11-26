@@ -131,7 +131,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 |---|---|---|
 | Let members report content? | YES | `bn_reports`, 6 `/reports` routes |
 | Warn, suspend or shadow-ban? | YES | `bn_user_strikes`, `bn_user_suspensions`, `bn_mod_log`; the site owner's account (admin_email user) cannot be suspended (`ModerationService::suspend_refusal`). |
-| Let a suspended member appeal? | YES | `bn_appeals`, 5 `/appeals` routes; the appeal page stays reachable while suspended, and `parts/suspended-banner.php` (printed by `shell/hub-shell.php`, resolved by the router's feed section) points to it on every community page  A suspended member who has not finished onboarding is not sent to the wizard (`OnboardingService::is_required_for`), so the appeal page is reachable. |
+| Let a suspended member appeal? | YES | `bn_appeals`, 5 `/appeals` routes; the appeal page stays reachable while suspended, and `parts/suspended-banner.php` (printed by `shell/hub-shell.php`, resolved by the router's feed section) points to it on every community page. A suspended member who has not finished onboarding is not sent to the wizard (`OnboardingService::is_required_for`), so the appeal page is reachable. |
 | Rate-limit abuse? | PARTIAL | `bn_rate_limits` table backs it on every site; the fast object-cache path needs Redis or Memcached |
 | Filter banned words / safeguards? | YES | `Moderation\SafeguardService` |
 | Review a queue of reports in wp-admin? | YES | moderation screens under the `buddynext` hub |

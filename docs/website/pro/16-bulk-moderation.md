@@ -20,7 +20,7 @@ The page has two sections: a queue of pending reports at the top, and a bulk use
 2. Optionally narrow the queue with the type and reason filters above the table.
 3. Tick the reports you want to act on, or use the select-all checkbox in the header to select every report on the current page. When you select the whole page, a banner offers "Select all N matching this filter" so you can act on every matching report across all pages, not just the visible 25.
 4. Choose an action from the **Bulk Actions** list - **Dismiss** or **Remove content** - and optionally type a reason.
-5. Select **Apply**, and confirm the count in the prompt. A small selection is applied immediately and the page reloads with a summary; a large selection (more than 50 items) is queued and processed in the background, and the notice tells you how many were queued - they clear from the queue as the jobs run.
+5. Select **Apply**, and confirm in the dialog that names the action and the count. For **Remove content**, or when you used "Select all N matching this filter", a second dialog asks you to type the number of reports in the **Type the number to continue** field before the action runs. Dismiss on ticked rows needs only the first dialog. A small selection is applied immediately and the page reloads with a summary; a large selection (more than 50 items) is queued and processed in the background, and the notice tells you how many were queued - they clear from the queue as the jobs run.
 
 Dismiss closes the reports as no action needed. Remove takes down the reported content. Both run through the same underlying moderation actions the single-item queue uses, so the result is identical to handling each report by hand - just faster.
 
@@ -30,13 +30,14 @@ Dismiss closes the reports as no action needed. Remove takes down the reported c
 2. Enter a comma-separated list in the **Members** field - usernames, emails, or numeric IDs.
 3. Type a reason. Each member sees it in their notice and on their account page, so it is required to suspend.
 4. For a suspension, set **Duration (days, suspend only)**.
-5. Choose **Warn members** or **Suspend members**.
+5. Choose **Warn members** or **Suspend members**, and confirm in the dialog that names the action and the member count.
+6. For a suspension, a second dialog asks you to type the number of members in the **Type the number to continue** field. The suspension runs only when the number matches. Warn needs only the first dialog.
 
 Warn sends each user a warning. Suspend suspends each user for the duration you set. As with reports, these call the same warn and suspend actions used for single members elsewhere in moderation.
 
 ### The success and failure summary
 
-After any bulk action, the page returns a notice that tells you exactly how many items went through and how many did not - for example, "Dismissed: 12 succeeded, 0 failed." Each item is handled on its own, so one bad entry does not stop the rest. If you paste a user ID that does not exist, or a report that was already handled by another moderator, that one item is counted as failed with a reason while every valid item still completes. You always know precisely what the action did.
+After any bulk action, the page returns a notice that tells you exactly how many items went through and how many did not - for example, "Dismissed: 12 succeeded, 0 failed." Each item is handled on its own, so one bad entry does not stop the rest. If you paste a user ID that does not exist, or a report that was already handled by another moderator, that one item is counted as failed with a reason while every valid item still completes. When an action has failures, the notice also names up to three items that failed, with the reason for each: the member for Warn and Suspend (for example "Not done: username: You cannot suspend your own account."), or the report number for Dismiss and Remove. You always know precisely what the action did.
 
 ## Setting it up (for owners)
 

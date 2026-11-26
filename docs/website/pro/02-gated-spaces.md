@@ -37,7 +37,7 @@ The All gated spaces perk is the all-access pass. A plan that grants it lets its
 
 ### What a blocked member sees
 
-When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button points to the call-to-action link you set. With no link set, it goes to the plan's own page when one plan is on offer, Unlisted plans included, or to your pricing page when several listed plans are. A hidden Unlisted plan is not named or linked while a listed plan opens the same space. When none of the space's plans can be bought, only a listed all-access plan can stand in; otherwise there is no button. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
+When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The upgrade button needs a payment gateway switched on; without one the member sees "Membership purchase is not configured yet. Please check back soon." instead. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button points to the call-to-action link you set. With no link set, it goes to the plan's own page when one plan is on offer, Unlisted plans included, or to your pricing page when several listed plans are. A hidden Unlisted plan is not named or linked while a listed plan opens the same space. When none of the space's plans can be bought, only a listed all-access plan can stand in; otherwise there is no button. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
 
 
 ### Where a gated space shows up
@@ -105,6 +105,7 @@ Within Pro, both linking a space to a plan and the paywall prompt are managed fr
 ## What changed in 1.3.0
 
 - A guest or a free member who opens a plan-gated space sees the plan prompt and a button to the pricing page (a guest also sees Log in).
+- The prompt and its pricing button need a payment gateway switched on. Without one, a guest or free member sees "Membership purchase is not configured yet. Please check back soon." and no button.
 
 ## Related
 

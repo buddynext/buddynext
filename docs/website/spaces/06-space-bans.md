@@ -19,7 +19,8 @@ These actions are for a space owner or moderator. Regular members do not see ban
 1. Open the space, go to its settings, and select the Members tab.
 2. Find the member in the roster.
 3. Choose **Ban**. You will be asked to confirm, since the member will not be able to rejoin.
-4. Confirm. The member is removed from the space immediately and added to the ban list.
+4. Optionally, type a reason in **Reason for the ban** (up to 500 characters). It shows under the member in the Banned members list.
+5. Confirm. The member is removed from the space immediately and added to the ban list.
 
 When you ban someone:
 
