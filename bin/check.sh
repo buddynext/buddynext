@@ -507,6 +507,10 @@ py_gate bin/check-ui-dashes.py "a translatable string contains an em-dash - use 
 section "Journey run (Playwright)"
 if bn_heavy_gate_skipped "journey suite"; then
 	:
+elif [ "${SKIP_JOURNEY_RUN:-0}" = 1 ]; then
+	# The same switch bin/build-release.sh documents ("bypass only the journey suite"); without this the build
+	# ran the suite here anyway. For a re-zip of a tree whose journeys already passed - say so to QA.
+	note "journey run BYPASSED (SKIP_JOURNEY_RUN=1)"
 elif [ -f bin/check-journey-run.sh ]; then
 	# Captured, not tested inline: under set -e the non-zero exit would abort
 	# the run before the case could classify skip-vs-regression.
