@@ -97,7 +97,12 @@ class DiscussionVisibilityRepairCommand {
 				}
 
 				$have = (string) ( $discussion->visibility ?? '' );
-				$want = JetonomyBridge::discussion_visibility_for( (string) $space->type );
+				// The same shaping every other path uses: a plan-gated open space is private for its forum, so a repair
+				// never publishes a forum the space would ask people to pay for.
+				$hydrated = buddynext_service( 'spaces' )->get( $space_id );
+				$want     = JetonomyBridge::discussion_visibility_for(
+					JetonomyBridge::forum_type_for( is_array( $hydrated ) ? $hydrated : array( 'type' => (string) $space->type ) )
+				);
 				if ( $have === $want ) {
 					continue;
 				}
