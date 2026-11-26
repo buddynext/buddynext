@@ -173,7 +173,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Integrate with Wbcom plugins? | YES | bridges for MediaVerse (DM), Jetonomy (forums), WB Gamification, WP Career Board, Learnomy, WB Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
 | Run background work at scale? | YES | 36 scheduled jobs: 24 on Action Scheduler, 12 on WP-Cron |
 | Let a space owner choose the space's Jetonomy discussion, one discussion per space? | YES | only the owner or a site administrator links, unlinks or switches it, on the settings screen and through `/spaces/{id}/discussion` and `/discussion-search` (`JetonomyBridge::can_manage_discussion()`); a discussion already linked elsewhere is not offered and a taken `link_id` returns `409 bn_discussion_taken`; `wp buddynext repair-discussion-visibility` lists any discussion older data linked to two spaces without changing it |
-| Manage it from WP-CLI? | YES | 6 commands under `wp buddynext` (`demo`, `cert`, `handles`, `repair-space-owners`, `repair-discussion-visibility`, `reconcile-media-privacy`) |
+| Manage it from WP-CLI? | YES | 6 commands under `wp buddynext` (`demo`, `cert`, `handles`, `repair-space-owners`, `repair-discussion-visibility`, `reconcile-media-privacy`); the visibility repair keeps a plan-gated open space's discussion private, and a forum write with Jetonomy off or too old answers with an error instead of a fatal |
 | Stay fast at 100k members? | YES | list surfaces paginate and count via `COUNT(*)`; the leaderboard N+1 was removed in 1.1.1 |
 
 ## Deliberately not in free
