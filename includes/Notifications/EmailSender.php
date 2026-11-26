@@ -722,6 +722,30 @@ class EmailSender {
 	}
 
 	/**
+	 * Draw a paragraph that holds nothing but a link as the brand button.
+	 *
+	 * A mail's one main action ("View comment", "Accept invite") is written as its own paragraph with a plain
+	 * link; here it becomes the same button the password reset mail has. Links that already carry a style, links
+	 * to unsubscribe, and links sitting inside running text are left alone.
+	 *
+	 * @param string $body      Body HTML.
+	 * @param string $brand_esc Escaped brand colour.
+	 * @return string
+	 */
+	private static function buttonize_main_action( string $body, string $brand_esc ): string {
+		return (string) preg_replace_callback(
+			'#<p>\s*<a (href="[^"]+")(?:\s+(?:target|rel)="[^"]*")*\s*>([^<]{2,60})</a>\s*</p>#i',
+			static function ( array $m ) use ( $brand_esc ): string {
+				if ( false !== stripos( $m[1], 'unsubscribe' ) || false !== stripos( $m[2], 'unsubscribe' ) ) {
+					return $m[0];
+				}
+				return '<p><a ' . $m[1] . ' style="display:inline-block;background:' . $brand_esc . ';color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">' . $m[2] . '</a></p>';
+			},
+			$body
+		);
+	}
+
+	/**
 	 * Wrap a rendered body in the single, canonical branded email shell.
 	 *
 	 * THE one wrapper every BuddyNext email passes through — notifications,
@@ -765,6 +789,9 @@ class EmailSender {
 
 		$brand_esc = esc_attr( $brand );
 		$year      = esc_html( gmdate( 'Y' ) );
+
+		// A paragraph that is only a link is the mail's one main action: draw it as the brand button.
+		$body = self::buttonize_main_action( $body, $brand_esc );
 
 		// Header: the Appearance logo when set (Settings → Appearance), else the
 		// site name as a text wordmark. Both link home.

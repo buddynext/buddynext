@@ -96,6 +96,11 @@
 }
 @media (max-width: 768px) {
 	.bn-ob-form { padding: var(--bn-s5) var(--bn-s4); }
+	/* Both side gutters are set as logical padding, so a host theme's right-to-left sheet that resets one physical
+	   side cannot leave the start edge of the form flush against the screen. */
+	.bn-ob-wrap .bn-ob-form {
+		padding-inline: var(--bn-s4);
+	}
 }
 
 /* ── Form column inner sections ───────────────────────────────────────── */
