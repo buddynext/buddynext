@@ -608,6 +608,8 @@
 	   (3 + 1), and six tiles read 5 + 1. */
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+	/* Every row the same height, so a tile without a trend line is not shorter than the ones above it. */
+	grid-auto-rows: 1fr;
 	gap: var(--bn-s3, 12px);
 }
 .bn-admin-hub .bn-stat-grid > .bn-stat {
@@ -616,6 +618,9 @@
 
 /* Quantity rules: 5 tiles share one row, 6 and 8 tiles split evenly (3 + 3, 4 + 4) instead of leaving an orphan. */
 @media (min-width: 900px) {
+	.bn-admin-hub .bn-stat-grid:has(> :nth-child(7):last-child) {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
 	.bn-admin-hub .bn-stat-grid:has(> :nth-child(5):last-child) {
 		grid-template-columns: repeat(5, minmax(0, 1fr));
 	}

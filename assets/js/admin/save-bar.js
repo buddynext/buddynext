@@ -40,14 +40,28 @@
 		var entry = { form: form, start: snapshot( form ), dirty: false };
 		forms.push( entry );
 
+		// Save is greyed out until something changed, so a press always means "I changed this". Without JS the button
+		// stays enabled, as before.
+		var saveBtn = bar.querySelector( 'button[type="submit"], input[type="submit"]' );
 		function update() {
 			entry.dirty = snapshot( form ) !== entry.start;
 			bar.setAttribute( 'data-dirty', entry.dirty ? 'true' : 'false' );
 			status.textContent = entry.dirty ? label : '';
+			// A form with no named fields has nothing to compare, so its Save stays available.
+			if ( saveBtn && '' !== entry.start ) {
+				saveBtn.disabled = ! entry.dirty;
+			}
 		}
+		update();
 
 		form.addEventListener( 'input', update );
 		form.addEventListener( 'change', update );
+		// Pickers and sortable lists set hidden values from click or key handlers without firing input: look again
+		// after those, so Save is never stuck disabled behind a real change.
+		form.addEventListener( 'click', function () { window.setTimeout( update, 0 ); } );
+		form.addEventListener( 'keyup', update );
+		form.addEventListener( 'focusout', update );
+		form.addEventListener( 'bn:dirty-check', update );
 		form.addEventListener( 'submit', function () {
 			saving = true;
 		} );
