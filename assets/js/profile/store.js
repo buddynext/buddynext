@@ -1215,6 +1215,8 @@ const profileStore = store( 'buddynext/profile', {
 		// the transitions live in one place.
 		get followBtnHidden() { const c = getContext(); return !! c.isFollowing || !! c.followPending; },
 		/* Two-factor stage visibility (mutually exclusive). */
+		get twofaStatusText() { return getContext().twofaEnabled ? t( 'twofaBadgeOn', 'On' ) : t( 'twofaBadgeOff', 'Off' ); },
+		get twofaStatusTone() { return getContext().twofaEnabled ? 'success' : 'neutral'; },
 		get twofaShowStart()  { const c = getContext(); return ! c.twofaEnabled && c.twofaStage === 'idle'; },
 		get twofaShowSetup()  { return getContext().twofaStage === 'setup'; },
 		get twofaShowBackup() { return getContext().twofaStage === 'backup'; },

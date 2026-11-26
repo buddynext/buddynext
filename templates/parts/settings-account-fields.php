@@ -278,6 +278,10 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 		ob_start();
 		?>
 		<div class="bn-2fa">
+			<?php // The state at a glance: On or Off, drawn from the same flag the stages below follow. ?>
+			<p class="bn-2fa-status">
+				<span class="bn-badge" data-wp-bind--data-tone="state.twofaStatusTone" data-wp-text="state.twofaStatusText"><?php echo esc_html( $twofa_enabled ? __( 'On', 'buddynext' ) : __( 'Off', 'buddynext' ) ); ?></span>
+			</p>
 			<?php /* Stage: not enrolled — offer set-up. */ ?>
 			<div class="bn-2fa-stage" data-wp-bind--hidden="!state.twofaShowStart">
 				<p class="bn-2fa-desc"><?php esc_html_e( 'Use an authenticator app (Google Authenticator, Authy, 1Password, …) to generate a one-time code at sign-in. Backup codes cover you if you lose your device.', 'buddynext' ); ?></p>
