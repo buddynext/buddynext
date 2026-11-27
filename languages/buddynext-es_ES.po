@@ -1677,11 +1677,11 @@ msgstr "Cuando alguien solicita seguir un perfil privado"
 
 #: includes/Admin/EmailEditor.php:165
 msgid "{{actor_name}} would like to follow you"
-msgstr ""
+msgstr "{{actor_name}} quiere seguirte"
 
 #: includes/Admin/EmailEditor.php:166
 msgid "Approve or decline the request"
-msgstr ""
+msgstr "Aprueba o rechaza la solicitud"
 
 #: includes/Admin/EmailEditor.php:170
 msgid "Comment reply"
@@ -1693,11 +1693,11 @@ msgstr "Cuando alguien responde a tu comentario"
 
 #: includes/Admin/EmailEditor.php:173
 msgid "{{actor_name}} replied to you"
-msgstr ""
+msgstr "{{actor_name}} te ha respondido"
 
 #: includes/Admin/EmailEditor.php:174
 msgid "You have a new reply"
-msgstr ""
+msgstr "Tienes una nueva respuesta"
 
 #: includes/Admin/EmailEditor.php:178
 #: includes/Notifications/NotificationMessageService.php:846
@@ -1754,11 +1754,11 @@ msgstr "Cuando un miembro se une a un espacio que administras o moderas"
 
 #: includes/Admin/EmailEditor.php:208
 msgid "{{actor_name}} joined your space"
-msgstr ""
+msgstr "{{actor_name}} se ha unido a tu espacio"
 
 #: includes/Admin/EmailEditor.php:209
 msgid "A new member has joined"
-msgstr ""
+msgstr "Se ha unido un nuevo miembro"
 
 #: includes/Admin/EmailEditor.php:213
 #: includes/Notifications/NotificationMessageService.php:726
@@ -1772,11 +1772,11 @@ msgstr "Cuando se rechaza una solicitud para unirse a un espacio"
 
 #: includes/Admin/EmailEditor.php:216
 msgid "About your request to join {{space_name}}"
-msgstr ""
+msgstr "Sobre tu solicitud para unirte a {{space_name}}"
 
 #: includes/Admin/EmailEditor.php:217
 msgid "Your request was not accepted this time"
-msgstr ""
+msgstr "Tu solicitud no ha sido aceptada esta vez"
 
 #: includes/Admin/EmailEditor.php:221
 msgid "New post in a space"
@@ -1788,11 +1788,11 @@ msgstr "Cuando alguien publica en un espacio al que perteneces"
 
 #: includes/Admin/EmailEditor.php:224
 msgid "New activity in your space on {{site_name}}"
-msgstr ""
+msgstr "Nueva actividad en tu espacio de {{site_name}}"
 
 #: includes/Admin/EmailEditor.php:225
 msgid "Catch up on what was posted"
-msgstr ""
+msgstr "Ponte al día con lo que se ha publicado"
 
 #: includes/Admin/EmailEditor.php:229
 msgid "Space role changed"
@@ -1804,11 +1804,11 @@ msgstr "Cuando un miembro recibe o pierde un rol en un espacio"
 
 #: includes/Admin/EmailEditor.php:232
 msgid "Your role in a space on {{site_name}} has changed"
-msgstr ""
+msgstr "Tu rol en un espacio de {{site_name}} ha cambiado"
 
 #: includes/Admin/EmailEditor.php:233
 msgid "Your permissions in the space have changed"
-msgstr ""
+msgstr "Tus permisos en el espacio han cambiado"
 
 #: includes/Admin/EmailEditor.php:238
 msgid "When an announcement is posted to a space or to the whole community"
@@ -1829,11 +1829,11 @@ msgstr ""
 
 #: includes/Admin/EmailEditor.php:245
 msgid "You are now the owner of {{space_name}}"
-msgstr ""
+msgstr "Ahora eres el propietario de {{space_name}}"
 
 #: includes/Admin/EmailEditor.php:246
 msgid "You now own {{space_name}}."
-msgstr ""
+msgstr "Ahora eres propietario de {{space_name}}."
 
 #: includes/Admin/EmailEditor.php:252
 #: includes/Moderation/ModerationLogService.php:319
@@ -1884,11 +1884,11 @@ msgstr "Cuando un moderador advierte a un miembro"
 
 #: includes/Admin/EmailEditor.php:275
 msgid "A note about your activity on {{site_name}}"
-msgstr ""
+msgstr "Una nota sobre tu actividad en {{site_name}}"
 
 #: includes/Admin/EmailEditor.php:276
 msgid "Please read this before posting again"
-msgstr ""
+msgstr "Léela antes de volver a publicar"
 
 #: includes/Admin/EmailEditor.php:280
 #: includes/Moderation/ModerationLogService.php:335
@@ -1903,11 +1903,11 @@ msgstr "Cuando se aprueba una publicación retenida para revisión"
 
 #: includes/Admin/EmailEditor.php:283
 msgid "Your post on {{site_name}} is now live"
-msgstr ""
+msgstr "Tu publicación en {{site_name}} ya está activa"
 
 #: includes/Admin/EmailEditor.php:284
 msgid "It passed review"
-msgstr ""
+msgstr "Ha superado la revisión"
 
 #: includes/Admin/EmailEditor.php:288
 #: includes/Notifications/NotificationMessageService.php:816
@@ -1921,11 +1921,11 @@ msgstr "Cuando se rechaza una publicación retenida para revisión"
 
 #: includes/Admin/EmailEditor.php:291
 msgid "About your recent post on {{site_name}}"
-msgstr ""
+msgstr "Sobre tu publicación reciente en {{site_name}}"
 
 #: includes/Admin/EmailEditor.php:292
 msgid "Your post was not published"
-msgstr ""
+msgstr "Tu publicación no se ha publicado"
 
 #: includes/Admin/EmailEditor.php:296 includes/Admin/EmailLog.php:201
 #: includes/Core/AssetService.php:2101
@@ -1941,11 +1941,11 @@ msgstr "Cuando un moderador elimina el contenido de un miembro"
 
 #: includes/Admin/EmailEditor.php:299
 msgid "Content of yours was removed from {{site_name}}"
-msgstr ""
+msgstr "Se ha eliminado contenido tuyo de {{site_name}}"
 
 #: includes/Admin/EmailEditor.php:300
 msgid "A moderator removed one of your posts"
-msgstr ""
+msgstr "Un moderador ha eliminado una de tus publicaciones"
 
 #: includes/Admin/EmailEditor.php:304
 msgid "Unsuspension confirmation"
@@ -1957,11 +1957,11 @@ msgstr "Cuando se levanta la suspensión de un miembro"
 
 #: includes/Admin/EmailEditor.php:307
 msgid "Your account on {{site_name}} has been restored"
-msgstr ""
+msgstr "Tu cuenta de {{site_name}} ha sido restablecida"
 
 #: includes/Admin/EmailEditor.php:308
 msgid "Welcome back. Your account is active again."
-msgstr ""
+msgstr "Te damos de nuevo la bienvenida. Tu cuenta vuelve a estar activa."
 
 #: includes/Admin/EmailEditor.php:312
 msgid "New report (admin)"
@@ -15965,26 +15965,26 @@ msgstr ""
 
 #: includes/Core/Installer.php:3782
 msgid "Verify your email address on {{site_name}}"
-msgstr ""
+msgstr "Verifica tu correo electrónico en {{site_name}}"
 
 #: includes/Core/Installer.php:3783
 msgid "Click the link to confirm your address"
-msgstr ""
+msgstr "Haz clic en el enlace para confirmar tu dirección"
 
 #: includes/Core/Installer.php:3784
 msgid ""
 "<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the "
 "link below:</p><p><a href=\"{{verify_url}}\">Verify my email</a></p><p>This "
 "link expires in 48 hours.</p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Verifica tu correo electrónico haciendo clic en el siguiente enlace:</p><p><a href=\"{{verify_url}}\">Verificar mi correo</a></p><p>Este enlace caduca en 48 horas.</p>"
 
 #: includes/Core/Installer.php:3788
 msgid "Confirm your new email address on {{site_name}}"
-msgstr ""
+msgstr "Confirma tu nueva dirección de correo en {{site_name}}"
 
 #: includes/Core/Installer.php:3789
 msgid "Confirm the email change on your account"
-msgstr ""
+msgstr "Confirma el cambio de correo en tu cuenta"
 
 #: includes/Core/Installer.php:3790
 msgid ""
@@ -15993,148 +15993,148 @@ msgid ""
 "below:</p><p><a href=\"{{verify_url}}\">Confirm my new email</a></p><p>This "
 "link expires in 24 hours. If you did not request this, ignore this email and "
 "your address stays the same.</p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Has solicitado cambiar el correo electrónico de tu cuenta de {{site_name}} a esta bandeja de entrada. Confirma el cambio haciendo clic en el siguiente enlace:</p><p><a href=\"{{verify_url}}\">Confirmar mi nuevo correo</a></p><p>Este enlace caduca en 24 horas. Si no lo solicitaste, ignora este correo y tu dirección seguirá igual.</p>"
 
 #: includes/Core/Installer.php:3794
 msgid "Welcome to {{site_name}}"
-msgstr ""
+msgstr "Te damos la bienvenida a {{site_name}}"
 
 #: includes/Core/Installer.php:3795
 msgid "Your community account is ready"
-msgstr ""
+msgstr "Tu cuenta de la comunidad está lista"
 
 #: includes/Core/Installer.php:3796
 msgid ""
 "<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all "
 "set: <a href=\"{{action_url}}\">start exploring</a>.</p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Te damos la bienvenida a {{site_name}}. Tu cuenta está lista: <a href=\"{{action_url}}\">empieza a explorar</a>.</p>"
 
 #: includes/Core/Installer.php:3800
 msgid "New announcement in {{space_name}}"
-msgstr ""
+msgstr "Nuevo anuncio en {{space_name}}"
 
 #: includes/Core/Installer.php:3801
 msgid "An announcement was posted in {{space_name}}"
-msgstr ""
+msgstr "Se publicó un anuncio en {{space_name}}"
 
 #: includes/Core/Installer.php:3802
 msgid ""
 "<p>Hi {{user_name}},</p><p>{{notification_message}}</p><p><a "
 "href=\"{{action_url}}\">Read it</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>{{notification_message}}</p><p><a href=\"{{action_url}}\">Leerlo</a></p>"
 
 #: includes/Core/Installer.php:3806
 msgid "{{actor_name}} started following you on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} ha empezado a seguirte en {{site_name}}"
 
 #: includes/Core/Installer.php:3807
 msgid "You have a new follower"
-msgstr ""
+msgstr "Tienes un nuevo seguidor"
 
 #: includes/Core/Installer.php:3808
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> started following "
 "you on {{site_name}}. <a href=\"{{action_url}}\">View their profile.</a></"
 "p><p><a href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> ha empezado a seguirte en {{site_name}}. <a href=\"{{action_url}}\">Ver su perfil.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3812
 msgid "{{actor_name}} wants to connect on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} quiere conectar contigo en {{site_name}}"
 
 #: includes/Core/Installer.php:3813
 msgid "You have a new connection request"
-msgstr ""
+msgstr "Tienes una nueva solicitud de conexión"
 
 #: includes/Core/Installer.php:3814
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> sent you a "
 "connection request on {{site_name}}. <a href=\"{{action_url}}\">View the "
 "request.</a></p><p><a href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> te ha enviado una solicitud de conexión en {{site_name}}. <a href=\"{{action_url}}\">Ver la solicitud.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3818
 msgid "{{actor_name}} accepted your connection request on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} ha aceptado tu solicitud de conexión en {{site_name}}"
 
 #: includes/Core/Installer.php:3819
 msgid "You are now connected"
-msgstr ""
+msgstr "Conexión establecida"
 
 #: includes/Core/Installer.php:3820
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> accepted your "
 "connection request on {{site_name}}. <a href=\"{{action_url}}\">View their "
 "profile.</a></p><p><a href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> ha aceptado tu solicitud de conexión en {{site_name}}. <a href=\"{{action_url}}\">Ver su perfil.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3824
 msgid "{{actor_name}} mentioned you on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} te ha mencionado en {{site_name}}"
 
 #: includes/Core/Installer.php:3825
 msgid "Someone mentioned you in a post"
-msgstr ""
+msgstr "Alguien te ha mencionado en una publicación"
 
 #: includes/Core/Installer.php:3826
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> mentioned you on "
 "{{site_name}}. <a href=\"{{action_url}}\">See the post.</a></p><p><a "
 "href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> te ha mencionado en {{site_name}}. <a href=\"{{action_url}}\">Ver la publicación.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3830
 msgid "Someone reacted to your post on {{site_name}}"
-msgstr ""
+msgstr "Alguien ha reaccionado a tu publicación en {{site_name}}"
 
 #: includes/Core/Installer.php:3831
 msgid "New reaction on your post"
-msgstr ""
+msgstr "Nueva reacción en tu publicación"
 
 #: includes/Core/Installer.php:3832
 msgid ""
 "<p>Hi {{user_name}},</p><p>Your post received a reaction on {{site_name}}. "
 "<a href=\"{{action_url}}\">See the reactions.</a></p><p><a "
 "href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Tu publicación ha recibido una reacción en {{site_name}}. <a href=\"{{action_url}}\">Ver las reacciones.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3836
 msgid "{{actor_name}} commented on your post on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} ha comentado tu publicación en {{site_name}}"
 
 #: includes/Core/Installer.php:3837
 msgid "Someone commented on your post"
-msgstr ""
+msgstr "Alguien ha comentado tu publicación"
 
 #: includes/Core/Installer.php:3838
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> commented on your "
 "post on {{site_name}}. <a href=\"{{action_url}}\">View the comment.</a></"
 "p><p><a href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> ha comentado tu publicación en {{site_name}}. <a href=\"{{action_url}}\">Ver el comentario.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3842
 msgid "{{actor_name}} shared your post on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} ha compartido tu publicación en {{site_name}}"
 
 #: includes/Core/Installer.php:3843
 msgid "Someone shared your post"
-msgstr ""
+msgstr "Alguien ha compartido tu publicación"
 
 #: includes/Core/Installer.php:3844
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> shared your post "
 "on {{site_name}}. <a href=\"{{action_url}}\">View the share.</a></p><p><a "
 "href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> ha compartido tu publicación en {{site_name}}. <a href=\"{{action_url}}\">Ver lo compartido.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3848
 msgid "{{actor_name}} invited you to join {{space_name}}"
-msgstr ""
+msgstr "{{actor_name}} te ha invitado a unirte a {{space_name}}"
 
 #: includes/Core/Installer.php:3849
 msgid "Join this community space"
-msgstr ""
+msgstr "Únete a este espacio de la comunidad"
 
 #: includes/Core/Installer.php:3850
 msgid ""
@@ -16142,15 +16142,15 @@ msgid ""
 "join <strong>{{space_name}}</strong> on {{site_name}}. <a "
 "href=\"{{action_url}}\">View the invitation.</a></p><p><a "
 "href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> te ha invitado a unirte a <strong>{{space_name}}</strong> en {{site_name}}. <a href=\"{{action_url}}\">Ver la invitación.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3854
 msgid "{{actor_name}} asked to join {{space_name}}"
-msgstr ""
+msgstr "{{actor_name}} ha pedido unirse a {{space_name}}"
 
 #: includes/Core/Installer.php:3855
 msgid "A member wants to join your space"
-msgstr ""
+msgstr "Un miembro quiere unirse a tu espacio"
 
 #: includes/Core/Installer.php:3856
 msgid ""
@@ -16158,45 +16158,45 @@ msgid ""
 "<strong>{{space_name}}</strong> on {{site_name}}. <a href=\"{{action_url}}"
 "\">Review the request.</a></p><p><a href=\"{{unsubscribe_url}}"
 "\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> ha pedido unirse a <strong>{{space_name}}</strong> en {{site_name}}. <a href=\"{{action_url}}\">Revisar la solicitud.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3860
 msgid "Your request to join {{space_name}} was approved"
-msgstr ""
+msgstr "Tu solicitud para unirte a {{space_name}} ha sido aprobada"
 
 #: includes/Core/Installer.php:3861
 msgid "Welcome to {{space_name}}"
-msgstr ""
+msgstr "Te damos la bienvenida a {{space_name}}"
 
 #: includes/Core/Installer.php:3862
 msgid ""
 "<p>Hi {{user_name}},</p><p>Your request to join <strong>{{space_name}}</"
 "strong> on {{site_name}} has been approved. <a href=\"{{action_url}}\">Visit "
 "the space.</a></p><p><a href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Tu solicitud para unirte a <strong>{{space_name}}</strong> en {{site_name}} ha sido aprobada. <a href=\"{{action_url}}\">Visitar el espacio.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3866
 msgid "A moderation action was taken on your {{site_name}} account"
-msgstr ""
+msgstr "Se ha tomado una medida de moderación en tu cuenta de {{site_name}}"
 
 #: includes/Core/Installer.php:3867
 msgid "Important account notice"
-msgstr ""
+msgstr "Aviso importante sobre tu cuenta"
 
 #: includes/Core/Installer.php:3868
 msgid ""
 "<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your "
 "account at {{site_name}}. Please review the community guidelines to avoid "
 "further action.</p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Se ha aplicado una sanción de moderación a tu cuenta en {{site_name}}. Revisa las normas de la comunidad para evitar más medidas.</p>"
 
 #: includes/Core/Installer.php:3872
 msgid "Your {{site_name}} account has received multiple strikes"
-msgstr ""
+msgstr "Tu cuenta de {{site_name}} ha recibido varias sanciones"
 
 #: includes/Core/Installer.php:3873
 msgid "You have received multiple moderation strikes"
-msgstr ""
+msgstr "Has recibido varias sanciones de moderación"
 
 #: includes/Core/Installer.php:3874
 msgid ""
@@ -16204,15 +16204,15 @@ msgid ""
 "multiple moderation strikes. Please review our community guidelines to avoid "
 "further action.</p><p>If you believe this is in error, you can contact our "
 "moderation team.</p><p><a href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Tu cuenta en {{site_name}} ha recibido varias sanciones de moderación. Revisa nuestras normas de la comunidad para evitar más medidas.</p><p>Si crees que se trata de un error, puedes ponerte en contacto con nuestro equipo de moderación.</p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3878
 msgid "Your {{site_name}} account has been suspended"
-msgstr ""
+msgstr "Tu cuenta de {{site_name}} ha sido suspendida"
 
 #: includes/Core/Installer.php:3879
 msgid "Your account has been suspended"
-msgstr ""
+msgstr "Tu cuenta ha sido suspendida"
 
 #: includes/Core/Installer.php:3880
 msgid ""
@@ -16222,15 +16222,15 @@ msgid ""
 "strong> {{expires_at}}</p><p>If you think this was a mistake, you can appeal "
 "from your account page.</p><p><a href=\"{{action_url}}\">See your account "
 "status</a></p><p><a href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Tu cuenta en {{site_name}} ha sido suspendida. Mientras dure la suspensión, no puedes publicar ni interactuar con la comunidad.</p><p><strong>Motivo:</strong> {{reason}}<br><strong>Suspendida hasta:</strong> {{expires_at}}</p><p>Si crees que ha sido un error, puedes presentar una apelación desde la página de tu cuenta.</p><p><a href=\"{{action_url}}\">Ver el estado de tu cuenta</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3884
 msgid "Your {{site_name}} appeal has been reviewed"
-msgstr ""
+msgstr "Tu apelación en {{site_name}} ha sido revisada"
 
 #: includes/Core/Installer.php:3885
 msgid "Your moderation appeal has been resolved"
-msgstr ""
+msgstr "Tu apelación de moderación ha sido resuelta"
 
 #: includes/Core/Installer.php:3886
 msgid ""
@@ -16238,15 +16238,15 @@ msgid ""
 "and <strong>{{decision}}</strong>.</p><p>If you have questions about this "
 "decision, please contact our moderation team.</p><p><a "
 "href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Tu apelación en {{site_name}} ha sido revisada y <strong>{{decision}}</strong>.</p><p>Si tienes preguntas sobre esta decisión, ponte en contacto con nuestro equipo de moderación.</p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3890
 msgid "New content report awaiting review on {{site_name}}"
-msgstr ""
+msgstr "Hay un nuevo reporte de contenido pendiente de revisión en {{site_name}}"
 
 #: includes/Core/Installer.php:3891
 msgid "A member reported content for moderation"
-msgstr ""
+msgstr "Un miembro ha reportado contenido para su moderación"
 
 #: includes/Core/Installer.php:3892
 msgid ""
@@ -16254,30 +16254,30 @@ msgid ""
 "waiting in the moderation queue.</p><p><a href=\"{{action_url}}\">Review the "
 "moderation queue &rarr;</a></p><p><a href=\"{{unsubscribe_url}}"
 "\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Se ha presentado un nuevo reporte en {{site_name}} y está esperando en la cola de moderación.</p><p><a href=\"{{action_url}}\">Revisar la cola de moderación &rarr;</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3896
 msgid "Your daily digest from {{site_name}}"
-msgstr ""
+msgstr "Tu resumen diario de {{site_name}}"
 
 #: includes/Core/Installer.php:3897
 msgid "Here's what happened on {{site_name}} today"
-msgstr ""
+msgstr "Esto es lo que ha pasado hoy en {{site_name}}"
 
 #: includes/Core/Installer.php:3898
 msgid ""
 "<p>Hi {{user_name}},</p><p>Here's a summary of your notifications from today "
 "on <a href=\"{{action_url}}\">{{site_name}}</a>:</p>{{notification_list}}"
 "<p><a href=\"{{unsubscribe_url}}\">Unsubscribe from digest emails</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Este es un resumen de tus notificaciones de hoy en <a href=\"{{action_url}}\">{{site_name}}</a>:</p>{{notification_list}}<p><a href=\"{{unsubscribe_url}}\">Cancelar la suscripción a los correos de resumen</a></p>"
 
 #: includes/Core/Installer.php:3902
 msgid "Your weekly digest from {{site_name}}"
-msgstr ""
+msgstr "Tu resumen semanal de {{site_name}}"
 
 #: includes/Core/Installer.php:3903
 msgid "Here's your weekly round-up from {{site_name}}"
-msgstr ""
+msgstr "Tu resumen de la semana en {{site_name}}"
 
 #: includes/Core/Installer.php:3904
 msgid ""
@@ -16285,82 +16285,82 @@ msgid ""
 "week on <a href=\"{{action_url}}\">{{site_name}}</a>:</"
 "p>{{notification_list}}<p><a href=\"{{unsubscribe_url}}\">Unsubscribe from "
 "digest emails</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p>Este es un resumen de tus notificaciones de esta semana en <a href=\"{{action_url}}\">{{site_name}}</a>:</p>{{notification_list}}<p><a href=\"{{unsubscribe_url}}\">Cancelar la suscripción a los correos de resumen</a></p>"
 
 #: includes/Core/Installer.php:3908
 msgid "You've been invited to join {{site_name}}"
-msgstr ""
+msgstr "Te han invitado a unirte a {{site_name}}"
 
 #: includes/Core/Installer.php:3909
 msgid "Accept your invitation and create your account"
-msgstr ""
+msgstr "Acepta la invitación y crea tu cuenta"
 
 #: includes/Core/Installer.php:3910
 msgid ""
 "<p>Hi {{first_name}},</p><p>You've been invited to join <strong>{{site_name}}"
 "</strong>!</p><p><a href=\"{{invite_url}}\">Accept invitation &rarr;</a></"
 "p><p>This invitation expires in 7 days.</p>"
-msgstr ""
+msgstr "<p>Hola {{first_name}},</p><p>Te han invitado a unirte a <strong>{{site_name}}</strong>.</p><p><a href=\"{{invite_url}}\">Aceptar invitación &rarr;</a></p><p>Esta invitación caduca en 7 días.</p>"
 
 #: includes/Core/Installer.php:3914
 msgid "Finish setting up your {{site_name}} profile"
-msgstr ""
+msgstr "Termina de configurar tu perfil en {{site_name}}"
 
 #: includes/Core/Installer.php:3915
 msgid "Complete your onboarding to get the most out of the community"
-msgstr ""
+msgstr "Completa la bienvenida para aprovechar al máximo la comunidad"
 
 #: includes/Core/Installer.php:3916
 msgid ""
 "<p>Hi {{recipient_name}},</p><p>You're almost there! Complete your profile "
 "setup on <strong>{{site_name}}</strong> to connect with the community.</"
 "p><p><a href=\"{{onboarding_url}}\">Complete your profile &rarr;</a></p>"
-msgstr ""
+msgstr "<p>Hola {{recipient_name}},</p><p>Ya casi lo tienes. Completa la configuración de tu perfil en <strong>{{site_name}}</strong> para conectar con la comunidad.</p><p><a href=\"{{onboarding_url}}\">Completar tu perfil &rarr;</a></p>"
 
 #: includes/Core/Installer.php:3920
 msgid "{{actor_name}} sent you a message on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} te ha enviado un mensaje en {{site_name}}"
 
 #: includes/Core/Installer.php:3921
 msgid "You have a new direct message"
-msgstr ""
+msgstr "Tienes un nuevo mensaje directo"
 
 #: includes/Core/Installer.php:3922
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> sent you a direct "
 "message on {{site_name}}. <a href=\"{{action_url}}\">Read it.</a></p><p><a "
 "href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> te ha enviado un mensaje directo en {{site_name}}. <a href=\"{{action_url}}\">Leerlo.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3926
 msgid "{{actor_name}} commented on your media on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} ha comentado tu contenido multimedia en {{site_name}}"
 
 #: includes/Core/Installer.php:3927
 msgid "Someone commented on your media"
-msgstr ""
+msgstr "Alguien ha comentado tu contenido multimedia"
 
 #: includes/Core/Installer.php:3928
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> commented on your "
 "media on {{site_name}}. <a href=\"{{action_url}}\">View the comment.</a></"
 "p><p><a href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> ha comentado tu contenido multimedia en {{site_name}}. <a href=\"{{action_url}}\">Ver el comentario.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #: includes/Core/Installer.php:3932
 msgid "{{actor_name}} favorited your media on {{site_name}}"
-msgstr ""
+msgstr "{{actor_name}} ha marcado como favorito tu contenido multimedia en {{site_name}}"
 
 #: includes/Core/Installer.php:3933
 msgid "Your media received a new favorite"
-msgstr ""
+msgstr "Tu contenido multimedia tiene un nuevo favorito"
 
 #: includes/Core/Installer.php:3934
 msgid ""
 "<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> favorited your "
 "media on {{site_name}}. <a href=\"{{action_url}}\">View it.</a></p><p><a "
 "href=\"{{unsubscribe_url}}\">Unsubscribe</a></p>"
-msgstr ""
+msgstr "<p>Hola {{user_name}},</p><p><strong>{{actor_name}}</strong> ha marcado como favorito tu contenido multimedia en {{site_name}}. <a href=\"{{action_url}}\">Verlo.</a></p><p><a href=\"{{unsubscribe_url}}\">Cancelar suscripción</a></p>"
 
 #. translators: %d: id of a post that no longer exists.
 #: includes/Core/ObjectLabels.php:222
