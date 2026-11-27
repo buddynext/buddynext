@@ -979,6 +979,7 @@ class GamificationBridge {
 	 *
 	 * @param array<int,array{icon:string,text:string}> $facts The card's facts.
 	 * @param string                                    $type  Card post type.
+	 * @param array<string,mixed>                       $link_meta The card's stored link meta plus `user_id` (the member it is about).
 	 * @return array<int,array{icon:string,text:string}>
 	 */
 	public function drop_points_fact( array $facts, string $type, array $link_meta = array() ): array {
