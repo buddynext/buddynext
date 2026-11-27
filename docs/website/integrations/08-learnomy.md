@@ -86,7 +86,7 @@ The reverse direction also exists: a BuddyNext membership plan can grant access 
 
 This is set up on the plan itself - open the plan in BuddyNext Pro's Membership Plans screen and map the courses and/or the Learnomy Space it should unlock. See Membership Plans for the full plan-editing walkthrough.
 
-A revived or renewed plan gives its linked courses back: a plan that expired and is then reinstated, extended or renewed enrolls the member in its courses again. Saving a plan keeps courses that are already linked but are draft, archived or beyond the first 200 in the list. They appear as "Title (draft)" on the form, so saving does not unlink them. The plan editor mentions a Learnomy Space only when the Space field is shown.
+A revived or renewed plan gives its linked courses back: a plan that expired and is then reinstated, extended or renewed enrolls the member in its courses again. Saving a plan keeps courses that are already linked but are draft, archived or beyond the first 200 in the list. They appear on the form with their status after the title, for example "Intro to WP (draft)" or "(archived)", so saving does not unlink them. The plan editor mentions a Learnomy Space only when the Space field is shown.
 
 > **Note:** Access granted this way is tracked separately from a member's own direct Learnomy purchases or enrollments, so a plan lapsing never touches a course the member paid for on their own.
 
