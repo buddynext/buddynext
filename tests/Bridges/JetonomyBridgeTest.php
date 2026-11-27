@@ -2043,6 +2043,33 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		\Jetonomy\Models\Space::$rows = array();
 	}
 	/**
+	 * Below Jetonomy 2.1.0 (no jetonomy_before_update_space) the bridge is off, and Integrations says which version turns it on.
+	 */
+	public function test_the_bridge_needs_jetonomy_2_1_0(): void {
+		$this->assertFalse( JetonomyBridge::version_supported( '2.0.7' ) );
+		$this->assertFalse( JetonomyBridge::version_supported( '2.0.99' ) );
+		$this->assertTrue( JetonomyBridge::version_supported( '2.1.0' ) );
+		$this->assertTrue( JetonomyBridge::version_supported( '2.2.0' ) );
+
+		$items = $this->bridge->register_integration( array() );
+		$this->assertSame( '2.1.0', $items['jetonomy']['min_version'] );
+	}
+
+	/**
+	 * A separate process, so the version can be 2.0.7 without leaking into other tests: no forum is made or linked.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_nothing_is_provisioned_on_jetonomy_2_0_7(): void {
+		define( 'JETONOMY_VERSION', '2.0.7' );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Old Jetonomy', 'slug' => 'old-jt-' . wp_rand( 1000, 9999 ) ) );
+		$this->assertSame( 0, ( new JetonomyBridge() )->provision_space_forum( $space_id ) );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' ) );
+		$this->assertFalse( JetonomyBridge::version_supported() );
+	}
+
+	/**
 	 * One push per event: Jetonomy Pro keeps its push unless BuddyNext can really send one
 	 * (the stand-down itself is covered in BuddyNext Pro, where push exists).
 	 */

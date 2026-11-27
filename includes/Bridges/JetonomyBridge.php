@@ -157,6 +157,32 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * The oldest Jetonomy this bridge works with. 2.1.0 added jetonomy_before_update_space, the one door that keeps a
+	 * forum linked to a Space as open as the Space. Older versions would let a Space owner open a private forum.
+	 */
+	public const MIN_VERSION = '2.1.0';
+
+	/**
+	 * Whether the installed Jetonomy is at or above the floor. An unknown version counts as supported.
+	 *
+	 * @param string|null $version Version to test; the installed one when null.
+	 * @return bool
+	 */
+	public static function version_supported( ?string $version = null ): bool {
+		$version ??= defined( 'JETONOMY_VERSION' ) ? (string) JETONOMY_VERSION : '';
+		return '' === $version || version_compare( $version, self::MIN_VERSION, '>=' );
+	}
+
+	/**
+	 * Whether Jetonomy is active at a version this bridge supports.
+	 *
+	 * @return bool
+	 */
+	public static function usable(): bool {
+		return class_exists( 'Jetonomy\Jetonomy' ) && self::version_supported();
+	}
+
+	/**
 	 * Attach hooks.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action.
@@ -164,6 +190,12 @@ class JetonomyBridge {
 	 */
 	public function init(): void {
 		if ( ! class_exists( 'Jetonomy\Jetonomy' ) ) {
+			return;
+		}
+		// Below the floor the bridge stays off (no forum is made or linked, no tab, no mirroring) and only
+		// registers itself, so Integrations and the bridge status say which Jetonomy version turns it on.
+		if ( ! self::version_supported() ) {
+			add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
 			return;
 		}
 
@@ -3412,7 +3444,7 @@ class JetonomyBridge {
 			return $existing;
 		}
 
-		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
+		if ( ! class_exists( '\Jetonomy\Models\Space' ) || ! self::version_supported() ) {
 			return 0;
 		}
 
@@ -4625,7 +4657,7 @@ class JetonomyBridge {
 	 * @return bool
 	 */
 	private static function discussion_switched_on(): bool {
-		return class_exists( 'Jetonomy\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'nav' );
+		return self::usable() && buddynext_integration_enabled( 'jetonomy', 'nav' );
 	}
 
 	/**
@@ -5020,13 +5052,12 @@ class JetonomyBridge {
 			$items['jetonomy'] = array(
 				'label'            => __( 'Jetonomy', 'buddynext' ),
 				'version'          => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
-				// No hard floor evidenced for the model/action seams this bridge
-				// consumes, so none is declared (an invented floor would be worse
-				// than an honest null). Tested against 2.0.3: every Jetonomy hook, class,
+				// Floor 2.1.0: below it the bridge stays off (see init()). Tested against 2.0.3: every Jetonomy hook, class,
 				// method and function BuddyNext and BuddyNext Pro use was checked against
 				// the partner code at that tag on 2026-10-19 (all present; hook argument
 				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
+				'min_version'      => self::MIN_VERSION,
 				'tested_version'   => '2.1.0', // Verified 2026-11-23 by QA (J36) on 1.3.0 with MediaVerse 2.7.0 on the same site: discussions tab, My discussions, feed and Explore items, partner deactivation.
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
