@@ -1076,7 +1076,7 @@ $posts_pct_abs = abs( $posts_pct );
 										<div class="bn-ca-more-menu" role="menu">
 											<?php if ( '' !== $rpt_view_url ) : ?>
 												<a class="bn-ca-more-menu-item" role="menuitem" href="<?php echo esc_url( $rpt_view_url ); ?>" target="_blank" rel="noopener">
-													<?php esc_html_e( 'View reported item', 'buddynext' ); ?>
+													<?php echo esc_html( \BuddyNext\Core\ObjectLabels::view_label( $rpt_obj_type ) ); ?>
 												</a>
 											<?php endif; ?>
 											<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.resolveReport">

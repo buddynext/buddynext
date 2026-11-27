@@ -399,6 +399,27 @@ final class ObjectLabels {
 	}
 
 	/**
+	 * The words on the link view_url() opens, naming what was reported.
+	 *
+	 * @param string $object_type Reported object type (post|comment|user|space|message).
+	 * @return string Translated link text.
+	 */
+	public static function view_label( string $object_type ): string {
+		switch ( $object_type ) {
+			case 'user':
+				return __( 'View reported member', 'buddynext' );
+			case 'post':
+				return __( 'View reported post', 'buddynext' );
+			case 'comment':
+				return __( 'View reported comment', 'buddynext' );
+			case 'space':
+				return __( 'View reported space', 'buddynext' );
+			default:
+				return __( 'View reported item', 'buddynext' );
+		}
+	}
+
+	/**
 	 * Drop the per-request cache. Test seam.
 	 *
 	 * @return void
