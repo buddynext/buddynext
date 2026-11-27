@@ -176,7 +176,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	<?php
 	// No row at all without Jetonomy: a switch-less "turn the switch on" line
 	// told the owner to do something they could not.
-	if ( class_exists( 'Jetonomy\\Jetonomy' ) ) :
+	if ( \BuddyNext\Bridges\JetonomyBridge::usable() ) :
 		?>
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
@@ -226,7 +226,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	</div>
 	<?php endif; ?>
 
-	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) && $args['is_space_owner'] ) : ?>
+	<?php if ( \BuddyNext\Bridges\JetonomyBridge::usable() && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) && $args['is_space_owner'] ) : ?>
 		<?php
 		// First-time setup only: create a new dedicated discussion (default)
 		// or link an existing one. The typeahead search scopes results by

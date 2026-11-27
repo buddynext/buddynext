@@ -2067,6 +2067,20 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, ( new JetonomyBridge() )->provision_space_forum( $space_id ) );
 		$this->assertSame( 0, (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' ) );
 		$this->assertFalse( JetonomyBridge::version_supported() );
+		$this->assertFalse( JetonomyBridge::usable(), 'The bridge reports itself usable below its floor.' );
+	}
+
+	/**
+	 * Templates ask usable(), never the bare class check, so a Jetonomy below the floor shows no Discussions switch.
+	 */
+	public function test_no_template_offers_discussions_on_the_bare_class_check(): void {
+		$hits = array();
+		foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( BUDDYNEXT_DIR . 'templates', \FilesystemIterator::SKIP_DOTS ) ) as $file ) {
+			if ( 'php' === $file->getExtension() && preg_match( '/class_exists\(\s*\'Jetonomy\\\\+Jetonomy\'\s*\)/', (string) file_get_contents( $file->getPathname() ) ) ) {
+				$hits[] = $file->getFilename();
+			}
+		}
+		$this->assertSame( array(), $hits, 'These templates test only that Jetonomy is installed; use JetonomyBridge::usable().' );
 	}
 
 	/**

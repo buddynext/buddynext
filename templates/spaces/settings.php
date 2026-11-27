@@ -518,7 +518,7 @@ $bn_discussion_status = array(
 	'name'     => '',
 	'url'      => '',
 );
-if ( class_exists( 'Jetonomy\\Jetonomy' ) ) {
+if ( \BuddyNext\Bridges\JetonomyBridge::usable() ) {
 	$bn_discussion_status = ( new \BuddyNext\Bridges\JetonomyBridge() )->space_discussion_status( $space_id );
 }
 $who_can_post   = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
