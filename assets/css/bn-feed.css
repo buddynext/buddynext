@@ -3255,6 +3255,11 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	overflow: hidden;
 }
 .bn-composer__avatar img { width: 100%; height: 100%; object-fit: cover; }
+/* No photo: the initials sit on a soft tint of the brand colour, in its readable darker tone. */
+.bn-composer .bn-composer__avatar--initials {
+	background: color-mix(in oklab, var(--bn-accent) 16%, var(--bn-surface));
+	color: var(--bn-accent-text);
+}
 
 /* The audience reads just the choice and a chevron on a desktop; the "Posting to" lead-in is for phones, where the pill is a plain line. */
 .bn-composer__privacy-lead { display: none; }

@@ -116,9 +116,9 @@ $composer_avatar  = get_avatar_url( $composer_user_id, array( 'size' => 76 ) );
 // The photo, or AvatarService's initials image when there is none; these initials only show if no avatar URL comes back at all.
 $composer_initial = \BuddyNext\Profile\AvatarService::initials_for( (string) $composer_display );
 $composer_nonce   = wp_create_nonce( 'wp_rest' );
-$composer_color   = function_exists( 'bn_avatar_color' )
-	? bn_avatar_color( $composer_user_id )
-	: ( function_exists( 'buddynext_avatar_colour' ) ? buddynext_avatar_colour( $composer_user_id ) : '#cccccc' );
+// AvatarService's generated initials come back as an inline SVG data URI; a real photo never does.
+// No photo shows the initials as text on a tinted disc (CSS) instead of that image.
+$composer_has_photo = '' !== (string) $composer_avatar && 0 !== strpos( (string) $composer_avatar, 'data:image/svg+xml' );
 
 $composer_placeholder = $composer_space
 	? __( 'Share something with this space...', 'buddynext' )
@@ -310,13 +310,10 @@ if ( $composer_article_summary['pending'] > 0 ) {
 	?>
 	'>
 
-	<span class="bn-avatar bn-composer__avatar"
+	<span class="bn-avatar bn-composer__avatar<?php echo $composer_has_photo ? '' : ' bn-composer__avatar--initials'; ?>"
 		data-size="md"
-		<?php if ( ! $composer_avatar ) : ?>
-			style="background:<?php echo esc_attr( $composer_color ); ?>;"
-		<?php endif; ?>
 		aria-hidden="true">
-		<?php if ( $composer_avatar ) : ?>
+		<?php if ( $composer_has_photo ) : ?>
 			<img src="<?php echo esc_url( $composer_avatar ); ?>"
 				alt=""
 				width="36"

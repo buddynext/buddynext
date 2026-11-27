@@ -307,4 +307,29 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 		wp_delete_post( $post, true );
 		$this->assertSame( 0, ArticleProvider::composer_summary( $other )['articles'], 'Deleted.' );
 	}
+
+	public function test_a_member_without_a_photo_gets_initials_on_a_tinted_disc_not_the_generated_image(): void {
+		$uid  = self::factory()->user->create(
+			array(
+				'role'         => 'author',
+				'display_name' => 'Ada Lovelace',
+			)
+		);
+		$html = $this->feed( $uid );
+
+		$this->assertMatchesRegularExpression( '/class="bn-avatar bn-composer__avatar bn-composer__avatar--initials"[^>]*>\s*AL\s*</s', $html );
+		$this->assertDoesNotMatchRegularExpression( '/bn-composer__avatar[^>]*>\s*<img/s', $html, 'No generated initials image in the avatar.' );
+	}
+
+	public function test_a_member_with_a_photo_keeps_the_photo(): void {
+		$uid = $this->writer();
+		add_filter(
+			'buddynext_avatar_url',
+			static fn(): string => 'https://example.org/photo.jpg'
+		);
+		$html = $this->feed( $uid );
+
+		$this->assertMatchesRegularExpression( '/class="bn-avatar bn-composer__avatar"[^>]*>\s*<img src="https:\/\/example\.org\/photo\.jpg"/s', $html );
+		$this->assertStringNotContainsString( 'bn-composer__avatar--initials', $html );
+	}
 }
