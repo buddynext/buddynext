@@ -92,6 +92,11 @@ class NotificationService {
 	private const CACHE_TTL = 30;
 
 	/**
+	 * Unread partner rows checked against the bell's visibility rule when counting (see hidden_unread()).
+	 */
+	public const HIDDEN_WINDOW = 100;
+
+	/**
 	 * Default notifications per page.
 	 */
 	private const DEFAULT_LIMIT = 20;
@@ -111,6 +116,62 @@ class NotificationService {
 		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "unread_by_type_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "unseen_{$user_id}", self::CACHE_GROUP );
+		wp_cache_delete( "hidden_unread_{$user_id}", self::CACHE_GROUP );
+	}
+
+	/**
+	 * The newest unread rows from partner plugins that the bell hides from this member.
+	 *
+	 * The bell's list drops rows through the visibility rule a partner owns (a removed job, a withdrawn
+	 * application, a blocked author), which is PHP, not SQL, so the SQL counts would still count them. This runs
+	 * that same rule (filter_resolvable(), the one the list uses) over a bounded window of the newest unread partner
+	 * rows, one query, and reports what it dropped. BuddyNext's own rows (`bn.*`) are never hidden by it and are
+	 * not read. Cached with the other counts and cleared with them (see forget_counts()).
+	 *
+	 * ponytail: only the newest HIDDEN_WINDOW unread partner rows are checked; a member with more unread partner
+	 * rows than that can see a count slightly high until they read some. Raise the constant if that ever matters.
+	 *
+	 * @param int $user_id Recipient.
+	 * @return array<int,array{type:string,created_at:string}> Hidden row id => its type and time.
+	 */
+	private function hidden_unread( int $user_id ): array {
+		$cache_key = "hidden_unread_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_notifications
+				 WHERE recipient_id = %d AND is_read = 0 AND type NOT LIKE %s" . $this->bell_rows_sql() . ' ORDER BY created_at DESC, id DESC LIMIT %d', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from bell_rows_sql().
+				$user_id,
+				'bn.%',
+				self::HIDDEN_WINDOW
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$hidden = array();
+		if ( array() !== $rows ) {
+			$shown = array_column( $this->filter_resolvable( $rows ), 'id', 'id' );
+			foreach ( $rows as $row ) {
+				if ( ! isset( $shown[ $row['id'] ] ) ) {
+					$hidden[ (int) $row['id'] ] = array(
+						'type'       => (string) $row['type'],
+						'created_at' => (string) $row['created_at'],
+					);
+				}
+			}
+		}
+
+		wp_cache_set( $cache_key, $hidden, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $hidden;
 	}
 
 	/**
@@ -909,6 +970,9 @@ class NotificationService {
 			)
 		);
 
+		// What the bell's list would drop (a partner hides the row) is not news either.
+		$count = max( 0, $count - count( $this->hidden_unread( $user_id ) ) );
+
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $count;
@@ -980,6 +1044,14 @@ class NotificationService {
 				$last_seen
 			)
 		);
+
+		$count -= count(
+			array_filter(
+				$this->hidden_unread( $user_id ),
+				static fn( array $row ): bool => $row['created_at'] > $last_seen
+			)
+		);
+		$count  = max( 0, $count );
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
@@ -1408,7 +1480,7 @@ class NotificationService {
 		$filter_where = $this->filter_where( $filter );
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var(
+		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
 				 WHERE recipient_id = %d {$filter_where}",
@@ -1416,6 +1488,9 @@ class NotificationService {
 			)
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// 'all' holds the unread rows the bell hides; 'read' holds none of them.
+		return 'all' === $filter ? max( 0, $total - count( $this->hidden_unread( $user_id ) ) ) : $total;
 	}
 
 	/**
@@ -1475,6 +1550,11 @@ class NotificationService {
 		$counts = array();
 		foreach ( (array) $rows as $row ) {
 			$counts[ (string) $row['type'] ] = (int) $row['cnt'];
+		}
+		foreach ( $this->hidden_unread( $user_id ) as $row ) {
+			if ( isset( $counts[ $row['type'] ] ) && --$counts[ $row['type'] ] <= 0 ) {
+				unset( $counts[ $row['type'] ] );
+			}
 		}
 
 		wp_cache_set( $cache_key, $counts, self::CACHE_GROUP, self::CACHE_TTL );
