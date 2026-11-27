@@ -2,7 +2,7 @@
 
 The post composer is the box at the top of the feed where members write and publish posts. It handles plain text, photos and media, links with a preview card, polls, and scheduling, and it lets members edit, delete, pin, and save drafts of their own posts.
 
-![The BuddyNext post composer at the top of the home activity feed, ready for a member to write and share a post](../images/community-activity-feed.webp)
+![The BuddyNext post composer card at the top of the home activity feed, with Post and Article tabs, the audience choice and the Post button](../images/community-activity-feed.webp)
 
 ## Why use it
 
@@ -27,19 +27,29 @@ A member types into the composer and clicks **Post**. The post is created and ap
 - **Schedule** - pick a future date and time. The post is held and published automatically when that time arrives; it stays out of the feed until then. The control is labelled with your site's timezone (for example "Publish at (Europe/Berlin)"), so the time you type is the time the post card will show.
 
 
+### The composer card
+
+The composer is one card with a soft border and rounded corners. When a member can write articles, **Post** and **Article** sit on the card's top line as text tabs, and the selected tab has a 2px accent underline. The submit button reads **Post** in Post mode and **Write article** in Article mode.
+
+A member with a profile photo sees it beside the box. A member with no photo sees their initials on a soft tinted disc instead. Keyboard focus on a tab, tool, audience control or button shows one 2px accent ring.
+
+On a phone, the document, poll, schedule, announcement, members-only and partner tools fold behind one **More** button (the three dots). Tap it to open the tools on their own row. Press Escape or tap outside to close it; focus returns to the **More** button. On a desktop all the tools stay in the row and there is no **More** button.
+
 ### Writing an article
 
 Members who can write articles see two tabs at the top of the What's New composer: **Post** (the composer described above) and **Article**. Switching tabs never loses what you typed in the post box.
 
-The Article tab explains what an article is, takes an optional title and opens the article editor with **Start writing**, with the title already filled in. The panel is one row, the same height as the Post box, so the feed below does not move when you switch tabs. **My drafts** and **My articles** sit beside the tabs and show how many of each you have; an unfinished draft is one click away under **My drafts**: My drafts counts drafts, My articles counts published and private articles. While you have an article waiting for review, a third link, **Pending**, shows how many and opens that list; with nothing waiting it is not shown.
+The Article tab gives a one-line prompt for a longer piece, a title box with the placeholder **Article title**, and the **Write article** button, which opens the article editor with the title already filled in. The panel is one row, the same height as the Post box, so the feed below does not move when you switch tabs. **My drafts** and **My articles** sit beside the tabs and show how many of each you have; an unfinished draft is one click away under **My drafts**: My drafts counts drafts, My articles counts published and private articles. While you have an article waiting for review, a third link, **Pending**, shows how many and opens that list; with nothing waiting it is not shown.
+
+The Article tab does not save or report a draft itself. Drafts of an article live in the article editor, and the **Draft saved** note you see in the composer belongs to a post draft in Post mode.
 
 The editor is WB Member Blog when it is active (see [WB Member Blog](../integrations/09-member-blog.md)), otherwise the WordPress editor for members who can use it. Members who cannot write, and logged-out visitors, see the composer with no tabs. Space composers and the composer on a profile have no Article tab. A published article reaches the feed as one article card.
 
-Owners turn the tab off with the **Navigation** switch on the **Blog posts** card in **BuddyNext > Integration Settings**; the same switch controls the profile Articles tab. Developers can offer the tab in space or profile composers with the `buddynext_composer_article_tab` filter (see the developer guide's Integration Bridges page).
+Owners turn the tab off with the **Navigation** switch on the **Articles** card in **BuddyNext > Integration Settings**; the same switch controls the profile Articles tab. Developers can offer the tab in space or profile composers with the `buddynext_composer_article_tab` filter (see the developer guide's Integration Bridges page).
 
 ### Choosing who sees a post
 
-Before posting, a member picks an audience from the privacy menu in the composer: Public, Followers, Connections, or Only me. Site admins and space managers get a fifth option, Members only, which keeps the post publicly listed but shows logged-out visitors only a short teaser and a prompt to join. When posting inside a space, the audience is the space's members. The full meaning of each level and how it is enforced is covered in Post Privacy and Visibility.
+Before posting, a member picks an audience from the audience control in the composer. On a desktop it shows just the current choice (for example **Public**) and a small arrow. On a phone it is a quiet line that reads **Posting to Public**. The choices are Public, Followers, Connections, or Only me. Site admins and space managers get a fifth option, Members only, which keeps the post publicly listed but shows logged-out visitors only a short teaser and a prompt to join. When posting inside a space, the audience is the space's members. The full meaning of each level and how it is enforced is covered in Post Privacy and Visibility.
 
 
 ### Editing and deleting your own posts
@@ -61,7 +71,7 @@ A member can pin one of their own posts to the top of their profile so visitors 
 
 ### Drafts
 
-As a member writes, the composer saves the in-progress post as a draft so nothing is lost if they navigate away or close the tab. Drafts can also sync across devices so a post started on a phone can be finished on a laptop.
+As a member writes in Post mode, the composer saves the in-progress post as a draft so nothing is lost if they navigate away or close the tab, and shows a **Draft saved** note beside the button. Article mode makes no draft claim of its own; the article editor keeps article drafts.
 
 ## Setting it up (for owners)
 

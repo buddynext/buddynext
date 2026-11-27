@@ -434,7 +434,7 @@ $mod_privacy = array(
 											<div class="bn-ca-more-menu" role="menu">
 												<?php $r_view_url = false === \BuddyNext\Core\ObjectLabels::exists( $r_obj_type, $r_obj_id ) ? '' : \BuddyNext\Core\ObjectLabels::view_url( $r_obj_type, $r_obj_id ); ?>
 												<?php if ( '' !== $r_view_url ) : ?>
-													<a class="bn-ca-more-menu-item" role="menuitem" href="<?php echo esc_url( $r_view_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View reported item', 'buddynext' ); ?></a>
+													<a class="bn-ca-more-menu-item" role="menuitem" href="<?php echo esc_url( $r_view_url ); ?>" target="_blank" rel="noopener"><?php echo esc_html( \BuddyNext\Core\ObjectLabels::view_label( $r_obj_type ) ); ?></a>
 												<?php endif; ?>
 												<?php // Member-level actions only exist when the report has a resolvable offender - never a control bound to user id 0, where the store's handlers early-return. ?>
 												<?php if ( $r_can_warn ) : ?>

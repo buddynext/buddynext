@@ -307,6 +307,8 @@ To gate a feature on a plan, call `EntitlementRegistry::allows( $user_id, $key )
 | `buddynext_suite_panels_ttl` | filter | The cache lifetime of a member's suite panels, in seconds. | `int $ttl, int $member_id` | (none) |
 | `buddynextpro_user_data_purged` | action | After Pro has purged a deleted user's per-user rows, so extensions can clean their own Pro tables. | `int $user_id` | (none) |
 
+Panels are cached per kind of viewer, not per member: the owner viewing their own profile (`:own`), another signed-in member (`:member`) and a visitor (`:guest`). A viewer-dependent panel therefore no longer leaks from one kind of viewer to another, and `SuitePanelHost::flush( $member_id )` (what `buddynext_suite_panels_changed` calls) clears all three.
+
 `buddynext_suite_panels_changed` is not fired by Pro. It is a listener-only seam: an integration that changes panel data outside a post type calls `do_action( 'buddynext_suite_panels_changed', $member_id )` to drop that member's cached panels, which Pro rebuilds on the next profile view.
 
 ## More Free integration seams

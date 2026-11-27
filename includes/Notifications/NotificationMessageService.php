@@ -1114,8 +1114,9 @@ class NotificationMessageService {
 				 * @param int    $actor_id  Actor user ID.
 				 * @param int    $object_id Object ID.
 				 * @param array  $data      Decoded data payload.
+				 * @param int    $viewer_id The member the link is for (the recipient), 0 when unknown.
 				 */
-				$filtered_url = (string) apply_filters( 'buddynext_notification_url', '', $type, $actor_id, $object_id, $data );
+				$filtered_url = (string) apply_filters( 'buddynext_notification_url', '', $type, $actor_id, $object_id, $data, $viewer_id );
 				if ( '' !== $filtered_url ) {
 					return $filtered_url;
 				}

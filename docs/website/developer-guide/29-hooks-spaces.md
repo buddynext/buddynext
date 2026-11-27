@@ -138,7 +138,7 @@ Narrower hooks around space rendering, fields, limits, and cleanup. Same table s
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_prepare_space` | filter | A space is hydrated for any payload (single-space REST responses and list rows), so add-ons can attach computed fields on every surface. | `array $space, array $row` (`$row` is the raw `bn_spaces` row) |
-| `buddynext_space_blog_tab_visible` | filter | Whether a Space's Blog tab shows for a viewer. Default: the Space has an article the viewer can see, or the viewer may write one. Never applies on a private or secret Space. Since 1.3.0. | `bool $show, int $space_id, int $viewer_id` |
+| `buddynext_space_blog_tab_visible` | filter | Whether a Space's Articles tab shows for a viewer. Default: the Space has an article the viewer can see, or the viewer may write one. Never applies on a private or secret Space. Since 1.3.0. | `bool $show, int $space_id, int $viewer_id` |
 | `buddynext_space_events_tab_visible` | filter | Whether a Space's Events tab shows (BuddyNext Pro, Eventonomy). Default: the Space has events, or the viewer may add one. Since 1.3.0. | `bool $show, int $space_id, int $viewer_id` |
 | `buddynext_space_businesses_tab_visible` | filter | Whether a Space's Businesses tab shows (BuddyNext Pro, WB Listora). Default: the Space showcases a business, or the viewer can submit one or review the queue. Since 1.3.0. | `bool $show, int $space_id, int $viewer_id` |
 | `buddynext_notify_space_of_post` | filter | Whether a new post or card in a Space notifies the Space's members. Default: yes, unless the bridge set `notify_space` to false in the card's meta. Since 1.3.0. | `bool $notify, int $post_id, int $space_id, string $type` |

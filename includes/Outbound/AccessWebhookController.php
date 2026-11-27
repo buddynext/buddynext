@@ -258,19 +258,19 @@ class AccessWebhookController {
 	public static function role_switch_needs_attention(): bool {
 		global $wpdb;
 
-		$used = get_transient( 'buddynext_webhook_set_role_used' );
-		if ( false === $used ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$used = $wpdb->get_var( "SELECT 1 FROM {$wpdb->prefix}bn_webhook_log WHERE action = 'set_role' LIMIT 1" ) ? 'yes' : 'no';
-			set_transient( 'buddynext_webhook_set_role_used', $used, DAY_IN_SECONDS );
+		// Chosen = the owner has saved the Webhooks settings since (either way); the switch's own value
+		// cannot say, since off and never-set read the same. That answer settles it, so the log is only
+		// read until they have chosen.
+		// The read is one indexed lookup (KEY action) that stops at the first row.
+		if ( get_option( self::OPT_ROLE_REVIEWED ) ) {
+			return false;
 		}
-		if ( 'yes' !== $used ) {
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( ! $wpdb->get_var( "SELECT 1 FROM {$wpdb->prefix}bn_webhook_log WHERE action = 'set_role' LIMIT 1" ) ) {
 			return false;
 		}
 
-		// Chosen = the owner has saved the Webhooks settings since (either way).
-		// The switch's own value cannot say: off and never-set read the same.
-		return ! get_option( self::OPT_ROLE_REVIEWED );
+		return true;
 	}
 
 	/**

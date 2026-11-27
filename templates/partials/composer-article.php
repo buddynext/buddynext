@@ -4,7 +4,7 @@
  *
  * Rendered by partials/composer.php inside the Article tab panel, only for a
  * member whose article provider lets them write. A plain GET form to the
- * provider's editor, so Start writing works without JavaScript: the title goes
+ * provider's editor, so Write article works without JavaScript: the title goes
  * in the provider's own `title_arg`, or in BuddyNext's `bn_title` when the
  * editor reads none (the write hub then fills Member Blog's title field).
  *
@@ -39,9 +39,9 @@ wp_parse_str( (string) wp_parse_url( $bn_art_new_url, PHP_URL_QUERY ), $bn_art_h
 unset( $bn_art_hidden[ $bn_art_title_arg ] );
 ?>
 <div class="bn-composer-article">
-	<p class="bn-composer-article__lede"><?php esc_html_e( 'Write something longer, with a cover image and headings. It appears in the feed as an article card when you publish.', 'buddynext' ); ?></p>
+	<p class="bn-composer-article__lede"><?php esc_html_e( 'Write a longer piece for your community. You can save a draft.', 'buddynext' ); ?></p>
 
-	<?php // One row, the same height as the Post panel, so the feed below does not jump when the tabs switch. ?>
+	<?php // Title row, then a footer with the draft note and Write article; the panel shares a cell with the Post panel, so the feed below does not jump when the tabs switch. ?>
 	<form class="bn-composer-article__form" method="get" action="<?php echo esc_url( $bn_art_action ); ?>">
 		<?php foreach ( $bn_art_hidden as $bn_art_key => $bn_art_value ) : ?>
 			<?php if ( is_scalar( $bn_art_value ) ) : ?>
@@ -57,8 +57,10 @@ unset( $bn_art_hidden[ $bn_art_title_arg ] );
 				name="<?php echo esc_attr( $bn_art_title_arg ); ?>"
 				maxlength="200"
 				autocomplete="off"
-				placeholder="<?php esc_attr_e( 'Title (optional)', 'buddynext' ); ?>">
-			<button type="submit" class="bn-btn bn-composer-article__start" data-variant="primary"><?php esc_html_e( 'Start writing', 'buddynext' ); ?></button>
+				placeholder="<?php esc_attr_e( 'Article title', 'buddynext' ); ?>">
+		</div>
+		<div class="bn-composer-article__footer">
+			<button type="submit" class="bn-btn bn-composer-article__start" data-variant="primary"><?php esc_html_e( 'Write article', 'buddynext' ); ?></button>
 		</div>
 	</form>
 </div>

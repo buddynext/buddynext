@@ -48,7 +48,7 @@ $bn_panel_image_url = esc_url( $bn_panel_image );
 <?php endif; ?>
 	<div class="bn-auth-aside__inner">
 		<?php if ( '' !== trim( $bn_panel_quote ) ) : ?>
-			<blockquote class="bn-auth-aside__quote"><?php echo esc_html( $bn_panel_quote ); ?></blockquote>
+			<blockquote class="bn-auth-aside__quote"><?php echo nl2br( esc_html( $bn_panel_quote ), false ); // Escaped first; the owner's line breaks become <br>. ?></blockquote>
 		<?php endif; ?>
 
 		<div class="bn-auth-aside__foot">

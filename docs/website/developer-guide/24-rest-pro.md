@@ -196,10 +196,20 @@ Course-space linking for the Learnomy integration (`Integrations/Learnomy/Learno
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/learnomy-link/spaces` | Logged in | List spaces available to link a course to. Query: `q`. |
-| GET, POST | `/learnomy-link` | Logged in | Read the link for a course or cohort (query `type` and `id`, both required); create a link (body `bn_space_id`, `type`, `id`, all required). |
-| POST | `/learnomy-link/create` | Course creator | Create a new private community space named after the course or Learnomy Space, link it and backfill the current members (body `type`, `id`; `409` when already linked; requires the create capability). |
-| DELETE | `/learnomy-link/{space}` | Logged in | Remove the course link for a space. The caller must be able to manage that space. |
+| GET | `/learnomy-link/spaces` | Logged in | List communities the caller can link a course to: private or secret communities they own (every private or secret community for an administrator) that are not already linked. Query: `q`. |
+| GET | `/learnomy-link` | Logged in | List the communities linked to a course, cohort or Learnomy Space (query `type` and `id`, both required). Only communities the caller can manage are returned. |
+| POST | `/learnomy-link` | Logged in | Link a community to a course, cohort or Learnomy Space and back-fill its members (body `bn_space_id`, `type`, `id`, all required). |
+| POST | `/learnomy-link/create` | Administrator | Create a new private community space named after the course or Learnomy Space, link it and backfill the current members (body `type`, `id`; `409` when already linked; requires the create capability). |
+| DELETE | `/learnomy-link/{space}` | Logged in | Remove the link for a community. The caller must be able to manage that community. Managing the community is enough, because removing a link grants nothing. |
+
+Error responses on `/learnomy-link`:
+
+| Status | When |
+|---|---|
+| `401` | The caller is not logged in. |
+| `403` | The caller cannot manage the community (POST, DELETE), or is not the course's author, the cohort's instructor, the Learnomy Space's owner or an administrator (GET, POST). Managing the community alone never allows linking. |
+| `400` | The type is not supported (`space` needs Learnomy Pro), or the community is open. Only a private or secret community can be linked. |
+| `409` | The course, cohort or Learnomy Space already feeds another community. Unlink it there first. |
 
 ### Eventonomy bridge: events
 

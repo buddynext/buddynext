@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { ensureUser, setUserMeta, deleteUserMeta, wp, dbScalar, tablePrefix, endActiveAnnouncements } from '../_fixtures/wp';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
+import { revealComposerTool } from '../_fixtures/feed-wave1.helpers';
 
 /**
  * J-993 / J-994 community roles do their job without WordPress admin.
@@ -114,6 +115,7 @@ test.describe('moderation / community roles', () => {
             await page.goto(urls.feed);
             await expect(page.locator(sel.composer).first()).toBeVisible();
             await page.locator(sel.composerTextarea).first().fill(content);
+            await revealComposerTool(page, tool);
             await tool.click();
             await expect(tool).toHaveAttribute('aria-pressed', 'true');
             await page.locator(sel.composerSubmit).first().click();

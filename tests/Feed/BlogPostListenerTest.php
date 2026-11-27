@@ -207,4 +207,117 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 
 		delete_option( 'buddynext_email_verify' );
 	}
+
+	/**
+	 * Editing an article that was public without a card never posts it as new.
+	 *
+	 * @return void
+	 */
+	public function test_editing_an_old_article_does_not_post_it_as_new(): void {
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		update_option( 'buddynext_integration_blog_feed', '0' );
+		$post_id = (int) wp_insert_post(
+			array(
+				'post_title'   => 'Written in 2024',
+				'post_content' => 'Body.',
+				'post_status'  => 'publish',
+				'post_author'  => $author,
+				'post_date'    => '2024-01-10 09:00:00',
+			)
+		);
+		delete_option( 'buddynext_integration_blog_feed' );
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'no card while the feed was off' );
+
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_content' => 'Body, typo fixed.',
+			)
+		);
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'a typo fix is not news' );
+	}
+
+	/**
+	 * A card an admin deleted does not come back when the article is edited.
+	 *
+	 * @return void
+	 */
+	public function test_a_deleted_card_does_not_return_on_edit(): void {
+		$author  = self::factory()->user->create( array( 'role' => 'author' ) );
+		$admin   = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$post_id = (int) wp_insert_post(
+			array(
+				'post_title'   => 'Card to delete',
+				'post_content' => 'Body.',
+				'post_status'  => 'publish',
+				'post_author'  => $author,
+			)
+		);
+		$card = BlogPostListener::card_id_for_post( $post_id );
+		$this->assertGreaterThan( 0, $card );
+
+		$this->assertTrue( ( new PostService() )->delete( $card, $admin ) );
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'card deleted' );
+
+		wp_update_post(
+			array(
+				'ID'         => $post_id,
+				'post_title' => 'Card to delete, edited',
+			)
+		);
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'the edit does not bring it back' );
+	}
+
+	/**
+	 * On verifying, the member's most recent articles get their cards, not the oldest.
+	 *
+	 * @return void
+	 */
+	public function test_verify_publishes_the_most_recent_articles(): void {
+		update_option( 'buddynext_email_verify', 1 );
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$ids    = array();
+		for ( $week = 1; $week <= 25; $week++ ) {
+			$ids[ $week ] = (int) wp_insert_post(
+				array(
+					'post_title'   => 'Week ' . $week,
+					'post_content' => 'Body.',
+					'post_status'  => 'publish',
+					'post_author'  => $author,
+					'post_date'    => gmdate( 'Y-m-d H:i:s', strtotime( '2026-01-01 +' . $week . ' weeks' ) ),
+				)
+			);
+		}
+
+		( new \BuddyNext\Auth\VerificationService() )->mark_verified( $author );
+		delete_option( 'buddynext_email_verify' );
+
+		$this->assertGreaterThan( 0, BlogPostListener::card_id_for_post( $ids[25] ), 'the newest article has a card' );
+		$this->assertGreaterThan( 0, BlogPostListener::card_id_for_post( $ids[6] ), 'the 20th newest has a card' );
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $ids[5] ), 'older ones stay off the feed' );
+		$this->assertGreaterThan( BlogPostListener::card_id_for_post( $ids[24] ), BlogPostListener::card_id_for_post( $ids[25] ), 'the newest article lands on top' );
+	}
+
+	/**
+	 * Queueing the same crop or re-sync batch twice leaves one pending job each, and
+	 * both hooks are swept by the upgrade's duplicate cleanup.
+	 *
+	 * @return void
+	 */
+	public function test_queueing_a_batch_twice_leaves_one_pending_job(): void {
+		$resync = new \ReflectionMethod( BlogPostListener::class, 'queue_resync' );
+		$resync->setAccessible( true );
+
+		BlogPostListener::queue_crop_batch( 77, 1 );
+		BlogPostListener::queue_crop_batch( 77, 1 );
+		$resync->invoke( null, 0, 5 );
+		$resync->invoke( null, 0, 5 );
+
+		$pending = static fn( string $hook ): int => count( as_get_scheduled_actions( array( 'hook' => $hook, 'status' => 'pending' ), 'ids' ) );
+		$this->assertSame( 1, $pending( \BuddyNext\Feed\ArticleImage::REGEN_HOOK ), 'crop batch queued twice' );
+		$this->assertSame( 1, $pending( BlogPostListener::RESYNC_HOOK ), 're-sync queued twice' );
+
+		$this->assertContains( \BuddyNext\Feed\ArticleImage::REGEN_HOOK, \BuddyNext\Core\CronScheduler::DEDUPE_HOOKS );
+		$this->assertContains( BlogPostListener::RESYNC_HOOK, \BuddyNext\Core\CronScheduler::DEDUPE_HOOKS );
+	}
 }

@@ -4296,9 +4296,9 @@ class Installer {
 		$wpdb->insert(
 			$p . 'bn_spaces',
 			array(
-				'name'         => 'Open Discussion',
+				'name'         => __( 'Open Discussion', 'buddynext' ),
 				'slug'         => 'open-discussion',
-				'description'  => 'A community space for open conversation.',
+				'description'  => __( 'A community space for open conversation.', 'buddynext' ),
 				'type'         => 'open',
 				'owner_id'     => $owner,
 				'member_count' => 1,

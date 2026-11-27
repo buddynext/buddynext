@@ -1,0 +1,4 @@
+# core-first allowlist: one "CFn path-fragment  # reason" per line. Every line needs a reason.
+CF5 uninstall.php                       # flush after raw-SQL deletes that bypass the object cache; there is no per-key path
+CF5 includes/Core/Installer.php         # one-shot flush after a raw-SQL purge of poisoned space meta rows that bypass the object cache; there is no per-key path
+CF5 includes/Demo/DemoDataService.php   # flush after demo data is removed with raw SQL that bypasses the object cache; there is no per-key path

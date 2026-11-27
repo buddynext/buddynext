@@ -158,4 +158,116 @@ class GamificationAchievementsPrivacyTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'badges', $data );
 		$this->assertIsArray( $data['standing'] );
 	}
+
+	/**
+	 * An unpublished badge carries no share link for another member; its owner keeps it.
+	 *
+	 * @return void
+	 */
+	public function test_unshared_badge_has_no_share_url_for_others(): void {
+		$GLOBALS['wb_gam_test']['badges'][ $this->owner_id ] = array(
+			array(
+				'id'        => 'welcome',
+				'name'      => 'Welcome',
+				'earned_at' => '2026-01-01 00:00:00',
+			),
+		);
+
+		$others = $this->read_as( self::factory()->user->create() );
+		$this->assertSame( '', $others['badges'][0]['share_url'] ?? null, 'no link to a badge the member has not shared' );
+
+		$own = $this->read_as( $this->owner_id );
+		$this->assertNotSame( '', $own['badges'][0]['share_url'] ?? '', 'the owner still gets the link' );
+		unset( $GLOBALS['wb_gam_test']['badges'][ $this->owner_id ] );
+	}
+
+	/**
+	 * "Show my level and points on my profile" switched off hides points, rank and level from everyone else, and
+	 * only from them: the member still sees their own standing.
+	 *
+	 * @return void
+	 */
+	public function test_show_points_off_hides_the_standing_from_others(): void {
+		if ( ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- a stand-in for the partner class, which is not loaded in these tests.
+			eval( 'namespace WBGam\\Engine; class MemberPrefs { public static function get( $id ) { return array( "show_rank" => $GLOBALS["wb_gam_test"]["show_rank"][ $id ] ?? true ); } }' );
+		}
+		$GLOBALS['wb_gam_test']['points'][ $this->owner_id ] = 120;
+		$viewer = self::factory()->user->create();
+
+		$this->assertNotEmpty( $this->read_as( $viewer )['standing'], 'Fixture is wrong: the standing should be visible by default.' );
+
+		$GLOBALS['wb_gam_test']['show_rank'][ $this->owner_id ] = false;
+		$this->assertSame( array(), $this->read_as( $viewer )['standing'], 'Points, rank and level stayed visible after the member switched them off.' );
+		$this->assertNotEmpty( $this->read_as( $this->owner_id )['standing'], 'The member lost sight of their own standing.' );
+
+		unset( $GLOBALS['wb_gam_test']['show_rank'], $GLOBALS['wb_gam_test']['points'][ $this->owner_id ] );
+	}
+
+	/**
+	 * The shared badge card carries the member's level, so the same choice hides it there (the feed, Explore and
+	 * the REST feed item all resolve the card through one filter), while an administrator keeps seeing it.
+	 *
+	 * @return void
+	 */
+	public function test_show_points_off_hides_the_level_on_the_badge_card_but_not_from_an_admin(): void {
+		if ( ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- a stand-in for the partner class, which is not loaded in these tests.
+			eval( 'namespace WBGam\\Engine; class MemberPrefs { public static function get( $id ) { return array( "show_rank" => $GLOBALS["wb_gam_test"]["show_rank"][ $id ] ?? true ); } }' );
+		}
+		$bridge = new \BuddyNext\Bridges\GamificationBridge();
+		$facts  = array( array( 'icon' => 'award', 'text' => 'Member' ), array( 'icon' => 'tag', 'text' => 'Helper' ) );
+		$meta   = array( 'user_id' => $this->owner_id );
+		$viewer = self::factory()->user->create();
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+
+		wp_set_current_user( $viewer );
+		$this->assertCount( 2, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'Fixture is wrong: the level shows by default.' );
+
+		$GLOBALS['wb_gam_test']['show_rank'][ $this->owner_id ] = false;
+		$this->assertCount( 1, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'The badge card still named the level.' );
+		wp_set_current_user( 0 );
+		$this->assertCount( 1, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'A guest still saw the level.' );
+		wp_set_current_user( $admin );
+		$this->assertCount( 2, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'An administrator lost the level moderation needs.' );
+		wp_set_current_user( $this->owner_id );
+		$this->assertCount( 2, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'The member lost their own level.' );
+
+		unset( $GLOBALS['wb_gam_test']['show_rank'] );
+	}
+
+	/**
+	 * The REST feed item carries the card's stored facts, so the level is dropped there too for a viewer who may
+	 * not see it (the app reads this JSON, not the rendered card).
+	 *
+	 * @return void
+	 */
+	public function test_show_points_off_drops_the_level_from_the_rest_card_facts(): void {
+		if ( ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- a stand-in for the partner class, which is not loaded in these tests.
+			eval( 'namespace WBGam\\Engine; class MemberPrefs { public static function get( $id ) { return array( "show_rank" => $GLOBALS["wb_gam_test"]["show_rank"][ $id ] ?? true ); } }' );
+		}
+		$bridge = new \BuddyNext\Bridges\GamificationBridge();
+		add_filter( 'buddynext_integration_card_types', static fn( $t ) => $t + array( 'badge' => array( 'label' => 'Badge', 'icon' => 'award' ) ) );
+		add_filter( 'buddynext_card_facts', array( $bridge, 'drop_points_fact' ), 10, 3 );
+
+		$item = array(
+			'id'        => 987654,
+			'type'      => 'badge',
+			'user_id'   => $this->owner_id,
+			'link_meta' => array( 'facts' => array( array( 'icon' => 'award', 'text' => 'Member' ), array( 'icon' => 'tag', 'text' => 'Helper' ) ) ),
+		);
+		$GLOBALS['wb_gam_test']['show_rank'][ $this->owner_id ] = false;
+
+		wp_set_current_user( self::factory()->user->create() );
+		$out = \BuddyNext\Feed\IntegrationActivity::enrich_item( $item, get_current_user_id() );
+		$this->assertCount( 1, $out['link_meta']['facts'], 'The level stayed in the REST link_meta facts.' );
+
+		wp_set_current_user( $this->owner_id );
+		$out = \BuddyNext\Feed\IntegrationActivity::enrich_item( $item, $this->owner_id );
+		$this->assertCount( 2, $out['link_meta']['facts'], 'The member lost their own level.' );
+
+		remove_filter( 'buddynext_card_facts', array( $bridge, 'drop_points_fact' ), 10 );
+		unset( $GLOBALS['wb_gam_test']['show_rank'] );
+	}
 }

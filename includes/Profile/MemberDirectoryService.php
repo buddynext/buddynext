@@ -15,6 +15,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Profile;
 
+use BuddyNext\Auth\ApprovalGuard;
 use BuddyNext\Core\CacheService;
 use BuddyNext\Realtime\PresenceService;
 
@@ -878,6 +879,9 @@ class MemberDirectoryService {
 
 		$user_col = (string) preg_replace( '/[^a-zA-Z0-9_.]/', '', $user_col );
 
+		// Held members (approval hold, or a plugin's own via ApprovalGuard::hold_meta_keys()).
+		$hold_keys = implode( ', ', array_map( static fn( $k ) => "'" . esc_sql( $k ) . "'", ApprovalGuard::hold_meta_keys() ) );
+
 		$clauses = array(
 			"NOT EXISTS (
 			    SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
@@ -900,8 +904,8 @@ class MemberDirectoryService {
 			"NOT EXISTS (
 			    SELECT 1 FROM {$wpdb->usermeta} um_hold
 			    WHERE um_hold.user_id = {$user_col}
-			      AND um_hold.meta_key = 'bn_pending_approval'
-			      AND um_hold.meta_value = '1'
+			      AND um_hold.meta_key IN ( {$hold_keys} )
+			      AND um_hold.meta_value NOT IN ( '', '0' )
 			  )",
 		);
 

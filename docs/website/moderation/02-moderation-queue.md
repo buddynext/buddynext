@@ -52,7 +52,7 @@ Two actions sit on every row:
 
 Everything else is in the row's **More** menu:
 
-- **View reported item** - opens the post, comment (on its post), profile, or space in a new tab. Not offered for direct messages, and not offered once the item has been deleted.
+- **View reported member**, **View reported post**, **View reported comment** or **View reported space** - the link names what was reported. It opens the post, comment (on its post), profile, or space in a new tab. Not offered for direct messages, and not offered once the item has been deleted.
 - **Resolve** - closes the report as handled.
 - **Escalate** - flags the report for a more senior decision. The row stays in the queue.
 - **Content warning** (posts only) - blurs the post behind a label instead of removing it. See Content Warnings.
@@ -95,7 +95,7 @@ Site administrators also get a **View all** link from Community Admin to this ta
 ## Good to know
 
 - **Reports are grouped per item.** Multiple reports on the same post are merged into one row, with the reasons combined and the reporter count shown.
-- **Privacy on direct messages.** A reported direct message reads "Private message (content hidden)" and has no "View reported item" link, so a moderator can act on the report without opening the private conversation.
+- **Privacy on direct messages.** A reported direct message reads "Private message (content hidden)" and has no view link, so a moderator can act on the report without opening the private conversation.
 - **Concurrency.** The queue is shared. An item another moderator already handled may have changed state by the time you reach it. Reload to see the current list.
 - **Community moderators do not need wp-admin.** Everything a moderator does, including paging through the whole queue, happens in Community Admin.
 

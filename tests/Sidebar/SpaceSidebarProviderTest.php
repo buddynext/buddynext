@@ -109,6 +109,36 @@ class SpaceSidebarProviderTest extends WP_UnitTestCase {
 		$this->assertSame( 'shield', $by_id['space-owners']['icon'] );
 	}
 
+	public function test_a_suspended_member_is_not_in_the_members_preview(): void {
+		$fixture = $this->seed_space();
+		$other   = self::factory()->user->create( array( 'display_name' => 'Visible Vera' ) );
+		( new SpaceMemberService() )->join( $fixture['space_id'], $other );
+		( new \BuddyNext\Moderation\ModerationService() )->suspend( $fixture['member_id'], 'test', 7, true );
+		wp_set_current_user( $other );
+
+		Surface::set(
+			'space',
+			array(
+				'space_id'   => $fixture['space_id'],
+				'viewer_id'  => $other,
+				'active_tab' => 'feed',
+			)
+		);
+
+		$widgets = ( new SpaceSidebarProvider() )->widgets( array(), 'space' );
+		$html    = '';
+		foreach ( $widgets as $widget ) {
+			if ( 'space-members' === $widget['id'] ) {
+				ob_start();
+				call_user_func( $widget['render'] );
+				$html = (string) ob_get_clean();
+			}
+		}
+
+		$this->assertStringNotContainsString( 'Rocky Regular', $html, 'A suspended member showed in the Members preview.' );
+		$this->assertStringContainsString( 'Visible Vera', $html );
+	}
+
 	public function test_members_tab_skips_members_preview_card(): void {
 		$fixture = $this->seed_space();
 		wp_set_current_user( $fixture['member_id'] );

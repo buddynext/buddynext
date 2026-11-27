@@ -8,7 +8,7 @@ Every popup has one of six roles, and each role has one shared design:
 
 | Role | Use it for | How |
 |---|---|---|
-| Notice | A message that leaves by itself, or stays until dismissed when it carries a link | `window.bnToast()` |
+| Notice | A message that leaves by itself, or stays until dismissed when it asks for `persist` | `window.bnToast()` |
 | Decision | A question the member must answer | `window.bnConfirm()`, `window.bnPrompt()`, `window.bnReportDialog()` |
 | Menu | Actions from a control | `.bn-*` menu classes with the menu tokens below |
 | Moment | A full celebration card (level-up, streak) | The plugin that owns the moment, drawn from the tokens below |
@@ -23,28 +23,56 @@ Every popup has one of six roles, and each role has one shared design:
 window.bnToast( 'Profile saved', 'success' );
 
 const handle = window.bnToast( {
-	key: 'points',              // same key updates the toast in place
-	title: '+10 Points',
-	body: 'Leave a comment',    // optional second line
-	type: 'achievement',        // success | error | info | achievement
+	key: 'points',                       // same key updates the toast in place
+	title: '+{count} points',            // one line; {count} is replaced by the counting number
+	body: 'Leave a comment',             // optional second line
+	type: 'award',                       // success | info | error | award
+	icon: 'https://example.com/badge.png', // icon name, or an http(s) or same-site image URL
 	href: '/members/me/#points',
 	linkLabel: 'See my progress',
-	persist: true,              // default: true when there is a link
+	count: { from: 0, to: 10 },
 } );
 
-handle.update( { title: '+15 Points' } ); // repaint in place, restart the timer
+handle.update( { title: '+{count} points', count: { from: 10, to: 15 } } ); // repaint in place, restart the timer
 handle.dismiss();
-handle.el;                                  // the element, for a celebration effect
+handle.el;       // the element, once shown
+handle.waiting;  // true while the toast is queued
 ```
 
-- Other accepted options: `tone` (alias of `type`), `timeout` in milliseconds, `icon`, `action: { href, label }` (the long form of `href` plus `linkLabel`) and `message` (alias of `title`). The short form also takes `window.bnToast( 'Saved', { tone: 'success', timeout: 4000 } )`.
-- A toast leaves after 3 seconds, or 7 seconds for an error, unless it persists.
-- Status is shown by the icon disc only. `warn`, `warning` and `danger` fold onto `info` and `error`; there is no coloured fill and no fifth look.
-- A toast that carries a link stays until dismissed. Any toast pauses while the pointer or keyboard focus is on it.
-- The same message repeated collapses onto the first and counts the repeats. Three toasts show at once on a desktop screen; at 640px and below they show one at a time, in order.
-- Errors announce assertively; everything else is polite.
-- The host is a manual popover, so a toast raised while a native `<dialog>` is open is painted above it.
-- Calls made before the script runs are queued and replayed, so a classic script can call `window.bnToast` at any time.
+### Options
+
+| Option | What it does |
+|---|---|
+| `key` | Group key. A call whose key is already showing or queued updates that toast in place and keeps its place in the queue. |
+| `title` | One line of plain text. Longer text ends in an ellipsis. (`message` is an alias.) |
+| `body` | Optional one-line detail. |
+| `type` | `success`, `info`, `error` or `award`. Picks the icon and tone. `tone` is an alias. `warn`, `warning` and `danger` fold onto `info` and `error`; there is no fifth look. |
+| `icon` | Optional. A built-in icon name, or an http(s) or same-site image URL drawn round in the icon disc (badge art). Anything else, such as a `javascript:` or `data:` value, is ignored. |
+| `href` and `linkLabel` | Optional small action button. `action: { label, href }` or `action: { label, onClick }` is the long form, and `onClick` suits an in-page action such as Undo. |
+| `timeout` | Auto-close time in milliseconds. Overrides the default. |
+| `persist` | `true` keeps the toast until it is closed. Off by default. |
+| `count` | `{ from, to }`. Put the literal `{count}` in `title` and the number counts up inside it over about 400ms. A later `update()` with a new `count` continues from there. With reduced motion the final number shows at once. |
+
+The short form also takes `window.bnToast( 'Saved', { tone: 'success', timeout: 4000 } )`.
+
+### Checking support
+
+`window.bnToast.supports` is `{ count, icon, award, queue, key }`, all `true`. A plugin checks it at call time and falls back to plain text on a BuddyNext that predates it, where `bnToast.supports` is undefined.
+
+```js
+const rich = window.bnToast && window.bnToast.supports && window.bnToast.supports.count;
+```
+
+### Behaviour
+
+- **How many show.** Two toasts on a desktop, one at 640px and narrower. The rest wait in a queue, show at least 600ms apart, keep their place when updated and are never dropped.
+- **How long.** A toast closes after 4 seconds, or 8 seconds when it has a button or is an error. `timeout` overrides this and `persist: true` keeps it until it is closed.
+- **Pausing.** The pointer or keyboard focus on a toast pauses its timer.
+- **Escape.** Escape closes the newest toast, unless a dialog is open. Escape belongs to the dialog then.
+- **Repeats.** The same message repeated collapses onto the one already showing and restarts its timer.
+- **Accessibility.** Errors announce assertively; everything else is polite. The close button has a label.
+- **Layering.** The host is a manual popover, so a toast raised while a native `<dialog>` is open is painted above it.
+- **Early calls.** Calls made before the script runs are queued and replayed, so a classic script can call `window.bnToast` at any time.
 
 ## Dialogs
 

@@ -67,6 +67,24 @@ class MembersTypeFilterTest extends \WP_UnitTestCase {
 		$this->assertContains( $this->fan_user, $ids );
 	}
 
+	public function test_the_active_tab_leaves_out_suspended_members(): void {
+		( new \BuddyNext\Moderation\ModerationService() )->suspend( $this->fan_user, 'test', 0 );
+		$members = new Members();
+
+		$all       = $members->list_members( array( 'per_page' => 100 ) );
+		$active    = $members->list_members( array( 'status' => 'active', 'per_page' => 100 ) );
+		$suspended = $members->list_members( array( 'status' => 'suspended', 'per_page' => 100 ) );
+
+		$this->assertNotContains( $this->fan_user, array_column( $active['members'], 'id' ) );
+		$this->assertContains( $this->pro_user, array_column( $active['members'], 'id' ) );
+		$this->assertSame( $all['total'] - 1, $active['total'] );
+		$this->assertSame( array( $this->fan_user ), array_column( $suspended['members'], 'id' ) );
+		$this->assertSame( 1, $suspended['total'] );
+
+		// The filter is one-shot: the next unfiltered list still has everyone.
+		$this->assertContains( $this->fan_user, array_column( $members->list_members( array( 'per_page' => 100 ) )['members'], 'id' ) );
+	}
+
 	public function test_the_export_has_a_type_column_and_follows_the_filter(): void {
 		ob_start();
 		( new MemberExport() )->export_members_csv( array( 'member_type' => 'qa-fan' ) );
@@ -102,5 +120,35 @@ class MembersTypeFilterTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'Pro Person', $suspended );
 		$this->assertStringNotContainsString( 'Fan Person', $active );
 		$this->assertStringContainsString( 'Pro Person', $active );
+	}
+
+	public function test_the_export_shows_registered_in_site_time(): void {
+		update_option( 'timezone_string', 'Asia/Kolkata' );
+		wp_update_user(
+			array(
+				'ID'              => $this->plain_user,
+				'user_registered' => '2026-01-01 00:00:00',
+			)
+		);
+
+		ob_start();
+		( new MemberExport() )->export_members_csv( array( 'search' => 'Plain Person' ) );
+		$csv = (string) ob_get_clean();
+
+		$this->assertStringContainsString( '2026-01-01 05:30', $csv, 'Registered is stored in UTC and shown in the site timezone.' );
+		$this->assertStringNotContainsString( '2026-01-01 00:00:00', $csv );
+	}
+
+	public function test_the_export_pages_past_the_first_batch_without_repeats(): void {
+		$ids = self::factory()->user->create_many( 520 );
+
+		ob_start();
+		( new MemberExport() )->export_members_csv();
+		$rows = array_slice( array_filter( explode( "\n", (string) ob_get_clean() ) ), 1 );
+
+		$written = array_map( static fn( string $row ): int => (int) strtok( $row, ',' ), $rows );
+		$this->assertSame( count( $written ), count( array_unique( $written ) ), 'No member is written twice.' );
+		$this->assertContains( (int) end( $ids ), $written, 'The last member past the first batch is written.' );
+		$this->assertSame( count_users()['total_users'], count( $written ) );
 	}
 }

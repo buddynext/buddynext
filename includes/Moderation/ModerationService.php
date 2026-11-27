@@ -2880,6 +2880,41 @@ class ModerationService {
 	}
 
 	/**
+	 * Run a WP_User_Query for the suspended members only, or for everyone else.
+	 *
+	 * The admin Members tabs and the member export both page through here, so the
+	 * Active tab, the Suspended tab and their CSVs always agree. One subquery on the
+	 * active_check index is added to that single query and removed straight after;
+	 * no id list is loaded into PHP, so it holds at any number of suspensions.
+	 * Predicate mirrors is_suspended() exactly.
+	 *
+	 * @param string   $status 'suspended', 'active' (not suspended), anything else = no filter.
+	 * @param callable $run    Runs the query; its return value is passed back.
+	 * @return mixed
+	 */
+	public function within_suspension_status( string $status, callable $run ) {
+		if ( 'suspended' !== $status && 'active' !== $status ) {
+			return $run();
+		}
+
+		$operator = 'suspended' === $status ? 'IN' : 'NOT IN';
+		$restrict = static function ( \WP_User_Query $query ) use ( $operator ): void {
+			global $wpdb;
+			$query->query_where .= " AND {$wpdb->users}.ID {$operator} (
+				SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+				WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
+			)";
+		};
+
+		add_action( 'pre_user_query', $restrict );
+		try {
+			return $run();
+		} finally {
+			remove_action( 'pre_user_query', $restrict );
+		}
+	}
+
+	/**
 	 * Of the given user IDs, those with an active (unexpired) suspension.
 	 *
 	 * A batch is_suspended() for a page of members — one query instead of one
@@ -3042,6 +3077,10 @@ class ModerationService {
 			$column = 'user_id';
 		}
 
+		// A member held back (awaiting approval, or held by a partner plugin through
+		// ApprovalGuard::hold_meta_keys()) is not discoverable either.
+		$hold_keys = implode( ', ', array_map( static fn( $k ) => "'" . esc_sql( $k ) . "'", \BuddyNext\Auth\ApprovalGuard::hold_meta_keys() ) );
+
 		return "AND {$column} NOT IN (
 			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
 			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
@@ -3049,6 +3088,10 @@ class ModerationService {
 			  AND {$column} NOT IN (
 			    SELECT user_id FROM {$wpdb->usermeta}
 			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			  )
+			  AND {$column} NOT IN (
+			    SELECT user_id FROM {$wpdb->usermeta}
+			    WHERE meta_key IN ( {$hold_keys} ) AND meta_value NOT IN ( '', '0' )
 			  )";
 	}
 

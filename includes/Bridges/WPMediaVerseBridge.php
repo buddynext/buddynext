@@ -124,6 +124,9 @@ class WPMediaVerseBridge {
 
 		// Gate DMs on bn_blocks.
 		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
+		// Say why: a suspended sender is told so, not that they were blocked.
+		add_filter( 'mvs_dm_denial_reason', array( $this, 'suspended_denial_reason' ), 10, 2 );
+		add_filter( 'mvs_dm_denial_message', array( $this, 'suspended_denial_message' ), 10, 2 );
 
 		// Run DM text through auto-moderation (banned words + Pro rules) so a member
 		// can't plant blocked content in a direct message — posts/comments/profile
@@ -2318,6 +2321,11 @@ class WPMediaVerseBridge {
 		if ( user_can( $sender_id, 'manage_options' ) ) {
 			return true;
 		}
+		// A suspended member cannot start or continue a direct message (the same
+		// rule as posts, reactions and kudos). Lifted or expired suspensions pass.
+		if ( $this->sender_is_suspended( $sender_id ) ) {
+			return false;
+		}
 		// WPMediaVerse reports a refused send as 'blocked' by default, which is the
 		// right reason here: this gate only ever refuses for a block.
 		// Either way round, as MediaVerse does for its own blocks: someone who
@@ -2327,6 +2335,48 @@ class WPMediaVerseBridge {
 		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
 		return ! ( is_object( $blocks ) && method_exists( $blocks, 'is_blocking_either' )
 			&& $blocks->is_blocking_either( $sender_id, $recipient_id ) );
+	}
+
+	/**
+	 * Whether the sender is under an active suspension (staff never are).
+	 *
+	 * @param int $sender_id User sending.
+	 * @return bool
+	 */
+	private function sender_is_suspended( int $sender_id ): bool {
+		if ( $sender_id <= 0 || ! function_exists( 'buddynext_service' ) || buddynext_service( 'roles' )->can_moderate_site( $sender_id ) ) {
+			return false;
+		}
+		$moderation = buddynext_service( 'moderation' );
+		return $moderation instanceof ModerationService && $moderation->is_suspended( $sender_id );
+	}
+
+	/**
+	 * Report a suspended sender's refusal under its own reason code.
+	 *
+	 * Hooked on: mvs_dm_denial_reason ($reason, $sender_id).
+	 *
+	 * @param string $reason    Reason so far.
+	 * @param int    $sender_id Sender.
+	 * @return string
+	 */
+	public function suspended_denial_reason( $reason, $sender_id = 0 ): string {
+		return $this->sender_is_suspended( (int) $sender_id ) ? 'account_suspended' : (string) $reason;
+	}
+
+	/**
+	 * Member-facing text for the suspended reason code.
+	 *
+	 * Hooked on: mvs_dm_denial_message ($message, $reason).
+	 *
+	 * @param string $message Message so far.
+	 * @param string $reason  Reason code.
+	 * @return string
+	 */
+	public function suspended_denial_message( $message, $reason = '' ): string {
+		return 'account_suspended' === $reason
+			? __( 'Your account is suspended and cannot send messages.', 'buddynext' )
+			: (string) $message;
 	}
 
 	/**
@@ -2344,6 +2394,12 @@ class WPMediaVerseBridge {
 	 * @return true|\WP_Error
 	 */
 	public function moderate_dm_content( $result, string $content, int $sender_id ) {
+		// Group sends never pass mvs_can_send_message, so this is their suspension gate.
+		if ( ! is_wp_error( $result ) && $this->sender_is_suspended( $sender_id ) ) {
+			return ModerationService::suspension_error(
+				__( 'Your account is suspended and cannot send messages.', 'buddynext' )
+			);
+		}
 		if ( is_wp_error( $result ) || '' === trim( $content ) || ! function_exists( 'buddynext_service' ) ) {
 			return $result;
 		}

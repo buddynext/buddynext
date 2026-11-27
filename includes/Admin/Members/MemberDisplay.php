@@ -34,6 +34,30 @@ class MemberDisplay {
 	}
 
 	/**
+	 * Print a member's avatar for an admin list: the same picture the community shows
+	 * (their upload, a partner plugin's, or the site's avatar style), through core's
+	 * get_avatar_url() and BuddyNext's avatar filters. Initials only when nothing answers.
+	 *
+	 * Call \BuddyNext\Profile\AvatarService::prime() with the page's ids first.
+	 *
+	 * @param int    $user_id      Member id.
+	 * @param string $display_name Name for the initials fallback.
+	 * @param string $size         bn-avatar data-size token. Default 'md'.
+	 * @return void
+	 */
+	public static function render_avatar( int $user_id, string $display_name, string $size = 'md' ): void {
+		$url = (string) get_avatar_url( $user_id, array( 'size' => 'xl' === $size ? 160 : 80 ) );
+		printf(
+			'<span class="bn-avatar bn-avatar-initials %1$s" data-size="%2$s" aria-hidden="true">%3$s</span>',
+			esc_attr( self::get_avatar_color( $user_id ) ),
+			esc_attr( $size ),
+			'' !== $url
+				? '<img src="' . esc_url( $url ) . '" alt="" loading="lazy" decoding="async">'
+				: esc_html( self::get_initials( $display_name ) )
+		);
+	}
+
+	/**
 	 * Return a deterministic CSS class for avatar background based on user ID.
 	 *
 	 * @param int $user_id User ID.

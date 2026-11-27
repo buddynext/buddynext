@@ -366,36 +366,66 @@ class CommentService {
 	 * Readable even after a soft delete (is_deleted = 1) — the row persists — so
 	 * delete propagation can still resolve the pair.
 	 *
-	 * @param int $comment_id BuddyNext comment id.
+	 * @param int    $comment_id BuddyNext comment id.
+	 * @param string $card_type  Card type the comment sits on ('discussion' for the forum), or '' for any.
 	 * @return int
 	 */
-	public function get_sync_reply_id( int $comment_id ): int {
+	public function get_sync_reply_id( int $comment_id, string $card_type = '' ): int {
 		if ( $comment_id <= 0 ) {
 			return 0;
 		}
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// bn_comments.sync_reply_id holds a Jetonomy reply id on a discussion card and a WordPress comment id on an
+		// article card, and the two id ranges overlap. A caller that means one kind names the card type.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( '' !== $card_type ) {
+			return (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT c.sync_reply_id FROM {$wpdb->prefix}bn_comments c
+					  INNER JOIN {$wpdb->prefix}bn_posts p ON c.object_type = 'post' AND p.id = c.object_id
+					  WHERE c.id = %d AND p.type = %s",
+					$comment_id,
+					$card_type
+				)
+			);
+		}
 		return (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT sync_reply_id FROM {$wpdb->prefix}bn_comments WHERE id = %d", $comment_id )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
 	 * Reverse-resolve the comment paired with a Jetonomy reply (feed↔forum sync map).
 	 *
-	 * @param int $reply_id Jetonomy reply id.
+	 * @param int    $reply_id  Jetonomy reply id.
+	 * @param string $card_type Card type the comment sits on ('discussion' for the forum), or '' for any.
 	 * @return array<string,mixed>|null Hydrated comment, or null when none is paired.
 	 */
-	public function find_by_sync_reply_id( int $reply_id ): ?array {
+	public function find_by_sync_reply_id( int $reply_id, string $card_type = '' ): ?array {
 		if ( $reply_id <= 0 ) {
 			return null;
 		}
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d LIMIT 1", $reply_id ),
-			ARRAY_A
-		);
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( '' !== $card_type ) {
+			$row = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT c.* FROM {$wpdb->prefix}bn_comments c
+					  INNER JOIN {$wpdb->prefix}bn_posts p ON c.object_type = 'post' AND p.id = c.object_id
+					  WHERE c.sync_reply_id = %d AND p.type = %s LIMIT 1",
+					$reply_id,
+					$card_type
+				),
+				ARRAY_A
+			);
+		} else {
+			$row = $wpdb->get_row(
+				$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d LIMIT 1", $reply_id ),
+				ARRAY_A
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return null !== $row ? $this->hydrate( $row ) : null;
 	}
 

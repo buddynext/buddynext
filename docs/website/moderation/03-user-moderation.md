@@ -90,3 +90,9 @@ The full warn, strike, suspend, shadow-ban, and automatic-threshold system descr
 - [Appeals](04-appeals.md) - how a suspended member disputes a decision
 - [Content Safeguards](05-content-safeguards.md) - the automatic rules that feed strikes
 - [Auto-Moderation Rules](../pro/14-auto-moderation.md) - the Pro rules engine on top of safeguards
+
+## What a suspension blocks in direct messages, and its known limits
+
+While a member is suspended they cannot start a direct conversation, reply in one, or send a text message in a group conversation. The send is refused and no notification or email is created. Over the web the member currently sees the community's private-community notice rather than the suspension reason and appeal link; showing the reason is planned for a later update. Messaging someone who is suspended is not blocked, the same rule as kudos. The site owner's account is never refused, and a lifted or expired suspension sends again.
+
+Two cases cannot be closed by BuddyNext alone, because the messaging plugin (WPMediaVerse) does not ask BuddyNext first: a suspended member can still create a new group conversation, and can still send a group message that is only an attachment with no text. Both need a small change in WPMediaVerse, which is tracked on its own board. Until then, remove the member from the group conversation or ask the owner of the group to do so.

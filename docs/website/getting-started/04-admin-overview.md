@@ -38,6 +38,8 @@ Tabs marked **(Pro)** require BuddyNext Pro. Everything else is in the free plug
 
 > **Note:** Sections marked (Pro) and individual (Pro) tabs appear only when BuddyNext Pro is active. With the free plugin alone you see Get Started, Members, Spaces, Engagement, Notifications, Moderation, Platform, Integration Settings and Settings, with the Pro-only tabs inside them hidden. Free also shows an **Upgrade** section with a **Free vs Pro** comparison, which is an upsell rather than a place to configure anything.
 
+> **Tip:** Every text area in BuddyNext's admin screens has a resize handle at its bottom corner. Drag it to make a long field, such as a notice or an email footer, taller while you edit.
+
 ## Turning features on and off: Platform > Features
 
 Every capability has exactly one on/off switch, and it lives in **BuddyNext > Platform > Features**. There is no second switch hidden in a settings tab.

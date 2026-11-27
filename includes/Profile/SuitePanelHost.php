@@ -45,7 +45,7 @@ class SuitePanelHost {
 
 	/**
 	 * Object-cache group for a member's computed panel set (`buddynext_<domain>`).
-	 * Two entries per member, `:own` and `:others`; the `buddynext_suite_panels_*`
+	 * Three entries per member (`:own`, `:member`, `:guest`); the `buddynext_suite_panels_*`
 	 * hooks below are the public contract that integrations wire against.
 	 */
 	private const CACHE_GROUP = 'buddynext_suite_panels';
@@ -114,11 +114,12 @@ class SuitePanelHost {
 	 * @return array<int, array<string,mixed>> Non-empty panels, sorted by priority.
 	 */
 	public function panels( int $member_id ): array {
-		// Two answers per member: what the member sees on their own profile, and
-		// what everyone else sees. A panel can show its owner more (their own
-		// learning list), and one shared entry meant whoever opened the profile
-		// first decided what the other got until the cache expired.
-		$cache_key = self::cache_key( $member_id, get_current_user_id() === $member_id );
+		// Three answers per member: what the member sees on their own profile, what a
+		// signed-in member sees, and what a visitor sees. A panel can show its owner
+		// more (their own learning list), and a partner that requires login answers a
+		// visitor and a member differently, so one shared entry meant whoever opened
+		// the profile first decided what the others got until the cache expired.
+		$cache_key = self::cache_key( $member_id, get_current_user_id() );
 
 		if ( isset( $this->memo[ $cache_key ] ) ) {
 			return $this->memo[ $cache_key ];
@@ -212,20 +213,24 @@ class SuitePanelHost {
 	 */
 	public static function flush( int $member_id ): void {
 		if ( $member_id > 0 ) {
-			wp_cache_delete( self::cache_key( $member_id, true ), self::CACHE_GROUP );
-			wp_cache_delete( self::cache_key( $member_id, false ), self::CACHE_GROUP );
+			foreach ( array( ':own', ':member', ':guest' ) as $viewer_class ) {
+				wp_cache_delete( $member_id . $viewer_class, self::CACHE_GROUP );
+			}
 		}
 	}
 
 	/**
-	 * Cache key for a member's panels as seen by the member or by anyone else.
+	 * Cache key for a member's panels as seen by the member, by another signed-in member, or by a visitor.
 	 *
-	 * @param int  $member_id Profile owner.
-	 * @param bool $own       True for the member's own view.
+	 * @param int $member_id Profile owner.
+	 * @param int $viewer_id Viewer: the owner's id for the owner's own view, any other id above zero for a member, 0 for a visitor.
 	 * @return string
 	 */
-	private static function cache_key( int $member_id, bool $own ): string {
-		return $member_id . ( $own ? ':own' : ':others' );
+	private static function cache_key( int $member_id, int $viewer_id ): string {
+		if ( $viewer_id === $member_id ) {
+			return $member_id . ':own';
+		}
+		return $member_id . ( $viewer_id > 0 ? ':member' : ':guest' );
 	}
 
 	/**

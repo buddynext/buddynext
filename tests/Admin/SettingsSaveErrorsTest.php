@@ -70,4 +70,20 @@ class SettingsSaveErrorsTest extends \WP_UnitTestCase {
 		$this->assertSame( 'new@example.test', $clean( ' new@example.test ' ), 'A valid address is saved.' );
 		$this->assertSame( '', $clean( '' ), 'Empty stays empty: the field uses the WordPress admin email then.' );
 	}
+
+	public function test_a_typo_in_an_empty_optional_email_setting_keeps_it_empty(): void {
+		delete_option( 'buddynext_email_reply_to' );
+		update_option( 'admin_email', 'admin@example.test' );
+		$field = new \BuddyNext\Admin\Settings\Field(
+			array(
+				'key'      => 'buddynext_email_reply_to',
+				'type'     => 'text',
+				'sanitize' => 'sanitize_email',
+			)
+		);
+		$clean = $field->sanitizer();
+
+		$this->assertSame( '', $clean( 'support@community' ), 'The notice says the setting was not changed, so it must stay empty.' );
+		$this->assertContains( 'invalid_email', wp_list_pluck( get_settings_errors( 'buddynext_email_reply_to' ), 'code' ) );
+	}
 }

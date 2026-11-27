@@ -1890,6 +1890,7 @@ class AssetService {
 			array(
 				'i18n' => array(
 					'cropAvatar'                       => __( 'Crop avatar', 'buddynext' ),
+					'cropAvatarCanvas'                 => __( 'Avatar preview. Use the arrow keys to move the picture.', 'buddynext' ),
 					'avatarNotAnImage'                 => __( 'Choose a JPG, PNG, GIF or WebP picture.', 'buddynext' ),
 					'twofaSecretCopied'                => __( 'Setup key copied', 'buddynext' ),
 					'twofaBadgeOn'                     => __( 'On', 'buddynext' ),

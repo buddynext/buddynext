@@ -62,6 +62,45 @@ class SuitePanelHostTest extends \WP_UnitTestCase {
 		$this->assertSame( 'courses', $panels[1]['key'] );
 	}
 
+	/**
+	 * A partner that answers a visitor and a member differently (a login-only academy) must not have one
+	 * viewer's answer served to the other from the object cache.
+	 *
+	 * @return void
+	 */
+	public function test_a_visitor_and_a_member_never_share_a_cached_answer(): void {
+		add_filter(
+			'buddynext_member_suite_panels',
+			static function ( array $panels ): array {
+				$panels[] = array(
+					'key'      => 'courses',
+					'label'    => 'Courses',
+					'priority' => 20,
+					'items'    => is_user_logged_in() ? array( array( 'title' => 'Members only course', 'url' => 'https://x/c1' ) ) : array(),
+				);
+				return $panels;
+			},
+			10,
+			2
+		);
+		$member = self::factory()->user->create();
+
+		// A member opens the profile first and fills the cache; a fresh request then serves a visitor.
+		wp_set_current_user( $member );
+		$this->assertNotEmpty( ( new SuitePanelHost() )->panels( $this->member_id ), 'Fixture is wrong: the member sees the course.' );
+
+		wp_set_current_user( 0 );
+		$this->assertSame( array(), ( new SuitePanelHost() )->panels( $this->member_id ), 'A visitor was served the answer cached for a member.' );
+
+		// And the reverse order: the visitor's empty answer must not be served to a member.
+		wp_set_current_user( $member );
+		$this->assertNotEmpty( ( new SuitePanelHost() )->panels( $this->member_id ), 'A member was served the visitor answer.' );
+
+		SuitePanelHost::flush( $this->member_id );
+		$this->assertFalse( wp_cache_get( $this->member_id . ':guest', 'buddynext_suite_panels' ), 'flush leaves the visitor entry behind.' );
+		$this->assertFalse( wp_cache_get( $this->member_id . ':member', 'buddynext_suite_panels' ), 'flush leaves the member entry behind.' );
+	}
+
 	public function test_missing_icon_falls_back_to_default(): void {
 		// A future integration that picks a non-existent icon slug must not render
 		// blank — it falls back to the default and trips _doing_it_wrong.

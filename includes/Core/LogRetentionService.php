@@ -404,9 +404,10 @@ class LogRetentionService {
 				if ( array() === $ids ) {
 					break;
 				}
-				$list = implode( ',', $ids );
-				$wpdb->query( "DELETE FROM {$logs} WHERE action_id IN ({$list})" );
-				$done   = (int) $wpdb->query( "DELETE FROM {$actions} WHERE action_id IN ({$list})" );
+				$ids          = array_map( 'absint', $ids );
+				$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+				$wpdb->query( $wpdb->prepare( "DELETE FROM {$logs} WHERE action_id IN ({$placeholders})", $ids ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- table identifier + generated %d list.
+				$done   = (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$actions} WHERE action_id IN ({$placeholders})", $ids ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- table identifier + generated %d list.
 				$total += $done;
 				if ( $done < self::ACTION_BATCH ) {
 					break;

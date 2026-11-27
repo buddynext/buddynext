@@ -352,16 +352,29 @@ final class SpaceFieldRegistry {
 	 */
 	public function searchable_public_text( int $space_id ): string {
 		$parts = array();
-		foreach ( $this->get_fields() as $field ) {
-			if ( empty( $field['searchable'] ) || 'public' !== ( $field['visibility'] ?? '' ) ) {
-				continue;
-			}
-			$value = (string) get_space_meta( $space_id, (string) $field['key'], true );
+		foreach ( $this->searchable_public_keys() as $key ) {
+			$value = (string) get_space_meta( $space_id, $key, true );
 			if ( '' !== $value ) {
 				$parts[] = wp_strip_all_tags( $value );
 			}
 		}
 		return trim( implode( ' ', $parts ) );
+	}
+
+	/**
+	 * Keys of the searchable + public fields: what site search indexes and what the
+	 * Spaces directory search matches, so the two find the same Spaces.
+	 *
+	 * @return string[]
+	 */
+	public function searchable_public_keys(): array {
+		$keys = array();
+		foreach ( $this->get_fields() as $field ) {
+			if ( ! empty( $field['searchable'] ) && 'public' === ( $field['visibility'] ?? '' ) ) {
+				$keys[] = (string) $field['key'];
+			}
+		}
+		return $keys;
 	}
 
 	/**
@@ -633,6 +646,8 @@ final class SpaceFieldRegistry {
 		// in a third-party integration, triggered by nothing more exotic than saving a searchable
 		// public space field. A hook's arity is part of its contract; it cannot vary by call site.
 		if ( ! empty( $saved ) && $this->any_searchable_public( array_keys( $saved ) ) ) {
+			// The Spaces directory search matches these fields, so its cached results are stale now.
+			SpaceService::flush_space_lists();
 			/** This action is documented in includes/Spaces/SpaceService.php */
 			do_action( 'buddynext_space_updated', $space_id, get_current_user_id(), $saved );
 		}

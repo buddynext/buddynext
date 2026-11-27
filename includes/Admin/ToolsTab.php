@@ -125,13 +125,13 @@ class ToolsTab {
 							if ( empty( $health['loopback_ok'] ) ) {
 								printf(
 									/* translators: %d: number of overdue scheduled tasks. */
-									esc_html__( 'This site cannot make a loopback request to itself, so the background-task runner never starts, and %d scheduled task(s) are overdue. This is usually a firewall, a localhost DNS issue, or HTTP authentication on staging. Add a server-level cron job so the queue is processed regardless:', 'buddynext' ),
+									esc_html( _n( 'This site cannot make a loopback request to itself, so the background-task runner never starts, and %d scheduled task is overdue. This is usually a firewall, a localhost DNS issue, or HTTP authentication on staging. Add a server-level cron job so the queue is processed regardless:', 'This site cannot make a loopback request to itself, so the background-task runner never starts, and %d scheduled tasks are overdue. This is usually a firewall, a localhost DNS issue, or HTTP authentication on staging. Add a server-level cron job so the queue is processed regardless:', (int) $health['overdue'], 'buddynext' ) ),
 									(int) $health['overdue']
 								);
 							} else {
 								printf(
 									/* translators: %d: number of overdue scheduled tasks. */
-									esc_html__( 'WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled task(s) are overdue. Add a server-level cron job so the queue is processed:', 'buddynext' ),
+									esc_html( _n( 'WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled task is overdue. Add a server-level cron job so the queue is processed:', 'WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled tasks are overdue. Add a server-level cron job so the queue is processed:', (int) $health['overdue'], 'buddynext' ) ),
 									(int) $health['overdue']
 								);
 							}
@@ -156,7 +156,7 @@ class ToolsTab {
 							<?php
 							printf(
 								/* translators: %d: number of failed scheduled tasks. */
-								esc_html__( '%d scheduled task(s) failed and will not run again on their own. Review the failures in the Action Scheduler log and retry or clear them:', 'buddynext' ),
+								esc_html( _n( '%d scheduled task failed and will not run again on its own. Review the failures in the Action Scheduler log and retry or clear it:', '%d scheduled tasks failed and will not run again on their own. Review the failures in the Action Scheduler log and retry or clear them:', (int) $health['failed'], 'buddynext' ) ),
 								(int) $health['failed']
 							);
 							?>
@@ -175,7 +175,7 @@ class ToolsTab {
 						if ( $health['overdue'] > 0 ) {
 							printf(
 								/* translators: %d: number of tasks waiting to run. */
-								esc_html__( 'Status: running automatically. %d task(s) are waiting and will process on the next site activity.', 'buddynext' ),
+								esc_html( _n( 'Status: running automatically. %d task is waiting and will process on the next site activity.', 'Status: running automatically. %d tasks are waiting and will process on the next site activity.', (int) $health['overdue'], 'buddynext' ) ),
 								(int) $health['overdue']
 							);
 						} else {

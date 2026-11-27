@@ -176,7 +176,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	<?php
 	// No row at all without Jetonomy: a switch-less "turn the switch on" line
 	// told the owner to do something they could not.
-	if ( class_exists( 'Jetonomy\\Jetonomy' ) ) :
+	if ( \BuddyNext\Bridges\JetonomyBridge::usable() ) :
 		?>
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
@@ -226,7 +226,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	</div>
 	<?php endif; ?>
 
-	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) && $args['is_space_owner'] ) : ?>
+	<?php if ( \BuddyNext\Bridges\JetonomyBridge::usable() && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) && $args['is_space_owner'] ) : ?>
 		<?php
 		// First-time setup only: create a new dedicated discussion (default)
 		// or link an existing one. The typeahead search scopes results by
@@ -307,7 +307,12 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<div class="bn-toggle-row">
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Leaderboard tab', 'buddynext' ); ?></div>
-				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Leaderboard tab ranking this space\'s members by their points across the community.', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc">
+				<?php
+				/* translators: %s: the site's name for points, e.g. "Points" or "Coins". */
+				echo esc_html( sprintf( __( 'Show a Leaderboard tab ranking this space\'s members by their %s across the community.', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) );
+				?>
+				</div>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Leaderboard tab', 'buddynext' ); ?>">
 				<input type="checkbox" class="bn-space-settings__toggle-input" name="gamification_leaderboard_tab" value="1" <?php checked( (bool) $args['leaderboard_tab'] ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
@@ -332,11 +337,11 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<div class="bn-toggle-row">
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Articles tab', 'buddynext' ); ?></div>
-				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Blog tab so members can write and read articles for this space.', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show an Articles tab so members can write and read articles for this space.', 'buddynext' ); ?></div>
 				<?php if ( $bn_articles_site_off ) : ?>
 					<p class="bn-space-settings__hint"><?php esc_html_e( 'Turned off for the whole site by the site admin.', 'buddynext' ); ?></p>
 				<?php elseif ( $bn_articles_closed ) : ?>
-					<p class="bn-space-settings__hint"><?php esc_html_e( 'Private spaces do not have a Blog tab.', 'buddynext' ); ?></p>
+					<p class="bn-space-settings__hint"><?php esc_html_e( 'Private spaces do not have an Articles tab.', 'buddynext' ); ?></p>
 				<?php elseif ( ! (bool) $args['articles_tab'] ) : ?>
 					<p class="bn-space-settings__hint"><?php esc_html_e( 'Nothing is deleted. Articles already written for this space show in the site feed instead, and turning this back on restores them.', 'buddynext' ); ?></p>
 				<?php endif; ?>

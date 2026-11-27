@@ -65,7 +65,7 @@ Space bans, the per-space ban list, and unbanning are all included in the free p
 
 ## What changed in 1.3.0
 
-- A ban can carry a **reason** of up to 500 characters. It is kept with the ban and shown in the Banned members list, wrapped and cut to three lines.
+- A ban can carry a **reason** of up to 500 characters. It is kept with the ban and shown in the Banned members list, wrapped and cut to three lines. The reason is also written to the moderation log, so it is still there after you lift the ban.
 - Nobody can ban or remove themselves from a space (leave it instead), and the space owner can never be banned or removed.
 
 ## Related

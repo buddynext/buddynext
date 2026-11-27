@@ -1,7 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, openMemberSession, restGet, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, openMemberSession, restGet, revealComposerTool, type MemberSession } from '../_fixtures/feed-wave1.helpers';
 import { wp, dbScalar, tablePrefix, userId } from '../_fixtures/wp';
 import { restList, idsOf } from '../_fixtures/effects';
 import type { Page } from '@playwright/test';
@@ -62,6 +62,7 @@ test.describe('feed / composer schedule', () => {
 
             // Open the schedule affordance and set a far-future publish datetime
             // (site wall-clock; the store converts it to UTC on input).
+            await revealComposerTool(page, page.locator(scheduleTool).first());
             await page.locator(scheduleTool).first().click();
             const dt = page.locator(scheduleInput).first();
             await expect(dt).toBeVisible({ timeout: 5_000 });
@@ -174,6 +175,7 @@ test.describe('feed / composer schedule', () => {
             const ta = page.locator(sel.composerTextarea).first();
             await ta.fill(content);
 
+            await revealComposerTool(page, page.locator(scheduleTool).first());
             await page.locator(scheduleTool).first().click();
             const dt = page.locator(scheduleInput).first();
             await expect(dt).toBeVisible({ timeout: 5_000 });

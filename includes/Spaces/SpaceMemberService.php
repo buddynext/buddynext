@@ -2497,6 +2497,8 @@ class SpaceMemberService {
 			return new WP_Error( 'cannot_ban_self', __( 'You cannot ban yourself from a space. Leave it instead.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		$reason = mb_substr( sanitize_textarea_field( $reason ), 0, self::BAN_REASON_MAX );
+
 		// INSERT IGNORE on the (space_id, user_id) key: a repeat or a racing second
 		// request inserts nothing, and only the request that wrote the row goes on.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2506,7 +2508,7 @@ class SpaceMemberService {
 				$space_id,
 				$user_id,
 				max( 0, $banned_by ),
-				mb_substr( sanitize_textarea_field( $reason ), 0, self::BAN_REASON_MAX ),
+				$reason,
 				current_time( 'mysql', true )
 			)
 		);
@@ -2543,6 +2545,8 @@ class SpaceMemberService {
 				array(
 					'target_user_id' => $user_id,
 					'space_id'       => $space_id,
+					// Kept in the log so the reason survives an unban (which deletes the ban row).
+					'note'           => '' !== $reason ? $reason : null,
 				)
 			);
 		}

@@ -319,6 +319,24 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( $this->service->is_banned_from_space( $this->space_id, $user_id ) );
 	}
 
+	public function test_ban_reason_is_kept_in_the_moderation_log(): void {
+		global $wpdb;
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		$this->service->ban_from_space( $this->space_id, $user_id, $this->owner_id, 'spam links' );
+		$this->service->unban_from_space( $this->space_id, $user_id, $this->owner_id );
+
+		$note = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT note FROM {$wpdb->prefix}bn_mod_log WHERE action = 'space_ban' AND target_user_id = %d AND space_id = %d",
+				$user_id,
+				$this->space_id
+			)
+		);
+		$this->assertSame( 'spam links', $note, 'The reason must outlive the ban row.' );
+	}
+
 	public function test_banned_user_cannot_rejoin(): void {
 		$user_id = self::factory()->user->create();
 		$this->service->join( $this->space_id, $user_id );

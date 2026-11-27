@@ -130,6 +130,8 @@ final class IntegrationRegistry {
 				'version'             => '' !== $version ? sanitize_text_field( $version ) : null,
 				'min_version'         => '' !== $min_version ? sanitize_text_field( $min_version ) : null,
 				'tested_version'      => '' !== $tested_version ? sanitize_text_field( $tested_version ) : null,
+				// True when below `min_version` the whole bridge is off (not just one feature); the owner is told so.
+				'floor_disables'      => ! empty( $entry['floor_disables'] ),
 				// Features that need a newer partner than the floor: label => version.
 				// Below one, only that feature is absent (it detects the partner API it
 				// needs); the bridge stays on and the owner is told which to update for.

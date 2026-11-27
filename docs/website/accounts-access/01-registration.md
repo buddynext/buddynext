@@ -76,7 +76,7 @@ These live under **BuddyNext > Members > Registration & Login**.
 | Show the branding panel | Shows a branded side panel next to the login and sign-up forms. Turn off for a centered form only. | On |
 | Panel heading | Large heading on the branding panel. | Your site title |
 | Panel tagline | A short line beneath the heading. | Your site tagline |
-| Featured quote | A short quote shown prominently on the panel. | A built-in welcome line |
+| Featured quote | A short quote shown prominently on the panel. Line breaks you type in the quote show on the panel. | A built-in welcome line |
 | Panel banner image | A full-width banner image behind the panel. | Built-in gradient artwork |
 | Protect the sign-up form | Turns on the built-in spam protection, which quietly screens out bots and fake sign-ups without a captcha service. | On |
 | Show a human-verification question | Adds a simple "what is three plus five?" question to the form. No images, no cookies, no external captcha. Requires spam protection to be on. | On |
@@ -115,7 +115,7 @@ On a multisite network, a logged-out visitor who opens `wp-signup.php` goes to t
 ## Good to know
 
 - **Account states members may hit:**
-  - *Pending approval* - the account exists but sign-in is blocked until an admin approves it.
+  - *Pending approval* - the account exists but sign-in is blocked until an admin approves it. The pending approval details show the account type the member chose at sign-up.
   - *Verification required* - the account exists and is signed in only to a verification screen until the email is confirmed.
 - **Spam guards never get in a real person's way.** A genuine member always sees normal field errors first; the spam protections only kick in on suspicious submissions, so they stay invisible to legitimate sign-ups.
 - **Domain allow-list is exact.** Only addresses ending in a listed domain can register when the allow-list is set, which is handy for a company or campus community.
