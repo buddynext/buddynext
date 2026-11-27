@@ -133,6 +133,8 @@ class GamificationBridge {
 			}
 		);
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
+		// An expired credential is no longer held, so its card goes the same reversible way (hook args: user id, badge slug, expiry time).
+		add_action( 'wb_gam_credential_expired', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
 		// A badge card shows the member's level and the badge's name as they are now, for old cards and new alike.
 		add_filter( 'buddynext_card_live', array( $this, 'live_badge_cards' ), 10, 3 );
 		// A badge card names the level and nothing that changes: the points total describes the member, not the badge,
@@ -857,9 +859,9 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Withdraw a member's shared-badge card when they UNSHARE it.
+	 * Withdraw a member's shared-badge card when they UNSHARE it, or when the credential behind it expires.
 	 *
-	 * Real hook: `wb_gam_badge_unshared( int $user_id, string $badge_id )`. Withdraws
+	 * Real hooks: `wb_gam_badge_unshared( int $user_id, string $badge_id )` and `wb_gam_credential_expired( int $user_id, string $badge_id, string $expired_at )`, the third argument unused. Withdraws
 	 * the card reversibly (to 'draft', hidden from every feed but its row, date and
 	 * comments preserved) rather than deleting it, so a later re-share restores this
 	 * exact card. A no-op when no card exists for the badge (a non-credential badge, or

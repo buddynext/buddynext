@@ -99,6 +99,31 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A credential that expires takes its feed card down reversibly, like an unshare.
+	 *
+	 * @return void
+	 */
+	public function test_an_expired_credential_withdraws_its_card(): void {
+		global $wpdb;
+		$user = self::factory()->user->create();
+		$GLOBALS['wb_gam_test']['badges'][ $user ] = array(
+			array(
+				'id'            => 'mentor',
+				'name'          => 'Mentor',
+				'is_credential' => true,
+			),
+		);
+		$count = static fn( string $status ) => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge' AND status = %s", $user, $status ) );
+
+		do_action( 'wb_gam_badge_shared', $user, 'mentor' );
+		$this->assertSame( 1, $count( 'published' ) );
+
+		do_action( 'wb_gam_credential_expired', $user, 'mentor', '2026-11-27 00:00:00' );
+		$this->assertSame( 0, $count( 'published' ), 'The card of an expired credential stayed up.' );
+		$this->assertSame( 1, $count( 'draft' ), 'The card was deleted instead of withdrawn.' );
+	}
+
+	/**
 	 * A handle change between share and unshare still withdraws the card, and a
 	 * re-share brings back that one card, now linking to the current profile.
 	 *
