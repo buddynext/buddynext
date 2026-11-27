@@ -398,15 +398,24 @@ class IntegrationControlsAdmin {
 	 * @return void
 	 */
 	private function sub_option( string $key, string $sub, string $label, string $hint, array $entry ): void {
-		$reason = '';
+		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
 		if ( isset( $entry['subtabs_unavailable'][ $sub ] ) ) {
 			$reason = (string) $entry['subtabs_unavailable'][ $sub ]['note'];
-		} elseif ( ! empty( $entry['has_nav'] ) && ! buddynext_integration_enabled( $key, 'nav' ) ) {
-			$reason = __( 'Off while Navigation is off. Turn Navigation on to allow articles in Spaces.', 'buddynext' );
+			$note   = '<span class="bn-int-opt__hint">' . esc_html( $reason ) . '</span>';
+			$gate   = '';
+		} elseif ( ! empty( $entry['has_nav'] ) ) {
+			// Follows the Navigation switch live (integration-controls.js), so the reason is always printed and the
+			// stored choice travels with the box to be put back when Navigation is turned on again.
+			$reason = buddynext_integration_enabled( $key, 'nav' ) ? '' : 'nav';
+			$note   = '<span class="bn-int-opt__hint" data-bn-int-nav-reason' . ( '' === $reason ? ' hidden' : '' ) . '>' . esc_html__( 'Off while Navigation is off. Turn Navigation on to allow articles in Spaces.', 'buddynext' ) . '</span>';
+			$gate   = ' data-bn-int-needs-nav data-bn-int-saved="' . ( $on ? '1' : '0' ) . '"';
+		} else {
+			$reason = '';
+			$note   = '';
+			$gate   = '';
 		}
-		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
 		printf(
-			'<label class="bn-int-opt bn-int-opt--wide%1$s"><span class="bn-toggle-label"><input type="checkbox" name="subtab[%2$s][%3$s]" value="1" %4$s %5$s role="switch" aria-label="%6$s"><span class="bn-toggle--inline"></span></span><span class="bn-int-opt__copy"><span class="bn-int-opt__label">%6$s</span><span class="bn-int-opt__hint">%7$s</span>%8$s</span></label>',
+			'<label class="bn-int-opt bn-int-opt--wide%1$s"><span class="bn-toggle-label"><input type="checkbox" name="subtab[%2$s][%3$s]" value="1" %4$s %5$s role="switch" aria-label="%6$s"%9$s><span class="bn-toggle--inline"></span></span><span class="bn-int-opt__copy"><span class="bn-int-opt__label">%6$s</span><span class="bn-int-opt__hint">%7$s</span>%8$s</span></label>',
 			'' !== $reason ? ' is-off' : '',
 			esc_attr( $key ),
 			esc_attr( $sub ),
@@ -414,7 +423,8 @@ class IntegrationControlsAdmin {
 			disabled( '' !== $reason, true, false ),
 			esc_html( $label ),
 			esc_html( $hint ),
-			'' !== $reason ? '<span class="bn-int-opt__hint">' . esc_html( $reason ) . '</span>' : ''
+			$note, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built above from esc_html() text and static markup.
+			$gate // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static attribute string.
 		);
 	}
 
@@ -528,8 +538,9 @@ class IntegrationControlsAdmin {
 				if ( isset( $entry['subtabs_unavailable'][ $sub ] ) ) {
 					continue;
 				}
-				// An option card is disabled while Navigation is off (as the screen was drawn): keep the stored choice too.
-				if ( isset( $entry['subtab_options'][ $sub ] ) && ! empty( $entry['has_nav'] ) && ! $nav_was ) {
+				// An option card is disabled while Navigation is off, whether the screen was drawn that way or Navigation
+				// was switched off before this save (the card is then disabled in the browser): keep the stored choice.
+				if ( isset( $entry['subtab_options'][ $sub ] ) && ! empty( $entry['has_nav'] ) && ( ! $nav_was || empty( $nav[ $key ] ) ) ) {
 					continue;
 				}
 				$was = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );

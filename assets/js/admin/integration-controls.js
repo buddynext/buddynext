@@ -84,6 +84,33 @@
 		}
 	}
 
+	// An option card that needs Navigation (Articles in Spaces) follows the Navigation switch before the save, as the
+	// server draws it after one: off and disabled while Navigation is off, its own choice back when it is turned on.
+	function navGate( card ) {
+		var nav = card.querySelector( '[data-bn-int-area-input="nav"]' );
+		if ( ! nav ) {
+			return;
+		}
+		var off = ! nav.checked;
+		card.querySelectorAll( '[data-bn-int-needs-nav]' ).forEach( function ( opt ) {
+			if ( off && ! opt.disabled ) {
+				opt.setAttribute( 'data-bn-int-saved', opt.checked ? '1' : '0' );
+				opt.checked = false;
+			} else if ( ! off && opt.disabled ) {
+				opt.checked = '1' === opt.getAttribute( 'data-bn-int-saved' );
+			}
+			opt.disabled = off;
+			var label = opt.closest( '.bn-int-opt' );
+			if ( label ) {
+				label.classList.toggle( 'is-off', off );
+				var reason = label.querySelector( '[data-bn-int-nav-reason]' );
+				if ( reason ) {
+					reason.hidden = ! off;
+				}
+			}
+		} );
+	}
+
 	list.addEventListener( 'change', function ( event ) {
 		var card = event.target.closest( '[data-bn-int-card]' );
 		if ( ! card ) {
@@ -99,6 +126,9 @@
 					input.dispatchEvent( new Event( 'change', { bubbles: true } ) );
 				}
 			} );
+		}
+		if ( 'nav' === event.target.getAttribute( 'data-bn-int-area-input' ) ) {
+			navGate( card );
 		}
 		sync( card );
 		counts();

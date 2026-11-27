@@ -136,4 +136,39 @@ class IntegrationControlsAdminTest extends \WP_UnitTestCase {
 		$this->save_form( array( 'nav' => array( 'qaint' => '1' ), 'feed' => array( 'qaint' => '1' ), 'subtab' => array( 'qaint' => array( 'one' => '1' ) ) ) );
 		$this->assertSame( '0', (string) get_option( 'buddynext_integration_qaint_subtab_opt' ), 'An enabled card that is left unticked must switch off.' );
 	}
+
+	/**
+	 * Navigation switched off in the browser disables the option card, so it is not submitted: the save keeps its
+	 * stored choice rather than reading the missing box as off.
+	 *
+	 * @return void
+	 */
+	public function test_switching_navigation_off_keeps_the_option_card_the_browser_disabled(): void {
+		update_option( 'buddynext_integration_qaint_subtab_opt', '1' );
+		$this->save_form( array( 'nav' => array(), 'feed' => array( 'qaint' => '1' ), 'subtab' => array( 'qaint' => array( 'one' => '1' ) ) ) );
+		$this->assertSame( '1', (string) get_option( 'buddynext_integration_qaint_subtab_opt' ) );
+	}
+
+	/**
+	 * The option card carries what the screen needs to follow the Navigation switch live.
+	 *
+	 * @return void
+	 */
+	public function test_the_option_card_is_drawn_to_follow_navigation(): void {
+		$render = static function (): string {
+			ob_start();
+			( new IntegrationControlsAdmin() )->render_page();
+			return (string) ob_get_clean();
+		};
+
+		$html = $render();
+		$this->assertMatchesRegularExpression( '/name="subtab\[qaint\]\[opt\]"[^>]*checked[^>]*data-bn-int-needs-nav data-bn-int-saved="1"/', $html, 'enabled, with its choice' );
+		$this->assertStringContainsString( 'data-bn-int-nav-reason hidden>', $html, 'the reason is there, hidden' );
+		$this->assertDoesNotMatchRegularExpression( '/name="subtab\[qaint\]\[one\]"[^>]*data-bn-int-needs-nav/', $html, 'a plain sub-tab does not follow it' );
+
+		update_option( 'buddynext_integration_qaint_nav', '0' );
+		$html = $render();
+		$this->assertMatchesRegularExpression( '/name="subtab\[qaint\]\[opt\]"[^>]*disabled[^>]*data-bn-int-needs-nav data-bn-int-saved="1"/', $html, 'disabled, its stored choice kept for the switch back' );
+		$this->assertStringContainsString( 'data-bn-int-nav-reason>', $html, 'the reason shows' );
+	}
 }
