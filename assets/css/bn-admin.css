@@ -1678,6 +1678,37 @@ table.bn-table th {
 	background: var(--bn-a-bg-subtle);
 }
 
+/* A sortable column heading stays a link (click to sort) but reads as a
+ * heading: same ink, case and weight as its neighbours, no underline. A small
+ * up/down mark says it sorts; the column in use gets the full-strength ink. */
+table.bn-table th a.bn-th-sort {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-a-s1);
+	color: inherit;
+	text-decoration: none;
+}
+table.bn-table th a.bn-th-sort::after {
+	content: "\2195";
+	content: "\2195" / ""; /* Decorative: the link text already names the column. */
+	font-size: 1.1em;
+	line-height: 1;
+	opacity: 0.55;
+}
+table.bn-table th a.bn-th-sort.is-active,
+table.bn-table th a.bn-th-sort:hover {
+	color: var(--bn-a-text-1);
+}
+table.bn-table th a.bn-th-sort.is-active::after {
+	opacity: 1;
+}
+table.bn-table th a.bn-th-sort:focus-visible {
+	outline: 2px solid var(--bn-a-brand);
+	outline-offset: 2px;
+	border-radius: var(--bn-a-r-sm, 4px);
+	box-shadow: none;
+}
+
 table.bn-table td {
 	padding: var(--bn-a-s3) var(--bn-a-s4);
 	font-size: var(--bn-a-text-sm);
