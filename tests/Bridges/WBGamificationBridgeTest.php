@@ -311,6 +311,30 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A row composed while the sender is signed in (a push, sent in the sender's
+	 * request) opens the RECIPIENT's tab, not the sender's.
+	 *
+	 * @return void
+	 */
+	public function test_bell_row_composed_in_sender_request_opens_recipient_tab(): void {
+		$sender    = self::factory()->user->create();
+		$recipient = self::factory()->user->create();
+		wp_set_current_user( $sender );
+
+		$composed = ( new \BuddyNext\Notifications\NotificationMessageService() )->compose(
+			array(
+				'type'         => 'wb_gamification.kudos_received',
+				'sender_id'    => $sender,
+				'recipient_id' => $recipient,
+				'data'         => array(),
+			)
+		);
+
+		$this->assertSame( trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $recipient ) ) . 'kudos/', $composed['url'] );
+		wp_set_current_user( 0 );
+	}
+
+	/**
 	 * Toasts are held on the sign-up/verify (auth) and onboarding hubs, not on
 	 * ordinary pages, and another host's hold is kept.
 	 */

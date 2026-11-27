@@ -147,7 +147,7 @@ class GamificationBridge {
 		// WB Gamification sends its bell rows through the notification contract with a
 		// link to the member's profile front page. Where a row opens inside the
 		// community is BuddyNext's profile tabs, so the row is pointed at the right one.
-		add_filter( 'buddynext_notification_url', array( $this, 'filter_notification_url' ), 20, 5 );
+		add_filter( 'buddynext_notification_url', array( $this, 'filter_notification_url' ), 20, 6 );
 
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
@@ -416,11 +416,14 @@ class GamificationBridge {
 	 * @param int                 $actor_id  Actor (unused).
 	 * @param int                 $object_id Object id (unused).
 	 * @param array<string,mixed> $data      Row data (unused).
+	 * @param int                 $viewer    The row's recipient; the current member when not given.
 	 * @return string
 	 */
-	public function filter_notification_url( $url, string $type, int $actor_id, int $object_id, array $data ): string {
+	public function filter_notification_url( $url, string $type, int $actor_id, int $object_id, array $data, int $viewer = 0 ): string {
 		unset( $actor_id, $object_id, $data );
-		$viewer = get_current_user_id();
+		// The recipient, never the request's member: a push or email is composed while
+		// the sender is signed in.
+		$viewer = $viewer > 0 ? $viewer : get_current_user_id();
 		if ( ! isset( self::NOTIFICATION_TABS[ $type ] ) || $viewer <= 0 ) {
 			return (string) $url;
 		}
