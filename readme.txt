@@ -97,6 +97,12 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Improve  - Mark all read clears notifications in place, and admin Save stays off until a setting changes.
 * Improve  - The profile visibility setting explains that the Members directory still lists the member.
 * Improve  - Admin Home, Tools and Add-ons each have one main button, and phone tables keep readable columns inside a sideways scroll.
+* Improve  - The post composer is a rounded card with Post and Article text tabs, a Write article button, matching 40px audience and Post controls, tinted initials when you have no photo, a clearer keyboard focus ring and a Draft saved note, and on phones the extra tools fold behind one More button.
+* Improve  - Notices show two at a time on a desktop and one on a phone, in one width with a labelled close button, Escape to dismiss and a counting-up points figure, and add-ons raise theirs through the same bnToast function.
+* Improve  - Member Blog writing is called Articles everywhere: the Space tab, its heading, the settings and the write page.
+* Improve  - Member search, the wp-admin Members list and the Email Log show each member's own avatar instead of initials.
+* Improve  - Default email templates (verification, welcome, follows, connections, Spaces, moderation, digests, messages, media) are translated in all ten shipped languages.
+* Improve  - A badge's feed card is withdrawn when its credential expires and comes back with the same card when the member earns and shares it again.
 * Fix      - A suspended member who has not finished onboarding reaches the account status page to read the reason and appeal.
 * Fix      - A suspended member earns no gamification points, badges or levels and is left off the leaderboard (with WB Gamification 1.7.0 or later) while suspended; points earned before stay.
 * Fix      - Nobody can suspend the site owner's account; administrators can still suspend other administrators.
@@ -121,6 +127,27 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - The post menu, the Posting to popover and the emoji sheet work from the keyboard, and Report and Restore defaults open on the safe choice.
 * Fix      - The bulk bar no longer covers the table on a tablet, so Apply can be tapped.
 * Fix      - A toast no longer lands on the cookie notice, and a malformed sign-up email says so.
+* Fix      - A member who hides their level and points no longer shows the level on their badge card or in the app, and their points figure is left off the leaderboard for viewers who may not see it; administrators and moderators still see it.
+* Fix      - A suspended or blocked member cannot send kudos by any route, and the owner of the site can never be suspended or struck.
+* Fix      - A suspended member's albums are hidden, album titles show as typed, and a scheduled post from a suspended or banned author goes back to drafts instead of publishing.
+* Fix      - The Space sidebar Members preview no longer lists suspended members.
+* Fix      - Navigation switched off and on again no longer switches Articles in Spaces off, and the Integration Settings card follows the Navigation switch on screen.
+* Fix      - Spam, trash or delete on an article comment now removes it from the article's feed card, edits and deletes on the card reach the article, replies keep their thread, and a held comment appears once approved.
+* Fix      - Editing an article that is already public no longer posts it to the feed as new or brings back a deleted card, and a member who verifies their email gets cards for their 20 newest articles.
+* Fix      - A suspended or pending member can no longer delete articles or upload article images, and an article started from Write for this Space keeps its Space when the draft is reopened.
+* Fix      - A Space with no articles shows one Write for this Space button, and the reading dashboard's browser tab says My reading.
+* Fix      - Editing or deleting an article comment can no longer rewrite the forum reply that happens to share its number.
+* Fix      - Unsharing a badge hides its card even after the member changed their handle, and Gamification notices open the recipient's own profile tab, or the profile when the tabs are switched off.
+* Fix      - A Space leaderboard shows Your position only to that Space's members, visitors no longer see the Your Badges and Your Streak widgets, and the Space leaderboard and settings use the site's own name for points.
+* Fix      - The achievements API no longer returns a share link for a badge the member has not shared.
+* Fix      - Pinned topics stay at the top of a Space's Discussions list, integration cards keep a valid third button such as Download, and a signed-out visitor on a private Space's event is asked to request to join.
+* Fix      - Forum imports and partner card re-placing queue jobs that fit Action Scheduler's argument limit, so a big Space's cards are not refused.
+* Fix      - Pending approval details show the account type the member chose, and account emails show sign-in and community links as clickable links.
+* Fix      - A mistyped address in an empty Reply-To, From or alert email setting is refused and the field stays empty instead of saving the admin email.
+* Fix      - The reason given for a Space ban is kept in the moderation log, and the report queues say what was reported (member, post, comment or space).
+* Fix      - The Members screen Active tab no longer lists suspended members, and the member CSV export and the privacy export show dates in the site timezone and export every invitation.
+* Fix      - Searching the Spaces page for a place finds the Spaces whose Location matches.
+* Fix      - Admin textareas can be resized again, sortable column headings look like the others, and line breaks show in the cookie notice and the sign-up panel's featured quote.
 * Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
 * Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.
 * Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0 and Eventonomy 2.0.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
