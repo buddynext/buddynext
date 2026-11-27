@@ -106,6 +106,10 @@ class RegistrationEmailListener {
 		if ( '' !== (string) get_user_meta( $user_id, 'bn_welcome_sent', true ) ) {
 			return;
 		}
+		// A held member is welcomed when released (buddynext_user_verified), not at sign-up.
+		if ( ApprovalGuard::is_held( $user_id ) ) {
+			return;
+		}
 
 		// Render from the owner-editable 'welcome' template row (subject, body,
 		// tokens, brand wrap, sender identity) via the transactional email path —

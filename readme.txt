@@ -110,7 +110,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - A plan-gated Space's forum is private, and wp buddynext repair-discussion-visibility fixes forums linked before this release.
 * Fix      - A suspended member sees one banner with the reason and a link to appeal, and Skip setup works with JavaScript off.
 * Fix      - A guest no longer learns of private pictures over REST, and a suspended member's Media tab shows nothing.
-* Fix      - The avatar cropper and the emoji picker work from the keyboard: focus moves in, Tab stays inside, the arrow keys move, and focus returns to the control that opened them.
+* Fix      - The avatar cropper and the emoji picker work from the keyboard: focus moves in, the arrow keys move, Tab stays inside the cropper, and Tab or Escape closes the emoji picker and returns focus to the button that opened it.
 * Fix      - Dialogs hold Tab correctly in Safari and on iPad, and a mistyped email setting is refused with a message instead of being emptied under "Settings saved".
 * Fix      - A suspended member no longer gets an error toast on every page, and the Arabic sign-up page no longer scrolls sideways.
 * Fix      - Buttons, switches and filter rows are 40px tall on a phone, and text longer than its field ends in an ellipsis.
@@ -153,7 +153,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
 * Security - Profile tabs from a partner are kept per kind of viewer (owner, signed-in member, visitor), so a login-only academy's course list is no longer shown to the wrong one when the site uses a persistent object cache.
 * Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.
-* Compat   - Space discussions need Jetonomy 2.1.0 or newer: on an older Jetonomy they stay off, your forums and posts are kept, and Integrations says which version turns them on.
+* Compat   - Space discussions need Jetonomy 2.1.0 or newer: on an older Jetonomy they stay off, your forums and posts are kept, and Integrations says which version turns them on; a forum already linked to a Space cannot be opened up through Jetonomy's own edit there.
 * Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0 and Eventonomy 2.0.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
 
 = 1.2.9 - November 2026 =

@@ -196,6 +196,9 @@ class JetonomyBridge {
 		// registers itself, so Integrations and the bridge status say which Jetonomy version turns it on.
 		if ( ! self::version_supported() ) {
 			add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+			// One guard stays on: a forum linked to a Space before the update must not be opened up through Jetonomy's
+			// own edit route, which has no hook of its own before 2.1.0.
+			add_filter( 'rest_request_before_callbacks', array( $this, 'refuse_old_forum_edit' ), 10, 3 );
 			return;
 		}
 
@@ -3114,6 +3117,42 @@ class JetonomyBridge {
 			}
 		}
 		return $proceed;
+	}
+
+	/**
+	 * Below the floor only: refuse a REST edit that changes who can see or join a forum linked to a Space.
+	 *
+	 * Jetonomy before 2.1.0 has no jetonomy_before_update_space, so the edit route is read here and held to the same
+	 * rule as the filter (refuse_forum_drift()). A rename or re-sent current values passes; unlinked forums are untouched.
+	 *
+	 * @param mixed            $response Response so far.
+	 * @param array            $handler  Matched route handler (unused).
+	 * @param \WP_REST_Request $request  The request.
+	 * @return mixed The response, or a WP_Error that refuses the edit.
+	 */
+	public function refuse_old_forum_edit( $response, $handler, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- filter signature.
+		if ( ! $request instanceof \WP_REST_Request || is_wp_error( $response ) || ! in_array( $request->get_method(), array( 'PATCH', 'PUT', 'POST' ), true )
+			|| ! preg_match( '#^/jetonomy/v1/spaces/(\d+)$#', $request->get_route(), $m ) ) {
+			return $response;
+		}
+		$changes = array();
+		foreach ( array( 'visibility', 'join_policy', 'status' ) as $field ) {
+			if ( null !== $request->get_param( $field ) ) {
+				$changes[ $field ] = $request->get_param( $field );
+			}
+		}
+		if ( ! is_wp_error( $this->refuse_forum_drift( true, (int) $m[1], $changes ) ) ) {
+			return $response;
+		}
+		return new \WP_Error(
+			'bn_forum_follows_space',
+			sprintf(
+				/* translators: %s: minimum Jetonomy version. */
+				__( 'This discussion follows its Space and cannot be opened up here. Update Jetonomy to %s or newer.', 'buddynext' ),
+				self::MIN_VERSION
+			),
+			array( 'status' => 409 )
+		);
 	}
 
 	/**

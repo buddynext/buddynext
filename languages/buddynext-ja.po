@@ -2997,6 +2997,12 @@ msgstr ""
 msgid "Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your forums and posts are kept."
 msgstr "ディスカッションには Jetonomy %s 以降が必要です。Jetonomy を更新すると有効になります。フォーラムと投稿はそのまま保持されます。"
 
+#. translators: %s: minimum Jetonomy version.
+#: includes/Bridges/JetonomyBridge.php:3151
+#, php-format
+msgid "This discussion follows its Space and cannot be opened up here. Update Jetonomy to %s or newer."
+msgstr "このディスカッションはスペースの設定に従うため、ここから公開範囲を広げることはできません。Jetonomy を %s 以降に更新してください。"
+
 #. translators: %s: required minimum version.
 #: includes/Admin/IntegrationControlsAdmin.php:40
 #, php-format
