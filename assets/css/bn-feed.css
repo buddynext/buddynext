@@ -3172,7 +3172,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-btn.bn-composer__submit,
 .bn-btn.bn-composer-article__start {
 	min-block-size: 40px;
-	border-radius: calc(var(--bn-radius-base) * 1.2);
+	border-radius: calc(var(--bn-radius-base) * 1.5);
 }
 /* A finger needs 44px: restate the touch floor bn-base.css gives every button, which the rule above would undercut. */
 @media (pointer: coarse), (max-width: 768px) {
@@ -4228,7 +4228,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line-control);
 	/* Same 40px / 12px shape as the Post button beside it. */
-	border-radius: calc(var(--bn-radius-base) * 1.2);
+	border-radius: calc(var(--bn-radius-base) * 1.5);
 	color: var(--bn-ink-3);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-xs);
