@@ -150,7 +150,7 @@ final class ScheduledPostsPublisher {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$due = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, user_id, type FROM {$wpdb->prefix}bn_posts
+				"SELECT id, user_id, space_id, type FROM {$wpdb->prefix}bn_posts
 				 WHERE status = 'scheduled'
 				   AND scheduled_at IS NOT NULL
 				   AND scheduled_at <= UTC_TIMESTAMP()
@@ -169,6 +169,14 @@ final class ScheduledPostsPublisher {
 			$post_id = (int) $row['id'];
 			$user_id = (int) $row['user_id'];
 			$type    = (string) $row['type'];
+
+			// The author may have been suspended, banned from the Space or removed from it since this was scheduled.
+			// Going live is a post like any other, so it asks the rules an immediate post asks; the text goes back to
+			// the author's drafts rather than out to the feed.
+			if ( ! self::author_may_publish( $user_id, (int) ( $row['space_id'] ?? 0 ) ) ) {
+				self::return_to_draft( $post_id );
+				continue;
+			}
 
 			if ( $post_service->mark_published( $post_id ) ) {
 				++$published;
@@ -199,6 +207,54 @@ final class ScheduledPostsPublisher {
 	}
 
 	/**
+	 * Whether an author may still publish a post going live now.
+	 *
+	 * The two rules an immediate post asks (PostService::create and SpacePostGuard): a suspended member cannot
+	 * post, and a Space post needs an active member who meets the Space's posting rule, which a banned or removed
+	 * member no longer is.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $user_id  Author.
+	 * @param int $space_id Space the post is for (0 for the feed or a profile).
+	 * @return bool
+	 */
+	private static function author_may_publish( int $user_id, int $space_id ): bool {
+		if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) {
+			return false;
+		}
+
+		return $space_id <= 0 || \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $user_id );
+	}
+
+	/**
+	 * Take a scheduled post out of the queue and keep it as the author's draft.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $post_id Post.
+	 * @return void
+	 */
+	private static function return_to_draft( int $post_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'status'       => 'draft',
+				'scheduled_at' => null,
+				'updated_at'   => current_time( 'mysql', true ),
+			),
+			array( 'id' => $post_id ),
+			array( '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
+	}
+
+	/**
 	 * Record a failed publish attempt for a post. After MAX_ATTEMPTS the row is
 	 * returned to 'draft' with its schedule cleared — so it leaves the scheduled
 	 * queue instead of being retried every sweep forever — and
@@ -216,21 +272,7 @@ final class ScheduledPostsPublisher {
 		$count    = (int) ( $attempts[ $post_id ] ?? 0 ) + 1;
 
 		if ( $count >= self::MAX_ATTEMPTS ) {
-			global $wpdb;
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->update(
-				$wpdb->prefix . 'bn_posts',
-				array(
-					'status'       => 'draft',
-					'scheduled_at' => null,
-					'updated_at'   => current_time( 'mysql', true ),
-				),
-				array( 'id' => $post_id ),
-				array( '%s', '%s', '%s' ),
-				array( '%d' )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
+			self::return_to_draft( $post_id );
 			unset( $attempts[ $post_id ] );
 			update_option( self::ATTEMPTS_OPTION, $attempts, false );
 
