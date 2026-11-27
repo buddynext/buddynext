@@ -352,6 +352,32 @@ class GamificationBridge {
 	}
 
 	/**
+	 * The viewer's own place on a board: the site board, or a Space board.
+	 *
+	 * A Space board ranks only that Space's members, so a member gets their place
+	 * among them and anyone else gets none: their site-wide rank would read as a
+	 * place on a board they are not on.
+	 *
+	 * @param int    $viewer_id Viewer.
+	 * @param string $period    Engine period (all, month, week).
+	 * @param int    $space_id  Space board, 0 for the site board.
+	 * @return array<string,mixed> The engine's `{rank, points, ...}`, or empty for no place.
+	 */
+	public static function viewer_rank( int $viewer_id, string $period, int $space_id = 0 ): array {
+		if ( $viewer_id <= 0 ) {
+			return array();
+		}
+		if ( 0 === $space_id ) {
+			return function_exists( 'wb_gam_get_user_rank' ) ? (array) wb_gam_get_user_rank( $viewer_id, $period ) : array();
+		}
+		$scoped = array( 'WBGam\\Engine\\LeaderboardEngine', 'get_user_rank' );
+		if ( ! is_callable( $scoped ) || ! buddynext_service( 'space_members' )->is_member( $space_id, $viewer_id ) ) {
+			return array();
+		}
+		return (array) call_user_func( $scoped, $viewer_id, $period, self::SPACE_SCOPE, $space_id );
+	}
+
+	/**
 	 * Whether a viewer may see a member's gamification standing (points, badges,
 	 * rank, kudos). The one answer every BuddyNext gamification surface uses: the
 	 * member's BuddyNext profile privacy, which also honours blocks.
