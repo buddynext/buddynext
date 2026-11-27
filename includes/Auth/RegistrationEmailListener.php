@@ -307,7 +307,7 @@ class RegistrationEmailListener {
 	 *
 	 * @param string $to      Recipient address.
 	 * @param string $subject Subject line.
-	 * @param string $body    Plain message (escaped + wrapped in minimal HTML).
+	 * @param string $body    Plain message (escaped, web addresses turned into links, wrapped in paragraphs).
 	 * @param string $type    bn_email_log type label (default 'registration').
 	 * @return void
 	 */
@@ -318,7 +318,7 @@ class RegistrationEmailListener {
 		EmailSender::send_with_identity(
 			$to,
 			$subject,
-			EmailSender::brand_wrap( '<p>' . esc_html( $body ) . '</p>', $subject ),
+			EmailSender::brand_wrap( wpautop( make_clickable( esc_html( $body ) ) ), $subject ),
 			EmailSender::build_identity_headers(),
 			$type
 		);
