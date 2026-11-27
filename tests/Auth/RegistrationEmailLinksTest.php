@@ -68,4 +68,21 @@ class RegistrationEmailLinksTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( '<a href="' . esc_url( PageRouter::login_url( '' ) ) . '"', $body );
 		$this->assertStringNotContainsString( '<b>Bold</b>', $body, 'The member name stays escaped.' );
 	}
+
+	/**
+	 * The "awaiting approval" mail to the site admin links the Pending list, not the Invites list.
+	 *
+	 * @return void
+	 */
+	public function test_admin_notice_links_the_pending_members_list(): void {
+		$uid = self::factory()->user->create( array( 'user_email' => 'waiting@example.test' ) );
+
+		$this->mails = array();
+		( new RegistrationEmailListener() )->on_registration_pending( $uid, 'waiting@example.test' );
+
+		$admin = array_values( array_filter( $this->mails, static fn( $m ) => 0 === strpos( (string) $m['subject'], 'New registration awaiting approval' ) ) );
+		$this->assertNotEmpty( $admin, 'The admin notice was not sent.' );
+		$this->assertStringContainsString( 'tab=pending', (string) $admin[0]['message'] );
+		$this->assertStringNotContainsString( 'tab=invites', (string) $admin[0]['message'] );
+	}
 }

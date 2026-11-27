@@ -215,7 +215,7 @@ class RegistrationEmailListener {
 						__( '%1$s (%2$s) has registered and is awaiting your approval. Review pending members here: %3$s', 'buddynext' ),
 						$user->user_login,
 						$email,
-						admin_url( 'admin.php?page=buddynext-members&tab=invites' )
+						admin_url( 'admin.php?page=buddynext-members&tab=pending' )
 					);
 					$this->send_branded( $admin_email, $admin_subject, $admin_body );
 				}
