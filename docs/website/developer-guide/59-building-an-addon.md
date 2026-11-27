@@ -102,7 +102,7 @@ array(
 )
 ```
 
-Panels are cached for "the member viewing their own profile" and "anyone else", not per viewer. A panel that is not `owner_only` must return the same data to every viewer; mark anything that depends on who is looking `owner_only`, and it is dropped for everyone else. When the member's data changes, call `do_action( 'buddynext_suite_panels_changed', $member_id )`.
+Panels are cached for three kinds of viewer, not per viewer: the owner viewing their own profile, another signed-in member, and a visitor. A panel that is not `owner_only` must return the same data to every viewer of the same kind; a panel that depends on who is looking no longer leaks across those kinds, and anything only the owner should see is marked `owner_only`, which drops it for everyone else. When the member's data changes, call `do_action( 'buddynext_suite_panels_changed', $member_id )`.
 
 ### Space links
 
@@ -132,7 +132,7 @@ Removing an addon or the partner plugin changes nothing: the links stay, shown a
 | `buddynext_register_addons` (action, `AddonRegistry $registry`) | Register your addon here. Fires once, at `buddynext_load_bridges`. |
 | `buddynext_member_suite_panels` (filter, `array $panels`, `int $member_id`) | Collects the Portfolio panels for a member. Prefer `ProfilePanelModule`; use the filter only from a plugin that is not an addon. |
 | `buddynext_suite_panels_changed` (action, `int $member_id`) | Call it when a member's panel data changes so the cached panels are rebuilt. |
-| `buddynext_suite_panels_ttl` (filter, `int $seconds`) | How long panels are cached. Default 5 minutes. |
+| `buddynext_suite_panels_ttl` (filter, `int $seconds`) | How long panels are cached. Default 5 minutes. `buddynext_suite_panels_changed` clears all three cached sets for the member. |
 | `buddynext_space_link_sources` (filter, `array<string,SpaceLinkSource> $sources`) | Offers objects a space can be linked to. A `SpaceLinkSource` module is added for you. |
 | `buddynext_space_linked` (action, `int $space_id`, `string $source`, `string $type`, `int $object_id`) | A space was linked to an object. |
 | `buddynext_space_unlinked` (action, `int $space_id`, `string $source`, `string $type`, `int $object_id`) | A link was removed. The space and its members are untouched. |

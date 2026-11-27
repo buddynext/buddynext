@@ -91,6 +91,12 @@ When a member reports a topic or reply in the forum, the report also appears in 
 
 Each space owner decides whether their space has a discussion. Under **Manage space > Integrations**, the owner switches **Discussion** on; BuddyNext then creates one dedicated discussion for the space automatically. Instead of creating a new one, the owner can search for and link a discussion they already own (a site administrator can link any). A space keeps one discussion for its lifetime, and switching it off only hides the tab - nothing is deleted, and switching it on again restores the same discussion. Moderators can open the screen but only the owner can change this switch, link or unlink a discussion, through the screen or the app. A discussion belongs to one space: one already linked to another space is not offered in the search and cannot be linked again. If your site has a discussion linked to two spaces from before this rule, `wp buddynext repair-discussion-visibility --dry-run` lists it without changing anything; unlink it from the space that should not have it. When the owner has switched Discussion on and its forum is missing, the owner or a space moderator can start it again from the Discussions tab. See Space Forum for the member side.
 
+## Which Jetonomy version you need
+
+Space discussions need **Jetonomy 2.1.0 or newer**. Jetonomy 2.1.0 added the one door that keeps a forum linked to a Space as open as the Space; older versions would let a Space owner open a private forum.
+
+If an older Jetonomy is installed, the Discussions tab, forum provisioning and forum linking are switched off. Nothing is deleted: your forums and posts are kept, and they come back when you update. **BuddyNext > Integration Settings** shows the reason: "Discussions need Jetonomy 2.1.0 or newer. Update Jetonomy to turn them on; your forums and posts are kept."
+
 ## Good to know
 
 - **Emoji and accented titles open correctly.** Links to discussions with emoji or accented characters in the title open from the feed, search, notifications and profile tab.

@@ -16,6 +16,9 @@ This release makes your partner plugins show up in the community as live cards, 
 - **Comments on articles stay in step.** Spam, trash, delete and approve on an article reach its feed card, and edits and deletes on the card reach the article. A delete on the card moves the article's copy to the trash.
 - **Fewer surprise cards.** Editing an article that is already public never posts it to the feed again, and a member who verifies their email gets cards for their 20 newest articles.
 - **Learnomy links are owner-only.** Only a site administrator or the course's own author can link a community to a course, and the community must be private or secret. A community you switch off is not shown to learners, and switching it on adds everyone who enrolled meanwhile (BuddyNext Pro).
+- **Jetonomy 2.1.0 or newer.** Space discussions need Jetonomy 2.1.0. Below it the Discussions tab, forum provisioning and forum linking are off, your forums and posts are kept, and Integration Settings says which version turns them on.
+- **Learnomy keeps what learners earned.** A learner keeps a course community while another access source remains, and a revived or renewed plan gives its courses back. Saving a plan keeps linked draft, archived or beyond-200 courses, renewing a certificate updates the one post, and renaming a course updates its existing posts in place (BuddyNext Pro).
+- **Honest Learnomy status.** A paused Learnomy is shown as not running and its bridge stands down. The Community for banner stays one block on phones (BuddyNext Pro).
 - **Safer broadcasts.** Members awaiting approval and suspended members are skipped, and the check reads only the broadcast's audience (BuddyNext Pro).
 
 ## Better for members
@@ -67,4 +70,7 @@ This release makes your partner plugins show up in the community as live cards, 
 - `buddynext_notification_url` receives the recipient as a sixth argument, and `buddynext_card_facts` also runs on the REST card with the card's `user_id`.
 - `IntegrationActivity::actions()` takes an optional `$title_url`, and `GamificationBridge::viewer_rank()` and `can_view_points()` are new. See [Gamification seam](../developer-guide/45-gamification-seam.md).
 - `window.bnToast` takes `icon`, `count`, `key` and the `award` type, returns a handle, and reports `bnToast.supports`. See [Toasts and dialogs](../developer-guide/56-toasts-and-dialogs.md).
+- Integration registry entries take `floor_disables` beside `min_version`.
+- `IntegrationActivity::refresh_by_meta()` takes `$opts` (`user_id`, `published_only`, `link_url` with `link_arg`, `batch` with `after_id`) and a `$next` cursor.
+- Profile panels are cached for the owner, other members and visitors separately, and `SuitePanelHost::flush()` clears all three.
 - `buddynextpro_segment_excluded_user_ids` receives only ids inside the audience.
