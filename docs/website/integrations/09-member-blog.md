@@ -21,6 +21,8 @@ BuddyNext's side of this integration is deliberately small, and deliberately gen
 - **An Article tab in the What's New composer.** Members Member Blog lets write get Post / Article tabs in the main composer; the Article tab opens Member Blog's editor with the typed title filled in, offers **Continue writing** for their latest draft, and links to **My drafts** and **My articles** with counts. See [Post Composer](../community/02-post-composer.md#writing-an-article).
 - **The Articles list follows profile visibility.** A member's articles are shown only to people who may see that member's profile: the profile's visibility setting (everyone, followers or connections) and blocks apply, on the profile tab and through the REST API alike. Someone who may not see the profile gets an empty list, not an error.
 
+The writing page inside the community is called **Write an article**, its tabs are **New article** and **My articles**, and the left rail's You group links to it with the same name.
+
 Everything else stays where it belongs. BuddyNext does not render an editor, does not own a posting form, and does not duplicate Member Blog's dashboard. All writing, editing and submission happens in Member Blog.
 
 ### What BuddyNext already did without this
@@ -29,13 +31,23 @@ The feed side needs no integration at all. BuddyNext's site tracking publishes a
 
 The card follows the post. If the post is unpublished, trashed, made private or given a password, its card leaves the feed; publishing it again brings back the same card, with its reactions and comments. Deleting the post permanently removes the card.
 
+A card is created only when a post becomes public. Editing a post that was already public never posts it to the feed as new, even if it never had a card, or an administrator deleted its card. When a member verifies their email address, the 20 most recent articles they wrote while unverified get their cards, with the newest on top.
+
+### Comments stay one conversation
+
+A comment on an article and the same comment on its feed card are kept in step both ways:
+
+- **Moderation on the article reaches the card.** Marking a comment as spam, trashing it, or holding it for approval hides its copy on the card. Approving it again brings the copy back. Deleting it permanently removes the copy.
+- **Edits and deletes on the card reach the article.** Editing a comment on the card rewrites the article's comment. Deleting it on the card (as its author, an administrator or a moderator) moves the article's copy to the trash, so the text is no longer public and can still be restored.
+- **Replies keep their thread** on both sides.
+
 ## Setting it up
 
 1. Install and activate **WB Member Blog**.
 2. In Member Blog's settings (the Pages tab), map its **Dashboard Page** - the front-end page where members write and manage their posts. BuddyNext reads this to build the "Write a new article" link.
 3. That is all. The Articles tab appears on member profiles automatically.
 
-The **Blog posts** card on **BuddyNext > Integration Settings** has two switches:
+The **Articles** card on **BuddyNext > Integration Settings** has two switches, plus **Articles in Spaces** (see below):
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -54,14 +66,14 @@ Visitors and other members see published posts only. You see your own drafts, pe
 
 ## Articles in Spaces
 
-Members can write an article for an open Space: the Space gets a **Blog** tab listing its articles, and a **Write for this Space** button for members who may post there. If you want articles on member profiles and in the feed only, turn this off.
+Members can write an article for an open Space: the Space gets an **Articles** tab listing its articles, and a **Write for this Space** button for members who may post there. If you want articles on member profiles and in the feed only, turn this off.
 
 Go to **Integration Settings**, open the **WB Member Blog** row and switch **Articles in Spaces** off, then save.
 
-- The **Blog** tab in Spaces and every **Write for this Space** button are hidden, and the write form ignores a Space link. A bookmarked `/spaces/your-space/blog/` address simply opens the Space.
+- The **Articles** tab in Spaces and every **Write for this Space** button are hidden, and the write form ignores a Space link. A bookmarked `/spaces/your-space/blog/` address simply opens the Space.
 - Nothing is deleted. Articles written for an open Space show in the site feed instead; they were already public. Articles written for a private or secret Space stay members-only in that Space.
 - Turning it back on restores the Space for every article. The cards are moved in the background in small batches, so a large site is not slowed down.
-- The switch shows disabled, with the reason, while WB Member Blog is not active or Navigation is off for the row. **Settings > Navigation** shows the Space **Blog** tab as off in Integration Settings.
+- The switch shows disabled, with the reason, while WB Member Blog is not active or Navigation is off for the row. The **Articles in Spaces** switch follows the **Navigation** switch on the same card as you click: turn Navigation off and it switches off and disables at once, turn Navigation back on and it returns to the choice you had saved. **Settings > Navigation** shows the Space **Articles** tab as off in Integration Settings.
 
 This switch is site-wide. Each open Space owner can also switch articles off for their own Space.
 
@@ -69,9 +81,14 @@ This switch is site-wide. Each open Space owner can also switch articles off for
 
 Open **Manage space > Integrations** and use the **Articles tab** switch (it appears while WB Member Blog is active). It is on by default for every Space.
 
-- Off means the same as the site-wide switch, for that Space only: no **Blog** tab, no **Write for this Space** button, and the write form ignores that Space. Other Spaces are not affected.
+- Off means the same as the site-wide switch, for that Space only: no **Articles** tab, no **Write for this Space** button, and the write form ignores that Space. Other Spaces are not affected.
 - Nothing is deleted. Articles already written for the Space show in the site feed, and turning the switch back on restores them. They move in the background and no notifications are sent.
-- Only the Space owner can change it. The switch is disabled with the reason when the site admin has articles in Spaces off, and for private and secret Spaces, which do not have a Blog tab. The choice you saved is kept if the Space's type changes, or if the plugin is switched off for a while.
+- Only the Space owner can change it. The switch is disabled with the reason when the site admin has articles in Spaces off, and for private and secret Spaces, which do not have an Articles tab. The choice you saved is kept if the Space's type changes, or if the plugin is switched off for a while.
+- A Space with no articles shows one **Write for this Space** button, not two. An article started from **Write for this Space** keeps its Space when the member reopens its autosaved draft later.
+
+## Held accounts
+
+A suspended member, or a member whose sign-up is still awaiting approval, cannot delete articles, and cannot upload images or add categories through Member Blog. Their existing articles stay as they are.
 
 ## Pro
 

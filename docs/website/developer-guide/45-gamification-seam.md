@@ -144,7 +144,7 @@ WB Gamification sends its member notifications through the community notificatio
 
 Every one of these types is collect-only (`can_email => false`): WB Gamification sends its own emails, so BuddyNext only shows them in the inbox, and the digest leaves them out. Members can switch each off under notification preferences.
 
-The plugin links each row to the member's profile front page. BuddyNext owns the profile tabs, so `GamificationBridge::filter_notification_url()` (on `buddynext_notification_url`) opens Achievements for badges, level-ups, challenges, expired credentials and streaks, Kudos for kudos, and Points for personal records; a reward keeps the plugin's own hub link.
+The plugin links each row to the member's profile front page. BuddyNext owns the profile tabs, so `GamificationBridge::filter_notification_url()` (on `buddynext_notification_url`) opens Achievements for badges, level-ups, challenges, expired credentials and streaks, Kudos for kudos, and Points for personal records; a reward keeps the plugin's own hub link. The row opens the recipient's own tab, not the sender's: the filter's sixth argument is the recipient. With the Gamification navigation switch off there are no profile tabs, so notices and badge cards open the member's profile instead of a missing page.
 
 Points amounts BuddyNext prints go through `GamificationBridge::format_points()` (WB Gamification's `wb_gam_format_points()`: "1 Point", "250 Karma", "+10 Points"); a tile that prints the number and the name apart uses `GamificationBridge::points_unit( $amount )`. Level progress on the leaderboard follows points earned (`wb_gam_get_earned_points()`), not the spendable balance, so redeeming a reward never moves the bar backwards.
 
@@ -161,6 +161,11 @@ The template consumes **only** the engine read API - there is no BuddyNext-side 
 - `wb_gam_get_user_badges()` / `wb_gam_get_user_streak()` for the sidebar widgets.
 
 When the engine is absent (`! function_exists( 'wb_gam_get_leaderboard' )`), the template renders a friendly "requires the gamification plugin" notice instead of an empty page. The current user's rank is resolved from the returned rows; outside the top 10 it shows "Unranked".
+
+Two static helpers on `GamificationBridge` decide what a viewer sees on the board (since 1.3.0):
+
+- **`GamificationBridge::viewer_rank( int $viewer_id, string $period, int $space_id = 0 ): array`** returns the viewer's own place as the engine's `{ rank, points, ... }`, or an empty array for no place. With `$space_id` of `0` it is the site board. For a Space board it returns the place among that Space's members only, and an empty array when the viewer is not a member, so a site-wide rank is never read as a place on a board the viewer is not on. The leaderboard's **Your position** row reads it.
+- **`GamificationBridge::can_view_points( int $member_id, ?int $viewer_id = null ): bool`** answers whether a viewer may see a member's points, rank and level. It needs the member's profile privacy to allow it first (`can_view_standing()`), then honours the member's **Show my level and points** choice in WB Gamification. The member always sees their own, and administrators and moderators keep seeing it. Badges and kudos are not points and follow `can_view_standing()` alone. The leaderboard rows, the Achievements standing tiles, the REST achievements data and the level on a badge card all use it. The choice needs WB Gamification 1.7.0 or newer.
 
 The member-facing profile surface is the **Achievements** tab (`GamificationAchievements`), registered on `buddynext_register_nav`. It renders the member's badge grid (credential badges first, capped at 24) plus a points/level/streak standing strip and a "View leaderboard" CTA, all read from `wb_gam_*`. It is data-gated - it appears only once the member has a badge or any points, so new members never see an empty tab. Achievements/badge-share/leaderboard URLs render outside BuddyNext's client-nav router region, so the tab adds them to `buddynext_client_nav_deny` to force a full page load.
 

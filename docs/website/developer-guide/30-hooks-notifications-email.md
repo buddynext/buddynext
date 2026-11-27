@@ -180,6 +180,7 @@ Narrower hooks around message copy, delivery tuning, and the notification templa
 |---|---|---|---|
 | `buddynext_notification_message` | filter | A notification's text is composed for a type Free does not know. Bridge plugins return copy for their own types; a non-empty string suppresses the fallback warning. | `string $message, string $type, string $actor_name, int $object_id, array $data` |
 | `buddynext_notification_meta` | filter | The notification center resolves the icon, tone, and label for a type Free does not know (integration types such as `suite.*`). | `array $meta, string $type` (`$meta` has `icon`, `tone`, `label`) |
+| `buddynext_notification_url` | filter | A notification's click-through address is resolved for a type Free does not know. Return an absolute URL, or the passed-in `''` to leave it unchanged. Since 1.3.0 the sixth argument is the recipient, so a row can open the recipient's own page rather than the sender's. | `string $url, string $type, int $actor_id, int $object_id, array $data, int $viewer_id` (`$viewer_id` is `0` when unknown) |
 | `buddynext_notification_fanout_batch` | filter | A space post fans out to members in batches. Sets how many members each batch handles. | `int $size` |
 | `buddynext_push_reaches_user` | filter | Free's Jetonomy bridge asks whether BuddyNext's own push will reach a member, before it tells Jetonomy Pro to skip its push for a forum notification. BuddyNext Pro answers `true` when Push is on for the member and they hold a device token this site can send to, so the member gets one push. Since 1.3.0. | `bool $reaches, int $user_id` (default `false`) |
 | `buddynextpro_segment_excluded_user_ids` | filter | BuddyNext Pro resolves a broadcast audience and removes members the community has set aside. Return the ids to skip. Since 1.3.0. | `int[] $excluded, int[] $ids` (`$excluded` defaults to pending-approval plus currently suspended members; `$ids` is the audience before the exclusion) |
@@ -220,13 +221,14 @@ add_filter( 'buddynext_notification_message', function ( string $message, string
 }, 10, 5 );
 
 // 3. (Optional) Provide the click-through URL for the notification. Same five-arg
-//    shape; return an absolute URL (or the passed-in $url to leave it unchanged).
-add_filter( 'buddynext_notification_url', function ( string $url, string $type, int $actor_id, int $object_id, array $data ): string {
+//    shape, plus the recipient as a sixth argument; return an absolute URL (or the
+//    passed-in $url to leave it unchanged).
+add_filter( 'buddynext_notification_url', function ( string $url, string $type, int $actor_id, int $object_id, array $data, int $viewer_id = 0 ): string {
     if ( 'mentor_assigned' === $type ) {
         return home_url( '/mentorship/' . $object_id . '/' );
     }
     return $url;
-}, 10, 5 );
+}, 10, 6 );
 ```
 
 Because the notification flows through `create()`, the in-app row, the email (if a template or message exists), and Pro push all dispatch from the single `buddynext_notification_created` action - no per-channel wiring on your side.
