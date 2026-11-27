@@ -107,7 +107,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Let a member keep a private profile? | YES | per-field and profile-level visibility; a private profile does not leak post counts |
 | Show a member's forum, job, listing or course activity on their profile? | YES | bridge panels - only for the partner plugins actually installed |
 | List published articles on a profile? | YES | 1.1.1. `Bridges\MemberBlogBridge`; requires WB Member Blog |
-| Write a long-form article from the feed? | YES | 1.3.0. Post / Article tabs in the What's New composer for members who can write; the editor is the article provider (WB Member Blog, else the WordPress editor). Space and profile composers have no Article tab unless the `buddynext_composer_article_tab` filter allows it |
+| Write a long-form article from the feed? | YES | 1.3.0. Post / Article tabs in the What's New composer for members who can write; the editor is the article provider (WB Member Blog, else the WordPress editor). Space and profile composers have no Article tab unless the `buddynext_composer_article_tab` filter allows it. The composer is a rounded card with text tabs; on phones the extra tools fold behind one More button; the Post draft shows its own Draft saved status and Article mode makes no draft claim |
 | Onboard a new member with a wizard? | YES | `onboarding` group, 4 `/me/onboarding` routes, admin page `buddynext-setup` |
 
 ## Accounts and access
@@ -170,11 +170,11 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Show partner content as profile panels? | YES | 1.2.7. The Portfolio tab and `GET members/{id}/portfolio` live in Free (`buddynext_member_suite_panels`); owner-only panels show to the owner only |
 | Link a space to a partner object (a course, an event)? | YES | 1.2.7. `Spaces\SpaceLinkService` (`buddynext_space_link_sources`); a Linked to tab in space settings while links exist, Remove keeps every member, link joins are quiet and backfill in 500-member background jobs (`GET/DELETE spaces/{id}/links`) |
 | Be extended by other plugins? | YES | 1,292 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
-| Integrate with Wbcom plugins? | YES | bridges for MediaVerse (DM), Jetonomy (forums), WB Gamification, WP Career Board, Learnomy, WB Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
+| Integrate with Wbcom plugins? | YES | the shared toast stack (`bnToast`, `docs/standards/TOASTS.md`, `bnToast.supports`) is the one notice function add-ons call; article comments sync both ways with Member Blog (`Feed\BlogCommentSync`, pairs scoped by card type so forum reply ids never collide); a hidden member's level is dropped from badge cards, REST card facts and leaderboard figures through `buddynext_card_facts` and `GamificationBridge::can_view_points()`; bridges for MediaVerse (DM), Jetonomy (forums), WB Gamification, WP Career Board, Learnomy, WB Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
 | Run background work at scale? | YES | 36 scheduled jobs: 24 on Action Scheduler, 12 on WP-Cron |
 | Let a space owner choose the space's Jetonomy discussion, one discussion per space? | YES | only the owner or a site administrator links, unlinks or switches it, on the settings screen and through `/spaces/{id}/discussion` and `/discussion-search` (`JetonomyBridge::can_manage_discussion()`); a discussion already linked elsewhere is not offered and a taken `link_id` returns `409 bn_discussion_taken`; `wp buddynext repair-discussion-visibility` lists any discussion older data linked to two spaces without changing it |
 | Manage it from WP-CLI? | YES | 6 commands under `wp buddynext` (`demo`, `cert`, `handles`, `repair-space-owners`, `repair-discussion-visibility`, `reconcile-media-privacy`); the visibility repair keeps a plan-gated open space's discussion private, and a forum write with Jetonomy off or too old answers with an error instead of a fatal |
-| Stay fast at 100k members? | YES | list surfaces paginate and count via `COUNT(*)`; the leaderboard N+1 was removed in 1.1.1 |
+| Stay fast at 100k members? | YES | queued chunk jobs are cut by encoded length to fit Action Scheduler's 191-character argument column (`IntegrationActivity::run_in_chunks`); list surfaces paginate and count via `COUNT(*)`; the leaderboard N+1 was removed in 1.1.1 |
 
 ## Deliberately not in free
 
