@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.3.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-11-27T08:00:22+00:00\n"
+"POT-Creation-Date: 2026-11-27T12:32:11+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -19,7 +19,7 @@ msgstr ""
 #: includes/Admin/AdminHub.php:1779 includes/Admin/NavMenuMetabox.php:69
 #: includes/Admin/NavMenuMetabox.php:145 includes/Auth/AuthRestHealth.php:98
 #: includes/Blocks/BlockRegistrar.php:235 includes/Core/Abilities.php:92
-#: includes/Core/CronScheduler.php:294 includes/Core/Installer.php:608
+#: includes/Core/CronScheduler.php:296 includes/Core/Installer.php:608
 #: includes/Core/Installer.php:661 includes/Core/Installer.php:695
 #: includes/Moderation/SafeguardService.php:666
 #: includes/Privacy/PrivacyTools.php:102 includes/Privacy/PrivacyTools.php:113
@@ -242,7 +242,7 @@ msgstr "Mover para a lixeira"
 #: includes/Admin/NavManager.php:2103 includes/Admin/Spaces.php:892
 #: includes/Admin/Spaces.php:1071 includes/Admin/Spaces.php:1115
 #: includes/Core/AssetService.php:1213 includes/Core/AssetService.php:1588
-#: includes/Core/AssetService.php:1902 includes/Core/PageRouter.php:2296
+#: includes/Core/AssetService.php:1903 includes/Core/PageRouter.php:2296
 #: templates/notifications/index.php:430
 #: templates/partials/create-space-modal.php:242
 #: templates/partials/media-tab.php:301 templates/partials/media-tab.php:352
@@ -369,7 +369,7 @@ msgstr[1] "%dm atrás"
 
 #. translators: %d: number of hours.
 #: bootstrap.php:2291 includes/Core/AssetService.php:1203
-#: includes/Core/AssetService.php:2329
+#: includes/Core/AssetService.php:2330
 #, php-format
 msgid "%dh ago"
 msgid_plural "%dh ago"
@@ -476,7 +476,7 @@ msgid "Filter"
 msgstr "Filtrar"
 
 #: includes/Admin/ActivityAdmin.php:221 includes/Admin/EmailLog.php:385
-#: includes/Core/AssetService.php:2378
+#: includes/Core/AssetService.php:2379
 #: templates/partials/media-upload-composer.php:160
 #: templates/parts/space-feed-panel.php:248
 msgid "Clear"
@@ -516,7 +516,7 @@ msgstr "Ações em massa"
 #: includes/Admin/Spaces.php:526 includes/Admin/Spaces.php:737
 #: includes/Admin/Spaces.php:893 includes/Core/AssetService.php:1215
 #: includes/Core/AssetService.php:1795 includes/Core/AssetService.php:1841
-#: includes/Core/AssetService.php:2278 includes/Media/MediaAssets.php:146
+#: includes/Core/AssetService.php:2279 includes/Media/MediaAssets.php:146
 #: templates/notifications/index.php:427
 #: templates/partials/media-lightbox.php:160
 #: templates/partials/media-tab.php:92 templates/partials/media-tab.php:237
@@ -530,7 +530,7 @@ msgid "Delete"
 msgstr "Deletar"
 
 #: includes/Admin/ActivityAdmin.php:252 includes/Admin/Settings.php:3699
-#: includes/Core/AssetService.php:2482 templates/auth/login.php:174
+#: includes/Core/AssetService.php:2483 templates/auth/login.php:174
 #: templates/auth/signup.php:518 assets/js/admin/activity-bulk.js:61
 #: assets/js/admin/settings.js:444 assets/js/admin/settings.js:457
 msgid "Hide"
@@ -545,7 +545,7 @@ msgstr "Restaurar"
 
 #: includes/Admin/ActivityAdmin.php:255 includes/Admin/Members.php:1926
 #: includes/Admin/ModerationQueue.php:357 includes/Admin/Spaces.php:528
-#: includes/Core/AssetService.php:1604 includes/Core/AssetService.php:1903
+#: includes/Core/AssetService.php:1604 includes/Core/AssetService.php:1904
 #: templates/parts/filter-strip.php:201 templates/parts/filter-strip.php:206
 msgid "Apply"
 msgstr "Aplicar"
@@ -569,7 +569,7 @@ msgstr "Conteúdo"
 #: includes/Admin/ModerationQueue.php:402 includes/Admin/Spaces.php:537
 #: includes/Admin/Spaces.php:580 includes/Privacy/PrivacyTools.php:937
 #: includes/Privacy/PrivacyTools.php:1083
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:395
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:424
 #: templates/community-admin.php:1246 templates/partials/explore-card.php:148
 #: templates/parts/search-result-section-spaces.php:147 assets/js/blocks.js:417
 #: assets/js/shell/extras.js:275
@@ -714,7 +714,7 @@ msgstr "Conteúdo da atividade"
 #: includes/Admin/ActivityAdmin.php:437 includes/Admin/AdminPageBase.php:895
 #: includes/Admin/AppearanceTab.php:177 includes/Admin/EmailEditor.php:1042
 #: includes/Admin/EmailEditor.php:1170
-#: includes/Admin/IntegrationControlsAdmin.php:336
+#: includes/Admin/IntegrationControlsAdmin.php:351
 #: includes/Admin/IsolationAdmin.php:250
 #: includes/Admin/Members/AvatarSettings.php:186
 #: includes/Admin/Members/MemberEditForm.php:621
@@ -764,8 +764,8 @@ msgstr "Remover %s"
 #: includes/Admin/Members/AvatarSettings.php:292
 #: includes/Admin/Members/AvatarSettings.php:353
 #: includes/Admin/Settings.php:3990 includes/Core/AssetService.php:1869
-#: includes/Core/AssetService.php:1970 includes/Core/AssetService.php:2100
-#: includes/Core/AssetService.php:2431 includes/Media/MediaAssets.php:137
+#: includes/Core/AssetService.php:1971 includes/Core/AssetService.php:2101
+#: includes/Core/AssetService.php:2432 includes/Media/MediaAssets.php:137
 #: templates/community-admin.php:1061 templates/partials/composer.php:400
 #: templates/partials/media-upload-composer.php:62
 #: templates/partials/space-file-single.php:115
@@ -794,7 +794,7 @@ msgstr "Remover a pré-visualização do link (o texto mantém o link)"
 #: includes/Admin/ActivityAdmin.php:578
 #: includes/Admin/AnnouncementsAdmin.php:56
 #: includes/Admin/AppearanceTab.php:189
-#: includes/Admin/IntegrationControlsAdmin.php:467
+#: includes/Admin/IntegrationControlsAdmin.php:482
 #: includes/Admin/IsolationAdmin.php:268 includes/Admin/Members.php:593
 #: includes/Admin/Members.php:624 includes/Admin/Members.php:661
 #: includes/Admin/Members.php:801 includes/Admin/Members.php:829
@@ -874,18 +874,18 @@ msgid "Post"
 msgstr "Post"
 
 #: includes/Admin/ActivityAdmin.php:748
-#: includes/Bridges/WPMediaVerseBridge.php:857
-#: includes/Bridges/WPMediaVerseBridge.php:858
+#: includes/Bridges/WPMediaVerseBridge.php:860
+#: includes/Bridges/WPMediaVerseBridge.php:861
 #: templates/partials/explore-card.php:551
 msgid "Photo"
 msgstr "Foto"
 
 #: includes/Admin/ActivityAdmin.php:749 includes/Admin/NavManager.php:943
 #: includes/Admin/NavManager.php:1022 includes/Admin/NavManager.php:2527
-#: includes/Bridges/WPMediaVerseBridge.php:420
-#: includes/Bridges/WPMediaVerseBridge.php:2204
-#: includes/Bridges/WPMediaVerseBridge.php:2231
-#: includes/Bridges/WPMediaVerseBridge.php:2241
+#: includes/Bridges/WPMediaVerseBridge.php:423
+#: includes/Bridges/WPMediaVerseBridge.php:2207
+#: includes/Bridges/WPMediaVerseBridge.php:2234
+#: includes/Bridges/WPMediaVerseBridge.php:2244
 #: includes/Core/PageRouter.php:1392 includes/Core/Plugin.php:1017
 #: includes/Nav/Providers/ProfileNav.php:210
 #: includes/Nav/Providers/SpaceNav.php:265
@@ -983,13 +983,13 @@ msgstr "Comece"
 #: includes/Admin/ModerationQueue.php:319 includes/Admin/NavManager.php:1001
 #: includes/Admin/NavManager.php:2625 includes/Admin/SetupVideosScreen.php:37
 #: includes/Admin/Spaces.php:539 includes/Admin/Spaces.php:644
-#: includes/Core/AssetService.php:2044 includes/Core/CoreHubs.php:78
+#: includes/Core/AssetService.php:2045 includes/Core/CoreHubs.php:78
 #: includes/Core/PageRouter.php:1306 includes/Core/PageRouter.php:1386
 #: includes/Core/Plugin.php:960 includes/Core/SurfaceMeta.php:87
 #: includes/Nav/Providers/SpaceNav.php:230 includes/Nav/ShellNavService.php:86
 #: includes/Onboarding/SetupWizard.php:1284
 #: includes/Onboarding/SetupWizard.php:1661
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:211
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:240
 #: templates/blocks/member-directory.php:83
 #: templates/blocks/members-showcase.php:104 templates/community-admin.php:331
 #: templates/community-admin.php:429 templates/community-admin.php:788
@@ -1079,7 +1079,7 @@ msgid "Campaigns"
 msgstr "Campanhas"
 
 #: includes/Admin/AdminHub.php:138
-#: includes/Admin/IntegrationControlsAdmin.php:38
+#: includes/Admin/IntegrationControlsAdmin.php:54
 #: includes/Admin/NavManager.php:1604 includes/Admin/NavManager.php:1611
 #: includes/Admin/Settings.php:2760 includes/Admin/Settings.php:3437
 msgid "Integration Settings"
@@ -1107,7 +1107,7 @@ msgstr "Tempo real e Push"
 msgid "Upgrade"
 msgstr "Upgrade"
 
-#: includes/Admin/AdminHub.php:824 includes/Core/AssetService.php:2331
+#: includes/Admin/AdminHub.php:824 includes/Core/AssetService.php:2332
 #: templates/parts/profile-edit-save-bar.php:80
 #: templates/settings/notifications.php:544 templates/spaces/settings.php:1102
 msgid "Unsaved changes"
@@ -1119,7 +1119,7 @@ msgid "License"
 msgstr "Licença"
 
 #: includes/Admin/AdminHub.php:1753 includes/Admin/AdminHub.php:1754
-#: includes/Admin/IntegrationControlsAdmin.php:70
+#: includes/Admin/IntegrationControlsAdmin.php:86
 #: includes/Admin/Settings.php:147 includes/Admin/Settings.php:2612
 msgid "Add-ons"
 msgstr "Complementos"
@@ -1161,8 +1161,8 @@ msgid ""
 msgstr ""
 
 #: includes/Admin/AdminHub.php:1932
-#: includes/Admin/IntegrationControlsAdmin.php:181
-#: includes/Bridges/JetonomyBridge.php:6009 includes/Core/PageRouter.php:1479
+#: includes/Admin/IntegrationControlsAdmin.php:197
+#: includes/Bridges/JetonomyBridge.php:6111 includes/Core/PageRouter.php:1479
 #: includes/Core/Plugin.php:972 includes/Core/SurfaceMeta.php:134
 #: includes/Header/HeaderUserSection.php:110 templates/blocks/search-bar.php:45
 #: templates/community-admin.php:446 templates/partials/space-files-tab.php:252
@@ -1177,7 +1177,7 @@ msgid "Docs"
 msgstr "Documentação"
 
 #: includes/Admin/AdminHub.php:2043 includes/Admin/GetStartedScreen.php:38
-#: includes/Bridges/JetonomyBridge.php:6004
+#: includes/Bridges/JetonomyBridge.php:6106
 msgid "Home"
 msgstr "Início"
 
@@ -1197,7 +1197,7 @@ msgid "Messaging"
 msgstr ""
 
 #: includes/Admin/AdminHub.php:2049 includes/Core/AssetService.php:1104
-#: includes/Core/AssetService.php:1428 includes/Core/AssetService.php:1953
+#: includes/Core/AssetService.php:1428 includes/Core/AssetService.php:1954
 #: templates/blocks/connection-button.php:164
 #: templates/partials/connection-button.php:191
 #: templates/parts/member-card.php:528 templates/parts/profile-actions.php:281
@@ -1326,7 +1326,7 @@ msgstr "Anterior"
 #: includes/Admin/Members/ApprovalManager.php:462
 #: templates/community-admin.php:543 templates/community-admin.php:616
 #: templates/community-admin.php:774 templates/community-admin.php:1149
-#: templates/gamification/leaderboard.php:745 templates/hashtags/feed.php:260
+#: templates/gamification/leaderboard.php:748 templates/hashtags/feed.php:260
 #: templates/notifications/index.php:499
 #: templates/partials/media-lightbox.php:70
 #: templates/partials/space-files-tab.php:611
@@ -2108,7 +2108,7 @@ msgstr ""
 "<a href=\"{{action_url}}\">Rever nossas diretrizes →</a>"
 
 #: includes/Admin/EmailEditor.php:296 includes/Admin/EmailLog.php:201
-#: includes/Core/AssetService.php:2101
+#: includes/Core/AssetService.php:2102
 #: includes/Moderation/ModerationLogService.php:334
 #: includes/Notifications/NotificationMessageService.php:756
 #: includes/Notifications/NotificationPrefCatalogue.php:416
@@ -2478,14 +2478,15 @@ msgstr "Os e-mails do BuddyNext não estão sendo enviados."
 #: includes/Admin/EmailLog.php:146
 #, php-format
 msgid ""
-"%s email(s) failed in the last 24 hours. This usually means the site has no "
+"%s email failed in the last 24 hours. This usually means the site has no "
 "working mailer (SMTP plugin or server MTA). Members are not receiving "
 "verification, invite, 2FA or notification email."
-msgstr ""
-"%s e-mail(s) falharam nas últimas 24 horas. Isso geralmente significa que o "
-"site não tem um serviço de envio de e-mails funcionando (plugin SMTP ou MTA "
-"do servidor). Os membros não estão recebendo e-mails de verificação, de "
-"convite, de 2FA ou de notificação."
+msgid_plural ""
+"%s emails failed in the last 24 hours. This usually means the site has no "
+"working mailer (SMTP plugin or server MTA). Members are not receiving "
+"verification, invite, 2FA or notification email."
+msgstr[0] ""
+msgstr[1] ""
 
 #: includes/Admin/EmailLog.php:150
 msgid "Review the email log"
@@ -2572,7 +2573,7 @@ msgid "All emails"
 msgstr "Todos os e-mails"
 
 #: includes/Admin/EmailLog.php:390
-#: includes/Admin/IntegrationControlsAdmin.php:153
+#: includes/Admin/IntegrationControlsAdmin.php:169
 #: includes/Admin/Members.php:1804 includes/Admin/Members/InviteManager.php:290
 #: includes/Admin/Spaces.php:445 templates/feed/explore.php:128
 #: templates/notifications/index.php:330 templates/parts/dm-rail.php:65
@@ -2826,7 +2827,7 @@ msgstr "Reações"
 
 #: includes/Admin/Insights.php:121 includes/Admin/NavManager.php:975
 #: includes/Admin/RolesTab.php:64 includes/Admin/Settings.php:1287
-#: includes/Core/AssetService.php:1361 includes/Core/AssetService.php:2046
+#: includes/Core/AssetService.php:1361 includes/Core/AssetService.php:2047
 #: includes/Nav/Providers/ProfileNav.php:113
 #: includes/Nav/Providers/ProfileNav.php:280
 #: templates/directory/members.php:257 templates/partials/composer.php:756
@@ -2885,41 +2886,57 @@ msgstr[1] "%1$d inscrições em %2$s"
 msgid "%d%% of members"
 msgstr "%d%% de membros"
 
+#. translators: %s: required minimum Jetonomy version.
+#: includes/Admin/IntegrationControlsAdmin.php:37
+#, php-format
+msgid ""
+"Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your "
+"forums and posts are kept."
+msgstr ""
+"As discussões precisam do Jetonomy %s ou mais recente. Atualize o Jetonomy "
+"para ativá-las; seus fóruns e publicações são mantidos."
+
+#. translators: %s: required minimum version.
 #: includes/Admin/IntegrationControlsAdmin.php:40
+#, php-format
+msgid "Update to %s or newer to enable every feature this integration offers."
+msgstr ""
+
+#: includes/Admin/IntegrationControlsAdmin.php:56
 #: includes/Admin/IsolationAdmin.php:45
 #: templates/parts/space-settings-panel-integrations.php:160
 #: templates/spaces/settings.php:638
 msgid "Integrations"
 msgstr "Integrações"
 
-#: includes/Admin/IntegrationControlsAdmin.php:53
+#: includes/Admin/IntegrationControlsAdmin.php:69
 msgid "Could not save integration settings. Try again."
 msgstr ""
 "Não foi possível salvar as configurações de integração. Tente novamente."
 
-#: includes/Admin/IntegrationControlsAdmin.php:55
+#: includes/Admin/IntegrationControlsAdmin.php:71
 msgid "Integration settings saved."
 msgstr "Configurações de integração salvas."
 
 #. translators: %s: link to the Add-ons tab.
-#: includes/Admin/IntegrationControlsAdmin.php:69
+#: includes/Admin/IntegrationControlsAdmin.php:85
 #, php-format
 msgid ""
 "Choose where each connected product appears in BuddyNext. Nothing changes "
 "for members until you save. Install more under %s."
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:87
+#: includes/Admin/IntegrationControlsAdmin.php:103
 msgid "Active, waiting for BuddyNext Pro"
 msgstr "Ativo, aguardando o BuddyNext Pro"
 
 #. translators: 1: partner plugin name, 2: what BuddyNext Pro adds with it.
-#: includes/Admin/IntegrationControlsAdmin.php:96
+#: includes/Admin/IntegrationControlsAdmin.php:112
 #, php-format
 msgid "%1$s is active. With BuddyNext Pro: %2$s"
 msgstr "%1$s está ativo. Com o BuddyNext Pro: %2$s"
 
-#: includes/Admin/IntegrationControlsAdmin.php:112
+#: includes/Admin/IntegrationControlsAdmin.php:128
 msgid ""
 "No controllable integrations are active yet. Activate an integration (such "
 "as WP Career Board, WB Listora, Learnomy, Jetonomy, or WB Gamification) and "
@@ -2929,168 +2946,150 @@ msgstr ""
 "WP Career Board, WB Listora, Learnomy, Jetonomy ou WB Gamification) e ela "
 "aparecerá aqui."
 
-#: includes/Admin/IntegrationControlsAdmin.php:151
+#: includes/Admin/IntegrationControlsAdmin.php:167
 msgid "Search integrations"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:152
+#: includes/Admin/IntegrationControlsAdmin.php:168
 msgid "Filter integrations"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:154
-#: includes/Admin/IntegrationControlsAdmin.php:216
+#: includes/Admin/IntegrationControlsAdmin.php:170
+#: includes/Admin/IntegrationControlsAdmin.php:232
 msgid "Needs attention"
 msgstr "Precisa de atenção"
 
-#: includes/Admin/IntegrationControlsAdmin.php:155
+#: includes/Admin/IntegrationControlsAdmin.php:171
 #: templates/parts/profile-hero.php:256
 msgid "Hidden from members"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:159
-#: includes/Admin/IntegrationControlsAdmin.php:218
+#: includes/Admin/IntegrationControlsAdmin.php:175
+#: includes/Admin/IntegrationControlsAdmin.php:234
 #: includes/Admin/Settings.php:3501 includes/Core/AssetService.php:1105
-#: includes/Core/AssetService.php:1429 includes/Core/AssetService.php:1986
+#: includes/Core/AssetService.php:1429 includes/Core/AssetService.php:1987
 #: templates/blocks/connection-button.php:132
 #: templates/partials/connection-button.php:158
 #: templates/parts/member-card.php:524 templates/parts/profile-actions.php:296
 msgid "Connected"
 msgstr "Conectado"
 
-#: includes/Admin/IntegrationControlsAdmin.php:159
-#: includes/Admin/IntegrationControlsAdmin.php:220
+#: includes/Admin/IntegrationControlsAdmin.php:175
+#: includes/Admin/IntegrationControlsAdmin.php:236
 msgid "Hidden"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:179
+#: includes/Admin/IntegrationControlsAdmin.php:195
 #: includes/Admin/NavManager.php:96
 msgid "Navigation"
 msgstr "Navegação"
 
-#: includes/Admin/IntegrationControlsAdmin.php:179
+#: includes/Admin/IntegrationControlsAdmin.php:195
 msgid "Adds its tab to member menus."
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:180
+#: includes/Admin/IntegrationControlsAdmin.php:196
 #: includes/Admin/NavManager.php:993 includes/Nav/Providers/SpaceNav.php:218
 #: assets/js/blocks.js:309
 msgid "Feed"
 msgstr "Feed"
 
-#: includes/Admin/IntegrationControlsAdmin.php:180
+#: includes/Admin/IntegrationControlsAdmin.php:196
 msgid "Posts its new activity to the community feed."
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:181
+#: includes/Admin/IntegrationControlsAdmin.php:197
 msgid ""
 "Lets members find its content. Switching off also removes what was already "
 "indexed."
 msgstr ""
 
 #. translators: %s: installed partner version.
-#: includes/Admin/IntegrationControlsAdmin.php:196
+#: includes/Admin/IntegrationControlsAdmin.php:212
 #, php-format
 msgid "Version %s"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:224
+#: includes/Admin/IntegrationControlsAdmin.php:240
 msgid "Where it appears"
 msgstr ""
 
 #. translators: %s: integration name.
-#: includes/Admin/IntegrationControlsAdmin.php:234
+#: includes/Admin/IntegrationControlsAdmin.php:250
 #, php-format
 msgid "Show %s in BuddyNext"
 msgstr ""
 
 #. translators: %s: integration name.
-#: includes/Admin/IntegrationControlsAdmin.php:238
+#: includes/Admin/IntegrationControlsAdmin.php:254
 #, php-format
 msgid "Details for %s"
 msgstr ""
 
-#. translators: %s: required minimum Jetonomy version.
-#: includes/Admin/IntegrationControlsAdmin.php:37
-#, php-format
-msgid "Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your forums and posts are kept."
-msgstr "As discussões precisam do Jetonomy %s ou mais recente. Atualize o Jetonomy para ativá-las; seus fóruns e publicações são mantidos."
-
-#. translators: %s: minimum Jetonomy version.
-#: includes/Bridges/JetonomyBridge.php:3151
-#, php-format
-msgid "This discussion follows its Space and cannot be opened up here. Update Jetonomy to %s or newer."
-msgstr "Esta discussão segue o seu Space e não pode ser aberta por aqui. Atualize o Jetonomy para a versão %s ou mais recente."
-
-#. translators: %s: required minimum version.
-#: includes/Admin/IntegrationControlsAdmin.php:40
-#, php-format
-msgid "Update to %s or newer to enable every feature this integration offers."
-msgstr ""
-
 #. translators: %s: version the bridge was built for.
-#: includes/Admin/IntegrationControlsAdmin.php:255
+#: includes/Admin/IntegrationControlsAdmin.php:270
 #, php-format
 msgid "Built for %s. Its newest features may not be wired yet."
 msgstr ""
 
 #. translators: 1: feature name (may be plural), 2: partner version it needs.
-#: includes/Admin/IntegrationControlsAdmin.php:263
+#: includes/Admin/IntegrationControlsAdmin.php:278
 #, php-format
 msgid "%1$s: available from version %2$s. Everything else works now."
 msgstr "%1$s: disponível a partir da versão %2$s. O restante já funciona."
 
 #. translators: 1: name of the tab, e.g. Discussions, 2: integration name.
-#: includes/Admin/IntegrationControlsAdmin.php:275
+#: includes/Admin/IntegrationControlsAdmin.php:290
 #, php-format
 msgid "Show the %1$s tab (%2$s) in navigation"
 msgstr ""
 
 #. translators: %s: integration name.
-#: includes/Admin/IntegrationControlsAdmin.php:277
+#: includes/Admin/IntegrationControlsAdmin.php:292
 #, php-format
 msgid "Show %s in navigation"
 msgstr "Mostrar %s na navegação"
 
 #. translators: %s: integration name.
-#: includes/Admin/IntegrationControlsAdmin.php:279
+#: includes/Admin/IntegrationControlsAdmin.php:294
 #, php-format
 msgid "Post %s events to the activity feed"
 msgstr "Postar eventos %s no feed de atividades"
 
 #. translators: %s: integration name.
-#: includes/Admin/IntegrationControlsAdmin.php:281
+#: includes/Admin/IntegrationControlsAdmin.php:296
 #, php-format
 msgid "Include %s content in community search"
 msgstr "Incluir conteúdo de %s na busca da comunidade"
 
-#: includes/Admin/IntegrationControlsAdmin.php:294
+#: includes/Admin/IntegrationControlsAdmin.php:309
 msgid "Tabs inside Navigation"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:317
+#: includes/Admin/IntegrationControlsAdmin.php:332
 msgid "No integrations match."
 msgstr ""
 
 #. translators: %s: integration name.
-#: includes/Admin/IntegrationControlsAdmin.php:325
+#: includes/Admin/IntegrationControlsAdmin.php:340
 #, php-format
 msgid "%s settings"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:354
+#: includes/Admin/IntegrationControlsAdmin.php:369
 msgid "Available to connect"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:374
+#: includes/Admin/IntegrationControlsAdmin.php:389
 msgid "Needs BuddyNext Pro"
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:410
+#: includes/Admin/IntegrationControlsAdmin.php:425
 msgid ""
 "Off while Navigation is off. Turn Navigation on to allow articles in Spaces."
 msgstr ""
 
-#: includes/Admin/IntegrationControlsAdmin.php:445
+#: includes/Admin/IntegrationControlsAdmin.php:460
 msgid "Not offered by this integration."
 msgstr ""
 
@@ -3319,9 +3318,9 @@ msgstr "O membro não foi suspenso. Tente novamente."
 #: includes/Core/AssetService.php:1612 includes/Core/AssetService.php:1742
 #: includes/Messages/MessagesData.php:174 includes/Privacy/PrivacyTools.php:823
 #: includes/Privacy/PrivacyTools.php:881
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:525
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:576
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:604
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:554
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:605
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:633
 #: includes/Spaces/SpaceController.php:2570 templates/community-admin.php:499
 #: templates/community-admin.php:1175 templates/community-admin.php:1245
 #: templates/community-admin.php:1315 templates/messages/native.php:238
@@ -3344,7 +3343,7 @@ msgstr[1] "Membros"
 
 #: includes/Admin/Members.php:705 includes/Admin/Members.php:779
 #: includes/Admin/ModerationQueue.php:856 includes/Core/AssetService.php:1611
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:329
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:358
 #: templates/community-admin.php:500 templates/community-admin.php:508
 #: templates/parts/sidebar-profile-member-of.php:46
 #: templates/parts/space-members-body.php:195
@@ -3360,7 +3359,7 @@ msgstr[1] "Moderadores"
 #: includes/Admin/Members/MemberDisplay.php:80
 #: includes/Core/AssetService.php:1741 includes/Core/PageRouter.php:1383
 #: includes/Messages/MessagesData.php:174
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:535
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:564
 #: templates/community-admin.php:321 templates/community-admin.php:502
 #: templates/community-admin.php:506 templates/messages/native.php:237
 #: templates/parts/sidebar-profile-member-of.php:45
@@ -3465,7 +3464,7 @@ msgid "You do not have permission to do that."
 msgstr "Você não tem permissão para fazer isso."
 
 #: includes/Admin/Members.php:1765 includes/Admin/ModerationQueue.php:1650
-#: includes/Core/AssetService.php:2133
+#: includes/Core/AssetService.php:2134
 msgid "Member suspended."
 msgstr "Membro suspenso."
 
@@ -3595,7 +3594,7 @@ msgid "Suspend members"
 msgstr "Suspender membros"
 
 #: includes/Admin/Members.php:1923 includes/Admin/Members.php:2170
-#: includes/Core/AssetService.php:2121
+#: includes/Core/AssetService.php:2122
 msgid "Suspend"
 msgstr "Suspender"
 
@@ -3626,7 +3625,7 @@ msgstr "Tipo de membro"
 
 #: includes/Admin/Members.php:1960 includes/Admin/Members.php:2095
 #: includes/Core/AssetService.php:1373 includes/Core/AssetService.php:1532
-#: includes/Core/AssetService.php:2201 includes/Privacy/PrivacyTools.php:949
+#: includes/Core/AssetService.php:2202 includes/Privacy/PrivacyTools.php:949
 #: templates/onboarding/index.php:567
 #: templates/parts/search-result-section-spaces.php:181
 #: templates/parts/space-directory-card.php:231
@@ -3677,7 +3676,7 @@ msgstr "Nunca"
 #: includes/Admin/Members.php:2127
 #: includes/Admin/Members/ApprovalManager.php:394
 #: includes/Admin/ModerationQueue.php:472
-#: includes/Admin/ModerationQueue.php:795 includes/Core/AssetService.php:2140
+#: includes/Admin/ModerationQueue.php:795 includes/Core/AssetService.php:2141
 #: templates/community-admin.php:1281
 #: templates/parts/profile/people-panel.php:167
 #: templates/spaces/moderation.php:557
@@ -3696,7 +3695,7 @@ msgstr "Mais ações para %s"
 
 #: includes/Admin/Members.php:2163
 #: includes/Admin/Members/MemberEditForm.php:303
-#: includes/Admin/ModerationQueue.php:1510 includes/Core/AssetService.php:2119
+#: includes/Admin/ModerationQueue.php:1510 includes/Core/AssetService.php:2120
 msgid "Suspend this member?"
 msgstr "Suspender este membro?"
 
@@ -3737,23 +3736,23 @@ msgstr "Fechar diálogo"
 msgid "Are you sure?"
 msgstr "Você tem certeza?"
 
-#: includes/Admin/Members.php:2262 includes/Core/AssetService.php:2122
+#: includes/Admin/Members.php:2262 includes/Core/AssetService.php:2123
 msgid "Reason (shown to the member)"
 msgstr "Motivo (exibido ao membro)"
 
-#: includes/Admin/Members.php:2264 includes/Core/AssetService.php:2123
+#: includes/Admin/Members.php:2264 includes/Core/AssetService.php:2124
 msgid "Choose a reason"
 msgstr "Escolha um motivo"
 
-#: includes/Admin/Members.php:2271 includes/Core/AssetService.php:2124
+#: includes/Admin/Members.php:2271 includes/Core/AssetService.php:2125
 msgid "Note (optional, required for Other)"
 msgstr "Observação (opcional, obrigatória para Outro)"
 
-#: includes/Admin/Members.php:2275 includes/Core/AssetService.php:2125
+#: includes/Admin/Members.php:2275 includes/Core/AssetService.php:2126
 msgid "Suspension length"
 msgstr "Duração da suspensão"
 
-#: includes/Admin/Members.php:2277 includes/Core/AssetService.php:2129
+#: includes/Admin/Members.php:2277 includes/Core/AssetService.php:2130
 #: templates/parts/space-settings-panel-invite.php:51
 msgid "1 day"
 msgstr "1 dia"
@@ -3772,11 +3771,11 @@ msgstr "30 dias"
 msgid "90 days"
 msgstr "90 dias"
 
-#: includes/Admin/Members.php:2282 includes/Core/AssetService.php:2126
+#: includes/Admin/Members.php:2282 includes/Core/AssetService.php:2127
 msgid "Indefinite (until lifted)"
 msgstr "Por tempo indeterminado (até ser removida)"
 
-#: includes/Admin/Members.php:2289 includes/Core/AssetService.php:2130
+#: includes/Admin/Members.php:2289 includes/Core/AssetService.php:2131
 msgid "Hide their posts while suspended"
 msgstr "Ocultar as publicações dele durante a suspensão"
 
@@ -4144,7 +4143,7 @@ msgid "Could not resend the invite: it may no longer exist."
 msgstr "Não foi possível reenviar o convite: ele pode não existir mais."
 
 #: includes/Admin/Members/InviteManager.php:337
-#: includes/Core/AssetService.php:1636 includes/Core/AssetService.php:2443
+#: includes/Core/AssetService.php:1636 includes/Core/AssetService.php:2444
 #: includes/Spaces/SpaceController.php:3220
 msgid "Invitation sent"
 msgstr "Convite enviado"
@@ -4172,7 +4171,7 @@ msgid "Could not create the invite. Try again."
 msgstr ""
 
 #: includes/Admin/Members/InviteManager.php:352
-#: includes/Auth/AuthController.php:1392 includes/Core/AssetService.php:2533
+#: includes/Auth/AuthController.php:1392 includes/Core/AssetService.php:2534
 msgid "Please enter a valid email address."
 msgstr "Por favor, digite um endereço de email válido."
 
@@ -4274,8 +4273,8 @@ msgstr[1] "Colaboradores"
 
 #: includes/Admin/Members/MemberEditForm.php:73
 #: includes/Auth/AuthController.php:2370
-#: includes/Bridges/JetonomyBridge.php:4779
-#: includes/Bridges/JetonomyBridge.php:4795
+#: includes/Bridges/JetonomyBridge.php:4881
+#: includes/Bridges/JetonomyBridge.php:4897
 #: includes/Bridges/MemberBlogRestController.php:73
 #: includes/CommunityAdmin/RoleController.php:102
 #: includes/Feed/FeedController.php:1090 includes/Feed/FeedController.php:1110
@@ -4631,7 +4630,7 @@ msgstr "Uma vez"
 #: includes/Admin/Members/MemberTypesManager.php:259
 #: includes/Admin/Settings.php:2802
 #: includes/Admin/Settings/SettingsDriver.php:260
-#: includes/Core/AssetService.php:1895 includes/Privacy/PrivacyTools.php:1327
+#: includes/Core/AssetService.php:1896 includes/Privacy/PrivacyTools.php:1327
 #: templates/parts/settings-account-fields.php:283
 #: templates/settings/notifications.php:392
 msgid "On"
@@ -4640,7 +4639,7 @@ msgstr "Ativado"
 #: includes/Admin/Members/MemberTypesManager.php:261
 #: includes/Admin/Settings.php:2802
 #: includes/Admin/Settings/SettingsDriver.php:260
-#: includes/Core/AssetService.php:1896 templates/messages/native.php:47
+#: includes/Core/AssetService.php:1897 templates/messages/native.php:47
 #: templates/parts/settings-account-fields.php:283
 #: templates/settings/notifications.php:93
 #: templates/settings/notifications.php:393
@@ -4842,7 +4841,7 @@ msgstr ""
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1596
 #: includes/Admin/Settings.php:1215 includes/Core/AssetService.php:1358
-#: includes/Core/AssetService.php:1538 includes/Core/AssetService.php:2043
+#: includes/Core/AssetService.php:1538 includes/Core/AssetService.php:2044
 #: templates/partials/composer.php:713 templates/partials/composer.php:732
 #: templates/partials/explore-card.php:158 templates/partials/media-tab.php:293
 #: templates/partials/media-upload-composer.php:149
@@ -4870,7 +4869,7 @@ msgstr "Apenas conexões"
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1600
 #: includes/Admin/Settings.php:1218 includes/Core/AssetService.php:1362
-#: includes/Core/AssetService.php:2047 templates/partials/composer.php:783
+#: includes/Core/AssetService.php:2048 templates/partials/composer.php:783
 #: templates/partials/media-tab.php:295
 #: templates/partials/media-upload-composer.php:152
 #: templates/partials/post-card.php:409
@@ -5411,8 +5410,8 @@ msgid "Held"
 msgstr "Retido"
 
 #: includes/Admin/ModerationQueue.php:460 includes/Search/SearchService.php:592
-#: includes/Search/SearchService.php:1796
-#: includes/Search/SearchService.php:1899
+#: includes/Search/SearchService.php:1794
+#: includes/Search/SearchService.php:1897
 #: includes/Widgets/RecentActivityWidget.php:90
 #: templates/parts/search-result-section-media.php:135
 #: templates/spaces/moderation.php:289
@@ -5541,15 +5540,15 @@ msgstr "Apelo"
 msgid "Decision"
 msgstr "Decisão"
 
-#: includes/Admin/ModerationQueue.php:793 includes/Core/AssetService.php:2144
+#: includes/Admin/ModerationQueue.php:793 includes/Core/AssetService.php:2145
 msgid "Optional note"
 msgstr "Observação opcional"
 
-#: includes/Admin/ModerationQueue.php:794 includes/Core/AssetService.php:2145
+#: includes/Admin/ModerationQueue.php:794 includes/Core/AssetService.php:2146
 msgid "Note for the member (optional)"
 msgstr "Observação para o membro (opcional)"
 
-#: includes/Admin/ModerationQueue.php:796 includes/Core/AssetService.php:2147
+#: includes/Admin/ModerationQueue.php:796 includes/Core/AssetService.php:2148
 #: templates/community-admin.php:1219
 msgid "Deny"
 msgstr "Negar"
@@ -5705,7 +5704,7 @@ msgstr "Aviso de conteúdo adicionado."
 msgid "Content warning removed."
 msgstr "Aviso de conteúdo removido."
 
-#: includes/Admin/ModerationQueue.php:1649 includes/Core/AssetService.php:2109
+#: includes/Admin/ModerationQueue.php:1649 includes/Core/AssetService.php:2110
 msgid "Strike issued."
 msgstr "Aviso emitido."
 
@@ -5931,7 +5930,7 @@ msgid "Posts the member has liked"
 msgstr "Postagens que o membro gostou"
 
 #: includes/Admin/NavManager.php:959 includes/Core/AssetService.php:1360
-#: includes/Core/AssetService.php:2045 includes/Nav/Providers/ProfileNav.php:94
+#: includes/Core/AssetService.php:2046 includes/Nav/Providers/ProfileNav.php:94
 #: includes/Nav/Providers/ProfileNav.php:293
 #: templates/blocks/profile-header.php:81 templates/partials/composer.php:744
 #: templates/partials/media-upload-composer.php:150
@@ -5944,7 +5943,7 @@ msgid "Members following this member"
 msgstr "Membros seguindo este membro"
 
 #: includes/Admin/NavManager.php:967 includes/Core/AssetService.php:1078
-#: includes/Core/AssetService.php:1427 includes/Core/AssetService.php:2203
+#: includes/Core/AssetService.php:1427 includes/Core/AssetService.php:2204
 #: includes/Core/PageRouter.php:2313 includes/Nav/Providers/ProfileNav.php:104
 #: includes/Nav/Providers/ProfileNav.php:305
 #: templates/blocks/follow-button.php:50 templates/blocks/profile-header.php:85
@@ -5975,7 +5974,7 @@ msgid "Members of this space"
 msgstr "Membros deste espaço"
 
 #: includes/Admin/NavManager.php:1014 includes/Nav/Providers/SpaceNav.php:248
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:177
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:206
 msgid "Sub-spaces"
 msgstr "Sub-espaços"
 
@@ -6022,7 +6021,7 @@ msgstr "Distintivo de notificação"
 
 #. translators: %s: member display name.
 #: includes/Admin/NavManager.php:1162 includes/Admin/NavManager.php:2652
-#: includes/Core/AssetService.php:1947 includes/Core/PageRouter.php:1496
+#: includes/Core/AssetService.php:1948 includes/Core/PageRouter.php:1496
 #: includes/Nav/ShellNavService.php:119
 #: includes/Onboarding/OnboardingService.php:158
 #: templates/partials/mobile-nav.php:126
@@ -6442,10 +6441,10 @@ msgstr "Adicionar aba"
 msgid "The member's own media library."
 msgstr ""
 
-#: includes/Admin/NavManager.php:2528 includes/Bridges/JetonomyBridge.php:1492
-#: includes/Bridges/JetonomyBridge.php:4969
-#: includes/Bridges/JetonomyBridge.php:4994
-#: includes/Bridges/JetonomyBridge.php:5042 includes/Core/Plugin.php:1004
+#: includes/Admin/NavManager.php:2528 includes/Bridges/JetonomyBridge.php:1529
+#: includes/Bridges/JetonomyBridge.php:5071
+#: includes/Bridges/JetonomyBridge.php:5096
+#: includes/Bridges/JetonomyBridge.php:5144 includes/Core/Plugin.php:1004
 #: includes/Notifications/IntegrationNotificationListener.php:616
 #: templates/feed/explore.php:132
 #: templates/parts/profile/discussions-panel.php:75
@@ -6459,7 +6458,7 @@ msgstr "Discussões"
 msgid "The community forum home."
 msgstr ""
 
-#: includes/Admin/NavManager.php:2529 includes/Bridges/JetonomyBridge.php:1512
+#: includes/Admin/NavManager.php:2529 includes/Bridges/JetonomyBridge.php:1549
 msgid "My discussions"
 msgstr ""
 
@@ -6477,13 +6476,13 @@ msgstr "Eventos"
 msgid "Events the member is hosting or attending."
 msgstr ""
 
-#: includes/Admin/NavManager.php:2531 includes/Bridges/JetonomyBridge.php:6014
+#: includes/Admin/NavManager.php:2531 includes/Bridges/JetonomyBridge.php:6116
 #: includes/Core/PageRouter.php:1347 includes/Core/Plugin.php:981
 #: includes/Nav/Providers/SpaceNav.php:279
 #: includes/Profile/GamificationAchievements.php:200
 #: templates/gamification/leaderboard.php:56
-#: templates/gamification/leaderboard.php:341
-#: templates/gamification/leaderboard.php:351
+#: templates/gamification/leaderboard.php:344
+#: templates/gamification/leaderboard.php:354
 msgid "Leaderboard"
 msgstr "Placar de Classificação"
 
@@ -7314,7 +7313,7 @@ msgstr ""
 "Requer o MediaVerse. Ative-o para escolher como os links de mídia são "
 "abertos."
 
-#: includes/Admin/Settings.php:1105 includes/Bridges/WPMediaVerseBridge.php:571
+#: includes/Admin/Settings.php:1105 includes/Bridges/WPMediaVerseBridge.php:574
 msgid "Stories"
 msgstr "Stories"
 
@@ -8924,9 +8923,9 @@ msgstr ""
 "habilitado: essa opção controla apenas os endpoints de saída abaixo."
 
 #: includes/Admin/Settings.php:3698 includes/Admin/Settings.php:3700
-#: includes/Core/AssetService.php:2483 templates/auth/login.php:173
+#: includes/Core/AssetService.php:2484 templates/auth/login.php:173
 #: templates/auth/login.php:176 templates/auth/signup.php:517
-#: templates/auth/signup.php:520 templates/gamification/leaderboard.php:501
+#: templates/auth/signup.php:520 templates/gamification/leaderboard.php:504
 #: assets/js/admin/settings.js:458 assets/js/blocks.js:406
 msgid "Show"
 msgstr "Mostrar"
@@ -9799,7 +9798,7 @@ msgstr "Proprietário: %s"
 #. translators: %s: date the space was created.
 #. translators: %s is the formatted date.
 #: includes/Admin/Spaces.php:629
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:353
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:382
 #, php-format
 msgid "Created %s"
 msgstr "Criado %s"
@@ -10062,27 +10061,28 @@ msgstr "As tarefas em segundo plano não estão funcionando."
 #, php-format
 msgid ""
 "This site cannot make a loopback request to itself, so the background-task "
-"runner never starts, and %d scheduled task(s) are overdue. This is usually a "
+"runner never starts, and %d scheduled task is overdue. This is usually a "
 "firewall, a localhost DNS issue, or HTTP authentication on staging. Add a "
 "server-level cron job so the queue is processed regardless:"
-msgstr ""
-"Este site não consegue fazer uma requisição loopback para si mesmo, então o "
-"executor de tarefas em segundo plano nunca é iniciado, e %d tarefa(s) "
-"agendada(s) está(ão) atrasada(s). Geralmente isso se deve a um firewall, a "
-"um problema de DNS localhost ou à autenticação HTTP em staging. Adicione um "
-"cron job no nível do servidor para que a fila seja processada de qualquer "
-"forma:"
+msgid_plural ""
+"This site cannot make a loopback request to itself, so the background-task "
+"runner never starts, and %d scheduled tasks are overdue. This is usually a "
+"firewall, a localhost DNS issue, or HTTP authentication on staging. Add a "
+"server-level cron job so the queue is processed regardless:"
+msgstr[0] ""
+msgstr[1] ""
 
 #. translators: %d: number of overdue scheduled tasks.
 #: includes/Admin/ToolsTab.php:134
 #, php-format
 msgid ""
 "WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled "
-"task(s) are overdue. Add a server-level cron job so the queue is processed:"
-msgstr ""
-"O WordPress cron está desabilitado neste site (DISABLE_WP_CRON) e %d "
-"tarefa(s) agendada(s) está(ão) atrasada(s). Adicione uma tarefa cron de "
-"nível de servidor para que a fila seja processada:"
+"task is overdue. Add a server-level cron job so the queue is processed:"
+msgid_plural ""
+"WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled "
+"tasks are overdue. Add a server-level cron job so the queue is processed:"
+msgstr[0] ""
+msgstr[1] ""
 
 #: includes/Admin/ToolsTab.php:142
 msgid ""
@@ -10103,12 +10103,13 @@ msgstr "Algumas tarefas em segundo plano falharam."
 #: includes/Admin/ToolsTab.php:159
 #, php-format
 msgid ""
-"%d scheduled task(s) failed and will not run again on their own. Review the "
+"%d scheduled task failed and will not run again on its own. Review the "
+"failures in the Action Scheduler log and retry or clear it:"
+msgid_plural ""
+"%d scheduled tasks failed and will not run again on their own. Review the "
 "failures in the Action Scheduler log and retry or clear them:"
-msgstr ""
-"%d tarefa(s) agendada(s) falhou(aram) e não será(ão) executada(s) novamente "
-"sozinha(s). Revise as falhas no log do Action Scheduler e tente novamente ou "
-"limpe-as:"
+msgstr[0] ""
+msgstr[1] ""
 
 #: includes/Admin/ToolsTab.php:165
 msgid "View the Action Scheduler log"
@@ -10127,11 +10128,13 @@ msgstr ""
 #: includes/Admin/ToolsTab.php:178
 #, php-format
 msgid ""
-"Status: running automatically. %d task(s) are waiting and will process on "
-"the next site activity."
-msgstr ""
-"Status: funcionando automaticamente. %d tarefa(s) está(ão) esperando e serão "
-"processadas na próxima atividade do site."
+"Status: running automatically. %d task is waiting and will process on the "
+"next site activity."
+msgid_plural ""
+"Status: running automatically. %d tasks are waiting and will process on the "
+"next site activity."
+msgstr[0] ""
+msgstr[1] ""
 
 #: includes/Admin/ToolsTab.php:182
 msgid "Status: running automatically. No overdue tasks."
@@ -10638,9 +10641,9 @@ msgstr ""
 "Este servidor não conseguiu assinar o segredo do cliente Apple (suporte a EC "
 "do OpenSSL ausente?)."
 
-#: includes/Auth/ApprovalGuard.php:92 includes/Auth/ApprovalGuard.php:110
+#: includes/Auth/ApprovalGuard.php:135 includes/Auth/ApprovalGuard.php:153
 #: includes/Auth/SocialLogin.php:1426 includes/Bridges/MemberBlogBridge.php:401
-#: includes/Core/AssetService.php:2543
+#: includes/Core/AssetService.php:2544
 msgid "Your account is awaiting administrator approval."
 msgstr "Sua conta está aguardando aprovação do administrador."
 
@@ -10669,7 +10672,7 @@ msgstr "Muitas tentativas de conexão. Aguarde um pouco e tente novamente."
 msgid "Account not found."
 msgstr "Conta não encontrada."
 
-#: includes/Auth/AuthController.php:613 includes/Core/AssetService.php:2020
+#: includes/Auth/AuthController.php:613 includes/Core/AssetService.php:2021
 msgid "Enter your current password."
 msgstr "Digite sua senha atual."
 
@@ -10677,11 +10680,11 @@ msgstr "Digite sua senha atual."
 msgid "Current password does not match."
 msgstr "A senha atual não corresponde."
 
-#: includes/Auth/AuthController.php:620 includes/Core/AssetService.php:2021
+#: includes/Auth/AuthController.php:620 includes/Core/AssetService.php:2022
 msgid "Enter a new password."
 msgstr "Digite uma nova senha."
 
-#: includes/Auth/AuthController.php:622 includes/Core/AssetService.php:2022
+#: includes/Auth/AuthController.php:622 includes/Core/AssetService.php:2023
 msgid "Use at least 8 characters."
 msgstr "Use pelo menos 8 caracteres."
 
@@ -10702,7 +10705,7 @@ msgstr "Esse já é seu email."
 msgid "An account with that email already exists."
 msgstr "Uma conta com esse email já existe."
 
-#: includes/Auth/AuthController.php:721 includes/Core/AssetService.php:2004
+#: includes/Auth/AuthController.php:721 includes/Core/AssetService.php:2005
 msgid "Check your inbox to confirm."
 msgstr "Verifique sua caixa de entrada para confirmar."
 
@@ -10723,7 +10726,7 @@ msgstr "O login a partir da sua rede não é permitido."
 msgid "Please enter your email or username and your password."
 msgstr "Por favor, digite seu email ou nome de usuário e sua senha."
 
-#: includes/Auth/AuthController.php:1045 includes/Core/AssetService.php:2504
+#: includes/Auth/AuthController.php:1045 includes/Core/AssetService.php:2505
 msgid "That email, username or password is not right."
 msgstr "O e-mail, o nome de usuário ou a senha não estão corretos."
 
@@ -10779,7 +10782,7 @@ msgstr "Você deve aceitar os Termos de Serviço para continuar."
 
 #. translators: %s: field label.
 #: includes/Auth/AuthController.php:1440 includes/Auth/AuthController.php:1671
-#: includes/Core/AssetService.php:1965
+#: includes/Core/AssetService.php:1966
 #: includes/Profile/ProfileController.php:1723
 #: includes/Profile/ProfileController.php:1745
 #: includes/Profile/ProfileService.php:1079
@@ -10872,7 +10875,7 @@ msgstr "Email de verificação enviado."
 msgid "Your email address is already verified."
 msgstr "Seu endereço de e-mail já está verificado."
 
-#: includes/Auth/AuthController.php:2147 includes/Core/AssetService.php:2013
+#: includes/Auth/AuthController.php:2147 includes/Core/AssetService.php:2014
 msgid "Your email address is now marked as verified."
 msgstr "Seu endereço de e-mail agora está marcado como verificado."
 
@@ -10885,7 +10888,7 @@ msgid "This verification link is no longer valid. Request a new one."
 msgstr "Este link de verificação não é mais válido. Solicite um novo."
 
 #: includes/Auth/AuthController.php:2333
-#: includes/Bridges/JetonomyBridge.php:4648
+#: includes/Bridges/JetonomyBridge.php:4750
 #: includes/Hashtags/HashtagController.php:281
 #: includes/Moderation/ModerationController.php:1533
 #: includes/Moderation/ModerationController.php:1559
@@ -11245,13 +11248,13 @@ msgid "Your account cannot use the community right now."
 msgstr "Sua conta não pode usar a comunidade no momento."
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:146
+#: includes/Auth/RegistrationEmailListener.php:150
 #, php-format
 msgid "Welcome to %s"
 msgstr "Bem-vindo a %s"
 
 #. translators: 1: display name, 2: site name, 3: community URL
-#: includes/Auth/RegistrationEmailListener.php:151
+#: includes/Auth/RegistrationEmailListener.php:155
 #, php-format
 msgid ""
 "Welcome aboard, %1$s! Your account at %2$s is ready. Jump in, complete your "
@@ -11261,13 +11264,13 @@ msgstr ""
 "perfil e comece a se conectar com a comunidade: %3$s"
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:191
+#: includes/Auth/RegistrationEmailListener.php:195
 #, php-format
 msgid "Your registration at %s is awaiting approval"
 msgstr "Seu registro em %s está aguardando aprovação"
 
 #. translators: 1: display name, 2: site name
-#: includes/Auth/RegistrationEmailListener.php:196
+#: includes/Auth/RegistrationEmailListener.php:200
 #, php-format
 msgid ""
 "Hi %1$s, thanks for registering at %2$s. An administrator needs to review "
@@ -11279,13 +11282,13 @@ msgstr ""
 "que ela for aprovada."
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:210
+#: includes/Auth/RegistrationEmailListener.php:214
 #, php-format
 msgid "New registration awaiting approval: %s"
 msgstr "Novo registro aguardando aprovação: %s"
 
 #. translators: 1: username, 2: email, 3: review URL
-#: includes/Auth/RegistrationEmailListener.php:215
+#: includes/Auth/RegistrationEmailListener.php:219
 #, php-format
 msgid ""
 "%1$s (%2$s) has registered and is awaiting your approval. Review pending "
@@ -11295,13 +11298,13 @@ msgstr ""
 "pendentes aqui: %3$s"
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:251
+#: includes/Auth/RegistrationEmailListener.php:255
 #, php-format
 msgid "Your account at %s is approved"
 msgstr "Sua conta em %s foi aprovada"
 
 #. translators: 1: display name, 2: site name, 3: sign-in URL
-#: includes/Auth/RegistrationEmailListener.php:256
+#: includes/Auth/RegistrationEmailListener.php:260
 #, php-format
 msgid ""
 "Good news, %1$s: your account at %2$s has been approved. You can now sign "
@@ -11311,13 +11314,13 @@ msgstr ""
 "%3$s"
 
 #. translators: %s: site name
-#: includes/Auth/RegistrationEmailListener.php:293
+#: includes/Auth/RegistrationEmailListener.php:297
 #, php-format
 msgid "Your registration at %s"
 msgstr "Seu registro em %s"
 
 #. translators: 1: display name, 2: site name
-#: includes/Auth/RegistrationEmailListener.php:298
+#: includes/Auth/RegistrationEmailListener.php:302
 #, php-format
 msgid ""
 "Hi %1$s, thank you for your interest in %2$s. Unfortunately your "
@@ -11326,7 +11329,7 @@ msgstr ""
 "Oi %1$s, obrigado por seu interesse em %2$s. Infelizmente seu registro não "
 "foi aprovado neste momento."
 
-#: includes/Auth/RegistrationEmailListener.php:334
+#: includes/Auth/RegistrationEmailListener.php:338
 msgid "our community"
 msgstr "nossa comunidade"
 
@@ -11997,38 +12000,38 @@ msgid "Finish setting up your account before you register for events."
 msgstr ""
 
 #. translators: %s: Space name.
-#: includes/Bridges/EventonomyTeaser.php:80
+#: includes/Bridges/EventonomyTeaser.php:81
 #, php-format
 msgid "This event is for %s members"
 msgstr ""
 
 #. translators: %s: Space name.
-#: includes/Bridges/EventonomyTeaser.php:86
+#: includes/Bridges/EventonomyTeaser.php:87
 #, php-format
 msgid "Join %s to see the full details and take a place."
 msgstr ""
 
 #. translators: %s: Space name.
-#: includes/Bridges/EventonomyTeaser.php:88
+#: includes/Bridges/EventonomyTeaser.php:89
 #, php-format
 msgid "Join %s"
 msgstr ""
 
 #. translators: %s: Space name.
-#: includes/Bridges/EventonomyTeaser.php:95
+#: includes/Bridges/EventonomyTeaser.php:96
 #, php-format
 msgid ""
 "%s is a private group. Ask to join and an organiser will review your request."
 msgstr ""
 
 #. translators: %s: Space name.
-#: includes/Bridges/EventonomyTeaser.php:97
+#: includes/Bridges/EventonomyTeaser.php:98
 #, php-format
 msgid "Request to join %s"
 msgstr ""
 
-#: includes/Bridges/EventonomyTeaser.php:103
-#: includes/Bridges/JetonomyBridge.php:5273
+#: includes/Bridges/EventonomyTeaser.php:104
+#: includes/Bridges/JetonomyBridge.php:5375
 #: includes/Shortcodes/ShortcodeService.php:389
 #: templates/partials/media-lightbox.php:201
 #: templates/partials/mobile-nav.php:133 templates/parts/guest-cta.php:40
@@ -12036,22 +12039,22 @@ msgstr ""
 msgid "Log in"
 msgstr "Fazer Login"
 
-#: includes/Bridges/EventonomyTeaser.php:123
+#: includes/Bridges/EventonomyTeaser.php:130
 msgid "Your request is waiting for approval"
 msgstr ""
 
-#: includes/Bridges/EventonomyTeaser.php:124
+#: includes/Bridges/EventonomyTeaser.php:131
 msgid ""
 "An organiser will review your request to join. You will get a notice when it "
 "is answered."
 msgstr ""
 
-#: includes/Bridges/EventonomyTeaser.php:125
+#: includes/Bridges/EventonomyTeaser.php:132
 #: templates/parts/sidebar-people-to-follow.php:39
 msgid "Request sent"
 msgstr "Solicitação enviada"
 
-#: includes/Bridges/EventonomyTeaser.php:127
+#: includes/Bridges/EventonomyTeaser.php:134
 #: templates/blocks/connection-button.php:148
 msgid "Cancel request"
 msgstr "Cancelar solicitação"
@@ -12060,27 +12063,31 @@ msgstr "Cancelar solicitação"
 msgid "Points"
 msgstr "Pontos"
 
-#: includes/Bridges/GamificationBridge.php:167
+#: includes/Bridges/GamificationBridge.php:169
 msgid "Badge"
 msgstr "Distintivo"
 
-#: includes/Bridges/GamificationBridge.php:604
+#: includes/Bridges/GamificationBridge.php:553
+msgid "You cannot see this leaderboard."
+msgstr ""
+
+#: includes/Bridges/GamificationBridge.php:639
 msgid "Getting started"
 msgstr "Começando"
 
 #. translators: %s: badge name.
-#: includes/Bridges/GamificationBridge.php:809
+#: includes/Bridges/GamificationBridge.php:844
 #, php-format
 msgid "earned the %s badge"
 msgstr "ganhou o badge %s"
 
-#: includes/Bridges/JetonomyBridge.php:777
-#: includes/Bridges/JetonomyBridge.php:3179
+#: includes/Bridges/JetonomyBridge.php:814
+#: includes/Bridges/JetonomyBridge.php:3281
 msgid "started a discussion"
 msgstr "iniciou uma discussão"
 
 #. translators: %d: number of replies.
-#: includes/Bridges/JetonomyBridge.php:940
+#: includes/Bridges/JetonomyBridge.php:977
 #: templates/parts/hashtag-posts-list.php:161
 #: templates/parts/profile/discussions-panel.php:101
 #: templates/parts/space-discussions-panel.php:107
@@ -12092,7 +12099,7 @@ msgstr[1] "%d respostas"
 
 #. translators: %d: vote score.
 #. translators: %d: number of votes.
-#: includes/Bridges/JetonomyBridge.php:947 templates/parts/post-body.php:430
+#: includes/Bridges/JetonomyBridge.php:984 templates/parts/post-body.php:430
 #: templates/parts/profile/discussions-panel.php:106
 #: templates/parts/space-discussions-panel.php:112
 #, php-format
@@ -12101,125 +12108,141 @@ msgid_plural "%d votes"
 msgstr[0] "%d voto"
 msgstr[1] "%d votos"
 
-#: includes/Bridges/JetonomyBridge.php:954
-#: includes/Bridges/JetonomyBridge.php:5878
+#: includes/Bridges/JetonomyBridge.php:991
+#: includes/Bridges/JetonomyBridge.php:5980
 msgid "Solved"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:959
-#: includes/Bridges/JetonomyBridge.php:5880
+#: includes/Bridges/JetonomyBridge.php:996
+#: includes/Bridges/JetonomyBridge.php:5982
 #: includes/Onboarding/SetupWizard.php:978
 msgid "Closed"
 msgstr "Fechada"
 
-#: includes/Bridges/JetonomyBridge.php:2329
+#: includes/Bridges/JetonomyBridge.php:2366
 #: includes/Spaces/SpaceMemberService.php:2849
 msgid "This member cannot join this space, so the request stays pending."
 msgstr ""
 "Este membro não pode entrar neste espaço, por isso a solicitação continua "
 "pendente."
 
-#: includes/Bridges/JetonomyBridge.php:2330
+#: includes/Bridges/JetonomyBridge.php:2367
 msgid "You cannot join this discussion right now."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:2449
+#: includes/Bridges/JetonomyBridge.php:2494
 msgid ""
 "That discussion already belongs to another space. Pick a different one, or "
 "start a new discussion."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:2469
+#: includes/Bridges/JetonomyBridge.php:2507
+msgid ""
+"That discussion cannot be linked to this space. Pick one you created, or "
+"start a new discussion."
+msgstr ""
+
+#: includes/Bridges/JetonomyBridge.php:2518
 msgid "The discussion could not be created, so it was not enabled."
 msgstr "Não foi possível criar a discussão, por isso ela não foi ativada."
 
-#: includes/Bridges/JetonomyBridge.php:3041
+#: includes/Bridges/JetonomyBridge.php:3107
 msgid "Discussions are not available right now."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3079
+#: includes/Bridges/JetonomyBridge.php:3145
 msgid ""
 "This discussion follows its Space. Change who can see or join it in the "
 "Space settings."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3121
+#. translators: %s: minimum Jetonomy version.
+#: includes/Bridges/JetonomyBridge.php:3182
+#, php-format
+msgid ""
+"This discussion follows its Space and cannot be opened up here. Update "
+"Jetonomy to %s or newer."
+msgstr ""
+"Esta discussão segue o seu Space e não pode ser aberta por aqui. Atualize o "
+"Jetonomy para a versão %s ou mais recente."
+
+#: includes/Bridges/JetonomyBridge.php:3223
 msgid ""
 "This cannot be posted because it contains content that is not allowed in "
 "this community."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3742
+#: includes/Bridges/JetonomyBridge.php:3844
 msgid "That link has expired, so no discussion was created."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3743
+#: includes/Bridges/JetonomyBridge.php:3845
 msgid "The discussion could not be created."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3744
+#: includes/Bridges/JetonomyBridge.php:3846
 msgid ""
 "Only the space owner or a moderator can start its discussions, once the "
 "owner has turned Discussion on."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3756 includes/Core/AssetService.php:1829
+#: includes/Bridges/JetonomyBridge.php:3858 includes/Core/AssetService.php:1829
 #: includes/Integrations/CompanionGithubUi.php:123
 #: includes/PWA/PwaService.php:398 templates/notifications/index.php:471
 msgid "Try again"
 msgstr "Tentar novamente"
 
-#: includes/Bridges/JetonomyBridge.php:3784
+#: includes/Bridges/JetonomyBridge.php:3886
 msgid "This space has no Discussions tab yet."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3785
+#: includes/Bridges/JetonomyBridge.php:3887
 msgid "Turn on Discussions"
 msgstr ""
 
 #. translators: %s: space name.
-#: includes/Bridges/JetonomyBridge.php:3832
+#: includes/Bridges/JetonomyBridge.php:3934
 #, php-format
 msgid "Back to %s"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:3923
+#: includes/Bridges/JetonomyBridge.php:4025
 msgid ""
 "This comment is also a reply in Discussions, and you can no longer post "
 "there."
 msgstr ""
 
 #. translators: %s: the reason the member picked in the Discussions report form.
-#: includes/Bridges/JetonomyBridge.php:4263
+#: includes/Bridges/JetonomyBridge.php:4365
 #, php-format
 msgid "Reported in Discussions as: %s"
 msgstr ""
 
 #. translators: 1: discussion id, 2: forum name.
-#: includes/Bridges/JetonomyBridge.php:4408
+#: includes/Bridges/JetonomyBridge.php:4510
 #, php-format
 msgid "Discussion #%1$d in %2$s"
 msgstr ""
 
 #. translators: %d: discussion id.
-#: includes/Bridges/JetonomyBridge.php:4410
+#: includes/Bridges/JetonomyBridge.php:4512
 #, php-format
 msgid "Discussion #%d"
 msgstr ""
 
 #. translators: 1: reply id, 2: forum name.
-#: includes/Bridges/JetonomyBridge.php:4415
+#: includes/Bridges/JetonomyBridge.php:4517
 #, php-format
 msgid "Discussion reply #%1$d in %2$s"
 msgstr ""
 
 #. translators: %d: reply id.
-#: includes/Bridges/JetonomyBridge.php:4417
+#: includes/Bridges/JetonomyBridge.php:4519
 #, php-format
 msgid "Discussion reply #%d"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:4656
+#: includes/Bridges/JetonomyBridge.php:4758
 #: includes/Feed/FeedController.php:1162 includes/Feed/FeedController.php:1179
 #: includes/Media/MediaController.php:703
 #: includes/Spaces/SpaceController.php:884
@@ -12255,74 +12278,74 @@ msgstr ""
 msgid "Space not found."
 msgstr "Espaço não encontrado."
 
-#: includes/Bridges/JetonomyBridge.php:4869
+#: includes/Bridges/JetonomyBridge.php:4971
 msgid "Only the space owner can change its discussion."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:4870
+#: includes/Bridges/JetonomyBridge.php:4972
 msgid "Discussions are turned off on this site."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5021
+#: includes/Bridges/JetonomyBridge.php:5123
 msgid "Jetonomy"
 msgstr "Jetonomy"
 
-#: includes/Bridges/JetonomyBridge.php:5037
+#: includes/Bridges/JetonomyBridge.php:5139
 msgid "Forum notifications in the BuddyNext bell"
 msgstr "Notificações do fórum sobre o BuddyNext"
 
-#: includes/Bridges/JetonomyBridge.php:5039
+#: includes/Bridges/JetonomyBridge.php:5141
 msgid "Removing a deleted Space's forum with its topics"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5230 templates/feed/explore.php:272
+#: includes/Bridges/JetonomyBridge.php:5332 templates/feed/explore.php:272
 msgid "No discussions yet"
 msgstr "Sem discussões ainda"
 
-#: includes/Bridges/JetonomyBridge.php:5231
+#: includes/Bridges/JetonomyBridge.php:5333
 msgid "Discussions will appear here once they start."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5239
+#: includes/Bridges/JetonomyBridge.php:5341
 msgid "Be the first to start a conversation in this space."
 msgstr "Seja o primeiro a iniciar uma conversa neste espaço."
 
-#: includes/Bridges/JetonomyBridge.php:5241
+#: includes/Bridges/JetonomyBridge.php:5343
 #: templates/parts/space-discussions-panel.php:58
 msgid "Start a discussion"
 msgstr "Iniciar uma discussão"
 
-#: includes/Bridges/JetonomyBridge.php:5252
+#: includes/Bridges/JetonomyBridge.php:5354
 msgid "You can start a discussion once your join request is approved."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5271
+#: includes/Bridges/JetonomyBridge.php:5373
 msgid "Log in to start a discussion in this space."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5283
+#: includes/Bridges/JetonomyBridge.php:5385
 msgid "Join this space to start a discussion."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5284
+#: includes/Bridges/JetonomyBridge.php:5386
 msgid "Request to join this space to start a discussion."
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5286
+#: includes/Bridges/JetonomyBridge.php:5388
 msgid "Join to start a discussion"
 msgstr ""
 
-#: includes/Bridges/JetonomyBridge.php:5286 includes/Core/AssetService.php:1534
+#: includes/Bridges/JetonomyBridge.php:5388 includes/Core/AssetService.php:1534
 #: templates/parts/space-directory-card.php:294
 #: templates/parts/space-hero.php:352
 msgid "Request to join"
 msgstr "Solicitar participação"
 
-#: includes/Bridges/JetonomyBridge.php:5816
+#: includes/Bridges/JetonomyBridge.php:5918
 msgid "Anonymous"
 msgstr "Anônimo"
 
-#: includes/Bridges/JetonomyBridge.php:5874 includes/Core/AssetService.php:1220
+#: includes/Bridges/JetonomyBridge.php:5976 includes/Core/AssetService.php:1220
 #: templates/partials/post-card.php:662 templates/parts/comment.php:124
 #: templates/parts/dm-rail-item.php:171 templates/parts/dm-rail.php:199
 msgid "Pinned"
@@ -12401,7 +12424,7 @@ msgstr ""
 #: includes/Bridges/MemberBlogBridge.php:1043
 #: includes/Bridges/MemberBlogBridge.php:1099
 #: includes/Bridges/MemberBlogBridge.php:1134
-#: includes/Feed/BlogPostListener.php:172
+#: includes/Feed/BlogPostListener.php:173
 #: templates/parts/space-blog-panel.php:36
 msgid "Articles"
 msgstr "Artigos"
@@ -12425,49 +12448,54 @@ msgid ""
 "Activate it to use this setting."
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:424
-#: includes/Bridges/WPMediaVerseBridge.php:3879
+#: includes/Bridges/WPMediaVerseBridge.php:427
+#: includes/Bridges/WPMediaVerseBridge.php:3935
 msgid "Document"
 msgstr "Documento"
 
-#: includes/Bridges/WPMediaVerseBridge.php:855
+#: includes/Bridges/WPMediaVerseBridge.php:858
 #: templates/partials/explore-card.php:548
 msgid "Video"
 msgstr "Vídeo"
 
-#: includes/Bridges/WPMediaVerseBridge.php:856
+#: includes/Bridges/WPMediaVerseBridge.php:859
 #: templates/partials/explore-card.php:545
 msgid "Audio"
 msgstr "Áudio"
 
-#: includes/Bridges/WPMediaVerseBridge.php:1947
+#: includes/Bridges/WPMediaVerseBridge.php:1950
 msgid "Connections: people you are connected with"
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:2082
+#: includes/Bridges/WPMediaVerseBridge.php:2085
 msgid "shared a video"
 msgstr "compartilhou um vídeo"
 
-#: includes/Bridges/WPMediaVerseBridge.php:2084
+#: includes/Bridges/WPMediaVerseBridge.php:2087
 msgid "shared an audio clip"
 msgstr "compartilhou um clipe de áudio"
 
-#: includes/Bridges/WPMediaVerseBridge.php:2086
+#: includes/Bridges/WPMediaVerseBridge.php:2089
 msgid "shared a file"
 msgstr "compartilhou um arquivo"
 
-#: includes/Bridges/WPMediaVerseBridge.php:2244
+#: includes/Bridges/WPMediaVerseBridge.php:2247
 #: templates/partials/media-tab.php:131 templates/partials/media-tab.php:224
 msgid "Albums"
 msgstr "Álbuns"
 
+#: includes/Bridges/WPMediaVerseBridge.php:2378
+#: includes/Bridges/WPMediaVerseBridge.php:2400
+msgid "Your account is suspended and cannot send messages."
+msgstr ""
+
 #. translators: %s: the reason the member picked in the media report form.
-#: includes/Bridges/WPMediaVerseBridge.php:2578
+#: includes/Bridges/WPMediaVerseBridge.php:2634
 #, php-format
 msgid "Reported on a photo or video as: %s"
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:3924
+#: includes/Bridges/WPMediaVerseBridge.php:3980
 #: includes/Integrations/CompanionGithubUi.php:110
 #: templates/partials/media-lightbox.php:76
 #: templates/partials/media-lightbox.php:133
@@ -12475,7 +12503,7 @@ msgstr ""
 msgid "Download"
 msgstr "Baixar"
 
-#: includes/Bridges/WPMediaVerseBridge.php:3994
+#: includes/Bridges/WPMediaVerseBridge.php:4050
 msgid "This document isn’t available to you."
 msgstr "Este documento não está disponível para você."
 
@@ -12615,17 +12643,17 @@ msgstr "Alex"
 msgid "Jordan Lee"
 msgstr "Jordan Lee"
 
-#: includes/Core/AssetService.php:1059 includes/Core/AssetService.php:2030
-#: includes/Core/AssetService.php:2222 includes/Core/AssetService.php:2506
-#: includes/Core/AssetService.php:2538 includes/Core/AssetService.php:2560
-#: includes/Core/AssetService.php:2578 includes/Core/PageRouter.php:2324
+#: includes/Core/AssetService.php:1059 includes/Core/AssetService.php:2031
+#: includes/Core/AssetService.php:2223 includes/Core/AssetService.php:2507
+#: includes/Core/AssetService.php:2539 includes/Core/AssetService.php:2561
+#: includes/Core/AssetService.php:2579 includes/Core/PageRouter.php:2324
 #: templates/messages/native.php:232
 #: templates/partials/space-file-single.php:118
 msgid "Something went wrong. Try again."
 msgstr "Algo deu errado. Tente novamente."
 
 #: includes/Core/AssetService.php:1077 includes/Core/AssetService.php:1426
-#: includes/Core/AssetService.php:2202 includes/Core/PageRouter.php:2312
+#: includes/Core/AssetService.php:2203 includes/Core/PageRouter.php:2312
 #: templates/blocks/follow-button.php:52 templates/onboarding/index.php:675
 #: templates/partials/follow-button.php:143
 #: templates/parts/hashtag-sidebar-related.php:149
@@ -12635,7 +12663,7 @@ msgid "Follow"
 msgstr "Seguir"
 
 #: includes/Core/AssetService.php:1079 includes/Core/AssetService.php:1430
-#: includes/Core/AssetService.php:1533 includes/Core/AssetService.php:2204
+#: includes/Core/AssetService.php:1533 includes/Core/AssetService.php:2205
 #: includes/Core/PageRouter.php:2314 includes/Privacy/PrivacyTools.php:839
 #: templates/blocks/follow-button.php:48
 #: templates/partials/connection-button.php:174
@@ -12661,33 +12689,33 @@ msgstr "Cancelar pedido de seguir"
 
 #. translators: %s: the member's public handle.
 #: includes/Core/AssetService.php:1084 includes/Core/AssetService.php:1456
-#: includes/Core/AssetService.php:2370 includes/Core/PageRouter.php:2319
+#: includes/Core/AssetService.php:2371 includes/Core/PageRouter.php:2319
 #, php-format
 msgid "Unfollowed @%s"
 msgstr "Deixou de seguir @%s"
 
 #: includes/Core/AssetService.php:1085 includes/Core/AssetService.php:1457
-#: includes/Core/AssetService.php:1993
+#: includes/Core/AssetService.php:1994
 msgid "Undo"
 msgstr ""
 
 #. translators: %s: the member's public handle.
 #: includes/Core/AssetService.php:1087 includes/Core/AssetService.php:1435
-#: includes/Core/AssetService.php:2374 includes/Core/PageRouter.php:2323
+#: includes/Core/AssetService.php:2375 includes/Core/PageRouter.php:2323
 #, php-format
 msgid "Follow request to @%s cancelled"
 msgstr "Pedido de seguir para @%s cancelado"
 
 #. translators: %s: the member's public handle.
 #: includes/Core/AssetService.php:1089 includes/Core/AssetService.php:1433
-#: includes/Core/AssetService.php:2372 includes/Core/PageRouter.php:2321
+#: includes/Core/AssetService.php:2373 includes/Core/PageRouter.php:2321
 #, php-format
 msgid "Follow request sent to @%s"
 msgstr "Pedido de seguir enviado para @%s"
 
 #. translators: %s: the member's public handle.
 #: includes/Core/AssetService.php:1091 includes/Core/AssetService.php:1459
-#: includes/Core/AssetService.php:2368 includes/Core/PageRouter.php:2317
+#: includes/Core/AssetService.php:2369 includes/Core/PageRouter.php:2317
 #, php-format
 msgid "Now following @%s"
 msgstr "Agora seguindo @%s"
@@ -12772,7 +12800,7 @@ msgid "Disconnected from @%s"
 msgstr "Desconectado de @%s"
 
 #: includes/Core/AssetService.php:1121 includes/Core/AssetService.php:1475
-#: includes/Core/AssetService.php:1985
+#: includes/Core/AssetService.php:1986
 msgid "Could not disconnect. Try again."
 msgstr "Não foi possível desconectar. Tente novamente."
 
@@ -12802,9 +12830,9 @@ msgid "Pick a time in the future."
 msgstr "Escolha um horário no futuro."
 
 #: includes/Core/AssetService.php:1207
-#: templates/gamification/leaderboard.php:627
-#: templates/gamification/leaderboard.php:759
-#: templates/gamification/leaderboard.php:803
+#: templates/gamification/leaderboard.php:630
+#: templates/gamification/leaderboard.php:762
+#: templates/gamification/leaderboard.php:806
 #: templates/partials/space-files-tab.php:536 templates/shell/rail.php:253
 msgid "You"
 msgstr "Você"
@@ -12867,8 +12895,8 @@ msgid "This cannot be undone."
 msgstr "Isso não pode ser desfeito."
 
 #: includes/Core/AssetService.php:1224 includes/Core/AssetService.php:1675
-#: includes/Core/AssetService.php:1676 includes/Core/AssetService.php:2288
-#: includes/Core/AssetService.php:2406 assets/js/admin/settings.js:155
+#: includes/Core/AssetService.php:1676 includes/Core/AssetService.php:2289
+#: includes/Core/AssetService.php:2407 assets/js/admin/settings.js:155
 #: assets/js/admin/settings.js:192 assets/js/admin/settings.js:247
 #: assets/js/admin/settings.js:278
 msgid "Network error. Try again."
@@ -13046,7 +13074,7 @@ msgstr "Denunciar esta postagem"
 
 #: includes/Core/AssetService.php:1268 includes/Core/AssetService.php:1494
 #: includes/Core/AssetService.php:1606 includes/Core/AssetService.php:1654
-#: includes/Core/AssetService.php:2003
+#: includes/Core/AssetService.php:2004
 msgid "Report submitted. Thanks for keeping the community safe."
 msgstr "Denúncia enviada. Obrigado por manter a comunidade segura."
 
@@ -13067,7 +13095,7 @@ msgstr "Voltar ao feed"
 
 #: includes/Core/AssetService.php:1272 includes/Core/AssetService.php:1495
 #: includes/Core/AssetService.php:1608 includes/Core/AssetService.php:1655
-#: includes/Core/AssetService.php:2002
+#: includes/Core/AssetService.php:2003
 msgid "Could not submit report. Try again."
 msgstr "Não foi possível enviar a denúncia. Tente novamente."
 
@@ -13275,7 +13303,7 @@ msgstr "Não foi possível repostar. Tente novamente."
 msgid "Link copied"
 msgstr "Link copiado"
 
-#: includes/Core/AssetService.php:1333 includes/Core/AssetService.php:1989
+#: includes/Core/AssetService.php:1333 includes/Core/AssetService.php:1990
 msgid "Could not copy link."
 msgstr "Não foi possível copiar o link."
 
@@ -13312,7 +13340,7 @@ msgstr "Não foi possível publicar seu post. Tente novamente."
 msgid "You don’t have permission to post here."
 msgstr "Você não tem permissão para postar aqui."
 
-#: includes/Core/AssetService.php:1343 includes/Core/AssetService.php:2559
+#: includes/Core/AssetService.php:1343 includes/Core/AssetService.php:2560
 msgid "Verification email sent. Check your inbox."
 msgstr "Email de verificação enviado. Verifique sua caixa de entrada."
 
@@ -13328,11 +13356,11 @@ msgstr "Reenviar e-mail de verificação"
 msgid "Add at least two poll options."
 msgstr "Adicione pelo menos duas opções de enquete."
 
-#: includes/Core/AssetService.php:1348 includes/Feed/PostService.php:5404
+#: includes/Core/AssetService.php:1348 includes/Feed/PostService.php:5444
 msgid "Pick a poll end time in the future."
 msgstr ""
 
-#: includes/Core/AssetService.php:1349 includes/Feed/PostService.php:5427
+#: includes/Core/AssetService.php:1349 includes/Feed/PostService.php:5467
 msgid ""
 "The poll would end before the post is published. Pick a later end time or an "
 "earlier publish time."
@@ -13526,13 +13554,13 @@ msgstr "Recusar"
 msgid "Message"
 msgstr "Mensagem"
 
-#: includes/Core/AssetService.php:1441 includes/Core/AssetService.php:1925
+#: includes/Core/AssetService.php:1441 includes/Core/AssetService.php:1926
 #: templates/parts/member-card.php:240
 #: templates/parts/profile-actions-overflow.php:129
 msgid "Mute"
 msgstr "Silenciar"
 
-#: includes/Core/AssetService.php:1442 includes/Core/AssetService.php:1924
+#: includes/Core/AssetService.php:1442 includes/Core/AssetService.php:1925
 #: templates/parts/member-card.php:240
 #: templates/parts/notifications-sidecard-muted.php:135
 #: templates/parts/settings-relations.php:65
@@ -13540,7 +13568,7 @@ msgid "Unmute"
 msgstr "Dessilenciar"
 
 #: includes/Core/AssetService.php:1443 includes/Core/AssetService.php:1774
-#: includes/Core/AssetService.php:1929 includes/Core/PageRouter.php:2328
+#: includes/Core/AssetService.php:1930 includes/Core/PageRouter.php:2328
 #: templates/partials/media-lightbox.php:169
 #: templates/parts/member-card.php:246
 #: templates/parts/profile-actions-overflow.php:141
@@ -13628,12 +13656,12 @@ msgstr "Bloquear este membro?"
 
 #. translators: %s: member display name.
 #: includes/Core/AssetService.php:1492 includes/Core/AssetService.php:1776
-#: includes/Core/AssetService.php:1998
+#: includes/Core/AssetService.php:1999
 #, php-format
 msgid "%s blocked"
 msgstr "%s bloqueado"
 
-#: includes/Core/AssetService.php:1493 includes/Core/AssetService.php:2000
+#: includes/Core/AssetService.php:1493 includes/Core/AssetService.php:2001
 msgid "Could not block. Try again."
 msgstr "Não foi possível bloquear. Tente novamente."
 
@@ -13645,7 +13673,7 @@ msgstr ""
 #. translators: %s: formatted member count (exactly 1).
 #. translators: %s: formatted member count.
 #: includes/Core/AssetService.php:1500 includes/Core/AssetService.php:1502
-#: includes/Profile/MemberDirectoryService.php:1456
+#: includes/Profile/MemberDirectoryService.php:1460
 #, php-format
 msgid "%s member in the community"
 msgid_plural "%s members in the community"
@@ -13655,7 +13683,7 @@ msgstr[1] "%s membros na comunidade"
 #. translators: %s: formatted number of members online (exactly 1).
 #. translators: %s: formatted number of members online.
 #: includes/Core/AssetService.php:1504 includes/Core/AssetService.php:1506
-#: includes/Profile/MemberDirectoryService.php:1449
+#: includes/Profile/MemberDirectoryService.php:1453
 #, php-format
 msgid "%s member online"
 msgid_plural "%s members online"
@@ -13666,14 +13694,14 @@ msgstr[1] ""
 #. translators: %s: formatted number of members found.
 #. translators: %s: formatted number of members matching the filters.
 #: includes/Core/AssetService.php:1508 includes/Core/AssetService.php:1510
-#: includes/Profile/MemberDirectoryService.php:1453
+#: includes/Profile/MemberDirectoryService.php:1457
 #, php-format
 msgid "%s member found"
 msgid_plural "%s members found"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Core/AssetService.php:1531 includes/Core/AssetService.php:2200
+#: includes/Core/AssetService.php:1531 includes/Core/AssetService.php:2201
 #: templates/onboarding/index.php:567
 #: templates/parts/search-result-section-spaces.php:180
 #: templates/parts/space-directory-card.php:284
@@ -13810,15 +13838,15 @@ msgstr "Não foi possível enviar sua solicitação."
 msgid "Invitation accepted."
 msgstr "Convite aceito."
 
-#: includes/Core/AssetService.php:1571 includes/Core/AssetService.php:2285
+#: includes/Core/AssetService.php:1571 includes/Core/AssetService.php:2286
 msgid "Could not accept the invitation."
 msgstr "Não foi possível aceitar o convite."
 
-#: includes/Core/AssetService.php:1572 includes/Core/AssetService.php:2286
+#: includes/Core/AssetService.php:1572 includes/Core/AssetService.php:2287
 msgid "Invitation declined."
 msgstr "Convite recusado."
 
-#: includes/Core/AssetService.php:1573 includes/Core/AssetService.php:2287
+#: includes/Core/AssetService.php:1573 includes/Core/AssetService.php:2288
 msgid "Could not decline the invitation."
 msgstr "Não foi possível recusar o convite."
 
@@ -13865,40 +13893,40 @@ msgstr "Não foi possível aprovar a solicitação."
 msgid "Could not decline the request."
 msgstr "Não foi possível recusar a solicitação."
 
-#: includes/Core/AssetService.php:1596 includes/Core/AssetService.php:1905
+#: includes/Core/AssetService.php:1596 includes/Core/AssetService.php:1906
 msgid "Reposition cover photo"
 msgstr "Reposicione a foto de capa"
 
-#: includes/Core/AssetService.php:1597 includes/Core/AssetService.php:1906
+#: includes/Core/AssetService.php:1597 includes/Core/AssetService.php:1907
 msgid "Drag to reposition · scroll or use the slider to zoom"
 msgstr ""
 "Arraste para reposicionar · role ou use o controle deslizante para fazer zoom"
 
-#: includes/Core/AssetService.php:1598 includes/Core/AssetService.php:1907
+#: includes/Core/AssetService.php:1598 includes/Core/AssetService.php:1908
 msgid ""
 "Cover framing. Use the arrow keys to move the picture, plus and minus to "
 "zoom."
 msgstr ""
 
-#: includes/Core/AssetService.php:1599 includes/Core/AssetService.php:1909
+#: includes/Core/AssetService.php:1599 includes/Core/AssetService.php:1910
 #: templates/parts/profile-edit-hero.php:136
 #: templates/parts/space-settings-panel-general.php:208
 msgid "Reposition"
 msgstr ""
 
-#: includes/Core/AssetService.php:1600 includes/Core/AssetService.php:1910
+#: includes/Core/AssetService.php:1600 includes/Core/AssetService.php:1911
 msgid "Could not save the position. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1601 includes/Core/AssetService.php:1911
+#: includes/Core/AssetService.php:1601 includes/Core/AssetService.php:1912
 msgid "Cover position saved."
 msgstr ""
 
-#: includes/Core/AssetService.php:1602 includes/Core/AssetService.php:1912
+#: includes/Core/AssetService.php:1602 includes/Core/AssetService.php:1913
 msgid "Position ready: click Save changes to keep it"
 msgstr ""
 
-#: includes/Core/AssetService.php:1603 includes/Core/AssetService.php:1901
+#: includes/Core/AssetService.php:1603 includes/Core/AssetService.php:1902
 msgid "Zoom"
 msgstr "Zoom"
 
@@ -13906,7 +13934,7 @@ msgstr "Zoom"
 msgid "Report post"
 msgstr "Denunciar post"
 
-#: includes/Core/AssetService.php:1607 includes/Core/AssetService.php:2001
+#: includes/Core/AssetService.php:1607 includes/Core/AssetService.php:2002
 msgid "Report this profile"
 msgstr "Denunciar este perfil"
 
@@ -14003,11 +14031,11 @@ msgstr "Não foi possível atualizar a preferência de notificação."
 msgid "Notification preference saved."
 msgstr "Preferência de notificação salva."
 
-#: includes/Core/AssetService.php:1635 includes/Core/AssetService.php:2442
+#: includes/Core/AssetService.php:1635 includes/Core/AssetService.php:2443
 msgid "Enter a username or email address."
 msgstr "Digite um nome de usuário ou endereço de e-mail."
 
-#: includes/Core/AssetService.php:1637 includes/Core/AssetService.php:2444
+#: includes/Core/AssetService.php:1637 includes/Core/AssetService.php:2445
 #: includes/Spaces/SpaceController.php:3264
 msgid "Could not send the invitation."
 msgstr "Não foi possível enviar o convite."
@@ -14593,127 +14621,131 @@ msgid "Crop avatar"
 msgstr "Cortar avatar"
 
 #: includes/Core/AssetService.php:1893
-msgid "Choose a JPG, PNG, GIF or WebP picture."
+msgid "Avatar preview. Use the arrow keys to move the picture."
 msgstr ""
 
 #: includes/Core/AssetService.php:1894
+msgid "Choose a JPG, PNG, GIF or WebP picture."
+msgstr ""
+
+#: includes/Core/AssetService.php:1895
 msgid "Setup key copied"
 msgstr ""
 
-#: includes/Core/AssetService.php:1897
+#: includes/Core/AssetService.php:1898
 msgid "Backup codes copied"
 msgstr ""
 
-#: includes/Core/AssetService.php:1898
+#: includes/Core/AssetService.php:1899
 msgid "Could not copy. Select the text and copy it yourself."
 msgstr ""
 
-#: includes/Core/AssetService.php:1899
+#: includes/Core/AssetService.php:1900
 msgid ""
 "That picture could not be opened. Choose a different JPG, PNG, GIF or WebP "
 "file."
 msgstr ""
 
-#: includes/Core/AssetService.php:1900
+#: includes/Core/AssetService.php:1901
 msgid "Position your avatar"
 msgstr "Posicione seu avatar"
 
-#: includes/Core/AssetService.php:1904
+#: includes/Core/AssetService.php:1905
 msgid "Could not process the image. Try a different file."
 msgstr "Não foi possível processar a imagem. Tente um arquivo diferente."
 
-#: includes/Core/AssetService.php:1908 includes/Core/AssetService.php:2330
+#: includes/Core/AssetService.php:1909 includes/Core/AssetService.php:2331
 #: templates/parts/profile-edit-save-bar.php:37
 #: templates/settings/notifications.php:549
 msgid "Saving..."
 msgstr "Salvando..."
 
-#: includes/Core/AssetService.php:1913
+#: includes/Core/AssetService.php:1914
 msgid "This field"
 msgstr "Este campo"
 
-#: includes/Core/AssetService.php:1914
+#: includes/Core/AssetService.php:1915
 msgid "Avatar could not be saved"
 msgstr "Avatar não pôde ser salvo"
 
-#: includes/Core/AssetService.php:1915
+#: includes/Core/AssetService.php:1916
 msgid "Cover could not be saved"
 msgstr "Capa não pôde ser salva"
 
-#: includes/Core/AssetService.php:1916
+#: includes/Core/AssetService.php:1917
 msgid "Photo updated."
 msgstr "Foto atualizada."
 
-#: includes/Core/AssetService.php:1917
+#: includes/Core/AssetService.php:1918
 msgid "Profile saved"
 msgstr "Perfil salvo"
 
-#: includes/Core/AssetService.php:1918
+#: includes/Core/AssetService.php:1919
 msgid "Some fields need attention"
 msgstr "Alguns campos precisam de atenção"
 
-#: includes/Core/AssetService.php:1919
+#: includes/Core/AssetService.php:1920
 msgid "Could not save. Try again."
 msgstr "Não foi possível salvar. Tente novamente."
 
-#: includes/Core/AssetService.php:1920 includes/Core/AssetService.php:2198
+#: includes/Core/AssetService.php:1921 includes/Core/AssetService.php:2199
 msgid "Reserved"
 msgstr ""
 
-#: includes/Core/AssetService.php:1921 includes/Core/AssetService.php:2197
+#: includes/Core/AssetService.php:1922 includes/Core/AssetService.php:2198
 msgid "Taken"
 msgstr "Tomado"
 
-#: includes/Core/AssetService.php:1922 includes/Core/AssetService.php:2199
+#: includes/Core/AssetService.php:1923 includes/Core/AssetService.php:2200
 #: templates/parts/settings-account-fields.php:109
 msgid "Not available"
 msgstr ""
 
-#: includes/Core/AssetService.php:1923 includes/Profile/FieldType.php:1712
+#: includes/Core/AssetService.php:1924 includes/Profile/FieldType.php:1712
 #: templates/parts/profile/about-panel.php:170
 msgid "Present"
 msgstr "Presente"
 
-#: includes/Core/AssetService.php:1926
+#: includes/Core/AssetService.php:1927
 #: templates/parts/settings-relations.php:61
 msgid "Unrestrict"
 msgstr "Remover restrição"
 
-#: includes/Core/AssetService.php:1927
+#: includes/Core/AssetService.php:1928
 #: templates/parts/profile-actions-overflow.php:135
 msgid "Restrict"
 msgstr "Restringir"
 
-#: includes/Core/AssetService.php:1928 templates/messages/native.php:333
+#: includes/Core/AssetService.php:1929 templates/messages/native.php:333
 #: templates/messages/native.php:448 templates/parts/settings-relations.php:57
 msgid "Unblock"
 msgstr "Desbloquear"
 
 #. translators: %d: number of remaining two-factor backup codes (singular).
-#: includes/Core/AssetService.php:1931
+#: includes/Core/AssetService.php:1932
 #, php-format
 msgid "%d backup code left."
 msgstr "%d código de backup restante."
 
 #. translators: %d: number of remaining two-factor backup codes (plural).
-#: includes/Core/AssetService.php:1933
+#: includes/Core/AssetService.php:1934
 #, php-format
 msgid "%d backup codes left."
 msgstr "%d códigos de backup restantes."
 
-#: includes/Core/AssetService.php:1934
+#: includes/Core/AssetService.php:1935
 msgid "Your data export has downloaded."
 msgstr "Sua exportação de dados foi baixada."
 
-#: includes/Core/AssetService.php:1935
+#: includes/Core/AssetService.php:1936
 msgid "Could not export your data. Try again."
 msgstr "Não foi possível exportar seus dados. Tente novamente."
 
-#: includes/Core/AssetService.php:1936
+#: includes/Core/AssetService.php:1937
 msgid "Delete your account?"
 msgstr "Deletar sua conta?"
 
-#: includes/Core/AssetService.php:1937
+#: includes/Core/AssetService.php:1938
 msgid ""
 "This permanently deletes your account and removes your data. This cannot be "
 "undone."
@@ -14721,99 +14753,99 @@ msgstr ""
 "Isso deleta permanentemente sua conta e remove seus dados. Não é possível "
 "desfazer."
 
-#: includes/Core/AssetService.php:1938
+#: includes/Core/AssetService.php:1939
 #: templates/parts/settings-privacy-fields.php:211
 #: templates/parts/settings-privacy-fields.php:218
 msgid "Delete my account"
 msgstr "Deletar minha conta"
 
-#: includes/Core/AssetService.php:1943
+#: includes/Core/AssetService.php:1944
 msgid "Your password"
 msgstr "Sua senha"
 
-#: includes/Core/AssetService.php:1944
+#: includes/Core/AssetService.php:1945
 msgid "Enter your password to confirm."
 msgstr "Digite sua senha para confirmar."
 
-#: includes/Core/AssetService.php:1945
+#: includes/Core/AssetService.php:1946
 msgid "Could not delete your account."
 msgstr "Não foi possível deletar sua conta."
 
-#: includes/Core/AssetService.php:1946
+#: includes/Core/AssetService.php:1947
 msgid "Could not delete your account. Try again."
 msgstr "Não foi possível excluir sua conta. Tente novamente."
 
-#: includes/Core/AssetService.php:1948
+#: includes/Core/AssetService.php:1949
 msgid "Profile link copied"
 msgstr "Link do perfil copiado"
 
-#: includes/Core/AssetService.php:1949
+#: includes/Core/AssetService.php:1950
 msgid "Could not copy. Long-press the URL."
 msgstr "Não foi possível copiar. Pressione e segure a URL."
 
 #. translators: %s: profile URL.
-#: includes/Core/AssetService.php:1951
+#: includes/Core/AssetService.php:1952
 #, php-format
 msgid "Copy this link: %s"
 msgstr "Copie este link: %s"
 
-#: includes/Core/AssetService.php:1952
+#: includes/Core/AssetService.php:1953
 msgid "Account unlinked"
 msgstr "Conta desvinculada"
 
-#: includes/Core/AssetService.php:1954
+#: includes/Core/AssetService.php:1955
 msgid "Could not unlink. Try again."
 msgstr "Não foi possível desvincular. Tente novamente."
 
-#: includes/Core/AssetService.php:1955
+#: includes/Core/AssetService.php:1956
 msgid "Member type updated"
 msgstr "Tipo de membro atualizado"
 
-#: includes/Core/AssetService.php:1956
+#: includes/Core/AssetService.php:1957
 msgid "Could not update member type"
 msgstr "Não foi possível atualizar o tipo de membro"
 
 #. translators: %s: member type name
-#: includes/Core/AssetService.php:1958
+#: includes/Core/AssetService.php:1959
 #, php-format
 msgid "Choose %s?"
 msgstr ""
 
-#: includes/Core/AssetService.php:1959
+#: includes/Core/AssetService.php:1960
 msgid "You can only pick this once. After that, only an admin can change it."
 msgstr ""
 
-#: includes/Core/AssetService.php:1960
+#: includes/Core/AssetService.php:1961
 msgid "Choose"
 msgstr ""
 
-#: includes/Core/AssetService.php:1961
+#: includes/Core/AssetService.php:1962
 msgid "Preference saved"
 msgstr "Preferência salva"
 
-#: includes/Core/AssetService.php:1962
+#: includes/Core/AssetService.php:1963
 #: includes/Profile/ProfileController.php:1536
 msgid "Display name is required."
 msgstr "Nome de exibição é obrigatório."
 
-#: includes/Core/AssetService.php:1963
+#: includes/Core/AssetService.php:1964
 #: includes/Profile/ProfileController.php:1569
 msgid "Enter a valid URL (https://example.com)."
 msgstr "Digite uma URL válida (https://example.com)."
 
-#: includes/Core/AssetService.php:1966
+#: includes/Core/AssetService.php:1967
 msgid "Avatar ready: click Save changes to keep it"
 msgstr "Avatar pronto: clique em Salvar alterações para mantê-lo"
 
-#: includes/Core/AssetService.php:1967
+#: includes/Core/AssetService.php:1968
 msgid "Could not prepare image. Try again."
 msgstr "Não foi possível preparar a imagem. Tente novamente."
 
-#: includes/Core/AssetService.php:1968
+#: includes/Core/AssetService.php:1969
 msgid "Remove profile photo?"
 msgstr "Remover foto do perfil?"
 
-#: includes/Core/AssetService.php:1969
+#: includes/Core/AssetService.php:1970
 msgid ""
 "Your photo will be replaced with your initials. You can upload a new one any "
 "time."
@@ -14821,92 +14853,92 @@ msgstr ""
 "Sua foto será substituída por suas iniciais. Você pode fazer upload de uma "
 "nova a qualquer momento."
 
-#: includes/Core/AssetService.php:1971
+#: includes/Core/AssetService.php:1972
 msgid "Profile photo removed"
 msgstr "Foto do perfil removida"
 
-#: includes/Core/AssetService.php:1972
+#: includes/Core/AssetService.php:1973
 msgid "Could not remove your photo. Try again."
 msgstr "Não foi possível remover sua foto. Tente novamente."
 
-#: includes/Core/AssetService.php:1973
+#: includes/Core/AssetService.php:1974
 msgid "Cover ready: click Save changes to keep it"
 msgstr "Capa pronta: clique em Salvar alterações para mantê-la"
 
-#: includes/Core/AssetService.php:1974
+#: includes/Core/AssetService.php:1975
 msgid "Followed"
 msgstr "Seguindo"
 
-#: includes/Core/AssetService.php:1975
+#: includes/Core/AssetService.php:1976
 msgid "Could not follow. Try again."
 msgstr "Não foi possível seguir. Tente novamente."
 
-#: includes/Core/AssetService.php:1976
+#: includes/Core/AssetService.php:1977
 msgid "Unfollowed"
 msgstr "Deixou de seguir"
 
-#: includes/Core/AssetService.php:1977
+#: includes/Core/AssetService.php:1978
 msgid "Could not unfollow. Try again."
 msgstr "Não foi possível deixar de seguir. Tente novamente."
 
-#: includes/Core/AssetService.php:1978 includes/Core/PageRouter.php:2354
+#: includes/Core/AssetService.php:1979 includes/Core/PageRouter.php:2354
 msgid ""
 "Add a personal message to your connection request, or send it without one."
 msgstr ""
 "Adicione uma mensagem pessoal à sua solicitação de conexão ou envie-a sem "
 "uma."
 
-#: includes/Core/AssetService.php:1979
+#: includes/Core/AssetService.php:1980
 msgid "Connection request sent"
 msgstr "Solicitação de conexão enviada"
 
-#: includes/Core/AssetService.php:1980
+#: includes/Core/AssetService.php:1981
 msgid "Could not send request"
 msgstr "Não foi possível enviar a solicitação"
 
-#: includes/Core/AssetService.php:1981
+#: includes/Core/AssetService.php:1982
 msgid "Request withdrawn"
 msgstr "Solicitação retirada"
 
-#: includes/Core/AssetService.php:1982
+#: includes/Core/AssetService.php:1983
 msgid "Could not withdraw the request. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1983
+#: includes/Core/AssetService.php:1984
 msgid "Could not accept the request. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1984
+#: includes/Core/AssetService.php:1985
 msgid "Could not decline the request. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:1987
+#: includes/Core/AssetService.php:1988
 msgid "Request declined"
 msgstr "Solicitação recusada"
 
-#: includes/Core/AssetService.php:1988
+#: includes/Core/AssetService.php:1989
 msgid "Disconnected"
 msgstr "Desconectado"
 
-#: includes/Core/AssetService.php:1990
+#: includes/Core/AssetService.php:1991
 msgid "Unmuted"
 msgstr "Som ativado"
 
-#: includes/Core/AssetService.php:1991
+#: includes/Core/AssetService.php:1992
 #: templates/parts/settings-relations.php:44
 #: templates/parts/settings-relations.php:102
 msgid "Muted"
 msgstr "Silenciado"
 
-#: includes/Core/AssetService.php:1992
+#: includes/Core/AssetService.php:1993
 msgid "Could not update mute state"
 msgstr "Não foi possível atualizar o estado de silêncio"
 
-#: includes/Core/AssetService.php:1994
+#: includes/Core/AssetService.php:1995
 msgid "No longer restricted"
 msgstr "Sem mais restrições"
 
-#: includes/Core/AssetService.php:1995
+#: includes/Core/AssetService.php:1996
 msgid ""
 "Restricted. They can still see your profile, but their comments are hidden "
 "from others."
@@ -14914,176 +14946,176 @@ msgstr ""
 "Restringido. Ainda podem ver seu perfil, mas seus comentários estão ocultos "
 "para outros."
 
-#: includes/Core/AssetService.php:1996
+#: includes/Core/AssetService.php:1997
 msgid "Could not update restrict state"
 msgstr "Não foi possível atualizar o estado de restrição"
 
-#: includes/Core/AssetService.php:1999
+#: includes/Core/AssetService.php:2000
 msgid "Member blocked"
 msgstr "Membro bloqueado"
 
-#: includes/Core/AssetService.php:2005
+#: includes/Core/AssetService.php:2006
 msgid "Could not send verification email. Try again."
 msgstr "Não foi possível enviar o email de verificação. Tente novamente."
 
-#: includes/Core/AssetService.php:2012
+#: includes/Core/AssetService.php:2013
 msgid "Could not verify. Try again."
 msgstr "Não foi possível verificar. Tente novamente."
 
-#: includes/Core/AssetService.php:2014
+#: includes/Core/AssetService.php:2015
 msgid "Too short"
 msgstr "Muito curto"
 
-#: includes/Core/AssetService.php:2015 includes/Core/AssetService.php:2478
-#: includes/Core/AssetService.php:2526
+#: includes/Core/AssetService.php:2016 includes/Core/AssetService.php:2479
+#: includes/Core/AssetService.php:2527
 msgid "Weak"
 msgstr "Fraco"
 
-#: includes/Core/AssetService.php:2016 includes/Core/AssetService.php:2479
-#: includes/Core/AssetService.php:2527
+#: includes/Core/AssetService.php:2017 includes/Core/AssetService.php:2480
+#: includes/Core/AssetService.php:2528
 msgid "Fair"
 msgstr "Aceitável"
 
-#: includes/Core/AssetService.php:2017 includes/Core/AssetService.php:2480
-#: includes/Core/AssetService.php:2528
+#: includes/Core/AssetService.php:2018 includes/Core/AssetService.php:2481
+#: includes/Core/AssetService.php:2529
 msgid "Good"
 msgstr "Bom"
 
-#: includes/Core/AssetService.php:2018 includes/Core/AssetService.php:2481
-#: includes/Core/AssetService.php:2529
+#: includes/Core/AssetService.php:2019 includes/Core/AssetService.php:2482
+#: includes/Core/AssetService.php:2530
 msgid "Strong"
 msgstr "Forte"
 
-#: includes/Core/AssetService.php:2019
+#: includes/Core/AssetService.php:2020
 msgid "Excellent"
 msgstr "Excelente"
 
-#: includes/Core/AssetService.php:2023
+#: includes/Core/AssetService.php:2024
 msgid "Passwords do not match."
 msgstr "As senhas não correspondem."
 
-#: includes/Core/AssetService.php:2024
+#: includes/Core/AssetService.php:2025
 msgid "Password updated"
 msgstr "Senha atualizada"
 
-#: includes/Core/AssetService.php:2025
+#: includes/Core/AssetService.php:2026
 msgid "Could not change password. Try again."
 msgstr "Não foi possível alterar a senha. Tente novamente."
 
-#: includes/Core/AssetService.php:2026
+#: includes/Core/AssetService.php:2027
 msgid "Signed out of every other session"
 msgstr "Sessão encerrada em todos os outros dispositivos"
 
-#: includes/Core/AssetService.php:2027
+#: includes/Core/AssetService.php:2028
 msgid "Could not sign out everywhere. Try again."
 msgstr "Não foi possível desconectar em todos os lugares. Tente novamente."
 
-#: includes/Core/AssetService.php:2028
+#: includes/Core/AssetService.php:2029
 msgid "Could not start setup. Try again."
 msgstr "Não foi possível iniciar a configuração. Tente novamente."
 
-#: includes/Core/AssetService.php:2029
+#: includes/Core/AssetService.php:2030
 msgid "That code did not match."
 msgstr "Esse código não corresponde."
 
-#: includes/Core/AssetService.php:2031
+#: includes/Core/AssetService.php:2032
 #: templates/parts/settings-account-fields.php:330
 msgid "Two-factor authentication is on."
 msgstr "A autenticação de dois fatores está ativada."
 
-#: includes/Core/AssetService.php:2032
+#: includes/Core/AssetService.php:2033
 msgid "QR code for your authenticator app"
 msgstr "QR code para o seu aplicativo autenticador"
 
-#: includes/Core/AssetService.php:2033
+#: includes/Core/AssetService.php:2034
 msgid "Enter your password."
 msgstr "Digite sua senha."
 
-#: includes/Core/AssetService.php:2034
+#: includes/Core/AssetService.php:2035
 msgid "Could not regenerate codes."
 msgstr "Não foi possível regenerar os códigos."
 
-#: includes/Core/AssetService.php:2035
+#: includes/Core/AssetService.php:2036
 msgid "Two-factor authentication is off."
 msgstr "A autenticação de dois fatores está desativada."
 
-#: includes/Core/AssetService.php:2036
+#: includes/Core/AssetService.php:2037
 msgid "Could not turn off two-factor."
 msgstr "Não foi possível desativar a autenticação de dois fatores."
 
-#: includes/Core/AssetService.php:2037
+#: includes/Core/AssetService.php:2038
 msgid "Unblocked"
 msgstr "Desbloqueado"
 
-#: includes/Core/AssetService.php:2038
+#: includes/Core/AssetService.php:2039
 msgid "Could not unblock"
 msgstr "Não foi possível desbloquear"
 
-#: includes/Core/AssetService.php:2042 templates/profile/edit.php:269
+#: includes/Core/AssetService.php:2043 templates/profile/edit.php:269
 msgid "Who can see this field"
 msgstr "Quem pode ver este campo"
 
-#: includes/Core/AssetService.php:2052
+#: includes/Core/AssetService.php:2053
 msgid "Remove cover photo?"
 msgstr "Remover foto de capa?"
 
-#: includes/Core/AssetService.php:2053
+#: includes/Core/AssetService.php:2054
 msgid "Your cover photo will be cleared. You can upload a new one any time."
 msgstr ""
 "Sua foto de capa será removida. Você pode enviar uma nova a qualquer momento."
 
-#: includes/Core/AssetService.php:2054
+#: includes/Core/AssetService.php:2055
 msgid "Cover photo removed"
 msgstr "Foto de capa removida"
 
-#: includes/Core/AssetService.php:2055
+#: includes/Core/AssetService.php:2056
 msgid "Could not remove your cover. Try again."
 msgstr "Não foi possível remover sua capa. Tente novamente."
 
-#: includes/Core/AssetService.php:2056
+#: includes/Core/AssetService.php:2057
 msgid "Follow request sent"
 msgstr "Solicitação para seguir enviada"
 
-#: includes/Core/AssetService.php:2057
+#: includes/Core/AssetService.php:2058
 msgid "Follow request withdrawn"
 msgstr "Solicitação para seguir cancelada"
 
-#: includes/Core/AssetService.php:2074
+#: includes/Core/AssetService.php:2075
 msgid "Member role updated."
 msgstr "Função do membro atualizada."
 
-#: includes/Core/AssetService.php:2075
+#: includes/Core/AssetService.php:2076
 msgid "Could not update the role. Try again."
 msgstr "Não foi possível atualizar a função. Tente novamente."
 
-#: includes/Core/AssetService.php:2084
+#: includes/Core/AssetService.php:2085
 msgid "Could not dismiss the report. Try again."
 msgstr "Não foi possível descartar o relatório. Tente novamente."
 
-#: includes/Core/AssetService.php:2085
+#: includes/Core/AssetService.php:2086
 msgid "Content policy reminder"
 msgstr "Lembrete da política de conteúdo"
 
-#: includes/Core/AssetService.php:2086
+#: includes/Core/AssetService.php:2087
 msgid "Warn this member?"
 msgstr "Advertir este membro?"
 
-#: includes/Core/AssetService.php:2087
+#: includes/Core/AssetService.php:2088
 msgid ""
 "They are notified and can read this message on their Account status page."
 msgstr ""
 "A pessoa será notificada e poderá ler esta mensagem na página de status da "
 "conta."
 
-#: includes/Core/AssetService.php:2088
+#: includes/Core/AssetService.php:2089
 msgid "Send warning"
 msgstr "Enviar advertência"
 
-#: includes/Core/AssetService.php:2089
+#: includes/Core/AssetService.php:2090
 msgid "Issue a strike?"
 msgstr "Aplicar uma penalidade?"
 
-#: includes/Core/AssetService.php:2090
+#: includes/Core/AssetService.php:2091
 msgid ""
 "They can read this reason on their Account status page. Strikes add up "
 "toward automatic suspension."
@@ -15091,39 +15123,39 @@ msgstr ""
 "A pessoa poderá ler este motivo na página de status da conta. As penalidades "
 "se acumulam até a suspensão automática."
 
-#: includes/Core/AssetService.php:2091
+#: includes/Core/AssetService.php:2092
 msgid "Issue strike"
 msgstr "Aplicar penalidade"
 
-#: includes/Core/AssetService.php:2092
+#: includes/Core/AssetService.php:2093
 msgid "Add a reason. The member will see it."
 msgstr "Adicione um motivo. O membro verá."
 
-#: includes/Core/AssetService.php:2093
+#: includes/Core/AssetService.php:2094
 msgid "Space rule violation"
 msgstr "Violação das regras do espaço"
 
-#: includes/Core/AssetService.php:2094
+#: includes/Core/AssetService.php:2095
 msgid "Strike issued for reported content"
 msgstr "Advertência aplicada por conteúdo denunciado"
 
-#: includes/Core/AssetService.php:2095
+#: includes/Core/AssetService.php:2096
 msgid "Content warning applied"
 msgstr "Aviso de conteúdo aplicado"
 
-#: includes/Core/AssetService.php:2096
+#: includes/Core/AssetService.php:2097
 msgid "Content warning cleared"
 msgstr "Aviso de conteúdo removido"
 
-#: includes/Core/AssetService.php:2097
+#: includes/Core/AssetService.php:2098
 msgid "Could not update the content warning. Try again."
 msgstr "Não foi possível atualizar o aviso de conteúdo. Tente novamente."
 
-#: includes/Core/AssetService.php:2098 templates/spaces/moderation.php:418
+#: includes/Core/AssetService.php:2099 templates/spaces/moderation.php:418
 msgid "Remove this content?"
 msgstr "Remover este conteúdo?"
 
-#: includes/Core/AssetService.php:2099
+#: includes/Core/AssetService.php:2100
 msgid ""
 "The reported item will be taken down from public view and the report marked "
 "resolved."
@@ -15131,63 +15163,63 @@ msgstr ""
 "O item denunciado será removido da visualização pública e o relatório será "
 "marcado como resolvido."
 
-#: includes/Core/AssetService.php:2102
+#: includes/Core/AssetService.php:2103
 msgid "Could not remove the content. Try again."
 msgstr "Não foi possível remover o conteúdo. Tente novamente."
 
-#: includes/Core/AssetService.php:2103
+#: includes/Core/AssetService.php:2104
 #: includes/Moderation/ModerationLogService.php:333
 #: includes/Notifications/NotificationMessageService.php:796
 msgid "Report resolved"
 msgstr "Relatório resolvido"
 
-#: includes/Core/AssetService.php:2104
+#: includes/Core/AssetService.php:2105
 msgid "Could not resolve the report. Try again."
 msgstr "Não foi possível resolver a denúncia. Tente novamente."
 
-#: includes/Core/AssetService.php:2105
+#: includes/Core/AssetService.php:2106
 #: includes/Moderation/ModerationLogService.php:332
 #: includes/Notifications/NotificationMessageService.php:826
 msgid "Report escalated"
 msgstr "Denúncia encaminhada"
 
-#: includes/Core/AssetService.php:2106
+#: includes/Core/AssetService.php:2107
 msgid "Could not escalate the report. Try again."
 msgstr "Não foi possível encaminhar a denúncia. Tente novamente."
 
-#: includes/Core/AssetService.php:2107 includes/Core/AssetService.php:2156
+#: includes/Core/AssetService.php:2108 includes/Core/AssetService.php:2157
 msgid "Warning sent."
 msgstr "Aviso enviado."
 
-#: includes/Core/AssetService.php:2108 includes/Core/AssetService.php:2157
+#: includes/Core/AssetService.php:2109 includes/Core/AssetService.php:2158
 msgid "Could not warn the member."
 msgstr "Não foi possível enviar o aviso ao membro."
 
-#: includes/Core/AssetService.php:2110
+#: includes/Core/AssetService.php:2111
 msgid "Could not issue a strike."
 msgstr "Não foi possível emitir um aviso."
 
-#: includes/Core/AssetService.php:2114
+#: includes/Core/AssetService.php:2115
 #: includes/Moderation/ModerationLogService.php:320
 msgid "Strike reversed"
 msgstr "Advertência revertida"
 
-#: includes/Core/AssetService.php:2115
+#: includes/Core/AssetService.php:2116
 #: includes/Moderation/ModerationService.php:1541
 msgid "Could not reverse the strike. Try again."
 msgstr "Não foi possível reverter a advertência. Tente novamente."
 
-#: includes/Core/AssetService.php:2116
+#: includes/Core/AssetService.php:2117
 msgid "This member has no active strikes."
 msgstr "Este membro não tem advertências ativas."
 
 #. translators: %d: number of active strikes.
-#: includes/Core/AssetService.php:2118
+#: includes/Core/AssetService.php:2119
 #, php-format
 msgid "Reverse the most recent strike (%d active)"
 msgstr "Reverter a advertência mais recente (%d ativas)"
 
-#: includes/Core/AssetService.php:2120
+#: includes/Core/AssetService.php:2121
 msgid ""
 "They lose posting access, and see the reason you choose on their account "
 "page and in the suspension email."
@@ -15196,160 +15228,160 @@ msgstr ""
 "página da conta e no e-mail de suspensão."
 
 #. translators: %d: number of days.
-#: includes/Core/AssetService.php:2128
+#: includes/Core/AssetService.php:2129
 #, php-format
 msgid "%d days"
 msgstr "%d dias"
 
-#: includes/Core/AssetService.php:2131 assets/js/admin/members.js:132
+#: includes/Core/AssetService.php:2132 assets/js/admin/members.js:132
 msgid "Choose a reason. The member will see it."
 msgstr "Escolha um motivo. O membro verá essa informação."
 
-#: includes/Core/AssetService.php:2132 assets/js/admin/members.js:135
+#: includes/Core/AssetService.php:2133 assets/js/admin/members.js:135
 msgid "Add a note to explain the reason when you choose Other."
 msgstr "Adicione uma observação explicando o motivo ao escolher Outro."
 
-#: includes/Core/AssetService.php:2134
+#: includes/Core/AssetService.php:2135
 msgid "Could not suspend the member."
 msgstr "Não foi possível suspender o membro."
 
-#: includes/Core/AssetService.php:2135
+#: includes/Core/AssetService.php:2136
 msgid "Describe why you are appealing (at least 10 characters)."
 msgstr "Descreva o motivo do seu recurso (pelo menos 10 caracteres)."
 
-#: includes/Core/AssetService.php:2136
+#: includes/Core/AssetService.php:2137
 msgid "Your appeal has been submitted."
 msgstr "Seu apelo foi enviado."
 
-#: includes/Core/AssetService.php:2137
+#: includes/Core/AssetService.php:2138
 msgid "Could not submit your appeal. Try again."
 msgstr "Não foi possível enviar seu apelo. Tente novamente."
 
-#: includes/Core/AssetService.php:2138
+#: includes/Core/AssetService.php:2139
 msgid "Approve this appeal?"
 msgstr "Aprovar este apelo?"
 
-#: includes/Core/AssetService.php:2139
+#: includes/Core/AssetService.php:2140
 msgid "The member’s suspension will be lifted and they will be notified."
 msgstr "A suspensão do membro será levantada e ele será notificado."
 
-#: includes/Core/AssetService.php:2141
+#: includes/Core/AssetService.php:2142
 msgid "Appeal approved: suspension lifted."
 msgstr "Recurso aprovado: suspensão removida."
 
-#: includes/Core/AssetService.php:2142
+#: includes/Core/AssetService.php:2143
 msgid "Could not approve the appeal. Try again."
 msgstr "Não foi possível aprovar o apelo. Tente novamente."
 
-#: includes/Core/AssetService.php:2143
+#: includes/Core/AssetService.php:2144
 msgid "Deny this appeal?"
 msgstr "Negar este apelo?"
 
-#: includes/Core/AssetService.php:2146
+#: includes/Core/AssetService.php:2147
 msgid ""
 "The suspension stays in place. The member will be notified of the decision."
 msgstr "A suspensão permanece. O membro será notificado da decisão."
 
-#: includes/Core/AssetService.php:2148
+#: includes/Core/AssetService.php:2149
 #: includes/Moderation/ModerationLogService.php:339
 msgid "Appeal denied"
 msgstr "Recurso negado"
 
-#: includes/Core/AssetService.php:2149
+#: includes/Core/AssetService.php:2150
 msgid "Could not deny the appeal. Try again."
 msgstr "Não foi possível negar o apelo. Tente novamente."
 
-#: includes/Core/AssetService.php:2150 templates/spaces/moderation.php:463
+#: includes/Core/AssetService.php:2151 templates/spaces/moderation.php:463
 msgid "Remove this member from the space?"
 msgstr "Remover este membro do espaço?"
 
-#: includes/Core/AssetService.php:2151 includes/Core/AssetService.php:2430
+#: includes/Core/AssetService.php:2152 includes/Core/AssetService.php:2431
 msgid "They will lose access to this space immediately."
 msgstr "Eles perderão acesso a este espaço imediatamente."
 
-#: includes/Core/AssetService.php:2158
+#: includes/Core/AssetService.php:2159
 msgid "Could not remove the member from this space. Try again."
 msgstr "Não foi possível remover o membro deste espaço. Tente novamente."
 
-#: includes/Core/AssetService.php:2159
+#: includes/Core/AssetService.php:2160
 msgid "Could not approve the join request. Try again."
 msgstr "Não foi possível aprovar a solicitação de entrada. Tente novamente."
 
-#: includes/Core/AssetService.php:2160
+#: includes/Core/AssetService.php:2161
 msgid "Could not decline the join request. Try again."
 msgstr "Não foi possível recusar a solicitação de entrada. Tente novamente."
 
 #. translators: 1: current step number, 2: total step count
-#: includes/Core/AssetService.php:2188
+#: includes/Core/AssetService.php:2189
 #, php-format
 msgid "Step %1$s of %2$s"
 msgstr "Etapa %1$s de %2$s"
 
-#: includes/Core/AssetService.php:2189
+#: includes/Core/AssetService.php:2190
 msgid "Display name must be at least 2 characters."
 msgstr "O nome de exibição deve ter pelo menos 2 caracteres."
 
-#: includes/Core/AssetService.php:2190 templates/auth/signup.php:446
+#: includes/Core/AssetService.php:2191 templates/auth/signup.php:446
 #: templates/onboarding/index.php:867
 msgid "Your name"
 msgstr "Seu nome"
 
-#: includes/Core/AssetService.php:2191
+#: includes/Core/AssetService.php:2192
 msgid "@username"
 msgstr "@nome de usuário"
 
-#: includes/Core/AssetService.php:2192 templates/onboarding/index.php:875
+#: includes/Core/AssetService.php:2193 templates/onboarding/index.php:875
 msgid "Add a short bio so people know what you're into."
 msgstr "Adicione uma bio curta para as pessoas saberem seus interesses."
 
-#: includes/Core/AssetService.php:2193
+#: includes/Core/AssetService.php:2194
 msgid "Checking…"
 msgstr "Verificando…"
 
-#: includes/Core/AssetService.php:2194
+#: includes/Core/AssetService.php:2195
 msgid "Available"
 msgstr "Disponível"
 
-#: includes/Core/AssetService.php:2205
+#: includes/Core/AssetService.php:2206
 msgid "Follow request sent."
 msgstr ""
 
-#: includes/Core/AssetService.php:2206
+#: includes/Core/AssetService.php:2207
 msgid "Skipped. You can fill in your profile any time."
 msgstr "Pulado. Você pode preencher seu perfil a qualquer momento."
 
-#: includes/Core/AssetService.php:2207
+#: includes/Core/AssetService.php:2208
 msgid "Joined the space."
 msgstr "Entrou no espaço."
 
-#: includes/Core/AssetService.php:2208
+#: includes/Core/AssetService.php:2209
 msgid "Left the space."
 msgstr "Saiu do espaço."
 
-#: includes/Core/AssetService.php:2209
+#: includes/Core/AssetService.php:2210
 msgid "Could not update space. Try again."
 msgstr "Não foi possível atualizar o espaço. Tente novamente."
 
-#: includes/Core/AssetService.php:2210
+#: includes/Core/AssetService.php:2211
 msgid "Following."
 msgstr "Seguindo."
 
-#: includes/Core/AssetService.php:2211
+#: includes/Core/AssetService.php:2212
 msgid "Unfollowed."
 msgstr "Deixou de seguir."
 
-#: includes/Core/AssetService.php:2212
+#: includes/Core/AssetService.php:2213
 msgid "Could not update follow. Try again."
 msgstr "Não foi possível atualizar a configuração de seguir. Tente novamente."
 
 #. translators: %s: maximum upload size in megabytes.
-#: includes/Core/AssetService.php:2214
+#: includes/Core/AssetService.php:2215
 #, php-format
 msgid "Image too large. Max %sMB."
 msgstr "Imagem muito grande. Máximo de %sMB."
 
 #. translators: 1: maximum megapixels, 2: maximum pixels on a single side
-#: includes/Core/AssetService.php:2216
+#: includes/Core/AssetService.php:2217
 #, php-format
 msgid ""
 "That image is too large to process (over %1$s megapixels or %2$s pixels on a "
@@ -15358,57 +15390,57 @@ msgstr ""
 "Essa imagem é grande demais para processar (acima de %1$s megapixels ou %2$s "
 "pixels em um dos lados). Escolha uma foto menor."
 
-#: includes/Core/AssetService.php:2217
+#: includes/Core/AssetService.php:2218
 msgid "Could not upload photo. Try again."
 msgstr "Não foi possível enviar a foto. Tente novamente."
 
-#: includes/Core/AssetService.php:2218
+#: includes/Core/AssetService.php:2219
 msgid "Profile photo updated."
 msgstr "Foto do perfil atualizada."
 
-#: includes/Core/AssetService.php:2219
+#: includes/Core/AssetService.php:2220
 msgid "You are all set. Welcome aboard!"
 msgstr "Você está pronto. Bem-vindo!"
 
-#: includes/Core/AssetService.php:2220
+#: includes/Core/AssetService.php:2221
 msgid "Could not finish onboarding. Try again."
 msgstr "Não foi possível concluir a configuração inicial. Tente novamente."
 
-#: includes/Core/AssetService.php:2221
+#: includes/Core/AssetService.php:2222
 msgid "Could not save your interests. Try again."
 msgstr "Não foi possível salvar seus interesses. Tente novamente."
 
-#: includes/Core/AssetService.php:2227
+#: includes/Core/AssetService.php:2228
 msgid ""
 "Your profile could not be saved. Please check your details and try again."
 msgstr ""
 "Não foi possível salvar seu perfil. Verifique seus dados e tente novamente."
 
-#: includes/Core/AssetService.php:2228
+#: includes/Core/AssetService.php:2229
 msgid "That username is not available. Please choose another."
 msgstr ""
 
-#: includes/Core/AssetService.php:2229
+#: includes/Core/AssetService.php:2230
 msgid "Your notification settings could not be saved. Try again."
 msgstr ""
 "Não foi possível salvar suas configurações de notificação. Tente novamente."
 
-#: includes/Core/AssetService.php:2272
+#: includes/Core/AssetService.php:2273
 msgid "Could not mark all as read."
 msgstr "Não foi possível marcar tudo como lido."
 
 #. translators: %d: number of selected notifications.
-#: includes/Core/AssetService.php:2274
+#: includes/Core/AssetService.php:2275
 #, php-format
 msgid "%d selected"
 msgstr "%d selecionada(s)"
 
-#: includes/Core/AssetService.php:2275
+#: includes/Core/AssetService.php:2276
 msgid "Delete notifications"
 msgstr "Excluir notificações"
 
 #. translators: %d: number of selected notifications.
-#: includes/Core/AssetService.php:2277
+#: includes/Core/AssetService.php:2278
 #, php-format
 msgid "%d selected notifications will be deleted. This cannot be undone."
 msgstr ""
@@ -15416,326 +15448,326 @@ msgstr ""
 "desfeita."
 
 #. translators: %d: number of notifications deleted.
-#: includes/Core/AssetService.php:2280
+#: includes/Core/AssetService.php:2281
 #, php-format
 msgid "%d notifications deleted."
 msgstr "%d notificações excluídas."
 
-#: includes/Core/AssetService.php:2281
+#: includes/Core/AssetService.php:2282
 msgid "Could not delete the notifications. Try again."
 msgstr "Não foi possível excluir as notificações. Tente novamente."
 
-#: includes/Core/AssetService.php:2282
+#: includes/Core/AssetService.php:2283
 msgid "Could not mark this notification as read."
 msgstr "Não foi possível marcar esta notificação como lida."
 
-#: includes/Core/AssetService.php:2283
+#: includes/Core/AssetService.php:2284
 msgid "Could not dismiss. Try again."
 msgstr "Não foi possível descartar. Tente novamente."
 
-#: includes/Core/AssetService.php:2284
+#: includes/Core/AssetService.php:2285
 msgid "Invitation accepted: you have joined the space."
 msgstr "Convite aceito: você entrou no espaço."
 
 #. translators: %s is the formatted number of unread notifications (e.g. "12" or "99+").
-#: includes/Core/AssetService.php:2298
+#: includes/Core/AssetService.php:2299
 #: templates/parts/notifications-hero.php:96
 #, php-format
 msgid "%s unread"
 msgstr "%s não lidas"
 
-#: includes/Core/AssetService.php:2301
+#: includes/Core/AssetService.php:2302
 msgid "Could not update those requests."
 msgstr "Não foi possível atualizar essas solicitações."
 
 #. translators: 1: number handled, 2: number no longer pending.
-#: includes/Core/AssetService.php:2303
+#: includes/Core/AssetService.php:2304
 #, php-format
 msgid "%1$d handled, %2$d no longer pending."
 msgstr "%1$d processadas, %2$d não estão mais pendentes."
 
 #. translators: %d: number of members approved.
-#: includes/Core/AssetService.php:2305
+#: includes/Core/AssetService.php:2306
 #, php-format
 msgid "%d members approved."
 msgstr "%d membros aprovados."
 
 #. translators: %d: number of requests declined.
-#: includes/Core/AssetService.php:2307
+#: includes/Core/AssetService.php:2308
 #, php-format
 msgid "%d requests declined."
 msgstr "%d solicitações recusadas."
 
-#: includes/Core/AssetService.php:2323
+#: includes/Core/AssetService.php:2324
 msgid "Just now"
 msgstr "Agora mesmo"
 
 #. translators: %d: number of seconds
-#: includes/Core/AssetService.php:2325
+#: includes/Core/AssetService.php:2326
 #, php-format
 msgid "%ds ago"
 msgstr "há %ds"
 
 #. translators: %d: number of minutes
-#: includes/Core/AssetService.php:2327
+#: includes/Core/AssetService.php:2328
 #, php-format
 msgid "%d min ago"
 msgstr "há %d min"
 
 #. translators: %s: relative time the prefs were last saved (e.g. "2 min ago")
-#: includes/Core/AssetService.php:2333
+#: includes/Core/AssetService.php:2334
 #, php-format
 msgid "Saved %s"
 msgstr "Salvo %s"
 
-#: includes/Core/AssetService.php:2334
+#: includes/Core/AssetService.php:2335
 msgid "Space preference saved."
 msgstr "Preferência de espaço salva."
 
-#: includes/Core/AssetService.php:2335
+#: includes/Core/AssetService.php:2336
 msgid "Could not save space preference."
 msgstr "Não foi possível salvar a preferência de espaço."
 
-#: includes/Core/AssetService.php:2336
+#: includes/Core/AssetService.php:2337
 msgid "Could not save preferences."
 msgstr "Não foi possível salvar as preferências."
 
-#: includes/Core/AssetService.php:2337
+#: includes/Core/AssetService.php:2338
 msgid "Preferences saved."
 msgstr "Preferências salvas."
 
-#: includes/Core/AssetService.php:2340
+#: includes/Core/AssetService.php:2341
 msgid "You will no longer receive newsletters or announcements."
 msgstr "Você não receberá mais boletins informativos ou comunicados."
 
-#: includes/Core/AssetService.php:2341
+#: includes/Core/AssetService.php:2342
 msgid "You will receive newsletters and announcements again."
 msgstr "Você voltará a receber boletins informativos e comunicados."
 
-#: includes/Core/AssetService.php:2342
+#: includes/Core/AssetService.php:2343
 msgid "Could not update your broadcast email preference."
 msgstr "Não foi possível atualizar sua preferência de e-mails de comunicados."
 
-#: includes/Core/AssetService.php:2343
+#: includes/Core/AssetService.php:2344
 msgid "Email preference saved."
 msgstr "Preferência de e-mail salva."
 
-#: includes/Core/AssetService.php:2344
+#: includes/Core/AssetService.php:2345
 msgid "Could not save your email preference."
 msgstr "Não foi possível salvar sua preferência de e-mail."
 
-#: includes/Core/AssetService.php:2361
+#: includes/Core/AssetService.php:2362
 msgid "Please name this search first."
 msgstr "Por favor, nomeie esta pesquisa primeiro."
 
-#: includes/Core/AssetService.php:2362
+#: includes/Core/AssetService.php:2363
 msgid "Search saved."
 msgstr "Pesquisa salva."
 
-#: includes/Core/AssetService.php:2363
+#: includes/Core/AssetService.php:2364
 msgid "Saving searches is not available right now."
 msgstr "Salvar pesquisas não está disponível no momento."
 
-#: includes/Core/AssetService.php:2364
+#: includes/Core/AssetService.php:2365
 msgid "Could not save this search. Try again."
 msgstr "Não foi possível salvar esta pesquisa. Tente novamente."
 
-#: includes/Core/AssetService.php:2365
+#: includes/Core/AssetService.php:2366
 msgid "Could not delete this saved search. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2366
+#: includes/Core/AssetService.php:2367
 msgid "Could not update this follow. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2375
+#: includes/Core/AssetService.php:2376
 msgid "Could not update your membership. Try again."
 msgstr ""
 
-#: includes/Core/AssetService.php:2376
+#: includes/Core/AssetService.php:2377
 msgid "Recent searches"
 msgstr "Buscas recentes"
 
-#: includes/Core/AssetService.php:2377
+#: includes/Core/AssetService.php:2378
 msgid "Recent:"
 msgstr "Recente:"
 
-#: includes/Core/AssetService.php:2379
+#: includes/Core/AssetService.php:2380
 msgid "Search suggestions"
 msgstr "Sugestões de busca"
 
-#: includes/Core/AssetService.php:2401
+#: includes/Core/AssetService.php:2402
 msgid "Could not update follow state. Try again."
 msgstr ""
 "Não foi possível atualizar o estado de acompanhamento. Tente novamente."
 
 #. translators: %s: hashtag slug (without the leading #)
-#: includes/Core/AssetService.php:2403
+#: includes/Core/AssetService.php:2404
 #, php-format
 msgid "Unfollowed #%s"
 msgstr "Deixou de seguir #%s"
 
 #. translators: %s: hashtag slug (without the leading #)
-#: includes/Core/AssetService.php:2405
+#: includes/Core/AssetService.php:2406
 #, php-format
 msgid "Following #%s"
 msgstr "Seguindo #%s"
 
-#: includes/Core/AssetService.php:2423
+#: includes/Core/AssetService.php:2424
 msgid "Remove this member?"
 msgstr "Remover este membro?"
 
 #. translators: %s: the member's name.
-#: includes/Core/AssetService.php:2425
+#: includes/Core/AssetService.php:2426
 #, php-format
 msgid "Remove %s from this space?"
 msgstr ""
 
 #. translators: %s: the member's name.
-#: includes/Core/AssetService.php:2427
+#: includes/Core/AssetService.php:2428
 #, php-format
 msgid "Ban %s from this space?"
 msgstr ""
 
-#: includes/Core/AssetService.php:2428
+#: includes/Core/AssetService.php:2429
 msgid "Reason (optional, kept in the moderation log)"
 msgstr ""
 
-#: includes/Core/AssetService.php:2429
+#: includes/Core/AssetService.php:2430
 msgid "Reason for the ban"
 msgstr ""
 
-#: includes/Core/AssetService.php:2432
+#: includes/Core/AssetService.php:2433
 msgid "Could not remove member. Try again."
 msgstr "Não foi possível remover o membro. Tente novamente."
 
-#: includes/Core/AssetService.php:2433
+#: includes/Core/AssetService.php:2434
 msgid "Could not update role. Try again."
 msgstr "Não foi possível atualizar a função. Tente novamente."
 
-#: includes/Core/AssetService.php:2434
+#: includes/Core/AssetService.php:2435
 msgid "Ban this member?"
 msgstr "Banir este membro?"
 
-#: includes/Core/AssetService.php:2435
+#: includes/Core/AssetService.php:2436
 msgid "They will be removed and blocked from rejoining this space."
 msgstr "Eles serão removidos e bloqueados de reentrar neste espaço."
 
-#: includes/Core/AssetService.php:2436
+#: includes/Core/AssetService.php:2437
 #: templates/parts/space-settings-panel-members.php:201
 msgid "Ban"
 msgstr "Banir"
 
-#: includes/Core/AssetService.php:2437
+#: includes/Core/AssetService.php:2438
 msgid "Could not ban member. Try again."
 msgstr "Não foi possível banir o membro. Tente novamente."
 
-#: includes/Core/AssetService.php:2438
+#: includes/Core/AssetService.php:2439
 msgid "Unban this member?"
 msgstr "Desbanir este membro?"
 
-#: includes/Core/AssetService.php:2439
+#: includes/Core/AssetService.php:2440
 msgid "They will be able to request or join this space again."
 msgstr "Elas poderão solicitar ou entrar neste espaço novamente."
 
-#: includes/Core/AssetService.php:2440
+#: includes/Core/AssetService.php:2441
 #: templates/parts/space-settings-panel-members.php:259
 msgid "Unban"
 msgstr "Desbanir"
 
-#: includes/Core/AssetService.php:2441
+#: includes/Core/AssetService.php:2442
 msgid "Could not unban member. Try again."
 msgstr "Não foi possível desbanir o membro. Tente novamente."
 
-#: includes/Core/AssetService.php:2460
+#: includes/Core/AssetService.php:2461
 msgid "Fields saved"
 msgstr "Campos salvos"
 
-#: includes/Core/AssetService.php:2461
+#: includes/Core/AssetService.php:2462
 msgid "Could not save the fields. Try again."
 msgstr "Não foi possível salvar os campos. Tente novamente."
 
 #. translators: %s: masked email address the code was sent to
-#: includes/Core/AssetService.php:2501
+#: includes/Core/AssetService.php:2502
 #, php-format
 msgid "Code sent to %s"
 msgstr "Código enviado para %s"
 
-#: includes/Core/AssetService.php:2502
+#: includes/Core/AssetService.php:2503
 msgid "Code sent: check your email"
 msgstr "Código enviado: verifique seu e-mail"
 
-#: includes/Core/AssetService.php:2503
+#: includes/Core/AssetService.php:2504
 msgid "Enter your email and password to sign in."
 msgstr "Digite seu email e senha para entrar."
 
-#: includes/Core/AssetService.php:2505
+#: includes/Core/AssetService.php:2506
 msgid "Signed in."
 msgstr "Conectado."
 
-#: includes/Core/AssetService.php:2507
+#: includes/Core/AssetService.php:2508
 msgid "That code was not correct."
 msgstr "Esse código não estava correto."
 
-#: includes/Core/AssetService.php:2508
+#: includes/Core/AssetService.php:2509
 msgid "If your session is still valid, a code is on its way."
 msgstr "Se sua sessão ainda for válida, um código está a caminho."
 
-#: includes/Core/AssetService.php:2509
+#: includes/Core/AssetService.php:2510
 msgid "Could not send the code. Try your authenticator app."
 msgstr "Não foi possível enviar o código. Tente seu aplicativo autenticador."
 
-#: includes/Core/AssetService.php:2530
+#: includes/Core/AssetService.php:2531
 msgid "Please fill in your email and password."
 msgstr "Preencha seu e-mail e sua senha."
 
-#: includes/Core/AssetService.php:2531
+#: includes/Core/AssetService.php:2532
 msgid "Please enter a password."
 msgstr ""
 
-#: includes/Core/AssetService.php:2532
+#: includes/Core/AssetService.php:2533
 msgid "Please enter your email address."
 msgstr ""
 
-#: includes/Core/AssetService.php:2534
+#: includes/Core/AssetService.php:2535
 msgid "Please agree to the Terms of Service and Privacy Policy to continue."
 msgstr ""
 "Por favor, concorde com os Termos de Serviço e Política de Privacidade para "
 "continuar."
 
-#: includes/Core/AssetService.php:2535
+#: includes/Core/AssetService.php:2536
 msgid "Please answer the verification question."
 msgstr "Por favor, responda a pergunta de verificação."
 
-#: includes/Core/AssetService.php:2536
+#: includes/Core/AssetService.php:2537
 msgid "Could not create your account."
 msgstr "Não foi possível criar sua conta."
 
-#: includes/Core/AssetService.php:2537
+#: includes/Core/AssetService.php:2538
 msgid "Account created. Welcome aboard!"
 msgstr "Conta criada. Bem-vindo!"
 
-#: includes/Core/AssetService.php:2542
+#: includes/Core/AssetService.php:2543
 msgid "Please choose a username."
 msgstr "Escolha um nome de usuário."
 
-#: includes/Core/AssetService.php:2576
+#: includes/Core/AssetService.php:2577
 msgid "Please enter your email or username."
 msgstr "Por favor, digite seu email ou nome de usuário."
 
-#: includes/Core/AssetService.php:2577
+#: includes/Core/AssetService.php:2578
 msgid "If an account matches, a reset link is on its way."
 msgstr "Se uma conta corresponder, um link de redefinição está a caminho."
 
-#: includes/Core/AssetService.php:2579
+#: includes/Core/AssetService.php:2580
 msgid "Please choose a new password."
 msgstr "Por favor, escolha uma nova senha."
 
-#: includes/Core/AssetService.php:2580
+#: includes/Core/AssetService.php:2581
 msgid "Could not reset your password."
 msgstr "Não foi possível redefinir sua senha."
 
-#: includes/Core/AssetService.php:2581
+#: includes/Core/AssetService.php:2582
 msgid "Password updated. Please sign in."
 msgstr "Senha atualizada. Por favor, entre."
 
@@ -15776,23 +15808,23 @@ msgstr "Fluxo de configuração do primeiro membro."
 msgid "Community Admin"
 msgstr "Administração da comunidade"
 
-#: includes/Core/CronScheduler.php:273
+#: includes/Core/CronScheduler.php:275
 msgid "BuddyNext background tasks"
 msgstr ""
 
-#: includes/Core/CronScheduler.php:314
+#: includes/Core/CronScheduler.php:316
 msgid "BuddyNext background tasks are running"
 msgstr ""
 
-#: includes/Core/CronScheduler.php:317
+#: includes/Core/CronScheduler.php:319
 msgid "No BuddyNext background task is waiting past its time."
 msgstr ""
 
-#: includes/Core/CronScheduler.php:324
+#: includes/Core/CronScheduler.php:326
 msgid "BuddyNext background tasks are not running"
 msgstr ""
 
-#: includes/Core/CronScheduler.php:327
+#: includes/Core/CronScheduler.php:329
 msgid ""
 "Some BuddyNext background tasks have been waiting for more than an hour. A "
 "working site runs them within minutes. Until they run, email digests are not "
@@ -15800,7 +15832,7 @@ msgid ""
 "not finished. New posts are still searchable straight away."
 msgstr ""
 
-#: includes/Core/CronScheduler.php:328
+#: includes/Core/CronScheduler.php:330
 msgid ""
 "The usual cause is that WordPress cannot start its own background requests: "
 "WP-Cron is turned off without a server cron job, or the host or a firewall "
@@ -15809,7 +15841,7 @@ msgid ""
 "this screen."
 msgstr ""
 
-#: includes/Core/CronScheduler.php:332
+#: includes/Core/CronScheduler.php:334
 msgid "See the waiting tasks"
 msgstr ""
 
@@ -16595,6 +16627,14 @@ msgstr ""
 "mídia em {{site_name}}. <a href=\"{{action_url}}\">Ver mídia.</a></p><p><a "
 "href=\"{{unsubscribe_url}}\">Cancelar inscrição</a></p>"
 
+#: includes/Core/Installer.php:4299
+msgid "Open Discussion"
+msgstr ""
+
+#: includes/Core/Installer.php:4301
+msgid "A community space for open conversation."
+msgstr ""
+
 #. translators: %d: id of a post that no longer exists.
 #: includes/Core/ObjectLabels.php:222
 #, php-format
@@ -17222,7 +17262,7 @@ msgstr "Os anúncios estão desativados."
 msgid "Announcement not found."
 msgstr "Anúncio não encontrado."
 
-#: includes/Feed/IntegrationActivity.php:791
+#: includes/Feed/IntegrationActivity.php:818
 msgid "This is no longer available."
 msgstr ""
 
@@ -17331,8 +17371,8 @@ msgstr "Uma URL válida é obrigatória."
 #: includes/Feed/PostService.php:1927 includes/Feed/PostService.php:1952
 #: includes/Feed/PostService.php:2032 includes/Feed/PostService.php:2045
 #: includes/Feed/PostService.php:2312 includes/Feed/PostService.php:2486
-#: includes/Feed/PostService.php:4133 includes/Feed/PostService.php:4272
-#: includes/Feed/PostService.php:5222 includes/Feed/ShareService.php:71
+#: includes/Feed/PostService.php:4173 includes/Feed/PostService.php:4312
+#: includes/Feed/PostService.php:5262 includes/Feed/ShareService.php:71
 #: includes/Moderation/ModerationController.php:1460
 #: includes/Moderation/ModerationController.php:2009
 #: includes/REST/BaseRestController.php:432
@@ -17450,43 +17490,43 @@ msgstr ""
 msgid "The post could not be deleted. Try again."
 msgstr "Não foi possível excluir a publicação. Tente novamente."
 
-#: includes/Feed/PostService.php:4142
+#: includes/Feed/PostService.php:4182
 msgid ""
 "Posts in a space cannot be pinned. Use an announcement to feature a post."
 msgstr ""
 "Publicações em um espaço não podem ser fixadas. Use um comunicado para "
 "destacar uma publicação."
 
-#: includes/Feed/PostService.php:4152 includes/Feed/PostService.php:4279
-#: includes/Feed/PostService.php:5231
+#: includes/Feed/PostService.php:4192 includes/Feed/PostService.php:4319
+#: includes/Feed/PostService.php:5271
 msgid "You are not the owner of this post."
 msgstr "Você não é o proprietário desta postagem."
 
-#: includes/Feed/PostService.php:4158
+#: includes/Feed/PostService.php:4198
 msgid "Only a published post can be pinned."
 msgstr "Somente publicações publicadas podem ser fixadas."
 
 #. translators: %d: the maximum number of pinned posts allowed in this scope.
-#: includes/Feed/PostService.php:4205
+#: includes/Feed/PostService.php:4245
 #, php-format
 msgid "You have reached the maximum of %d pinned post."
 msgid_plural "You have reached the maximum of %d pinned posts."
 msgstr[0] "Você atingiu o máximo de %d postagem fixada."
 msgstr[1] "Você atingiu o máximo de %d postagens fixadas."
 
-#: includes/Feed/PostService.php:5316
+#: includes/Feed/PostService.php:5356
 msgid "You do not have permission to moderate this post."
 msgstr "Você não tem permissão para moderar esta publicação."
 
-#: includes/Feed/PostService.php:5396
+#: includes/Feed/PostService.php:5436
 msgid "That poll end time is not a valid date and time."
 msgstr ""
 
-#: includes/Feed/PostService.php:6071
+#: includes/Feed/PostService.php:6111
 msgid "The link redirected somewhere we will not follow."
 msgstr "O link redirecionou para um endereço que não seguiremos."
 
-#: includes/Feed/PostService.php:6078
+#: includes/Feed/PostService.php:6118
 msgid "The link redirected too many times."
 msgstr "O link redirecionou muitas vezes."
 
@@ -18170,8 +18210,8 @@ msgstr "Você não pode advertir este membro."
 
 #: includes/Moderation/ModerationController.php:1628
 #: includes/Moderation/ModerationController.php:1662
-#: includes/Moderation/ModerationService.php:4179
-#: includes/Moderation/ModerationService.php:4408
+#: includes/Moderation/ModerationService.php:4187
+#: includes/Moderation/ModerationService.php:4416
 msgid "Invalid user ID."
 msgstr "ID de usuário inválido."
 
@@ -18223,15 +18263,16 @@ msgstr "BuddyNext: Limite da fila de moderação atingido"
 #, php-format
 msgid ""
 "Your BuddyNext moderation queue currently has %1$d pending or escalated "
-"report(s), which meets or exceeds the configured alert threshold of %2$d.\n"
+"report, which meets or exceeds the configured alert threshold of %2$d.\n"
 "\n"
 "Please review the queue at your earliest convenience."
-msgstr ""
-"Sua fila de moderação do BuddyNext atualmente tem %1$d relatório(s) "
-"pendente(s) ou escalado(s), que atende ou excede o limite de alerta "
-"configurado de %2$d.\n"
+msgid_plural ""
+"Your BuddyNext moderation queue currently has %1$d pending or escalated "
+"reports, which meet or exceed the configured alert threshold of %2$d.\n"
 "\n"
-"Por favor, revise a fila assim que possível."
+"Please review the queue at your earliest convenience."
+msgstr[0] ""
+msgstr[1] ""
 
 #: includes/Moderation/ModerationLogService.php:317
 #: includes/Moderation/ModerationLogService.php:318
@@ -18337,7 +18378,7 @@ msgid "You do not have permission to remove content."
 msgstr "Você não tem permissão para remover conteúdo."
 
 #: includes/Moderation/ModerationService.php:1043
-#: includes/Moderation/ModerationService.php:3752
+#: includes/Moderation/ModerationService.php:3760
 msgid "Report not found."
 msgstr "Relatório não encontrado."
 
@@ -18426,7 +18467,7 @@ msgid "%1$s: %2$s"
 msgstr "%1$s: %2$s"
 
 #: includes/Moderation/ModerationService.php:2371
-#: includes/Moderation/ModerationService.php:4184
+#: includes/Moderation/ModerationService.php:4192
 msgid "The site owner's account cannot be suspended."
 msgstr ""
 
@@ -18439,7 +18480,7 @@ msgid "You cannot suspend your own account."
 msgstr ""
 
 #: includes/Moderation/ModerationService.php:2479
-#: includes/Moderation/ModerationService.php:4193
+#: includes/Moderation/ModerationService.php:4201
 msgid "Choose a reason for the suspension. The member will see it."
 msgstr "Escolha um motivo para a suspensão. O membro poderá vê-lo."
 
@@ -18465,56 +18506,56 @@ msgstr "Este membro não está suspenso no momento."
 msgid "Insufficient permissions."
 msgstr "Permissões insuficientes."
 
-#: includes/Moderation/ModerationService.php:3472
+#: includes/Moderation/ModerationService.php:3480
 msgid "No matching suspension found."
 msgstr "Nenhuma suspensão correspondente encontrada."
 
-#: includes/Moderation/ModerationService.php:3492
-#: includes/Moderation/ModerationService.php:4445
+#: includes/Moderation/ModerationService.php:3500
+#: includes/Moderation/ModerationService.php:4453
 msgid "You have already appealed this. A moderator will review it."
 msgstr "Você já recorreu desta decisão. Um moderador vai analisá-la."
 
-#: includes/Moderation/ModerationService.php:3566
+#: includes/Moderation/ModerationService.php:3574
 msgid "You do not have permission to resolve appeals."
 msgstr "Você não tem permissão para resolver apelos."
 
-#: includes/Moderation/ModerationService.php:3570
+#: includes/Moderation/ModerationService.php:3578
 msgid "Decision must be \"approved\" or \"denied\"."
 msgstr "A decisão deve ser \"aprovada\" ou \"negada\"."
 
-#: includes/Moderation/ModerationService.php:3593
+#: includes/Moderation/ModerationService.php:3601
 msgid "That appeal no longer exists."
 msgstr "Esse apelo não existe mais."
 
-#: includes/Moderation/ModerationService.php:3602
+#: includes/Moderation/ModerationService.php:3610
 msgid "That appeal has already been resolved."
 msgstr "Este recurso já foi resolvido."
 
-#: includes/Moderation/ModerationService.php:3722
+#: includes/Moderation/ModerationService.php:3730
 msgid "You do not have permission to action reports."
 msgstr "Você não tem permissão para agir sobre relatórios."
 
-#: includes/Moderation/ModerationService.php:3806
+#: includes/Moderation/ModerationService.php:3814
 msgid "Database error updating report status."
 msgstr "Erro de banco de dados ao atualizar o status do relatório."
 
-#: includes/Moderation/ModerationService.php:3818
+#: includes/Moderation/ModerationService.php:3826
 msgid "This report was already escalated or actioned by another moderator."
 msgstr "Esta denúncia já foi encaminhada ou tratada por outro moderador."
 
-#: includes/Moderation/ModerationService.php:3819
+#: includes/Moderation/ModerationService.php:3827
 msgid "This report was already actioned by another moderator."
 msgstr "Este relatório já foi processado por outro moderador."
 
-#: includes/Moderation/ModerationService.php:4239
+#: includes/Moderation/ModerationService.php:4247
 msgid "Could not save the suspension. Please try again."
 msgstr "Não foi possível salvar a suspensão. Tente novamente."
 
-#: includes/Moderation/ModerationService.php:4418
+#: includes/Moderation/ModerationService.php:4426
 msgid "You do not have an active suspension to appeal."
 msgstr "Você não tem uma suspensão ativa para apelar."
 
-#: includes/Moderation/ModerationService.php:4465
+#: includes/Moderation/ModerationService.php:4473
 msgid "Could not send your appeal. Please try again."
 msgstr "Não foi possível enviar sua contestação. Tente novamente."
 
@@ -18882,13 +18923,13 @@ msgid "Could not save space notification preference."
 msgstr "Não foi possível salvar a preferência de notificação do espaço."
 
 #. translators: 1: author name, 2: space name, 3: excerpt of the announcement.
-#: includes/Notifications/NotificationListener.php:1853
+#: includes/Notifications/NotificationListener.php:1868
 #, php-format
 msgid "%1$s posted an announcement in %2$s: \"%3$s\""
 msgstr "%1$s publicou um comunicado em %2$s: \"%3$s\""
 
 #. translators: 1: author name, 2: space name, 3: excerpt of the post.
-#: includes/Notifications/NotificationListener.php:1855
+#: includes/Notifications/NotificationListener.php:1870
 #, php-format
 msgid "%1$s posted in %2$s: \"%3$s\""
 msgstr "%1$s publicou em %2$s: \"%3$s\""
@@ -19634,15 +19675,15 @@ msgstr "Atividade do feed"
 msgid "Growth and digests"
 msgstr "Crescimento e resumos"
 
-#: includes/Notifications/NotificationService.php:613
+#: includes/Notifications/NotificationService.php:674
 msgid "You cannot mark this notification as read."
 msgstr "Você não pode marcar esta notificação como lida."
 
-#: includes/Notifications/NotificationService.php:756
+#: includes/Notifications/NotificationService.php:817
 msgid "You cannot mark this notification as unread."
 msgstr "Você não pode marcar esta notificação como não lida."
 
-#: includes/Notifications/NotificationService.php:799
+#: includes/Notifications/NotificationService.php:860
 msgid "You cannot delete this notification."
 msgstr "Você não pode deletar esta notificação."
 
@@ -20610,7 +20651,7 @@ msgid ""
 msgstr ""
 
 #: includes/Profile/FieldType.php:1709
-#: templates/gamification/leaderboard.php:875
+#: templates/gamification/leaderboard.php:878
 msgid "Current"
 msgstr "Atual"
 
@@ -20697,7 +20738,7 @@ msgid "All-time rank"
 msgstr "Classificação geral"
 
 #: includes/Profile/GamificationAchievements.php:457
-#: templates/gamification/leaderboard.php:429
+#: templates/gamification/leaderboard.php:432
 msgid "Level"
 msgstr "Nível"
 
@@ -21056,7 +21097,7 @@ msgid "Unknown field type: %s."
 msgstr "Tipo de campo desconhecido: %s."
 
 #. translators: 1: icon slug, 2: panel key.
-#: includes/Profile/SuitePanelHost.php:296
+#: includes/Profile/SuitePanelHost.php:301
 #, php-format
 msgid ""
 "Portfolio panel \"%2$s\" requested icon \"%1$s\", which has no SVG in "
@@ -21067,11 +21108,11 @@ msgstr ""
 "SVG em buddynext/assets/icons. Usando o padrão. Adicione o arquivo do ícone "
 "ou escolha um identificador existente."
 
-#: includes/Profile/SuitePanelHost.php:340
+#: includes/Profile/SuitePanelHost.php:345
 msgid "Portfolio"
 msgstr "Portfólio"
 
-#: includes/Profile/SuitePanelHost.php:518
+#: includes/Profile/SuitePanelHost.php:523
 msgid "Show fewer"
 msgstr ""
 
@@ -21301,7 +21342,7 @@ msgstr "Pulso da comunidade"
 #. translators: %s: formatted member count.
 #. translators: %s: number of members.
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:305
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:408
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:437
 #: templates/community-admin.php:581 templates/feed/explore.php:164
 #: templates/onboarding/index.php:550 templates/partials/explore-card.php:179
 #: templates/partials/space-delete-confirm-modal.php:65
@@ -21337,26 +21378,26 @@ msgid_plural "memberships"
 msgstr[0] "participação"
 msgstr[1] "participações"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:161
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:190
 msgid "About this space"
 msgstr "Sobre este espaço"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:214
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:243
 #: templates/parts/sidebar-explore-people.php:73
 #: templates/parts/sidebar-people-to-follow.php:57
 msgid "See all members"
 msgstr "Ver todos os membros"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:227
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:256
 #: templates/parts/hashtag-sidebar-top-contributors.php:65
 msgid "Top contributors"
 msgstr "Principais colaboradores"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:325
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:354
 msgid "Owner & Moderators"
 msgstr "Proprietário e moderadores"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:326
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:355
 #: templates/parts/space-members-body.php:191
 #: templates/parts/space-members-body.php:287
 #: templates/parts/space-members-panel.php:155
@@ -21364,7 +21405,7 @@ msgstr "Proprietário e moderadores"
 msgid "Owner"
 msgstr "Proprietário"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:421
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:450
 #: templates/parts/space-subspaces-panel.php:105
 msgid ""
 "Organize this space into focused sub-spaces members can join on their own."
@@ -21373,37 +21414,37 @@ msgstr ""
 "por conta própria."
 
 #. translators: 1: sub-spaces already created, 2: maximum allowed.
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:433
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:462
 #: templates/parts/space-subspaces-panel.php:119
 #, php-format
 msgid "%1$d of %2$d sub-spaces used"
 msgstr "%1$d de %2$d subespaços usados"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:454
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:472
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:483
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:501
 #: templates/parts/space-subspaces-panel.php:136
 #: templates/parts/space-subspaces-panel.php:150
 msgid "Add sub-space"
 msgstr "Adicionar sub-espaço"
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:457
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:486
 #: templates/parts/space-subspaces-panel.php:139
 msgid "This space has reached its sub-space limit."
 msgstr "Este espaço atingiu o limite de subespaços."
 
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:535
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:564
 msgid "Mod"
 msgstr "Mod"
 
 #. translators: %s: member display name.
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:548
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:577
 #: templates/parts/space-members-body.php:458
 #, php-format
 msgid "Message %s"
 msgstr "Mensagem %s"
 
 #. translators: %d: number of posts.
-#: includes/Sidebar/Providers/SpaceSidebarProvider.php:616
+#: includes/Sidebar/Providers/SpaceSidebarProvider.php:645
 #: templates/parts/hashtag-sidebar-top-contributors.php:105
 #: templates/parts/search-result-section-hashtags.php:133
 #, php-format
@@ -23755,61 +23796,61 @@ msgstr ""
 "O placar exige que o plugin de gamificação esteja ativo. Instale e ative "
 "para começar a ganhar pontos e ver seu ranking na comunidade."
 
-#: templates/gamification/leaderboard.php:316
+#: templates/gamification/leaderboard.php:319
 msgid "All time"
 msgstr "Tempo todo"
 
-#: templates/gamification/leaderboard.php:317
+#: templates/gamification/leaderboard.php:320
 msgid "This month"
 msgstr "Este mês"
 
-#: templates/gamification/leaderboard.php:318
+#: templates/gamification/leaderboard.php:321
 #: templates/parts/sidebar-this-week-stats.php:114
 #: templates/parts/sidebar-trending-topics.php:30
 msgid "This week"
 msgstr "Esta semana"
 
 #. translators: %s: the site's name for points, e.g. "Points" or "Coins".
-#: templates/gamification/leaderboard.php:346
+#: templates/gamification/leaderboard.php:349
 #, php-format
 msgid "This space's members, ranked by their %s across the community."
 msgstr ""
 
-#: templates/gamification/leaderboard.php:354
+#: templates/gamification/leaderboard.php:357
 msgid "Gamification"
 msgstr "Gamificação"
 
-#: templates/gamification/leaderboard.php:357
+#: templates/gamification/leaderboard.php:360
 msgid "Top contributors across this community."
 msgstr "Principais colaboradores em toda a comunidade."
 
-#: templates/gamification/leaderboard.php:363
+#: templates/gamification/leaderboard.php:366
 msgid "Your stats"
 msgstr "Suas estatísticas"
 
-#: templates/gamification/leaderboard.php:373
+#: templates/gamification/leaderboard.php:376
 msgid "Your rank this week"
 msgstr "Sua posição nesta semana"
 
-#: templates/gamification/leaderboard.php:375
+#: templates/gamification/leaderboard.php:378
 msgid "Your rank this month"
 msgstr "Sua posição neste mês"
 
-#: templates/gamification/leaderboard.php:377
+#: templates/gamification/leaderboard.php:380
 msgid "Your rank all time"
 msgstr "Sua posição geral"
 
-#: templates/gamification/leaderboard.php:382
-#: templates/gamification/leaderboard.php:432
+#: templates/gamification/leaderboard.php:385
+#: templates/gamification/leaderboard.php:435
 msgid "Unranked"
 msgstr "Sem classificação"
 
-#: templates/gamification/leaderboard.php:395
+#: templates/gamification/leaderboard.php:398
 msgid "No change"
 msgstr "Sem alterações"
 
 #. translators: %d: number of places moved up.
-#: templates/gamification/leaderboard.php:398
+#: templates/gamification/leaderboard.php:401
 #, php-format
 msgid "Up %d place"
 msgid_plural "Up %d places"
@@ -23817,83 +23858,83 @@ msgstr[0] "Subiu %d posição"
 msgstr[1] "Subiu %d posições"
 
 #. translators: %d: number of places moved down.
-#: templates/gamification/leaderboard.php:401
+#: templates/gamification/leaderboard.php:404
 #, php-format
 msgid "Down %d place"
 msgid_plural "Down %d places"
 msgstr[0] "Caiu %d posição"
 msgstr[1] "Caiu %d posições"
 
-#: templates/gamification/leaderboard.php:421
+#: templates/gamification/leaderboard.php:424
 msgid "All-time"
 msgstr "Geral"
 
-#: templates/gamification/leaderboard.php:437
+#: templates/gamification/leaderboard.php:440
 msgid "Top level reached"
 msgstr "Nível máximo alcançado"
 
 #. translators: 1: points remaining with the site's name for points, e.g. "40 Points", 2: next level name.
-#: templates/gamification/leaderboard.php:440
+#: templates/gamification/leaderboard.php:443
 #, php-format
 msgid "%1$s to %2$s"
 msgstr "%1$s até %2$s"
 
-#: templates/gamification/leaderboard.php:448
+#: templates/gamification/leaderboard.php:451
 msgid "Level progress"
 msgstr "Progresso do nível"
 
 #. translators: 1: level name, 2: current points with the site's name for points, e.g. "1,200 Points".
-#: templates/gamification/leaderboard.php:454
+#: templates/gamification/leaderboard.php:457
 #, php-format
 msgid "%1$s · %2$s (top level)"
 msgstr "%1$s · %2$s (nível máximo)"
 
 #. translators: 1: current level name, 2: next level name, 3: points earned, 4: next-level points with the site's name for points, e.g. "500 Points".
-#: templates/gamification/leaderboard.php:457
+#: templates/gamification/leaderboard.php:460
 #, php-format
 msgid "%1$s → %2$s: %3$s / %4$s"
 msgstr "%1$s → %2$s: %3$s / %4$s"
 
-#: templates/gamification/leaderboard.php:474
+#: templates/gamification/leaderboard.php:477
 msgid "Leaderboard period"
 msgstr "Período do placar"
 
 #. translators: %d: number of top members shown.
-#: templates/gamification/leaderboard.php:508
+#: templates/gamification/leaderboard.php:511
 #, php-format
 msgid "Top %d"
 msgstr "Top %d"
 
-#: templates/gamification/leaderboard.php:519
+#: templates/gamification/leaderboard.php:522
 msgid "No leaderboard data yet"
 msgstr "Nenhum dado de placar ainda"
 
 #. translators: %s: the site's name for points.
-#: templates/gamification/leaderboard.php:523
+#: templates/gamification/leaderboard.php:526
 #, php-format
 msgid "Start contributing to the community to earn %s and climb the ranks."
 msgstr "Participe da comunidade para ganhar %s e subir no ranking."
 
-#: templates/gamification/leaderboard.php:530
+#: templates/gamification/leaderboard.php:533
 msgid "Ranked members"
 msgstr "Membros classificados"
 
-#: templates/gamification/leaderboard.php:540
+#: templates/gamification/leaderboard.php:543
 msgid "Unknown member"
 msgstr "Membro desconhecido"
 
 #. translators: %d: numeric rank position.
-#: templates/gamification/leaderboard.php:570
+#: templates/gamification/leaderboard.php:573
 #, php-format
 msgid "Rank %d"
 msgstr "Posição %d"
 
-#: templates/gamification/leaderboard.php:637
+#: templates/gamification/leaderboard.php:640
 msgid "Earned badges"
 msgstr "Insígnias ganhas"
 
 #. translators: %d: number of badges not shown.
-#: templates/gamification/leaderboard.php:660
+#: templates/gamification/leaderboard.php:663
 #, php-format
 msgid "%d more badge"
 msgid_plural "%d more badges"
@@ -23901,69 +23942,69 @@ msgstr[0] "%d emblema a mais"
 msgstr[1] "%d emblemas a mais"
 
 #. translators: %d: number of further items not shown.
-#: templates/gamification/leaderboard.php:663
+#: templates/gamification/leaderboard.php:666
 #: templates/parts/article-card.php:77
 #, php-format
 msgid "+%d"
 msgstr "+%d"
 
-#: templates/gamification/leaderboard.php:724
+#: templates/gamification/leaderboard.php:727
 msgid "Leaderboard pages"
 msgstr "Páginas do ranking"
 
 #. translators: 1: first rank shown, 2: last rank shown, 3: total members on the board, 4: page number, 5: total pages.
-#: templates/gamification/leaderboard.php:730
+#: templates/gamification/leaderboard.php:733
 #, php-format
 msgid "Showing %1$s to %2$s of %3$s · Page %4$s of %5$s"
 msgstr "Mostrando %1$s até %2$s de %3$s · Página %4$s de %5$s"
 
-#: templates/gamification/leaderboard.php:742
+#: templates/gamification/leaderboard.php:745
 #: templates/parts/hashtag-hero.php:183
 msgid "Top"
 msgstr "Em destaque"
 
-#: templates/gamification/leaderboard.php:773
+#: templates/gamification/leaderboard.php:776
 msgid "Your position"
 msgstr "Sua posição"
 
-#: templates/gamification/leaderboard.php:828
+#: templates/gamification/leaderboard.php:831
 msgid "Your gamification widgets"
 msgstr "Seus widgets de gamificação"
 
-#: templates/gamification/leaderboard.php:834
+#: templates/gamification/leaderboard.php:837
 msgid "Your Badges"
 msgstr "Suas insígnias"
 
 #. translators: %d: number of badges earned.
-#: templates/gamification/leaderboard.php:856
+#: templates/gamification/leaderboard.php:859
 #, php-format
 msgid "%d badge earned"
 msgid_plural "%d badges earned"
 msgstr[0] "%d insígnia ganha"
 msgstr[1] "%d insígnias ganhas"
 
-#: templates/gamification/leaderboard.php:861
+#: templates/gamification/leaderboard.php:864
 msgid "Earn your first badge by contributing to the community."
 msgstr "Ganhe sua primeira insígnia contribuindo para a comunidade."
 
-#: templates/gamification/leaderboard.php:870
+#: templates/gamification/leaderboard.php:873
 msgid "Your Streak"
 msgstr "Sua sequência"
 
 #. translators: %s: number of days.
-#: templates/gamification/leaderboard.php:879
-#: templates/gamification/leaderboard.php:888
+#: templates/gamification/leaderboard.php:882
+#: templates/gamification/leaderboard.php:891
 #, php-format
 msgid "%s day"
 msgid_plural "%s days"
 msgstr[0] "%s dia"
 msgstr[1] "%s dias"
 
-#: templates/gamification/leaderboard.php:884
+#: templates/gamification/leaderboard.php:887
 msgid "Longest"
 msgstr "Mais longa"
 
-#: templates/gamification/leaderboard.php:895
+#: templates/gamification/leaderboard.php:898
 msgid "Stay active each day to build your streak."
 msgstr "Mantenha-se ativo todos os dias para construir sua sequência."
 
@@ -30401,6 +30442,72 @@ msgctxt "block keyword"
 msgid "topics"
 msgstr "tópicos"
 
+#, php-format
+#~ msgid ""
+#~ "%s email(s) failed in the last 24 hours. This usually means the site has "
+#~ "no working mailer (SMTP plugin or server MTA). Members are not receiving "
+#~ "verification, invite, 2FA or notification email."
+#~ msgstr ""
+#~ "%s e-mail(s) falharam nas últimas 24 horas. Isso geralmente significa que "
+#~ "o site não tem um serviço de envio de e-mails funcionando (plugin SMTP ou "
+#~ "MTA do servidor). Os membros não estão recebendo e-mails de verificação, "
+#~ "de convite, de 2FA ou de notificação."
+
+#, php-format
+#~ msgid ""
+#~ "This site cannot make a loopback request to itself, so the background-"
+#~ "task runner never starts, and %d scheduled task(s) are overdue. This is "
+#~ "usually a firewall, a localhost DNS issue, or HTTP authentication on "
+#~ "staging. Add a server-level cron job so the queue is processed regardless:"
+#~ msgstr ""
+#~ "Este site não consegue fazer uma requisição loopback para si mesmo, então "
+#~ "o executor de tarefas em segundo plano nunca é iniciado, e %d tarefa(s) "
+#~ "agendada(s) está(ão) atrasada(s). Geralmente isso se deve a um firewall, "
+#~ "a um problema de DNS localhost ou à autenticação HTTP em staging. "
+#~ "Adicione um cron job no nível do servidor para que a fila seja processada "
+#~ "de qualquer forma:"
+
+#, php-format
+#~ msgid ""
+#~ "WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d "
+#~ "scheduled task(s) are overdue. Add a server-level cron job so the queue "
+#~ "is processed:"
+#~ msgstr ""
+#~ "O WordPress cron está desabilitado neste site (DISABLE_WP_CRON) e %d "
+#~ "tarefa(s) agendada(s) está(ão) atrasada(s). Adicione uma tarefa cron de "
+#~ "nível de servidor para que a fila seja processada:"
+
+#, php-format
+#~ msgid ""
+#~ "%d scheduled task(s) failed and will not run again on their own. Review "
+#~ "the failures in the Action Scheduler log and retry or clear them:"
+#~ msgstr ""
+#~ "%d tarefa(s) agendada(s) falhou(aram) e não será(ão) executada(s) "
+#~ "novamente sozinha(s). Revise as falhas no log do Action Scheduler e tente "
+#~ "novamente ou limpe-as:"
+
+#, php-format
+#~ msgid ""
+#~ "Status: running automatically. %d task(s) are waiting and will process on "
+#~ "the next site activity."
+#~ msgstr ""
+#~ "Status: funcionando automaticamente. %d tarefa(s) está(ão) esperando e "
+#~ "serão processadas na próxima atividade do site."
+
+#, php-format
+#~ msgid ""
+#~ "Your BuddyNext moderation queue currently has %1$d pending or escalated "
+#~ "report(s), which meets or exceeds the configured alert threshold of "
+#~ "%2$d.\n"
+#~ "\n"
+#~ "Please review the queue at your earliest convenience."
+#~ msgstr ""
+#~ "Sua fila de moderação do BuddyNext atualmente tem %1$d relatório(s) "
+#~ "pendente(s) ou escalado(s), que atende ou excede o limite de alerta "
+#~ "configurado de %2$d.\n"
+#~ "\n"
+#~ "Por favor, revise a fila assim que possível."
+
 #~ msgid "Blog posts"
 #~ msgstr "Publicações do blog"
 
@@ -30419,15 +30526,3 @@ msgstr "tópicos"
 #~ msgctxt "block description"
 #~ msgid "Post creation box — what's on your mind."
 #~ msgstr "Caixa de criação de postagem — o que você pensa."
-
-#: includes/Core/AssetService.php:1893
-msgid "Avatar preview. Use the arrow keys to move the picture."
-msgstr ""
-
-#: includes/Core/Installer.php:4299
-msgid "Open Discussion"
-msgstr ""
-
-#: includes/Core/Installer.php:4301
-msgid "A community space for open conversation."
-msgstr ""

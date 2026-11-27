@@ -25,7 +25,7 @@ TOKEN = re.compile(
     r"\{\{[^{}]*\}\}"                                  # {{token}}
     r"|%(?:\d+\$)?[-+0#]*\d*(?:\.\d+)?[sdfuxXeEgGcoi]"  # %s %d %1$s %.2f
     r"|</?[A-Za-z][A-Za-z0-9]*"                        # HTML tag name
-    r"|&[A-Za-z][A-Za-z0-9]*;"                         # named entity (numeric ones are localised quotes)
+    r"|&(?!amp;)[A-Za-z][A-Za-z0-9]*;"                 # named entity (numeric ones are localised quotes; &amp; is an ampersand a translation may write as a word)
 )
 
 
