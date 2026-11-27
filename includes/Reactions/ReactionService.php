@@ -396,6 +396,19 @@ class ReactionService {
 	}
 
 	/**
+	 * The words on a post's reaction button: the viewer's reaction, or "Like" before they react.
+	 *
+	 * The one answer the server-rendered card and the post-card script both start from
+	 * (the script's default is the same "Like", localised as reactDefaultLabel).
+	 *
+	 * @param string|null $slug The viewer's reaction slug, or null/'' when they have not reacted.
+	 * @return string Translated label.
+	 */
+	public static function button_label( ?string $slug ): string {
+		return null !== $slug && '' !== $slug ? self::label( $slug ) : __( 'Like', 'buddynext' );
+	}
+
+	/**
 	 * Toggle a reaction and return the updated counts for all types.
 	 *
 	 * Spec-named alias for toggle() that also returns a full counts array.

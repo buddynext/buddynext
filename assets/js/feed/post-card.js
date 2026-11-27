@@ -1503,13 +1503,13 @@ store( 'buddynext/post-card', {
 		get reactionType() {
 			try { return getContext().reactionType || null; } catch ( _e ) { return null; }
 		},
-		// Label shown on the React button — the current reaction's name, or the
-		// default "React" when the viewer has not reacted.
+		// Label shown on the reaction button: the current reaction's name, or
+		// "Like" when the viewer has not reacted (the same answer the server prints).
 		get reactionLabel() {
 			try {
 				const ctx = getContext();
-				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'react', 'Like' );
-			} catch ( _e ) { return t( 'react', 'Like' ); }
+				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'reactionLike', 'Like' );
+			} catch ( _e ) { return t( 'reactionLike', 'Like' ); }
 		},
 		get pollOptionPctText() {
 			try {
@@ -1780,7 +1780,7 @@ store( 'buddynext/post-card', {
 			// follows the type: the chosen reaction's name, or the default when
 			// toggling the reaction off.
 			ctx.reactionType  = newType;
-			ctx.reactionLabel = newType ? label : ( viewer().reactDefaultLabel || 'React' );
+			ctx.reactionLabel = newType ? label : ( viewer().reactDefaultLabel || 'Like' );
 
 			try {
 				const res = yield restFetch( '/reactions/toggle', {

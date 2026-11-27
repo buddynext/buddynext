@@ -147,9 +147,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			// Label reflects the viewer's current reaction (e.g. "Love") and falls
 			// back to "Like" when none, so a first tap does not rename the button. Bound to state.reactionLabel so picking a
 			// reaction updates the label in step with the icon.
-			$bn_react_label = ( ! empty( $args['user_reaction'] ) && class_exists( '\BuddyNext\Reactions\ReactionService' ) )
-				? \BuddyNext\Reactions\ReactionService::label( (string) $args['user_reaction'] )
-				: __( 'Like', 'buddynext' );
+			$bn_react_label = \BuddyNext\Reactions\ReactionService::button_label( ! empty( $args['user_reaction'] ) ? (string) $args['user_reaction'] : null );
 			?>
 			<span class="bn-post-card__action-label" data-wp-text="state.reactionLabel"><?php echo esc_html( $bn_react_label ); ?></span>
 		</button>
