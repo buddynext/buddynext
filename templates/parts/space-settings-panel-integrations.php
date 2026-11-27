@@ -307,7 +307,12 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<div class="bn-toggle-row">
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Leaderboard tab', 'buddynext' ); ?></div>
-				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Leaderboard tab ranking this space\'s members by their points across the community.', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc">
+				<?php
+				/* translators: %s: the site's name for points, e.g. "Points" or "Coins". */
+				echo esc_html( sprintf( __( 'Show a Leaderboard tab ranking this space\'s members by their %s across the community.', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) );
+				?>
+				</div>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Leaderboard tab', 'buddynext' ); ?>">
 				<input type="checkbox" class="bn-space-settings__toggle-input" name="gamification_leaderboard_tab" value="1" <?php checked( (bool) $args['leaderboard_tab'] ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>

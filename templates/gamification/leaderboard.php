@@ -340,7 +340,12 @@ $period_tabs = array(
 		<div class="bn-lb-header__row">
 			<h2 class="bn-lb-title"><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h2>
 		</div>
-		<p class="bn-lb-subtitle"><?php esc_html_e( 'This space\'s members, ranked by their points across the community.', 'buddynext' ); ?></p>
+		<p class="bn-lb-subtitle">
+			<?php
+			/* translators: %s: the site's name for points, e.g. "Points" or "Coins". */
+			echo esc_html( sprintf( __( 'This space\'s members, ranked by their %s across the community.', 'buddynext' ), $bn_points_label ) );
+			?>
+		</p>
 		<?php else : ?>
 		<div class="bn-lb-header__row">
 			<h1 class="bn-lb-title"><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h1>
