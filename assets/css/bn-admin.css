@@ -1047,8 +1047,18 @@ select.bn-select-input,
 	border: 1px solid var(--bn-a-input-border) !important;
 	border-radius: var(--bn-a-input-radius) !important;
 	box-shadow: none !important;
-	height: auto !important;
 	transition: border-color var(--bn-a-transition), box-shadow var(--bn-a-transition);
+}
+
+/* Single-line controls only. A textarea keeps the height its resize handle
+ * writes inline; height:auto !important here overrode it, so dragging the
+ * handle did nothing on every admin textarea. */
+input.bn-text-input,
+select.bn-text-input,
+select.bn-select-input,
+.bn-input:not(textarea),
+.bn-select {
+	height: auto !important;
 }
 
 /* The uniform field above forces one look with !important, which also erased
