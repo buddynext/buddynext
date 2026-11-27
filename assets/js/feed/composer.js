@@ -642,6 +642,9 @@ const { state } = store( 'buddynext/post-composer', {
 		get privacyOpen() {
 			try { return !! getContext().privacyOpen; } catch ( _e ) { return false; }
 		},
+		get moreOpen() {
+			try { return !! getContext().moreOpen; } catch ( _e ) { return false; }
+		},
 		get hasMedia() {
 			try { return ( getContext().mediaIds || [] ).length > 0; } catch ( _e ) { return false; }
 		},
@@ -1788,7 +1791,15 @@ const { state } = store( 'buddynext/post-composer', {
 		 * @param {MouseEvent} event The document click event.
 		 */
 		/**
-		 * Escape closes the "Posting to" popover and hands focus back to its chip.
+		 * The phone-width More button: opens or closes the extra tools row.
+		 */
+		toggleMore() {
+			const ctx    = getContext();
+			ctx.moreOpen = ! ctx.moreOpen;
+		},
+		/**
+		 * Escape closes the "Posting to" popover, or the More tools row, and hands
+		 * focus back to the control that opened it.
 		 *
 		 * @param {KeyboardEvent} event The document keydown event.
 		 */
@@ -1797,19 +1808,20 @@ const { state } = store( 'buddynext/post-composer', {
 				return;
 			}
 			const ctx = getContext();
-			if ( ! ctx || ! ctx.privacyOpen ) {
+			if ( ! ctx || ! ( ctx.privacyOpen || ctx.moreOpen ) ) {
 				return;
 			}
+			const ref     = getElement()?.ref || null;
+			const trigger = ref ? ref.querySelector( ctx.privacyOpen ? '.bn-composer__privacy-chip' : '.bn-composer__more' ) : null;
 			ctx.privacyOpen = false;
-			const ref  = getElement()?.ref || null;
-			const chip = ref ? ref.querySelector( '.bn-composer__privacy-chip' ) : null;
-			if ( chip ) {
-				chip.focus();
+			ctx.moreOpen    = false;
+			if ( trigger ) {
+				trigger.focus();
 			}
 		},
 		closePrivacyOnOutside( event ) {
 			const ctx = getContext();
-			if ( ! ctx || ! ctx.privacyOpen ) {
+			if ( ! ctx || ! ( ctx.privacyOpen || ctx.moreOpen ) ) {
 				return;
 			}
 			const ref = getElement()?.ref || null;
@@ -1817,8 +1829,13 @@ const { state } = store( 'buddynext/post-composer', {
 				return;
 			}
 			const wrap = ref.querySelector( '.bn-composer__privacy-wrap' );
-			if ( ! wrap || ! wrap.contains( event.target ) ) {
+			if ( ctx.privacyOpen && ( ! wrap || ! wrap.contains( event.target ) ) ) {
 				ctx.privacyOpen = false;
+			}
+			// The More button and its row both sit in the tool group, so a click on either keeps it open.
+			const group = ref.querySelector( '.bn-composer__tool-group' );
+			if ( ctx.moreOpen && ( ! group || ! group.contains( event.target ) ) ) {
+				ctx.moreOpen = false;
 			}
 		},
 	},

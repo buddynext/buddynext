@@ -54,7 +54,7 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 		$this->assertMatchesRegularExpression( '/role="tab"[^>]*aria-selected="false"[^>]*tabindex="-1"[^>]*data-mode="article"/s', $html );
 		$this->assertSame( 2, substr_count( $html, 'role="tabpanel"' ) );
 		$this->assertStringContainsString( 'Write something longer, with a cover image and headings.', $html );
-		$this->assertStringContainsString( 'Start writing', $html );
+		$this->assertStringContainsString( '>Write article<', $html, 'Article mode submits with Write article.' );
 		$this->assertStringContainsString( 'class="bn-composer__prompt"', $html, 'The post box is still there, unchanged.' );
 	}
 

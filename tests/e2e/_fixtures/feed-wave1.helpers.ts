@@ -150,3 +150,19 @@ export async function restPost<T = unknown>(
     }
     return { status: res.status(), body };
 }
+
+/**
+ * Make a composer tool clickable at any width. On a phone the composer folds its
+ * extra tools (document, poll, schedule, announcement, members-only) behind one
+ * More button; this opens it when the tool is present but not shown. A no-op on
+ * desktop, where every tool sits in the row.
+ */
+export async function revealComposerTool(page: Page, tool: ReturnType<Page['locator']>): Promise<void> {
+    if ((await tool.count()) === 0 || (await tool.isVisible())) {
+        return;
+    }
+    const more = page.locator('.bn-composer__more').first();
+    if (await more.isVisible()) {
+        await more.click();
+    }
+}

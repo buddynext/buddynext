@@ -1528,12 +1528,12 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	.bn-post-card__action-label { display: none; }
 }
 
-/* A finger is the pointer on a phone: the action row, the reactors count and the composer's privacy chip are at
-   least 40px tall (the portfolio's tap-target size), not the 26-30px their text gives them. */
+/* A finger is the pointer on a phone: the action row and the reactors count are at least 40px tall
+   (the portfolio's tap-target size), not the 26-30px their text gives them. The composer's audience
+   control has its own 44px touch rule next to the composer submit. */
 @media ( max-width: 640px ) {
 	.bn-post-card__action-btn,
-	.bn-post-card__reactors-trigger,
-	.bn-composer__privacy-chip {
+	.bn-post-card__reactors-trigger {
 		min-block-size: 40px;
 	}
 }
@@ -3111,40 +3111,42 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	visibility: hidden;
 	pointer-events: none;
 }
+/* Two text tabs on the card's header line; the selected one carries a 2px accent underline.
+	The underline is an inset shadow, not a border, so a host theme's button border cannot replace it. */
 .bn-composer-switch__tabs {
 	display: inline-flex;
-	gap: var(--bn-s1);
-	padding: var(--bn-s1);
-	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md);
+	gap: var(--bn-s4);
 }
 .bn-composer-switch__tab {
 	min-block-size: 44px;
 	min-inline-size: 44px;
 	padding-block: var(--bn-s2);
-	padding-inline: var(--bn-s4);
+	padding-inline: var(--bn-s1);
 	border: 0;
-	border-radius: var(--bn-r-sm);
+	border-radius: 0;
 	background: transparent;
-	color: var(--bn-ink-2);
+	color: var(--bn-ink-3);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
 	cursor: pointer;
 }
-.bn-composer-switch__tab:hover {
+.bn-composer-switch__tab:hover,
+.bn-composer-switch__tab:focus {
 	color: var(--bn-ink);
 	background: transparent;
 }
 .bn-composer-switch__tab[aria-selected="true"] {
-	background: var(--bn-surface);
-	color: var(--bn-accent-text);
-	box-shadow: 0 0 0 1px var(--bn-line-control);
+	color: var(--bn-ink);
+	box-shadow: inset 0 -2px 0 var(--bn-accent);
 }
 .bn-composer-switch__tab:focus-visible {
 	outline: 2px solid transparent;
+	border-radius: var(--bn-r-sm);
 	box-shadow: var(--bn-ring);
+}
+.bn-composer-switch__tab[aria-selected="true"]:focus-visible {
+	box-shadow: var(--bn-ring), inset 0 -2px 0 var(--bn-accent);
 }
 .bn-composer-article__lede {
 	margin: 0 0 var(--bn-s3);
@@ -3160,11 +3162,29 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-composer-article__title.bn-input {
 	flex: 1 1 auto;
 	min-inline-size: 0;
-	block-size: 44px;
+	block-size: 40px;
 }
 .bn-composer-article__start {
 	flex: none;
-	min-block-size: 44px;
+}
+/* The submit (Post / Write article) and the audience pill share one shape: 40px tall, 12px corners
+	(1.2x the theme radius, so a site that rounds less or more keeps the proportion). */
+.bn-btn.bn-composer__submit,
+.bn-btn.bn-composer-article__start {
+	min-block-size: 40px;
+	border-radius: calc(var(--bn-radius-base) * 1.2);
+}
+/* A finger needs 44px: restate the touch floor bn-base.css gives every button, which the rule above would undercut. */
+@media (pointer: coarse), (max-width: 768px) {
+	.bn-btn.bn-composer__submit,
+	.bn-btn.bn-composer-article__start,
+	.bn-composer-article__title.bn-input,
+	.bn-composer__privacy-chip {
+		min-block-size: 44px;
+	}
+	.bn-composer-article__title.bn-input {
+		block-size: 44px;
+	}
 }
 .bn-composer-switch__links {
 	display: flex;
@@ -3589,9 +3609,37 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: var(--bn-s2);
+	gap: var(--bn-s1);
 	flex: 1 1 auto;
 	min-width: 0;
+}
+
+/* More tools: on a wide screen the button is not shown and its row dissolves into the tool group,
+	so every tool sits in one line. The phone rules near the end of this file fold them behind it. */
+.bn-composer__tool.bn-composer__more {
+	display: none;
+}
+.bn-composer__more-tools {
+	display: contents;
+}
+@media (max-width: 640px) {
+	.bn-composer__tool.bn-composer__more {
+		display: inline-flex;
+	}
+	.bn-composer__more[aria-expanded="true"] {
+		background: var(--bn-accent-100);
+		color: var(--bn-accent-text);
+	}
+	.bn-composer__more-tools {
+		display: none;
+	}
+	/* Opened: the extra tools take a row of their own under media, emoji and More. */
+	.bn-composer__more-tools.is-open {
+		display: flex;
+		flex-wrap: wrap;
+		flex-basis: 100%;
+		gap: var(--bn-s1);
+	}
 }
 
 /* Char counter + audience chip + draft + Post, kept together and pinned right.
@@ -3999,15 +4047,12 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 @media (max-width: 640px) {
 	.bn-composer__link-thumb { width: 72px; }
 
-	/* Post / Article: the tabs share the row, the article footer stacks and
-		Start writing / Continue writing go full width. */
+	/* Post / Article: the text tabs keep their own width on the header line; the links wrap under them. */
 	.bn-composer-switch { padding: var(--bn-s3); }
-	/* The two links wrap under the tabs on a phone: show them in both modes so the card keeps one height
+	/* The links wrap under the tabs on a phone: show them in both modes so the card keeps one height
 		and there is no blank band, whichever tab is selected. */
 	.bn-composer-switch__links[hidden] { display: flex !important; visibility: visible; pointer-events: auto; }
-	.bn-composer-switch__head { gap: 0; }
-	.bn-composer-switch__tabs { display: flex; inline-size: 100%; }
-	.bn-composer-switch__tab { flex: 1 1 0; }
+	.bn-composer-switch__head { gap: 0 var(--bn-s4); }
 }
 
 /* Emoji insert picker — popover of bundled glyph buttons, appended to
@@ -4178,14 +4223,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+	box-sizing: border-box;
+	min-block-size: 40px;
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line-control);
-	border-radius: var(--bn-r-full, 999px);
+	/* Same 40px / 12px shape as the Post button beside it. */
+	border-radius: calc(var(--bn-radius-base) * 1.2);
 	color: var(--bn-ink-3);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-xs);
 	font-weight: 500;
-	padding: 6px 12px;
+	padding-block: 0;
+	padding-inline: var(--bn-s3);
 	cursor: pointer;
 	transition: background var(--bn-dur-fast) var(--bn-ease), color var(--bn-dur-fast) var(--bn-ease);
 }
@@ -4635,12 +4684,21 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	   own line. Let the label size to its content here. */
 	.bn-composer__privacy-chip strong { min-inline-size: auto; }
 
-	/* Mobile: all tool icons on ONE row (bn-base.css frees their min-width at this
-	   breakpoint so they shrink to ~41px and fit), then Post on its own full-width
-	   row below — a two-row composer, every tool visible, no wrap, no scroll. */
-	.bn-composer__tool-group { flex-wrap: nowrap; gap: var(--bn-s2); }
-	.bn-composer__tool { flex: 0 1 auto; }
-	.bn-composer__submit-row { flex-basis: 100%; }
+	/* Mobile: media, emoji and More on one row of 44px targets (the rest open under More), then the
+	   audience and Post on a full-width row below: audience at the start, Post at the end. */
+	.bn-composer__tool-group { gap: var(--bn-s1); }
+	.bn-composer__tool { flex: 0 0 auto; }
+	.bn-composer__submit-row { flex-basis: 100%; justify-content: space-between; }
+
+	/* The audience is a quiet line of text here, not a pill: no fill, no border, still a 44px target. */
+	.bn-composer__privacy-chip,
+	.bn-app .bn-composer__privacy-chip {
+		background-color: transparent;
+		border-color: transparent;
+		padding-inline: 0;
+		color: var(--bn-ink-3);
+	}
+	.bn-composer__privacy-chip strong { font-weight: var(--bn-fw-semibold); }
 }
 
 /* ── End-of-feed marker ────────────────────────────────────────────────────

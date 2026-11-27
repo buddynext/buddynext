@@ -113,7 +113,8 @@ if ( function_exists( 'buddynext_service' ) && buddynext_service( 'moderation' )
 
 $composer_display = $composer_user->display_name;
 $composer_avatar  = get_avatar_url( $composer_user_id, array( 'size' => 76 ) );
-$composer_initial = mb_substr( $composer_display, 0, 1 );
+// The photo, or AvatarService's initials image when there is none; these initials only show if no avatar URL comes back at all.
+$composer_initial = \BuddyNext\Profile\AvatarService::initials_for( (string) $composer_display );
 $composer_nonce   = wp_create_nonce( 'wp_rest' );
 $composer_color   = function_exists( 'bn_avatar_color' )
 	? bn_avatar_color( $composer_user_id )
@@ -263,6 +264,7 @@ if ( $composer_article_summary['pending'] > 0 ) {
 				'composerType'          => 'text',
 				'privacy'               => $default_privacy,
 				'privacyOpen'           => false,
+				'moreOpen'              => false,
 				'content'               => '',
 				'submitting'            => false,
 				'mediaIds'              => array(),
@@ -570,6 +572,23 @@ if ( $composer_article_summary['pending'] > 0 ) {
 			</button>
 			<?php endif; ?>
 
+			<?php if ( (bool) get_option( 'buddynext_enable_emoji_picker', true ) ) : ?>
+			<button class="bn-composer__tool bn-emoji-trigger"
+				type="button"
+				data-bn-emoji-target=".bn-composer__prompt"
+				aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
+				aria-haspopup="true"
+				aria-expanded="false"
+				title="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'smile' ); ?>
+			</button>
+			<?php endif; ?>
+
+			<?php
+			// Media and emoji always show. The tools below are collected so a phone can fold them behind one More button.
+			ob_start();
+			?>
+
 			<?php if ( (bool) $composer_doc_config['enabled'] ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
@@ -589,18 +608,6 @@ if ( $composer_article_summary['pending'] > 0 ) {
 				aria-label="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>"
 				title="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'bar-chart-2' ); ?>
-			</button>
-			<?php endif; ?>
-
-			<?php if ( (bool) get_option( 'buddynext_enable_emoji_picker', true ) ) : ?>
-			<button class="bn-composer__tool bn-emoji-trigger"
-				type="button"
-				data-bn-emoji-target=".bn-composer__prompt"
-				aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
-				aria-haspopup="true"
-				aria-expanded="false"
-				title="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>">
-				<?php buddynext_icon( 'smile' ); ?>
 			</button>
 			<?php endif; ?>
 
@@ -658,7 +665,35 @@ if ( $composer_article_summary['pending'] > 0 ) {
 			);
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Extension point: first-party integrations return their own pre-rendered, self-escaped tool-button HTML (default empty).
 			echo $bn_composer_tools;
+
+			$bn_composer_extra_tools = trim( (string) ob_get_clean() );
 			?>
+
+			<?php if ( '' !== $bn_composer_extra_tools ) : ?>
+				<?php
+				// A disclosure, not a menu: on a wide screen the button is hidden and the tools sit in the row as before;
+				// on a phone the button shows and opens them on a row of their own (Escape or a click outside closes it).
+				$bn_composer_more_id = wp_unique_id( 'bn-composer-more-' );
+				?>
+				<button class="bn-composer__tool bn-composer__more"
+					type="button"
+					aria-expanded="false"
+					aria-controls="<?php echo esc_attr( $bn_composer_more_id ); ?>"
+					data-wp-bind--aria-expanded="state.moreOpen"
+					data-wp-on--click="actions.toggleMore"
+					aria-label="<?php esc_attr_e( 'More tools', 'buddynext' ); ?>"
+					title="<?php esc_attr_e( 'More tools', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'more-horizontal' ); ?>
+				</button>
+				<div class="bn-composer__more-tools"
+					id="<?php echo esc_attr( $bn_composer_more_id ); ?>"
+					data-wp-class--is-open="state.moreOpen">
+					<?php
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Buffered from the tool buttons above: each is escaped where it is printed, and the filter HTML is the same self-escaped extension point.
+					echo $bn_composer_extra_tools;
+					?>
+				</div>
+			<?php endif; ?>
 
 			</div><!-- .bn-composer__tool-group -->
 

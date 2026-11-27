@@ -4,7 +4,7 @@
  *
  * Rendered by partials/composer.php inside the Article tab panel, only for a
  * member whose article provider lets them write. A plain GET form to the
- * provider's editor, so Start writing works without JavaScript: the title goes
+ * provider's editor, so Write article works without JavaScript: the title goes
  * in the provider's own `title_arg`, or in BuddyNext's `bn_title` when the
  * editor reads none (the write hub then fills Member Blog's title field).
  *
@@ -58,7 +58,7 @@ unset( $bn_art_hidden[ $bn_art_title_arg ] );
 				maxlength="200"
 				autocomplete="off"
 				placeholder="<?php esc_attr_e( 'Title (optional)', 'buddynext' ); ?>">
-			<button type="submit" class="bn-btn bn-composer-article__start" data-variant="primary"><?php esc_html_e( 'Start writing', 'buddynext' ); ?></button>
+			<button type="submit" class="bn-btn bn-composer-article__start" data-variant="primary"><?php esc_html_e( 'Write article', 'buddynext' ); ?></button>
 		</div>
 	</form>
 </div>
