@@ -795,13 +795,13 @@ export function bnResolveConnectNote( opts ) {
 }
 
 /**
- * Show a transient toast. Auto-dismisses after `timeout` ms (default 3000).
+ * Show a transient toast. Auto-dismisses after `timeout` ms (default 4000, or 8000 with a button or for an error).
  * Multiple toasts stack inside a single .bn-toast-container.
  *
  * @param {string} message
  * @param {Object} [opts]
  * @param {('info'|'success'|'warn'|'danger')} [opts.tone] Default 'info'.
- * @param {number} [opts.timeout] Default 3000ms.
+ * @param {number} [opts.timeout] Default 4000ms, 8000ms with a button or for an error.
  * @return {void}
  */
 /**
