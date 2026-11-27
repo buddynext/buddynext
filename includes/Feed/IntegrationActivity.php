@@ -1087,19 +1087,12 @@ class IntegrationActivity {
 		 * @param array<string,mixed>                       $link_meta The card's stored link meta.
 		 * @param int                                       $post_id   Post id.
 		 */
-		$actions = self::actions( (array) apply_filters( 'buddynext_card_actions', $actions, $type, $link_meta, $post_id ) );
-
-		// A button that goes where the card's own title already goes adds a second tab stop and nothing else, so it is
-		// never drawn, whoever supplied it. What stays is an action the title cannot do (download, a different page).
 		$title   = trim( (string) ( $live['title'] ?? '' ) );
 		$text    = trim( wp_strip_all_tags( (string) ( $live['text'] ?? '' ) ) );
 		$url     = trim( (string) ( $live['url'] ?? '' ) );
-		$here    = self::same_address_key( '' !== $url ? $url : (string) ( $link['url'] ?? $link_meta['url'] ?? '' ) );
-		$actions = array_values(
-			array_filter(
-				$actions,
-				static fn( array $action ): bool => '' === $here || self::same_address_key( $action['url'] ) !== $here
-			)
+		$actions = self::actions(
+			(array) apply_filters( 'buddynext_card_actions', $actions, $type, $link_meta, $post_id ),
+			'' !== $url ? $url : (string) ( $link['url'] ?? $link_meta['url'] ?? '' )
 		);
 
 		return array(
@@ -1124,20 +1117,26 @@ class IntegrationActivity {
 	/**
 	 * The buttons of a bridge card, cleaned: a short label, a real address, no more than two.
 	 *
+	 * A button that goes where the card's own title already goes adds a second tab stop and nothing else, so it is
+	 * never drawn, whoever supplied it. It is left out before the list is cut to two, so an action the title cannot
+	 * do (download, a different page) further down the list still shows.
+	 *
 	 * @since 1.3.0
 	 *
-	 * @param array<int,mixed> $actions Raw buttons.
+	 * @param array<int,mixed> $actions   Raw buttons.
+	 * @param string           $title_url Where the card's title goes ('' = no title link to compare with).
 	 * @return array<int,array{label:string,url:string}>
 	 */
-	public static function actions( array $actions ): array {
-		$out = array();
+	public static function actions( array $actions, string $title_url = '' ): array {
+		$here = '' !== $title_url ? self::same_address_key( $title_url ) : '';
+		$out  = array();
 		foreach ( $actions as $action ) {
 			if ( ! is_array( $action ) ) {
 				continue;
 			}
 			$label = trim( wp_strip_all_tags( (string) ( $action['label'] ?? '' ) ) );
 			$url   = esc_url_raw( (string) ( $action['url'] ?? '' ), array( 'http', 'https' ) );
-			if ( '' === $label || '' === $url ) {
+			if ( '' === $label || '' === $url || ( '' !== $here && self::same_address_key( $url ) === $here ) ) {
 				continue;
 			}
 			$out[] = array(
@@ -1200,8 +1199,8 @@ class IntegrationActivity {
 	 *
 	 * A bridge passes `'facts' => array( array( 'icon' => 'map-pin', 'text' => 'Remote' ), ... )`
 	 * in the card's meta when it publishes. An empty fact is left out, a text is kept to one short
-	 * line, an unknown icon slug is dropped (the text stays), and no more than four are kept:
-	 * the partner's own page always has the rest.
+	 * line, the icon slug is sanitised (one the icon set does not have draws no icon, the text
+	 * stays), and no more than four are kept: the partner's own page always has the rest.
 	 *
 	 * @since 1.3.0
 	 *
