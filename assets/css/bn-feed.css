@@ -3181,6 +3181,25 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-composer-article__start {
 	flex: none;
 }
+/* Footer: the muted draft note on the start side, Write article on the end side; the note wraps above the button on a narrow card. */
+.bn-composer-article__footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2) var(--bn-s3);
+	margin-block-start: var(--bn-s3);
+}
+.bn-composer-article__saved {
+	flex: 1 1 12ch;
+	min-inline-size: 0;
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+.bn-composer-article__footer .bn-composer-article__start {
+	margin-inline-start: auto;
+}
 /* The submit (Post / Write article) and the audience pill share one shape: 40px tall, 12px corners
 	(1.2x the theme radius, so a site that rounds less or more keeps the proportion). */
 .bn-btn.bn-composer__submit,

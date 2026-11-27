@@ -336,6 +336,35 @@ function clearDraft( userId ) {
 	try {
 		window.localStorage.removeItem( draftKey( userId ) );
 	} catch ( _e ) {}
+	syncDraftNote( 0 );
+}
+
+/**
+ * The muted "Draft saved N min ago" beside Write article. It only ever reflects a
+ * draft the composer really saved (writeDraft() succeeded) or restored from
+ * storage, so it is empty until then and empty again once the draft is cleared.
+ * The wording comes from the template (data-label-*), already translated.
+ *
+ * @param {?number} savedAt Epoch ms of the last save; 0 clears the note; null only refreshes the wording.
+ * @return {void}
+ */
+function syncDraftNote( savedAt ) {
+	document.querySelectorAll( '.bn-composer-article__saved' ).forEach( ( el ) => {
+		if ( 0 === savedAt ) {
+			delete el.dataset.savedAt;
+		} else if ( savedAt ) {
+			el.dataset.savedAt = String( savedAt );
+		}
+		const at = parseInt( el.dataset.savedAt || '0', 10 );
+		if ( ! at ) {
+			el.textContent = '';
+			return;
+		}
+		const mins = Math.floor( ( Date.now() - at ) / 60000 );
+		el.textContent = mins < 1
+			? ( el.dataset.labelNow || '' )
+			: ( el.dataset.labelMin || '' ).replace( '%d', String( mins ) );
+	} );
 }
 
 function setDraftStatus( ctx, status, transient ) {
@@ -453,7 +482,9 @@ function scheduleDraftSave( ctx ) {
 			ctx.hasDraft = false;
 			setDraftStatus( ctx, '', false );
 		} else {
-			writeDraft( userId, payload );
+			if ( writeDraft( userId, payload ) ) {
+				syncDraftNote( payload.savedAt );
+			}
 			ctx.hasDraft = true;
 			setDraftStatus( ctx, t( 'draftSaved', 'Draft saved' ), true );
 		}
@@ -583,6 +614,7 @@ function restoreDraftsOnLoad() {
 		ctxData.privacy      = draft.privacy || ctxData.privacy;
 		ctxData.hasDraft     = true;
 		ctxData.draftStatus  = t( 'draftRestored', 'Draft restored' );
+		syncDraftNote( parseInt( draft.savedAt, 10 ) || 0 );
 		try { el.setAttribute( 'data-wp-context', JSON.stringify( ctxData ) ); }
 		catch ( _e ) {}
 	} );
@@ -782,6 +814,7 @@ const { state } = store( 'buddynext/post-composer', {
 		 */
 		selectMode( event ) {
 			getContext().mode = 'article' === event.currentTarget.dataset.mode ? 'article' : 'post';
+			syncDraftNote( null ); // refresh the relative wording
 		},
 		/**
 		 * Tab-list keyboard: Left / Right move to the other tab (two tabs, so the

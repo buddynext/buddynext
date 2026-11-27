@@ -53,7 +53,7 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 		$this->assertMatchesRegularExpression( '/role="tab"[^>]*aria-selected="true"[^>]*tabindex="0"[^>]*data-mode="post"/s', $html );
 		$this->assertMatchesRegularExpression( '/role="tab"[^>]*aria-selected="false"[^>]*tabindex="-1"[^>]*data-mode="article"/s', $html );
 		$this->assertSame( 2, substr_count( $html, 'role="tabpanel"' ) );
-		$this->assertStringContainsString( 'Write something longer, with a cover image and headings.', $html );
+		$this->assertStringContainsString( 'Write a longer piece for your community. You can save a draft.', $html );
 		$this->assertStringContainsString( '>Write article<', $html, 'Article mode submits with Write article.' );
 		$this->assertStringContainsString( 'class="bn-composer__prompt"', $html, 'The post box is still there, unchanged.' );
 	}
@@ -167,7 +167,7 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 
 		$this->assertStringNotContainsString( 'Continue writing', $html );
 		$this->assertStringNotContainsString( 'An unfinished piece', $html );
-		$this->assertStringContainsString( 'placeholder="Title (optional)"', $html );
+		$this->assertStringContainsString( 'placeholder="Article title"', $html );
 		$this->assertMatchesRegularExpression( '/bn-composer-article__row.*bn-composer-article__title.*bn-composer-article__start/s', $html );
 
 		// The counts sit beside the tabs, in the head row, before the panels.
@@ -331,5 +331,28 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 
 		$this->assertMatchesRegularExpression( '/class="bn-avatar bn-composer__avatar"[^>]*>\s*<img src="https:\/\/example\.org\/photo\.jpg"/s', $html );
 		$this->assertStringNotContainsString( 'bn-composer__avatar--initials', $html );
+	}
+
+	public function test_the_article_panel_has_a_polite_draft_note_left_of_write_article(): void {
+		$html = $this->feed( $this->writer() );
+
+		$this->assertMatchesRegularExpression(
+			'/class="bn-composer-article__saved" role="status" aria-live="polite"\s+data-label-now="Draft saved just now"\s+data-label-min="Draft saved %d min ago"><\/p>\s*<button[^>]*bn-composer-article__start/s',
+			$html,
+			'The note is empty until a draft is really saved, and sits before the button.'
+		);
+	}
+
+	public function test_the_composer_placeholder_uses_the_first_name_only(): void {
+		$uid  = self::factory()->user->create(
+			array(
+				'role'         => 'author',
+				'display_name' => 'Grace Hopper',
+			)
+		);
+		$html = $this->feed( $uid );
+
+		$this->assertStringContainsString( 'placeholder="What&#039;s on your mind, Grace?"', $html );
+		$this->assertStringNotContainsString( 'Grace Hopper?', $html );
 	}
 }
