@@ -2998,6 +2998,44 @@ class PostService {
 	}
 
 	/**
+	 * The links of one member's cards of a type whose link ends with a given suffix.
+	 *
+	 * For a card whose link holds something that can change (the member's profile
+	 * handle) ahead of a stable tail (a `#badge-<id>` fragment): the stable tail
+	 * finds the card whatever the link looked like when it was written. Includes
+	 * cards still stored as plain 'link' cards from before typed cards. Reads the
+	 * member's own rows through the user_feed index.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string $type    Post type marker (e.g. 'badge').
+	 * @param int    $user_id Card author.
+	 * @param string $suffix  The end of the link (e.g. '#badge-mentor').
+	 * @return string[] Distinct links, any status.
+	 */
+	public function link_urls_by_member_suffix( string $type, int $user_id, string $suffix ): array {
+		if ( '' === $type || $user_id <= 0 || '' === $suffix ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$urls = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT link_url FROM {$wpdb->prefix}bn_posts
+				  WHERE user_id = %d AND type IN ( %s, 'link' ) AND link_url LIKE %s",
+				$user_id,
+				$type,
+				'%' . $wpdb->esc_like( $suffix )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'strval', (array) $urls );
+	}
+
+	/**
 	 * Delete feed cards matching a content type and external link.
 	 *
 	 * Used by integration bridges (e.g. Career Board) to remove the feed card

@@ -732,7 +732,8 @@ class GamificationBridge {
 	 *
 	 * Reversible: a card a prior unshare WITHDREW (set to 'draft') is RESTORED here —
 	 * same id, date, reactions and comments — rather than minting a new one, so a
-	 * share -> unshare -> re-share cycle keeps its engagement. Idempotent per share URL.
+	 * share -> unshare -> re-share cycle keeps its engagement. One card per member and badge,
+	 * found by its badge, so a handle change in between does not mint a second one.
 	 *
 	 * @param int    $user_id  Member who shared the badge.
 	 * @param string $badge_id Badge slug.
@@ -758,29 +759,32 @@ class GamificationBridge {
 		}
 
 		$url = $this->badge_activity_url( $badge_id, $user_id );
-		if ( IntegrationActivity::restore( $url, 'badge' ) ) {
-			return;
-		}
-		IntegrationActivity::publish(
-			$user_id,
-			/* translators: %s: badge name. */
-			sprintf( __( 'earned the %s badge', 'buddynext' ), $name ),
-			$url,
-			$name,
-			'badge',
-			// What the badge is for and its artwork, so the feed and Explore cards
-			// show the achievement rather than a bare name.
-			(string) ( $def['description'] ?? '' ),
-			0,
-			// A badge is earned, not shared: it never notifies a whole Space.
-			array_merge(
-				'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array(),
-				array(
-					'notify_space' => false,
-					'facts'        => $this->badge_facts( $user_id ),
-				)
+		/* translators: %s: badge name. */
+		$content = sprintf( __( 'earned the %s badge', 'buddynext' ), $name );
+		// What the badge is for and its artwork, so the feed and Explore cards
+		// show the achievement rather than a bare name.
+		$excerpt = (string) ( $def['description'] ?? '' );
+		// A badge is earned, not shared: it never notifies a whole Space.
+		$meta = array_merge(
+			'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array(),
+			array(
+				'notify_space' => false,
+				'facts'        => $this->badge_facts( $user_id ),
 			)
 		);
+
+		// One card per badge: bring back the one already there, even if it was written
+		// under an earlier profile handle, and point it at the profile as it is now.
+		$stored = $this->badge_card_urls( $badge_id, $user_id );
+		if ( array() !== $stored ) {
+			$keep = in_array( $url, $stored, true ) ? $url : $stored[0];
+			IntegrationActivity::restore( $keep, 'badge' );
+			if ( $keep !== $url ) {
+				IntegrationActivity::rewrite( $keep, 'badge', $content, $url, $name, $excerpt, $meta );
+			}
+			return;
+		}
+		IntegrationActivity::publish( $user_id, $content, $url, $name, 'badge', $excerpt, 0, $meta );
 	}
 
 	/**
@@ -802,8 +806,8 @@ class GamificationBridge {
 		// WB Gamification has just deleted as many rows itself. A text-id
 		// remove_by_meta() would make it one query if badges ever get very large.
 		foreach ( array_unique( array_map( 'intval', $user_ids ) ) as $user_id ) {
-			if ( $user_id > 0 ) {
-				IntegrationActivity::remove( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+			foreach ( $this->badge_card_urls( $badge_id, $user_id ) as $url ) {
+				IntegrationActivity::remove( $url, 'badge' );
 			}
 		}
 	}
@@ -825,7 +829,9 @@ class GamificationBridge {
 		if ( $user_id <= 0 || '' === $badge_id ) {
 			return;
 		}
-		IntegrationActivity::withdraw( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+		foreach ( $this->badge_card_urls( $badge_id, $user_id ) as $url ) {
+			IntegrationActivity::withdraw( $url, 'badge' );
+		}
 	}
 
 	/**
@@ -1039,6 +1045,23 @@ class GamificationBridge {
 			$meta['description'] = (string) $def['description'];
 		}
 		return $meta;
+	}
+
+	/**
+	 * The links of every card this member has for one badge, whatever their handle was when it was written.
+	 *
+	 * The card's address starts with the member's profile URL, which changes with the handle; the
+	 * `#badge-<id>` tail does not. Share, unshare and delete all find the card through here.
+	 *
+	 * @param string $badge_id Badge slug.
+	 * @param int    $user_id  Member.
+	 * @return string[]
+	 */
+	private function badge_card_urls( string $badge_id, int $user_id ): array {
+		if ( $user_id <= 0 || '' === $badge_id ) {
+			return array();
+		}
+		return ( new \BuddyNext\Feed\PostService() )->link_urls_by_member_suffix( 'badge', $user_id, '#badge-' . rawurlencode( $badge_id ) );
 	}
 
 	/**

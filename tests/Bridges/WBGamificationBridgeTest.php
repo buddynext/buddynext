@@ -99,6 +99,43 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A handle change between share and unshare still withdraws the card, and a
+	 * re-share brings back that one card, now linking to the current profile.
+	 *
+	 * @return void
+	 */
+	public function test_unshare_after_handle_change_withdraws_the_card(): void {
+		global $wpdb;
+		$user = self::factory()->user->create();
+		$GLOBALS['wb_gam_test']['badges'][ $user ] = array(
+			array(
+				'id'            => 'mentor',
+				'name'          => 'Mentor',
+				'is_credential' => true,
+			),
+		);
+		$count = static fn( string $status ) => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge' AND status = %s", $user, $status ) );
+
+		do_action( 'wb_gam_badge_shared', $user, 'mentor' );
+		$this->assertSame( 1, $count( 'published' ) );
+
+		update_user_meta( $user, 'bn_profile_slug', 'new-handle-' . $user );
+
+		do_action( 'wb_gam_badge_unshared', $user, 'mentor' );
+		$this->assertSame( 0, $count( 'published' ), 'unshare withdraws the card written under the old handle' );
+
+		do_action( 'wb_gam_badge_shared', $user, 'mentor' );
+		$this->assertSame( 1, $count( 'published' ), 're-share brings back exactly one card' );
+		$this->assertSame( 0, $count( 'draft' ), 'no second card is minted' );
+		$link = (string) $wpdb->get_var( $wpdb->prepare( "SELECT link_url FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge'", $user ) );
+		$this->assertStringContainsString( '/new-handle-' . $user . '/', $link, 'the restored card links to the current profile' );
+
+		update_user_meta( $user, 'bn_profile_slug', 'third-handle-' . $user );
+		do_action( 'wb_gam_badge_deleted', 'mentor', array( $user ), array() );
+		$this->assertSame( 0, $count( 'published' ) + $count( 'draft' ), 'deleting the badge removes the card under any handle' );
+	}
+
+	/**
 	 * A deleted badge definition removes every holder's shared-badge card.
 	 *
 	 * @return void
