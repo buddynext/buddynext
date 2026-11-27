@@ -209,6 +209,54 @@ class SearchServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Every integration type authored by someone the viewer blocked, or who blocked
+	 * the viewer, is hidden; an unblocked author's row still lists.
+	 *
+	 * @dataProvider integration_types
+	 */
+	public function test_search_hides_integration_rows_by_blocked_author( string $type ): void {
+		// A partner plugin that is active renders its own card; without one the type is orphaned and hidden.
+		$noop = static fn( $html ) => $html;
+		add_filter( 'buddynext_render_post_body_' . $type, $noop );
+		add_filter( 'buddynext_discussion_card_url', $noop );
+		$this->assertNotContains( $type, \BuddyNext\Search\SearchService::orphaned_object_types() );
+
+		$viewer   = self::factory()->user->create();
+		$blocked  = self::factory()->user->create();
+		$blocker  = self::factory()->user->create();
+		$friend   = self::factory()->user->create();
+		$block_id = 900000 + (int) $blocked; // Object id that is not a user id.
+
+		// Object ids deliberately collide with a user id to prove the author decides.
+		$this->service->index( $type, $block_id, 'Zebracorn hidden one', 'zebracorn', $blocked );
+		$this->service->index( $type, $block_id + 1, 'Zebracorn hidden two', 'zebracorn', $blocker );
+		$this->service->index( $type, (int) $friend, 'Zebracorn shown', 'zebracorn', $friend );
+
+		$svc = new \BuddyNext\SocialGraph\BlockService();
+		$this->assertTrue( $svc->block( $viewer, $blocked ) );
+		$this->assertTrue( $svc->block( $blocker, $viewer ) );
+
+		$rows = $this->service->search( 'zebracorn', $type, 20, 1, $viewer );
+		$ids  = array_map( 'intval', array_column( $rows['items'], 'object_id' ) );
+
+		$this->assertContains( (int) $friend, $ids, 'Unblocked author must still list.' );
+		$this->assertNotContains( $block_id, $ids, 'Blocked author row leaked into search.' );
+		$this->assertNotContains( $block_id + 1, $ids, 'Row by someone who blocked the viewer leaked.' );
+	}
+
+	/**
+	 * @return array<string,array{0:string}>
+	 */
+	public static function integration_types(): array {
+		return array(
+			'job'        => array( 'job' ),
+			'discussion' => array( 'discussion' ),
+			'event'      => array( 'event' ),
+			'listing'    => array( 'listing' ),
+		);
+	}
+
+	/**
 	 * A member deleted outside BuddyNext's delete path is not shown, and leaves the index.
 	 *
 	 * @return void

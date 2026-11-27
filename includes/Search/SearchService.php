@@ -969,19 +969,17 @@ class SearchService {
 			$privacy = buddynext_service( 'privacy' );
 
 			// Search semantics: exclude any block relationship (all types, both
-			// directions) on the item subject, plus authors the viewer has
-			// `restrict`ed (a search-surface limit, forward only). Both routed
-			// through the one canonical builder so the rules can't drift.
-			[ $subject_sql, $subject_params ]   = $privacy->block_exclude_sql( $viewer_id, 'si.object_id', null, null );
-			[ $restrict_sql, $restrict_params ] = $privacy->block_exclude_sql( $viewer_id, 'si.author_id', array( 'restrict' ), array() );
+			// directions) on the item's AUTHOR. Every indexed type carries its
+			// author in si.author_id (a member row is its own author), so one
+			// predicate covers posts, members and every integration type; the
+			// object id is a post/job/event id for most types, never a user id.
+			// This also covers the forward `restrict` limit (restrict is a block
+			// relationship type). Routed through the one canonical builder.
+			[ $subject_sql, $subject_params ] = $privacy->block_exclude_sql( $viewer_id, 'si.author_id', null, null );
 
 			if ( '' !== $subject_sql ) {
 				$block_where .= ' AND ' . $subject_sql;
 				$block_params = array_merge( $block_params, $subject_params );
-			}
-			if ( '' !== $restrict_sql ) {
-				$block_where .= ' AND ' . $restrict_sql;
-				$block_params = array_merge( $block_params, $restrict_params );
 			}
 		}
 
