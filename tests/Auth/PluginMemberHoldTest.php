@@ -104,4 +104,24 @@ class PluginMemberHoldTest extends \WP_UnitTestCase {
 		$this->assertContains( (int) $plain, $ids );
 		$this->assertContains( (int) $customer, $ids );
 	}
+
+	public function test_a_flag_stored_as_an_array_holds_in_both_checks(): void {
+		// Career Board keeps its unverified state as an array (hash, time): a non-empty array holds, in the single-user check and in the directory query.
+		add_filter( 'buddynext_member_hold_meta_keys', static fn( $k ) => array_merge( $k, array( '_partner_array_flag' ) ) );
+		$held  = self::factory()->user->create();
+		$clear = self::factory()->user->create();
+		update_user_meta( $held, '_partner_array_flag', array( 'hash' => 'abc123', 'time' => 1795779000 ) );
+
+		$this->assertTrue( ApprovalGuard::is_held( $held ), 'A non-empty array flag did not hold the member.' );
+		$this->assertFalse( ApprovalGuard::is_held( $clear ) );
+
+		global $wpdb;
+		$where = implode( ' AND ', \BuddyNext\Profile\MemberDirectoryService::exclusion_clauses( 'u.ID' ) );
+		$ids   = array_map( 'intval', $wpdb->get_col( "SELECT u.ID FROM {$wpdb->users} u WHERE {$where}" ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+		$this->assertNotContains( $held, $ids, 'A member held by an array flag is listed.' );
+		$this->assertContains( $clear, $ids );
+
+		delete_user_meta( $held, '_partner_array_flag' );
+		$this->assertFalse( ApprovalGuard::is_held( $held ) );
+	}
 }
