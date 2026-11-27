@@ -26,6 +26,7 @@ mk printf "${GOOD/Hallo %s/Hallo %d}"
 mk tag "${GOOD/<a>\{\{link\}\}<\/a>/{{link\}\}}"
 python3 -I "$HERE/check-translations.py" "$T/good" >/dev/null || { echo "FAIL: gate rejected a fully translated locale"; exit 1; }
 for bad in empty fuzzy token printf tag; do
+	if cmp -s "$T/good/demo-de_DE.po" "$T/$bad/demo-de_DE.po"; then echo "FAIL: $bad fixture was not mutated"; exit 1; fi
 	if python3 -I "$HERE/check-translations.py" "$T/$bad" >/dev/null 2>&1; then echo "FAIL: gate passed the $bad fixture"; exit 1; fi
 done
 echo "ok: good passes; empty, fuzzy, token, printf and tag fixtures all fail"
