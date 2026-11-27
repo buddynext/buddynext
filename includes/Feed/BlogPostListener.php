@@ -20,6 +20,7 @@ namespace BuddyNext\Feed;
 
 use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Contracts\ListenerInterface;
+use BuddyNext\Core\CronScheduler;
 
 /**
  * Publishes and retracts activity cards for published site content.
@@ -355,7 +356,7 @@ class BlogPostListener implements ListenerInterface {
 	public static function queue_crop_batch( int $cursor, int $changed = 0 ): void {
 		$args = array( $cursor, $changed );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( ArticleImage::REGEN_HOOK, $args, 'buddynext' );
+			CronScheduler::enqueue_once( ArticleImage::REGEN_HOOK, $args );
 			return;
 		}
 		if ( ! wp_next_scheduled( ArticleImage::REGEN_HOOK, $args ) ) {
@@ -440,7 +441,7 @@ class BlogPostListener implements ListenerInterface {
 	private static function queue_resync( int $cursor, int $space_id = 0 ): void {
 		$args = array( $cursor, $space_id );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::RESYNC_HOOK, $args, 'buddynext' );
+			CronScheduler::enqueue_once( self::RESYNC_HOOK, $args );
 			return;
 		}
 		if ( ! wp_next_scheduled( self::RESYNC_HOOK, $args ) ) {

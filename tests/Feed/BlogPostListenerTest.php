@@ -297,4 +297,27 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, BlogPostListener::card_id_for_post( $ids[5] ), 'older ones stay off the feed' );
 		$this->assertGreaterThan( BlogPostListener::card_id_for_post( $ids[24] ), BlogPostListener::card_id_for_post( $ids[25] ), 'the newest article lands on top' );
 	}
+
+	/**
+	 * Queueing the same crop or re-sync batch twice leaves one pending job each, and
+	 * both hooks are swept by the upgrade's duplicate cleanup.
+	 *
+	 * @return void
+	 */
+	public function test_queueing_a_batch_twice_leaves_one_pending_job(): void {
+		$resync = new \ReflectionMethod( BlogPostListener::class, 'queue_resync' );
+		$resync->setAccessible( true );
+
+		BlogPostListener::queue_crop_batch( 77, 1 );
+		BlogPostListener::queue_crop_batch( 77, 1 );
+		$resync->invoke( null, 0, 5 );
+		$resync->invoke( null, 0, 5 );
+
+		$pending = static fn( string $hook ): int => count( as_get_scheduled_actions( array( 'hook' => $hook, 'status' => 'pending' ), 'ids' ) );
+		$this->assertSame( 1, $pending( \BuddyNext\Feed\ArticleImage::REGEN_HOOK ), 'crop batch queued twice' );
+		$this->assertSame( 1, $pending( BlogPostListener::RESYNC_HOOK ), 're-sync queued twice' );
+
+		$this->assertContains( \BuddyNext\Feed\ArticleImage::REGEN_HOOK, \BuddyNext\Core\CronScheduler::DEDUPE_HOOKS );
+		$this->assertContains( BlogPostListener::RESYNC_HOOK, \BuddyNext\Core\CronScheduler::DEDUPE_HOOKS );
+	}
 }
