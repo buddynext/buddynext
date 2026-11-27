@@ -3014,8 +3014,14 @@ msgstr ""
 msgid "Details for %s"
 msgstr ""
 
+#. translators: %s: required minimum Jetonomy version.
+#: includes/Admin/IntegrationControlsAdmin.php:37
+#, php-format
+msgid "Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your forums and posts are kept."
+msgstr "Discussies hebben Jetonomy %s of nieuwer nodig. Werk Jetonomy bij om ze aan te zetten; je forums en berichten blijven bewaard."
+
 #. translators: %s: required minimum version.
-#: includes/Admin/IntegrationControlsAdmin.php:248
+#: includes/Admin/IntegrationControlsAdmin.php:40
 #, php-format
 msgid "Update to %s or newer to enable every feature this integration offers."
 msgstr ""

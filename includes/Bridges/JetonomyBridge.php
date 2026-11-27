@@ -5058,6 +5058,7 @@ class JetonomyBridge {
 				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
 				'min_version'      => self::MIN_VERSION,
+				'floor_disables'   => true,
 				'tested_version'   => '2.1.0', // Verified 2026-11-23 by QA (J36) on 1.3.0 with MediaVerse 2.7.0 on the same site: discussions tab, My discussions, feed and Explore items, partner deactivation.
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).

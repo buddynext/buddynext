@@ -25,6 +25,22 @@ namespace BuddyNext\Admin;
 class IntegrationControlsAdmin {
 
 	/**
+	 * What the owner reads when the installed partner is older than the integration's floor.
+	 *
+	 * @param array<string,mixed> $entry Registry entry (min_version, floor_disables).
+	 * @return string
+	 */
+	public static function floor_notice( array $entry ): string {
+		$floor = (string) ( $entry['min_version'] ?? '' );
+		if ( ! empty( $entry['floor_disables'] ) ) {
+			/* translators: %s: required minimum Jetonomy version. */
+			return sprintf( __( 'Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your forums and posts are kept.', 'buddynext' ), $floor );
+		}
+		/* translators: %s: required minimum version. */
+		return sprintf( __( 'Update to %s or newer to enable every feature this integration offers.', 'buddynext' ), $floor );
+	}
+
+	/**
 	 * Wire the save handler and register the tab. Called from Plugin::init().
 	 *
 	 * @return void
@@ -244,8 +260,7 @@ class IntegrationControlsAdmin {
 										<?php if ( $bn_stale ) : ?>
 											<span>
 												<?php
-												/* translators: %s: required minimum version. */
-												printf( esc_html__( 'Update to %s or newer to enable every feature this integration offers.', 'buddynext' ), esc_html( $bn_row['floor'] ) );
+												echo esc_html( self::floor_notice( $bn_row['entry'] ) );
 												?>
 											</span>
 										<?php elseif ( $bn_behind ) : ?>

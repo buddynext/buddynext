@@ -2976,8 +2976,14 @@ msgstr ""
 msgid "Details for %s"
 msgstr ""
 
+#. translators: %s: required minimum Jetonomy version.
+#: includes/Admin/IntegrationControlsAdmin.php:37
+#, php-format
+msgid "Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your forums and posts are kept."
+msgstr "토론 기능을 사용하려면 Jetonomy %s 이상이 필요합니다. Jetonomy를 업데이트하면 켜집니다. 포럼과 게시물은 그대로 보관됩니다."
+
 #. translators: %s: required minimum version.
-#: includes/Admin/IntegrationControlsAdmin.php:248
+#: includes/Admin/IntegrationControlsAdmin.php:40
 #, php-format
 msgid "Update to %s or newer to enable every feature this integration offers."
 msgstr ""
