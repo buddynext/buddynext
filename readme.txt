@@ -111,7 +111,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - A plan-gated Space's forum is private, and wp buddynext repair-discussion-visibility fixes forums linked before this release.
 * Fix      - A suspended member sees one banner with the reason and a link to appeal, and Skip setup works with JavaScript off.
 * Fix      - A guest no longer learns of private pictures over REST, and a suspended member's Media tab shows nothing.
-* Fix      - The avatar cropper and the emoji picker work from the keyboard: focus moves in, the arrow keys move, Tab stays inside the cropper, and Tab or Escape closes the emoji picker and returns focus to the button that opened it.
+* Fix      - The avatar cropper and the emoji picker work from the keyboard: focus moves in, the arrow keys move, Tab stays inside the cropper, and Tab or Escape closes the emoji picker, and Escape returns focus to the button that opened it.
 * Fix      - Dialogs hold Tab correctly in Safari and on iPad, and a mistyped email setting is refused with a message instead of being emptied under "Settings saved".
 * Fix      - A suspended member no longer gets an error toast on every page, and the Arabic sign-up page no longer scrolls sideways.
 * Fix      - Buttons, switches and filter rows are 40px tall on a phone, and text longer than its field ends in an ellipsis.
@@ -153,7 +153,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - Renaming a course, or changing its picture or address, now updates the posts members already have in the feed, and a certificate issued afterwards upgrades the existing post instead of adding a second one.
 * Fix      - Search no longer lists a blocked member's jobs, events, listings or discussions to the person who blocked them, and a member held back by approval or by a partner plugin is not found by name.
 * Fix      - A sign-up that a partner plugin holds back, such as an unverified Career Board account, is no longer welcomed or listed in Members until it is released.
-* Fix      - A suspended member can no longer start, reply to or send group text messages in direct messages and is told their account is suspended; creating a group and sending an attachment-only group message still need a WPMediaVerse update.
+* Fix      - A suspended member can no longer start, reply to or send group text messages in direct messages and the send is refused, though the screen may show the private-community notice instead of the suspension reason; creating a group and sending an attachment-only group message still need a WPMediaVerse update.
 * Fix      - Opening a post menu from the keyboard moves focus to the first item you can see, and Article re-sync and image crop jobs no longer queue twice.
 * Fix      - A forum you pick under a Space's Integrations stays linked when you save, a forum you may not link says so, and deleting a linked forum in Jetonomy unlinks it from its Space.
 * Fix      - A private Space's leaderboard total no longer shows members 0, or a non-member the member count, after the other loaded the board first.
@@ -164,7 +164,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.
 * Dev      - The release zip is built with every file compressed and the build fails on any stored PHP file, so the store upload firewall no longer blocks it.
 * Dev      - Filter buddynext_member_hold_meta_keys lets a plugin hold a sign-up back, and IntegrationActivity::refresh_cards_by_meta() is the one door that brings every card of a partner object up to date in batches.
-* Compat   - Space discussions need Jetonomy 2.1.0 or newer: on an older Jetonomy they stay off, your forums and posts are kept, and Integrations says which version turns them on; a forum already linked to a Space cannot be opened up through Jetonomy's own edit there.
+* Compat   - Space discussions need Jetonomy 2.1.0 or later: on an older Jetonomy they stay off, your forums and posts are kept, and Integrations says which version turns them on; a forum already linked to a Space cannot be opened up through Jetonomy's own edit there.
 * Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0, Eventonomy 2.0.0, WP Career Board 1.8.6, Learnomy 2.4.1 and WB Gamification 1.7.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
 
 = 1.2.9 - November 2026 =
