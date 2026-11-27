@@ -211,4 +211,41 @@ class ExportCoverageTest extends WP_UnitTestCase {
 
 		$wpdb->delete( $wpdb->prefix . 'bn_invites', array( 'email' => $email ) );
 	}
+
+	/**
+	 * Invitations page through the exporter's page argument (no silent cap) and read
+	 * in the site's timezone.
+	 *
+	 * @return void
+	 */
+	public function test_invitations_page_through_the_export_in_site_time(): void {
+		global $wpdb;
+		update_option( 'timezone_string', 'Asia/Kolkata' );
+		add_filter( 'buddynext_export_per_page', static fn() => 2 );
+		$email = 'paged-' . wp_rand( 1000, 9999 ) . '@example.test';
+		for ( $i = 0; $i < 3; $i++ ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_invites',
+				array(
+					'email'      => $email,
+					'token'      => 'tok-' . $i . '-' . wp_rand( 1000, 9999 ),
+					'status'     => 'pending',
+					'created_at' => '2026-01-01 00:00:00',
+					'expires_at' => '2026-01-08 00:00:00',
+				)
+			);
+		}
+
+		$tools = new PrivacyTools();
+		$one   = $tools->export( $email, 1 );
+		$two   = $tools->export( $email, 2 );
+
+		$this->assertCount( 2, $one['data'] );
+		$this->assertFalse( $one['done'], 'More invitations remain after page 1.' );
+		$this->assertCount( 1, $two['data'] );
+		$this->assertTrue( $two['done'] );
+		$this->assertStringContainsString( '2026-01-01 05:30', wp_json_encode( $one ), 'Stored UTC, shown in site time.' );
+
+		$wpdb->delete( $wpdb->prefix . 'bn_invites', array( 'email' => $email ) );
+	}
 }
