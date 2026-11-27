@@ -232,6 +232,34 @@ function resolveReactionSet( list ) {
 }
 
 /**
+ * The display meta (icon image, or letter glyph and colour) for one reaction slug.
+ *
+ * The reaction set is the same for every post on the page, so the answer is read from
+ * the first picker button of that slug: the server already printed its Fluent emoji
+ * image, or for a Pro custom reaction its glyph and colour. Used by the reacted
+ * state of the React button, which swaps the heart for the reaction's own mark.
+ *
+ * @param {string} type Reaction slug.
+ * @return {{slug: string, char: string, color: string, emoji_url: string}|null} Meta, or null when no picker prints it.
+ */
+function reactionMetaFor( type ) {
+	if ( ! type ) {
+		return null;
+	}
+	const btn = document.querySelector( '.bn-post-card__emoji-btn[data-reaction-type="' + CSS.escape( type ) + '"]' );
+	if ( ! btn ) {
+		return null;
+	}
+	const img = btn.querySelector( 'img' );
+	if ( img && img.getAttribute( 'src' ) ) {
+		return { slug: type, char: '', color: '', emoji_url: img.getAttribute( 'src' ) };
+	}
+	const chip  = btn.querySelector( '.bn-reaction-icon' );
+	const glyph = btn.querySelector( '.bn-reaction-glyph' );
+	return { slug: type, char: glyph ? ( glyph.textContent || '' ).trim() : '', color: chip ? chip.style.color : '', emoji_url: '' };
+}
+
+/**
  * Mounted post cards, so a reaction made somewhere else on the page (the photo
  * lightbox) can be shown on the card it belongs to.
  *
