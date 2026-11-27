@@ -204,8 +204,8 @@ class BlogPostListener implements ListenerInterface {
 	 *
 	 * Runs only for a post that is or was published, so draft autosaves cost
 	 * nothing. Shareable (published, no password): restore a card an earlier
-	 * unpublish withdrew - same card, date, reactions and comments - or publish
-	 * the first one. Not shareable (unpublished, trashed, private, or a password
+	 * unpublish withdrew - same card, date, reactions and comments - or, when the
+	 * post has just become public, publish the first one. Not shareable (unpublished, trashed, private, or a password
 	 * added): withdraw the card, reversibly. A permanent delete removes it
 	 * (on_delete()).
 	 *
@@ -247,6 +247,14 @@ class BlogPostListener implements ListenerInterface {
 		IntegrationActivity::set_space_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID, self::space_for( $post ) );
 
 		if ( IntegrationActivity::restore_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID ) > 0 ) {
+			return;
+		}
+
+		// A new card only when the post has just become public: that is the news
+		// the feed carries. An edit to a post that was already public never posts
+		// it as new, whether it never had a card (published before BuddyNext, or
+		// while the feed was off) or an admin deleted its card.
+		if ( $post_before instanceof \WP_Post && self::is_shareable( $post_before ) ) {
 			return;
 		}
 

@@ -207,4 +207,64 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 
 		delete_option( 'buddynext_email_verify' );
 	}
+
+	/**
+	 * Editing an article that was public without a card never posts it as new.
+	 *
+	 * @return void
+	 */
+	public function test_editing_an_old_article_does_not_post_it_as_new(): void {
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		update_option( 'buddynext_integration_blog_feed', '0' );
+		$post_id = (int) wp_insert_post(
+			array(
+				'post_title'   => 'Written in 2024',
+				'post_content' => 'Body.',
+				'post_status'  => 'publish',
+				'post_author'  => $author,
+				'post_date'    => '2024-01-10 09:00:00',
+			)
+		);
+		delete_option( 'buddynext_integration_blog_feed' );
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'no card while the feed was off' );
+
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_content' => 'Body, typo fixed.',
+			)
+		);
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'a typo fix is not news' );
+	}
+
+	/**
+	 * A card an admin deleted does not come back when the article is edited.
+	 *
+	 * @return void
+	 */
+	public function test_a_deleted_card_does_not_return_on_edit(): void {
+		$author  = self::factory()->user->create( array( 'role' => 'author' ) );
+		$admin   = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$post_id = (int) wp_insert_post(
+			array(
+				'post_title'   => 'Card to delete',
+				'post_content' => 'Body.',
+				'post_status'  => 'publish',
+				'post_author'  => $author,
+			)
+		);
+		$card = BlogPostListener::card_id_for_post( $post_id );
+		$this->assertGreaterThan( 0, $card );
+
+		$this->assertTrue( ( new PostService() )->delete( $card, $admin ) );
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'card deleted' );
+
+		wp_update_post(
+			array(
+				'ID'         => $post_id,
+				'post_title' => 'Card to delete, edited',
+			)
+		);
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'the edit does not bring it back' );
+	}
 }
