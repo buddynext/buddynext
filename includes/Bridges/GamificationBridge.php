@@ -137,7 +137,7 @@ class GamificationBridge {
 		add_filter( 'buddynext_card_live', array( $this, 'live_badge_cards' ), 10, 3 );
 		// A badge card names the level and nothing that changes: the points total describes the member, not the badge,
 		// and goes stale the day after. Cards made before this keep their stored points in the data but never draw them.
-		add_filter( 'buddynext_card_facts', array( $this, 'drop_points_fact' ), 10, 2 );
+		add_filter( 'buddynext_card_facts', array( $this, 'drop_points_fact' ), 10, 3 );
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 
@@ -396,7 +396,8 @@ class GamificationBridge {
 		if ( ! self::can_view_standing( $member_id, $viewer_id ) ) {
 			return false;
 		}
-		if ( $viewer_id === $member_id || ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+		// Moderation needs the level, so an administrator or moderator keeps seeing it; the member's choice hides it from everyone else.
+		if ( $viewer_id === $member_id || ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) || buddynext_service( 'roles' )->can_moderate_site( $viewer_id ) ) {
 			return true;
 		}
 
@@ -921,11 +922,20 @@ class GamificationBridge {
 	 * @param string                                    $type  Card post type.
 	 * @return array<int,array{icon:string,text:string}>
 	 */
-	public function drop_points_fact( array $facts, string $type ): array {
+	public function drop_points_fact( array $facts, string $type, array $link_meta = array() ): array {
 		if ( 'badge' !== $type ) {
 			return $facts;
 		}
-		return array_values( array_filter( $facts, static fn( $fact ): bool => ! ( is_array( $fact ) && 'zap' === ( $fact['icon'] ?? '' ) ) ) );
+		// The level is points standing: leave it off for a viewer the member's "Show my level and points" choice hides it from.
+		$member    = (int) ( $link_meta['user_id'] ?? 0 );
+		$hide_rank = $member > 0 && ! self::can_view_points( $member );
+
+		return array_values(
+			array_filter(
+				$facts,
+				static fn( $fact ): bool => ! ( is_array( $fact ) && ( 'zap' === ( $fact['icon'] ?? '' ) || ( $hide_rank && 'award' === ( $fact['icon'] ?? '' ) ) ) )
+			)
+		);
 	}
 
 	/**

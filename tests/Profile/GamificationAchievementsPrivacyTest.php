@@ -181,4 +181,36 @@ class GamificationAchievementsPrivacyTest extends \WP_UnitTestCase {
 
 		unset( $GLOBALS['wb_gam_test']['show_rank'], $GLOBALS['wb_gam_test']['points'][ $this->owner_id ] );
 	}
+
+	/**
+	 * The shared badge card carries the member's level, so the same choice hides it there (the feed, Explore and
+	 * the REST feed item all resolve the card through one filter), while an administrator keeps seeing it.
+	 *
+	 * @return void
+	 */
+	public function test_show_points_off_hides_the_level_on_the_badge_card_but_not_from_an_admin(): void {
+		if ( ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- a stand-in for the partner class, which is not loaded in these tests.
+			eval( 'namespace WBGam\\Engine; class MemberPrefs { public static function get( $id ) { return array( "show_rank" => $GLOBALS["wb_gam_test"]["show_rank"][ $id ] ?? true ); } }' );
+		}
+		$bridge = new \BuddyNext\Bridges\GamificationBridge();
+		$facts  = array( array( 'icon' => 'award', 'text' => 'Member' ), array( 'icon' => 'tag', 'text' => 'Helper' ) );
+		$meta   = array( 'user_id' => $this->owner_id );
+		$viewer = self::factory()->user->create();
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+
+		wp_set_current_user( $viewer );
+		$this->assertCount( 2, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'Fixture is wrong: the level shows by default.' );
+
+		$GLOBALS['wb_gam_test']['show_rank'][ $this->owner_id ] = false;
+		$this->assertCount( 1, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'The badge card still named the level.' );
+		wp_set_current_user( 0 );
+		$this->assertCount( 1, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'A guest still saw the level.' );
+		wp_set_current_user( $admin );
+		$this->assertCount( 2, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'An administrator lost the level moderation needs.' );
+		wp_set_current_user( $this->owner_id );
+		$this->assertCount( 2, $bridge->drop_points_fact( $facts, 'badge', $meta ), 'The member lost their own level.' );
+
+		unset( $GLOBALS['wb_gam_test']['show_rank'] );
+	}
 }

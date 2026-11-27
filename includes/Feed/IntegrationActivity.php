@@ -909,6 +909,13 @@ class IntegrationActivity {
 	private static array $live = array();
 
 	/**
+	 * Post id => the member the card is about, filled with $live.
+	 *
+	 * @var array<int,int>
+	 */
+	private static array $card_member = array();
+
+	/**
 	 * Load the live facts and actions of a whole page of partner cards, one call per card type.
 	 *
 	 * A card's facts are written when it publishes, so a value that changes afterwards (spots left,
@@ -952,7 +959,8 @@ class IntegrationActivity {
 			 * @param int                $viewer  Current user ID (0 = logged out).
 			 */
 			$answers = (array) apply_filters( 'buddynext_card_live', array(), (string) $type, $cards, $viewer );
-			foreach ( $cards as $id => $unused ) {
+			foreach ( $cards as $id => $card ) {
+				self::$card_member[ (int) $id ] = (int) ( $card['user_id'] ?? 0 );
 				self::$live[ (int) $id ] = isset( $answers[ $id ] ) && is_array( $answers[ $id ] ) ? $answers[ $id ] : array();
 			}
 		}
@@ -1043,6 +1051,10 @@ class IntegrationActivity {
 	 */
 	public static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
 		$live  = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
+		// The member the card is about, so a filter can decide what this viewer may see of them.
+		if ( $post_id > 0 && ! isset( $link_meta['user_id'] ) && ! empty( self::$card_member[ $post_id ] ) ) {
+			$link_meta['user_id'] = self::$card_member[ $post_id ];
+		}
 		$facts = ! empty( $live['facts'] ) ? (array) $live['facts'] : (array) ( $link['facts'] ?? $link_meta['facts'] ?? array() );
 
 		/**
