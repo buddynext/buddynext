@@ -657,14 +657,21 @@ class BlogPostListener implements ListenerInterface {
 				'post_status'    => 'publish',
 				'posts_per_page' => 20,
 				'orderby'        => 'date',
-				'order'          => 'ASC',
+				'order'          => 'DESC',
 				'no_found_rows'  => true,
 			)
 		);
 
-		foreach ( $posts as $post ) {
-			$this->publish_card( $post );
-		}
+		// Oldest of those first, so the newest article ends up on top of the feed.
+		// A replay of held work, not a member posting fast: the post rate limit
+		// stands down for it, or only the first few would get a card.
+		\BuddyNext\Moderation\SafeguardService::bulk_import(
+			function () use ( $posts ): void {
+				foreach ( array_reverse( $posts ) as $post ) {
+					$this->publish_card( $post );
+				}
+			}
+		);
 	}
 
 	/**

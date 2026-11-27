@@ -267,4 +267,34 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( 0, BlogPostListener::card_id_for_post( $post_id ), 'the edit does not bring it back' );
 	}
+
+	/**
+	 * On verifying, the member's most recent articles get their cards, not the oldest.
+	 *
+	 * @return void
+	 */
+	public function test_verify_publishes_the_most_recent_articles(): void {
+		update_option( 'buddynext_email_verify', 1 );
+		$author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$ids    = array();
+		for ( $week = 1; $week <= 25; $week++ ) {
+			$ids[ $week ] = (int) wp_insert_post(
+				array(
+					'post_title'   => 'Week ' . $week,
+					'post_content' => 'Body.',
+					'post_status'  => 'publish',
+					'post_author'  => $author,
+					'post_date'    => gmdate( 'Y-m-d H:i:s', strtotime( '2026-01-01 +' . $week . ' weeks' ) ),
+				)
+			);
+		}
+
+		( new \BuddyNext\Auth\VerificationService() )->mark_verified( $author );
+		delete_option( 'buddynext_email_verify' );
+
+		$this->assertGreaterThan( 0, BlogPostListener::card_id_for_post( $ids[25] ), 'the newest article has a card' );
+		$this->assertGreaterThan( 0, BlogPostListener::card_id_for_post( $ids[6] ), 'the 20th newest has a card' );
+		$this->assertSame( 0, BlogPostListener::card_id_for_post( $ids[5] ), 'older ones stay off the feed' );
+		$this->assertGreaterThan( BlogPostListener::card_id_for_post( $ids[24] ), BlogPostListener::card_id_for_post( $ids[25] ), 'the newest article lands on top' );
+	}
 }
