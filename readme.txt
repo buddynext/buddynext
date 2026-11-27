@@ -157,6 +157,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - Opening a post menu from the keyboard moves focus to the first item you can see, and Article re-sync and image crop jobs no longer queue twice.
 * Fix      - A forum you pick under a Space's Integrations stays linked when you save, a forum you may not link says so, and deleting a linked forum in Jetonomy unlinks it from its Space.
 * Fix      - A private Space's leaderboard total no longer shows members 0, or a non-member the member count, after the other loaded the board first.
+* Fix      - A post you have reacted to shows its reaction icon next to the label again, instead of a blank gap.
 * Fix      - The notification badge and tab counts no longer include notifications the bell hides, and blocking or muting someone refreshes them at once.
 * Fix      - A member banned from a Space is no longer offered Request to join on that Space's event.
 * Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
