@@ -1735,6 +1735,46 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A pinned topic stays first in the Space's Discussions list for a member who also has private topics of their own.
+	 *
+	 * @return void
+	 */
+	public function test_pinned_topic_stays_first_beside_own_private_topics(): void {
+		global $wpdb;
+		$fx     = $this->space_with_forum();
+		$pinned = 9000 + (int) $fx['forum'];
+		$own    = $pinned + 50000;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$wpdb->update(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'is_sticky'  => 1,
+				'created_at' => '2026-01-01 00:00:00',
+			),
+			array( 'id' => $pinned )
+		);
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'id'         => $own,
+				'space_id'   => (int) $fx['forum'],
+				'author_id'  => (int) $fx['owner'],
+				'slug'       => 'my-private-one',
+				'title'      => 'My private one',
+				'is_private' => 1,
+				'created_at' => '2026-11-01 00:00:00',
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery
+		wp_cache_flush();
+		wp_set_current_user( (int) $fx['owner'] );
+
+		$ids = array_map( static fn( $row ): int => (int) $row->id, $this->bridge->space_discussions( (int) $fx['space'] ) );
+
+		$this->assertSame( array( $pinned, $own ), $ids, 'the pinned topic first, then the newer private one' );
+	}
+
+	/**
 	 * Render the space Discussions panel for a viewer.
 	 *
 	 * @param int $space_id Space.

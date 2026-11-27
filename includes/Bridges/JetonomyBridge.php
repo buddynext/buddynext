@@ -5696,7 +5696,7 @@ class JetonomyBridge {
 				 FROM {$wpdb->prefix}jt_posts p
 				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
 				 WHERE p.space_id = %d AND p.status = 'publish' AND p.is_private = 1 AND p.author_id = %d
-				 ORDER BY p.created_at DESC
+				 ORDER BY p.is_sticky DESC, p.created_at DESC
 				 LIMIT %d",
 				$forum_id,
 				$viewer_id,
@@ -5709,7 +5709,8 @@ class JetonomyBridge {
 		}
 
 		$rows = array_merge( $rows, $this->with_tags( $own ) );
-		usort( $rows, static fn( $a, $b ): int => strcmp( (string) $b->created_at, (string) $a->created_at ) );
+		// The same order as the shared list: pinned topics first, then newest.
+		usort( $rows, static fn( $a, $b ): int => array( (int) $b->is_sticky, (string) $b->created_at ) <=> array( (int) $a->is_sticky, (string) $a->created_at ) );
 
 		return $this->without_blocked( array_slice( $rows, 0, $limit ), $viewer_id );
 	}
