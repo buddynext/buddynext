@@ -101,7 +101,8 @@ class MediaControllerTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( '&#', $title );
 		$this->assertStringNotContainsString( '<b>', $title );
 		$this->assertStringContainsString( 'Sam', $title );
-		$this->assertStringContainsString( "\u{2019}s weekend", $title, 'The apostrophe is the typographic one, as a character.' );
+		$this->assertStringContainsString( "Sam's weekend", $title, 'The apostrophe is the one the member typed, not a curly one.' );
+		$this->assertStringContainsString( ' -- done', $title, 'Two hyphens stay two hyphens, not a long dash.' );
 	}
 
 	// ── Viewer Delete and tile Remove: one trash route, one rule ───────────────

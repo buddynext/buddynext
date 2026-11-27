@@ -147,14 +147,14 @@ class Galleries {
 	/**
 	 * An album's title as plain text.
 	 *
-	 * WordPress's get_the_title() texturizes (an apostrophe becomes &#8217;) and the JS prints the value as text, so decode once here:
+	 * The stored title is read, not get_the_title(), which texturizes (an apostrophe becomes a curly one, two hyphens a dash) and so would not be what the member typed; entities are decoded once here because the JS prints the value as text:
 	 * every consumer, REST included, then gets the characters the member typed.
 	 *
 	 * @param int $album_id Album post id.
 	 * @return string
 	 */
 	private static function album_title( int $album_id ): string {
-		return html_entity_decode( wp_strip_all_tags( get_the_title( $album_id ) ), ENT_QUOTES, 'UTF-8' );
+		return html_entity_decode( wp_strip_all_tags( (string) get_post_field( 'post_title', $album_id ) ), ENT_QUOTES, 'UTF-8' );
 	}
 
 	/**
@@ -390,6 +390,12 @@ class Galleries {
 			return self::can_view_space( $space_id, $viewer_id );
 		}
 
+		// A suspended member's own albums are hidden like their media (owner_hidden): from a guest, a member, a
+		// profile list and the single-album route alike, because every one of them asks this method.
+		if ( self::owner_hidden( (int) get_post_field( 'post_author', $album_id ) ) ) {
+			return false;
+		}
+
 		$privacy = MediaClient::privacy();
 		if ( ! $privacy || ! method_exists( $privacy, 'can_view' ) ) {
 			// Fail closed for non-owners; owners always see their own.
@@ -564,7 +570,7 @@ class Galleries {
 	 */
 	public static function album_media_ids( int $album_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
 		$albums = MediaClient::albums();
-		if ( ! $albums || ! method_exists( $albums, 'get_items' ) ) {
+		if ( ! $albums || ! method_exists( $albums, 'get_items' ) || ! self::can_view_album( $album_id, $viewer_id ) ) {
 			return array();
 		}
 
