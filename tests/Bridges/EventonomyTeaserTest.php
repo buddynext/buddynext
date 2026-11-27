@@ -96,6 +96,17 @@ class EventonomyTeaserTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Cancel request', $t['secondary_label'] );
 	}
 
+	public function test_a_member_banned_from_the_space_gets_no_join_or_request_button(): void {
+		$space = $this->space( 'private' );
+		( new SpaceMemberService() )->ban_from_space( $space, $this->viewer, $this->owner );
+
+		$this->assertNull( $this->ask( $space, $this->viewer ), 'banned: no preview, no button' );
+
+		$other = self::factory()->user->create();
+		$t     = $this->ask( $space, $other );
+		$this->assertSame( 'Request to join Trail Club', $t['cta_label'], 'someone not banned is still asked to request' );
+	}
+
 	public function test_a_secret_space_and_a_missing_space_stay_not_found(): void {
 		$this->assertNull( $this->ask( $this->space( 'secret' ), $this->viewer ) );
 		$this->assertNull( $this->ask( $this->space( 'secret' ), 0 ) );

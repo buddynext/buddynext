@@ -8,6 +8,7 @@
  *  - a guest: join the Space, or log in, both coming back to the event;
  *  - a signed-in person on an open Space: join it, then come back to the event;
  *  - a signed-in person on a private Space: ask to join; once asked, a waiting note;
+ *  - a member the Space banned: no preview and no button;
  *  - a secret Space (or none): no preview, so the event stays a plain "not found".
  * A Space that needs a plan is left to BuddyNext Pro, which has the plan wording and price.
  *
@@ -105,6 +106,12 @@ class EventonomyTeaser {
 			);
 		}
 
+		// A member the Space banned cannot join or ask (join() refuses), so no preview and no button: a plain "not found".
+		$members = new SpaceMemberService();
+		if ( $members->is_banned_from_space( $space_id, $user_id ) || 'banned' === $members->get_status( $space_id, $user_id ) ) {
+			return null;
+		}
+
 		// A Space that needs a plan has its words and price in BuddyNext Pro, which answers after this.
 		if ( '' !== (string) ( $space['required_ability'] ?? '' ) ) {
 			return $teaser;
@@ -118,7 +125,7 @@ class EventonomyTeaser {
 			PageRouter::space_url( $space_id )
 		);
 
-		if ( $private && 'pending' === ( new SpaceMemberService() )->get_status( $space_id, $user_id ) ) {
+		if ( $private && 'pending' === $members->get_status( $space_id, $user_id ) ) {
 			return array(
 				'heading'         => __( 'Your request is waiting for approval', 'buddynext' ),
 				'message'         => __( 'An organiser will review your request to join. You will get a notice when it is answered.', 'buddynext' ),
