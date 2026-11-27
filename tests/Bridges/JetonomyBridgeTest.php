@@ -2084,6 +2084,39 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Below the floor the bridge is off, but one guard stays: a forum linked to a Space cannot be opened up through
+	 * Jetonomy's own edit route. In a separate process so the version can be 2.0.7.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_a_linked_forum_cannot_be_opened_up_over_rest_below_the_floor(): void {
+		define( 'JETONOMY_VERSION', '2.0.7' );
+		$bridge = new JetonomyBridge();
+		$bridge->init();
+		$this->assertNotFalse( has_filter( 'rest_request_before_callbacks', array( $bridge, 'refuse_old_forum_edit' ) ) );
+
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Old rest', 'slug' => 'old-rest-' . wp_rand( 1000, 9999 ) ) );
+		update_space_meta( $space_id, 'jetonomy_forum_id', '9105' );
+		\Jetonomy\Models\Space::$rows[9105] = array( 'visibility' => 'private', 'join_policy' => 'approval', 'status' => 'active' );
+
+		$refused = $bridge->refuse_old_forum_edit( null, array(), $this->forum_patch( 9105, array( 'visibility' => 'public', 'join_policy' => 'open' ) ) );
+		$this->assertWPError( $refused );
+		$this->assertSame( 409, $refused->get_error_data()['status'] );
+		$this->assertNull( $bridge->refuse_old_forum_edit( null, array(), $this->forum_patch( 9105, array( 'title' => 'Renamed', 'visibility' => 'private' ) ) ) );
+		$this->assertNull( $bridge->refuse_old_forum_edit( null, array(), $this->forum_patch( 9999, array( 'visibility' => 'public' ) ) ), 'An unlinked forum is untouched.' );
+	}
+
+	/**
+	 * At 2.1.0 or later the guard is not registered: the jetonomy_before_update_space filter does the work.
+	 */
+	public function test_the_old_version_guard_is_not_registered_from_2_1_0(): void {
+		$bridge = new JetonomyBridge();
+		$bridge->init();
+		$this->assertFalse( has_filter( 'rest_request_before_callbacks', array( $bridge, 'refuse_old_forum_edit' ) ) );
+	}
+
+	/**
 	 * One push per event: Jetonomy Pro keeps its push unless BuddyNext can really send one
 	 * (the stand-down itself is covered in BuddyNext Pro, where push exists).
 	 */

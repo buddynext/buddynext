@@ -2946,6 +2946,12 @@ msgstr ""
 msgid "Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your forums and posts are kept."
 msgstr "讨论功能需要 Jetonomy %s 或更高版本。请更新 Jetonomy 以启用;您的论坛和帖子会被保留。"
 
+#. translators: %s: minimum Jetonomy version.
+#: includes/Bridges/JetonomyBridge.php:3151
+#, php-format
+msgid "This discussion follows its Space and cannot be opened up here. Update Jetonomy to %s or newer."
+msgstr "此讨论遵循其 Space 的设置,无法在此处开放。请将 Jetonomy 更新到 %s 或更高版本。"
+
 #. translators: %s: required minimum version.
 #: includes/Admin/IntegrationControlsAdmin.php:40
 #, php-format

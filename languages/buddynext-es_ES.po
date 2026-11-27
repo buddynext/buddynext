@@ -3017,6 +3017,12 @@ msgstr ""
 msgid "Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your forums and posts are kept."
 msgstr "Los debates necesitan Jetonomy %s o posterior. Actualiza Jetonomy para activarlos; tus foros y publicaciones se conservan."
 
+#. translators: %s: minimum Jetonomy version.
+#: includes/Bridges/JetonomyBridge.php:3151
+#, php-format
+msgid "This discussion follows its Space and cannot be opened up here. Update Jetonomy to %s or newer."
+msgstr "Este debate sigue a su Space y no se puede abrir desde aquí. Actualiza Jetonomy a la versión %s o posterior."
+
 #. translators: %s: required minimum version.
 #: includes/Admin/IntegrationControlsAdmin.php:40
 #, php-format

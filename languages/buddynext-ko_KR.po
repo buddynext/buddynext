@@ -2982,6 +2982,12 @@ msgstr ""
 msgid "Discussions need Jetonomy %s or newer. Update Jetonomy to turn them on; your forums and posts are kept."
 msgstr "토론 기능을 사용하려면 Jetonomy %s 이상이 필요합니다. Jetonomy를 업데이트하면 켜집니다. 포럼과 게시물은 그대로 보관됩니다."
 
+#. translators: %s: minimum Jetonomy version.
+#: includes/Bridges/JetonomyBridge.php:3151
+#, php-format
+msgid "This discussion follows its Space and cannot be opened up here. Update Jetonomy to %s or newer."
+msgstr "이 토론은 해당 스페이스를 따르므로 여기에서 공개 범위를 넓힐 수 없습니다. Jetonomy를 %s 이상으로 업데이트해 주세요."
+
 #. translators: %s: required minimum version.
 #: includes/Admin/IntegrationControlsAdmin.php:40
 #, php-format
