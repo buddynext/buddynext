@@ -3115,7 +3115,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	The underline is an inset shadow, not a border, so a host theme's button border cannot replace it. */
 .bn-composer-switch__tabs {
 	display: inline-flex;
-	gap: var(--bn-s4);
+	gap: 22px;
 }
 .bn-composer-switch__tab {
 	min-block-size: 44px;
@@ -3127,7 +3127,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	background: transparent;
 	color: var(--bn-ink-3);
 	font-family: var(--bn-font-ui);
-	font-size: var(--bn-text-sm);
+	font-size: 14px;
 	font-weight: var(--bn-fw-semibold);
 	cursor: pointer;
 }
@@ -3226,9 +3226,9 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	line-height: var(--bn-leading-normal);
 }
 
-.bn-composer__avatar {
-	width: 36px;
-	height: 36px;
+.bn-composer .bn-composer__avatar {
+	width: 44px;
+	height: 44px;
 	border-radius: 50%;
 	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
@@ -3241,6 +3241,12 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	overflow: hidden;
 }
 .bn-composer__avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* The audience reads just the choice and a chevron on a desktop; the "Posting to" lead-in is for phones, where the pill is a plain line. */
+.bn-composer__privacy-lead { display: none; }
+@media (max-width: 640px) {
+	.bn-composer__privacy-lead { display: inline; }
+}
 
 .bn-composer__input {
 	flex: 1;

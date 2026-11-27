@@ -125,7 +125,8 @@ $composer_placeholder = $composer_space
 	: sprintf(
 		/* translators: %s: viewer display name */
 		__( "What's on your mind, %s?", 'buddynext' ),
-		$composer_display
+		// First name, not the handle: a member whose display name is one word keeps it.
+		(string) strtok( trim( (string) $composer_display ) . ' ', ' ' )
 	);
 
 $composer_has_pro = defined( 'BUDDYNEXTPRO_VERSION' );
@@ -711,7 +712,7 @@ if ( $composer_article_summary['pending'] > 0 ) {
 						aria-expanded="false"
 						data-wp-bind--aria-expanded="state.privacyOpen"
 						data-wp-on--click="actions.togglePrivacy">
-						<?php esc_html_e( 'Posting to', 'buddynext' ); ?>
+						<span class="bn-composer__privacy-lead"><?php esc_html_e( 'Posting to', 'buddynext' ); ?></span>
 						<strong data-wp-text="state.privacyLabel"><?php esc_html_e( 'Public', 'buddynext' ); ?></strong>
 						<span class="bn-composer__privacy-caret" aria-hidden="true">
 							<?php buddynext_icon( 'chevron-down' ); ?>
