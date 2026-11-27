@@ -4,8 +4,9 @@
  *
  * The articles written for an open space, newest first, as the feed's own post
  * cards (the article card inside), with the shared Load more below. A member who
- * may write for the space gets the "Write for this Space" button in the header
- * and in the empty state; everyone else only reaches this tab once the space has
+ * may write for the space gets the "Write for this Space" button: in the header
+ * once there are articles, in the empty state before that (one button, never
+ * two); everyone else only reaches this tab once the space has
  * an article. Rendered by MemberBlogBridge::render_space_blog_panel(), which
  * fetches the page; this part only paints it.
  *
@@ -33,7 +34,7 @@ $bn_sb_write  = isset( $write_url ) ? (string) $write_url : '';
 <section class="bn-space-blog" aria-labelledby="bn-space-blog-title">
 	<header class="bn-space-blog__head">
 		<h2 class="bn-space-blog__title" id="bn-space-blog-title"><?php esc_html_e( 'Blog', 'buddynext' ); ?></h2>
-		<?php if ( '' !== $bn_sb_write ) : ?>
+		<?php if ( '' !== $bn_sb_write && array() !== $bn_sb_posts ) : ?>
 			<a class="bn-btn bn-space-blog__write" data-variant="primary" href="<?php echo esc_url( $bn_sb_write ); ?>">
 				<?php buddynext_icon( 'edit' ); ?>
 				<span><?php esc_html_e( 'Write for this Space', 'buddynext' ); ?></span>

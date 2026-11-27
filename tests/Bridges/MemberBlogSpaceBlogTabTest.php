@@ -287,6 +287,8 @@ class MemberBlogSpaceBlogTabTest extends \WP_UnitTestCase {
 		$html  = $this->panel( $empty, $this->writer );
 		$this->assertStringContainsString( 'No articles in this space yet.', $html );
 		$this->assertStringContainsString( 'bn_space=' . $empty, $html );
+		$this->assertSame( 1, substr_count( $html, 'Write for this Space' ), 'one button in an empty space, not two' );
+		$this->assertSame( 1, substr_count( $this->panel( $space, $this->writer ), 'Write for this Space' ), 'one button once there are articles' );
 	}
 
 	public function test_rest_type_filters_and_refuses_an_unknown_value(): void {
