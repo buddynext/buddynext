@@ -269,4 +269,31 @@ class MemberBlogSpaceFieldTest extends \WP_UnitTestCase {
 		$card_space = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", BlogPostListener::card_id_for_post( $post_id ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$this->assertSame( $space, $card_space, 'the card is in the space on the first publish' );
 	}
+
+	public function test_an_autosaved_draft_keeps_its_space_when_reopened(): void {
+		$space = $this->space();
+		$draft = self::factory()->post->create(
+			array(
+				'post_status' => 'draft',
+				'post_author' => $this->writer,
+			)
+		);
+		$this->assertSame( '', $this->field_for( $this->writer, $draft ), 'nothing stored yet' );
+
+		$request = new \WP_REST_Request( 'POST', '/wbcom-member-blog/v1/autosave' );
+		$request->set_param( 'bn_space', (string) $space );
+		$this->bridge->save_autosaved_space_choice( $draft, $request );
+
+		$this->assertSame( $space, (int) get_post_meta( $draft, BlogPostListener::SPACE_META, true ) );
+		$this->assertStringContainsString( 'value="' . $space . '"', $this->field_for( $this->writer, $draft ), 'the reopened draft carries the space' );
+
+		$private = $this->space( 'private' );
+		$request->set_param( 'bn_space', (string) $private );
+		$this->bridge->save_autosaved_space_choice( $draft, $request );
+		$this->assertSame( $space, (int) get_post_meta( $draft, BlogPostListener::SPACE_META, true ), 'a private space is refused on autosave too' );
+
+		$request->set_param( 'bn_space', '0' );
+		$this->bridge->save_autosaved_space_choice( $draft, $request );
+		$this->assertSame( '', get_post_meta( $draft, BlogPostListener::SPACE_META, true ), 'clearing deletes it' );
+	}
 }

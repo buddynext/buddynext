@@ -136,16 +136,24 @@ class MemberBlogBridge {
 		);
 		// A suspended or pending-approval member may not write, on Member Blog's own
 		// handlers too: its form submit, autosave, dashboard actions, /wp/v2/posts gate
-		// and Pro's scheduled publish all ask can_create() or can_edit(), and both
-		// answer through these filters. Late priority so nothing re-grants a hold.
+		// and Pro's scheduled publish all ask can_create(), can_edit() or can_delete(),
+		// and all three answer through these filters. Late priority so nothing
+		// re-grants a hold.
 		add_filter( 'bpmb_can_create_post', array( $this, 'refuse_held_writer' ), 100, 2 );
 		add_filter( 'bpmb_can_edit_post', array( $this, 'refuse_held_editor' ), 100, 3 );
+		add_filter( 'bpmb_can_delete_post', array( $this, 'refuse_held_editor' ), 100, 3 );
+		// Member Blog's image and category routes let in anyone with upload_files OR
+		// its create permission, so a held Author passes on the WordPress capability.
+		add_filter( 'rest_pre_dispatch', array( $this, 'refuse_held_rest_writes' ), 10, 3 );
 		// Writing for a space: the choice rides Member Blog's form as a hidden field
 		// and is stored on the post through its save filter, before the post is written.
 		add_action( 'buddynext_register_space_fields', array( $this, 'register_space_fields' ) );
 		add_action( 'bp_post_before_submit_button', array( $this, 'render_space_field' ) );
 		add_action( 'bp_post_before_submit_button', array( $this, 'render_crop_preview' ) );
 		add_filter( 'bp_member_blog_post_data', array( $this, 'save_space_choice' ), 10, 2 );
+		// Member Blog's autosave creates the draft without running that filter, so the
+		// choice rides the autosave request too (enqueue_title_prefill() adds it).
+		add_action( 'bpmb_post_autosaved', array( $this, 'save_autosaved_space_choice' ), 10, 2 );
 	}
 
 	/**
@@ -225,28 +233,76 @@ class MemberBlogBridge {
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		$post_id = (int) $post_id;
-		$stored  = $post_id > 0 ? (int) get_post_meta( $post_id, BlogPostListener::SPACE_META, true ) : 0;
-
-		if ( 0 === $space_id ) {
-			if ( $stored > 0 ) {
-				delete_post_meta( $post_id, BlogPostListener::SPACE_META );
-			}
+		$author  = $post_id > 0 ? (int) get_post_field( 'post_author', $post_id ) : (int) ( $post_data['post_author'] ?? get_current_user_id() );
+		$choice  = self::space_choice( $post_id, $space_id, $author );
+		if ( null === $choice ) {
 			return $post_data;
 		}
-		if ( $space_id > 0 && $space_id === $stored ) {
-			return $post_data;
-		}
-
-		$author = $post_id > 0 ? (int) get_post_field( 'post_author', $post_id ) : (int) ( $post_data['post_author'] ?? get_current_user_id() );
-		if ( ! BlogPostListener::space_accepts_article( $space_id, $author ) ) {
+		if ( 0 === $choice ) {
+			delete_post_meta( $post_id, BlogPostListener::SPACE_META );
 			return $post_data;
 		}
 
 		$post_data['meta_input'] = isset( $post_data['meta_input'] ) && is_array( $post_data['meta_input'] ) ? $post_data['meta_input'] : array();
 
-		$post_data['meta_input'][ BlogPostListener::SPACE_META ] = $space_id;
+		$post_data['meta_input'][ BlogPostListener::SPACE_META ] = $choice;
 
 		return $post_data;
+	}
+
+	/**
+	 * Store the space choice carried by Member Blog's autosave (`bpmb_post_autosaved`).
+	 *
+	 * The first autosave is what creates the draft, so without this a draft started
+	 * from Write for this Space and reopened later had lost its space. Same rules as
+	 * save_space_choice(). Member Blog fires this for drafts only, after its own
+	 * edit check.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $post_id The draft.
+	 * @param mixed $request The autosave request.
+	 * @return void
+	 */
+	public function save_autosaved_space_choice( $post_id, $request ): void {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || ! $request instanceof \WP_REST_Request || null === $request->get_param( 'bn_space' ) ) {
+			return;
+		}
+		$raw      = $request->get_param( 'bn_space' );
+		$space_id = is_scalar( $raw ) ? (int) absint( $raw ) : -1;
+		$choice   = self::space_choice( $post_id, $space_id, (int) get_post_field( 'post_author', $post_id ) );
+		if ( 0 === $choice ) {
+			delete_post_meta( $post_id, BlogPostListener::SPACE_META );
+		} elseif ( null !== $choice ) {
+			update_post_meta( $post_id, BlogPostListener::SPACE_META, $choice );
+		}
+	}
+
+	/**
+	 * What a posted space choice does to a post, never trusting the request:
+	 *
+	 * - the id already stored on THIS post: unchanged (null), accepted whatever the
+	 *   space has become since (the card sync decides where its card lives);
+	 * - a new or different id: that id, only when it is a public space the author
+	 *   may post in, otherwise null (the stored choice is left alone);
+	 * - an empty value: 0 (delete the stored choice) when there is one.
+	 *
+	 * @param int $post_id  Post, 0 on create.
+	 * @param int $space_id Posted space id (0 = cleared, -1 = malformed).
+	 * @param int $author   Post author.
+	 * @return int|null Space id to store, 0 to delete, null to leave alone.
+	 */
+	private static function space_choice( int $post_id, int $space_id, int $author ): ?int {
+		$stored = $post_id > 0 ? (int) get_post_meta( $post_id, BlogPostListener::SPACE_META, true ) : 0;
+
+		if ( 0 === $space_id ) {
+			return $stored > 0 ? 0 : null;
+		}
+		if ( $space_id === $stored || ! BlogPostListener::space_accepts_article( $space_id, $author ) ) {
+			return null;
+		}
+		return $space_id;
 	}
 
 	/**
@@ -305,6 +361,44 @@ class MemberBlogBridge {
 	public function refuse_held_editor( $can, $post_id, $user_id ): bool {
 		unset( $post_id );
 		return (bool) $can && '' === self::write_hold( (int) $user_id );
+	}
+
+	/**
+	 * Refuse a held member's writes to Member Blog's image and category routes
+	 * (`rest_pre_dispatch`). Its other write routes already ask can_create() or
+	 * can_edit(), which the filters above answer.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param mixed $result  Response so far (null = not handled yet).
+	 * @param mixed $server  REST server.
+	 * @param mixed $request The request.
+	 * @return mixed
+	 */
+	public function refuse_held_rest_writes( $result, $server, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- $server is part of the rest_pre_dispatch signature.
+		if ( null !== $result || ! $request instanceof \WP_REST_Request || 'GET' === $request->get_method() ) {
+			return $result;
+		}
+		if ( ! preg_match( '#^/wbcom-member-blog/v1/(?:upload-image|attach-image|categories)/?$#i', $request->get_route() ) ) {
+			return $result;
+		}
+		$hold = self::write_hold( get_current_user_id() );
+		if ( '' === $hold ) {
+			return $result;
+		}
+		return new \WP_Error( 'buddynext_write_held', self::hold_message( $hold ), array( 'status' => 403 ) );
+	}
+
+	/**
+	 * What a held member is told when writing is refused.
+	 *
+	 * @param string $hold 'suspended' or 'pending'.
+	 * @return string
+	 */
+	private static function hold_message( string $hold ): string {
+		return 'suspended' === $hold
+			? __( 'Your account is suspended, so you cannot post right now.', 'buddynext' )
+			: __( 'Your account is awaiting administrator approval.', 'buddynext' );
 	}
 
 	/**
@@ -565,6 +659,16 @@ class MemberBlogBridge {
 		}
 
 		wp_enqueue_script_module( '@buddynext/blog-write-crop' );
+		// The space choice rides Member Blog's autosave request, through the
+		// jQuery event its editor fires to collect extra draft fields.
+		$editor = 'buddypress-member-blog-editor';
+		if ( wp_script_is( $editor, 'enqueued' ) ) {
+			wp_add_inline_script(
+				$editor,
+				'jQuery( document ).on( "bpmb:autosave-data", function ( e, extra, $form ) { var f = $form && $form.find( "input[name=bn_space]" ); if ( f && f.length ) { extra.bn_space = f.val(); } } );',
+				'before'
+			);
+		}
 		if ( '' !== self::write_hub_prefill_title() ) {
 			wp_enqueue_script_module( '@buddynext/blog-write-prefill' );
 		}
@@ -743,7 +847,7 @@ class MemberBlogBridge {
 			case 'suspended':
 				return array(
 					'icon'      => 'lock',
-					'title'     => __( 'Your account is suspended, so you cannot post right now.', 'buddynext' ),
+					'title'     => self::hold_message( 'suspended' ),
 					'body'      => '',
 					'cta_url'   => \BuddyNext\Core\PageRouter::account_status_url(),
 					'cta_label' => __( 'Review your account status', 'buddynext' ),
@@ -751,7 +855,7 @@ class MemberBlogBridge {
 			case 'pending':
 				return array(
 					'icon'      => 'clock',
-					'title'     => __( 'Your account is awaiting administrator approval.', 'buddynext' ),
+					'title'     => self::hold_message( 'pending' ),
 					'body'      => '',
 					'cta_url'   => '',
 					'cta_label' => '',
