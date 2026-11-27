@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-"""Fail when a shipped locale is not fully translated.
+"""Check the structure of every shipped locale; report (not gate) translation coverage.
 
-Per languages/<domain>-<locale>.po: counts untranslated msgids, fuzzy entries, and entries whose
-msgstr placeholders differ from the msgid (the multiset of {{tokens}}, printf specifiers, HTML tag
-names and entities). Prints a per-locale table; exits 1 if any count is above zero.
+Per languages/<domain>-<locale>.po prints untranslated and fuzzy counts as information only: a
+community may supply any language, finished or not, so incomplete coverage never fails the build.
+FAILS (exit 1) on: a translated entry whose msgstr placeholders differ from the msgid (multiset of
+{{tokens}}, printf specifiers, HTML tag names, named entities), a .po msgfmt rejects, or a .mo that
+is not a valid gettext file.
 
 Usage: check-translations.py [plugin-dir | languages-dir] [text-domain]
   Default dir: this plugin. The domain defaults to the stem of the .pot found in the languages dir
-  (else any *.po). The target is zero everywhere: there is deliberately no ratchet file.
-Fix: translate the entry (keep every placeholder), clear the fuzzy flag, rebuild the .mo with msgfmt.
+  (else any *.po). Pot freshness is gated separately by bin/check-pot-fresh.php.
+Fix: restore the placeholder in the msgstr, then rebuild the .mo with msgfmt.
 """
 import ast
 import collections
 import glob
 import os
 import re
+import struct
+import subprocess
 import sys
 
 TOKEN = re.compile(
@@ -93,6 +97,24 @@ def check(path):
     return untr, fuzzy, bad, detail
 
 
+def structure(po):
+    """Return a list of structural problems with a .po and its sibling .mo."""
+    probs = []
+    try:
+        r = subprocess.run(["msgfmt", "-c", "-o", os.devnull, po], capture_output=True, text=True)
+        if r.returncode:
+            probs.append("msgfmt rejects the .po: " + r.stderr.strip().split("\n")[0])
+    except FileNotFoundError:
+        pass  # msgfmt missing: the placeholder check below still runs.
+    mo = po[:-3] + ".mo"
+    if os.path.isfile(mo):
+        with open(mo, "rb") as fh:
+            head = fh.read(4)
+        if head not in (struct.pack("<I", 0x950412DE), struct.pack(">I", 0x950412DE)):
+            probs.append("%s is not a gettext .mo" % os.path.basename(mo))
+    return probs
+
+
 def main():
     root = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), ".."))
     langs = os.path.join(root, "languages") if os.path.isdir(os.path.join(root, "languages")) else root
@@ -104,17 +126,19 @@ def main():
     if not files:
         print("FAIL: no %s-*.po in %s" % (domain, langs), file=sys.stderr)
         return 1
-    print("%-28s %12s %6s %12s" % ("locale", "untranslated", "fuzzy", "placeholders"))
+    print("%-14s %12s %6s | %12s %9s   (coverage is informational, only the right-hand columns gate)" % ("locale", "untranslated", "fuzzy", "placeholders", "structure"))
     failed = False
     for f in files:
         u, z, b, detail = check(f)
-        print("%-28s %12d %6d %12d" % (os.path.basename(f)[len(domain) + 1:-3], u, z, b))
-        if u or z or b:
-            failed = True
-            for line, kind, msgid in detail[:5]:
-                print("    %s:%d %s: %s" % (os.path.basename(f), line, kind, msgid[:70]), file=sys.stderr)
+        probs = structure(f)
+        print("%-14s %12d %6d | %12d %9d" % (os.path.basename(f)[len(domain) + 1:-3], u, z, b, len(probs)))
+        for line, kind, msgid in [d for d in detail if d[1] == "placeholder"][:5]:
+            print("    %s:%d placeholder differs from msgid: %s" % (os.path.basename(f), line, msgid[:70]), file=sys.stderr)
+        for p in probs:
+            print("    " + p, file=sys.stderr)
+        failed = failed or b or probs
     if failed:
-        print("FAIL: translations incomplete (translate, keep placeholders, drop fuzzy, rebuild .mo)", file=sys.stderr)
+        print("FAIL: a translated entry lost or changed a placeholder, or a .po/.mo is malformed", file=sys.stderr)
     return 1 if failed else 0
 
 

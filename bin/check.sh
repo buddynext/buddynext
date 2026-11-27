@@ -446,10 +446,10 @@ if ! bn_heavy_gate_skipped "pot freshness"; then
 	fi
 fi
 
-# Every shipped locale fully translated: no empty msgstr, no fuzzy, placeholders intact. Target is
-# zero in every locale; bin/test-translation-gate.sh is the negative control.
-section "Translations complete"
-py_gate bin/check-translations.py "a shipped locale has untranslated, fuzzy or placeholder-broken entries - translate them, keep every placeholder, rebuild the .mo (see bin/check-translations.py)"
+# Shipped locales are optional and community-supplied, so coverage is only reported. What gates: a
+# translated msgstr that lost a placeholder, a malformed .po/.mo. bin/test-translation-gate.sh is the negative control.
+section "Translation structure"
+py_gate bin/check-translations.py "a translated entry lost a placeholder or a .po/.mo is malformed - restore the placeholder and rebuild the .mo (see bin/check-translations.py)"
 
 # One button API. The retired bn-btn--primary/--secondary/--sm/--block modifiers
 # lived only in bn-profile.css, so any page without that file drew them as bare grey
