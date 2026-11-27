@@ -103,6 +103,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Improve  - Member search, the wp-admin Members list and the Email Log show each member's own avatar instead of initials.
 * Improve  - Default email templates (verification, welcome, follows, connections, Spaces, moderation, digests, messages, media) are translated in all ten shipped languages.
 * Improve  - A badge's feed card is withdrawn when its credential expires and comes back with the same card when the member earns and shares it again.
+* Improve  - Translation-ready: all user-facing text is wrapped for translation and extracted, the language files are in step with the code, and new release checks catch unwrapped text, concatenated sentences, unordered placeholders and missing plurals.
 * Fix      - A suspended member who has not finished onboarding reaches the account status page to read the reason and appeal.
 * Fix      - A suspended member earns no gamification points, badges or levels and is left off the leaderboard (with WB Gamification 1.7.0 or later) while suspended; points earned before stay.
 * Fix      - Nobody can suspend the site owner's account; administrators can still suspend other administrators.
@@ -150,11 +151,21 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - Admin textareas can be resized again, sortable column headings look like the others, and line breaks show in the cookie notice and the sign-up panel's featured quote.
 * Fix      - The remaining default emails (follow request, comment reply, Space join and role messages, moderation notices, reinstated account) now arrive in the member's language in all ten shipped languages.
 * Fix      - Renaming a course, or changing its picture or address, now updates the posts members already have in the feed, and a certificate issued afterwards upgrades the existing post instead of adding a second one.
+* Fix      - Search no longer lists a blocked member's jobs, events, listings or discussions to the person who blocked them, and a member held back by approval or by a partner plugin is not found by name.
+* Fix      - A sign-up that a partner plugin holds back, such as an unverified Career Board account, is no longer welcomed or listed in Members until it is released.
+* Fix      - A suspended member can no longer start, reply to or send group text messages in direct messages and is told their account is suspended; creating a group and sending an attachment-only group message still need a WPMediaVerse update.
+* Fix      - Opening a post menu from the keyboard moves focus to the first item you can see, and Article re-sync and image crop jobs no longer queue twice.
+* Fix      - A forum you pick under a Space's Integrations stays linked when you save, a forum you may not link says so, and deleting a linked forum in Jetonomy unlinks it from its Space.
+* Fix      - A private Space's leaderboard total no longer shows members 0, or a non-member the member count, after the other loaded the board first.
+* Fix      - The notification badge and tab counts no longer include notifications the bell hides, and blocking or muting someone refreshes them at once.
+* Fix      - A member banned from a Space is no longer offered Request to join on that Space's event.
 * Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
 * Security - Profile tabs from a partner are kept per kind of viewer (owner, signed-in member, visitor), so a login-only academy's course list is no longer shown to the wrong one when the site uses a persistent object cache.
 * Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.
+* Dev      - The release zip is built with every file compressed and the build fails on any stored PHP file, so the store upload firewall no longer blocks it.
+* Dev      - Filter buddynext_member_hold_meta_keys lets a plugin hold a sign-up back, and IntegrationActivity::refresh_cards_by_meta() is the one door that brings every card of a partner object up to date in batches.
 * Compat   - Space discussions need Jetonomy 2.1.0 or newer: on an older Jetonomy they stay off, your forums and posts are kept, and Integrations says which version turns them on; a forum already linked to a Space cannot be opened up through Jetonomy's own edit there.
-* Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0 and Eventonomy 2.0.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
+* Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0, Eventonomy 2.0.0, WP Career Board 1.8.6, Learnomy 2.4.1 and WB Gamification 1.7.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
 
 = 1.2.9 - November 2026 =
 
