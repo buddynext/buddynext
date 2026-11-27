@@ -446,6 +446,11 @@ if ! bn_heavy_gate_skipped "pot freshness"; then
 	fi
 fi
 
+# Every shipped locale fully translated: no empty msgstr, no fuzzy, placeholders intact. Target is
+# zero in every locale; bin/test-translation-gate.sh is the negative control.
+section "Translations complete"
+py_gate bin/check-translations.py "a shipped locale has untranslated, fuzzy or placeholder-broken entries - translate them, keep every placeholder, rebuild the .mo (see bin/check-translations.py)"
+
 # One button API. The retired bn-btn--primary/--secondary/--sm/--block modifiers
 # lived only in bn-profile.css, so any page without that file drew them as bare grey
 # boxes (finish-sign-up, 1.2.9). Markup uses class="bn-btn" + data-variant/data-size/data-full.
