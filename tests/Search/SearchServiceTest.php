@@ -275,4 +275,31 @@ class SearchServiceTest extends \WP_UnitTestCase {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- test read-back.
 		$this->assertSame( '0', $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'user' AND object_id = %d", $gone ) ) );
 	}
+
+	/**
+	 * A member held back (awaiting approval, or held by a partner plugin) is not found by name, and is found again once released.
+	 *
+	 * @return void
+	 */
+	public function test_search_does_not_find_a_held_member(): void {
+		$held = self::factory()->user->create( array( 'display_name' => 'Quillon Heldname' ) );
+		$free = self::factory()->user->create( array( 'display_name' => 'Quillon Freename' ) );
+		$this->service->index( 'user', $held, 'Quillon Heldname', '', $held );
+		$this->service->index( 'user', $free, 'Quillon Freename', '', $free );
+		$ids = static fn( $r ) => array_map( 'intval', array_column( $r['items'], 'object_id' ) );
+
+		update_user_meta( $held, 'bn_pending_approval', '1' );
+		$found = $ids( $this->service->search( 'Quillon', 'user' ) );
+		$this->assertContains( $free, $found, 'Fixture is wrong: the unheld member is found.' );
+		$this->assertNotContains( $held, $found, 'A held member was found by name.' );
+
+		// A plugin's own hold key counts too.
+		delete_user_meta( $held, 'bn_pending_approval' );
+		add_filter( 'buddynext_member_hold_meta_keys', static fn( $k ) => array_merge( $k, array( '_plugin_unverified' ) ) );
+		update_user_meta( $held, '_plugin_unverified', '1' );
+		$this->assertNotContains( $held, $ids( $this->service->search( 'Quillon', 'user' ) ), 'A plugin-held member was found by name.' );
+
+		delete_user_meta( $held, '_plugin_unverified' );
+		$this->assertContains( $held, $ids( $this->service->search( 'Quillon', 'user' ) ), 'A released member is not found again.' );
+	}
 }

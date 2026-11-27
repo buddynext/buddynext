@@ -3077,6 +3077,10 @@ class ModerationService {
 			$column = 'user_id';
 		}
 
+		// A member held back (awaiting approval, or held by a partner plugin through
+		// ApprovalGuard::hold_meta_keys()) is not discoverable either.
+		$hold_keys = implode( ', ', array_map( static fn( $k ) => "'" . esc_sql( $k ) . "'", \BuddyNext\Auth\ApprovalGuard::hold_meta_keys() ) );
+
 		return "AND {$column} NOT IN (
 			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
 			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
@@ -3084,6 +3088,10 @@ class ModerationService {
 			  AND {$column} NOT IN (
 			    SELECT user_id FROM {$wpdb->usermeta}
 			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			  )
+			  AND {$column} NOT IN (
+			    SELECT user_id FROM {$wpdb->usermeta}
+			    WHERE meta_key IN ( {$hold_keys} ) AND meta_value NOT IN ( '', '0' )
 			  )";
 	}
 
