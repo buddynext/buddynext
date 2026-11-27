@@ -88,8 +88,17 @@ class EventonomyTeaser {
 			'cta_label' => sprintf( __( 'Join %s', 'buddynext' ), $name ),
 		);
 
+		$private = 'public' !== (string) ( $config['visibility'] ?? 'public' );
+		// A private Space takes a request, not a join: the words say so before and after signing in.
+		$ask = $base + array(
+			/* translators: %s: Space name. */
+			'message'   => sprintf( __( '%s is a private group. Ask to join and an organiser will review your request.', 'buddynext' ), $name ),
+			/* translators: %s: Space name. */
+			'cta_label' => sprintf( __( 'Request to join %s', 'buddynext' ), $name ),
+		);
+
 		if ( $user_id <= 0 ) {
-			return $join + array(
+			return ( $private ? $ask : $join ) + array(
 				'cta_url'         => PageRouter::signup_url( $link ),
 				'secondary_label' => __( 'Log in', 'buddynext' ),
 				'secondary_url'   => PageRouter::login_url( $link ),
@@ -109,8 +118,6 @@ class EventonomyTeaser {
 			PageRouter::space_url( $space_id )
 		);
 
-		$private = 'public' !== (string) ( $config['visibility'] ?? 'public' );
-
 		if ( $private && 'pending' === ( new SpaceMemberService() )->get_status( $space_id, $user_id ) ) {
 			return array(
 				'heading'         => __( 'Your request is waiting for approval', 'buddynext' ),
@@ -123,13 +130,7 @@ class EventonomyTeaser {
 		}
 
 		if ( $private ) {
-			return $base + array(
-				/* translators: %s: Space name. */
-				'message'   => sprintf( __( '%s is a private group. Ask to join and an organiser will review your request.', 'buddynext' ), $name ),
-				/* translators: %s: Space name. */
-				'cta_label' => sprintf( __( 'Request to join %s', 'buddynext' ), $name ),
-				'cta_url'   => $space_url,
-			);
+			return $ask + array( 'cta_url' => $space_url );
 		}
 
 		return $join + array( 'cta_url' => $space_url );

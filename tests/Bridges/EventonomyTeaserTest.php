@@ -66,6 +66,14 @@ class EventonomyTeaserTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( rawurlencode( home_url( '/events/e9/' ) ), $t['secondary_url'] );
 	}
 
+	public function test_a_guest_on_a_private_space_is_asked_to_request_not_join(): void {
+		$t = $this->ask( $this->space( 'private' ), 0 );
+
+		$this->assertSame( 'Request to join Trail Club', $t['cta_label'] );
+		$this->assertStringContainsString( 'private group', $t['message'] );
+		$this->assertSame( 'Log in', $t['secondary_label'] );
+	}
+
 	public function test_a_signed_in_person_on_an_open_space_joins_it_and_comes_back(): void {
 		$space = $this->space( 'open' );
 		$t     = $this->ask( $space, $this->viewer );
