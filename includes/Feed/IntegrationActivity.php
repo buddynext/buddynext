@@ -676,7 +676,26 @@ class IntegrationActivity {
 			array_map( $now, $items );
 			return;
 		}
-		foreach ( array_chunk( $items, max( 1, $chunk ) ) as $part ) {
+		// Action Scheduler stores a job's arguments in a 191-character column, so a chunk is cut by its encoded
+		// length as well as its count: a hundred ids or card links would otherwise be refused outright. An item
+		// too long to queue alone runs now.
+		$part = array();
+		$size = 2;
+		foreach ( $items as $item ) {
+			$cost = strlen( (string) wp_json_encode( $item ) ) + 1;
+			if ( $cost + 4 > self::JOB_ARGS_MAX ) {
+				$now( $item );
+				continue;
+			}
+			if ( array() !== $part && ( count( $part ) >= max( 1, $chunk ) || $size + $cost + 4 > self::JOB_ARGS_MAX ) ) {
+				as_enqueue_async_action( $hook, array( $part ), $group );
+				$part = array();
+				$size = 2;
+			}
+			$part[] = $item;
+			$size  += $cost;
+		}
+		if ( array() !== $part ) {
 			as_enqueue_async_action( $hook, array( $part ), $group );
 		}
 	}
@@ -909,6 +928,13 @@ class IntegrationActivity {
 	private static array $live = array();
 
 	/**
+	 * Most characters a queued job's encoded arguments may take (Action Scheduler's column is 191, minus the array wrapper).
+	 *
+	 * @var int
+	 */
+	private const JOB_ARGS_MAX = 180;
+
+	/**
 	 * Post id => the member the card is about, filled with $live.
 	 *
 	 * @var array<int,int>
@@ -961,7 +987,7 @@ class IntegrationActivity {
 			$answers = (array) apply_filters( 'buddynext_card_live', array(), (string) $type, $cards, $viewer );
 			foreach ( $cards as $id => $card ) {
 				self::$card_member[ (int) $id ] = (int) ( $card['user_id'] ?? 0 );
-				self::$live[ (int) $id ] = isset( $answers[ $id ] ) && is_array( $answers[ $id ] ) ? $answers[ $id ] : array();
+				self::$live[ (int) $id ]        = isset( $answers[ $id ] ) && is_array( $answers[ $id ] ) ? $answers[ $id ] : array();
 			}
 		}
 	}
@@ -1056,7 +1082,7 @@ class IntegrationActivity {
 	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>,title:string,text:string,url:string} A live answer may also name a better title, the short text under it and the address the title opens; '' = keep the stored ones.
 	 */
 	public static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
-		$live  = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
+		$live = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
 		// The member the card is about, so a filter can decide what this viewer may see of them.
 		if ( $post_id > 0 && ! isset( $link_meta['user_id'] ) && ! empty( self::$card_member[ $post_id ] ) ) {
 			$link_meta['user_id'] = self::$card_member[ $post_id ];
