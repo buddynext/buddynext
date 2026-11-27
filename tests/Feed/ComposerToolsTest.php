@@ -83,8 +83,9 @@ class ComposerToolsTest extends \WP_UnitTestCase {
 		);
 		update_option( 'bn_avatar_style', 'initials' );
 
-		$this->assertSame( 1, preg_match( '/bn-composer__avatar".*?<img src="data:image\/svg\+xml;base64,([^"]+)"/s', $this->render( $uid ), $svg ), 'No photo: the initials image.' );
-		$this->assertStringContainsString( '>AL<', (string) base64_decode( $svg[1] ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- reading the test's own data URI.
+		$html = $this->render( $uid );
+		$this->assertStringContainsString( 'bn-composer__avatar--initials', $html, 'No photo: the initials on a tinted disc.' );
+		$this->assertMatchesRegularExpression( '/bn-composer__avatar--initials[^>]*>\\s*AL\\s*</', $html );
 
 		update_user_meta( $uid, 'bn_avatar', 'https://example.org/ada.jpg' );
 		$this->assertMatchesRegularExpression( '/bn-composer__avatar".*?<img src="https:\/\/example\.org\/ada\.jpg/s', $this->render( $uid ), 'With a photo: the photo.' );

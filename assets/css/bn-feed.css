@@ -3050,7 +3050,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-composer,
 .bn-composer-switch {
 	/* The composer card corner: 16px at the default theme radius, scaled with it. */
-	--bn-r-card: calc(var(--bn-radius-base) * 1.6);
+	--bn-r-card: calc(var(--bn-radius-base) * 2);
 }
 
 .bn-composer {
