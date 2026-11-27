@@ -15,6 +15,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\I18n;
 
+use BuddyNext\Admin\EmailEditor;
 use BuddyNext\Core\Installer;
 use WP_UnitTestCase;
 
@@ -48,16 +49,25 @@ class EmailTemplateTranslationsTest extends WP_UnitTestCase {
 		$checked   = 0;
 		$problems  = array();
 
+		// Types the seeder takes from the Email Templates catalogue store the translated
+		// plain-text body after wpautop(), so the catalogue's own string is the msgid.
+		$catalogue_bodies = array();
+		foreach ( ( new EmailEditor() )->get_catalogue() as $group ) {
+			foreach ( (array) $group as $type => $tpl ) {
+				if ( isset( $tpl['body'] ) ) {
+					$catalogue_bodies[ (string) $type ] = (string) $tpl['body'];
+				}
+			}
+		}
+
 		foreach ( Installer::email_template_seeds() as $row ) {
 			foreach ( array( 'subject', 'preview_text', 'body_html' ) as $field ) {
 				$msgid = (string) $row[ $field ];
+				if ( 'body_html' === $field && isset( $catalogue_bodies[ $row['type'] ] ) ) {
+					$msgid = $catalogue_bodies[ $row['type'] ];
+				}
 
 				if ( ! array_key_exists( $msgid, $catalogue ) ) {
-					// Templates the Email Templates screen supplies as plain strings are
-					// multi-line bodies (wpautop output); only those are not catalogue strings.
-					if ( 'body_html' === $field && str_contains( $msgid, "\n" ) ) {
-						continue;
-					}
 					$problems[] = $row['type'] . ' ' . $field . ': not in the catalogue';
 					continue;
 				}
@@ -73,7 +83,7 @@ class EmailTemplateTranslationsTest extends WP_UnitTestCase {
 			}
 		}
 
-		$this->assertGreaterThan( 90, $checked, 'The seeded email templates were not found in the catalogue.' );
+		$this->assertGreaterThan( 100, $checked, 'The seeded email templates were not found in the catalogue.' );
 		$this->assertSame( array(), $problems, basename( $po_file ) . ' has untranslated or broken email templates.' );
 	}
 
