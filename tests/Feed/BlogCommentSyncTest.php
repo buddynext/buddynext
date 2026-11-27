@@ -111,6 +111,25 @@ class BlogCommentSyncTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * An article card's comment pairs with a WordPress comment id, a discussion card's with a forum reply id, and the
+	 * two ranges overlap. The forum's lookups must never resolve an article comment, or editing or deleting one would
+	 * rewrite the forum reply that happens to share the id.
+	 *
+	 * @return void
+	 */
+	public function test_forum_lookups_never_resolve_an_article_comment(): void {
+		$wp_id = $this->wp_comment( 'On the article.' );
+		$copy  = $this->copy_of( $wp_id );
+		$this->assertNotNull( $copy, 'Fixture is wrong: the article comment has a card copy.' );
+
+		$comments = new \BuddyNext\Comments\CommentService();
+		$this->assertSame( $wp_id, $comments->get_sync_reply_id( (int) $copy['id'] ), 'Unscoped, the pair is readable.' );
+		$this->assertSame( 0, $comments->get_sync_reply_id( (int) $copy['id'], 'discussion' ), 'The forum read an article comment as its own reply.' );
+		$this->assertNull( $comments->find_by_sync_reply_id( $wp_id, 'discussion' ), 'The forum found an article comment by a reply id.' );
+		$this->assertNotNull( $comments->find_by_sync_reply_id( $wp_id ), 'Unscoped, the comment is found.' );
+	}
+
+	/**
 	 * Spam, trash and a permanent delete on the article take the card copy down;
 	 * approving again brings it back.
 	 *

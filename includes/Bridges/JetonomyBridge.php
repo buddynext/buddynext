@@ -3884,7 +3884,7 @@ class JetonomyBridge {
 		if ( null !== $comment_id ) {
 			$comments = new \BuddyNext\Comments\CommentService();
 			$comment  = $comments->get( (int) $comment_id );
-			if ( null === $comment || $comments->get_sync_reply_id( (int) $comment_id ) <= 0 ) {
+			if ( null === $comment || $comments->get_sync_reply_id( (int) $comment_id, 'discussion' ) <= 0 ) {
 				return $data;
 			}
 			$object_type = (string) ( $comment['object_type'] ?? '' );
@@ -3962,7 +3962,7 @@ class JetonomyBridge {
 		}
 
 		// A comment that answers another comment becomes a reply to that comment's forum reply.
-		$parent_reply = ! empty( $comment['parent_id'] ) ? ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( (int) $comment['parent_id'] ) : 0;
+		$parent_reply = ! empty( $comment['parent_id'] ) ? ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( (int) $comment['parent_id'], 'discussion' ) : 0;
 
 		self::mirror(
 			function () use ( $topic_id, $user_id, $content, $comment_id, $parent_reply ) {
@@ -4011,7 +4011,7 @@ class JetonomyBridge {
 		}
 
 		$comments = new \BuddyNext\Comments\CommentService();
-		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+		$comment  = $comments->find_by_sync_reply_id( $reply_id, 'discussion' );
 
 		if ( $delta < 0 ) {
 			if ( null !== $comment && empty( $comment['is_deleted'] ) ) {
@@ -4064,7 +4064,7 @@ class JetonomyBridge {
 		$parent_comment = 0;
 		$parent_reply   = (int) ( $reply['parent_id'] ?? 0 );
 		if ( $parent_reply > 0 ) {
-			$parent         = $comments->find_by_sync_reply_id( $parent_reply );
+			$parent         = $comments->find_by_sync_reply_id( $parent_reply, 'discussion' );
 			$parent_comment = ( null !== $parent && empty( $parent['is_deleted'] ) ) ? (int) $parent['id'] : 0;
 		}
 
@@ -4102,7 +4102,7 @@ class JetonomyBridge {
 			return;
 		}
 		$comments = new \BuddyNext\Comments\CommentService();
-		$reply_id = $comments->get_sync_reply_id( $comment_id );
+		$reply_id = $comments->get_sync_reply_id( $comment_id, 'discussion' );
 		if ( $reply_id <= 0 ) {
 			return;
 		}
@@ -4136,7 +4136,7 @@ class JetonomyBridge {
 		if ( self::$syncing || $comment_id <= 0 || ! class_exists( '\Jetonomy\Models\Reply' ) ) {
 			return;
 		}
-		$reply_id = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $comment_id );
+		$reply_id = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $comment_id, 'discussion' );
 		if ( $reply_id <= 0 ) {
 			return;
 		}
@@ -4161,7 +4161,7 @@ class JetonomyBridge {
 			return;
 		}
 		$comments = new \BuddyNext\Comments\CommentService();
-		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+		$comment  = $comments->find_by_sync_reply_id( $reply_id, 'discussion' );
 		if ( null === $comment ) {
 			return;
 		}
@@ -4478,7 +4478,7 @@ class JetonomyBridge {
 			return $topic > 0 ? array( 'post', $topic ) : null;
 		}
 		if ( 'comment' === $object_type ) {
-			$reply = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $object_id );
+			$reply = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $object_id, 'discussion' );
 			return $reply > 0 ? array( 'reply', $reply ) : null;
 		}
 
@@ -4569,7 +4569,7 @@ class JetonomyBridge {
 		$bn_type    = 'post' === $jt_type ? 'post' : 'comment';
 		$bn_id      = 0;
 		if ( $bn_type !== $origin ) {
-			$comment = 'reply' === $jt_type ? ( new \BuddyNext\Comments\CommentService() )->find_by_sync_reply_id( $jt_id ) : null;
+			$comment = 'reply' === $jt_type ? ( new \BuddyNext\Comments\CommentService() )->find_by_sync_reply_id( $jt_id, 'discussion' ) : null;
 			$bn_id   = 'post' === $jt_type ? $this->card_id_for_topic( $jt_id ) : (int) ( $comment['id'] ?? 0 );
 		}
 
