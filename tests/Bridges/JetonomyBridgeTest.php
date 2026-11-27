@@ -1425,6 +1425,56 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Picking a forum with the Discussions switch still off links it on Save, and a forum an owner may not
+	 * link is refused instead of being swapped for a new empty one.
+	 *
+	 * @return void
+	 */
+	public function test_a_picked_forum_stays_linked_and_a_refused_one_says_so(): void {
+		global $wpdb;
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$owner  = self::factory()->user->create();
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_spaces',
+			array(
+				'slug'      => 'roadmap',
+				'title'     => 'Ideas Roadmap',
+				'author_id' => $admin,
+			)
+		);
+		$forum = (int) $wpdb->insert_id;
+		$make  = static fn( int $by, string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$by,
+			array(
+				'name' => $name,
+				'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ),
+				'type' => 'open',
+			)
+		);
+
+		// Switch off, forum picked (admin): the link is kept and the discussion comes on.
+		$a = $make( $admin, 'Roadmap space' );
+		$this->assertTrue( $this->bridge->apply_discussion_choice( $a, false, $forum, $admin ) );
+		$this->assertSame( $forum, (int) buddynext_get_space_field( $a, 'jetonomy_forum_id' ) );
+
+		// Switch off and nothing picked: still nothing linked.
+		$b = $make( $admin, 'Quiet space' );
+		$this->assertTrue( $this->bridge->apply_discussion_choice( $b, false, 0, $admin ) );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $b, 'jetonomy_forum_id' ) );
+
+		// A space owner who did not write that forum is told, and no new forum is made.
+		$before = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" );
+		$c      = $make( $owner, 'Owner space' );
+		$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => 'not-mine', 'title' => 'Not mine', 'author_id' => $admin ) );
+		$notmine = (int) $wpdb->insert_id;
+		$refused = $this->bridge->apply_discussion_choice( $c, true, $notmine, $owner );
+		$this->assertWPError( $refused );
+		$this->assertSame( 'bn_discussion_not_linkable', $refused->get_error_code() );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $c, 'jetonomy_forum_id' ) );
+		$this->assertSame( $before + 1, (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" ), 'Only the manually inserted forum is new.' );
+	}
+
+	/**
 	 * The forum-to-space lookup answers the same space every time when old data
 	 * holds a duplicate, remembers a miss for the request, and forgets it the
 	 * moment a link is written.
