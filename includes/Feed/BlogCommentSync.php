@@ -48,6 +48,21 @@ class BlogCommentSync implements ListenerInterface {
 	private static $syncing = false;
 
 	/**
+	 * Run a write that must not echo back through the sync handlers, and always lift the guard.
+	 *
+	 * @param callable $write The cross-boundary write.
+	 * @return void
+	 */
+	private static function quiet( callable $write ): void {
+		self::$syncing = true;
+		try {
+			$write();
+		} finally {
+			self::$syncing = false;
+		}
+	}
+
+	/**
 	 * Register both directions.
 	 *
 	 * @return void
@@ -121,17 +136,19 @@ class BlogCommentSync implements ListenerInterface {
 		}
 
 		// A reply on the post stays a reply on the card, under the parent's copy.
-		$parent        = (int) $comment->comment_parent > 0 ? $this->card_copy( (int) $comment->comment_parent, $card_id ) : null;
-		$parent_id     = null !== $parent ? (int) $parent['id'] : null;
-		self::$syncing = true;
-		$comments      = new CommentService();
-		// CommentService applies its own permission gate and sanitizes; a
-		// WP_Error simply means no mirrored comment.
-		$bn_comment_id = $comments->create( $author_id, 'post', $card_id, $content, $parent_id );
-		if ( ! is_wp_error( $bn_comment_id ) && (int) $bn_comment_id > 0 ) {
-			$comments->set_sync_reply_id( (int) $bn_comment_id, (int) $comment_id );
-		}
-		self::$syncing = false;
+		$parent    = (int) $comment->comment_parent > 0 ? $this->card_copy( (int) $comment->comment_parent, $card_id ) : null;
+		$parent_id = null !== $parent ? (int) $parent['id'] : null;
+		self::quiet(
+			function () use ( $author_id, $card_id, $comment_id, $content, $parent_id ) {
+				$comments = new CommentService();
+				// CommentService applies its own permission gate and sanitizes; a
+				// WP_Error simply means no mirrored comment.
+				$bn_comment_id = $comments->create( $author_id, 'post', $card_id, $content, $parent_id );
+				if ( ! is_wp_error( $bn_comment_id ) && (int) $bn_comment_id > 0 ) {
+						$comments->set_sync_reply_id( (int) $bn_comment_id, (int) $comment_id );
+				}
+			}
+		);
 	}
 
 	/**
@@ -174,30 +191,32 @@ class BlogCommentSync implements ListenerInterface {
 		// A reply on the card stays a reply on the post, under the parent's copy.
 		$parent = ! empty( $comment['parent_id'] ) ? $this->post_copy( (int) $comment['parent_id'], $post_id ) : null;
 
-		self::$syncing = true;
-		// wp_insert_comment() unslashes what it is given, so the text is slashed
-		// first or a backslash the member typed would be lost.
-		$wp_comment_id = wp_insert_comment(
-			wp_slash(
-				array(
-					'comment_post_ID'      => $post_id,
-					'comment_parent'       => null !== $parent ? (int) $parent->comment_ID : 0,
-					'user_id'              => (int) $user_id,
-					'comment_author'       => $user->display_name,
-					'comment_author_email' => $user->user_email,
-					'comment_content'      => $content,
-					'comment_type'         => 'comment',
-					// Mirrored from a member who already passed the community's own
-					// permission gate, so it enters approved rather than sitting in
-					// a queue the article author may never look at.
-					'comment_approved'     => 1,
-				)
-			)
+		self::quiet(
+			function () use ( $comment_id, $content, $parent, $post_id, $user, $user_id ) {
+				// wp_insert_comment() unslashes what it is given, so the text is slashed
+				// first or a backslash the member typed would be lost.
+				$wp_comment_id = wp_insert_comment(
+					wp_slash(
+						array(
+							'comment_post_ID'      => $post_id,
+							'comment_parent'       => null !== $parent ? (int) $parent->comment_ID : 0,
+							'user_id'              => (int) $user_id,
+							'comment_author'       => $user->display_name,
+							'comment_author_email' => $user->user_email,
+							'comment_content'      => $content,
+							'comment_type'         => 'comment',
+							// Mirrored from a member who already passed the community's own
+							// permission gate, so it enters approved rather than sitting in
+							// a queue the article author may never look at.
+							'comment_approved'     => 1,
+						)
+					)
+				);
+				if ( $wp_comment_id ) {
+					( new CommentService() )->set_sync_reply_id( (int) $comment_id, (int) $wp_comment_id );
+				}
+			}
 		);
-		if ( $wp_comment_id ) {
-			( new CommentService() )->set_sync_reply_id( (int) $comment_id, (int) $wp_comment_id );
-		}
-		self::$syncing = false;
 	}
 
 	/**
@@ -229,14 +248,16 @@ class BlogCommentSync implements ListenerInterface {
 				$this->sync_wp_comment_to_card( (int) $comment->comment_ID, $comment );
 				return;
 			}
-			$comments      = new CommentService();
-			self::$syncing = true;
-			if ( ! empty( $copy['is_deleted'] ) ) {
-				$comments->restore( (int) $copy['id'], (string) $comment->comment_content );
-			} else {
-				$comments->set_hidden( (int) $copy['id'], false );
-			}
-			self::$syncing = false;
+			$comments = new CommentService();
+			self::quiet(
+				function () use ( $comment, $comments, $copy ) {
+					if ( ! empty( $copy['is_deleted'] ) ) {
+							$comments->restore( (int) $copy['id'], (string) $comment->comment_content );
+					} else {
+						$comments->set_hidden( (int) $copy['id'], false );
+					}
+				}
+			);
 			return;
 		}
 
@@ -244,14 +265,16 @@ class BlogCommentSync implements ListenerInterface {
 			return;
 		}
 
-		$comments      = new CommentService();
-		self::$syncing = true;
-		if ( 'delete' === $new_status ) {
-			$comments->soft_delete( (int) $copy['id'], 0 );
-		} else {
-			$comments->set_hidden( (int) $copy['id'], true );
-		}
-		self::$syncing = false;
+		$comments = new CommentService();
+		self::quiet(
+			function () use ( $comments, $copy, $new_status ) {
+				if ( 'delete' === $new_status ) {
+						$comments->soft_delete( (int) $copy['id'], 0 );
+				} else {
+					$comments->set_hidden( (int) $copy['id'], true );
+				}
+			}
+		);
 	}
 
 	/**
@@ -278,9 +301,11 @@ class BlogCommentSync implements ListenerInterface {
 			return;
 		}
 
-		self::$syncing = true;
-		( new CommentService() )->update( (int) $copy['id'], (int) $copy['user_id'], $content );
-		self::$syncing = false;
+		self::quiet(
+			function () use ( $content, $copy ) {
+				( new CommentService() )->update( (int) $copy['id'], (int) $copy['user_id'], $content );
+			}
+		);
 	}
 
 	/**
@@ -300,16 +325,18 @@ class BlogCommentSync implements ListenerInterface {
 			return;
 		}
 
-		self::$syncing = true;
-		wp_update_comment(
-			wp_slash(
-				array(
-					'comment_ID'      => (int) $wp_comment->comment_ID,
-					'comment_content' => $content,
-				)
-			)
+		self::quiet(
+			function () use ( $content, $wp_comment ) {
+				wp_update_comment(
+					wp_slash(
+						array(
+							'comment_ID'      => (int) $wp_comment->comment_ID,
+							'comment_content' => $content,
+						)
+					)
+				);
+			}
 		);
-		self::$syncing = false;
 	}
 
 	/**
@@ -328,9 +355,11 @@ class BlogCommentSync implements ListenerInterface {
 			return;
 		}
 
-		self::$syncing = true;
-		wp_trash_comment( (int) $wp_comment->comment_ID );
-		self::$syncing = false;
+		self::quiet(
+			function () use ( $wp_comment ) {
+				wp_trash_comment( (int) $wp_comment->comment_ID );
+			}
+		);
 	}
 
 	/**
