@@ -1995,6 +1995,20 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A forum deleted on the Jetonomy side must not leave its Space linked to a forum that no longer exists.
+	 */
+	public function test_a_purged_forum_is_unlinked_from_its_space(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Gone', 'slug' => 'gone-' . wp_rand( 1000, 9999 ) ) );
+		update_space_meta( $space_id, 'jetonomy_forum_id', '9102' );
+		$this->assertTrue( $this->bridge->space_has_discussion( $space_id ) );
+
+		do_action( 'jetonomy_space_purged', 9102, array() );
+
+		$this->assertFalse( $this->bridge->space_has_discussion( $space_id ), 'The Space no longer claims the deleted forum.' );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' ) );
+	}
+
+	/**
 	 * The Space decides who can see and join its forum: no writer of the forum may say otherwise.
 	 */
 	public function test_a_linked_forum_cannot_be_edited_away_from_its_space(): void {
