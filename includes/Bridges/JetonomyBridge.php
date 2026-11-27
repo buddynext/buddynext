@@ -201,7 +201,7 @@ class JetonomyBridge {
 		// An import writes topics without the create events (so it stays quiet and fast) and says what it made once
 		// per batch; the topics get their cards, at their own dates, from that.
 		add_action( 'jetonomy_import_batch_imported', array( $this, 'on_import_batch' ), 10, 3 );
-		add_action( self::IMPORT_CARDS_HOOK, array( $this, 'import_cards_chunk' ), 10, 1 );
+		add_action( self::IMPORT_CARDS_HOOK, array( $this, 'import_cards_chunk' ), 10, 2 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
 		// from the soft delete above. Mirrors jetonomy_after_delete_reply, which
@@ -821,8 +821,12 @@ class JetonomyBridge {
 			return;
 		}
 		$ids = array_values( array_unique( array_filter( array_map( 'intval', (array) $ids ) ) ) );
+		sort( $ids );
 		foreach ( array_chunk( $ids, self::IMPORT_CHUNK ) as $chunk ) {
-			if ( ! \BuddyNext\Core\CronScheduler::enqueue_once( self::IMPORT_CARDS_HOOK, array( $chunk ) ) ) {
+			// The job carries the chunk's first and last topic id, not the ids themselves: a
+			// hundred ids would not fit Action Scheduler's short argument column.
+			$range = array( $chunk[0], end( $chunk ) );
+			if ( ! \BuddyNext\Core\CronScheduler::enqueue_once( self::IMPORT_CARDS_HOOK, $range ) ) {
 				$this->import_cards_chunk( $chunk );
 			}
 		}
@@ -836,10 +840,22 @@ class JetonomyBridge {
 	 * chunk delivered twice or a resume after a crash costs one cheap lookup per topic, not a second sync. One topic
 	 * failing does not stop the rest of the chunk.
 	 *
-	 * @param mixed $ids Topic ids.
+	 * A queued chunk names a range of topic ids (first, last); the topics in it are read back here. A topic in the
+	 * range that the import did not create (one posted during the import) has its card already and is skipped, or
+	 * goes through the same rule as any topic. A chunk queued before 1.3.0 carries the id list itself.
+	 *
+	 * ponytail: the range read is unbounded, sized by the import's chunk plus any topics posted while it ran.
+	 *
+	 * @param mixed $ids  Topic ids, or the first topic id of the range.
+	 * @param mixed $last Last topic id of the range (with a range only).
 	 * @return void
 	 */
-	public function import_cards_chunk( $ids ): void {
+	public function import_cards_chunk( $ids, $last = null ): void {
+		if ( ! is_array( $ids ) && null !== $last ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a one-off job read on the primary key.
+			$ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_posts WHERE id BETWEEN %d AND %d ORDER BY id", (int) $ids, (int) $last ) );
+		}
 		foreach ( array_map( 'intval', (array) $ids ) as $post_id ) {
 			// A topic that already has a card (made when it was created, or by an earlier delivery) is left alone.
 			if ( $post_id <= 0 || IntegrationActivity::has_card_by_meta( 'discussion', 'post_id', $post_id ) ) {

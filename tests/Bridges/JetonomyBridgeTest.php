@@ -1735,6 +1735,31 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A queued import chunk names a range of topic ids; the job reads the topics back and gives each one without a card its card.
+	 *
+	 * @return void
+	 */
+	public function test_an_import_job_range_reads_its_topics_back(): void {
+		$synced = array();
+		$bridge = new class( $synced ) extends JetonomyBridge {
+			public array $synced = array();
+			public function __construct( array &$synced ) {
+				$this->synced = &$synced;
+			}
+			public function sync_discussion( int $post_id, int $space_id = 0 ): void {
+				$this->synced[] = $post_id;
+			}
+		};
+		foreach ( array( 8101, 8102, 8104, 8200 ) as $post_id ) {
+			$this->seed_jt_post( $post_id, $this->author_id, 'Imported ' . $post_id, 'Body', 'imported-' . $post_id );
+		}
+
+		$bridge->import_cards_chunk( 8101, 8104 );
+
+		$this->assertSame( array( 8101, 8102, 8104 ), $synced, 'only the topics inside the range' );
+	}
+
+	/**
 	 * A pinned topic stays first in the Space's Discussions list for a member who also has private topics of their own.
 	 *
 	 * @return void
