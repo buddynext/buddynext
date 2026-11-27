@@ -95,7 +95,7 @@ Each space owner decides whether their space has a discussion. Under **Manage sp
 
 Space discussions need **Jetonomy 2.1.0 or newer**. Jetonomy 2.1.0 added the one door that keeps a forum linked to a Space as open as the Space; older versions would let a Space owner open a private forum.
 
-If an older Jetonomy is installed, the Discussions tab, forum provisioning and forum linking are switched off. Nothing is deleted: your forums and posts are kept, and they come back when you update. **BuddyNext > Integration Settings** shows the reason: "Discussions need Jetonomy 2.1.0 or newer. Update Jetonomy to turn them on; your forums and posts are kept."
+If an older Jetonomy is installed, the Discussions tab, forum provisioning and forum linking are switched off. Nothing is deleted: your forums and posts are kept, and they come back when you update. A forum that was already linked to a Space stays protected meanwhile: Jetonomy's own edit screen and API cannot change its visibility, join setting or status, and refuse with a note to update Jetonomy to 2.1.0 or newer. **BuddyNext > Integration Settings** shows the reason: "Discussions need Jetonomy 2.1.0 or newer. Update Jetonomy to turn them on; your forums and posts are kept."
 
 ## Good to know
 

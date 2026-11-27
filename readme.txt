@@ -153,7 +153,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
 * Security - Profile tabs from a partner are kept per kind of viewer (owner, signed-in member, visitor), so a login-only academy's course list is no longer shown to the wrong one when the site uses a persistent object cache.
 * Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.
-* Compat   - Space discussions need Jetonomy 2.1.0 or newer: on an older Jetonomy they stay off, your forums and posts are kept, and Integrations says which version turns them on.
+* Compat   - Space discussions need Jetonomy 2.1.0 or newer: on an older Jetonomy they stay off, your forums and posts are kept, and Integrations says which version turns them on; a forum already linked to a Space cannot be opened up through Jetonomy's own edit there.
 * Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0 and Eventonomy 2.0.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
 
 = 1.2.9 - November 2026 =
