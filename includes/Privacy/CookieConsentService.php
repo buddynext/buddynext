@@ -115,7 +115,7 @@ class CookieConsentService {
 		?>
 		<div class="bn-cookie-consent" data-bn-theme="inherit" role="region" aria-label="<?php esc_attr_e( 'Cookie notice', 'buddynext' ); ?>" data-bn-cookie-consent data-cookie-name="<?php echo esc_attr( self::COOKIE ); ?>" data-cookie-version="<?php echo esc_attr( $this->version() ); ?>" hidden>
 			<p class="bn-cookie-consent__text">
-				<?php echo esc_html( $message ); ?>
+				<?php echo nl2br( esc_html( $message ), false ); // Escaped first; the owner's line breaks become <br>. ?>
 				<?php if ( '' !== $privacy_url ) : ?>
 					<a class="bn-cookie-consent__link" href="<?php echo esc_url( $privacy_url ); ?>"><?php echo esc_html( $policy_label ); ?></a>
 				<?php endif; ?>
