@@ -111,9 +111,9 @@ Current declared values (update the row when you re-verify a bridge against a ne
 | Integration | Partner constant | `min_version` | `tested_version` |
 |---|---|---|---|
 | `media` | `MVS_VERSION` | 2.6.2 | 2.6.2 |
-| `gamification` | `WB_GAM_VERSION` | 1.6.3 | 1.6.5 |
-| `careerboard` | `WCB_VERSION` | 1.4.3 | 1.8.0 |
-| `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 2.1.0 |
+| `gamification` | `WB_GAM_VERSION` | 1.6.3 | 1.7.0 |
+| `careerboard` | `WCB_VERSION` | 1.4.3 | 1.8.6 |
+| `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 2.4.1 |
 | `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.8.0 |
 | `jetonomy` | `JETONOMY_VERSION` | 2.1.0 (the whole bridge is off below it) | 2.1.0 |
 | `listora` | `WB_LISTORA_VERSION` | (none) | 1.9.0 |
