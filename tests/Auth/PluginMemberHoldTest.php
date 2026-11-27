@@ -88,4 +88,20 @@ class PluginMemberHoldTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( 'bn_pending_approval' ), ApprovalGuard::hold_meta_keys() );
 	}
+
+	public function test_accounts_from_other_registration_paths_are_never_held(): void {
+		// wp_insert_user, a shop customer (WooCommerce, EDD) and a plain admin-created user: no registered key, so nothing is held.
+		$plain    = wp_insert_user( array( 'user_login' => 'plain_' . wp_generate_password( 6, false ), 'user_pass' => wp_generate_password(), 'user_email' => 'plain' . wp_generate_password( 6, false ) . '@example.test' ) );
+		$customer = wp_insert_user( array( 'user_login' => 'cust_' . wp_generate_password( 6, false ), 'user_pass' => wp_generate_password(), 'user_email' => 'cust' . wp_generate_password( 6, false ) . '@example.test', 'role' => 'subscriber' ) );
+		update_user_meta( $customer, 'billing_email', 'shop@example.test' ); // Shop plugins add their own meta: unknown keys never hold.
+
+		foreach ( array( $plain, $customer ) as $id ) {
+			$this->assertFalse( ApprovalGuard::is_held( (int) $id ), 'An account from another path was held.' );
+		}
+		global $wpdb;
+		$where = implode( ' AND ', \BuddyNext\Profile\MemberDirectoryService::exclusion_clauses( 'u.ID' ) );
+		$ids   = array_map( 'intval', $wpdb->get_col( "SELECT u.ID FROM {$wpdb->users} u WHERE {$where}" ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+		$this->assertContains( (int) $plain, $ids );
+		$this->assertContains( (int) $customer, $ids );
+	}
 }
