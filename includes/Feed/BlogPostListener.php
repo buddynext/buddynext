@@ -169,7 +169,7 @@ class BlogPostListener implements ListenerInterface {
 	 */
 	public function register_integration( array $items ): array {
 		$items['blog'] = array(
-			'label'      => __( 'Blog posts', 'buddynext' ),
+			'label'      => __( 'Articles', 'buddynext' ),
 			'version'    => null,
 			'has_nav'    => false,
 			'has_feed'   => true,

@@ -337,11 +337,11 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<div class="bn-toggle-row">
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Articles tab', 'buddynext' ); ?></div>
-				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Blog tab so members can write and read articles for this space.', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show an Articles tab so members can write and read articles for this space.', 'buddynext' ); ?></div>
 				<?php if ( $bn_articles_site_off ) : ?>
 					<p class="bn-space-settings__hint"><?php esc_html_e( 'Turned off for the whole site by the site admin.', 'buddynext' ); ?></p>
 				<?php elseif ( $bn_articles_closed ) : ?>
-					<p class="bn-space-settings__hint"><?php esc_html_e( 'Private spaces do not have a Blog tab.', 'buddynext' ); ?></p>
+					<p class="bn-space-settings__hint"><?php esc_html_e( 'Private spaces do not have an Articles tab.', 'buddynext' ); ?></p>
 				<?php elseif ( ! (bool) $args['articles_tab'] ) : ?>
 					<p class="bn-space-settings__hint"><?php esc_html_e( 'Nothing is deleted. Articles already written for this space show in the site feed instead, and turning this back on restores them.', 'buddynext' ); ?></p>
 				<?php endif; ?>

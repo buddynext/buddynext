@@ -804,7 +804,7 @@ class NavManager extends AdminPageBase {
 				'files'       => array( __( 'The member\'s own documents (shown to them only)', 'buddynext' ), 'file-text' ),
 				'network'     => array( __( 'Connections, followers and following', 'buddynext' ), 'tab-connections' ),
 				'discussions' => array( __( 'Discussions the member has published (Jetonomy)', 'buddynext' ), 'message-square' ),
-				'articles'    => array( __( 'Blog articles the member has written (Member Blog)', 'buddynext' ), 'file-text' ),
+				'articles'    => array( __( 'Articles the member has written (Member Blog)', 'buddynext' ), 'file-text' ),
 				'portfolio'   => array( __( 'Panels that integrations add for the member, such as listings or courses', 'buddynext' ), 'briefcase' ),
 			),
 			'space'   => array(

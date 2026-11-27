@@ -253,7 +253,7 @@ class FeedController extends BaseRestController {
 							'type'              => 'string',
 							'required'          => false,
 							'enum'              => array( BlogPostListener::TYPE ),
-							'description'       => "Only posts of this type: 'article' lists the space's article cards (the Space Blog tab). Omit for every post.",
+							'description'       => "Only posts of this type: 'article' lists the space's article cards (the Space Articles tab). Omit for every post.",
 							'validate_callback' => 'rest_validate_request_arg',
 							'sanitize_callback' => 'sanitize_key',
 						),

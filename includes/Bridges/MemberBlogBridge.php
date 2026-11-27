@@ -467,7 +467,7 @@ class MemberBlogBridge {
 				'buddynext_slug_' . self::WRITE_HUB,
 				'', // No slug of its own, so the isolation mu-plugin never claims Member Blog's URLs.
 				'',
-				__( 'Write a post', 'buddynext' ),
+				__( 'Write an article', 'buddynext' ),
 				'',
 				resolve_template: static fn( string $hub ): ?string => self::WRITE_HUB === $hub && self::$write_page > 0 ? 'blog/write-hub.php' : null,
 				backing_page: false,
@@ -565,14 +565,14 @@ class MemberBlogBridge {
 	/**
 	 * The write hub's heading. A member who cannot write and opens the dashboard
 	 * sees Member Blog's reading view (Saved, Following), so it is headed
-	 * "My reading", not "Write a post".
+	 * "My reading", not "Write an article".
 	 *
 	 * @since 1.3.0
 	 *
 	 * @return string
 	 */
 	public static function write_hub_heading(): string {
-		return self::is_reading_view() ? __( 'My reading', 'buddynext' ) : __( 'Write a post', 'buddynext' );
+		return self::is_reading_view() ? __( 'My reading', 'buddynext' ) : __( 'Write an article', 'buddynext' );
 	}
 
 	/**
@@ -588,7 +588,7 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * The write hub's two tabs (New post, My articles), or none for a member
+	 * The write hub's two tabs (New article, My articles), or none for a member
 	 * Member Blog does not let write: they see its own "not available" notice.
 	 *
 	 * @since 1.3.0
@@ -605,7 +605,7 @@ class MemberBlogBridge {
 		$tabs = array();
 		foreach (
 			array(
-				'new_url'         => __( 'New post', 'buddynext' ),
+				'new_url'         => __( 'New article', 'buddynext' ),
 				'my_articles_url' => __( 'My articles', 'buddynext' ),
 			) as $key => $label
 		) {
@@ -742,7 +742,7 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * Add "Write a post" to the rail's You group for a member who can write.
+	 * Add "Write an article" to the rail's You group for a member who can write.
 	 *
 	 * @param array<int,array<string,mixed>> $items Rail items.
 	 * @param string                         $hub   Current hub.
@@ -759,7 +759,7 @@ class MemberBlogBridge {
 
 		$items[] = array(
 			'key'    => 'write-post',
-			'label'  => __( 'Write a post', 'buddynext' ),
+			'label'  => __( 'Write an article', 'buddynext' ),
 			'url'    => $url,
 			'icon'   => 'edit',
 			'show'   => true,
@@ -831,7 +831,7 @@ class MemberBlogBridge {
 		if ( self::is_reading_view() ) {
 			return __( 'My reading', 'buddynext' );
 		}
-		return self::write_pages()['dashboard'] === $page->ID ? __( 'My articles', 'buddynext' ) : __( 'Write a post', 'buddynext' );
+		return self::write_pages()['dashboard'] === $page->ID ? __( 'My articles', 'buddynext' ) : __( 'Write an article', 'buddynext' );
 	}
 
 	/**
@@ -893,7 +893,7 @@ class MemberBlogBridge {
 		$provider = self::member_blog_writer( $user_id );
 		return array(
 			'icon'      => 'file-text',
-			'title'     => __( 'That post could not be found.', 'buddynext' ),
+			'title'     => __( 'That article could not be found.', 'buddynext' ),
 			'body'      => '',
 			'cta_url'   => null !== $provider ? (string) $provider['my_articles_url'] : '',
 			'cta_label' => __( 'My articles', 'buddynext' ),
@@ -1029,7 +1029,7 @@ class MemberBlogBridge {
 
 		$items[ self::INTEGRATION ] = array_merge(
 			array(
-				'label'      => __( 'Blog posts', 'buddynext' ),
+				'label'      => __( 'Articles', 'buddynext' ),
 				'version'    => null,
 				'has_feed'   => true,
 				'has_search' => false,
@@ -1045,7 +1045,7 @@ class MemberBlogBridge {
 				// BlogPostListener::spaces_enabled()), shown as an option card with its hint.
 				'subtabs'             => array( 'spaces' => __( 'Articles in Spaces', 'buddynext' ) ),
 				'subtab_options'      => array(
-					'spaces' => __( 'When off, articles are written for member profiles and the feed only, and the Blog tab in Spaces and Write for this Space are hidden. Nothing is deleted: articles in open Spaces show in the site feed, articles in private Spaces stay members-only in their Space, and turning this back on restores them.', 'buddynext' ),
+					'spaces' => __( 'When off, articles are written for member profiles and the feed only, and the Articles tab in Spaces and Write for this Space are hidden. Nothing is deleted: articles in open Spaces show in the site feed, articles in private Spaces stay members-only in their Space, and turning this back on restores them.', 'buddynext' ),
 				),
 				'subtabs_unavailable' => self::available()
 					? array()
@@ -1131,7 +1131,7 @@ class MemberBlogBridge {
 				'surface'         => 'space',
 				'integration'     => self::INTEGRATION,
 				'layer'           => 'primary',
-				'label'           => __( 'Blog', 'buddynext' ),
+				'label'           => __( 'Articles', 'buddynext' ),
 				// Right after Discussions wherever the site puts it; the priority places
 				// it when Discussions is absent. An owner's own order replaces both.
 				'priority'        => 36,

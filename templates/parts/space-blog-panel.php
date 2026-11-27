@@ -1,6 +1,6 @@
 <?php
 /**
- * BuddyNext template part: the Space Blog tab.
+ * BuddyNext template part: the Space Articles tab.
  *
  * The articles written for an open space, newest first, as the feed's own post
  * cards (the article card inside), with the shared Load more below. A member who
@@ -33,7 +33,7 @@ $bn_sb_write  = isset( $write_url ) ? (string) $write_url : '';
 ?>
 <section class="bn-space-blog" aria-labelledby="bn-space-blog-title">
 	<header class="bn-space-blog__head">
-		<h2 class="bn-space-blog__title" id="bn-space-blog-title"><?php esc_html_e( 'Blog', 'buddynext' ); ?></h2>
+		<h2 class="bn-space-blog__title" id="bn-space-blog-title"><?php esc_html_e( 'Articles', 'buddynext' ); ?></h2>
 		<?php if ( '' !== $bn_sb_write && array() !== $bn_sb_posts ) : ?>
 			<a class="bn-btn bn-space-blog__write" data-variant="primary" href="<?php echo esc_url( $bn_sb_write ); ?>">
 				<?php buddynext_icon( 'edit' ); ?>
