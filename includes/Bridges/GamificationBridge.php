@@ -427,7 +427,22 @@ class GamificationBridge {
 		if ( ! isset( self::NOTIFICATION_TABS[ $type ] ) || $viewer <= 0 ) {
 			return (string) $url;
 		}
-		return trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $viewer ) ) . self::NOTIFICATION_TABS[ $type ] . '/';
+		return self::profile_tab_url( $viewer, self::NOTIFICATION_TABS[ $type ] );
+	}
+
+	/**
+	 * A member's gamification profile tab, or their profile when the owner turned the tabs off.
+	 *
+	 * The Achievements, Kudos and Points tabs exist only while the Gamification
+	 * navigation switch is on; a link to one of them with the switch off is a dead page.
+	 *
+	 * @param int    $member_id Member.
+	 * @param string $tab       Tab slug (achievements, kudos, points).
+	 * @return string
+	 */
+	private static function profile_tab_url( int $member_id, string $tab ): string {
+		$profile = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $member_id ) );
+		return buddynext_integration_enabled( 'gamification', 'nav' ) ? $profile . $tab . '/' : $profile;
 	}
 
 	/**
@@ -860,7 +875,7 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Answer `buddynext_card_live` for badge cards: the level the member holds now and the badge's current name.
+	 * Answer `buddynext_card_live` for badge cards: the level the member holds now, the badge's current name and its current address.
 	 *
 	 * A card made when the member held one level otherwise kept saying it after a promotion, and kept a renamed
 	 * badge's old name. One read for the whole page, not one per member: every member's level name comes from the
@@ -876,9 +891,10 @@ class GamificationBridge {
 	 * @return array<int,array>
 	 */
 	public function live_badge_cards( array $answers, string $type, array $cards ): array {
-		if ( 'badge' !== $type || ! class_exists( 'WBGam\\Engine\\BadgeEngine' ) ) {
+		if ( 'badge' !== $type ) {
 			return $answers;
 		}
+		$partner = class_exists( 'WBGam\\Engine\\BadgeEngine' );
 
 		$user_ids = array();
 		foreach ( $cards as $meta ) {
@@ -899,8 +915,14 @@ class GamificationBridge {
 			}
 			$answer = array();
 
+			// The address as it is now: the member's current handle, and the profile itself
+			// when the owner turned the Achievements tab off (a stored link would be a dead page).
+			if ( preg_match( '/#badge-([^#?\/]+)$/', (string) ( $meta['url'] ?? '' ), $m ) ) {
+				$answer['url'] = $this->badge_activity_url( rawurldecode( $m[1] ), $user_id );
+			}
+
 			// A level that cannot be read leaves the stored one showing instead of blanking the card.
-			$level = trim( (string) get_user_meta( $user_id, 'wb_gam_level_name', true ) );
+			$level = $partner ? trim( (string) get_user_meta( $user_id, 'wb_gam_level_name', true ) ) : '';
 			if ( '' !== $level ) {
 				$answer['facts'] = array(
 					array(
@@ -1087,7 +1109,6 @@ class GamificationBridge {
 	 * @return string
 	 */
 	private function badge_activity_url( string $badge_id, int $user_id ): string {
-		$base = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ) . 'achievements/';
-		return $base . '#badge-' . rawurlencode( $badge_id );
+		return self::profile_tab_url( $user_id, 'achievements' ) . '#badge-' . rawurlencode( $badge_id );
 	}
 }

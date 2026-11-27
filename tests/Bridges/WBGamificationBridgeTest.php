@@ -311,6 +311,35 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * With the Gamification navigation switched off the profile tabs do not exist, so
+	 * notices and badge cards (new and already stored) open the member's profile.
+	 *
+	 * @return void
+	 */
+	public function test_navigation_off_links_open_the_profile_not_a_missing_tab(): void {
+		$member  = self::factory()->user->create();
+		$profile = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $member ) );
+		update_option( 'buddynext_integration_gamification_nav', '0' );
+
+		$this->assertSame( $profile, $this->bridge->filter_notification_url( '', 'wb_gamification.kudos_received', 0, 0, array(), $member ) );
+
+		$live = $this->bridge->live_badge_cards(
+			array(),
+			'badge',
+			array(
+				7 => array(
+					'url'     => $profile . 'achievements/#badge-mentor',
+					'user_id' => $member,
+				),
+			)
+		);
+		$this->assertSame( $profile . '#badge-mentor', $live[7]['url'] ?? '', 'a stored card opens the profile' );
+
+		update_option( 'buddynext_integration_gamification_nav', '1' );
+		$this->assertSame( $profile . 'kudos/', $this->bridge->filter_notification_url( '', 'wb_gamification.kudos_received', 0, 0, array(), $member ), 'with the tabs on, the tab' );
+	}
+
+	/**
 	 * A row composed while the sender is signed in (a push, sent in the sender's
 	 * request) opens the RECIPIENT's tab, not the sender's.
 	 *
