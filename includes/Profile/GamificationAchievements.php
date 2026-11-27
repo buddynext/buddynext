@@ -425,6 +425,11 @@ class GamificationAchievements {
 	private function standing_tiles( int $member_id ): array {
 		$tiles = array();
 
+		// The member's own "Show my level and points" choice: switched off, nobody else sees the tiles.
+		if ( ! \BuddyNext\Bridges\GamificationBridge::can_view_points( $member_id ) ) {
+			return $tiles;
+		}
+
 		if ( function_exists( 'wb_gam_get_user_points' ) ) {
 			$points  = (int) wb_gam_get_user_points( $member_id );
 			$tiles[] = array(

@@ -379,6 +379,31 @@ class GamificationBridge {
 	}
 
 	/**
+	 * Whether a viewer may see a member's points, rank and level.
+	 *
+	 * The member's "Show my level and points on my profile" choice (WB Gamification, Settings > My preferences)
+	 * decides it: switched off, only the member sees them. The profile privacy answer in can_view_standing()
+	 * still applies first. Badges and kudos are not points, so they follow can_view_standing() alone.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int      $member_id Member whose points would be shown.
+	 * @param int|null $viewer_id Viewer; defaults to the current user.
+	 * @return bool
+	 */
+	public static function can_view_points( int $member_id, ?int $viewer_id = null ): bool {
+		$viewer_id = $viewer_id ?? get_current_user_id();
+		if ( ! self::can_view_standing( $member_id, $viewer_id ) ) {
+			return false;
+		}
+		if ( $viewer_id === $member_id || ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+			return true;
+		}
+
+		return (bool) \WBGam\Engine\MemberPrefs::get( $member_id )['show_rank'];
+	}
+
+	/**
 	 * Open a WB Gamification bell row on the member's own profile tab for it.
 	 *
 	 * The plugin links every row to the profile front page; BuddyNext owns the tabs

@@ -158,4 +158,27 @@ class GamificationAchievementsPrivacyTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'badges', $data );
 		$this->assertIsArray( $data['standing'] );
 	}
+
+	/**
+	 * "Show my level and points on my profile" switched off hides points, rank and level from everyone else, and
+	 * only from them: the member still sees their own standing.
+	 *
+	 * @return void
+	 */
+	public function test_show_points_off_hides_the_standing_from_others(): void {
+		if ( ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- a stand-in for the partner class, which is not loaded in these tests.
+			eval( 'namespace WBGam\\Engine; class MemberPrefs { public static function get( $id ) { return array( "show_rank" => $GLOBALS["wb_gam_test"]["show_rank"][ $id ] ?? true ); } }' );
+		}
+		$GLOBALS['wb_gam_test']['points'][ $this->owner_id ] = 120;
+		$viewer = self::factory()->user->create();
+
+		$this->assertNotEmpty( $this->read_as( $viewer )['standing'], 'Fixture is wrong: the standing should be visible by default.' );
+
+		$GLOBALS['wb_gam_test']['show_rank'][ $this->owner_id ] = false;
+		$this->assertSame( array(), $this->read_as( $viewer )['standing'], 'Points, rank and level stayed visible after the member switched them off.' );
+		$this->assertNotEmpty( $this->read_as( $this->owner_id )['standing'], 'The member lost sight of their own standing.' );
+
+		unset( $GLOBALS['wb_gam_test']['show_rank'], $GLOBALS['wb_gam_test']['points'][ $this->owner_id ] );
+	}
 }
