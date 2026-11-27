@@ -858,8 +858,10 @@ class ModerationListener implements ListenerInterface {
 				$alert_subject = __( 'BuddyNext: Moderation queue threshold reached', 'buddynext' );
 				$alert_body    = sprintf(
 					/* translators: %1$d: current queue count, %2$d: configured threshold */
-					__(
-						"Your BuddyNext moderation queue currently has %1\$d pending or escalated report(s), which meets or exceeds the configured alert threshold of %2\$d.\n\nPlease review the queue at your earliest convenience.",
+					_n(
+						"Your BuddyNext moderation queue currently has %1\$d pending or escalated report, which meets or exceeds the configured alert threshold of %2\$d.\n\nPlease review the queue at your earliest convenience.",
+						"Your BuddyNext moderation queue currently has %1\$d pending or escalated reports, which meet or exceed the configured alert threshold of %2\$d.\n\nPlease review the queue at your earliest convenience.",
+						$count,
 						'buddynext'
 					),
 					$count,

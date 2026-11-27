@@ -2337,7 +2337,7 @@ class AdminHub {
 	 */
 	private function render_header( string $label, bool $visually_hidden = false ): void {
 		echo '<header class="bn-admin-hub__header' . ( $visually_hidden ? ' is-title-hidden' : '' ) . '">';
-		echo '<h1 id="bn-admin-hub-title" class="bn-admin-hub__title' . ( $visually_hidden ? ' screen-reader-text' : '' ) . '">' . esc_html__( $label, 'buddynext' ) . '</h1>'; // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
+		echo '<h1 id="bn-admin-hub-title" class="bn-admin-hub__title' . ( $visually_hidden ? ' screen-reader-text' : '' ) . '">' . esc_html( $label ) . '</h1>';
 		echo '</header>';
 		// WordPress core hoists admin notices to just after the first <h1>, which
 		// here lands them inside the flex header and squishes them to a sliver.
