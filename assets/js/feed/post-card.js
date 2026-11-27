@@ -61,6 +61,20 @@ const BN_ICONS = {
 };
 
 /**
+ * Focusable items of an options menu that are actually shown (not display:none, not disabled).
+ *
+ * @param {Element|null} menu The options menu.
+ * @return {Element[]} Visible links and buttons in DOM order.
+ */
+function visibleMenuItems( menu ) {
+	if ( ! menu ) { return []; }
+	return Array.prototype.filter.call(
+		menu.querySelectorAll( 'a, button' ),
+		( el ) => el.getClientRects().length > 0 && ! el.disabled && 'true' !== el.getAttribute( 'aria-hidden' )
+	);
+}
+
+/**
  * Replace a reported post's own page with a short reported state.
  *
  * In a feed the reported card just leaves and the other posts fill the space; on the post's
@@ -1850,7 +1864,8 @@ store( 'buddynext/post-card', {
 			if ( ctx.optionsOpen && event && 0 === event.detail ) {
 				const wrap = event.currentTarget && event.currentTarget.closest( '.bn-post-card__menu-wrap' );
 				requestAnimationFrame( () => {
-					const first = wrap && wrap.querySelector( '.bn-post-card__options-menu a, .bn-post-card__options-menu button' );
+					// First VISIBLE item: the Follow button is hidden above 640px and cannot take focus.
+					const first = wrap && visibleMenuItems( wrap.querySelector( '.bn-post-card__options-menu' ) )[ 0 ];
 					if ( first ) { first.focus(); }
 				} );
 			}
@@ -1865,10 +1880,7 @@ store( 'buddynext/post-card', {
 			if ( ! ( event.key in move ) && 'Home' !== event.key && 'End' !== event.key ) {
 				return;
 			}
-			const items = Array.prototype.filter.call(
-				event.currentTarget.querySelectorAll( 'a, button' ),
-				( el ) => el.getClientRects().length > 0 && ! el.disabled
-			);
+			const items = visibleMenuItems( event.currentTarget );
 			if ( ! items.length ) { return; }
 			event.preventDefault();
 			let next = items.indexOf( document.activeElement ) + ( move[ event.key ] || 0 );
