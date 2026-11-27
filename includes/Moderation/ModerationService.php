@@ -2880,6 +2880,41 @@ class ModerationService {
 	}
 
 	/**
+	 * Run a WP_User_Query for the suspended members only, or for everyone else.
+	 *
+	 * The admin Members tabs and the member export both page through here, so the
+	 * Active tab, the Suspended tab and their CSVs always agree. One subquery on the
+	 * active_check index is added to that single query and removed straight after;
+	 * no id list is loaded into PHP, so it holds at any number of suspensions.
+	 * Predicate mirrors is_suspended() exactly.
+	 *
+	 * @param string   $status 'suspended', 'active' (not suspended), anything else = no filter.
+	 * @param callable $run    Runs the query; its return value is passed back.
+	 * @return mixed
+	 */
+	public function within_suspension_status( string $status, callable $run ) {
+		if ( 'suspended' !== $status && 'active' !== $status ) {
+			return $run();
+		}
+
+		$operator = 'suspended' === $status ? 'IN' : 'NOT IN';
+		$restrict = static function ( \WP_User_Query $query ) use ( $operator ): void {
+			global $wpdb;
+			$query->query_where .= " AND {$wpdb->users}.ID {$operator} (
+				SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+				WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
+			)";
+		};
+
+		add_action( 'pre_user_query', $restrict );
+		try {
+			return $run();
+		} finally {
+			remove_action( 'pre_user_query', $restrict );
+		}
+	}
+
+	/**
 	 * Of the given user IDs, those with an active (unexpired) suspension.
 	 *
 	 * A batch is_suspended() for a page of members — one query instead of one

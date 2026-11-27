@@ -67,6 +67,24 @@ class MembersTypeFilterTest extends \WP_UnitTestCase {
 		$this->assertContains( $this->fan_user, $ids );
 	}
 
+	public function test_the_active_tab_leaves_out_suspended_members(): void {
+		( new \BuddyNext\Moderation\ModerationService() )->suspend( $this->fan_user, 'test', 0 );
+		$members = new Members();
+
+		$all       = $members->list_members( array( 'per_page' => 100 ) );
+		$active    = $members->list_members( array( 'status' => 'active', 'per_page' => 100 ) );
+		$suspended = $members->list_members( array( 'status' => 'suspended', 'per_page' => 100 ) );
+
+		$this->assertNotContains( $this->fan_user, array_column( $active['members'], 'id' ) );
+		$this->assertContains( $this->pro_user, array_column( $active['members'], 'id' ) );
+		$this->assertSame( $all['total'] - 1, $active['total'] );
+		$this->assertSame( array( $this->fan_user ), array_column( $suspended['members'], 'id' ) );
+		$this->assertSame( 1, $suspended['total'] );
+
+		// The filter is one-shot: the next unfiltered list still has everyone.
+		$this->assertContains( $this->fan_user, array_column( $members->list_members( array( 'per_page' => 100 ) )['members'], 'id' ) );
+	}
+
 	public function test_the_export_has_a_type_column_and_follows_the_filter(): void {
 		ob_start();
 		( new MemberExport() )->export_members_csv( array( 'member_type' => 'qa-fan' ) );

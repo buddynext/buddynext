@@ -218,22 +218,6 @@ class Members extends AdminPageBase {
 			$query_args['role'] = sanitize_key( (string) $args['role'] );
 		}
 
-		if ( 'suspended' === $status ) {
-			// IDs of currently suspended users, from the canonical moderation
-			// service rather than a hand-rolled suspensions query (card 10296532578).
-			$suspended_ids = ( new \BuddyNext\Moderation\ModerationService() )->active_suspended_user_ids();
-
-			if ( empty( $suspended_ids ) ) {
-				return array(
-					'members' => array(),
-					'total'   => 0,
-					'pages'   => 1,
-				);
-			}
-
-			$query_args['include'] = $suspended_ids;
-		}
-
 		// Last-active ordering lives in bn_presence, which WP_User_Query cannot
 		// reach: it orders over wp_users (plus usermeta) and knows nothing about
 		// our tables. pre_user_query is the only seam that can add the join, and
@@ -269,10 +253,14 @@ class Members extends AdminPageBase {
 			add_action( 'pre_user_query', $presence_sort );
 		}
 
+		// The Active and Suspended tabs filter in SQL through the moderation service, the same seam the CSV export uses.
 		$type_slug  = sanitize_key( (string) ( $args['member_type'] ?? '' ) );
-		$user_query = '' !== $type_slug
-			? buddynext_service( 'member_types' )->within_type( $type_slug, static fn() => new \WP_User_Query( $query_args ) )
-			: new \WP_User_Query( $query_args );
+		$user_query = ( new \BuddyNext\Moderation\ModerationService() )->within_suspension_status(
+			$status,
+			static fn() => '' !== $type_slug
+				? buddynext_service( 'member_types' )->within_type( $type_slug, static fn() => new \WP_User_Query( $query_args ) )
+				: new \WP_User_Query( $query_args )
+		);
 
 		if ( null !== $presence_sort ) {
 			remove_action( 'pre_user_query', $presence_sort );
