@@ -451,6 +451,16 @@ fi
 section "Translation structure"
 py_gate bin/check-translations.py "a translated entry lost a placeholder or a .po/.mo is malformed - restore the placeholder and rebuild the .mo (see bin/check-translations.py)"
 
+# Translation READINESS (anyone can add a language): every user-facing string wrapped, correctly
+# domained and structured (ordered placeholders, _n() plurals, no concatenation), loadable. Ratchet
+# baselines list triaged findings; bin/test-i18n-gates.sh is the negative control.
+section "Translation readiness"
+if command -v php >/dev/null 2>&1; then
+	php bin/check-unwrapped-strings.php || fail "user-facing English is not wrapped in __() - wrap it with the 'buddynext' text domain, then bin/i18n.sh"
+	php bin/check-i18n-readiness.php || fail "a string is not translation-ready - see TRANSLATION-READINESS.md for the rule that failed"
+	bash bin/test-i18n-gates.sh || fail "the translation gates no longer catch their own negative-control fixtures"
+fi
+
 # One button API. The retired bn-btn--primary/--secondary/--sm/--block modifiers
 # lived only in bn-profile.css, so any page without that file drew them as bare grey
 # boxes (finish-sign-up, 1.2.9). Markup uses class="bn-btn" + data-variant/data-size/data-full.
