@@ -42,13 +42,14 @@ class JetonomyImportCardsTest extends \WP_UnitTestCase {
 	public function test_a_batch_of_topics_is_queued_in_chunks_of_100(): void {
 		( new JetonomyBridge() )->on_import_batch( 'bbpress', 'topic', range( 1, 250 ) );
 
-		$sizes = array();
+		$ranges = array();
 		foreach ( $this->pending() as $action ) {
-			$args    = $action->get_args();
-			$sizes[] = count( $args[0] );
+			$args = $action->get_args();
+			$this->assertLessThanOrEqual( 191, strlen( (string) wp_json_encode( $args ) ), 'The job arguments fit Action Scheduler\'s argument column.' );
+			$ranges[] = $args;
 		}
-		sort( $sizes );
-		$this->assertSame( array( 50, 100, 100 ), $sizes );
+		sort( $ranges );
+		$this->assertSame( array( array( 1, 100 ), array( 101, 200 ), array( 201, 250 ) ), $ranges, 'Each chunk is queued as its first and last topic id.' );
 	}
 
 	public function test_replies_and_an_empty_batch_queue_nothing(): void {

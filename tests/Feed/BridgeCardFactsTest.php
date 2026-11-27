@@ -185,7 +185,28 @@ class BridgeCardFactsTest extends WP_UnitTestCase {
 			$ran[] = $id;
 		} );
 		$this->assertSame( array(), $ran, 'A large set is not run inside the request.' );
-		$this->assertCount( 3, as_get_scheduled_actions( array( 'hook' => 'bn_test_chunk_hook', 'status' => 'pending' ), 'ids' ), '230 items in chunks of 100.' );
+		// Every queued job's arguments fit Action Scheduler's 191-character column, and nothing is lost.
+		$queued = array();
+		foreach ( as_get_scheduled_actions( array( 'hook' => 'bn_test_chunk_hook', 'status' => 'pending' ) ) as $action ) {
+			$args = $action->get_args();
+			$this->assertLessThanOrEqual( 191, strlen( (string) wp_json_encode( $args ) ), 'A queued chunk is too long for Action Scheduler.' );
+			$queued = array_merge( $queued, $args[0] );
+		}
+		sort( $queued );
+		$this->assertSame( range( 1, 230 ), $queued, 'Every item is in a queued chunk.' );
+		as_unschedule_all_actions( 'bn_test_chunk_hook' );
+	}
+
+	public function test_an_item_too_long_to_queue_runs_now(): void {
+		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
+			$this->markTestSkipped( 'Action Scheduler is not loaded.' );
+		}
+		$long = 'https://example.test/' . str_repeat( 'a', 200 );
+		$ran  = array();
+		IntegrationActivity::run_in_chunks( 'bn_test_chunk_hook', array_merge( range( 1, 30 ), array( $long ) ), static function ( $item ) use ( &$ran ) {
+			$ran[] = $item;
+		} );
+		$this->assertSame( array( $long ), $ran, 'The over-long item is run inline, the rest are queued.' );
 		as_unschedule_all_actions( 'bn_test_chunk_hook' );
 	}
 }

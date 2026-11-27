@@ -100,12 +100,41 @@ class SpaceSidebarProvider {
 		$member_svc   = new SpaceMemberService();
 		$mods         = $this->to_objects(
 			array_merge(
-				$member_svc->get_members( $space_id, $viewer, 0, 0, array( 'role' => 'owner' ) ),
-				$member_svc->get_members( $space_id, $viewer, 0, 0, array( 'role' => 'moderator' ) )
+				$member_svc->get_members(
+					$space_id,
+					$viewer,
+					0,
+					0,
+					array(
+						'role'              => 'owner',
+						'exclude_suspended' => true,
+					)
+				),
+				$member_svc->get_members(
+					$space_id,
+					$viewer,
+					0,
+					0,
+					array(
+						'role'              => 'moderator',
+						'exclude_suspended' => true,
+					)
+				)
 			)
 		);
 		$regulars     = $can_view_roster
-			? $this->to_objects( $member_svc->get_members( $space_id, $viewer, 10, 0, array( 'role' => 'member' ) ) )
+			? $this->to_objects(
+				$member_svc->get_members(
+					$space_id,
+					$viewer,
+					10,
+					0,
+					array(
+						'role'              => 'member',
+						'exclude_suspended' => true,
+					)
+				)
+			)
 			: array();
 		$contributors = $can_view_roster
 			? $this->to_objects( $space_service->top_contributors( $space_id, 3 ) )

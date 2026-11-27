@@ -2633,9 +2633,23 @@ class SpaceService {
 				$where[]  = 'name LIKE %s';
 				$params[] = $like;
 			} else {
-				$where[]  = '( name LIKE %s OR description LIKE %s )';
+				// Searchable public fields too (Location: "Bollington" finds the Spaces there), the same
+				// fields site search indexes. One correlated lookup on the bn_space_id index per space
+				// the name scan already visits; no second query path.
+				$field_keys = SpaceFieldRegistry::instance()->searchable_public_keys();
+				$field_sql  = '';
+				if ( $field_keys ) {
+					$field_sql = " OR EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_space_meta bn_sfm WHERE bn_sfm.bn_space_id = id AND bn_sfm.meta_key IN ("
+						. implode( ',', array_fill( 0, count( $field_keys ), '%s' ) )
+						. ') AND bn_sfm.meta_value LIKE %s )';
+				}
+				$where[]  = "( name LIKE %s OR description LIKE %s{$field_sql} )";
 				$params[] = $like;
 				$params[] = $like;
+				if ( $field_keys ) {
+					array_push( $params, ...$field_keys );
+					$params[] = $like;
+				}
 			}
 		}
 

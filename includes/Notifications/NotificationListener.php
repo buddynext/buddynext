@@ -49,12 +49,27 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
+	 * A block or mute between two members: forget both members' cached notification counts.
+	 *
+	 * @param int $actor_id  Member who blocked or muted.
+	 * @param int $target_id Member blocked or muted.
+	 * @return void
+	 */
+	public function on_visibility_changed( $actor_id, $target_id ): void {
+		buddynext_service( 'notifications' )->forget_counts_for( array( (int) $actor_id, (int) $target_id ) );
+	}
+
+	/**
 	 * Register all notification event hook listeners.
 	 *
 	 * Called once during Plugin::register_listeners() at plugins_loaded:15,
 	 * before buddynext_loaded fires.
 	 */
 	public function register(): void {
+		// A block or mute changes which partner rows the bell hides, so the cached counts go with it.
+		foreach ( array( 'buddynext_block', 'buddynext_unblock', 'buddynext_mute', 'buddynext_unmute' ) as $bn_hook ) {
+			add_action( $bn_hook, array( $this, 'on_visibility_changed' ), 10, 2 );
+		}
 		add_action( 'buddynext_user_followed', array( $this, 'on_user_followed' ), 10, 2 );
 		add_action( 'buddynext_follow_requested', array( $this, 'on_follow_requested' ), 10, 2 );
 		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_member_joined' ), 10, 3 );

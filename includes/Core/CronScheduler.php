@@ -201,6 +201,8 @@ class CronScheduler {
 		'buddynext_jetonomy_copy_forum_members',
 		'buddynext_jetonomy_grant_space_members',
 		'buddynext_async_space_post_emails',
+		'buddynext_regen_article_crops',
+		'buddynext_resync_article_spaces',
 	);
 
 	/**

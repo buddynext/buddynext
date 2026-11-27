@@ -591,13 +591,12 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 					'bookmarked'        => $is_bookmarked,
 					'hasReported'       => $has_reported,
 					'reactionType'      => $my_reaction_type,
-					// Translatable label shown on the React button: the current
-					// reaction's name when reacted, else the default "React". Kept in
-					// sync with the icon by the post-card store so picking a reaction
-					// updates the label too (data-wp-text="state.reactionLabel").
-					'reactionLabel'     => ( $my_reaction_type && class_exists( '\BuddyNext\Reactions\ReactionService' ) )
-						? \BuddyNext\Reactions\ReactionService::label( (string) $my_reaction_type )
-						: __( 'React', 'buddynext' ),
+					// Translatable label shown on the reaction button: the current
+					// reaction's name when reacted, else "Like". The same answer the
+					// button prints (parts/post-actions.php), so hydration does not
+					// rename it; the post-card store keeps it in step with the icon
+					// (data-wp-text="state.reactionLabel").
+					'reactionLabel'     => \BuddyNext\Reactions\ReactionService::button_label( $my_reaction_type ? (string) $my_reaction_type : null ),
 					'pollOptions'       => $poll_options_ctx,
 					'pollVotedOptionId' => $my_voted_option_id,
 					'pollTotalVotes'    => $poll_total_votes,

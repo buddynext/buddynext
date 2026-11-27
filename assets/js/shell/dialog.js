@@ -795,25 +795,30 @@ export function bnResolveConnectNote( opts ) {
 }
 
 /**
- * Show a transient toast. Auto-dismisses after `timeout` ms (default 3000).
+ * Show a transient toast. Auto-dismisses after `timeout` ms (default 4000, or 8000 with a button or for an error).
  * Multiple toasts stack inside a single .bn-toast-container.
  *
  * @param {string} message
  * @param {Object} [opts]
  * @param {('info'|'success'|'warn'|'danger')} [opts.tone] Default 'info'.
- * @param {number} [opts.timeout] Default 3000ms.
+ * @param {number} [opts.timeout] Default 4000ms, 8000ms with a button or for an error.
  * @return {void}
  */
 /**
- * How many toasts may be on screen at once.
- *
- * Identical messages are collapsed (see bnToast), so this only bounds genuinely
- * DIFFERENT messages. Four is enough to show a page failing several ways at once
- * without the column running off the screen.
- *
- * @type {number}
+ * Toast flow limits (docs/standards/toasts.md): two toasts on screen on a desktop, one on a phone, and a gap
+ * between one showing and the next. A toast that does not fit waits its turn and is never dropped.
  */
-const MAX_TOASTS = 3;
+const TOAST_GAP = 600;
+const ONE_AT_A_TIME = '(max-width: 640px)';
+
+/**
+ * How many toasts may be on screen at once on this viewport.
+ *
+ * @return {number} One on a phone, two elsewhere.
+ */
+function maxVisibleToasts() {
+	return window.matchMedia( ONE_AT_A_TIME ).matches ? 1 : 2;
+}
 
 /**
  * Identity of a toast: two toasts are "the same" when they say the same thing (title and
@@ -849,14 +854,17 @@ const TOAST_ICONS = {
 const CLOSE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
 /**
- * The four toast statuses. Everything else a caller passes ('warn', 'warning', 'danger',
- * 'type') is folded onto one of them, so a toast is never drawn without an icon and there is
+ * The four toast statuses ('award' is the achievement look). Everything else a caller passes ('warn', 'warning',
+ * 'danger', 'type') is folded onto one of them, so a toast is never drawn without an icon and there is
  * no fifth look to maintain.
  *
  * @param {string} tone Caller's tone.
  * @return {('success'|'error'|'info'|'achievement')}
  */
 function toastStatus( tone ) {
+	if ( 'award' === tone ) {
+		return 'achievement';
+	}
 	if ( 'success' === tone || 'achievement' === tone ) {
 		return tone;
 	}
@@ -868,11 +876,13 @@ function toastStatus( tone ) {
  *
  *   bnToast( 'Saved', 'success' )
  *   bnToast( 'Saved', { tone: 'success', timeout: 4000, action: { href, label } } )
- *   bnToast( { key, title, body, type, icon, href, linkLabel, persist } )
+ *   bnToast( { key, title, body, type, icon, href, linkLabel, timeout, persist, count } )
+ *
+ * `count: { from, to }` with the literal {count} in the title counts a number up inside the title.
  *
  * @param {(string|Object)} message Text, or the options object itself.
  * @param {(string|Object)} [opts]  Tone string or options.
- * @return {Object} { title, body, status, icon, action, persist, timeout, key }
+ * @return {Object} { title, body, status, icon, action, count, persist, timeout, key }
  */
 function toastOptions( message, opts ) {
 	const cfg   = ( message && 'object' === typeof message ) ? message : ( ( 'string' === typeof opts ) ? { tone: opts } : ( opts || {} ) );
@@ -885,20 +895,45 @@ function toastOptions( message, opts ) {
 	} else if ( cfg.href ) {
 		action = { href: cfg.href, label: cfg.linkLabel || si( 'view', 'View' ) };
 	}
-	// Errors carry information the member must read (a validation rule, a failure
-	// reason), so they dwell longer than a confirmation. An explicit timeout wins. A toast
-	// that carries a link stays until dismissed: a member cannot follow a link that leaves.
+	// Auto-close: 4 seconds, or 8 when the toast carries a button (a member has to read it and reach for it) or is an
+	// error (it holds a reason). An explicit timeout wins, and persist keeps a toast until it is closed. Hovering or
+	// focusing a toast pauses its timer, so one being read is never cut off.
 	const explicit = 'number' === typeof cfg.timeout;
+	const count    = cfg.count && Number.isFinite( Number( cfg.count.to ) )
+		? { from: Number.isFinite( Number( cfg.count.from ) ) ? Number( cfg.count.from ) : 0, to: Number( cfg.count.to ) }
+		: null;
 	return {
 		title,
 		body: cfg.body ? String( cfg.body ) : '',
 		status,
-		icon: TOAST_ICONS[ cfg.icon ] ? cfg.icon : status,
+		icon: 'string' === typeof cfg.icon && cfg.icon ? cfg.icon : status,
 		action,
-		persist: ( 'boolean' === typeof cfg.persist ) ? cfg.persist : ( !! action && ! explicit ),
-		timeout: explicit ? cfg.timeout : ( 'error' === status ? 7000 : 3000 ),
+		count,
+		persist: 'boolean' === typeof cfg.persist ? cfg.persist : false,
+		timeout: explicit ? cfg.timeout : ( ( action || 'error' === status ) ? 8000 : 4000 ),
 		key: cfg.key ? `k${ String( cfg.key ) }` : '',
 	};
+}
+
+/**
+ * The URL of a badge image drawn in the icon disc, or '' when the value is not a safe image URL.
+ *
+ * Only an http(s) URL, or a path on this site, is drawn. Anything else (javascript:, data:) is dropped, so a
+ * caller can never put script or inline markup in the disc.
+ *
+ * @param {string} value Caller's icon value.
+ * @return {string} Absolute URL, or ''.
+ */
+function toastImageUrl( value ) {
+	if ( ! /^(https?:)?\/\//i.test( value ) && ! value.startsWith( '/' ) ) {
+		return '';
+	}
+	try {
+		const url = new URL( value, window.location.href );
+		return ( 'https:' === url.protocol || 'http:' === url.protocol ) ? url.href : '';
+	} catch ( e ) {
+		return '';
+	}
 }
 
 /**
@@ -910,23 +945,40 @@ function toastOptions( message, opts ) {
  * @param {Function}    dismiss Dismiss handler for the close control.
  */
 function paintToast( toast, o, dismiss ) {
-	toast.className = `bn-toast bn-toast--${ o.status }${ o.body ? ' bn-toast--rich' : '' }`;
+	toast.className = `bn-toast bn-toast--${ o.status }`;
 	// An error announces assertively so a screen reader interrupts with the reason;
 	// everything else is polite so a confirmation never talks over the member.
 	toast.setAttribute( 'role', 'error' === o.status ? 'alert' : 'status' );
 	toast.setAttribute( 'aria-live', 'error' === o.status ? 'assertive' : 'polite' );
+	if ( toast._bnRaf ) {
+		window.cancelAnimationFrame( toast._bnRaf );
+	}
 	toast.textContent = '';
 
+	// The disc: a built-in icon by name, a badge image by URL, or the status icon.
 	const icon = document.createElement( 'span' );
 	icon.className = 'bn-toast__icon';
-	icon.innerHTML = TOAST_ICONS[ o.icon ]; // Constant markup above, never caller input.
+	const imageUrl = TOAST_ICONS[ o.icon ] ? '' : toastImageUrl( o.icon );
+	if ( imageUrl ) {
+		const img = document.createElement( 'img' );
+		img.className = 'bn-toast__img';
+		img.alt = '';
+		img.src = imageUrl;
+		// A picture that does not load leaves the status icon, never a broken-image glyph.
+		img.addEventListener( 'error', function () {
+			icon.innerHTML = TOAST_ICONS[ o.status ]; // Constant markup above, never caller input.
+		} );
+		icon.appendChild( img );
+	} else {
+		icon.innerHTML = TOAST_ICONS[ TOAST_ICONS[ o.icon ] ? o.icon : o.status ]; // Constant markup above, never caller input.
+	}
 	toast.appendChild( icon );
 
 	const text = document.createElement( 'span' );
 	text.className = 'bn-toast__text';
 	const title = document.createElement( 'span' );
 	title.className = 'bn-toast__title';
-	title.textContent = o.title;
+	paintToastTitle( toast, title, o );
 	text.appendChild( title );
 	if ( o.body ) {
 		const body = document.createElement( 'span' );
@@ -958,23 +1010,79 @@ function paintToast( toast, o, dismiss ) {
 				dismiss();
 			}
 		} );
-		// Under the text on a two-line toast: beside it, the unwrappable link took the
-		// width and squeezed a sentence into a column of single words.
-		( o.body ? text : toast ).appendChild( link );
+		toast.appendChild( link );
 	}
 
-	if ( o.persist ) {
-		const close = document.createElement( 'button' );
-		close.type = 'button';
-		close.className = 'bn-toast__close';
-		close.setAttribute( 'aria-label', si( 'dismiss', 'Dismiss' ) );
-		close.innerHTML = CLOSE_ICON; // Constant markup above.
-		close.addEventListener( 'click', function ( e ) {
-			e.stopPropagation();
-			dismiss();
-		} );
-		toast.appendChild( close );
+	// Every toast can be closed with a real button, not only by clicking it.
+	const close = document.createElement( 'button' );
+	close.type = 'button';
+	close.className = 'bn-toast__close';
+	close.setAttribute( 'aria-label', si( 'dismiss', 'Dismiss' ) );
+	close.innerHTML = CLOSE_ICON; // Constant markup above.
+	close.addEventListener( 'click', function ( e ) {
+		e.stopPropagation();
+		dismiss();
+	} );
+	toast.appendChild( close );
+}
+
+/**
+ * Write a toast's title, counting a number up when the caller asked for it.
+ *
+ * With `count: { from, to }` and the literal {count} in the title, the number counts up over about 400ms. The
+ * counting digits are hidden from screen readers and the final text is read once from a visually hidden copy,
+ * so a reader hears "+30 points" once, not every step. Reduced motion shows the final number at once. A title with
+ * the token and no count loses the token, so a caller written for this API never prints "{count}".
+ *
+ * @param {HTMLElement} toast Toast element (holds the animation frame id).
+ * @param {HTMLElement} title Title element to fill.
+ * @param {Object}      o     Options from toastOptions().
+ * @return {void}
+ */
+function paintToastTitle( toast, title, o ) {
+	if ( ! o.title.includes( '{count}' ) ) {
+		title.textContent = o.title;
+		return;
 	}
+	if ( ! o.count ) {
+		title.textContent = o.title.split( '{count}' ).join( '' ).replace( /\s{2,}/g, ' ' ).trim();
+		return;
+	}
+
+	const format = function ( n ) {
+		try {
+			return new Intl.NumberFormat( document.documentElement.lang || undefined ).format( Math.round( n ) );
+		} catch ( e ) {
+			return String( Math.round( n ) );
+		}
+	};
+	const parts = o.title.split( '{count}' );
+	const before = parts.shift();
+	const after = parts.join( '{count}' );
+
+	const reader = document.createElement( 'span' );
+	reader.className = 'bn-sr-only';
+	reader.textContent = before + format( o.count.to ) + after;
+
+	const visual = document.createElement( 'span' );
+	visual.setAttribute( 'aria-hidden', 'true' );
+	const number = document.createElement( 'span' );
+	number.className = 'bn-toast__count';
+	visual.append( before, number, after );
+	title.append( reader, visual );
+
+	if ( window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches || o.count.from === o.count.to ) {
+		number.textContent = format( o.count.to );
+		return;
+	}
+	const started = window.performance.now();
+	const step = function ( now ) {
+		const t = Math.min( 1, ( now - started ) / 400 );
+		number.textContent = format( o.count.from + ( o.count.to - o.count.from ) * ( 1 - Math.pow( 1 - t, 3 ) ) );
+		toast._bnRaf = t < 1 ? window.requestAnimationFrame( step ) : 0;
+	};
+	number.textContent = format( o.count.from );
+	toast._bnRaf = window.requestAnimationFrame( step );
 }
 
 /**
@@ -994,31 +1102,36 @@ export function bnToast( message, opts ) {
 }
 
 /**
- * Viewports that show one toast at a time. Three stacked toasts covered about a quarter
- * of a phone screen, over the form the member was filling in.
- *
- * @type {string}
- */
-const ONE_AT_A_TIME = '(max-width: 640px)';
-
-/**
- * Toasts waiting their turn on a phone, oldest first: { key, o, real, handle }.
+ * Toasts waiting their turn, oldest first: { key, o, real, handle }.
  *
  * @type {Array<Object>}
  */
 const waitingToasts = [];
 
 /**
- * Queue a toast behind the one on screen (phones). Nothing is dropped: it shows when the
- * current one closes. The returned handle forwards to the real toast once it shows; until
- * then update() edits the queued options and dismiss() takes it out of the line.
+ * When the last toast was put on screen (ms), so the next one waits TOAST_GAP after it.
  *
- * @param {Object}      o         Options from toastOptions().
- * @param {string}      key       Toast identity.
- * @param {HTMLElement} container The stack.
+ * @type {number}
+ */
+let lastToastShownAt = 0;
+
+/**
+ * The timer that will show the next waiting toast once the gap has passed.
+ *
+ * @type {number}
+ */
+let pumpTimer = 0;
+
+/**
+ * Queue a toast. Nothing is dropped: it shows when there is room and the gap has passed. The returned handle
+ * forwards to the real toast once it shows; until then update() edits the queued options and keeps its place in
+ * the line, and dismiss() takes it out.
+ *
+ * @param {Object} o   Options from toastOptions().
+ * @param {string} key Toast identity.
  * @return {Object} Handle { el, waiting, update, dismiss }.
  */
-function waitTurn( o, key, container ) {
+function waitTurn( o, key ) {
 	const same = waitingToasts.find( ( e ) => e.key === key );
 	if ( same ) {
 		if ( o.key ) {
@@ -1053,44 +1166,50 @@ function waitTurn( o, key, container ) {
 	};
 	waitingToasts.push( entry );
 
-	// The toast on screen must not hold the line: one that would stay open until closed
-	// (it carries a link) now times out like the rest.
-	const showing = container.lastElementChild;
-	if ( showing && showing._bnYield ) {
-		showing._bnYield();
-	}
+	// The toasts on screen must not hold the line: one that would stay open until closed
+	// now times out like the rest.
+	document.querySelectorAll( '.bn-toast-container > .bn-toast' ).forEach( function ( showing ) {
+		if ( showing._bnYield ) {
+			showing._bnYield();
+		}
+	} );
 	return entry.handle;
 }
 
 /**
- * Show the next waiting toast, if any.
+ * Show the next waiting toasts that fit: room for one more, and the gap since the last one has passed.
  *
  * @return {void}
  */
 function nextToast() {
-	const entry = waitingToasts.shift();
-	if ( entry ) {
-		entry.real       = showToast( entry.o );
-		entry.handle.el  = entry.real.el;
+	window.clearTimeout( pumpTimer );
+	if ( ! waitingToasts.length ) {
+		return;
 	}
+	const container = document.querySelector( '.bn-toast-container' );
+	if ( container && container.children.length >= maxVisibleToasts() ) {
+		return; // A closing toast calls this again when it leaves.
+	}
+	const wait = lastToastShownAt + TOAST_GAP - Date.now();
+	if ( wait > 0 ) {
+		pumpTimer = window.setTimeout( nextToast, wait );
+		return;
+	}
+	const entry = waitingToasts.shift();
+	entry.real      = showToast( entry.o, true );
+	entry.handle.el = entry.real.el;
+	nextToast();
 }
 
 /**
  * Paint one toast from normalised options (see bnToast()).
  *
- * @param {Object} o Options from toastOptions().
+ * @param {Object}  o      Options from toastOptions().
+ * @param {boolean} [turn] True when this call is the queue showing a waiting toast.
  * @return {Object} Handle { el, dismiss, update }.
  */
-function showToast( o ) {
+function showToast( o, turn ) {
 	let container = document.querySelector( '.bn-toast-container' );
-	if ( ! container ) {
-		container = document.createElement( 'div' );
-		container.className = 'bn-toast-container';
-		// A manual popover lives in the browser's top layer, so a toast raised while a
-		// native <dialog> is open (a partner's confirm) is not painted underneath it.
-		container.setAttribute( 'popover', 'manual' );
-		document.body.appendChild( container );
-	}
 
 	// The same thing said again (a refused Save pressed four times, a rate limit the
 	// server keeps refusing) collapses onto the toast already showing and restarts its
@@ -1101,7 +1220,7 @@ function showToast( o ) {
 	// Title AND body: "+10 Points / Log in for the first time" and "+10 Points / Daily
 	// login bonus" are two different things said, not one said twice.
 	const key      = o.key || toastKey( o.body ? `${ o.title }\n${ o.body }` : o.title, o.status );
-	const existing = container.querySelector( `.bn-toast[data-bn-toast-key="${ key }"]` );
+	const existing = container ? container.querySelector( `.bn-toast[data-bn-toast-key="${ key }"]` ) : null;
 	if ( existing && existing._bnHandle ) {
 		if ( o.key ) {
 			existing._bnHandle.update( o );
@@ -1111,16 +1230,22 @@ function showToast( o ) {
 		return existing._bnHandle;
 	}
 
-	// Phones: one at a time, in order.
-	if ( container.children.length && window.matchMedia( ONE_AT_A_TIME ).matches ) {
-		return waitTurn( o, key, container );
+	// Two on a desktop, one on a phone, a gap between them: a toast that does not fit waits its turn.
+	if ( ! turn && ( waitingToasts.length || ( container && container.children.length >= maxVisibleToasts() ) || Date.now() < lastToastShownAt + TOAST_GAP ) ) {
+		const handle = waitTurn( o, key );
+		nextToast();
+		return handle;
 	}
 
-	// Distinct messages can still pile up (a page failing several ways at once), so drop
-	// the oldest rather than let the column grow past the viewport.
-	while ( container.children.length >= MAX_TOASTS ) {
-		container.firstElementChild._bnHandle.dismiss( true );
+	if ( ! container ) {
+		container = document.createElement( 'div' );
+		container.className = 'bn-toast-container';
+		// A manual popover lives in the browser's top layer, so a toast raised while a
+		// native <dialog> is open (a partner's confirm) is not painted underneath it.
+		container.setAttribute( 'popover', 'manual' );
+		document.body.appendChild( container );
 	}
+	lastToastShownAt = Date.now();
 
 	const toast = document.createElement( 'div' );
 	toast.setAttribute( 'data-bn-toast-key', key );
@@ -1128,13 +1253,22 @@ function showToast( o ) {
 	let removeTimer;
 	const dismiss = function ( immediate ) {
 		window.clearTimeout( removeTimer );
+		if ( toast._bnRaf ) {
+			window.cancelAnimationFrame( toast._bnRaf );
+		}
 		const gone = function () {
+			// A toast whose button had focus gives it back to where it was, so keyboard focus is not lost to the page.
+			const back = toast._bnFocusBack;
+			const hadFocus = toast.contains( document.activeElement );
 			toast.remove();
 			if ( container && ! container.children.length ) {
 				try {
 					container.hidePopover();
 				} catch ( e ) { /* Not a popover, or already closed. */ }
 				container.remove();
+			}
+			if ( hadFocus && back && back.isConnected && 'function' === typeof back.focus ) {
+				back.focus();
 			}
 			nextToast();
 		};
@@ -1147,8 +1281,8 @@ function showToast( o ) {
 	};
 
 	// JS owns the lifetime so a message stays while it is still relevant. A persistent
-	// toast (it carries a link) has no timer; the rest pause while the pointer or focus is
-	// on them, so a member reading one is never cut off.
+	// toast has no timer; the rest pause while the pointer or focus is on them, so a
+	// member reading one is never cut off.
 	const startTimer = function () {
 		window.clearTimeout( removeTimer );
 		if ( ! o.persist ) {
@@ -1181,7 +1315,12 @@ function showToast( o ) {
 
 	paintToast( toast, o, dismiss );
 	toast.addEventListener( 'mouseenter', stopTimer );
-	toast.addEventListener( 'focusin', stopTimer );
+	toast.addEventListener( 'focusin', function ( e ) {
+		stopTimer();
+		if ( e.relatedTarget && ! toast.contains( e.relatedTarget ) ) {
+			toast._bnFocusBack = e.relatedTarget;
+		}
+	} );
 	toast.addEventListener( 'mouseleave', startTimer );
 	toast.addEventListener( 'focusout', startTimer );
 	// Clicking a plain toast dismisses it so a lingering error can be cleared on demand.
@@ -1203,6 +1342,22 @@ function showToast( o ) {
 
 	startTimer();
 	return toast._bnHandle;
+}
+
+/**
+ * Escape closes the newest toast, unless a dialog is open (Escape belongs to the dialog then).
+ *
+ * @param {KeyboardEvent} e Key event.
+ * @return {void}
+ */
+function closeNewestToastOnEscape( e ) {
+	if ( 'Escape' !== e.key || e.defaultPrevented || document.querySelector( 'dialog[open], .bn-modal-backdrop:not([hidden]):not(.is-hidden)' ) ) {
+		return;
+	}
+	const newest = document.querySelector( '.bn-toast-container > .bn-toast:last-child' );
+	if ( newest && newest._bnHandle ) {
+		newest._bnHandle.dismiss();
+	}
 }
 
 /**
@@ -1280,6 +1435,10 @@ if ( typeof window !== 'undefined' ) {
 	// before this module has run; replay them now that the real function exists.
 	const queued = window.__bnToastQueue || [];
 	window.bnToast = bnToast;
+	// What this stack can do, so a plugin on an older BuddyNext can fall back to plain text: the count-up, image
+	// icons, the award look, queued toasts that keep their place, and the group key.
+	bnToast.supports = Object.freeze( { count: true, icon: true, award: true, queue: true, key: true } );
+	document.addEventListener( 'keydown', closeNewestToastOnEscape );
 	delete window.__bnToastQueue;
 	queued.forEach( function ( args ) {
 		bnToast( args[ 0 ], args[ 1 ] );

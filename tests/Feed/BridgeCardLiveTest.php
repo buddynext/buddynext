@@ -260,6 +260,41 @@ class BridgeCardLiveTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A button to the title's own address is left out before the cut to two, so the third button still shows.
+	 */
+	public function test_a_third_button_shows_when_one_of_the_first_two_repeats_the_title(): void {
+		$html = IntegrationActivity::render_bridge_card(
+			array(
+				'bn_post_id'   => 31,
+				'bn_post_type' => 'widget',
+				'link_preview' => array(
+					'url'   => 'https://example.test/w/31/',
+					'title' => 'Widget',
+				),
+				'link_meta'    => array(
+					'actions' => array(
+						array(
+							'label' => 'Open',
+							'url'   => 'https://example.test/w/31/',
+						),
+						array(
+							'label' => 'Apply',
+							'url'   => 'https://example.test/w/31/apply/',
+						),
+						array(
+							'label' => 'Download',
+							'url'   => 'https://example.test/w/31/file',
+						),
+					),
+				),
+			)
+		);
+		$this->assertStringNotContainsString( '>Open<', $html );
+		$this->assertStringContainsString( '>Apply<', $html );
+		$this->assertStringContainsString( '>Download<', $html );
+	}
+
+	/**
 	 * A live answer may name a better title and the right destination; a button to the old address then survives.
 	 */
 	public function test_a_live_title_and_address_replace_the_stored_ones(): void {

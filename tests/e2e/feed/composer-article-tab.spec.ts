@@ -74,7 +74,7 @@ test.describe('feed / composer Post and Article tabs', () => {
         await textarea.fill('');
     });
 
-    test('the draft and article counts match the author\'s posts, and Start writing carries the title', async ({ authenticatedPage: page }) => {
+    test('the draft and article counts match the author\'s posts, and Write article carries the title', async ({ authenticatedPage: page }) => {
         const uid = await userId(ADMIN_LOGIN);
         const p = await tablePrefix();
         const drafts = await dbCount(
@@ -95,7 +95,7 @@ test.describe('feed / composer Post and Article tabs', () => {
         const field = panel.locator('.bn-composer-article__title');
         const name = (await field.getAttribute('name')) ?? 'bn_title';
         await field.fill(title);
-        await Promise.all([page.waitForURL((url) => url.searchParams.get(name) === title), panel.getByRole('button', { name: 'Start writing' }).click()]);
+        await Promise.all([page.waitForURL((url) => url.searchParams.get(name) === title), panel.getByRole('button', { name: 'Write article' }).click()]);
     });
     test('Pending shows only while a post waits for review, and counts it', async ({ authenticatedPage: page }) => {
         const uid = await userId(ADMIN_LOGIN);

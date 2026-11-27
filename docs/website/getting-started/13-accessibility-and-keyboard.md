@@ -8,9 +8,9 @@ Some members cannot use a mouse, some use a screen reader, and many only ever se
 
 ## Keyboard
 
-- **Menus and popovers.** The post menu (the three dots on a post), the **Posting to** popover in the composer and the emoji sheet open from the keyboard. Focus moves into them, the arrow keys move between choices, Escape closes them, and focus returns to the button that opened them.
-- **Avatar cropper.** When you crop a new profile photo, Tab reaches the preview and the arrow keys move the picture under the round mask (hold Shift for bigger steps).
-- **Emoji picker.** Focus moves into the picker, Tab stays inside it, the arrow keys move between emoji, and focus returns to the control that opened it.
+- **Menus and popovers.** The post menu (the three dots on a post), the audience popover in the composer, the **More** tools button on a phone and the emoji sheet open from the keyboard. Focus moves into them, the arrow keys move between choices, Escape closes them, and focus returns to the button that opened them.
+- **Avatar cropper.** When you crop a new profile photo, Tab stays inside the cropper and reaches the preview and the arrow keys move the picture under the round mask (hold Shift for bigger steps).
+- **Emoji picker.** Focus moves into the picker and the arrow keys move between emoji. Escape or Tab closes the picker and returns focus to the button that opened it, so Tab then carries on to the next control.
 - **Dialogs.** A dialog keeps Tab inside it until you close it, including in Safari and on iPad.
 - **Safe default on risky choices.** A confirmation for something that cannot be undone or that removes content (for example deleting a post, or **Restore defaults** in the admin) opens with focus on **Cancel**, so pressing Enter by reflex does nothing harmful. The Report dialog opens on its **Reason** list, so you choose a reason before anything is sent.
 - **Shortcuts never interrupt your work.** Single-key shortcuts (`/` for search, `n` for a new post, `g` then a letter to go somewhere) do nothing while you are in a form, a dropdown or a dialog. Ctrl/Cmd+K opens search from anywhere. Press `?` on a community page to see the list. Developers can turn keyboard shortcuts off with the `buddynext_keyboard_shortcuts_enabled` filter; that also turns off Ctrl/Cmd+K.
@@ -18,13 +18,14 @@ Some members cannot use a mouse, some use a screen reader, and many only ever se
 ## Seeing and tapping
 
 - **Contrast.** Outlined buttons, form fields, chips, switches and muted text meet WCAG contrast in light and dark mode: control edges at 3:1, text at 4.5:1.
+- **Composer focus.** Keyboard focus on the composer's tabs, tools, audience control and buttons shows one 2px accent ring set slightly off the control, so it is visible on any theme.
 - **Tap size on phones.** Buttons, switches and filter rows are at least 40px tall on a phone, so they are easy to hit with a thumb.
 - **Long text.** Text longer than its field or button ends in an ellipsis instead of spilling out of it.
 - **Right-to-left languages.** Pages follow the reading direction of your site language. For example, the Arabic sign-up page fits the screen without scrolling sideways.
 
 ## Messages on screen
 
-- **Toasts stay readable.** A short confirmation message (a toast) never sits on top of the cookie notice.
+- **Toasts stay readable.** A short confirmation message (a toast) never sits on top of the cookie notice. A desktop screen shows two at a time and a phone shows one, in order and never dropped. A toast closes after about 4 seconds, or 8 seconds when it has a button or is an error. Hovering over it or focusing it pauses the timer, and Escape closes the newest one.
 - **Clear form errors.** A malformed email address on the sign-up form is answered with "Please enter a valid email address." on the email field, instead of failing without a reason.
 
 ## Related

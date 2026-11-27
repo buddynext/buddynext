@@ -72,6 +72,22 @@ class CookieConsentTextTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The owner's line breaks show in the notice, and the text stays escaped.
+	 *
+	 * @return void
+	 */
+	public function test_notice_text_keeps_its_line_breaks(): void {
+		update_option( 'buddynext_cookie_consent_text', "We use cookies.\nThey keep you signed in.\n<b>Thanks</b>" );
+
+		ob_start();
+		( new CookieConsentService() )->render();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( "We use cookies.<br>\nThey keep you signed in.<br>", $html );
+		$this->assertStringNotContainsString( '<b>Thanks</b>', $html );
+	}
+
+	/**
 	 * Version attribute printed by render(), or '' when nothing rendered.
 	 *
 	 * @param CookieConsentService $service Service under test.

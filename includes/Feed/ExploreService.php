@@ -51,7 +51,7 @@ class ExploreService {
 	 * @return string[]
 	 */
 	public static function available_filters(): array {
-		if ( class_exists( 'Jetonomy\\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'feed' ) ) {
+		if ( \BuddyNext\Bridges\JetonomyBridge::usable() && buddynext_integration_enabled( 'jetonomy', 'feed' ) ) {
 			return self::FILTERS;
 		}
 		return array_values( array_diff( self::FILTERS, array( 'discussions' ) ) );

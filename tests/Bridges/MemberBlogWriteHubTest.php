@@ -164,7 +164,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$write = array_values( array_filter( $items, static fn( array $i ): bool => 'write-post' === $i['key'] ) );
 		$this->assertCount( 1, $write );
 		$this->assertSame( 'you', $write[0]['group'] );
-		$this->assertSame( 'Write a post', $write[0]['label'] );
+		$this->assertSame( 'Write an article', $write[0]['label'] );
 	}
 
 	public function test_an_ordinary_page_is_left_alone(): void {
@@ -324,7 +324,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 
 		wp_set_current_user( $this->writer() );
 		$tabs = MemberBlogBridge::write_hub_tabs();
-		$this->assertSame( array( 'New post', 'My articles' ), wp_list_pluck( $tabs, 'label' ) );
+		$this->assertSame( array( 'New article', 'My articles' ), wp_list_pluck( $tabs, 'label' ) );
 		$this->assertSame( array( true, false ), wp_list_pluck( $tabs, 'current' ) );
 	}
 
@@ -334,7 +334,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->bridge->route_write_pages();
 
 		$parts = $this->bridge->write_document_title_parts( array( 'title' => 'Edit post' ) );
-		$this->assertSame( 'Write a post', $parts['title'] );
+		$this->assertSame( 'Write an article', $parts['title'] );
 
 		// Outside the hub nothing changes.
 		( new \ReflectionProperty( MemberBlogBridge::class, 'write_page' ) )->setValue( null, 0 );
@@ -368,12 +368,12 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 
 		$this->visit( $this->post_page );
 		$this->bridge->route_write_pages();
-		$this->assertSame( 'Write a post', MemberBlogBridge::write_hub_heading(), 'The new post page is always the writing page.' );
+		$this->assertSame( 'Write an article', MemberBlogBridge::write_hub_heading(), 'The new post page is always the writing page.' );
 
 		wp_set_current_user( $this->writer() );
 		$this->visit( $this->dashboard_page );
 		$this->bridge->route_write_pages();
-		$this->assertSame( 'Write a post', MemberBlogBridge::write_hub_heading(), 'A writer keeps the heading and both tabs.' );
+		$this->assertSame( 'Write an article', MemberBlogBridge::write_hub_heading(), 'A writer keeps the heading and both tabs.' );
 	}
 
 	public function test_the_global_post_is_restored_after_enqueue(): void {
@@ -456,7 +456,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 				$this->visit( $page_id );
 				$this->bridge->route_write_pages();
 				$html = $this->render_hub();
-				$this->assertStringContainsString( 'Write a post</h1>', $html );
+				$this->assertStringContainsString( 'Write an article</h1>', $html );
 				$this->assertStringContainsString( $text, $html, "$hold on page $page_id." );
 				$this->assertStringNotContainsString( 'bn-blog-write__tabs', $html );
 				$this->assertStringNotContainsString( '[bp-member-blog]', $html, 'The form is not rendered.' );
@@ -490,7 +490,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 			$this->bridge->route_write_pages();
 			$notice = MemberBlogBridge::write_hub_notice();
 			if ( $not_found ) {
-				$this->assertSame( 'That post could not be found.', $notice['title'] ?? '', "Post $post_id." );
+				$this->assertSame( 'That article could not be found.', $notice['title'] ?? '', "Post $post_id." );
 				$this->assertSame( get_permalink( $this->dashboard_page ), $notice['cta_url'] );
 			} else {
 				$this->assertNull( $notice, 'The author edits their own post.' );
@@ -509,7 +509,7 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		wp_set_current_user( $this->writer() );
 		$this->visit( $this->post_page );
 		$this->bridge->route_write_pages();
-		$this->assertSame( 'Write a post', $this->bridge->write_document_title( 'Add new post', MemberBlogBridge::WRITE_HUB ) );
+		$this->assertSame( 'Write an article', $this->bridge->write_document_title( 'Add new post', MemberBlogBridge::WRITE_HUB ) );
 
 		$this->visit( $this->dashboard_page );
 		$this->bridge->route_write_pages();
@@ -623,5 +623,37 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'bn-crop-preview', $html );
 		$this->assertStringContainsString( 'data-bn-crop-min="' . \BuddyNext\Feed\ArticleImage::COVER_MIN_W . '"', $html, 'The size floor comes from the card rule.' );
 		$this->assertStringContainsString( 'Wide photos work best.', $html );
+	}
+
+	public function test_held_members_cannot_delete_articles(): void {
+		$writer = $this->writer();
+		$this->assertTrue( apply_filters( 'bpmb_can_delete_post', true, 1, $writer ) );
+		foreach ( array( 'suspended', 'pending' ) as $hold ) {
+			$this->assertFalse( apply_filters( 'bpmb_can_delete_post', true, 1, $this->held_writer( $hold ) ), "Delete, $hold." );
+		}
+	}
+
+	public function test_held_members_cannot_upload_or_add_categories_over_rest(): void {
+		$routes = array( '/wbcom-member-blog/v1/upload-image', '/wbcom-member-blog/v1/attach-image', '/wbcom-member-blog/v1/categories' );
+
+		wp_set_current_user( $this->held_writer( 'suspended' ) );
+		foreach ( $routes as $route ) {
+			$result = $this->bridge->refuse_held_rest_writes( null, null, new \WP_REST_Request( 'POST', $route ) );
+			$this->assertWPError( $result, $route );
+			$this->assertSame( 403, $result->get_error_data()['status'] );
+		}
+		$this->assertNull( $this->bridge->refuse_held_rest_writes( null, null, new \WP_REST_Request( 'GET', '/wbcom-member-blog/v1/categories' ) ), 'reading is not refused' );
+		$this->assertNull( $this->bridge->refuse_held_rest_writes( null, null, new \WP_REST_Request( 'POST', '/wbcom-member-blog/v1/bookmarks' ) ), 'other routes are left to their own checks' );
+
+		wp_set_current_user( $this->writer() );
+		$this->assertNull( $this->bridge->refuse_held_rest_writes( null, null, new \WP_REST_Request( 'POST', $routes[0] ) ), 'a writer passes' );
+	}
+
+	public function test_the_browser_tab_says_my_reading_for_a_non_writer(): void {
+		wp_set_current_user( self::factory()->user->create() );
+		$this->visit( $this->dashboard_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( MemberBlogBridge::write_hub_heading(), $this->bridge->write_document_title( 'My Blog Dashboard', MemberBlogBridge::WRITE_HUB ) );
+		$this->assertSame( 'My reading', $this->bridge->write_document_title( 'My Blog Dashboard', MemberBlogBridge::WRITE_HUB ) );
 	}
 }

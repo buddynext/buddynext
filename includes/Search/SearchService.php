@@ -969,19 +969,17 @@ class SearchService {
 			$privacy = buddynext_service( 'privacy' );
 
 			// Search semantics: exclude any block relationship (all types, both
-			// directions) on the item subject, plus authors the viewer has
-			// `restrict`ed (a search-surface limit, forward only). Both routed
-			// through the one canonical builder so the rules can't drift.
-			[ $subject_sql, $subject_params ]   = $privacy->block_exclude_sql( $viewer_id, 'si.object_id', null, null );
-			[ $restrict_sql, $restrict_params ] = $privacy->block_exclude_sql( $viewer_id, 'si.author_id', array( 'restrict' ), array() );
+			// directions) on the item's AUTHOR. Every indexed type carries its
+			// author in si.author_id (a member row is its own author), so one
+			// predicate covers posts, members and every integration type; the
+			// object id is a post/job/event id for most types, never a user id.
+			// This also covers the forward `restrict` limit (restrict is a block
+			// relationship type). Routed through the one canonical builder.
+			[ $subject_sql, $subject_params ] = $privacy->block_exclude_sql( $viewer_id, 'si.author_id', null, null );
 
 			if ( '' !== $subject_sql ) {
 				$block_where .= ' AND ' . $subject_sql;
 				$block_params = array_merge( $block_params, $subject_params );
-			}
-			if ( '' !== $restrict_sql ) {
-				$block_where .= ' AND ' . $restrict_sql;
-				$block_params = array_merge( $block_params, $restrict_params );
 			}
 		}
 
@@ -1777,7 +1775,7 @@ class SearchService {
 	 *
 	 * @param int[] $user_ids  Member user IDs.
 	 * @param int   $viewer_id Viewing user ID.
-	 * @return array[] Each row: id, name, initials, bio, profile_url, is_following, is_self.
+	 * @return array[] Each row: id, name, initials, avatar_url, bio, profile_url, is_following, is_self.
 	 */
 	private function enrich_members( array $user_ids, int $viewer_id ): array {
 		// Prime the user + usermeta caches in two batched queries so the loop's
@@ -1799,6 +1797,8 @@ class SearchService {
 				'id'           => $uid,
 				'name'         => $name,
 				'initials'     => \BuddyNext\Profile\AvatarService::initials_for( $name ),
+				// The member's own picture through the shared avatar filters (primed above).
+				'avatar_url'   => (string) get_avatar_url( $uid, array( 'size' => 80 ) ),
 				'bio'          => (string) ( $identity[ $uid ]['bio'] ?? '' ),
 				'profile_url'  => (string) \BuddyNext\Core\PageRouter::profile_url( $uid ),
 				'handle'       => \BuddyNext\Core\PageRouter::member_handle( (int) $uid ),

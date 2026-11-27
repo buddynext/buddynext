@@ -2,7 +2,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { endActiveAnnouncements } from '../_fixtures/wp';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, restGet, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, restGet, restPost, revealComposerTool, type MemberSession } from '../_fixtures/feed-wave1.helpers';
 
 type AnnouncementList = { announcements?: Array<{ id: number }> };
 
@@ -47,6 +47,7 @@ test.describe('feed / composer announcement', () => {
             expect(await tool.count(), 'admin must have the announcement tool').toBeGreaterThan(0);
 
             await page.locator(sel.composerTextarea).first().fill(content);
+            await revealComposerTool(page, tool);
             await tool.click();
             await expect(tool).toHaveAttribute('aria-pressed', 'true', { timeout: 5_000 });
             await page.locator(sel.composerSubmit).first().click();

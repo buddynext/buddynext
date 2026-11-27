@@ -106,6 +106,10 @@ class RegistrationEmailListener {
 		if ( '' !== (string) get_user_meta( $user_id, 'bn_welcome_sent', true ) ) {
 			return;
 		}
+		// A held member is welcomed when released (buddynext_user_verified), not at sign-up.
+		if ( ApprovalGuard::is_held( $user_id ) ) {
+			return;
+		}
 
 		// Render from the owner-editable 'welcome' template row (subject, body,
 		// tokens, brand wrap, sender identity) via the transactional email path —
@@ -215,7 +219,7 @@ class RegistrationEmailListener {
 						__( '%1$s (%2$s) has registered and is awaiting your approval. Review pending members here: %3$s', 'buddynext' ),
 						$user->user_login,
 						$email,
-						admin_url( 'admin.php?page=buddynext-members&tab=invites' )
+						admin_url( 'admin.php?page=buddynext-members&tab=pending' )
 					);
 					$this->send_branded( $admin_email, $admin_subject, $admin_body );
 				}
@@ -307,7 +311,7 @@ class RegistrationEmailListener {
 	 *
 	 * @param string $to      Recipient address.
 	 * @param string $subject Subject line.
-	 * @param string $body    Plain message (escaped + wrapped in minimal HTML).
+	 * @param string $body    Plain message (escaped, web addresses turned into links, wrapped in paragraphs).
 	 * @param string $type    bn_email_log type label (default 'registration').
 	 * @return void
 	 */
@@ -318,7 +322,7 @@ class RegistrationEmailListener {
 		EmailSender::send_with_identity(
 			$to,
 			$subject,
-			EmailSender::brand_wrap( '<p>' . esc_html( $body ) . '</p>', $subject ),
+			EmailSender::brand_wrap( wpautop( make_clickable( esc_html( $body ) ) ), $subject ),
 			EmailSender::build_identity_headers(),
 			$type
 		);

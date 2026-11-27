@@ -61,6 +61,20 @@ const BN_ICONS = {
 };
 
 /**
+ * Focusable items of an options menu that are actually shown (not display:none, not disabled).
+ *
+ * @param {Element|null} menu The options menu.
+ * @return {Element[]} Visible links and buttons in DOM order.
+ */
+function visibleMenuItems( menu ) {
+	if ( ! menu ) { return []; }
+	return Array.prototype.filter.call(
+		menu.querySelectorAll( 'a, button' ),
+		( el ) => el.getClientRects().length > 0 && ! el.disabled && 'true' !== el.getAttribute( 'aria-hidden' )
+	);
+}
+
+/**
  * Replace a reported post's own page with a short reported state.
  *
  * In a feed the reported card just leaves and the other posts fill the space; on the post's
@@ -215,6 +229,34 @@ function resolveReactionSet( list ) {
 		color:     '',
 		emoji_url: base ? base + r.slug + '.svg' : '',
 	} ) );
+}
+
+/**
+ * The display meta (icon image, or letter glyph and colour) for one reaction slug.
+ *
+ * The reaction set is the same for every post on the page, so the answer is read from
+ * the first picker button of that slug: the server already printed its Fluent emoji
+ * image, or for a Pro custom reaction its glyph and colour. Used by the reacted
+ * state of the React button, which swaps the heart for the reaction's own mark.
+ *
+ * @param {string} type Reaction slug.
+ * @return {{slug: string, char: string, color: string, emoji_url: string}|null} Meta, or null when no picker prints it.
+ */
+function reactionMetaFor( type ) {
+	if ( ! type ) {
+		return null;
+	}
+	const btn = document.querySelector( '.bn-post-card__emoji-btn[data-reaction-type="' + CSS.escape( type ) + '"]' );
+	if ( ! btn ) {
+		return null;
+	}
+	const img = btn.querySelector( 'img' );
+	if ( img && img.getAttribute( 'src' ) ) {
+		return { slug: type, char: '', color: '', emoji_url: img.getAttribute( 'src' ) };
+	}
+	const chip  = btn.querySelector( '.bn-reaction-icon' );
+	const glyph = btn.querySelector( '.bn-reaction-glyph' );
+	return { slug: type, char: glyph ? ( glyph.textContent || '' ).trim() : '', color: chip ? chip.style.color : '', emoji_url: '' };
 }
 
 /**
@@ -1503,13 +1545,13 @@ store( 'buddynext/post-card', {
 		get reactionType() {
 			try { return getContext().reactionType || null; } catch ( _e ) { return null; }
 		},
-		// Label shown on the React button — the current reaction's name, or the
-		// default "React" when the viewer has not reacted.
+		// Label shown on the reaction button: the current reaction's name, or
+		// "Like" when the viewer has not reacted (the same answer the server prints).
 		get reactionLabel() {
 			try {
 				const ctx = getContext();
-				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'react', 'Like' );
-			} catch ( _e ) { return t( 'react', 'Like' ); }
+				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'reactionLike', 'Like' );
+			} catch ( _e ) { return t( 'reactionLike', 'Like' ); }
 		},
 		get pollOptionPctText() {
 			try {
@@ -1780,7 +1822,7 @@ store( 'buddynext/post-card', {
 			// follows the type: the chosen reaction's name, or the default when
 			// toggling the reaction off.
 			ctx.reactionType  = newType;
-			ctx.reactionLabel = newType ? label : ( viewer().reactDefaultLabel || 'React' );
+			ctx.reactionLabel = newType ? label : ( viewer().reactDefaultLabel || 'Like' );
 
 			try {
 				const res = yield restFetch( '/reactions/toggle', {
@@ -1850,7 +1892,8 @@ store( 'buddynext/post-card', {
 			if ( ctx.optionsOpen && event && 0 === event.detail ) {
 				const wrap = event.currentTarget && event.currentTarget.closest( '.bn-post-card__menu-wrap' );
 				requestAnimationFrame( () => {
-					const first = wrap && wrap.querySelector( '.bn-post-card__options-menu a, .bn-post-card__options-menu button' );
+					// First VISIBLE item: the Follow button is hidden above 640px and cannot take focus.
+					const first = wrap && visibleMenuItems( wrap.querySelector( '.bn-post-card__options-menu' ) )[ 0 ];
 					if ( first ) { first.focus(); }
 				} );
 			}
@@ -1865,10 +1908,7 @@ store( 'buddynext/post-card', {
 			if ( ! ( event.key in move ) && 'Home' !== event.key && 'End' !== event.key ) {
 				return;
 			}
-			const items = Array.prototype.filter.call(
-				event.currentTarget.querySelectorAll( 'a, button' ),
-				( el ) => el.getClientRects().length > 0 && ! el.disabled
-			);
+			const items = visibleMenuItems( event.currentTarget );
 			if ( ! items.length ) { return; }
 			event.preventDefault();
 			let next = items.indexOf( document.activeElement ) + ( move[ event.key ] || 0 );

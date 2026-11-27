@@ -195,6 +195,7 @@ final class StateReset implements BeforeTestHook {
 			'mirror_depth'   => 0,
 			'search_only'    => false,
 			'live'           => array(),
+			'card_member'    => array(),
 		),
 		\BuddyNext\Outbound\WebhookLog::class              => array( 'in_request' => false ),
 		// Per-REQUEST record of spaces unlocked by opening a valid invite link. Must

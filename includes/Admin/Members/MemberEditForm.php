@@ -194,16 +194,7 @@ class MemberEditForm {
 		</a>
 
 		<div class="bn-member-hero">
-			<?php
-			$avatar_url = (string) get_user_meta( $user_id, 'bn_avatar', true );
-			if ( '' !== $avatar_url ) :
-				?>
-				<img src="<?php echo esc_url( $avatar_url ); ?>" alt="" class="bn-avatar" data-size="xl">
-			<?php else : ?>
-				<div class="bn-avatar bn-avatar-initials <?php echo esc_attr( MemberDisplay::get_avatar_color( $user_id ) ); ?>" data-size="xl" aria-hidden="true">
-					<?php echo esc_html( MemberDisplay::get_initials( $wp_user->display_name ) ); ?>
-				</div>
-			<?php endif; ?>
+			<?php MemberDisplay::render_avatar( $user_id, (string) $wp_user->display_name, 'xl' ); ?>
 			<div class="bn-member-hero-info">
 				<div class="bn-hero-name"><?php echo esc_html( $wp_user->display_name ); ?></div>
 				<div class="bn-hero-meta">

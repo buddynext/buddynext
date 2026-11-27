@@ -35,4 +35,13 @@ class AuthAsideImageTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'data-has-image="1"', $html );
 		$this->assertStringContainsString( "url('https://example.test/panel.jpg')", $html );
 	}
+
+	public function test_the_featured_quote_keeps_its_line_breaks(): void {
+		update_option( 'buddynext_auth_panel_quote', "First line\nSecond line\n<em>third</em>" );
+		$html = $this->render();
+		delete_option( 'buddynext_auth_panel_quote' );
+
+		$this->assertStringContainsString( "First line<br>\nSecond line<br>", $html );
+		$this->assertStringNotContainsString( '<em>third</em>', $html );
+	}
 }

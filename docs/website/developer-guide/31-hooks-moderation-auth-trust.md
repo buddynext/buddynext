@@ -355,3 +355,36 @@ add_filter(
 - **Suspension and member events come in pairs.** Listen on the event that matches your trigger surface (moderation queue vs admin Members screen); do not register the same handler on both expecting one fire.
 - **2FA is never a hard gate.** If your integration must enforce 2FA, enforce it in your own login flow - BuddyNext only surfaces it as advisory via `buddynext_2fa_required_roles`.
 - **Free vs Pro.** Every hook on this page is Free. BuddyNext Pro adds no new safeguard seam - it extends the same `buddynext_safeguard_check` and `buddynext_moderation_auto_actions` filters, which is exactly why your custom rules and Pro's rules engine coexist on one pipeline. For the search and admin seams, see Hooks: Search, Hashtags, Sidebar, and Admin.
+
+## Holding a sign-up back (for plugins with their own verification)
+
+BuddyNext is open by default: an account from any registration path (a shop customer, `wp_insert_user`, an import) is listed and welcomed as normal. Nothing is held unless a plugin opts in.
+
+A plugin that keeps its own "not verified yet" state opts in with one filter and follows one contract:
+
+1. **Register the key.** Add the plugin's own user meta key to `buddynext_member_hold_meta_keys`. A member whose meta holds any non-empty value other than `0` is held: not welcomed, and left out of Members, search and suggestions. The directory reads the key list in one query, not per member.
+2. **Set the flag before `user_register` finishes.** BuddyNext reads it on `user_register` (priority 20). Put the flag on the new user with core's `insert_user_meta` filter, or `meta_input` in the `wp_insert_user` data, so it exists when the welcome is decided.
+3. **Release with one action.** When the member verifies, delete the flag first, then fire `do_action( 'buddynext_user_verified', $user_id )`. BuddyNext sends the welcome and lists the member on that action.
+
+```php
+add_filter( 'buddynext_member_hold_meta_keys', static function ( array $keys ): array {
+	$keys[] = '_acme_email_unverified';
+	return $keys;
+} );
+
+// At sign-up: mark the user before user_register completes.
+add_filter( 'insert_user_meta', static function ( array $meta, $user, bool $update ): array {
+	if ( ! $update ) {
+		$meta['_acme_email_unverified'] = '1';
+	}
+	return $meta;
+}, 10, 3 );
+
+// When the member confirms their email.
+function acme_mark_verified( int $user_id ): void {
+	delete_user_meta( $user_id, '_acme_email_unverified' );
+	do_action( 'buddynext_user_verified', $user_id );
+}
+```
+
+`ApprovalGuard::is_held( $user_id )` answers the same question for a single member, for code that needs to check.

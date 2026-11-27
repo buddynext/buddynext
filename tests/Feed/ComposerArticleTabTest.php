@@ -53,8 +53,8 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 		$this->assertMatchesRegularExpression( '/role="tab"[^>]*aria-selected="true"[^>]*tabindex="0"[^>]*data-mode="post"/s', $html );
 		$this->assertMatchesRegularExpression( '/role="tab"[^>]*aria-selected="false"[^>]*tabindex="-1"[^>]*data-mode="article"/s', $html );
 		$this->assertSame( 2, substr_count( $html, 'role="tabpanel"' ) );
-		$this->assertStringContainsString( 'Write something longer, with a cover image and headings.', $html );
-		$this->assertStringContainsString( 'Start writing', $html );
+		$this->assertStringContainsString( 'Write a longer piece for your community. You can save a draft.', $html );
+		$this->assertStringContainsString( '>Write article<', $html, 'Article mode submits with Write article.' );
 		$this->assertStringContainsString( 'class="bn-composer__prompt"', $html, 'The post box is still there, unchanged.' );
 	}
 
@@ -167,7 +167,7 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 
 		$this->assertStringNotContainsString( 'Continue writing', $html );
 		$this->assertStringNotContainsString( 'An unfinished piece', $html );
-		$this->assertStringContainsString( 'placeholder="Title (optional)"', $html );
+		$this->assertStringContainsString( 'placeholder="Article title"', $html );
 		$this->assertMatchesRegularExpression( '/bn-composer-article__row.*bn-composer-article__title.*bn-composer-article__start/s', $html );
 
 		// The counts sit beside the tabs, in the head row, before the panels.
@@ -306,5 +306,61 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 
 		wp_delete_post( $post, true );
 		$this->assertSame( 0, ArticleProvider::composer_summary( $other )['articles'], 'Deleted.' );
+	}
+
+	public function test_a_member_without_a_photo_gets_initials_on_a_tinted_disc_not_the_generated_image(): void {
+		$uid  = self::factory()->user->create(
+			array(
+				'role'         => 'author',
+				'display_name' => 'Ada Lovelace',
+			)
+		);
+		$html = $this->feed( $uid );
+
+		$this->assertMatchesRegularExpression( '/class="bn-avatar bn-composer__avatar bn-composer__avatar--initials"[^>]*>\s*AL\s*</s', $html );
+		$this->assertDoesNotMatchRegularExpression( '/bn-composer__avatar[^>]*>\s*<img/s', $html, 'No generated initials image in the avatar.' );
+	}
+
+	public function test_a_member_with_a_photo_keeps_the_photo(): void {
+		$uid = $this->writer();
+		add_filter(
+			'buddynext_avatar_url',
+			static fn(): string => 'https://example.org/photo.jpg'
+		);
+		$html = $this->feed( $uid );
+
+		$this->assertMatchesRegularExpression( '/class="bn-avatar bn-composer__avatar"[^>]*>\s*<img src="https:\/\/example\.org\/photo\.jpg"/s', $html );
+		$this->assertStringNotContainsString( 'bn-composer__avatar--initials', $html );
+	}
+
+	public function test_the_article_panel_makes_no_draft_claim(): void {
+		$html = $this->feed( $this->writer() );
+
+		// Article drafts are not autosaved here (the panel hands off to the editor), so no "Draft saved" line is shown.
+		$this->assertStringNotContainsString( 'bn-composer-article__saved', $html );
+		$this->assertMatchesRegularExpression( '/bn-composer-article__footer">\s*<button[^>]*bn-composer-article__start/s', $html );
+	}
+
+	public function test_the_composer_placeholder_uses_the_first_name_only(): void {
+		$uid  = self::factory()->user->create(
+			array(
+				'role'         => 'author',
+				'display_name' => 'Grace Hopper',
+			)
+		);
+		$html = $this->feed( $uid );
+
+		$this->assertStringContainsString( 'placeholder="What&#039;s on your mind, Grace?"', $html );
+		$this->assertStringNotContainsString( 'Grace Hopper?', $html );
+	}
+
+	public function test_composer_controls_share_one_accent_focus_outline(): void {
+		$css = (string) file_get_contents( dirname( __DIR__, 2 ) . '/assets/css/bn-feed.css' );
+
+		$this->assertMatchesRegularExpression(
+			'/\.bn-composer-switch__tab:focus-visible,[^{]*\.bn-composer__tool:focus-visible,[^{]*\{[^}]*outline: 2px solid var\(--bn-accent\);\s*outline-offset: 3px;/s',
+			$css
+		);
+		$this->assertDoesNotMatchRegularExpression( '/\.bn-composer-switch__tab:focus-visible \{[^}]*var\(--bn-ring\)/s', $css, 'The tab no longer uses the box-shadow ring.' );
 	}
 }

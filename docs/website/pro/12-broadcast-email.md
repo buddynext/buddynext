@@ -66,7 +66,7 @@ A segment decides which members a campaign goes to. Pick one of these:
 | By join date | Members who registered in a date range (Joined after, Joined before; either bound is optional). |
 | By member label | Members carrying any of the Pro member labels you pick (for example, Verified or Staff). |
 
-Whatever segment you pick, members whose accounts are awaiting approval and members who are currently suspended never receive a broadcast. Developers can change this list with the `buddynextpro_segment_excluded_user_ids` filter.
+Whatever segment you pick, members whose accounts are awaiting approval and members who are currently suspended never receive a broadcast. The check reads only the members in the broadcast's audience, in pages, so a site with many pending sign-ups still sends without loading them all. Developers can change this list with the `buddynextpro_segment_excluded_user_ids` filter.
 
 ### Sending a test
 

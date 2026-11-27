@@ -2,7 +2,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet, revealComposerTool } from '../_fixtures/feed-wave1.helpers';
 
 type FeedHome = { items?: Array<{ id: number; type?: string; link_url?: string; content?: string }> };
 type PostRow = { type?: string; status?: string; content?: string; author?: { id?: number } };
@@ -205,6 +205,7 @@ test.describe('feed / compose', () => {
         // data-composer-mode="poll" / actions.openPoll, which no template emits, so this
         // journey skipped on every run. Scoped to __tools so it is not the panel's Cancel.
         const pollBtn = page.locator('.bn-composer__tools .bn-composer__tool[data-wp-on--click="actions.togglePoll"]').first();
+        await revealComposerTool(page, pollBtn);
         if (!(await pollBtn.isVisible().catch(() => false))) {
             test.fixme(true, 'J-14: the polls feature is off on this site, so the composer renders no poll tool.');
             return;

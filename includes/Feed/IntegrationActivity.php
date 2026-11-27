@@ -388,14 +388,9 @@ class IntegrationActivity {
 	}
 
 	/**
-	 * Refresh the snapshot of EVERY card of a partner id, e.g. all of an event's
-	 * cards (the organiser's and each attendee's) by their shared event_id.
+	 * Refresh the snapshot of EVERY card of a partner id (the original four-argument form).
 	 *
-	 * Where refresh() reaches one card by its link, a fact the partner object owns (an
-	 * event's date, cover, title) is copied onto every card about it, so when it
-	 * changes all of them have to follow. The fields given are merged over what
-	 * each card already carries; anything not named (each card's own `relation`,
-	 * its link) is left alone.
+	 * Kept with its original signature for add-ons; it runs refresh_cards_by_meta() with no options.
 	 *
 	 * @since 1.2.5
 	 *
@@ -408,6 +403,38 @@ class IntegrationActivity {
 	 * @api
 	 */
 	public static function refresh_by_meta( string $type, string $meta_key, int $value, array $meta ): int {
+		return self::refresh_cards_by_meta( $type, $meta_key, $value, $meta );
+	}
+
+	/**
+	 * Refresh the snapshot of EVERY card of a partner id, with options: the one door every
+	 * partner card refresh goes through. Cards are found by the id the bridge stored in link_meta,
+	 * e.g. all of an event's cards (the organiser's and each attendee's) by their shared event_id.
+	 *
+	 * Where refresh() reaches one card by its link, a fact the partner object owns (an
+	 * event's date, cover, title) is copied onto every card about it, so when it
+	 * changes all of them have to follow. The fields given are merged over what
+	 * each card already carries; anything not named (each card's own `relation`,
+	 * its link) is left alone.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param string               $type     Card post type (e.g. 'event').
+	 * @param string               $meta_key link_meta field the id was stored under.
+	 * @param int                  $value    The partner id whose cards to refresh.
+	 * @param array<string, mixed> $meta     Fields to update on each card.
+	 * @param array<string, mixed> $opts     Optional. `user_id` only that member's cards; `published_only` leave withdrawn
+	 *                                       cards alone; `link_url` + `link_arg` point every card whose link carries
+	 *                                       `?link_arg=` at the new address, keeping its marker (a per-member card whose
+	 *                                       partner address changed); `batch` (+ `after_id`) handle at most that many cards
+	 *                                       and set `$next` to carry on from when the batch was full.
+	 * @param int|null             $next     Out: last card id of a full batch, else null.
+	 * @return int Cards refreshed.
+	 *
+	 * @api
+	 */
+	public static function refresh_cards_by_meta( string $type, string $meta_key, int $value, array $meta, array $opts = array(), ?int &$next = null ): int {
+		$next = null;
 		if ( '' === $type || '' === $meta_key || $value <= 0 || array() === $meta ) {
 			return 0;
 		}
@@ -417,7 +444,7 @@ class IntegrationActivity {
 			$meta = self::normalise_link_meta( $meta );
 		}
 
-		return ( new PostService() )->merge_link_meta_cards( $type, $meta_key, $value, $meta );
+		return ( new PostService() )->merge_link_meta_cards( $type, $meta_key, $value, $meta, $opts, $next );
 	}
 
 	/**
@@ -676,7 +703,26 @@ class IntegrationActivity {
 			array_map( $now, $items );
 			return;
 		}
-		foreach ( array_chunk( $items, max( 1, $chunk ) ) as $part ) {
+		// Action Scheduler stores a job's arguments in a 191-character column, so a chunk is cut by its encoded
+		// length as well as its count: a hundred ids or card links would otherwise be refused outright. An item
+		// too long to queue alone runs now.
+		$part = array();
+		$size = 2;
+		foreach ( $items as $item ) {
+			$cost = strlen( (string) wp_json_encode( $item ) ) + 1;
+			if ( $cost + 4 > self::JOB_ARGS_MAX ) {
+				$now( $item );
+				continue;
+			}
+			if ( array() !== $part && ( count( $part ) >= max( 1, $chunk ) || $size + $cost + 4 > self::JOB_ARGS_MAX ) ) {
+				as_enqueue_async_action( $hook, array( $part ), $group );
+				$part = array();
+				$size = 2;
+			}
+			$part[] = $item;
+			$size  += $cost;
+		}
+		if ( array() !== $part ) {
 			as_enqueue_async_action( $hook, array( $part ), $group );
 		}
 	}
@@ -909,6 +955,20 @@ class IntegrationActivity {
 	private static array $live = array();
 
 	/**
+	 * Most characters a queued job's encoded arguments may take (Action Scheduler's column is 191, minus the array wrapper).
+	 *
+	 * @var int
+	 */
+	private const JOB_ARGS_MAX = 180;
+
+	/**
+	 * Post id => the member the card is about, filled with $live.
+	 *
+	 * @var array<int,int>
+	 */
+	private static array $card_member = array();
+
+	/**
 	 * Load the live facts and actions of a whole page of partner cards, one call per card type.
 	 *
 	 * A card's facts are written when it publishes, so a value that changes afterwards (spots left,
@@ -952,8 +1012,9 @@ class IntegrationActivity {
 			 * @param int                $viewer  Current user ID (0 = logged out).
 			 */
 			$answers = (array) apply_filters( 'buddynext_card_live', array(), (string) $type, $cards, $viewer );
-			foreach ( $cards as $id => $unused ) {
-				self::$live[ (int) $id ] = isset( $answers[ $id ] ) && is_array( $answers[ $id ] ) ? $answers[ $id ] : array();
+			foreach ( $cards as $id => $card ) {
+				self::$card_member[ (int) $id ] = (int) ( $card['user_id'] ?? 0 );
+				self::$live[ (int) $id ]        = isset( $answers[ $id ] ) && is_array( $answers[ $id ] ) ? $answers[ $id ] : array();
 			}
 		}
 	}
@@ -972,6 +1033,12 @@ class IntegrationActivity {
 		$type = (string) ( $item['type'] ?? '' );
 		if ( ! in_array( $type, self::live_types(), true ) ) {
 			return $item;
+		}
+		// The stored facts are a publish-time snapshot a client can read as-is, so they pass the same filter the rendered card does.
+		$meta = self::link_meta_of( $item );
+		if ( ! empty( $meta['facts'] ) && is_array( $meta['facts'] ) && isset( $item['link_meta'] ) ) {
+			$meta['facts']     = array_values( (array) apply_filters( 'buddynext_card_facts', $meta['facts'], $type, $meta + array( 'user_id' => (int) ( $item['user_id'] ?? 0 ) ) ) );
+			$item['link_meta'] = $meta;
 		}
 		$resolved     = self::resolve( $type, array(), self::link_meta_of( $item ), (int) ( $item['id'] ?? 0 ) );
 		$item['card'] = $resolved;
@@ -1042,7 +1109,11 @@ class IntegrationActivity {
 	 * @return array{facts:array<int,array{icon:string,text:string}>,actions:array<int,array{label:string,url:string}>,title:string,text:string,url:string} A live answer may also name a better title, the short text under it and the address the title opens; '' = keep the stored ones.
 	 */
 	public static function resolve( string $type, array $link, array $link_meta, int $post_id ): array {
-		$live  = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
+		$live = $post_id > 0 ? ( self::$live[ $post_id ] ?? array() ) : array();
+		// The member the card is about, so a filter can decide what this viewer may see of them.
+		if ( $post_id > 0 && ! isset( $link_meta['user_id'] ) && ! empty( self::$card_member[ $post_id ] ) ) {
+			$link_meta['user_id'] = self::$card_member[ $post_id ];
+		}
 		$facts = ! empty( $live['facts'] ) ? (array) $live['facts'] : (array) ( $link['facts'] ?? $link_meta['facts'] ?? array() );
 
 		/**
@@ -1075,19 +1146,12 @@ class IntegrationActivity {
 		 * @param array<string,mixed>                       $link_meta The card's stored link meta.
 		 * @param int                                       $post_id   Post id.
 		 */
-		$actions = self::actions( (array) apply_filters( 'buddynext_card_actions', $actions, $type, $link_meta, $post_id ) );
-
-		// A button that goes where the card's own title already goes adds a second tab stop and nothing else, so it is
-		// never drawn, whoever supplied it. What stays is an action the title cannot do (download, a different page).
 		$title   = trim( (string) ( $live['title'] ?? '' ) );
 		$text    = trim( wp_strip_all_tags( (string) ( $live['text'] ?? '' ) ) );
 		$url     = trim( (string) ( $live['url'] ?? '' ) );
-		$here    = self::same_address_key( '' !== $url ? $url : (string) ( $link['url'] ?? $link_meta['url'] ?? '' ) );
-		$actions = array_values(
-			array_filter(
-				$actions,
-				static fn( array $action ): bool => '' === $here || self::same_address_key( $action['url'] ) !== $here
-			)
+		$actions = self::actions(
+			(array) apply_filters( 'buddynext_card_actions', $actions, $type, $link_meta, $post_id ),
+			'' !== $url ? $url : (string) ( $link['url'] ?? $link_meta['url'] ?? '' )
 		);
 
 		return array(
@@ -1112,20 +1176,26 @@ class IntegrationActivity {
 	/**
 	 * The buttons of a bridge card, cleaned: a short label, a real address, no more than two.
 	 *
+	 * A button that goes where the card's own title already goes adds a second tab stop and nothing else, so it is
+	 * never drawn, whoever supplied it. It is left out before the list is cut to two, so an action the title cannot
+	 * do (download, a different page) further down the list still shows.
+	 *
 	 * @since 1.3.0
 	 *
-	 * @param array<int,mixed> $actions Raw buttons.
+	 * @param array<int,mixed> $actions   Raw buttons.
+	 * @param string           $title_url Where the card's title goes ('' = no title link to compare with).
 	 * @return array<int,array{label:string,url:string}>
 	 */
-	public static function actions( array $actions ): array {
-		$out = array();
+	public static function actions( array $actions, string $title_url = '' ): array {
+		$here = '' !== $title_url ? self::same_address_key( $title_url ) : '';
+		$out  = array();
 		foreach ( $actions as $action ) {
 			if ( ! is_array( $action ) ) {
 				continue;
 			}
 			$label = trim( wp_strip_all_tags( (string) ( $action['label'] ?? '' ) ) );
 			$url   = esc_url_raw( (string) ( $action['url'] ?? '' ), array( 'http', 'https' ) );
-			if ( '' === $label || '' === $url ) {
+			if ( '' === $label || '' === $url || ( '' !== $here && self::same_address_key( $url ) === $here ) ) {
 				continue;
 			}
 			$out[] = array(
@@ -1188,8 +1258,8 @@ class IntegrationActivity {
 	 *
 	 * A bridge passes `'facts' => array( array( 'icon' => 'map-pin', 'text' => 'Remote' ), ... )`
 	 * in the card's meta when it publishes. An empty fact is left out, a text is kept to one short
-	 * line, an unknown icon slug is dropped (the text stays), and no more than four are kept:
-	 * the partner's own page always has the rest.
+	 * line, the icon slug is sanitised (one the icon set does not have draws no icon, the text
+	 * stays), and no more than four are kept: the partner's own page always has the rest.
 	 *
 	 * @since 1.3.0
 	 *

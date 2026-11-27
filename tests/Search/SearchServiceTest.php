@@ -209,6 +209,54 @@ class SearchServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Every integration type authored by someone the viewer blocked, or who blocked
+	 * the viewer, is hidden; an unblocked author's row still lists.
+	 *
+	 * @dataProvider integration_types
+	 */
+	public function test_search_hides_integration_rows_by_blocked_author( string $type ): void {
+		// A partner plugin that is active renders its own card; without one the type is orphaned and hidden.
+		$noop = static fn( $html ) => $html;
+		add_filter( 'buddynext_render_post_body_' . $type, $noop );
+		add_filter( 'buddynext_discussion_card_url', $noop );
+		$this->assertNotContains( $type, \BuddyNext\Search\SearchService::orphaned_object_types() );
+
+		$viewer   = self::factory()->user->create();
+		$blocked  = self::factory()->user->create();
+		$blocker  = self::factory()->user->create();
+		$friend   = self::factory()->user->create();
+		$block_id = 900000 + (int) $blocked; // Object id that is not a user id.
+
+		// Object ids deliberately collide with a user id to prove the author decides.
+		$this->service->index( $type, $block_id, 'Zebracorn hidden one', 'zebracorn', $blocked );
+		$this->service->index( $type, $block_id + 1, 'Zebracorn hidden two', 'zebracorn', $blocker );
+		$this->service->index( $type, (int) $friend, 'Zebracorn shown', 'zebracorn', $friend );
+
+		$svc = new \BuddyNext\SocialGraph\BlockService();
+		$this->assertTrue( $svc->block( $viewer, $blocked ) );
+		$this->assertTrue( $svc->block( $blocker, $viewer ) );
+
+		$rows = $this->service->search( 'zebracorn', $type, 20, 1, $viewer );
+		$ids  = array_map( 'intval', array_column( $rows['items'], 'object_id' ) );
+
+		$this->assertContains( (int) $friend, $ids, 'Unblocked author must still list.' );
+		$this->assertNotContains( $block_id, $ids, 'Blocked author row leaked into search.' );
+		$this->assertNotContains( $block_id + 1, $ids, 'Row by someone who blocked the viewer leaked.' );
+	}
+
+	/**
+	 * @return array<string,array{0:string}>
+	 */
+	public static function integration_types(): array {
+		return array(
+			'job'        => array( 'job' ),
+			'discussion' => array( 'discussion' ),
+			'event'      => array( 'event' ),
+			'listing'    => array( 'listing' ),
+		);
+	}
+
+	/**
 	 * A member deleted outside BuddyNext's delete path is not shown, and leaves the index.
 	 *
 	 * @return void
@@ -226,5 +274,32 @@ class SearchServiceTest extends \WP_UnitTestCase {
 		$this->assertNotContains( $gone, $ids );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- test read-back.
 		$this->assertSame( '0', $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'user' AND object_id = %d", $gone ) ) );
+	}
+
+	/**
+	 * A member held back (awaiting approval, or held by a partner plugin) is not found by name, and is found again once released.
+	 *
+	 * @return void
+	 */
+	public function test_search_does_not_find_a_held_member(): void {
+		$held = self::factory()->user->create( array( 'display_name' => 'Quillon Heldname' ) );
+		$free = self::factory()->user->create( array( 'display_name' => 'Quillon Freename' ) );
+		$this->service->index( 'user', $held, 'Quillon Heldname', '', $held );
+		$this->service->index( 'user', $free, 'Quillon Freename', '', $free );
+		$ids = static fn( $r ) => array_map( 'intval', array_column( $r['items'], 'object_id' ) );
+
+		update_user_meta( $held, 'bn_pending_approval', '1' );
+		$found = $ids( $this->service->search( 'Quillon', 'user' ) );
+		$this->assertContains( $free, $found, 'Fixture is wrong: the unheld member is found.' );
+		$this->assertNotContains( $held, $found, 'A held member was found by name.' );
+
+		// A plugin's own hold key counts too.
+		delete_user_meta( $held, 'bn_pending_approval' );
+		add_filter( 'buddynext_member_hold_meta_keys', static fn( $k ) => array_merge( $k, array( '_plugin_unverified' ) ) );
+		update_user_meta( $held, '_plugin_unverified', '1' );
+		$this->assertNotContains( $held, $ids( $this->service->search( 'Quillon', 'user' ) ), 'A plugin-held member was found by name.' );
+
+		delete_user_meta( $held, '_plugin_unverified' );
+		$this->assertContains( $held, $ids( $this->service->search( 'Quillon', 'user' ) ), 'A released member is not found again.' );
 	}
 }

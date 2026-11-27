@@ -25,7 +25,8 @@ class IntegrationControlsAdminTest extends \WP_UnitTestCase {
 					'label'    => 'QA Integration',
 					'has_nav'  => true,
 					'has_feed' => true,
-					'subtabs'  => array( 'one' => 'One' ),
+					'subtabs'  => array( 'one' => 'One', 'opt' => 'Option' ),
+					'subtab_options' => array( 'opt' => 'An option card that needs Navigation.' ),
 				);
 				return $items;
 			}
@@ -88,5 +89,86 @@ class IntegrationControlsAdminTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'assets/img/companions/jetonomy.svg', $html, 'First-party product shows its mark.' );
 		$this->assertStringContainsString( '<span class="bn-int-tile" aria-hidden="true">Q</span>', $html, 'Unknown integration keeps the letter tile.' );
 		$this->assertStringNotContainsString( 'style="background:', $html, 'No hashed colour tiles.' );
+	}
+
+	/**
+	 * Post the Integration Settings form as an admin and return.
+	 *
+	 * @param array<string,mixed> $post Fields the browser would submit.
+	 * @return void
+	 */
+	private function save_form( array $post ): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_POST                = $post;
+		$_POST['_wpnonce']    = wp_create_nonce( 'bn_integration_controls_save' );
+		$_REQUEST['_wpnonce'] = $_POST['_wpnonce'];
+		$stop                 = static function (): never {
+			throw new \RuntimeException( 'redirected' );
+		};
+		add_filter( 'wp_redirect', $stop );
+		try {
+			( new IntegrationControlsAdmin() )->handle_save();
+		} catch ( \RuntimeException $e ) {
+			unset( $e );
+		}
+		remove_filter( 'wp_redirect', $stop );
+		$_POST = array();
+	}
+
+	/**
+	 * Navigation off, save, then on, save: the option card that was drawn disabled (and so not submitted) keeps its
+	 * stored choice instead of being switched off.
+	 *
+	 * @return void
+	 */
+	public function test_turning_navigation_back_on_keeps_a_disabled_option_card(): void {
+		update_option( 'buddynext_integration_qaint_subtab_opt', '1' );
+
+		// Navigation turned off; the card was enabled (Navigation was on), so its box is submitted checked.
+		$this->save_form( array( 'nav' => array(), 'feed' => array( 'qaint' => '1' ), 'subtab' => array( 'qaint' => array( 'one' => '1', 'opt' => '1' ) ) ) );
+		$this->assertSame( '1', (string) get_option( 'buddynext_integration_qaint_subtab_opt' ), 'Switching Navigation off changed the option card.' );
+
+		// Navigation turned back on; the card was drawn disabled, so the browser does not send it.
+		$this->save_form( array( 'nav' => array( 'qaint' => '1' ), 'feed' => array( 'qaint' => '1' ), 'subtab' => array( 'qaint' => array( 'one' => '1' ) ) ) );
+		$this->assertSame( '1', (string) get_option( 'buddynext_integration_qaint_subtab_opt' ), 'Turning Navigation back on silently switched the option card off.' );
+
+		// With Navigation on the card is enabled again: unticking it is honoured.
+		$this->save_form( array( 'nav' => array( 'qaint' => '1' ), 'feed' => array( 'qaint' => '1' ), 'subtab' => array( 'qaint' => array( 'one' => '1' ) ) ) );
+		$this->assertSame( '0', (string) get_option( 'buddynext_integration_qaint_subtab_opt' ), 'An enabled card that is left unticked must switch off.' );
+	}
+
+	/**
+	 * Navigation switched off in the browser disables the option card, so it is not submitted: the save keeps its
+	 * stored choice rather than reading the missing box as off.
+	 *
+	 * @return void
+	 */
+	public function test_switching_navigation_off_keeps_the_option_card_the_browser_disabled(): void {
+		update_option( 'buddynext_integration_qaint_subtab_opt', '1' );
+		$this->save_form( array( 'nav' => array(), 'feed' => array( 'qaint' => '1' ), 'subtab' => array( 'qaint' => array( 'one' => '1' ) ) ) );
+		$this->assertSame( '1', (string) get_option( 'buddynext_integration_qaint_subtab_opt' ) );
+	}
+
+	/**
+	 * The option card carries what the screen needs to follow the Navigation switch live.
+	 *
+	 * @return void
+	 */
+	public function test_the_option_card_is_drawn_to_follow_navigation(): void {
+		$render = static function (): string {
+			ob_start();
+			( new IntegrationControlsAdmin() )->render_page();
+			return (string) ob_get_clean();
+		};
+
+		$html = $render();
+		$this->assertMatchesRegularExpression( '/name="subtab\[qaint\]\[opt\]"[^>]*checked[^>]*data-bn-int-needs-nav data-bn-int-saved="1"/', $html, 'enabled, with its choice' );
+		$this->assertStringContainsString( 'data-bn-int-nav-reason hidden>', $html, 'the reason is there, hidden' );
+		$this->assertDoesNotMatchRegularExpression( '/name="subtab\[qaint\]\[one\]"[^>]*data-bn-int-needs-nav/', $html, 'a plain sub-tab does not follow it' );
+
+		update_option( 'buddynext_integration_qaint_nav', '0' );
+		$html = $render();
+		$this->assertMatchesRegularExpression( '/name="subtab\[qaint\]\[opt\]"[^>]*disabled[^>]*data-bn-int-needs-nav data-bn-int-saved="1"/', $html, 'disabled, its stored choice kept for the switch back' );
+		$this->assertStringContainsString( 'data-bn-int-nav-reason>', $html, 'the reason shows' );
 	}
 }

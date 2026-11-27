@@ -20,6 +20,7 @@ namespace BuddyNext\Feed;
 
 use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Contracts\ListenerInterface;
+use BuddyNext\Core\CronScheduler;
 
 /**
  * Publishes and retracts activity cards for published site content.
@@ -169,7 +170,7 @@ class BlogPostListener implements ListenerInterface {
 	 */
 	public function register_integration( array $items ): array {
 		$items['blog'] = array(
-			'label'      => __( 'Blog posts', 'buddynext' ),
+			'label'      => __( 'Articles', 'buddynext' ),
 			'version'    => null,
 			'has_nav'    => false,
 			'has_feed'   => true,
@@ -204,8 +205,8 @@ class BlogPostListener implements ListenerInterface {
 	 *
 	 * Runs only for a post that is or was published, so draft autosaves cost
 	 * nothing. Shareable (published, no password): restore a card an earlier
-	 * unpublish withdrew - same card, date, reactions and comments - or publish
-	 * the first one. Not shareable (unpublished, trashed, private, or a password
+	 * unpublish withdrew - same card, date, reactions and comments - or, when the
+	 * post has just become public, publish the first one. Not shareable (unpublished, trashed, private, or a password
 	 * added): withdraw the card, reversibly. A permanent delete removes it
 	 * (on_delete()).
 	 *
@@ -247,6 +248,14 @@ class BlogPostListener implements ListenerInterface {
 		IntegrationActivity::set_space_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID, self::space_for( $post ) );
 
 		if ( IntegrationActivity::restore_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID ) > 0 ) {
+			return;
+		}
+
+		// A new card only when the post has just become public: that is the news
+		// the feed carries. An edit to a post that was already public never posts
+		// it as new, whether it never had a card (published before BuddyNext, or
+		// while the feed was off) or an admin deleted its card.
+		if ( $post_before instanceof \WP_Post && self::is_shareable( $post_before ) ) {
 			return;
 		}
 
@@ -347,7 +356,7 @@ class BlogPostListener implements ListenerInterface {
 	public static function queue_crop_batch( int $cursor, int $changed = 0 ): void {
 		$args = array( $cursor, $changed );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( ArticleImage::REGEN_HOOK, $args, 'buddynext' );
+			CronScheduler::enqueue_once( ArticleImage::REGEN_HOOK, $args );
 			return;
 		}
 		if ( ! wp_next_scheduled( ArticleImage::REGEN_HOOK, $args ) ) {
@@ -432,7 +441,7 @@ class BlogPostListener implements ListenerInterface {
 	private static function queue_resync( int $cursor, int $space_id = 0 ): void {
 		$args = array( $cursor, $space_id );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( self::RESYNC_HOOK, $args, 'buddynext' );
+			CronScheduler::enqueue_once( self::RESYNC_HOOK, $args );
 			return;
 		}
 		if ( ! wp_next_scheduled( self::RESYNC_HOOK, $args ) ) {
@@ -649,14 +658,21 @@ class BlogPostListener implements ListenerInterface {
 				'post_status'    => 'publish',
 				'posts_per_page' => 20,
 				'orderby'        => 'date',
-				'order'          => 'ASC',
+				'order'          => 'DESC',
 				'no_found_rows'  => true,
 			)
 		);
 
-		foreach ( $posts as $post ) {
-			$this->publish_card( $post );
-		}
+		// Oldest of those first, so the newest article ends up on top of the feed.
+		// A replay of held work, not a member posting fast: the post rate limit
+		// stands down for it, or only the first few would get a card.
+		\BuddyNext\Moderation\SafeguardService::bulk_import(
+			function () use ( $posts ): void {
+				foreach ( array_reverse( $posts ) as $post ) {
+					$this->publish_card( $post );
+				}
+			}
+		);
 	}
 
 	/**

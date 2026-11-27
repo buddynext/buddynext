@@ -96,6 +96,9 @@ $bn_lb_paging = $current_user_id > 0 && function_exists( 'wb_gam_get_leaderboard
 // A space board reads the engine directly: the public helper has no scope argument.
 // Its availability (engine 1.6.5+) is already checked before the tab renders.
 $bn_lb_fetch    = static function ( string $cursor ) use ( $bn_lb_space, $api_period, $window ): array {
+	if ( $bn_lb_space > 0 && ! \BuddyNext\Bridges\GamificationBridge::viewer_can_see_space_board( $bn_lb_space ) ) {
+		return array(); // The engine's caches are per board, so never ask it for a board this viewer may not read.
+	}
 	return $bn_lb_space > 0
 		? (array) \WBGam\Engine\LeaderboardEngine::get_leaderboard_page( $api_period, $window, \BuddyNext\Bridges\GamificationBridge::SPACE_SCOPE, $bn_lb_space, '', $cursor )
 		: (array) wb_gam_get_leaderboard_page( $api_period, $window, $cursor );
@@ -204,9 +207,9 @@ if ( $current_user_id ) {
 		}
 	}
 
-	if ( 0 === $current_user_rank && function_exists( 'wb_gam_get_user_rank' ) ) {
-		$rank_data = wb_gam_get_user_rank( $current_user_id, $api_period );
-		if ( is_array( $rank_data ) && isset( $rank_data['rank'] ) && $current_user_pts > 0 ) {
+	if ( 0 === $current_user_rank ) {
+		$rank_data = \BuddyNext\Bridges\GamificationBridge::viewer_rank( $current_user_id, $api_period, $bn_lb_space );
+		if ( isset( $rank_data['rank'] ) && $current_user_pts > 0 ) {
 			$current_user_rank = (int) $rank_data['rank'];
 			$bn_self_pts       = (int) ( $rank_data['points'] ?? 0 );
 		}
@@ -340,7 +343,12 @@ $period_tabs = array(
 		<div class="bn-lb-header__row">
 			<h2 class="bn-lb-title"><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h2>
 		</div>
-		<p class="bn-lb-subtitle"><?php esc_html_e( 'This space\'s members, ranked by their points across the community.', 'buddynext' ); ?></p>
+		<p class="bn-lb-subtitle">
+			<?php
+			/* translators: %s: the site's name for points, e.g. "Points" or "Coins". */
+			echo esc_html( sprintf( __( 'This space\'s members, ranked by their %s across the community.', 'buddynext' ), $bn_points_label ) );
+			?>
+		</p>
 		<?php else : ?>
 		<div class="bn-lb-header__row">
 			<h1 class="bn-lb-title"><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h1>
@@ -664,10 +672,17 @@ $period_tabs = array(
 							<span aria-hidden="true"></span>
 						<?php endif; ?>
 
-						<div class="bn-lb-row__points">
-							<span class="bn-lb-row__points-val"><?php echo esc_html( $pts_formatted ); ?></span>
-							<span class="bn-lb-row__points-unit"><?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( (int) ( $row['points'] ?? 0 ) ) ); ?></span>
-						</div>
+						<?php
+						// A member who hides their level and points stays on the board with their rank; the figure is left off for everyone who may not see it.
+						if ( \BuddyNext\Bridges\GamificationBridge::can_view_points( (int) $uid ) ) :
+							?>
+							<div class="bn-lb-row__points">
+								<span class="bn-lb-row__points-val"><?php echo esc_html( $pts_formatted ); ?></span>
+								<span class="bn-lb-row__points-unit"><?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( (int) ( $row['points'] ?? 0 ) ) ); ?></span>
+							</div>
+						<?php else : ?>
+							<div class="bn-lb-row__points" aria-hidden="true"></div>
+						<?php endif; ?>
 
 						<?php if ( $is_self ) : ?>
 							<span class="bn-lb-row__delta" data-trend="<?php echo esc_attr( $trend ); ?>">
@@ -809,7 +824,10 @@ $period_tabs = array(
 	<?php endif; // End: leaderboard data check. ?>
 
 	<!-- Your-stats widgets: a responsive row (badges · streak) that fills
-		the width instead of three full-width blocks with dead space beside them. -->
+		the width instead of three full-width blocks with dead space beside them.
+		A signed-in member's own stats, on the site board only: a visitor has none,
+		and a Space board is about that Space's members. -->
+	<?php if ( $current_user_id && 0 === $bn_lb_space ) : ?>
 	<aside class="bn-lb-widgets" aria-label="<?php esc_attr_e( 'Your gamification widgets', 'buddynext' ); ?>">
 
 		<!-- Your Badges -->
@@ -849,42 +867,41 @@ $period_tabs = array(
 		</div>
 
 		<!-- Your Streak -->
-		<?php if ( $current_user_id ) : ?>
-			<div class="bn-widget">
-				<div class="bn-widget-title">
-					<?php buddynext_icon( 'zap' ); ?>
-					<?php esc_html_e( 'Your Streak', 'buddynext' ); ?>
-				</div>
-				<?php if ( $current_streak > 0 || $longest_streak > 0 ) : ?>
-					<div class="bn-stat-grid">
-						<div class="bn-stat">
-							<span class="bn-stat__label"><?php esc_html_e( 'Current', 'buddynext' ); ?></span>
-							<span class="bn-stat__value">
-								<?php
-								// translators: %s: number of days.
-								echo esc_html( sprintf( _n( '%s day', '%s days', $current_streak, 'buddynext' ), number_format_i18n( $current_streak ) ) );
-								?>
-							</span>
-						</div>
-						<div class="bn-stat">
-							<span class="bn-stat__label"><?php esc_html_e( 'Longest', 'buddynext' ); ?></span>
-							<span class="bn-stat__value">
-								<?php
-								// translators: %s: number of days.
-								echo esc_html( sprintf( _n( '%s day', '%s days', $longest_streak, 'buddynext' ), number_format_i18n( $longest_streak ) ) );
-								?>
-							</span>
-						</div>
-					</div>
-				<?php else : ?>
-					<p class="bn-lb-badge-hint">
-						<?php esc_html_e( 'Stay active each day to build your streak.', 'buddynext' ); ?>
-					</p>
-				<?php endif; ?>
+		<div class="bn-widget">
+			<div class="bn-widget-title">
+				<?php buddynext_icon( 'zap' ); ?>
+				<?php esc_html_e( 'Your Streak', 'buddynext' ); ?>
 			</div>
-		<?php endif; ?>
+			<?php if ( $current_streak > 0 || $longest_streak > 0 ) : ?>
+				<div class="bn-stat-grid">
+					<div class="bn-stat">
+						<span class="bn-stat__label"><?php esc_html_e( 'Current', 'buddynext' ); ?></span>
+						<span class="bn-stat__value">
+							<?php
+							// translators: %s: number of days.
+							echo esc_html( sprintf( _n( '%s day', '%s days', $current_streak, 'buddynext' ), number_format_i18n( $current_streak ) ) );
+							?>
+						</span>
+					</div>
+					<div class="bn-stat">
+						<span class="bn-stat__label"><?php esc_html_e( 'Longest', 'buddynext' ); ?></span>
+						<span class="bn-stat__value">
+							<?php
+							// translators: %s: number of days.
+							echo esc_html( sprintf( _n( '%s day', '%s days', $longest_streak, 'buddynext' ), number_format_i18n( $longest_streak ) ) );
+							?>
+						</span>
+					</div>
+				</div>
+			<?php else : ?>
+				<p class="bn-lb-badge-hint">
+					<?php esc_html_e( 'Stay active each day to build your streak.', 'buddynext' ); ?>
+				</p>
+			<?php endif; ?>
+		</div>
 
 	</aside>
+	<?php endif; ?>
 
 </div><!-- /.bn-lb-shell -->
 

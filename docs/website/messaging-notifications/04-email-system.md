@@ -28,7 +28,7 @@ Members do not configure the email system. They receive the transactional emails
 - The message body, personalized with their name and the relevant actor and content.
 - A call-to-action link that takes them straight to the follower, request, post, or space the email is about.
 - An unsubscribe link that turns off that one type of email for them, with no login required (the link is signed, so only the intended recipient can use it). Moderation notices about the member's own account, such as a suspension, carry no unsubscribe link.
-- The email is written in the member's own language (the language set on their WordPress profile), whatever the language of the person whose action sent it. Someone who is not a member yet, such as an invitee, gets the site language.
+- The email is written in the member's own language (the language set on their WordPress profile), whatever the language of the person whose action sent it. Someone who is not a member yet, such as an invitee, gets the site language. The default text of the built-in email templates is translated in the ten languages BuddyNext ships with: German, Spanish, French, Italian, Japanese, Korean, Dutch, Brazilian Portuguese, Russian and Simplified Chinese. Placeholders such as the member's name stay intact in every language.
 
 Members control which emails they get, and how often, from their notification preferences. See Notification Preferences and Email Digests.
 
@@ -71,6 +71,8 @@ The sender identity and footer live under BuddyNext > Notifications > Email. The
 | Footer text | Plain text appended to the bottom of every email. Supports `{{site_name}}`, `{{site_url}}`, and `{{current_year}}`. | Empty (a default copyright line is used) |
 | Admin alert email | Address that receives daily alerts when the moderation queue or pending-registration count is high. | Your WordPress admin email |
 
+> **Note:** If you type a mistyped address (for example `support@community`) into an empty From address, Reply-To or admin alert email field, BuddyNext refuses it, shows an error, and the field stays empty. Empty means BuddyNext uses your WordPress admin email, so the admin address is never saved in its place.
+
 > **Note:** The From name and From address fields show the effective value, never a blank box. If you leave them empty, BuddyNext falls back to your site name and admin email, so no email ever sends as the bare WordPress default.
 
 > **Tip:** For the best chance of landing in the inbox, set the From address to an address on a domain you own. Pairing BuddyNext with an email-delivery (SMTP) plugin, so a real email provider handles sending rather than your web server, also helps emails arrive reliably.
@@ -90,7 +92,7 @@ Because every email uses the same shell, your whole outbound mail looks consiste
 
 **BuddyNext > Notifications > Email Log** lists every email the community has sent, newest first. It is read-only and exists to answer one question fast: *"did that email actually go out?"*
 
-- **Search** by the member's name, username or email to see everything sent to them.
+- **Search** by the member's name, username or email to see everything sent to them. Each row shows the member's own avatar.
 - **All emails** narrows the list to one kind of email. They are grouped by area: Account, Connections and followers, Posts and messages, Spaces, Moderation, Membership, Announcements and digests.
 - **All / Sent / Failed** filters by delivery status. Failed shows how many sends failed, and each failed row gives the reason under its status.
 
@@ -100,6 +102,7 @@ When a member says they never received their verification message or a digest, s
 
 ## Good to know
 
+- **Account emails carry clickable links.** The approved, awaiting-approval and welcome emails show the sign-in address and the community address as links, not plain text.
 - **Emails are sent in the background.** When a member action triggers an email, BuddyNext sends it just after, in the background, rather than making the member wait. The action that triggered it (following, commenting, and so on) stays fast, and the email goes out a moment later. If the background path is ever unavailable, BuddyNext sends the email right away instead, so it is never lost.
 - **The email log.** Every send is recorded with the recipient, the email type, the time sent, and whether it was sent or failed. This is the reliable way to confirm an email actually went out - useful when a member says they did not receive something, or when you are verifying delivery on a new install.
 - **Disabling a template is per-email.** Turning off a template stops that one event email; it does not affect any other email or any member's in-app notifications.

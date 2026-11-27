@@ -50,7 +50,7 @@ Standalone routes that back the app shell and the gamification/member-type surfa
 |---|---|---|---|
 | GET | `/shell-nav` | Public | The fully resolved app-shell navigation (owner overrides applied) plus live unread badge counts. Optional `hub` param. Logged-out callers get the community items; logged-in callers also get their personal items and badges. Served by `ShellNavController`. |
 | POST | `/kudos` | Auth | Give kudos to a member. Params: `receiver_id` (required), `message` (optional). Returns `{"sent": true}` (201). Only registered when wb-gamification is active. Served by `GamificationKudos`. |
-| GET | `/users/{id}/achievements` | Public | A member's badges + standing (points, rank, level, streak) - the data behind the Achievements tab. Only registered when wb-gamification is active. Served by `GamificationAchievements`. |
+| GET | `/users/{id}/achievements` | Public | A member's badges + standing (points, rank, level, streak) - the data behind the Achievements tab. A badge the member has not shared has an empty `share_url` unless the viewer is the member or site staff, and points, rank and level are left out for other viewers when the member has turned off **Show my level and points**. Only registered when wb-gamification is active. Served by `GamificationAchievements`. |
 | GET | `/member-types` | Public | List all member types. Served by `MemberTypeController`. (Create/update/delete and per-user assignment live on the same controller but are admin/self-scoped writes.) |
 
 ## Misc singletons

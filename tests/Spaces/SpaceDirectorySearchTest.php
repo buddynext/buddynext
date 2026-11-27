@@ -184,4 +184,25 @@ class SpaceDirectorySearchTest extends \WP_UnitTestCase {
 		$owner = self::ids( $this->spaces->search( 'needlexyz', array( 'viewer' => $this->owner ) ) );
 		$this->assertContains( $secret, $owner );
 	}
+
+	public function test_search_finds_a_space_by_its_location(): void {
+		$space = (int) $this->spaces->create(
+			$this->owner,
+			array(
+				'name' => 'Trail Runners',
+				'slug' => 'trail-runners-loc',
+				'type' => 'open',
+			)
+		);
+		// Warm the cached result first: setting the place must retire it.
+		$this->assertSame( array(), self::ids( $this->spaces->search( 'Bollington' ) ) );
+
+		wp_set_current_user( $this->owner );
+		\BuddyNext\Spaces\SpaceFieldRegistry::instance()->save_for_space( $space, array( 'location' => 'Bollington, Cheshire' ), $this->owner );
+
+		$this->assertSame( array( $space ), self::ids( $this->spaces->search( 'Bollington' ) ) );
+		$ssr = $this->ssr( array( 'bn_search' => 'Bollington' ) );
+		$this->assertSame( 1, $ssr['total'], 'The Spaces page search finds it too.' );
+		$this->assertSame( array( $space ), self::ids( $this->spaces->search( 'Bollington', array( 'member' => $this->owner ) ) ), 'And a search of my own Spaces.' );
+	}
 }

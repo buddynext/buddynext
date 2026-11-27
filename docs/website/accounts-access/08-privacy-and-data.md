@@ -48,7 +48,7 @@ If your community needs to ask visitors for cookie consent - for example under E
 
 **Where to find the cookie banner setting:** in the admin area, open BuddyNext, then Members, then the Privacy & Data tab, and look under Cookie consent. Turn on "Show cookie consent notice."
 
-**Change the cookie notice text:** once the banner is on, a "Notice text" box appears right below the toggle. Type your own wording there and save. Leave it blank to use the built-in message. If your site has a Privacy Policy page set (under the WordPress Settings, Privacy screen), the banner links to it automatically.
+**Change the cookie notice text:** once the banner is on, a "Notice text" box appears right below the toggle. Type your own wording there and save. Leave it blank to use the built-in message. Line breaks you type in the notice text show in the banner. If your site has a Privacy Policy page set (under the WordPress Settings, Privacy screen), the banner links to it automatically.
 
 **Change the button and link labels:** below "Notice text" you can also set the "Accept button label" (the text on the dismiss button - default "Got it") and the "Privacy-policy link label" (the text of the link to your privacy policy - default "Privacy policy"). Leave either blank to keep its default. Every part of the banner's wording is editable from admin - no translation plugin needed.
 
@@ -98,7 +98,7 @@ This matches the standard expectation that deleting an account removes the perso
 
 ## Good to know
 
-- **Invitations are found by email.** A WordPress privacy export (**Tools > Export Personal Data**) lists the BuddyNext invitations sent to that email address (up to 200), with the date, Space, status, expiry and the first name the inviter typed, even for a person who never joined. A privacy erasure removes those invitations too.
+- **Invitations are found by email.** A WordPress privacy export (**Tools > Export Personal Data**) lists every BuddyNext invitation sent to that email address, however many there are, with the date (shown in the site timezone), Space, status, expiry and the first name the inviter typed, even for a person who never joined. A privacy erasure removes those invitations too.
 - **GDPR alignment.** The export tool supports the right of access (members get a copy of their data), and the deletion tool supports the right to erasure (members can be forgotten). Retention and consent give owners the policy controls that privacy regimes expect.
 - **What gets removed.** Deletion erases everything tied to the member: profile, preferences, follows, connections, blocks, and their own posts and comments. It is a complete erasure, not a hide, with no option to retain the content.
 - **Administrators are protected.** A site administrator cannot delete their own account through the member-facing tool, so you cannot accidentally lock yourself out of your own community. Instead of a button, an administrator sees a note under **Delete my account** saying another administrator can remove the account from **Users** in the WordPress dashboard.

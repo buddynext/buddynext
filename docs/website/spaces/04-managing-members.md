@@ -23,7 +23,7 @@ For members, good roster management means the space stays relevant: the people p
 
 ### Viewing members
 
-Open a space and go to its Members tab to see the roster. Each member shows their avatar, name, and space role (owner, moderator, or member). The list is paginated, so it stays fast even on a space with thousands of members.
+Open a space and go to its Members tab to see the roster. Each member shows their avatar, name, and space role (owner, moderator, or member). The list is paginated, so it stays fast even on a space with thousands of members. A suspended member is never listed in the Members preview card in the Space sidebar.
 
 
 ### Joining a space

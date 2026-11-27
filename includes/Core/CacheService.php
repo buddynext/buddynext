@@ -151,15 +151,15 @@ class CacheService {
 	/**
 	 * Flush all cache entries in the BuddyNext cache group.
 	 *
-	 * Delegates to wp_cache_flush_group() when available (Redis Object Cache,
-	 * Memcached). Silent no-op on in-process object cache (entries expire at
+	 * Delegates to wp_cache_flush_group() when the object cache backend supports
+	 * group flushes (Redis Object Cache, Memcached). Silent no-op on in-process object cache (entries expire at
 	 * the end of the request anyway).
 	 *
 	 * @param string $group Cache group name. Defaults to the BuddyNext group.
 	 * @return void
 	 */
 	public function forget_group( string $group = self::GROUP ): void {
-		if ( function_exists( 'wp_cache_flush_group' ) ) {
+		if ( function_exists( 'wp_cache_supports' ) && wp_cache_supports( 'flush_group' ) ) {
 			wp_cache_flush_group( $group );
 		}
 	}

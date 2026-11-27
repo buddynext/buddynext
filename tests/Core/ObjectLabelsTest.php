@@ -296,4 +296,17 @@ class ObjectLabelsTest extends \WP_UnitTestCase {
 		$this->assertSame( 'How do I export my posts?', ObjectLabels::excerpt( 'post', $post_id ) );
 		$this->assertSame( 'Private message (content hidden)', ObjectLabels::excerpt( 'message', 74 ) );
 	}
+
+	public function test_the_view_link_names_what_was_reported(): void {
+		$this->assertSame( 'View reported member', ObjectLabels::view_label( 'user' ) );
+		$this->assertSame( 'View reported post', ObjectLabels::view_label( 'post' ) );
+		$this->assertSame( 'View reported item', ObjectLabels::view_label( 'something_else' ) );
+
+		// Both report queues use it, so a reported member never reads as an "item".
+		foreach ( array( 'templates/community-admin.php', 'templates/spaces/moderation.php' ) as $template ) {
+			$src = (string) file_get_contents( BUDDYNEXT_DIR . $template ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$this->assertStringContainsString( 'ObjectLabels::view_label(', $src, $template );
+			$this->assertStringNotContainsString( "esc_html_e( 'View reported item'", $src, $template );
+		}
+	}
 }

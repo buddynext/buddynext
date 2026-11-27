@@ -24,15 +24,22 @@ test.describe('explore / trending', () => {
         // Trending counts the last 24 h, so a quiet site rightly shows no chips. Post
         // something tagged now, the way a member would, so the walk has a tag to rank.
         const tag = `sunsetwalk${Date.now().toString().slice(-6)}`;
-        let postId = 0;
+        const postIds: number[] = [];
         try {
             await page.goto(urls.explore, { waitUntil: 'domcontentloaded' });
-            const seed = await bnApi(page, 'POST', '/posts', {
-                type: 'text',
-                content: `Golden hour at Ocean Beach tonight, who is coming? #${tag}`,
-            });
-            expect(seed.status, `seed tagged post failed: ${JSON.stringify(seed.data)}`).toBe(201);
-            postId = Number((seed.data as { id?: number }).id);
+            // The sidebar shows the five tags used most in the last 24 h, so a tag has to be used more than the
+            // fifth one to appear: read that count first, then post one more than it, as a busy day would.
+            const before = await restList(page, '/hashtags/trending');
+            const counts = before.items.map((t) => Number((t as { recent_count?: number }).recent_count ?? 0)).sort((a, b) => b - a);
+            const posts = Math.max(1, (counts[4] ?? 0) + 1);
+            for (let i = 0; i < posts; i++) {
+                const seed = await bnApi(page, 'POST', '/posts', {
+                    type: 'text',
+                    content: `Golden hour at Ocean Beach tonight, who is coming? #${tag} (${i + 1})`,
+                });
+                expect(seed.status, `seed tagged post failed: ${JSON.stringify(seed.data)}`).toBe(201);
+                postIds.push(Number((seed.data as { id?: number }).id));
+            }
             await drainQueue(['buddynext_async_index_hashtags', 'buddynext_async_index_post']);
 
             await page.goto(urls.explore);
@@ -52,8 +59,10 @@ test.describe('explore / trending', () => {
                 expect(ranked, `chip #${shownTag} is not in the trending route`).toContain(shownTag);
             }
         } finally {
-            if (postId) {
-                await bnApi(page, 'DELETE', `/posts/${postId}`).catch(() => undefined);
+            for (const postId of postIds) {
+                if (postId) {
+                    await bnApi(page, 'DELETE', `/posts/${postId}`).catch(() => undefined);
+                }
             }
         }
     });

@@ -10,3 +10,5 @@ P9 includes/Outbound/OutboundWebhookService.php  # delivery runs inside the budd
 P9 includes/Feed/BlogPostListener.php   # matches a comment explaining why the fetch is deferred; no request is made on this path
 # P2: asset bundle size.
 P2 tests/e2e/_report                    # Playwright's HTML report: it exists only in a working tree that has run the e2e suite (git-ignored, never committed, never in the zip), so a clean clone never matches this line
+# S4: an unprepared $wpdb query with an interpolated value.
+S4 includes/Core/Installer.php          # the three ALTER TABLE lines in the schema upgrade: DDL built from constant table and clause literals; DDL cannot be prepared

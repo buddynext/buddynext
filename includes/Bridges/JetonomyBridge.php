@@ -157,6 +157,32 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * The oldest Jetonomy this bridge works with. 2.1.0 added jetonomy_before_update_space, the one door that keeps a
+	 * forum linked to a Space as open as the Space. Older versions would let a Space owner open a private forum.
+	 */
+	public const MIN_VERSION = '2.1.0';
+
+	/**
+	 * Whether the installed Jetonomy is at or above the floor. An unknown version counts as supported.
+	 *
+	 * @param string|null $version Version to test; the installed one when null.
+	 * @return bool
+	 */
+	public static function version_supported( ?string $version = null ): bool {
+		$version ??= defined( 'JETONOMY_VERSION' ) ? (string) JETONOMY_VERSION : '';
+		return '' === $version || version_compare( $version, self::MIN_VERSION, '>=' );
+	}
+
+	/**
+	 * Whether Jetonomy is active at a version this bridge supports.
+	 *
+	 * @return bool
+	 */
+	public static function usable(): bool {
+		return class_exists( 'Jetonomy\Jetonomy' ) && self::version_supported();
+	}
+
+	/**
 	 * Attach hooks.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action.
@@ -164,6 +190,15 @@ class JetonomyBridge {
 	 */
 	public function init(): void {
 		if ( ! class_exists( 'Jetonomy\Jetonomy' ) ) {
+			return;
+		}
+		// Below the floor the bridge stays off (no forum is made or linked, no tab, no mirroring) and only
+		// registers itself, so Integrations and the bridge status say which Jetonomy version turns it on.
+		if ( ! self::version_supported() ) {
+			add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+			// One guard stays on: a forum linked to a Space before the update must not be opened up through Jetonomy's
+			// own edit route, which has no hook of its own before 2.1.0.
+			add_filter( 'rest_request_before_callbacks', array( $this, 'refuse_old_forum_edit' ), 10, 3 );
 			return;
 		}
 
@@ -201,7 +236,7 @@ class JetonomyBridge {
 		// An import writes topics without the create events (so it stays quiet and fast) and says what it made once
 		// per batch; the topics get their cards, at their own dates, from that.
 		add_action( 'jetonomy_import_batch_imported', array( $this, 'on_import_batch' ), 10, 3 );
-		add_action( self::IMPORT_CARDS_HOOK, array( $this, 'import_cards_chunk' ), 10, 1 );
+		add_action( self::IMPORT_CARDS_HOOK, array( $this, 'import_cards_chunk' ), 10, 2 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
 		// from the soft delete above. Mirrors jetonomy_after_delete_reply, which
@@ -274,6 +309,8 @@ class JetonomyBridge {
 		// meta listener is always on: it also resets the forum => space lookup memo.
 		add_action( 'added_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
 		add_action( 'updated_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
+		// A forum deleted from Jetonomy's own screens or REST must not leave its Space pointing at a forum that is gone.
+		add_action( 'jetonomy_space_purged', array( $this, 'on_forum_purged' ), 10, 1 );
 		if ( class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
 			add_action( self::GRANT_MEMBERS_HOOK, array( $this, 'grant_space_members' ), 10, 3 );
 			add_action( 'buddynext_space_member_joined', array( $this, 'grant_forum_access' ), 10, 2 );
@@ -821,8 +858,12 @@ class JetonomyBridge {
 			return;
 		}
 		$ids = array_values( array_unique( array_filter( array_map( 'intval', (array) $ids ) ) ) );
+		sort( $ids );
 		foreach ( array_chunk( $ids, self::IMPORT_CHUNK ) as $chunk ) {
-			if ( ! \BuddyNext\Core\CronScheduler::enqueue_once( self::IMPORT_CARDS_HOOK, array( $chunk ) ) ) {
+			// The job carries the chunk's first and last topic id, not the ids themselves: a
+			// hundred ids would not fit Action Scheduler's short argument column.
+			$range = array( $chunk[0], end( $chunk ) );
+			if ( ! \BuddyNext\Core\CronScheduler::enqueue_once( self::IMPORT_CARDS_HOOK, $range ) ) {
 				$this->import_cards_chunk( $chunk );
 			}
 		}
@@ -836,10 +877,22 @@ class JetonomyBridge {
 	 * chunk delivered twice or a resume after a crash costs one cheap lookup per topic, not a second sync. One topic
 	 * failing does not stop the rest of the chunk.
 	 *
-	 * @param mixed $ids Topic ids.
+	 * A queued chunk names a range of topic ids (first, last); the topics in it are read back here. A topic in the
+	 * range that the import did not create (one posted during the import) has its card already and is skipped, or
+	 * goes through the same rule as any topic. A chunk queued before 1.3.0 carries the id list itself.
+	 *
+	 * ponytail: the range read is unbounded, sized by the import's chunk plus any topics posted while it ran.
+	 *
+	 * @param mixed $ids  Topic ids, or the first topic id of the range.
+	 * @param mixed $last Last topic id of the range (with a range only).
 	 * @return void
 	 */
-	public function import_cards_chunk( $ids ): void {
+	public function import_cards_chunk( $ids, $last = null ): void {
+		if ( ! is_array( $ids ) && null !== $last ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a one-off job read on the primary key.
+			$ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_posts WHERE id BETWEEN %d AND %d ORDER BY id", (int) $ids, (int) $last ) );
+		}
 		foreach ( array_map( 'intval', (array) $ids ) as $post_id ) {
 			// A topic that already has a card (made when it was created, or by an earlier delivery) is left alone.
 			if ( $post_id <= 0 || IntegrationActivity::has_card_by_meta( 'discussion', 'post_id', $post_id ) ) {
@@ -2422,6 +2475,14 @@ class JetonomyBridge {
 	 * @return true|\WP_Error Error when the discussion could not be created.
 	 */
 	public function apply_discussion_choice( int $space_id, bool $enabled, int $link_id, int $actor_id ) {
+		// Picking a forum to link is the owner asking for it: the switch beside the picker may still be off,
+		// and ignoring the pick made the link vanish on Save. The hidden field also carries the space's earlier
+		// forum on every save, so only a different pick counts.
+		if ( ! $enabled && $link_id > 0 && ! $this->space_has_discussion( $space_id ) ) {
+			$previous = $this->previous_discussion( $space_id );
+			$enabled  = null === $previous || $previous['id'] !== $link_id;
+		}
+
 		if ( ! $enabled ) {
 			$this->set_discussion_enabled( $space_id, false );
 			return true;
@@ -2441,6 +2502,10 @@ class JetonomyBridge {
 					? $this->discussion_exists( $link_id )
 					: $this->discussion_owned_by( $link_id, (int) ( $space['owner_id'] ?? 0 ) ) )
 			);
+			if ( $link_id > 0 && ! $may_link ) {
+				// Never swap the owner's pick for a new empty forum without saying so.
+				return new \WP_Error( 'bn_discussion_not_linkable', __( 'That discussion cannot be linked to this space. Pick one you created, or start a new discussion.', 'buddynext' ), array( 'status' => 403 ) );
+			}
 			if ( $may_link ) {
 				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
 				$this->carry_space_bans( $space_id );
@@ -2888,6 +2953,23 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Unlink the Space of a forum that Jetonomy has just deleted, so the Space shows no Discussion and offers a new one.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $forum_id Jetonomy forum id that was purged.
+	 * @return void
+	 */
+	public function on_forum_purged( $forum_id ): void {
+		$forum_id = absint( $forum_id );
+		unset( self::$forum_space_memo[ $forum_id ] );
+		$space_id = $this->space_id_for_forum( $forum_id );
+		if ( $space_id > 0 && $this->forum_id_for_space( $space_id ) === $forum_id ) {
+			$this->unlink_space_discussion( $space_id );
+		}
+	}
+
+	/**
 	 * The space type the forum is shaped by: a plan-gated open space is private for its forum, so
 	 * the forum is not public to people the space would ask to pay.
 	 *
@@ -3066,6 +3148,42 @@ class JetonomyBridge {
 			}
 		}
 		return $proceed;
+	}
+
+	/**
+	 * Below the floor only: refuse a REST edit that changes who can see or join a forum linked to a Space.
+	 *
+	 * Jetonomy before 2.1.0 has no jetonomy_before_update_space, so the edit route is read here and held to the same
+	 * rule as the filter (refuse_forum_drift()). A rename or re-sent current values passes; unlinked forums are untouched.
+	 *
+	 * @param mixed            $response Response so far.
+	 * @param array            $handler  Matched route handler (unused).
+	 * @param \WP_REST_Request $request  The request.
+	 * @return mixed The response, or a WP_Error that refuses the edit.
+	 */
+	public function refuse_old_forum_edit( $response, $handler, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- filter signature.
+		if ( ! $request instanceof \WP_REST_Request || is_wp_error( $response ) || ! in_array( $request->get_method(), array( 'PATCH', 'PUT', 'POST' ), true )
+			|| ! preg_match( '#^/jetonomy/v1/spaces/(\d+)$#', $request->get_route(), $m ) ) {
+			return $response;
+		}
+		$changes = array();
+		foreach ( array( 'visibility', 'join_policy', 'status' ) as $field ) {
+			if ( null !== $request->get_param( $field ) ) {
+				$changes[ $field ] = $request->get_param( $field );
+			}
+		}
+		if ( ! is_wp_error( $this->refuse_forum_drift( true, (int) $m[1], $changes ) ) ) {
+			return $response;
+		}
+		return new \WP_Error(
+			'bn_forum_follows_space',
+			sprintf(
+				/* translators: %s: minimum Jetonomy version. */
+				__( 'This discussion follows its Space and cannot be opened up here. Update Jetonomy to %s or newer.', 'buddynext' ),
+				self::MIN_VERSION
+			),
+			array( 'status' => 409 )
+		);
 	}
 
 	/**
@@ -3396,7 +3514,7 @@ class JetonomyBridge {
 			return $existing;
 		}
 
-		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
+		if ( ! class_exists( '\Jetonomy\Models\Space' ) || ! self::version_supported() ) {
 			return 0;
 		}
 
@@ -3868,7 +3986,7 @@ class JetonomyBridge {
 		if ( null !== $comment_id ) {
 			$comments = new \BuddyNext\Comments\CommentService();
 			$comment  = $comments->get( (int) $comment_id );
-			if ( null === $comment || $comments->get_sync_reply_id( (int) $comment_id ) <= 0 ) {
+			if ( null === $comment || $comments->get_sync_reply_id( (int) $comment_id, 'discussion' ) <= 0 ) {
 				return $data;
 			}
 			$object_type = (string) ( $comment['object_type'] ?? '' );
@@ -3946,7 +4064,7 @@ class JetonomyBridge {
 		}
 
 		// A comment that answers another comment becomes a reply to that comment's forum reply.
-		$parent_reply = ! empty( $comment['parent_id'] ) ? ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( (int) $comment['parent_id'] ) : 0;
+		$parent_reply = ! empty( $comment['parent_id'] ) ? ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( (int) $comment['parent_id'], 'discussion' ) : 0;
 
 		self::mirror(
 			function () use ( $topic_id, $user_id, $content, $comment_id, $parent_reply ) {
@@ -3995,7 +4113,7 @@ class JetonomyBridge {
 		}
 
 		$comments = new \BuddyNext\Comments\CommentService();
-		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+		$comment  = $comments->find_by_sync_reply_id( $reply_id, 'discussion' );
 
 		if ( $delta < 0 ) {
 			if ( null !== $comment && empty( $comment['is_deleted'] ) ) {
@@ -4048,7 +4166,7 @@ class JetonomyBridge {
 		$parent_comment = 0;
 		$parent_reply   = (int) ( $reply['parent_id'] ?? 0 );
 		if ( $parent_reply > 0 ) {
-			$parent         = $comments->find_by_sync_reply_id( $parent_reply );
+			$parent         = $comments->find_by_sync_reply_id( $parent_reply, 'discussion' );
 			$parent_comment = ( null !== $parent && empty( $parent['is_deleted'] ) ) ? (int) $parent['id'] : 0;
 		}
 
@@ -4086,7 +4204,7 @@ class JetonomyBridge {
 			return;
 		}
 		$comments = new \BuddyNext\Comments\CommentService();
-		$reply_id = $comments->get_sync_reply_id( $comment_id );
+		$reply_id = $comments->get_sync_reply_id( $comment_id, 'discussion' );
 		if ( $reply_id <= 0 ) {
 			return;
 		}
@@ -4120,7 +4238,7 @@ class JetonomyBridge {
 		if ( self::$syncing || $comment_id <= 0 || ! class_exists( '\Jetonomy\Models\Reply' ) ) {
 			return;
 		}
-		$reply_id = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $comment_id );
+		$reply_id = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $comment_id, 'discussion' );
 		if ( $reply_id <= 0 ) {
 			return;
 		}
@@ -4145,7 +4263,7 @@ class JetonomyBridge {
 			return;
 		}
 		$comments = new \BuddyNext\Comments\CommentService();
-		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+		$comment  = $comments->find_by_sync_reply_id( $reply_id, 'discussion' );
 		if ( null === $comment ) {
 			return;
 		}
@@ -4462,7 +4580,7 @@ class JetonomyBridge {
 			return $topic > 0 ? array( 'post', $topic ) : null;
 		}
 		if ( 'comment' === $object_type ) {
-			$reply = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $object_id );
+			$reply = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $object_id, 'discussion' );
 			return $reply > 0 ? array( 'reply', $reply ) : null;
 		}
 
@@ -4553,7 +4671,7 @@ class JetonomyBridge {
 		$bn_type    = 'post' === $jt_type ? 'post' : 'comment';
 		$bn_id      = 0;
 		if ( $bn_type !== $origin ) {
-			$comment = 'reply' === $jt_type ? ( new \BuddyNext\Comments\CommentService() )->find_by_sync_reply_id( $jt_id ) : null;
+			$comment = 'reply' === $jt_type ? ( new \BuddyNext\Comments\CommentService() )->find_by_sync_reply_id( $jt_id, 'discussion' ) : null;
 			$bn_id   = 'post' === $jt_type ? $this->card_id_for_topic( $jt_id ) : (int) ( $comment['id'] ?? 0 );
 		}
 
@@ -4609,7 +4727,7 @@ class JetonomyBridge {
 	 * @return bool
 	 */
 	private static function discussion_switched_on(): bool {
-		return class_exists( 'Jetonomy\Jetonomy' ) && buddynext_integration_enabled( 'jetonomy', 'nav' );
+		return self::usable() && buddynext_integration_enabled( 'jetonomy', 'nav' );
 	}
 
 	/**
@@ -5004,13 +5122,13 @@ class JetonomyBridge {
 			$items['jetonomy'] = array(
 				'label'            => __( 'Jetonomy', 'buddynext' ),
 				'version'          => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
-				// No hard floor evidenced for the model/action seams this bridge
-				// consumes, so none is declared (an invented floor would be worse
-				// than an honest null). Tested against 2.0.3: every Jetonomy hook, class,
+				// Floor 2.1.0: below it the bridge stays off (see init()). Tested against 2.0.3: every Jetonomy hook, class,
 				// method and function BuddyNext and BuddyNext Pro use was checked against
 				// the partner code at that tag on 2026-10-19 (all present; hook argument
 				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
+				'min_version'      => self::MIN_VERSION,
+				'floor_disables'   => true,
 				'tested_version'   => '2.1.0', // Verified 2026-11-23 by QA (J36) on 1.3.0 with MediaVerse 2.7.0 on the same site: discussions tab, My discussions, feed and Explore items, partner deactivation.
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
@@ -5696,7 +5814,7 @@ class JetonomyBridge {
 				 FROM {$wpdb->prefix}jt_posts p
 				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
 				 WHERE p.space_id = %d AND p.status = 'publish' AND p.is_private = 1 AND p.author_id = %d
-				 ORDER BY p.created_at DESC
+				 ORDER BY p.is_sticky DESC, p.created_at DESC
 				 LIMIT %d",
 				$forum_id,
 				$viewer_id,
@@ -5709,7 +5827,8 @@ class JetonomyBridge {
 		}
 
 		$rows = array_merge( $rows, $this->with_tags( $own ) );
-		usort( $rows, static fn( $a, $b ): int => strcmp( (string) $b->created_at, (string) $a->created_at ) );
+		// The same order as the shared list: pinned topics first, then newest.
+		usort( $rows, static fn( $a, $b ): int => array( (int) $b->is_sticky, (string) $b->created_at ) <=> array( (int) $a->is_sticky, (string) $a->created_at ) );
 
 		return $this->without_blocked( array_slice( $rows, 0, $limit ), $viewer_id );
 	}

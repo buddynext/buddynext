@@ -105,7 +105,7 @@ class ArticleProviderTest extends \WP_UnitTestCase {
 		$this->assertFalse( ArticleProvider::show_composer_tab( 0, array( 'surface' => 'feed' ) ), 'Guest.' );
 
 		update_option( 'buddynext_integration_blog_nav', '0' );
-		$this->assertFalse( ArticleProvider::show_composer_tab( $writer, array( 'surface' => 'feed' ) ), 'The Blog posts nav switch turns it off.' );
+		$this->assertFalse( ArticleProvider::show_composer_tab( $writer, array( 'surface' => 'feed' ) ), 'The Articles nav switch turns it off.' );
 	}
 
 	public function test_the_composer_tab_filter_has_the_last_word(): void {

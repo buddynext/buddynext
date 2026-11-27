@@ -123,6 +123,7 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 			$pid          = (int) ( $person['id'] ?? 0 );
 			$pname        = (string) ( $person['name'] ?? '' );
 			$pinits       = (string) ( $person['initials'] ?? '' );
+			$pavatar      = (string) ( $person['avatar_url'] ?? '' );
 			$bio_raw      = (string) ( $person['bio'] ?? '' );
 			$profile_url  = (string) ( $person['profile_url'] ?? '' );
 			$is_following = ! empty( $person['is_following'] );
@@ -147,7 +148,11 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 									'>
 				<a class="bn-search-row__link" href="<?php echo esc_url( $profile_url ); ?>">
 					<span class="bn-avatar" data-size="md" aria-hidden="true">
-						<?php echo esc_html( $pinits ); ?>
+						<?php if ( '' !== $pavatar ) : ?>
+							<img src="<?php echo esc_url( $pavatar ); ?>" alt="" width="40" height="40" loading="lazy" decoding="async">
+						<?php else : ?>
+							<?php echo esc_html( $pinits ); ?>
+						<?php endif; ?>
 					</span>
 					<span class="bn-search-row__info">
 						<span class="bn-search-row__title">

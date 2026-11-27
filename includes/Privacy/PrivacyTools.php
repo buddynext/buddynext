@@ -165,13 +165,16 @@ class PrivacyTools implements ListenerInterface {
 
 		// Invitations are keyed by email, not by account: a person invited before they
 		// ever registered has no user row, and erase() already finds them by email, so
-		// the export must too (right of access, not only erasure).
-		$invitations = 1 === $page ? $this->export_invites( $email_address ) : array();
+		// the export must too (right of access, not only erasure). They page alongside
+		// the member stream, one page of invitations per export page.
+		$per          = $this->per_page();
+		$invitations  = $this->export_invites( $email_address, $per, ( $page - 1 ) * $per );
+		$invites_done = $page * $per >= $this->count_invites( $email_address );
 
 		if ( ! $user instanceof \WP_User ) {
 			return array(
 				'data' => $invitations,
-				'done' => true,
+				'done' => $invites_done,
 			);
 		}
 
@@ -185,16 +188,15 @@ class PrivacyTools implements ListenerInterface {
 			$items = array_merge(
 				$this->export_profile_meta( $user_id ),
 				$this->export_profile_values( $user_id ),
-				$this->export_notification_prefs( $user_id ),
-				$invitations
+				$this->export_notification_prefs( $user_id )
 			);
 		}
 
 		$stream = $this->stream_page( $user_id, $page );
 
 		return array(
-			'data' => array_merge( $items, $stream['items'] ),
-			'done' => $stream['done'],
+			'data' => array_merge( $items, $invitations, $stream['items'] ),
+			'done' => $stream['done'] && $invites_done,
 		);
 	}
 
@@ -1006,27 +1008,51 @@ class PrivacyTools implements ListenerInterface {
 	}
 
 	/**
-	 * Export the invitations sent to an email address.
+	 * How many invitations were sent to an email address.
 	 *
 	 * @param string $email_address Email of the person being exported.
-	 * @return array<int,array<string,mixed>>
+	 * @return int
 	 */
-	private function export_invites( string $email_address ): array {
+	private function count_invites( string $email_address ): int {
 		global $wpdb;
 
-		// Keyed on the indexed email column, the same lookup erase() uses. The invite
-		// token is a credential for joining, never exported.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_invites WHERE email = %s", $email_address )
+		);
+	}
+
+	/**
+	 * Export one page of the invitations sent to an email address.
+	 *
+	 * @param string $email_address Email of the person being exported.
+	 * @param int    $limit         Rows per page.
+	 * @param int    $offset        Rows to skip.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function export_invites( string $email_address, int $limit, int $offset ): array {
+		global $wpdb;
+
+		// Keyed on the indexed email column, the same lookup erase() uses, and ordered by
+		// the primary key so the pages tile the set exactly once. The invite token is a
+		// credential for joining, never exported.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, email, first_name, space_id, status, expires_at, created_at FROM {$wpdb->prefix}bn_invites WHERE email = %s ORDER BY id LIMIT 200",
-				$email_address
+				"SELECT id, email, first_name, space_id, status, expires_at, created_at FROM {$wpdb->prefix}bn_invites WHERE email = %s ORDER BY id LIMIT %d OFFSET %d",
+				$email_address,
+				$limit,
+				$offset
 			),
 			ARRAY_A
 		);
 
+		// Every Space on this page in one query, not one lookup per invitation.
+		$spaces = buddynext_service( 'spaces' );
+		$spaces->prime( array_column( $rows, 'space_id' ) );
+
 		$items = array();
-		foreach ( (array) $rows as $row ) {
+		foreach ( $rows as $row ) {
 			$data = array(
 				array(
 					'name'  => __( 'Email', 'buddynext' ),
@@ -1038,11 +1064,11 @@ class PrivacyTools implements ListenerInterface {
 				),
 				array(
 					'name'  => __( 'Invited on', 'buddynext' ),
-					'value' => (string) $row['created_at'],
+					'value' => $this->site_time( (string) $row['created_at'] ),
 				),
 				array(
 					'name'  => __( 'Invitation expires', 'buddynext' ),
-					'value' => (string) $row['expires_at'],
+					'value' => $this->site_time( (string) $row['expires_at'] ),
 				),
 			);
 			if ( '' !== (string) $row['first_name'] ) {
@@ -1052,7 +1078,7 @@ class PrivacyTools implements ListenerInterface {
 				);
 			}
 			if ( (int) $row['space_id'] > 0 ) {
-				$space  = buddynext_service( 'spaces' )->get( (int) $row['space_id'] );
+				$space  = $spaces->get( (int) $row['space_id'] );
 				$data[] = array(
 					'name'  => __( 'Space', 'buddynext' ),
 					'value' => is_array( $space ) && ! empty( $space['name'] ) ? (string) $space['name'] : (string) (int) $row['space_id'],
@@ -1067,6 +1093,16 @@ class PrivacyTools implements ListenerInterface {
 		}
 
 		return $items;
+	}
+
+	/**
+	 * A stored UTC time as plain text in the site's timezone.
+	 *
+	 * @param string $utc 'Y-m-d H:i:s' in UTC, or empty.
+	 * @return string
+	 */
+	private function site_time( string $utc ): string {
+		return wp_specialchars_decode( buddynext_date_local( $utc, 'Y-m-d H:i' ), ENT_QUOTES );
 	}
 
 	/**

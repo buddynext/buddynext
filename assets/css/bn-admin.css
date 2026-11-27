@@ -1047,8 +1047,18 @@ select.bn-select-input,
 	border: 1px solid var(--bn-a-input-border) !important;
 	border-radius: var(--bn-a-input-radius) !important;
 	box-shadow: none !important;
-	height: auto !important;
 	transition: border-color var(--bn-a-transition), box-shadow var(--bn-a-transition);
+}
+
+/* Single-line controls only. A textarea keeps the height its resize handle
+ * writes inline; height:auto !important here overrode it, so dragging the
+ * handle did nothing on every admin textarea. */
+input.bn-text-input,
+select.bn-text-input,
+select.bn-select-input,
+.bn-input:not(textarea),
+.bn-select {
+	height: auto !important;
 }
 
 /* The uniform field above forces one look with !important, which also erased
@@ -1666,6 +1676,37 @@ table.bn-table th {
 	color: var(--bn-a-text-3);
 	border-bottom: 1px solid var(--bn-a-border-soft);
 	background: var(--bn-a-bg-subtle);
+}
+
+/* A sortable column heading stays a link (click to sort) but reads as a
+ * heading: same ink, case and weight as its neighbours, no underline. A small
+ * up/down mark says it sorts; the column in use gets the full-strength ink. */
+table.bn-table th a.bn-th-sort {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-a-s1);
+	color: inherit;
+	text-decoration: none;
+}
+table.bn-table th a.bn-th-sort::after {
+	content: "\2195";
+	content: "\2195" / ""; /* Decorative: the link text already names the column. */
+	font-size: 1.1em;
+	line-height: 1;
+	opacity: 0.55;
+}
+table.bn-table th a.bn-th-sort.is-active,
+table.bn-table th a.bn-th-sort:hover {
+	color: var(--bn-a-text-1);
+}
+table.bn-table th a.bn-th-sort.is-active::after {
+	opacity: 1;
+}
+table.bn-table th a.bn-th-sort:focus-visible {
+	outline: 2px solid var(--bn-a-brand);
+	outline-offset: 2px;
+	border-radius: var(--bn-a-r-sm, 4px);
+	box-shadow: none;
 }
 
 table.bn-table td {

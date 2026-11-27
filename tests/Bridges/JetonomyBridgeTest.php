@@ -1425,6 +1425,56 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Picking a forum with the Discussions switch still off links it on Save, and a forum an owner may not
+	 * link is refused instead of being swapped for a new empty one.
+	 *
+	 * @return void
+	 */
+	public function test_a_picked_forum_stays_linked_and_a_refused_one_says_so(): void {
+		global $wpdb;
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$owner  = self::factory()->user->create();
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_spaces',
+			array(
+				'slug'      => 'roadmap',
+				'title'     => 'Ideas Roadmap',
+				'author_id' => $admin,
+			)
+		);
+		$forum = (int) $wpdb->insert_id;
+		$make  = static fn( int $by, string $name ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$by,
+			array(
+				'name' => $name,
+				'slug' => sanitize_title( $name ) . '-' . wp_rand( 1000, 99999 ),
+				'type' => 'open',
+			)
+		);
+
+		// Switch off, forum picked (admin): the link is kept and the discussion comes on.
+		$a = $make( $admin, 'Roadmap space' );
+		$this->assertTrue( $this->bridge->apply_discussion_choice( $a, false, $forum, $admin ) );
+		$this->assertSame( $forum, (int) buddynext_get_space_field( $a, 'jetonomy_forum_id' ) );
+
+		// Switch off and nothing picked: still nothing linked.
+		$b = $make( $admin, 'Quiet space' );
+		$this->assertTrue( $this->bridge->apply_discussion_choice( $b, false, 0, $admin ) );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $b, 'jetonomy_forum_id' ) );
+
+		// A space owner who did not write that forum is told, and no new forum is made.
+		$before = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" );
+		$c      = $make( $owner, 'Owner space' );
+		$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => 'not-mine', 'title' => 'Not mine', 'author_id' => $admin ) );
+		$notmine = (int) $wpdb->insert_id;
+		$refused = $this->bridge->apply_discussion_choice( $c, true, $notmine, $owner );
+		$this->assertWPError( $refused );
+		$this->assertSame( 'bn_discussion_not_linkable', $refused->get_error_code() );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $c, 'jetonomy_forum_id' ) );
+		$this->assertSame( $before + 1, (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" ), 'Only the manually inserted forum is new.' );
+	}
+
+	/**
 	 * The forum-to-space lookup answers the same space every time when old data
 	 * holds a duplicate, remembers a miss for the request, and forgets it the
 	 * moment a link is written.
@@ -1735,6 +1785,71 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A queued import chunk names a range of topic ids; the job reads the topics back and gives each one without a card its card.
+	 *
+	 * @return void
+	 */
+	public function test_an_import_job_range_reads_its_topics_back(): void {
+		$synced = array();
+		$bridge = new class( $synced ) extends JetonomyBridge {
+			public array $synced = array();
+			public function __construct( array &$synced ) {
+				$this->synced = &$synced;
+			}
+			public function sync_discussion( int $post_id, int $space_id = 0 ): void {
+				$this->synced[] = $post_id;
+			}
+		};
+		foreach ( array( 8101, 8102, 8104, 8200 ) as $post_id ) {
+			$this->seed_jt_post( $post_id, $this->author_id, 'Imported ' . $post_id, 'Body', 'imported-' . $post_id );
+		}
+
+		$bridge->import_cards_chunk( 8101, 8104 );
+
+		$this->assertSame( array( 8101, 8102, 8104 ), $synced, 'only the topics inside the range' );
+	}
+
+	/**
+	 * A pinned topic stays first in the Space's Discussions list for a member who also has private topics of their own.
+	 *
+	 * @return void
+	 */
+	public function test_pinned_topic_stays_first_beside_own_private_topics(): void {
+		global $wpdb;
+		$fx     = $this->space_with_forum();
+		$pinned = 9000 + (int) $fx['forum'];
+		$own    = $pinned + 50000;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$wpdb->update(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'is_sticky'  => 1,
+				'created_at' => '2026-01-01 00:00:00',
+			),
+			array( 'id' => $pinned )
+		);
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_posts',
+			array(
+				'id'         => $own,
+				'space_id'   => (int) $fx['forum'],
+				'author_id'  => (int) $fx['owner'],
+				'slug'       => 'my-private-one',
+				'title'      => 'My private one',
+				'is_private' => 1,
+				'created_at' => '2026-11-01 00:00:00',
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery
+		wp_cache_flush();
+		wp_set_current_user( (int) $fx['owner'] );
+
+		$ids = array_map( static fn( $row ): int => (int) $row->id, $this->bridge->space_discussions( (int) $fx['space'] ) );
+
+		$this->assertSame( array( $pinned, $own ), $ids, 'the pinned topic first, then the newer private one' );
+	}
+
+	/**
 	 * Render the space Discussions panel for a viewer.
 	 *
 	 * @param int $space_id Space.
@@ -1930,6 +2045,20 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A forum deleted on the Jetonomy side must not leave its Space linked to a forum that no longer exists.
+	 */
+	public function test_a_purged_forum_is_unlinked_from_its_space(): void {
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Gone', 'slug' => 'gone-' . wp_rand( 1000, 9999 ) ) );
+		update_space_meta( $space_id, 'jetonomy_forum_id', '9102' );
+		$this->assertTrue( $this->bridge->space_has_discussion( $space_id ) );
+
+		do_action( 'jetonomy_space_purged', 9102, array() );
+
+		$this->assertFalse( $this->bridge->space_has_discussion( $space_id ), 'The Space no longer claims the deleted forum.' );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' ) );
+	}
+
+	/**
 	 * The Space decides who can see and join its forum: no writer of the forum may say otherwise.
 	 */
 	public function test_a_linked_forum_cannot_be_edited_away_from_its_space(): void {
@@ -1977,6 +2106,80 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		\Jetonomy\Models\Space::$rows = array();
 	}
+	/**
+	 * Below Jetonomy 2.1.0 (no jetonomy_before_update_space) the bridge is off, and Integrations says which version turns it on.
+	 */
+	public function test_the_bridge_needs_jetonomy_2_1_0(): void {
+		$this->assertFalse( JetonomyBridge::version_supported( '2.0.7' ) );
+		$this->assertFalse( JetonomyBridge::version_supported( '2.0.99' ) );
+		$this->assertTrue( JetonomyBridge::version_supported( '2.1.0' ) );
+		$this->assertTrue( JetonomyBridge::version_supported( '2.2.0' ) );
+
+		$items = $this->bridge->register_integration( array() );
+		$this->assertSame( '2.1.0', $items['jetonomy']['min_version'] );
+	}
+
+	/**
+	 * A separate process, so the version can be 2.0.7 without leaking into other tests: no forum is made or linked.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_nothing_is_provisioned_on_jetonomy_2_0_7(): void {
+		define( 'JETONOMY_VERSION', '2.0.7' );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Old Jetonomy', 'slug' => 'old-jt-' . wp_rand( 1000, 9999 ) ) );
+		$this->assertSame( 0, ( new JetonomyBridge() )->provision_space_forum( $space_id ) );
+		$this->assertSame( 0, (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' ) );
+		$this->assertFalse( JetonomyBridge::version_supported() );
+		$this->assertFalse( JetonomyBridge::usable(), 'The bridge reports itself usable below its floor.' );
+	}
+
+	/**
+	 * Templates ask usable(), never the bare class check, so a Jetonomy below the floor shows no Discussions switch.
+	 */
+	public function test_no_template_offers_discussions_on_the_bare_class_check(): void {
+		$hits = array();
+		foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( BUDDYNEXT_DIR . 'templates', \FilesystemIterator::SKIP_DOTS ) ) as $file ) {
+			if ( 'php' === $file->getExtension() && preg_match( '/class_exists\(\s*\'Jetonomy\\\\+Jetonomy\'\s*\)/', (string) file_get_contents( $file->getPathname() ) ) ) {
+				$hits[] = $file->getFilename();
+			}
+		}
+		$this->assertSame( array(), $hits, 'These templates test only that Jetonomy is installed; use JetonomyBridge::usable().' );
+	}
+
+	/**
+	 * Below the floor the bridge is off, but one guard stays: a forum linked to a Space cannot be opened up through
+	 * Jetonomy's own edit route. In a separate process so the version can be 2.0.7.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_a_linked_forum_cannot_be_opened_up_over_rest_below_the_floor(): void {
+		define( 'JETONOMY_VERSION', '2.0.7' );
+		$bridge = new JetonomyBridge();
+		$bridge->init();
+		$this->assertNotFalse( has_filter( 'rest_request_before_callbacks', array( $bridge, 'refuse_old_forum_edit' ) ) );
+
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( self::factory()->user->create(), array( 'name' => 'Old rest', 'slug' => 'old-rest-' . wp_rand( 1000, 9999 ) ) );
+		update_space_meta( $space_id, 'jetonomy_forum_id', '9105' );
+		\Jetonomy\Models\Space::$rows[9105] = array( 'visibility' => 'private', 'join_policy' => 'approval', 'status' => 'active' );
+
+		$refused = $bridge->refuse_old_forum_edit( null, array(), $this->forum_patch( 9105, array( 'visibility' => 'public', 'join_policy' => 'open' ) ) );
+		$this->assertWPError( $refused );
+		$this->assertSame( 409, $refused->get_error_data()['status'] );
+		$this->assertNull( $bridge->refuse_old_forum_edit( null, array(), $this->forum_patch( 9105, array( 'title' => 'Renamed', 'visibility' => 'private' ) ) ) );
+		$this->assertNull( $bridge->refuse_old_forum_edit( null, array(), $this->forum_patch( 9999, array( 'visibility' => 'public' ) ) ), 'An unlinked forum is untouched.' );
+	}
+
+	/**
+	 * At 2.1.0 or later the guard is not registered: the jetonomy_before_update_space filter does the work.
+	 */
+	public function test_the_old_version_guard_is_not_registered_from_2_1_0(): void {
+		$bridge = new JetonomyBridge();
+		$bridge->init();
+		$this->assertFalse( has_filter( 'rest_request_before_callbacks', array( $bridge, 'refuse_old_forum_edit' ) ) );
+	}
+
 	/**
 	 * One push per event: Jetonomy Pro keeps its push unless BuddyNext can really send one
 	 * (the stand-down itself is covered in BuddyNext Pro, where push exists).

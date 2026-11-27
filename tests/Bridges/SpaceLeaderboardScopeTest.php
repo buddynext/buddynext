@@ -19,12 +19,12 @@ use BuddyNext\Spaces\SpaceService;
  * Card 10313407174: GamificationBridge answers wb-gamification's
  * `wb_gam_leaderboard_scope_user_ids` for scope `bn_space`. Ranking stays on
  * site-wide points; the space only limits who is listed. The engine treats an
- * empty list as an empty board, so "off" and "not allowed to see the roster"
- * must both return nothing - otherwise the public leaderboard REST route would
- * list a private space's members.
+ * empty list as an empty board, so "off" returns nothing; who may read the board is gated before the engine.
  *
  * @covers \BuddyNext\Bridges\GamificationBridge::space_scope_user_ids
  * @covers \BuddyNext\Bridges\GamificationBridge::space_leaderboard_on
+ * @covers \BuddyNext\Bridges\GamificationBridge::viewer_can_see_space_board
+ * @covers \BuddyNext\Bridges\GamificationBridge::gate_space_board_rest
  */
 class SpaceLeaderboardScopeTest extends \WP_UnitTestCase {
 
@@ -143,16 +143,49 @@ class SpaceLeaderboardScopeTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A private space's board follows its member list: members see it, visitors get nothing.
+	 * The engine caches a board by board, not by viewer, so the scope must answer every viewer the same:
+	 * a non-member loading first must not leave members a total of 0 (and the reverse).
 	 *
 	 * @return void
 	 */
-	public function test_private_space_is_hidden_from_non_members(): void {
-		$id = $this->space( 'private', true );
+	public function test_scope_answer_is_the_same_for_every_viewer(): void {
+		$id      = $this->space( 'private', true );
+		$members = $this->resolve( $id, $this->member );
 
-		$this->assertSame( array(), $this->resolve( $id, 0 ), 'Logged out.' );
-		$this->assertSame( array(), $this->resolve( $id, self::factory()->user->create() ), 'Logged-in non-member.' );
-		$this->assertContains( $this->member, $this->resolve( $id, $this->member ) );
+		$this->assertContains( $this->member, $members );
+		$this->assertSame( $members, $this->resolve( $id, 0 ), 'Logged out.' );
+		$this->assertSame( $members, $this->resolve( $id, self::factory()->user->create() ), 'Logged-in non-member.' );
+	}
+
+	/**
+	 * A private space's board follows its member list: members read it, visitors do not, and the public
+	 * leaderboard route is refused for them before the engine is asked.
+	 *
+	 * @return void
+	 */
+	public function test_private_space_board_is_hidden_from_non_members(): void {
+		$id      = $this->space( 'private', true );
+		$outside = self::factory()->user->create();
+
+		$this->assertFalse( GamificationBridge::viewer_can_see_space_board( $id, 0 ), 'Logged out.' );
+		$this->assertFalse( GamificationBridge::viewer_can_see_space_board( $id, $outside ), 'Logged-in non-member.' );
+		$this->assertTrue( GamificationBridge::viewer_can_see_space_board( $id, $this->member ) );
+
+		$request = new \WP_REST_Request( 'GET', '/wb-gamification/v1/leaderboard' );
+		$request->set_param( 'scope_type', GamificationBridge::SPACE_SCOPE );
+		$request->set_param( 'scope_id', $id );
+
+		wp_set_current_user( $outside );
+		$refused = $this->bridge->gate_space_board_rest( null, rest_get_server(), $request );
+		$this->assertWPError( $refused );
+		$this->assertSame( 'rest_forbidden', $refused->get_error_code() );
+
+		wp_set_current_user( $this->member );
+		$this->assertNull( $this->bridge->gate_space_board_rest( null, rest_get_server(), $request ) );
+
+		$site = new \WP_REST_Request( 'GET', '/wb-gamification/v1/leaderboard' );
+		wp_set_current_user( $outside );
+		$this->assertNull( $this->bridge->gate_space_board_rest( null, rest_get_server(), $site ), 'The site board is not ours to gate.' );
 	}
 
 	/**

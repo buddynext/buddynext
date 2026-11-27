@@ -1,7 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, restPost, restGet } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restPost, restGet, revealComposerTool } from '../_fixtures/feed-wave1.helpers';
 import type { Page } from '@playwright/test';
 import { dbScalar, tablePrefix, wp } from '../_fixtures/wp';
 
@@ -80,6 +80,7 @@ test.describe('feed / poll', () => {
 
             // Type the poll question, switch to poll mode, fill the options.
             await page.locator(sel.composerTextarea).first().fill(question);
+            await revealComposerTool(page, page.locator(pollTool).first());
             await page.locator(pollTool).first().click();
             const panel = page.locator('.bn-composer__poll-options').first();
             await expect(panel).toBeVisible();
@@ -151,6 +152,7 @@ test.describe('feed / poll', () => {
             nonce = await readRestNonce(page);
 
             await page.locator(sel.composerTextarea).first().fill(question);
+            await revealComposerTool(page, page.locator(pollTool).first());
             await page.locator(pollTool).first().click();
             const panel = page.locator('.bn-composer__poll-options').first();
             await expect(panel).toBeVisible();

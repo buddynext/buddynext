@@ -8,6 +8,7 @@
  *  - a guest: join the Space, or log in, both coming back to the event;
  *  - a signed-in person on an open Space: join it, then come back to the event;
  *  - a signed-in person on a private Space: ask to join; once asked, a waiting note;
+ *  - a member the Space banned: no preview and no button;
  *  - a secret Space (or none): no preview, so the event stays a plain "not found".
  * A Space that needs a plan is left to BuddyNext Pro, which has the plan wording and price.
  *
@@ -88,12 +89,27 @@ class EventonomyTeaser {
 			'cta_label' => sprintf( __( 'Join %s', 'buddynext' ), $name ),
 		);
 
+		$private = 'public' !== (string) ( $config['visibility'] ?? 'public' );
+		// A private Space takes a request, not a join: the words say so before and after signing in.
+		$ask = $base + array(
+			/* translators: %s: Space name. */
+			'message'   => sprintf( __( '%s is a private group. Ask to join and an organiser will review your request.', 'buddynext' ), $name ),
+			/* translators: %s: Space name. */
+			'cta_label' => sprintf( __( 'Request to join %s', 'buddynext' ), $name ),
+		);
+
 		if ( $user_id <= 0 ) {
-			return $join + array(
+			return ( $private ? $ask : $join ) + array(
 				'cta_url'         => PageRouter::signup_url( $link ),
 				'secondary_label' => __( 'Log in', 'buddynext' ),
 				'secondary_url'   => PageRouter::login_url( $link ),
 			);
+		}
+
+		// A member the Space banned cannot join or ask (join() refuses), so no preview and no button: a plain "not found".
+		$members = new SpaceMemberService();
+		if ( $members->is_banned_from_space( $space_id, $user_id ) || 'banned' === $members->get_status( $space_id, $user_id ) ) {
+			return null;
 		}
 
 		// A Space that needs a plan has its words and price in BuddyNext Pro, which answers after this.
@@ -109,9 +125,7 @@ class EventonomyTeaser {
 			PageRouter::space_url( $space_id )
 		);
 
-		$private = 'public' !== (string) ( $config['visibility'] ?? 'public' );
-
-		if ( $private && 'pending' === ( new SpaceMemberService() )->get_status( $space_id, $user_id ) ) {
+		if ( $private && 'pending' === $members->get_status( $space_id, $user_id ) ) {
 			return array(
 				'heading'         => __( 'Your request is waiting for approval', 'buddynext' ),
 				'message'         => __( 'An organiser will review your request to join. You will get a notice when it is answered.', 'buddynext' ),
@@ -123,13 +137,7 @@ class EventonomyTeaser {
 		}
 
 		if ( $private ) {
-			return $base + array(
-				/* translators: %s: Space name. */
-				'message'   => sprintf( __( '%s is a private group. Ask to join and an organiser will review your request.', 'buddynext' ), $name ),
-				/* translators: %s: Space name. */
-				'cta_label' => sprintf( __( 'Request to join %s', 'buddynext' ), $name ),
-				'cta_url'   => $space_url,
-			);
+			return $ask + array( 'cta_url' => $space_url );
 		}
 
 		return $join + array( 'cta_url' => $space_url );

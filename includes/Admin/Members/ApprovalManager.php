@@ -268,8 +268,11 @@ class ApprovalManager {
 				continue;
 			}
 			$entry   = $by_key[ $key ] ?? null;
-			$display = $entry ? trim( (string) ( $entry['value_display'] ?? $entry['value'] ?? '' ) ) : '';
-			$out[]   = array(
+			$display = $entry ? trim( (string) ( $entry['value_display'] ?? '' ) ) : '';
+			if ( '' === $display && $entry && is_scalar( $entry['value'] ?? null ) ) {
+				$display = trim( (string) $entry['value'] );
+			}
+			$out[] = array(
 				'label' => (string) ( $field['label'] ?? $key ),
 				'value' => '' !== $display ? $display : __( 'Not answered', 'buddynext' ),
 			);

@@ -133,21 +133,25 @@ class GamificationBridge {
 			}
 		);
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
+		// An expired credential is no longer held, so its card goes the same reversible way (hook args: user id, badge slug, expiry time).
+		add_action( 'wb_gam_credential_expired', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
 		// A badge card shows the member's level and the badge's name as they are now, for old cards and new alike.
 		add_filter( 'buddynext_card_live', array( $this, 'live_badge_cards' ), 10, 3 );
 		// A badge card names the level and nothing that changes: the points total describes the member, not the badge,
 		// and goes stale the day after. Cards made before this keep their stored points in the data but never draw them.
-		add_filter( 'buddynext_card_facts', array( $this, 'drop_points_fact' ), 10, 2 );
+		add_filter( 'buddynext_card_facts', array( $this, 'drop_points_fact' ), 10, 3 );
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 
 		// Space leaderboards: BuddyNext tells the engine who belongs to a space board.
 		add_filter( 'wb_gam_leaderboard_scope_user_ids', array( $this, 'space_scope_user_ids' ), 10, 3 );
+		// Who may read a Space board is decided before the engine runs: its totals and pages are cached per board, not per viewer.
+		add_filter( 'rest_pre_dispatch', array( $this, 'gate_space_board_rest' ), 10, 3 );
 
 		// WB Gamification sends its bell rows through the notification contract with a
 		// link to the member's profile front page. Where a row opens inside the
 		// community is BuddyNext's profile tabs, so the row is pointed at the right one.
-		add_filter( 'buddynext_notification_url', array( $this, 'filter_notification_url' ), 20, 5 );
+		add_filter( 'buddynext_notification_url', array( $this, 'filter_notification_url' ), 20, 6 );
 
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
@@ -352,6 +356,32 @@ class GamificationBridge {
 	}
 
 	/**
+	 * The viewer's own place on a board: the site board, or a Space board.
+	 *
+	 * A Space board ranks only that Space's members, so a member gets their place
+	 * among them and anyone else gets none: their site-wide rank would read as a
+	 * place on a board they are not on.
+	 *
+	 * @param int    $viewer_id Viewer.
+	 * @param string $period    Engine period (all, month, week).
+	 * @param int    $space_id  Space board, 0 for the site board.
+	 * @return array<string,mixed> The engine's `{rank, points, ...}`, or empty for no place.
+	 */
+	public static function viewer_rank( int $viewer_id, string $period, int $space_id = 0 ): array {
+		if ( $viewer_id <= 0 ) {
+			return array();
+		}
+		if ( 0 === $space_id ) {
+			return function_exists( 'wb_gam_get_user_rank' ) ? (array) wb_gam_get_user_rank( $viewer_id, $period ) : array();
+		}
+		$scoped = array( 'WBGam\\Engine\\LeaderboardEngine', 'get_user_rank' );
+		if ( ! is_callable( $scoped ) || ! buddynext_service( 'space_members' )->is_member( $space_id, $viewer_id ) ) {
+			return array();
+		}
+		return (array) call_user_func( $scoped, $viewer_id, $period, self::SPACE_SCOPE, $space_id );
+	}
+
+	/**
 	 * Whether a viewer may see a member's gamification standing (points, badges,
 	 * rank, kudos). The one answer every BuddyNext gamification surface uses: the
 	 * member's BuddyNext profile privacy, which also honours blocks.
@@ -379,6 +409,32 @@ class GamificationBridge {
 	}
 
 	/**
+	 * Whether a viewer may see a member's points, rank and level.
+	 *
+	 * The member's "Show my level and points on my profile" choice (WB Gamification, Settings > My preferences)
+	 * decides it: switched off, only the member sees them. The profile privacy answer in can_view_standing()
+	 * still applies first. Badges and kudos are not points, so they follow can_view_standing() alone.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int      $member_id Member whose points would be shown.
+	 * @param int|null $viewer_id Viewer; defaults to the current user.
+	 * @return bool
+	 */
+	public static function can_view_points( int $member_id, ?int $viewer_id = null ): bool {
+		$viewer_id = $viewer_id ?? get_current_user_id();
+		if ( ! self::can_view_standing( $member_id, $viewer_id ) ) {
+			return false;
+		}
+		// Moderation needs the level, so an administrator or moderator keeps seeing it; the member's choice hides it from everyone else.
+		if ( $viewer_id === $member_id || ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) || buddynext_service( 'roles' )->can_moderate_site( $viewer_id ) ) {
+			return true;
+		}
+
+		return (bool) \WBGam\Engine\MemberPrefs::get( $member_id )['show_rank'];
+	}
+
+	/**
 	 * Open a WB Gamification bell row on the member's own profile tab for it.
 	 *
 	 * The plugin links every row to the profile front page; BuddyNext owns the tabs
@@ -390,15 +446,33 @@ class GamificationBridge {
 	 * @param int                 $actor_id  Actor (unused).
 	 * @param int                 $object_id Object id (unused).
 	 * @param array<string,mixed> $data      Row data (unused).
+	 * @param int                 $viewer    The row's recipient; the current member when not given.
 	 * @return string
 	 */
-	public function filter_notification_url( $url, string $type, int $actor_id, int $object_id, array $data ): string {
+	public function filter_notification_url( $url, string $type, int $actor_id, int $object_id, array $data, int $viewer = 0 ): string {
 		unset( $actor_id, $object_id, $data );
-		$viewer = get_current_user_id();
+		// The recipient, never the request's member: a push or email is composed while
+		// the sender is signed in.
+		$viewer = $viewer > 0 ? $viewer : get_current_user_id();
 		if ( ! isset( self::NOTIFICATION_TABS[ $type ] ) || $viewer <= 0 ) {
 			return (string) $url;
 		}
-		return trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $viewer ) ) . self::NOTIFICATION_TABS[ $type ] . '/';
+		return self::profile_tab_url( $viewer, self::NOTIFICATION_TABS[ $type ] );
+	}
+
+	/**
+	 * A member's gamification profile tab, or their profile when the owner turned the tabs off.
+	 *
+	 * The Achievements, Kudos and Points tabs exist only while the Gamification
+	 * navigation switch is on; a link to one of them with the switch off is a dead page.
+	 *
+	 * @param int    $member_id Member.
+	 * @param string $tab       Tab slug (achievements, kudos, points).
+	 * @return string
+	 */
+	private static function profile_tab_url( int $member_id, string $tab ): string {
+		$profile = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $member_id ) );
+		return buddynext_integration_enabled( 'gamification', 'nav' ) ? $profile . $tab . '/' : $profile;
 	}
 
 	/**
@@ -445,18 +519,56 @@ class GamificationBridge {
 	}
 
 	/**
+	 * Whether a viewer may read a space's leaderboard: the tab is on and they may see the space's member list.
+	 *
+	 * Same gate as the roster (SpaceVisibility::can_view_roster()). Call it before asking the engine
+	 * for a space board; the engine's own caches are not per viewer.
+	 *
+	 * @param int      $space_id  Space ID.
+	 * @param int|null $viewer_id Viewer; defaults to the current user.
+	 * @return bool
+	 */
+	public static function viewer_can_see_space_board( int $space_id, ?int $viewer_id = null ): bool {
+		if ( ! self::space_leaderboard_on( $space_id ) ) {
+			return false;
+		}
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		return \BuddyNext\Spaces\SpaceVisibility::can_view_roster( $space, $viewer_id ?? get_current_user_id() );
+	}
+
+	/**
+	 * Refuse the partner's public leaderboard routes for a space board the viewer may not read.
+	 *
+	 * @param mixed            $result  Result so far.
+	 * @param \WP_REST_Server  $server  Server (unused).
+	 * @param \WP_REST_Request $request Request.
+	 * @return mixed
+	 */
+	public function gate_space_board_rest( $result, $server, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- $server is part of the rest_pre_dispatch signature.
+		if ( null !== $result || 0 !== strpos( (string) $request->get_route(), '/wb-gamification/v1/leaderboard' )
+			|| self::SPACE_SCOPE !== (string) $request->get_param( 'scope_type' )
+			|| self::viewer_can_see_space_board( (int) $request->get_param( 'scope_id' ) ) ) {
+			return $result;
+		}
+		return new \WP_Error( 'rest_forbidden', __( 'You cannot see this leaderboard.', 'buddynext' ), array( 'status' => rest_authorization_required_code() ) );
+	}
+
+	/**
 	 * Resolve a space leaderboard scope to the members who may appear on it.
 	 *
 	 * Hooked on wb-gamification's `wb_gam_leaderboard_scope_user_ids`. Ranking stays
 	 * on site-wide points (owner decision 2026-10-02); the space only limits WHO is
 	 * listed. An empty list means an empty board - the engine never widens an empty
-	 * scope to the whole site - so this returns nothing when the space has the tab
-	 * off, or when the viewer may not see the space's member list. That also closes
-	 * the public /wb-gamification/v1/leaderboard route as a way to list a private or
-	 * secret space's members (same gate as the roster: SpaceVisibility::can_view_roster()).
+	 * scope to the whole site - so this returns nothing when the space has the tab off.
 	 *
-	 * ponytail: the engine filters by `user_id IN (...)`; fine for spaces in the
-	 * thousands, a JOIN-based scope in the engine is the upgrade for far larger ones.
+	 * The answer is the same for every viewer on purpose: the engine caches a board's total and pages
+	 * by board, not by viewer, so a viewer-dependent answer served one viewer's list to the next.
+	 * Who may read the board is checked before the engine is called (viewer_can_see_space_board(),
+	 * the board template and gate_space_board_rest(), which closes the public
+	 * /wb-gamification/v1/leaderboard route as a way to list a private or secret space's members).
+	 *
+	 * ponytail: the engine filters by `user_id IN (...)`; fine for spaces in the thousands, a JOIN-based
+	 * scope in the engine is the upgrade for far larger ones.
 	 *
 	 * @param mixed  $user_ids   Ids resolved so far.
 	 * @param string $scope_type Scope type.
@@ -470,11 +582,6 @@ class GamificationBridge {
 
 		$space_id = (int) $scope_id;
 		if ( ! self::space_leaderboard_on( $space_id ) ) {
-			return array();
-		}
-
-		$space = buddynext_service( 'spaces' )->get( $space_id );
-		if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_roster( $space, get_current_user_id() ) ) {
 			return array();
 		}
 
@@ -706,7 +813,8 @@ class GamificationBridge {
 	 *
 	 * Reversible: a card a prior unshare WITHDREW (set to 'draft') is RESTORED here —
 	 * same id, date, reactions and comments — rather than minting a new one, so a
-	 * share -> unshare -> re-share cycle keeps its engagement. Idempotent per share URL.
+	 * share -> unshare -> re-share cycle keeps its engagement. One card per member and badge,
+	 * found by its badge, so a handle change in between does not mint a second one.
 	 *
 	 * @param int    $user_id  Member who shared the badge.
 	 * @param string $badge_id Badge slug.
@@ -732,29 +840,32 @@ class GamificationBridge {
 		}
 
 		$url = $this->badge_activity_url( $badge_id, $user_id );
-		if ( IntegrationActivity::restore( $url, 'badge' ) ) {
-			return;
-		}
-		IntegrationActivity::publish(
-			$user_id,
-			/* translators: %s: badge name. */
-			sprintf( __( 'earned the %s badge', 'buddynext' ), $name ),
-			$url,
-			$name,
-			'badge',
-			// What the badge is for and its artwork, so the feed and Explore cards
-			// show the achievement rather than a bare name.
-			(string) ( $def['description'] ?? '' ),
-			0,
-			// A badge is earned, not shared: it never notifies a whole Space.
-			array_merge(
-				'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array(),
-				array(
-					'notify_space' => false,
-					'facts'        => $this->badge_facts( $user_id ),
-				)
+		/* translators: %s: badge name. */
+		$content = sprintf( __( 'earned the %s badge', 'buddynext' ), $name );
+		// What the badge is for and its artwork, so the feed and Explore cards
+		// show the achievement rather than a bare name.
+		$excerpt = (string) ( $def['description'] ?? '' );
+		// A badge is earned, not shared: it never notifies a whole Space.
+		$meta = array_merge(
+			'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array(),
+			array(
+				'notify_space' => false,
+				'facts'        => $this->badge_facts( $user_id ),
 			)
 		);
+
+		// One card per badge: bring back the one already there, even if it was written
+		// under an earlier profile handle, and point it at the profile as it is now.
+		$stored = $this->badge_card_urls( $badge_id, $user_id );
+		if ( array() !== $stored ) {
+			$keep = in_array( $url, $stored, true ) ? $url : $stored[0];
+			IntegrationActivity::restore( $keep, 'badge' );
+			if ( $keep !== $url ) {
+				IntegrationActivity::rewrite( $keep, 'badge', $content, $url, $name, $excerpt, $meta );
+			}
+			return;
+		}
+		IntegrationActivity::publish( $user_id, $content, $url, $name, 'badge', $excerpt, 0, $meta );
 	}
 
 	/**
@@ -776,16 +887,16 @@ class GamificationBridge {
 		// WB Gamification has just deleted as many rows itself. A text-id
 		// remove_by_meta() would make it one query if badges ever get very large.
 		foreach ( array_unique( array_map( 'intval', $user_ids ) ) as $user_id ) {
-			if ( $user_id > 0 ) {
-				IntegrationActivity::remove( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+			foreach ( $this->badge_card_urls( $badge_id, $user_id ) as $url ) {
+				IntegrationActivity::remove( $url, 'badge' );
 			}
 		}
 	}
 
 	/**
-	 * Withdraw a member's shared-badge card when they UNSHARE it.
+	 * Withdraw a member's shared-badge card when they UNSHARE it, or when the credential behind it expires.
 	 *
-	 * Real hook: `wb_gam_badge_unshared( int $user_id, string $badge_id )`. Withdraws
+	 * Real hooks: `wb_gam_badge_unshared( int $user_id, string $badge_id )` and `wb_gam_credential_expired( int $user_id, string $badge_id, string $expired_at )`, the third argument unused. Withdraws
 	 * the card reversibly (to 'draft', hidden from every feed but its row, date and
 	 * comments preserved) rather than deleting it, so a later re-share restores this
 	 * exact card. A no-op when no card exists for the badge (a non-credential badge, or
@@ -799,7 +910,9 @@ class GamificationBridge {
 		if ( $user_id <= 0 || '' === $badge_id ) {
 			return;
 		}
-		IntegrationActivity::withdraw( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+		foreach ( $this->badge_card_urls( $badge_id, $user_id ) as $url ) {
+			IntegrationActivity::withdraw( $url, 'badge' );
+		}
 	}
 
 	/**
@@ -825,7 +938,7 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Answer `buddynext_card_live` for badge cards: the level the member holds now and the badge's current name.
+	 * Answer `buddynext_card_live` for badge cards: the level the member holds now, the badge's current name and its current address.
 	 *
 	 * A card made when the member held one level otherwise kept saying it after a promotion, and kept a renamed
 	 * badge's old name. One read for the whole page, not one per member: every member's level name comes from the
@@ -841,9 +954,10 @@ class GamificationBridge {
 	 * @return array<int,array>
 	 */
 	public function live_badge_cards( array $answers, string $type, array $cards ): array {
-		if ( 'badge' !== $type || ! class_exists( 'WBGam\\Engine\\BadgeEngine' ) ) {
+		if ( 'badge' !== $type ) {
 			return $answers;
 		}
+		$partner = class_exists( 'WBGam\\Engine\\BadgeEngine' );
 
 		$user_ids = array();
 		foreach ( $cards as $meta ) {
@@ -864,8 +978,14 @@ class GamificationBridge {
 			}
 			$answer = array();
 
+			// The address as it is now: the member's current handle, and the profile itself
+			// when the owner turned the Achievements tab off (a stored link would be a dead page).
+			if ( preg_match( '/#badge-([^#?\/]+)$/', (string) ( $meta['url'] ?? '' ), $m ) ) {
+				$answer['url'] = $this->badge_activity_url( rawurldecode( $m[1] ), $user_id );
+			}
+
 			// A level that cannot be read leaves the stored one showing instead of blanking the card.
-			$level = trim( (string) get_user_meta( $user_id, 'wb_gam_level_name', true ) );
+			$level = $partner ? trim( (string) get_user_meta( $user_id, 'wb_gam_level_name', true ) ) : '';
 			if ( '' !== $level ) {
 				$answer['facts'] = array(
 					array(
@@ -894,13 +1014,23 @@ class GamificationBridge {
 	 *
 	 * @param array<int,array{icon:string,text:string}> $facts The card's facts.
 	 * @param string                                    $type  Card post type.
+	 * @param array<string,mixed>                       $link_meta The card's stored link meta plus `user_id` (the member it is about).
 	 * @return array<int,array{icon:string,text:string}>
 	 */
-	public function drop_points_fact( array $facts, string $type ): array {
+	public function drop_points_fact( array $facts, string $type, array $link_meta = array() ): array {
 		if ( 'badge' !== $type ) {
 			return $facts;
 		}
-		return array_values( array_filter( $facts, static fn( $fact ): bool => ! ( is_array( $fact ) && 'zap' === ( $fact['icon'] ?? '' ) ) ) );
+		// The level is points standing: leave it off for a viewer the member's "Show my level and points" choice hides it from.
+		$member    = (int) ( $link_meta['user_id'] ?? 0 );
+		$hide_rank = $member > 0 && ! self::can_view_points( $member );
+
+		return array_values(
+			array_filter(
+				$facts,
+				static fn( $fact ): bool => ! ( is_array( $fact ) && ( 'zap' === ( $fact['icon'] ?? '' ) || ( $hide_rank && 'award' === ( $fact['icon'] ?? '' ) ) ) )
+			)
+		);
 	}
 
 	/**
@@ -1007,6 +1137,23 @@ class GamificationBridge {
 	}
 
 	/**
+	 * The links of every card this member has for one badge, whatever their handle was when it was written.
+	 *
+	 * The card's address starts with the member's profile URL, which changes with the handle; the
+	 * `#badge-<id>` tail does not. Share, unshare and delete all find the card through here.
+	 *
+	 * @param string $badge_id Badge slug.
+	 * @param int    $user_id  Member.
+	 * @return string[]
+	 */
+	private function badge_card_urls( string $badge_id, int $user_id ): array {
+		if ( $user_id <= 0 || '' === $badge_id ) {
+			return array();
+		}
+		return ( new \BuddyNext\Feed\PostService() )->link_urls_by_member_suffix( 'badge', $user_id, '#badge-' . rawurlencode( $badge_id ) );
+	}
+
+	/**
 	 * Feed-card link for an earned badge — the member's own BuddyNext Achievements
 	 * tab, NOT wb-gamification's public share page.
 	 *
@@ -1026,7 +1173,6 @@ class GamificationBridge {
 	 * @return string
 	 */
 	private function badge_activity_url( string $badge_id, int $user_id ): string {
-		$base = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ) . 'achievements/';
-		return $base . '#badge-' . rawurlencode( $badge_id );
+		return self::profile_tab_url( $user_id, 'achievements' ) . '#badge-' . rawurlencode( $badge_id );
 	}
 }

@@ -74,6 +74,49 @@ final class ApprovalGuard implements ListenerInterface {
 	}
 
 	/**
+	 * User meta keys that hold a new account back from the community.
+	 *
+	 * The one list the welcome email and the member directory both read. Core holds
+	 * the approval flag; a plugin that keeps its own accounts out until a step is done
+	 * (an email it verifies itself, say) adds the user meta key it sets. The key must be
+	 * set before `user_register` fires (the `insert_user_meta` filter or `meta_input`
+	 * do that) and cleared when the member is released.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @return string[] Meta keys; any non-empty value other than 0 holds the member.
+	 */
+	public static function hold_meta_keys(): array {
+		$keys = (array) apply_filters( 'buddynext_member_hold_meta_keys', array( 'bn_pending_approval' ) );
+
+		$keys = array_values( array_unique( array_filter( array_map( 'sanitize_key', array_map( 'strval', $keys ) ) ) ) );
+
+		// A filter that empties the list must not switch the approval hold off.
+		return array() === $keys ? array( 'bn_pending_approval' ) : $keys;
+	}
+
+	/**
+	 * Whether a member is held back from the community (not listed, not welcomed).
+	 *
+	 * Wider than is_pending(): that is the admin-approval flag and drives the sign-in
+	 * refusal message; this also covers a hold another plugin sets through
+	 * hold_meta_keys().
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function is_held( int $user_id ): bool {
+		foreach ( self::hold_meta_keys() as $key ) {
+			if ( (bool) get_user_meta( $user_id, $key, true ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Refuse a password sign-in for an account awaiting approval.
 	 *
 	 * Anything that is not a signed-in user (null, an existing error) needs no
