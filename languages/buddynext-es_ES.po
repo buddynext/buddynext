@@ -30581,3 +30581,15 @@ msgstr "temas"
 #~ msgctxt "block description"
 #~ msgid "Post creation box — what's on your mind."
 #~ msgstr "Cuadro de creación de publicaciones — qué está en tu mente."
+
+#: includes/Core/AssetService.php:1893
+msgid "Avatar preview. Use the arrow keys to move the picture."
+msgstr ""
+
+#: includes/Core/Installer.php:4299
+msgid "Open Discussion"
+msgstr ""
+
+#: includes/Core/Installer.php:4301
+msgid "A community space for open conversation."
+msgstr ""

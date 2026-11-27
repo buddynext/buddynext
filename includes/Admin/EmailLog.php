@@ -143,7 +143,7 @@ class EmailLog {
 				<?php
 				printf(
 					/* translators: %s: number of failed emails in the last 24 hours. */
-					esc_html__( '%s email(s) failed in the last 24 hours. This usually means the site has no working mailer (SMTP plugin or server MTA). Members are not receiving verification, invite, 2FA or notification email.', 'buddynext' ),
+					esc_html( _n( '%s email failed in the last 24 hours. This usually means the site has no working mailer (SMTP plugin or server MTA). Members are not receiving verification, invite, 2FA or notification email.', '%s emails failed in the last 24 hours. This usually means the site has no working mailer (SMTP plugin or server MTA). Members are not receiving verification, invite, 2FA or notification email.', (int) $failed, 'buddynext' ) ),
 					'<strong>' . esc_html( number_format_i18n( $failed ) ) . '</strong>'
 				);
 				?>

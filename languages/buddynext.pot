@@ -2538,12 +2538,6 @@ msgstr ""
 msgid "BuddyNext email is failing to send."
 msgstr ""
 
-#. translators: %s: number of failed emails in the last 24 hours.
-#: includes/Admin/EmailLog.php:146
-#, php-format
-msgid "%s email(s) failed in the last 24 hours. This usually means the site has no working mailer (SMTP plugin or server MTA). Members are not receiving verification, invite, 2FA or notification email."
-msgstr ""
-
 #: includes/Admin/EmailLog.php:150
 msgid "Review the email log"
 msgstr ""
@@ -9341,18 +9335,6 @@ msgstr ""
 msgid "Background tasks are not running."
 msgstr ""
 
-#. translators: %d: number of overdue scheduled tasks.
-#: includes/Admin/ToolsTab.php:128
-#, php-format
-msgid "This site cannot make a loopback request to itself, so the background-task runner never starts, and %d scheduled task(s) are overdue. This is usually a firewall, a localhost DNS issue, or HTTP authentication on staging. Add a server-level cron job so the queue is processed regardless:"
-msgstr ""
-
-#. translators: %d: number of overdue scheduled tasks.
-#: includes/Admin/ToolsTab.php:134
-#, php-format
-msgid "WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled task(s) are overdue. Add a server-level cron job so the queue is processed:"
-msgstr ""
-
 #: includes/Admin/ToolsTab.php:142
 msgid "Run that on your server (or ask your host) to fire WordPress cron every 5 minutes. This is a server change, not a plugin setting: BuddyNext never disables WordPress cron for you."
 msgstr ""
@@ -9361,24 +9343,12 @@ msgstr ""
 msgid "Some background tasks have failed."
 msgstr ""
 
-#. translators: %d: number of failed scheduled tasks.
-#: includes/Admin/ToolsTab.php:159
-#, php-format
-msgid "%d scheduled task(s) failed and will not run again on their own. Review the failures in the Action Scheduler log and retry or clear them:"
-msgstr ""
-
 #: includes/Admin/ToolsTab.php:165
 msgid "View the Action Scheduler log"
 msgstr ""
 
 #: includes/Admin/ToolsTab.php:170
 msgid "WordPress cron is disabled on this site. Background tasks are keeping up, which means a system cron is already driving them. No action needed."
-msgstr ""
-
-#. translators: %d: number of tasks waiting to run.
-#: includes/Admin/ToolsTab.php:178
-#, php-format
-msgid "Status: running automatically. %d task(s) are waiting and will process on the next site activity."
 msgstr ""
 
 #: includes/Admin/ToolsTab.php:182
@@ -16733,15 +16703,6 @@ msgstr ""
 
 #: includes/Moderation/ModerationListener.php:858
 msgid "BuddyNext: Moderation queue threshold reached"
-msgstr ""
-
-#. translators: %1$d: current queue count, %2$d: configured threshold
-#: includes/Moderation/ModerationListener.php:861
-#, php-format
-msgid ""
-"Your BuddyNext moderation queue currently has %1$d pending or escalated report(s), which meets or exceeds the configured alert threshold of %2$d.\n"
-"\n"
-"Please review the queue at your earliest convenience."
 msgstr ""
 
 #: includes/Moderation/ModerationLogService.php:317
@@ -28061,3 +28022,57 @@ msgstr ""
 msgctxt "block keyword"
 msgid "topics"
 msgstr ""
+
+#: includes/Core/AssetService.php:1893
+msgid "Avatar preview. Use the arrow keys to move the picture."
+msgstr ""
+
+#: includes/Core/Installer.php:4299
+msgid "Open Discussion"
+msgstr ""
+
+#: includes/Core/Installer.php:4301
+msgid "A community space for open conversation."
+msgstr ""
+
+#: includes/Admin/EmailLog.php:146
+#, php-format
+msgid "%s email failed in the last 24 hours. This usually means the site has no working mailer (SMTP plugin or server MTA). Members are not receiving verification, invite, 2FA or notification email."
+msgid_plural "%s emails failed in the last 24 hours. This usually means the site has no working mailer (SMTP plugin or server MTA). Members are not receiving verification, invite, 2FA or notification email."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Admin/ToolsTab.php:128
+#, php-format
+msgid "This site cannot make a loopback request to itself, so the background-task runner never starts, and %d scheduled task is overdue. This is usually a firewall, a localhost DNS issue, or HTTP authentication on staging. Add a server-level cron job so the queue is processed regardless:"
+msgid_plural "This site cannot make a loopback request to itself, so the background-task runner never starts, and %d scheduled tasks are overdue. This is usually a firewall, a localhost DNS issue, or HTTP authentication on staging. Add a server-level cron job so the queue is processed regardless:"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Admin/ToolsTab.php:134
+#, php-format
+msgid "WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled task is overdue. Add a server-level cron job so the queue is processed:"
+msgid_plural "WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled tasks are overdue. Add a server-level cron job so the queue is processed:"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Admin/ToolsTab.php:159
+#, php-format
+msgid "%d scheduled task failed and will not run again on its own. Review the failures in the Action Scheduler log and retry or clear it:"
+msgid_plural "%d scheduled tasks failed and will not run again on their own. Review the failures in the Action Scheduler log and retry or clear them:"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Admin/ToolsTab.php:178
+#, php-format
+msgid "Status: running automatically. %d task is waiting and will process on the next site activity."
+msgid_plural "Status: running automatically. %d tasks are waiting and will process on the next site activity."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Moderation/ModerationListener.php:861
+#, php-format
+msgid "Your BuddyNext moderation queue currently has %1$d pending or escalated report, which meets or exceeds the configured alert threshold of %2$d.\n\nPlease review the queue at your earliest convenience."
+msgid_plural "Your BuddyNext moderation queue currently has %1$d pending or escalated reports, which meet or exceed the configured alert threshold of %2$d.\n\nPlease review the queue at your earliest convenience."
+msgstr[0] ""
+msgstr[1] ""
