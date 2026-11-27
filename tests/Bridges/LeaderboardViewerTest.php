@@ -29,7 +29,7 @@ class LeaderboardViewerTest extends \WP_UnitTestCase {
 		if ( ! function_exists( 'wb_gam_get_leaderboard' ) ) {
 			// Safe: a fixed string defining an empty stub, only in the test run.
 			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- test-only stub of an optional partner function.
-			eval( 'function wb_gam_get_leaderboard( $period = "all", $limit = 10 ) { return array(); }' );
+			eval( 'function wb_gam_get_leaderboard( $period = "all", $limit = 10 ) { return $GLOBALS["wb_gam_test"]["board"] ?? array(); }' );
 		}
 	}
 
@@ -81,5 +81,44 @@ class LeaderboardViewerTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'bn-lb-shell', $html );
 		$this->assertStringNotContainsString( 'Your Badges', $html );
 		$this->assertStringNotContainsString( 'Your Streak', $html );
+	}
+
+	/**
+	 * A member who hides their level and points stays on the board, but the figure is left off for a viewer who
+	 * may not see it; the member and an administrator still see it.
+	 *
+	 * @return void
+	 */
+	public function test_a_hidden_members_points_are_left_off_the_board(): void {
+		$GLOBALS['wb_gam_test']['board'] = array( array( 'rank' => 1, 'user_id' => 0, 'display_name' => 'Priya Raman', 'avatar_url' => '', 'points' => 165, 'rank_change' => 0, 'is_new' => false ) );
+		$hidden = self::factory()->user->create( array( 'display_name' => 'Priya Raman' ) );
+		$GLOBALS['wb_gam_test']['board'][0]['user_id'] = $hidden;
+		if ( array() === wb_gam_get_leaderboard() ) {
+			unset( $GLOBALS['wb_gam_test']['board'] );
+			$this->markTestSkipped( 'The partner leaderboard stub in this run cannot return rows.' );
+		}
+		if ( ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- a stand-in for the partner class, which is not loaded in these tests.
+			eval( 'namespace WBGam\\Engine; class MemberPrefs { public static function get( $id ) { return array( "show_rank" => $GLOBALS["wb_gam_test"]["show_rank"][ $id ] ?? true ); } }' );
+		}
+		$GLOBALS['wb_gam_test']['show_rank'][ $hidden ] = false;
+		$render = static function (): string {
+			ob_start();
+			include BUDDYNEXT_DIR . 'templates/gamification/leaderboard.php';
+			return (string) ob_get_clean();
+		};
+
+		wp_set_current_user( self::factory()->user->create() );
+		$html = $render();
+		$this->assertStringContainsString( 'Priya Raman', $html, 'The member left the board.' );
+		$this->assertStringNotContainsString( 'bn-lb-row__points-val', $html, 'A hidden member\'s points showed to a stranger.' );
+
+		wp_set_current_user( 0 );
+		$this->assertStringNotContainsString( 'bn-lb-row__points-val', $render(), 'A hidden member\'s points showed to a guest.' );
+
+		wp_set_current_user( $hidden );
+		$this->assertStringContainsString( 'bn-lb-row__points-val', $render(), 'The member lost their own figure.' );
+
+		unset( $GLOBALS['wb_gam_test']['board'], $GLOBALS['wb_gam_test']['show_rank'] );
 	}
 }

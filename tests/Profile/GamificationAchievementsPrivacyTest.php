@@ -235,4 +235,39 @@ class GamificationAchievementsPrivacyTest extends \WP_UnitTestCase {
 
 		unset( $GLOBALS['wb_gam_test']['show_rank'] );
 	}
+
+	/**
+	 * The REST feed item carries the card's stored facts, so the level is dropped there too for a viewer who may
+	 * not see it (the app reads this JSON, not the rendered card).
+	 *
+	 * @return void
+	 */
+	public function test_show_points_off_drops_the_level_from_the_rest_card_facts(): void {
+		if ( ! class_exists( '\\WBGam\\Engine\\MemberPrefs' ) ) {
+			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- a stand-in for the partner class, which is not loaded in these tests.
+			eval( 'namespace WBGam\\Engine; class MemberPrefs { public static function get( $id ) { return array( "show_rank" => $GLOBALS["wb_gam_test"]["show_rank"][ $id ] ?? true ); } }' );
+		}
+		$bridge = new \BuddyNext\Bridges\GamificationBridge();
+		add_filter( 'buddynext_integration_card_types', static fn( $t ) => $t + array( 'badge' => array( 'label' => 'Badge', 'icon' => 'award' ) ) );
+		add_filter( 'buddynext_card_facts', array( $bridge, 'drop_points_fact' ), 10, 3 );
+
+		$item = array(
+			'id'        => 987654,
+			'type'      => 'badge',
+			'user_id'   => $this->owner_id,
+			'link_meta' => array( 'facts' => array( array( 'icon' => 'award', 'text' => 'Member' ), array( 'icon' => 'tag', 'text' => 'Helper' ) ) ),
+		);
+		$GLOBALS['wb_gam_test']['show_rank'][ $this->owner_id ] = false;
+
+		wp_set_current_user( self::factory()->user->create() );
+		$out = \BuddyNext\Feed\IntegrationActivity::enrich_item( $item, get_current_user_id() );
+		$this->assertCount( 1, $out['link_meta']['facts'], 'The level stayed in the REST link_meta facts.' );
+
+		wp_set_current_user( $this->owner_id );
+		$out = \BuddyNext\Feed\IntegrationActivity::enrich_item( $item, $this->owner_id );
+		$this->assertCount( 2, $out['link_meta']['facts'], 'The member lost their own level.' );
+
+		remove_filter( 'buddynext_card_facts', array( $bridge, 'drop_points_fact' ), 10 );
+		unset( $GLOBALS['wb_gam_test']['show_rank'] );
+	}
 }

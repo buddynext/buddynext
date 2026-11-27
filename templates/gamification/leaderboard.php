@@ -669,10 +669,17 @@ $period_tabs = array(
 							<span aria-hidden="true"></span>
 						<?php endif; ?>
 
-						<div class="bn-lb-row__points">
-							<span class="bn-lb-row__points-val"><?php echo esc_html( $pts_formatted ); ?></span>
-							<span class="bn-lb-row__points-unit"><?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( (int) ( $row['points'] ?? 0 ) ) ); ?></span>
-						</div>
+						<?php
+						// A member who hides their level and points stays on the board with their rank; the figure is left off for everyone who may not see it.
+						if ( \BuddyNext\Bridges\GamificationBridge::can_view_points( (int) $uid ) ) :
+							?>
+							<div class="bn-lb-row__points">
+								<span class="bn-lb-row__points-val"><?php echo esc_html( $pts_formatted ); ?></span>
+								<span class="bn-lb-row__points-unit"><?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( (int) ( $row['points'] ?? 0 ) ) ); ?></span>
+							</div>
+						<?php else : ?>
+							<div class="bn-lb-row__points" aria-hidden="true"></div>
+						<?php endif; ?>
 
 						<?php if ( $is_self ) : ?>
 							<span class="bn-lb-row__delta" data-trend="<?php echo esc_attr( $trend ); ?>">

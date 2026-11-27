@@ -981,6 +981,12 @@ class IntegrationActivity {
 		if ( ! in_array( $type, self::live_types(), true ) ) {
 			return $item;
 		}
+		// The stored facts are a publish-time snapshot a client can read as-is, so they pass the same filter the rendered card does.
+		$meta = self::link_meta_of( $item );
+		if ( ! empty( $meta['facts'] ) && is_array( $meta['facts'] ) && isset( $item['link_meta'] ) ) {
+			$meta['facts']     = array_values( (array) apply_filters( 'buddynext_card_facts', $meta['facts'], $type, $meta + array( 'user_id' => (int) ( $item['user_id'] ?? 0 ) ) ) );
+			$item['link_meta'] = $meta;
+		}
 		$resolved     = self::resolve( $type, array(), self::link_meta_of( $item ), (int) ( $item['id'] ?? 0 ) );
 		$item['card'] = $resolved;
 		return $item;
