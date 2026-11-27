@@ -309,6 +309,8 @@ class JetonomyBridge {
 		// meta listener is always on: it also resets the forum => space lookup memo.
 		add_action( 'added_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
 		add_action( 'updated_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
+		// A forum deleted from Jetonomy's own screens or REST must not leave its Space pointing at a forum that is gone.
+		add_action( 'jetonomy_space_purged', array( $this, 'on_forum_purged' ), 10, 1 );
 		if ( class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
 			add_action( self::GRANT_MEMBERS_HOOK, array( $this, 'grant_space_members' ), 10, 3 );
 			add_action( 'buddynext_space_member_joined', array( $this, 'grant_forum_access' ), 10, 2 );
@@ -2948,6 +2950,23 @@ class JetonomyBridge {
 		 * @param int $forum_id Jetonomy forum that was linked.
 		 */
 		do_action( 'buddynext_space_discussion_unlinked', $space_id, $forum_id );
+	}
+
+	/**
+	 * Unlink the Space of a forum that Jetonomy has just deleted, so the Space shows no Discussion and offers a new one.
+	 *
+	 * @since 1.3.1
+	 *
+	 * @param int|string $forum_id Jetonomy forum id that was purged.
+	 * @return void
+	 */
+	public function on_forum_purged( $forum_id ): void {
+		$forum_id = absint( $forum_id );
+		unset( self::$forum_space_memo[ $forum_id ] );
+		$space_id = $this->space_id_for_forum( $forum_id );
+		if ( $space_id > 0 && $this->forum_id_for_space( $space_id ) === $forum_id ) {
+			$this->unlink_space_discussion( $space_id );
+		}
 	}
 
 	/**

@@ -11,7 +11,7 @@ BuddyNext uses the official WordPress Interactivity API (`@wordpress/interactivi
 Three rules govern every interactive surface:
 
 1. **Declarative by default.** Controls bind to store actions and state through `data-wp-on--*`, `data-wp-bind--*`, and `data-wp-text` attributes. The Interactivity API re-hydrates these automatically, including after a client-side navigation, so they need no re-init code.
-2. **REST-only data.** Every frontend read and mutation goes through the shared REST client (`restFetch`), never `admin-ajax.php` and never a scattered raw `fetch()`. The client centralizes the nonce, stale-nonce recovery, and error toasts.
+2. **REST-only data.** Every frontend read and mutation goes through the shared REST client (`restFetch`), never `admin-ajax.php` and never a scattered raw `fetch()` for ordinary reads and writes. The client centralizes the nonce, stale-nonce recovery, and error toasts.
 3. **Navigation-safe imperative code.** Any unavoidable imperative setup is registered through `onNavReady()` so it runs on initial load and again after every client-side swap. Code bound only to `DOMContentLoaded` silently dies after the first navigation.
 
 The full normative standard lives in `docs/standards/frontend-interactivity.md` (v1.0; reference implementation Jetonomy 1.5.0). This page documents how BuddyNext implements it.
@@ -177,7 +177,7 @@ These all break after a client-side navigation, which is the failure mode the st
 - **`wp_add_inline_script(..., 'after')` or inline `<script>`** driving region behavior. Inline scripts in a swapped fragment do not execute. Move the logic into the store or an `onNavReady()` init.
 - **`DOMContentLoaded`-only handlers** that target region content. Use `onNavReady()` so they re-run after each swap.
 - **Element-bound `el.addEventListener(...)`** on content that gets swapped, without a re-init. Prefer declarative `data-wp-on--*`, or document-delegated listeners, or `onNavReady()`.
-- **Raw `fetch()` on the frontend** with ad-hoc nonce handling. Route everything through `restFetch`; raw `fetch` is allowed only inside the REST client and the service worker.
+- **Raw `fetch()` on the frontend** with ad-hoc nonce handling. Route everything through `restFetch`; raw `fetch` is allowed only inside the REST client, the service worker, and the few places that send a file or need their own request options: the media and composer uploads (`assets/js/media/file-upload.js`, `assets/js/feed/composer.js`), the Space files permission calls (`assets/js/space-files/store.js`), the header user menu panel (`assets/js/header/user-menu.js`) and the block editor previews (`assets/js/blocks.js`). Those calls still send the REST nonce and go to REST routes.
 - **Native `alert()` / `confirm()`.** Use `bnToast` / `bnConfirm` from `shell/dialog.js`.
 - **`window` globals for stores** (`window.wp.interactivity.store(...)`). Always import `store` from `@wordpress/interactivity`.
 

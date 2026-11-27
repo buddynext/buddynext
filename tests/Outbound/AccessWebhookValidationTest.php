@@ -538,7 +538,6 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 		( new \BuddyNext\Admin\Settings() )->register();
 		delete_option( $opt );
 		delete_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ROLE_REVIEWED );
-		delete_transient( 'buddynext_webhook_set_role_used' );
 		$this->assertFalse( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention(), 'A site that never used it is not nagged.' );
 
 		$refused = $this->call( $role );
@@ -561,12 +560,12 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 
 		// A site whose log shows a role change from before the update.
 		\BuddyNext\Outbound\WebhookLog::write( 'set_role', $this->user_id, array( 'role' => 'moderator' ) );
-		delete_transient( 'buddynext_webhook_set_role_used' );
 		$this->assertTrue( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention() );
 
 		// The owner allows it.
 		update_option( $opt, 1 );
 		$this->assertFalse( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention(), 'Once chosen, no more notice.' );
+		$this->assertFalse( get_transient( 'buddynext_webhook_set_role_used' ), 'No transient holds the answer.' );
 		$this->assertSame( 200, $this->call( $role )->get_status() );
 		$this->assertSame( 'moderator', get_user_meta( $this->user_id, 'bn_community_role', true ) );
 		$this->assertSame( 200, $this->call( array( 'user_id' => $this->user_id, 'action' => 'grant_ability', 'ability' => 'buddynext-profile/edit-any' ) )->get_status(), 'Allowed with the switch on.' );
