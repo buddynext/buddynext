@@ -110,7 +110,7 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - A plan-gated Space's forum is private, and wp buddynext repair-discussion-visibility fixes forums linked before this release.
 * Fix      - A suspended member sees one banner with the reason and a link to appeal, and Skip setup works with JavaScript off.
 * Fix      - A guest no longer learns of private pictures over REST, and a suspended member's Media tab shows nothing.
-* Fix      - The avatar cropper and the emoji picker work from the keyboard: focus moves in, Tab stays inside, the arrow keys move, and focus returns to the control that opened them.
+* Fix      - The avatar cropper and the emoji picker work from the keyboard: focus moves in, the arrow keys move, Tab stays inside the cropper, and Tab or Escape closes the emoji picker and returns focus to the button that opened it.
 * Fix      - Dialogs hold Tab correctly in Safari and on iPad, and a mistyped email setting is refused with a message instead of being emptied under "Settings saved".
 * Fix      - A suspended member no longer gets an error toast on every page, and the Arabic sign-up page no longer scrolls sideways.
 * Fix      - Buttons, switches and filter rows are 40px tall on a phone, and text longer than its field ends in an ellipsis.
