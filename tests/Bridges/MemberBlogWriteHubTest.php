@@ -624,4 +624,36 @@ class MemberBlogWriteHubTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'data-bn-crop-min="' . \BuddyNext\Feed\ArticleImage::COVER_MIN_W . '"', $html, 'The size floor comes from the card rule.' );
 		$this->assertStringContainsString( 'Wide photos work best.', $html );
 	}
+
+	public function test_held_members_cannot_delete_articles(): void {
+		$writer = $this->writer();
+		$this->assertTrue( apply_filters( 'bpmb_can_delete_post', true, 1, $writer ) );
+		foreach ( array( 'suspended', 'pending' ) as $hold ) {
+			$this->assertFalse( apply_filters( 'bpmb_can_delete_post', true, 1, $this->held_writer( $hold ) ), "Delete, $hold." );
+		}
+	}
+
+	public function test_held_members_cannot_upload_or_add_categories_over_rest(): void {
+		$routes = array( '/wbcom-member-blog/v1/upload-image', '/wbcom-member-blog/v1/attach-image', '/wbcom-member-blog/v1/categories' );
+
+		wp_set_current_user( $this->held_writer( 'suspended' ) );
+		foreach ( $routes as $route ) {
+			$result = $this->bridge->refuse_held_rest_writes( null, null, new \WP_REST_Request( 'POST', $route ) );
+			$this->assertWPError( $result, $route );
+			$this->assertSame( 403, $result->get_error_data()['status'] );
+		}
+		$this->assertNull( $this->bridge->refuse_held_rest_writes( null, null, new \WP_REST_Request( 'GET', '/wbcom-member-blog/v1/categories' ) ), 'reading is not refused' );
+		$this->assertNull( $this->bridge->refuse_held_rest_writes( null, null, new \WP_REST_Request( 'POST', '/wbcom-member-blog/v1/bookmarks' ) ), 'other routes are left to their own checks' );
+
+		wp_set_current_user( $this->writer() );
+		$this->assertNull( $this->bridge->refuse_held_rest_writes( null, null, new \WP_REST_Request( 'POST', $routes[0] ) ), 'a writer passes' );
+	}
+
+	public function test_the_browser_tab_says_my_reading_for_a_non_writer(): void {
+		wp_set_current_user( self::factory()->user->create() );
+		$this->visit( $this->dashboard_page );
+		$this->bridge->route_write_pages();
+		$this->assertSame( MemberBlogBridge::write_hub_heading(), $this->bridge->write_document_title( 'My Blog Dashboard', MemberBlogBridge::WRITE_HUB ) );
+		$this->assertSame( 'My reading', $this->bridge->write_document_title( 'My Blog Dashboard', MemberBlogBridge::WRITE_HUB ) );
+	}
 }

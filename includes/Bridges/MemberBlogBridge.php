@@ -572,11 +572,19 @@ class MemberBlogBridge {
 	 * @return string
 	 */
 	public static function write_hub_heading(): string {
+		return self::is_reading_view() ? __( 'My reading', 'buddynext' ) : __( 'Write a post', 'buddynext' );
+	}
+
+	/**
+	 * Whether the write hub shows Member Blog's reading view: the dashboard, for a
+	 * member who cannot write and is not held. The heading and the browser tab
+	 * both ask this, so they always name the same page.
+	 *
+	 * @return bool
+	 */
+	private static function is_reading_view(): bool {
 		$page = self::write_hub_page();
-		if ( $page instanceof \WP_Post && array() === self::write_hub_tabs() && self::write_pages()['dashboard'] === (int) $page->ID && '' === self::write_hold( get_current_user_id() ) ) {
-			return __( 'My reading', 'buddynext' );
-		}
-		return __( 'Write a post', 'buddynext' );
+		return $page instanceof \WP_Post && array() === self::write_hub_tabs() && self::write_pages()['dashboard'] === (int) $page->ID && '' === self::write_hold( get_current_user_id() );
 	}
 
 	/**
@@ -820,6 +828,9 @@ class MemberBlogBridge {
 		}
 		// What the page says, not Member Blog's page names: the post page's heading,
 		// and the dashboard's tab.
+		if ( self::is_reading_view() ) {
+			return __( 'My reading', 'buddynext' );
+		}
 		return self::write_pages()['dashboard'] === $page->ID ? __( 'My articles', 'buddynext' ) : __( 'Write a post', 'buddynext' );
 	}
 
