@@ -3154,14 +3154,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	color: var(--bn-ink);
 	box-shadow: inset 0 -2px 0 var(--bn-accent);
 }
-.bn-composer-switch__tab:focus-visible {
-	outline: 2px solid transparent;
-	border-radius: var(--bn-r-sm);
-	box-shadow: var(--bn-ring);
-}
-.bn-composer-switch__tab[aria-selected="true"]:focus-visible {
-	box-shadow: var(--bn-ring), inset 0 -2px 0 var(--bn-accent);
-}
 .bn-composer-article__lede {
 	margin: 0 0 var(--bn-s3);
 	color: var(--bn-ink-2);
@@ -3219,6 +3211,22 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 		block-size: 44px;
 	}
 }
+/* One focus ring for the composer's tabs, links, tools, audience and buttons: 2px accent, 3px off the control.
+	The selected tab keeps its underline (an inset shadow), which the outline does not touch. */
+.bn-composer-switch__tab:focus-visible,
+.bn-composer-switch__link:focus-visible,
+.bn-composer__tool:focus-visible,
+.bn-composer__privacy:focus-visible,
+.bn-composer__privacy-chip:focus-visible,
+.bn-btn.bn-composer__submit:focus-visible,
+.bn-btn.bn-composer-article__start:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 3px;
+	box-shadow: none;
+}
+.bn-composer-switch__tab[aria-selected="true"]:focus-visible {
+	box-shadow: inset 0 -2px 0 var(--bn-accent);
+}
 .bn-composer-switch__links {
 	display: flex;
 	flex-wrap: wrap;
@@ -3243,11 +3251,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 }
 .bn-composer-switch__link:hover {
 	text-decoration: underline;
-}
-.bn-composer-switch__link:focus-visible {
-	outline: 2px solid transparent;
-	border-radius: var(--bn-r-sm);
-	box-shadow: var(--bn-ring);
 }
 .bn-composer-switch__count {
 	padding-inline: var(--bn-s2);
@@ -3718,7 +3721,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	/* Geometry (size/padding/border) is locked once in bn-base.css under .bn-app
 	   (theme-proof interactive controls) — base == hover, so no per-state lock. */
 }
-.bn-composer__tool:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: var(--bn-ring); }
 .bn-composer__tool .bn-icon,
 .bn-composer__tool svg { width: 18px; height: 18px; }
 
@@ -3738,11 +3740,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	color: var(--bn-ink-2);
 	cursor: pointer;
 	flex-shrink: 0;
-}
-.bn-composer__privacy:focus-visible {
-	outline: 2px solid transparent;
-	outline-offset: 2px;
-	border-color: var(--brand);
 }
 
 .bn-composer__submit:disabled,

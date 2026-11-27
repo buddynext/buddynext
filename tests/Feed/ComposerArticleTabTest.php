@@ -355,4 +355,14 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'placeholder="What&#039;s on your mind, Grace?"', $html );
 		$this->assertStringNotContainsString( 'Grace Hopper?', $html );
 	}
+
+	public function test_composer_controls_share_one_accent_focus_outline(): void {
+		$css = (string) file_get_contents( dirname( __DIR__, 2 ) . '/assets/css/bn-feed.css' );
+
+		$this->assertMatchesRegularExpression(
+			'/\.bn-composer-switch__tab:focus-visible,[^{]*\.bn-composer__tool:focus-visible,[^{]*\{[^}]*outline: 2px solid var\(--bn-accent\);\s*outline-offset: 3px;/s',
+			$css
+		);
+		$this->assertDoesNotMatchRegularExpression( '/\.bn-composer-switch__tab:focus-visible \{[^}]*var\(--bn-ring\)/s', $css, 'The tab no longer uses the box-shadow ring.' );
+	}
 }
