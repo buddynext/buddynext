@@ -3047,11 +3047,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	}
 }
 
+.bn-composer,
+.bn-composer-switch {
+	/* The composer card corner: 16px at the default theme radius, scaled with it. */
+	--bn-r-card: calc(var(--bn-radius-base) * 1.6);
+}
+
 .bn-composer {
 	position: relative;
 	background: var(--bn-surface);
-	border: 1px solid var(--border);
-	border-radius: var(--bn-r-lg);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-card);
+	box-shadow: var(--bn-shadow-xs);
 	padding: var(--bn-s4) var(--bn-s5) var(--bn-s3);
 	display: flex;
 	gap: var(--bn-s3);
@@ -3062,15 +3069,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	switch is the card; the post composer inside it drops its own frame so the
 	two panels share one surface. */
 .bn-composer-switch {
+	--bn-composer-pad-x: var(--bn-s5);
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-lg);
-	padding: var(--bn-s3) var(--bn-s5) var(--bn-s3);
+	border-radius: var(--bn-r-card);
+	box-shadow: var(--bn-shadow-xs);
+	padding: 0 var(--bn-composer-pad-x) var(--bn-s3);
 }
 .bn-composer-switch .bn-composer {
 	background: none;
 	border: 0;
 	border-radius: 0;
+	box-shadow: none;
 	padding: 0;
 }
 /* Both panels share one grid cell, so the card is always as tall as the taller panel and the
@@ -3099,7 +3109,11 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--bn-s1) var(--bn-s4);
+	/* Its own header line: a 1px divider across the full card width, so the head bleeds out to the card's edges. */
+	margin-inline: calc(-1 * var(--bn-composer-pad-x));
 	margin-block-end: var(--bn-s3);
+	padding-inline: var(--bn-composer-pad-x);
+	border-block-end: 1px solid var(--bn-line);
 }
 .bn-composer-switch__head[hidden] {
 	display: none;
@@ -4054,7 +4068,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	.bn-composer__link-thumb { width: 72px; }
 
 	/* Post / Article: the text tabs keep their own width on the header line; the links wrap under them. */
-	.bn-composer-switch { padding: var(--bn-s3); }
+	.bn-composer-switch { --bn-composer-pad-x: var(--bn-s3); padding-block-end: var(--bn-s3); }
 	/* The links wrap under the tabs on a phone: show them in both modes so the card keeps one height
 		and there is no blank band, whichever tab is selected. */
 	.bn-composer-switch__links[hidden] { display: flex !important; visibility: visible; pointer-events: auto; }
