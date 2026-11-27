@@ -9,7 +9,11 @@
  * discussion, wherever a member happens to be standing.
  *
  * So a comment left on the post shows up under the card, and a comment left on
- * the card shows up under the post.
+ * the card shows up under the post. The pair then stays one comment: an edit,
+ * a reply, a takedown or a moderation decision on either side reaches the other.
+ * On the post a WordPress moderation status (held, spam, trash) hides the card
+ * copy until it is approved again; a permanent delete removes it. On the card an
+ * edit rewrites the post copy and a delete moves it to the trash.
  *
  * The mechanism is the one the Jetonomy forum bridge already uses for
  * discussion cards: `bn_comments.sync_reply_id` holds the paired id, resolved
@@ -50,7 +54,11 @@ class BlogCommentSync implements ListenerInterface {
 	 */
 	public function register(): void {
 		add_action( 'wp_insert_comment', array( $this, 'sync_wp_comment_to_card' ), 10, 2 );
+		add_action( 'transition_comment_status', array( $this, 'sync_wp_status_to_card' ), 10, 3 );
+		add_action( 'edit_comment', array( $this, 'sync_wp_edit_to_card' ), 10, 1 );
 		add_action( 'buddynext_comment_created', array( $this, 'sync_card_comment_to_post' ), 10, 4 );
+		add_action( 'buddynext_comment_updated', array( $this, 'sync_card_edit_to_post' ), 10, 1 );
+		add_action( 'buddynext_comment_deleted', array( $this, 'sync_card_delete_to_post' ), 10, 1 );
 	}
 
 	/**
@@ -108,12 +116,18 @@ class BlogCommentSync implements ListenerInterface {
 		if ( $card_id <= 0 ) {
 			return; // This post has no feed card - nothing to mirror onto.
 		}
+		if ( null !== $this->card_copy( (int) $comment_id, $card_id ) ) {
+			return; // Already on the card (an approval after an earlier mirror).
+		}
 
+		// A reply on the post stays a reply on the card, under the parent's copy.
+		$parent        = (int) $comment->comment_parent > 0 ? $this->card_copy( (int) $comment->comment_parent, $card_id ) : null;
+		$parent_id     = null !== $parent ? (int) $parent['id'] : null;
 		self::$syncing = true;
 		$comments      = new CommentService();
 		// CommentService applies its own permission gate and sanitizes; a
 		// WP_Error simply means no mirrored comment.
-		$bn_comment_id = $comments->create( $author_id, 'post', $card_id, $content );
+		$bn_comment_id = $comments->create( $author_id, 'post', $card_id, $content, $parent_id );
 		if ( ! is_wp_error( $bn_comment_id ) && (int) $bn_comment_id > 0 ) {
 			$comments->set_sync_reply_id( (int) $bn_comment_id, (int) $comment_id );
 		}
@@ -157,25 +171,228 @@ class BlogCommentSync implements ListenerInterface {
 			return;
 		}
 
+		// A reply on the card stays a reply on the post, under the parent's copy.
+		$parent = ! empty( $comment['parent_id'] ) ? $this->post_copy( (int) $comment['parent_id'], $post_id ) : null;
+
 		self::$syncing = true;
+		// wp_insert_comment() unslashes what it is given, so the text is slashed
+		// first or a backslash the member typed would be lost.
 		$wp_comment_id = wp_insert_comment(
-			array(
-				'comment_post_ID'      => $post_id,
-				'user_id'              => (int) $user_id,
-				'comment_author'       => $user->display_name,
-				'comment_author_email' => $user->user_email,
-				'comment_content'      => $content,
-				'comment_type'         => 'comment',
-				// Mirrored from a member who already passed the community's own
-				// permission gate, so it enters approved rather than sitting in
-				// a queue the article author may never look at.
-				'comment_approved'     => 1,
+			wp_slash(
+				array(
+					'comment_post_ID'      => $post_id,
+					'comment_parent'       => null !== $parent ? (int) $parent->comment_ID : 0,
+					'user_id'              => (int) $user_id,
+					'comment_author'       => $user->display_name,
+					'comment_author_email' => $user->user_email,
+					'comment_content'      => $content,
+					'comment_type'         => 'comment',
+					// Mirrored from a member who already passed the community's own
+					// permission gate, so it enters approved rather than sitting in
+					// a queue the article author may never look at.
+					'comment_approved'     => 1,
+				)
 			)
 		);
 		if ( $wp_comment_id ) {
 			( new CommentService() )->set_sync_reply_id( (int) $comment_id, (int) $wp_comment_id );
 		}
 		self::$syncing = false;
+	}
+
+	/**
+	 * A moderation decision on the post comment reaches its card copy.
+	 *
+	 * Held, spam or trash hides the copy (reversible, as it is on the post);
+	 * approval shows it again, or mirrors it for the first time when it was held
+	 * from the start; a permanent delete takes the copy down for good.
+	 *
+	 * @param string      $new_status New status: approved, unapproved, spam, trash or delete.
+	 * @param string      $old_status Previous status.
+	 * @param \WP_Comment $comment    The comment.
+	 * @return void
+	 */
+	public function sync_wp_status_to_card( $new_status, $old_status, $comment ): void {
+		unset( $old_status );
+		if ( ! buddynext_is_community_site() || self::$syncing || ! $this->sync_enabled() || ! $comment instanceof \WP_Comment ) {
+			return;
+		}
+
+		$card_id = $this->card_id_for_post( (int) $comment->comment_post_ID );
+		if ( $card_id <= 0 ) {
+			return;
+		}
+		$copy = $this->card_copy( (int) $comment->comment_ID, $card_id );
+
+		if ( 'approved' === $new_status ) {
+			if ( null === $copy ) {
+				$this->sync_wp_comment_to_card( (int) $comment->comment_ID, $comment );
+				return;
+			}
+			$comments      = new CommentService();
+			self::$syncing = true;
+			if ( ! empty( $copy['is_deleted'] ) ) {
+				$comments->restore( (int) $copy['id'], (string) $comment->comment_content );
+			} else {
+				$comments->set_hidden( (int) $copy['id'], false );
+			}
+			self::$syncing = false;
+			return;
+		}
+
+		if ( null === $copy || ! empty( $copy['is_deleted'] ) ) {
+			return;
+		}
+
+		$comments      = new CommentService();
+		self::$syncing = true;
+		if ( 'delete' === $new_status ) {
+			$comments->soft_delete( (int) $copy['id'], 0 );
+		} else {
+			$comments->set_hidden( (int) $copy['id'], true );
+		}
+		self::$syncing = false;
+	}
+
+	/**
+	 * An edit to the post comment rewrites its card copy.
+	 *
+	 * Runs as the copy's own author, so CommentService's ownership gate passes and
+	 * its content rules (banned words) still apply.
+	 *
+	 * @param int $comment_id Edited WP comment id.
+	 * @return void
+	 */
+	public function sync_wp_edit_to_card( $comment_id ): void {
+		if ( ! buddynext_is_community_site() || self::$syncing || ! $this->sync_enabled() ) {
+			return;
+		}
+		$comment = get_comment( (int) $comment_id );
+		if ( ! $comment instanceof \WP_Comment ) {
+			return;
+		}
+		$card_id = $this->card_id_for_post( (int) $comment->comment_post_ID );
+		$copy    = $card_id > 0 ? $this->card_copy( (int) $comment->comment_ID, $card_id ) : null;
+		$content = trim( (string) $comment->comment_content );
+		if ( null === $copy || ! empty( $copy['is_deleted'] ) || '' === $content ) {
+			return;
+		}
+
+		self::$syncing = true;
+		( new CommentService() )->update( (int) $copy['id'], (int) $copy['user_id'], $content );
+		self::$syncing = false;
+	}
+
+	/**
+	 * An edit on the card rewrites the post copy.
+	 *
+	 * @param int $comment_id Edited BuddyNext comment id.
+	 * @return void
+	 */
+	public function sync_card_edit_to_post( $comment_id ): void {
+		if ( self::$syncing || ! $this->sync_enabled() ) {
+			return;
+		}
+		$wp_comment = $this->post_copy_of( (int) $comment_id );
+		$comment    = null !== $wp_comment ? ( new CommentService() )->get( (int) $comment_id ) : null;
+		$content    = null !== $comment ? trim( (string) ( $comment['content'] ?? '' ) ) : '';
+		if ( null === $wp_comment || '' === $content ) {
+			return;
+		}
+
+		self::$syncing = true;
+		wp_update_comment(
+			wp_slash(
+				array(
+					'comment_ID'      => (int) $wp_comment->comment_ID,
+					'comment_content' => $content,
+				)
+			)
+		);
+		self::$syncing = false;
+	}
+
+	/**
+	 * A delete on the card (by its author, an admin or a moderator) moves the post
+	 * copy to the trash, so the text is no longer public and can still be restored.
+	 *
+	 * @param int $comment_id Deleted BuddyNext comment id.
+	 * @return void
+	 */
+	public function sync_card_delete_to_post( $comment_id ): void {
+		if ( self::$syncing || ! $this->sync_enabled() ) {
+			return;
+		}
+		$wp_comment = $this->post_copy_of( (int) $comment_id );
+		if ( null === $wp_comment || 'trash' === wp_get_comment_status( $wp_comment ) ) {
+			return;
+		}
+
+		self::$syncing = true;
+		wp_trash_comment( (int) $wp_comment->comment_ID );
+		self::$syncing = false;
+	}
+
+	/**
+	 * The card copy of a post comment: the card comment whose pair id is it.
+	 *
+	 * Scoped to the article's card because bn_comments.sync_reply_id also holds
+	 * forum reply ids for discussion cards, and the two id ranges overlap.
+	 *
+	 * @param int $wp_comment_id WP comment id.
+	 * @param int $card_id       The post's feed card id.
+	 * @return array{id:int,user_id:int,is_deleted:int}|null
+	 */
+	private function card_copy( int $wp_comment_id, int $card_id ): ?array {
+		global $wpdb;
+
+		if ( $wp_comment_id <= 0 || $card_id <= 0 ) {
+			return null;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, user_id, is_deleted FROM {$wpdb->prefix}bn_comments
+				  WHERE sync_reply_id = %d AND object_type = 'post' AND object_id = %d
+				  LIMIT 1",
+				$wp_comment_id,
+				$card_id
+			),
+			ARRAY_A
+		);
+
+		return is_array( $row ) ? array_map( 'intval', $row ) : null;
+	}
+
+	/**
+	 * The post copy of a card comment, when the card is an article card.
+	 *
+	 * @param int $comment_id BuddyNext comment id.
+	 * @return \WP_Comment|null
+	 */
+	private function post_copy_of( int $comment_id ): ?\WP_Comment {
+		$comment = $comment_id > 0 ? ( new CommentService() )->get( $comment_id ) : null;
+		if ( null === $comment || 'post' !== (string) $comment['object_type'] ) {
+			return null;
+		}
+		$post_id = $this->post_id_for_card( (int) $comment['object_id'] );
+
+		return $post_id > 0 ? $this->post_copy( $comment_id, $post_id ) : null;
+	}
+
+	/**
+	 * The WP comment paired with a card comment, checked to be on the article.
+	 *
+	 * @param int $comment_id BuddyNext comment id.
+	 * @param int $post_id    The article the card was published from.
+	 * @return \WP_Comment|null
+	 */
+	private function post_copy( int $comment_id, int $post_id ): ?\WP_Comment {
+		$wp_id      = ( new CommentService() )->get_sync_reply_id( $comment_id );
+		$wp_comment = $wp_id > 0 ? get_comment( $wp_id ) : null;
+
+		return $wp_comment instanceof \WP_Comment && (int) $wp_comment->comment_post_ID === $post_id ? $wp_comment : null;
 	}
 
 	/**
