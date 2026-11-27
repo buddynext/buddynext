@@ -2344,7 +2344,7 @@ class WPMediaVerseBridge {
 	 * @return bool
 	 */
 	private function sender_is_suspended( int $sender_id ): bool {
-		if ( $sender_id <= 0 || user_can( $sender_id, 'manage_options' ) || ! function_exists( 'buddynext_service' ) ) {
+		if ( $sender_id <= 0 || ! function_exists( 'buddynext_service' ) || buddynext_service( 'roles' )->can_moderate_site( $sender_id ) ) {
 			return false;
 		}
 		$moderation = buddynext_service( 'moderation' );

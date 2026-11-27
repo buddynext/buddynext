@@ -8,6 +8,8 @@ import { urls } from '../_fixtures/selectors';
  * left focus on the trigger and the arrow keys did nothing. Needs a feed card
  * whose menu has a hidden item ahead of the visible ones (another member's post).
  *
+ * J-77-post-edit-delete.
+ *
  * Roles: member
  */
 test.describe('feed / post menu keyboard focus', () => {

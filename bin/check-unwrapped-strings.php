@@ -138,7 +138,7 @@ function bn_html_candidates( string $html, array &$st ): array {
 				}
 			}
 			$st['mode'] = $st['raw'] && '/' !== substr( $st['tag'], -1 ) ? 'raw' : 'text';
-		} else { // raw: inside <script>/<style> until the closing tag.
+		} else { // raw: inside a script or style element until its closing tag.
 			if ( ! preg_match( '#</' . $st['raw'] . '\s*>#i', $html, $m, PREG_OFFSET_CAPTURE, $i ) ) {
 				break;
 			}

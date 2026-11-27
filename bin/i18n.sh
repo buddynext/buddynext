@@ -53,7 +53,7 @@ for po in "$LANGS"/*.po; do
 	[ -e "$po" ] || continue
 	# --no-fuzzy-matching: a wrong fuzzy guess silently ships a mistranslation.
 	# An untranslated string falls back to English, which is always safe.
-	msgmerge --quiet --update --backup=none --no-fuzzy-matching "$po" "$LANGS/$DOMAIN.pot"
+	msgmerge --quiet --update --backup=none --no-fuzzy-matching --no-wrap "$po" "$LANGS/$DOMAIN.pot"
 
 	# Keep the catalogue's version header honest — a .po claiming an old version
 	# is how a stale catalogue goes unnoticed for four releases.
