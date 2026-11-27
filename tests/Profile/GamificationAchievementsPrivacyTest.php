@@ -160,6 +160,28 @@ class GamificationAchievementsPrivacyTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * An unpublished badge carries no share link for another member; its owner keeps it.
+	 *
+	 * @return void
+	 */
+	public function test_unshared_badge_has_no_share_url_for_others(): void {
+		$GLOBALS['wb_gam_test']['badges'][ $this->owner_id ] = array(
+			array(
+				'id'        => 'welcome',
+				'name'      => 'Welcome',
+				'earned_at' => '2026-01-01 00:00:00',
+			),
+		);
+
+		$others = $this->read_as( self::factory()->user->create() );
+		$this->assertSame( '', $others['badges'][0]['share_url'] ?? null, 'no link to a badge the member has not shared' );
+
+		$own = $this->read_as( $this->owner_id );
+		$this->assertNotSame( '', $own['badges'][0]['share_url'] ?? '', 'the owner still gets the link' );
+		unset( $GLOBALS['wb_gam_test']['badges'][ $this->owner_id ] );
+	}
+
+	/**
 	 * "Show my level and points on my profile" switched off hides points, rank and level from everyone else, and
 	 * only from them: the member still sees their own standing.
 	 *

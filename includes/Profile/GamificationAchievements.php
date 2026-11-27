@@ -536,8 +536,9 @@ class GamificationAchievements {
 			);
 		}
 
-		$badges = array_map(
-			function ( array $badge ) use ( $member_id ): array {
+		$can_open = $this->badge_opener( $member_id );
+		$badges   = array_map(
+			function ( array $badge ) use ( $member_id, $can_open ): array {
 				$id = isset( $badge['id'] ) ? (string) $badge['id'] : '';
 				return array(
 					'id'            => $id,
@@ -545,7 +546,7 @@ class GamificationAchievements {
 					'image_url'     => isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '',
 					'is_credential' => ! empty( $badge['is_credential'] ),
 					'earned_at'     => isset( $badge['earned_at'] ) ? (string) $badge['earned_at'] : '',
-					'share_url'     => '' !== $id ? $this->badge_share_url( $id, $member_id ) : '',
+					'share_url'     => $can_open( $id ) ? $this->badge_share_url( $id, $member_id ) : '',
 				);
 			},
 			$this->badges( $member_id )
@@ -559,6 +560,28 @@ class GamificationAchievements {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Which of a member's badges the current viewer can open, as a check by badge id.
+	 *
+	 * WB Gamification shows a badge's share page to its owner and admins, and to
+	 * anyone else only once the member has published it; otherwise the page
+	 * redirects back to the profile, so a link to an unpublished badge goes in a
+	 * loop. When the partner cannot say which badges are published (older than
+	 * 1.6.5), nobody but the member and site staff gets a link. One query for the
+	 * published set, shared by the tab and the REST route.
+	 *
+	 * @param int $member_id Member whose badges are shown.
+	 * @return \Closure(string): bool
+	 */
+	private function badge_opener( int $member_id ): \Closure {
+		$viewer = get_current_user_id();
+		if ( $viewer > 0 && ( $viewer === $member_id || user_can( $viewer, 'manage_options' ) ) ) {
+			return static fn( string $id ): bool => '' !== $id;
+		}
+		$published = function_exists( 'wb_gam_get_shared_badges' ) ? array_flip( (array) wb_gam_get_shared_badges( $member_id ) ) : array();
+		return static fn( string $id ): bool => '' !== $id && isset( $published[ $id ] );
 	}
 
 	/**
@@ -606,15 +629,7 @@ class GamificationAchievements {
 
 		$date_format = (string) get_option( 'date_format', 'M j, Y' );
 
-		// Which earned badges this viewer can open. wb-gamification shows a badge's
-		// share page to its owner and admins, and to anyone else only once the
-		// member has published it; otherwise the page redirects back to this
-		// profile, so linking an unpublished tile sent visitors round in a loop.
-		// One query for the published set rather than one per tile.
-		$viewer        = get_current_user_id();
-		$sees_all      = $viewer > 0 && ( $viewer === $member_id || user_can( $viewer, 'manage_options' ) );
-		$can_check     = function_exists( 'wb_gam_get_shared_badges' );
-		$published_ids = ( ! $sees_all && $can_check ) ? array_flip( wb_gam_get_shared_badges( $member_id ) ) : array();
+		$can_open_id = $this->badge_opener( $member_id );
 
 		echo '<ul class="bn-achievements__grid" role="list">';
 		foreach ( $all as $badge ) {
@@ -626,11 +641,7 @@ class GamificationAchievements {
 			$is_cr     = ! empty( $badge['is_credential'] );
 			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? buddynext_date_local( (string) $badge['earned_at'], $date_format ) : '';
 			// Only earned badges the viewer can open get a link; the rest are static.
-			// When the partner cannot say which badges are published (WB Gamification
-			// older than 1.6.5), nobody but the member and site staff gets a link:
-			// "cannot tell" used to mean "link everything", and every one of those
-			// links sent a visitor to the login page.
-			$can_open = $is_earned && '' !== $id && ( $sees_all || ( $can_check && isset( $published_ids[ $id ] ) ) );
+			$can_open = $is_earned && $can_open_id( $id );
 			$url      = $can_open ? $this->badge_share_url( $id, $member_id ) : '';
 
 			$classes = 'bn-achievements__badge';
