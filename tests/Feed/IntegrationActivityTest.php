@@ -198,7 +198,7 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 
 		$fields = array( 'title' => 'New', 'description' => 'new text', 'image' => 'https://example.test/new.jpg' );
 		$opts   = array( 'published_only' => true, 'link_url' => 'https://example.test/course/new/', 'link_arg' => 'bn_learner' );
-		$this->assertSame( 1, IntegrationActivity::refresh_by_meta( 'course', 'course_id', 7, $fields, $opts + array( 'user_id' => $this->member_id ) ), 'Only that member\'s published card.' );
+		$this->assertSame( 1, IntegrationActivity::refresh_cards_by_meta( 'course', 'course_id', 7, $fields, $opts + array( 'user_id' => $this->member_id ) ), 'Only that member\'s published card.' );
 
 		$post = ( new \BuddyNext\Feed\PostService() )->get( $mine );
 		$this->assertSame( 'New', $post['link_meta']['title'] );
@@ -210,7 +210,7 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Old', ( new \BuddyNext\Feed\PostService() )->get( $theirs )['link_meta']['title'], 'Withdrawn card and other members are skipped.' );
 
 		// Every published card of the course; the certificate card keeps its own address.
-		IntegrationActivity::refresh_by_meta( 'course', 'course_id', 7, $fields, $opts );
+		IntegrationActivity::refresh_cards_by_meta( 'course', 'course_id', 7, $fields, $opts );
 		$this->assertSame( 'New', ( new \BuddyNext\Feed\PostService() )->get( $cert )['link_meta']['title'] );
 		$this->assertSame( 'https://example.test/verify/abc/', ( new \BuddyNext\Feed\PostService() )->get( $cert )['link_url'] );
 	}
@@ -226,10 +226,10 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 			$ids[] = IntegrationActivity::publish( self::factory()->user->create(), 'x', 'https://example.test/c/' . $i . '/', 'T', 'course', '', 0, array( 'course_id' => 8 ) );
 		}
 		$next  = null;
-		$total = IntegrationActivity::refresh_by_meta( 'course', 'course_id', 8, array( 'title' => 'N' ), array( 'batch' => 2 ), $next );
+		$total = IntegrationActivity::refresh_cards_by_meta( 'course', 'course_id', 8, array( 'title' => 'N' ), array( 'batch' => 2 ), $next );
 		$this->assertSame( 2, $total );
 		$this->assertNotNull( $next );
-		$total += IntegrationActivity::refresh_by_meta( 'course', 'course_id', 8, array( 'title' => 'N' ), array( 'batch' => 2, 'after_id' => $next ), $next );
+		$total += IntegrationActivity::refresh_cards_by_meta( 'course', 'course_id', 8, array( 'title' => 'N' ), array( 'batch' => 2, 'after_id' => $next ), $next );
 		$this->assertSame( 3, $total );
 		$this->assertNull( $next );
 	}

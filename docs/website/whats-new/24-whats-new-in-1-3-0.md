@@ -71,6 +71,6 @@ This release makes your partner plugins show up in the community as live cards, 
 - `IntegrationActivity::actions()` takes an optional `$title_url`, and `GamificationBridge::viewer_rank()` and `can_view_points()` are new. See [Gamification seam](../developer-guide/45-gamification-seam.md).
 - `window.bnToast` takes `icon`, `count`, `key` and the `award` type, returns a handle, and reports `bnToast.supports`. See [Toasts and dialogs](../developer-guide/56-toasts-and-dialogs.md).
 - Integration registry entries take `floor_disables` beside `min_version`.
-- `IntegrationActivity::refresh_by_meta()` takes `$opts` (`user_id`, `published_only`, `link_url` with `link_arg`, `batch` with `after_id`) and a `$next` cursor.
+- `IntegrationActivity::refresh_cards_by_meta()` takes `$opts` (`user_id`, `published_only`, `link_url` with `link_arg`, `batch` with `after_id`) and a `$next` cursor.
 - Profile panels are cached for the owner, other members and visitors separately, and `SuitePanelHost::flush()` clears all three.
 - `buddynextpro_segment_excluded_user_ids` receives only ids inside the audience.

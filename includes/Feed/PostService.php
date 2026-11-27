@@ -3538,7 +3538,7 @@ class PostService {
 	 * @param string               $meta_key link_meta field holding the partner id.
 	 * @param int                  $value    The partner id.
 	 * @param array<string, mixed> $fields   Fields to set on each card.
-	 * @param array<string, mixed> $opts     Options, see IntegrationActivity::refresh_by_meta().
+	 * @param array<string, mixed> $opts     Options, see IntegrationActivity::refresh_cards_by_meta().
 	 * @param int|null             $next     Set to the last card id of a full batch, else null.
 	 * @return int Cards changed.
 	 */

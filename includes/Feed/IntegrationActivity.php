@@ -388,8 +388,28 @@ class IntegrationActivity {
 	}
 
 	/**
-	 * Refresh the snapshot of EVERY card of a partner id, e.g. all of an event's
-	 * cards (the organiser's and each attendee's) by their shared event_id.
+	 * Refresh the snapshot of EVERY card of a partner id (the original four-argument form).
+	 *
+	 * Kept with its original signature for add-ons; it runs refresh_cards_by_meta() with no options.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @param string               $type     Card post type (e.g. 'event').
+	 * @param string               $meta_key link_meta field the id was stored under.
+	 * @param int                  $value    The partner id whose cards to refresh.
+	 * @param array<string, mixed> $meta     Fields to update on each card.
+	 * @return int Cards refreshed.
+	 *
+	 * @api
+	 */
+	public static function refresh_by_meta( string $type, string $meta_key, int $value, array $meta ): int {
+		return self::refresh_cards_by_meta( $type, $meta_key, $value, $meta );
+	}
+
+	/**
+	 * Refresh the snapshot of EVERY card of a partner id, with options: the one door every
+	 * partner card refresh goes through. Cards are found by the id the bridge stored in link_meta,
+	 * e.g. all of an event's cards (the organiser's and each attendee's) by their shared event_id.
 	 *
 	 * Where refresh() reaches one card by its link, a fact the partner object owns (an
 	 * event's date, cover, title) is copied onto every card about it, so when it
@@ -397,7 +417,7 @@ class IntegrationActivity {
 	 * each card already carries; anything not named (each card's own `relation`,
 	 * its link) is left alone.
 	 *
-	 * @since 1.2.5
+	 * @since 1.3.0
 	 *
 	 * @param string               $type     Card post type (e.g. 'event').
 	 * @param string               $meta_key link_meta field the id was stored under.
@@ -413,7 +433,7 @@ class IntegrationActivity {
 	 *
 	 * @api
 	 */
-	public static function refresh_by_meta( string $type, string $meta_key, int $value, array $meta, array $opts = array(), ?int &$next = null ): int {
+	public static function refresh_cards_by_meta( string $type, string $meta_key, int $value, array $meta, array $opts = array(), ?int &$next = null ): int {
 		$next = null;
 		if ( '' === $type || '' === $meta_key || $value <= 0 || array() === $meta ) {
 			return 0;
