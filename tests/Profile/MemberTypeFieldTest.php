@@ -245,4 +245,27 @@ class MemberTypeFieldTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'Set by the community', $call( 'mt_open' ) );
 		$this->assertStringContainsString( 'Set by the community', $call( 'mt_locked' ) );
 	}
+
+	/**
+	 * The field reads as the type name for every text reader (the approval details,
+	 * exports, apps), not as blank.
+	 *
+	 * @return void
+	 */
+	public function test_profile_field_reads_as_the_type_name(): void {
+		$this->service->save_profile( $this->user_id, array( 'member_type' => 'mt_open' ) );
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+
+		$found = null;
+		foreach ( (array) ( $this->service->get_profile( $this->user_id, $admin )['groups'] ?? array() ) as $group ) {
+			foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+				if ( 'member_type' === ( $field['type'] ?? '' ) ) {
+					$found = $field;
+				}
+			}
+		}
+
+		$this->assertIsArray( $found, 'The member type field must be in the profile.' );
+		$this->assertSame( 'Open Type', $found['value_display'] ?? null );
+	}
 }

@@ -2452,8 +2452,9 @@ class ProfileService {
 				if ( ! is_array( $field ) || 'member_type' !== (string) ( $field['type'] ?? '' ) ) {
 					continue;
 				}
-				$groups[ $gi ]['fields'][ $fi ]['value']     = $name;
-				$groups[ $gi ]['fields'][ $fi ]['value_raw'] = $is_owner ? $slug : null;
+				$groups[ $gi ]['fields'][ $fi ]['value']         = $name;
+				$groups[ $gi ]['fields'][ $fi ]['value_display'] = $name;
+				$groups[ $gi ]['fields'][ $fi ]['value_raw']     = $is_owner ? $slug : null;
 			}
 		}
 	}
