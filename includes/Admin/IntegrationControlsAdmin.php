@@ -471,6 +471,11 @@ class IntegrationControlsAdmin {
 		foreach ( buddynext_integrations() as $key => $entry ) {
 			$key = sanitize_key( (string) $key );
 
+			// Navigation as the screen showed it BEFORE this save. A sub-option card is drawn disabled (and so is not
+			// submitted) while Navigation is off; the submitted Navigation value says nothing about that, or turning
+			// Navigation back on would read the missing checkbox as "off".
+			$nav_was = ! empty( $entry['has_nav'] ) && buddynext_integration_enabled( $key, 'nav' );
+
 			if ( ! empty( $entry['has_nav'] ) ) {
 				$ok = $this->write_flag( "buddynext_integration_{$key}_nav", ! empty( $nav[ $key ] ) ) && $ok;
 			}
@@ -523,8 +528,8 @@ class IntegrationControlsAdmin {
 				if ( isset( $entry['subtabs_unavailable'][ $sub ] ) ) {
 					continue;
 				}
-				// An option card is disabled while Navigation is off: keep the stored choice too.
-				if ( isset( $entry['subtab_options'][ $sub ] ) && ! empty( $entry['has_nav'] ) && empty( $nav[ $key ] ) ) {
+				// An option card is disabled while Navigation is off (as the screen was drawn): keep the stored choice too.
+				if ( isset( $entry['subtab_options'][ $sub ] ) && ! empty( $entry['has_nav'] ) && ! $nav_was ) {
 					continue;
 				}
 				$was = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
