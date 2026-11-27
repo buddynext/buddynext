@@ -284,6 +284,7 @@ class Members extends AdminPageBase {
 			// Prime usermeta cache for this batch — prevents extra queries during
 			// avatar rendering and any meta reads that follow in template loops.
 			update_meta_cache( 'user', $result_ids );
+			\BuddyNext\Profile\AvatarService::prime( $result_ids );
 
 			// Batch presence in one indexed read (was a per-row bn_last_active meta
 			// lookup) so the loop below issues no per-row presence query.
@@ -2003,9 +2004,7 @@ class Members extends AdminPageBase {
 								</td>
 								<td class="column-primary" data-colname="<?php esc_attr_e( 'Member', 'buddynext' ); ?>">
 									<div class="bn-member-cell">
-										<div class="bn-avatar bn-avatar-initials <?php echo esc_attr( MemberDisplay::get_avatar_color( $member['id'] ) ); ?>" data-size="md" aria-hidden="true">
-											<?php echo esc_html( MemberDisplay::get_initials( $member['display'] ) ); ?>
-										</div>
+										<?php MemberDisplay::render_avatar( (int) $member['id'], (string) $member['display'] ); ?>
 										<div class="bn-member-info">
 											<div class="bn-member-name"><?php echo esc_html( $member['display'] ); ?></div>
 											<?php

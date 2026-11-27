@@ -1777,7 +1777,7 @@ class SearchService {
 	 *
 	 * @param int[] $user_ids  Member user IDs.
 	 * @param int   $viewer_id Viewing user ID.
-	 * @return array[] Each row: id, name, initials, bio, profile_url, is_following, is_self.
+	 * @return array[] Each row: id, name, initials, avatar_url, bio, profile_url, is_following, is_self.
 	 */
 	private function enrich_members( array $user_ids, int $viewer_id ): array {
 		// Prime the user + usermeta caches in two batched queries so the loop's
@@ -1799,6 +1799,8 @@ class SearchService {
 				'id'           => $uid,
 				'name'         => $name,
 				'initials'     => \BuddyNext\Profile\AvatarService::initials_for( $name ),
+				// The member's own picture through the shared avatar filters (primed above).
+				'avatar_url'   => (string) get_avatar_url( $uid, array( 'size' => 80 ) ),
 				'bio'          => (string) ( $identity[ $uid ]['bio'] ?? '' ),
 				'profile_url'  => (string) \BuddyNext\Core\PageRouter::profile_url( $uid ),
 				'handle'       => \BuddyNext\Core\PageRouter::member_handle( (int) $uid ),

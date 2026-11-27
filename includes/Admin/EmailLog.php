@@ -334,6 +334,7 @@ class EmailLog {
 			) as $u ) {
 				$user_map[ (int) $u->ID ] = $u;
 			}
+			\BuddyNext\Profile\AvatarService::prime( $user_ids );
 		}
 
 		$total_pages = (int) max( 1, (int) ceil( $total / $per_page ) );
@@ -440,9 +441,7 @@ class EmailLog {
 								<td>
 									<div class="bn-member-cell">
 										<?php if ( $user ) : ?>
-											<div class="bn-avatar bn-avatar-initials <?php echo esc_attr( Members\MemberDisplay::get_avatar_color( $uid ) ); ?>" aria-hidden="true">
-												<?php echo esc_html( Members\MemberDisplay::get_initials( (string) $user->display_name ) ); ?>
-											</div>
+											<?php Members\MemberDisplay::render_avatar( $uid, (string) $user->display_name ); ?>
 											<div class="bn-member-info">
 												<div class="bn-member-name"><?php echo esc_html( (string) $user->display_name ); ?></div>
 												<div class="bn-member-meta"><span class="bn-member-email"><?php echo esc_html( (string) $user->user_email ); ?></span></div>
