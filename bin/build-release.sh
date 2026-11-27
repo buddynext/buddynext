@@ -386,7 +386,23 @@ echo "translations: ${#REQUIRED_LOCALES[@]} compiled locales present"
 mkdir -p "$DIST"
 ZIP="$DIST/$SLUG-$VERSION.zip"
 rm -f "$ZIP"
-( cd "$TMP" && zip -rqX "$ZIP" "$SLUG" -x '*.DS_Store' )
+# Every entry deflated. The zip CLI stores tiny files (index.php "Silence is golden") as-is, so plain
+# PHP is readable in the upload body and the store's upload firewall blocks the zip. A -9 or
+# -Z deflate flag on the zip CLI does not change that, so pack with Python zipfile instead.
+( cd "$TMP" && python3 -I -c 'import os,sys,zipfile
+with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
+    for r, d, f in os.walk(sys.argv[2]):
+        d.sort()
+        for n in sorted(f):
+            if n != ".DS_Store":
+                z.write(os.path.join(r, n))' "$ZIP" "$SLUG" )
+# Gate: no .php member stored, and zero plain-text PHP anywhere in the zip.
+if ! python3 -I bin/check-zip-deflated.py "$ZIP" \
+	|| [ "$(LC_ALL=C grep -a -c '<?php' "$ZIP" || true)" != "0" ]; then
+	echo "Release aborted: $ZIP has plain-text PHP in it; the store upload would be blocked." >&2
+	rm -rf "$TMP"
+	exit 1
+fi
 rm -rf "$TMP"
 
 echo "built: $ZIP ($(du -h "$ZIP" | cut -f1))"

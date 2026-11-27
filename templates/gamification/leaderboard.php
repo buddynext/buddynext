@@ -96,6 +96,9 @@ $bn_lb_paging = $current_user_id > 0 && function_exists( 'wb_gam_get_leaderboard
 // A space board reads the engine directly: the public helper has no scope argument.
 // Its availability (engine 1.6.5+) is already checked before the tab renders.
 $bn_lb_fetch    = static function ( string $cursor ) use ( $bn_lb_space, $api_period, $window ): array {
+	if ( $bn_lb_space > 0 && ! \BuddyNext\Bridges\GamificationBridge::viewer_can_see_space_board( $bn_lb_space ) ) {
+		return array(); // The engine's caches are per board, so never ask it for a board this viewer may not read.
+	}
 	return $bn_lb_space > 0
 		? (array) \WBGam\Engine\LeaderboardEngine::get_leaderboard_page( $api_period, $window, \BuddyNext\Bridges\GamificationBridge::SPACE_SCOPE, $bn_lb_space, '', $cursor )
 		: (array) wb_gam_get_leaderboard_page( $api_period, $window, $cursor );

@@ -2473,6 +2473,14 @@ class JetonomyBridge {
 	 * @return true|\WP_Error Error when the discussion could not be created.
 	 */
 	public function apply_discussion_choice( int $space_id, bool $enabled, int $link_id, int $actor_id ) {
+		// Picking a forum to link is the owner asking for it: the switch beside the picker may still be off,
+		// and ignoring the pick made the link vanish on Save. The hidden field also carries the space's earlier
+		// forum on every save, so only a different pick counts.
+		if ( ! $enabled && $link_id > 0 && ! $this->space_has_discussion( $space_id ) ) {
+			$previous = $this->previous_discussion( $space_id );
+			$enabled  = null === $previous || $previous['id'] !== $link_id;
+		}
+
 		if ( ! $enabled ) {
 			$this->set_discussion_enabled( $space_id, false );
 			return true;
@@ -2492,6 +2500,10 @@ class JetonomyBridge {
 					? $this->discussion_exists( $link_id )
 					: $this->discussion_owned_by( $link_id, (int) ( $space['owner_id'] ?? 0 ) ) )
 			);
+			if ( $link_id > 0 && ! $may_link ) {
+				// Never swap the owner's pick for a new empty forum without saying so.
+				return new \WP_Error( 'bn_discussion_not_linkable', __( 'That discussion cannot be linked to this space. Pick one you created, or start a new discussion.', 'buddynext' ), array( 'status' => 403 ) );
+			}
 			if ( $may_link ) {
 				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
 				$this->carry_space_bans( $space_id );

@@ -145,6 +145,8 @@ class GamificationBridge {
 
 		// Space leaderboards: BuddyNext tells the engine who belongs to a space board.
 		add_filter( 'wb_gam_leaderboard_scope_user_ids', array( $this, 'space_scope_user_ids' ), 10, 3 );
+		// Who may read a Space board is decided before the engine runs: its totals and pages are cached per board, not per viewer.
+		add_filter( 'rest_pre_dispatch', array( $this, 'gate_space_board_rest' ), 10, 3 );
 
 		// WB Gamification sends its bell rows through the notification contract with a
 		// link to the member's profile front page. Where a row opens inside the
@@ -517,18 +519,56 @@ class GamificationBridge {
 	}
 
 	/**
+	 * Whether a viewer may read a space's leaderboard: the tab is on and they may see the space's member list.
+	 *
+	 * Same gate as the roster (SpaceVisibility::can_view_roster()). Call it before asking the engine
+	 * for a space board; the engine's own caches are not per viewer.
+	 *
+	 * @param int      $space_id  Space ID.
+	 * @param int|null $viewer_id Viewer; defaults to the current user.
+	 * @return bool
+	 */
+	public static function viewer_can_see_space_board( int $space_id, ?int $viewer_id = null ): bool {
+		if ( ! self::space_leaderboard_on( $space_id ) ) {
+			return false;
+		}
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		return \BuddyNext\Spaces\SpaceVisibility::can_view_roster( $space, $viewer_id ?? get_current_user_id() );
+	}
+
+	/**
+	 * Refuse the partner's public leaderboard routes for a space board the viewer may not read.
+	 *
+	 * @param mixed            $result  Result so far.
+	 * @param \WP_REST_Server  $server  Server (unused).
+	 * @param \WP_REST_Request $request Request.
+	 * @return mixed
+	 */
+	public function gate_space_board_rest( $result, $server, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- $server is part of the rest_pre_dispatch signature.
+		if ( null !== $result || 0 !== strpos( (string) $request->get_route(), '/wb-gamification/v1/leaderboard' )
+			|| self::SPACE_SCOPE !== (string) $request->get_param( 'scope_type' )
+			|| self::viewer_can_see_space_board( (int) $request->get_param( 'scope_id' ) ) ) {
+			return $result;
+		}
+		return new \WP_Error( 'rest_forbidden', __( 'You cannot see this leaderboard.', 'buddynext' ), array( 'status' => rest_authorization_required_code() ) );
+	}
+
+	/**
 	 * Resolve a space leaderboard scope to the members who may appear on it.
 	 *
 	 * Hooked on wb-gamification's `wb_gam_leaderboard_scope_user_ids`. Ranking stays
 	 * on site-wide points (owner decision 2026-10-02); the space only limits WHO is
 	 * listed. An empty list means an empty board - the engine never widens an empty
-	 * scope to the whole site - so this returns nothing when the space has the tab
-	 * off, or when the viewer may not see the space's member list. That also closes
-	 * the public /wb-gamification/v1/leaderboard route as a way to list a private or
-	 * secret space's members (same gate as the roster: SpaceVisibility::can_view_roster()).
+	 * scope to the whole site - so this returns nothing when the space has the tab off.
 	 *
-	 * ponytail: the engine filters by `user_id IN (...)`; fine for spaces in the
-	 * thousands, a JOIN-based scope in the engine is the upgrade for far larger ones.
+	 * The answer is the same for every viewer on purpose: the engine caches a board's total and pages
+	 * by board, not by viewer, so a viewer-dependent answer served one viewer's list to the next.
+	 * Who may read the board is checked before the engine is called (viewer_can_see_space_board(),
+	 * the board template and gate_space_board_rest(), which closes the public
+	 * /wb-gamification/v1/leaderboard route as a way to list a private or secret space's members).
+	 *
+	 * ponytail: the engine filters by `user_id IN (...)`; fine for spaces in the thousands, a JOIN-based
+	 * scope in the engine is the upgrade for far larger ones.
 	 *
 	 * @param mixed  $user_ids   Ids resolved so far.
 	 * @param string $scope_type Scope type.
@@ -542,11 +582,6 @@ class GamificationBridge {
 
 		$space_id = (int) $scope_id;
 		if ( ! self::space_leaderboard_on( $space_id ) ) {
-			return array();
-		}
-
-		$space = buddynext_service( 'spaces' )->get( $space_id );
-		if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_roster( $space, get_current_user_id() ) ) {
 			return array();
 		}
 
