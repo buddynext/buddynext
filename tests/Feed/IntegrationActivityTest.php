@@ -181,6 +181,60 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A partner rename reaches the cards in place: new title, text, picture and address, the card's own
+	 * moment and members untouched, withdrawn cards skipped on request, a member's cards alone on request.
+	 *
+	 * @return void
+	 */
+	public function test_refresh_by_meta_renames_cards_in_place_and_follows_a_new_address(): void {
+		global $wpdb;
+		$other = self::factory()->user->create();
+		$facts = array( 'course_id' => 7, 'title' => 'Old', 'description' => 'old text', 'image' => 'https://example.test/old.jpg' );
+		$mine  = IntegrationActivity::publish( $this->member_id, 'completed a course', 'https://example.test/course/old/?bn_learner=' . $this->member_id, 'Old', 'course', 'old text', 0, $facts );
+		$theirs = IntegrationActivity::publish( $other, 'completed a course', 'https://example.test/course/old/?bn_learner=' . $other, 'Old', 'course', 'old text', 0, $facts );
+		$cert  = IntegrationActivity::publish( $other, 'earned a certificate', 'https://example.test/verify/abc/', 'Old', 'course', 'old text', 0, $facts );
+		$date  = (string) $wpdb->get_var( $wpdb->prepare( "SELECT created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $mine ) );
+		IntegrationActivity::withdraw( 'https://example.test/course/old/?bn_learner=' . $other, 'course' );
+
+		$fields = array( 'title' => 'New', 'description' => 'new text', 'image' => 'https://example.test/new.jpg' );
+		$opts   = array( 'published_only' => true, 'link_url' => 'https://example.test/course/new/', 'link_arg' => 'bn_learner' );
+		$this->assertSame( 1, IntegrationActivity::refresh_by_meta( 'course', 'course_id', 7, $fields, $opts + array( 'user_id' => $this->member_id ) ), 'Only that member\'s published card.' );
+
+		$post = ( new \BuddyNext\Feed\PostService() )->get( $mine );
+		$this->assertSame( 'New', $post['link_meta']['title'] );
+		$this->assertSame( 'new text', $post['link_meta']['description'] );
+		$this->assertSame( 'https://example.test/new.jpg', $post['link_meta']['thumbnail'] );
+		$this->assertSame( 'https://example.test/course/new/?bn_learner=' . $this->member_id, $post['link_url'] );
+		$this->assertSame( $post['link_url'], $post['link_meta']['url'] );
+		$this->assertSame( $date, (string) $wpdb->get_var( $wpdb->prepare( "SELECT created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $mine ) ), 'The moment is kept.' );
+		$this->assertSame( 'Old', ( new \BuddyNext\Feed\PostService() )->get( $theirs )['link_meta']['title'], 'Withdrawn card and other members are skipped.' );
+
+		// Every published card of the course; the certificate card keeps its own address.
+		IntegrationActivity::refresh_by_meta( 'course', 'course_id', 7, $fields, $opts );
+		$this->assertSame( 'New', ( new \BuddyNext\Feed\PostService() )->get( $cert )['link_meta']['title'] );
+		$this->assertSame( 'https://example.test/verify/abc/', ( new \BuddyNext\Feed\PostService() )->get( $cert )['link_url'] );
+	}
+
+	/**
+	 * A batch stops at its size and hands back where to carry on.
+	 *
+	 * @return void
+	 */
+	public function test_refresh_by_meta_batches_with_a_cursor(): void {
+		$ids = array();
+		for ( $i = 0; $i < 3; $i++ ) {
+			$ids[] = IntegrationActivity::publish( self::factory()->user->create(), 'x', 'https://example.test/c/' . $i . '/', 'T', 'course', '', 0, array( 'course_id' => 8 ) );
+		}
+		$next  = null;
+		$total = IntegrationActivity::refresh_by_meta( 'course', 'course_id', 8, array( 'title' => 'N' ), array( 'batch' => 2 ), $next );
+		$this->assertSame( 2, $total );
+		$this->assertNotNull( $next );
+		$total += IntegrationActivity::refresh_by_meta( 'course', 'course_id', 8, array( 'title' => 'N' ), array( 'batch' => 2, 'after_id' => $next ), $next );
+		$this->assertSame( 3, $total );
+		$this->assertNull( $next );
+	}
+
+	/**
 	 * rewrite_by_meta() changes a card's text and link in place, never its moment,
 	 * and refuses a link another card already owns.
 	 *

@@ -3538,26 +3538,46 @@ class PostService {
 	 * @param string               $meta_key link_meta field holding the partner id.
 	 * @param int                  $value    The partner id.
 	 * @param array<string, mixed> $fields   Fields to set on each card.
+	 * @param array<string, mixed> $opts     Options, see IntegrationActivity::refresh_by_meta().
+	 * @param int|null             $next     Set to the last card id of a full batch, else null.
 	 * @return int Cards changed.
 	 */
-	public function merge_link_meta_cards( string $type, string $meta_key, int $value, array $fields ): int {
+	public function merge_link_meta_cards( string $type, string $meta_key, int $value, array $fields, array $opts = array(), ?int &$next = null ): int {
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$next  = null;
+		$extra = '';
+		$args  = array( $type, '$.' . $meta_key, $value );
+		if ( ! empty( $opts['user_id'] ) ) {
+			$extra .= ' AND user_id = %d';
+			$args[] = (int) $opts['user_id'];
+		}
+		if ( ! empty( $opts['published_only'] ) ) {
+			$extra .= " AND status <> 'draft'";
+		}
+		$batch = (int) ( $opts['batch'] ?? 0 );
+		if ( $batch > 0 ) {
+			$extra .= ' AND id > %d ORDER BY id ASC LIMIT %d';
+			$args[] = (int) ( $opts['after_id'] ?? 0 );
+			$args[] = $batch;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $extra holds only fixed fragments with placeholders.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
 				 WHERE type = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
-				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
-				$type,
-				'$.' . $meta_key,
-				$value
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d{$extra}",
+				$args
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		if ( $batch > 0 && count( (array) $rows ) >= $batch ) {
+			$next = (int) end( $rows )['id'];
+		}
 
 		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], (array) $rows ) ) );
 		if ( empty( $ids ) ) {
@@ -3578,6 +3598,26 @@ class PostService {
 				)
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+			// A card whose link carries the per-member marker (?arg=) follows the partner's new address and keeps its marker.
+			$arg = isset( $opts['link_arg'] ) ? '?' . $opts['link_arg'] . '=' : '';
+			if ( '' !== $arg && ! empty( $opts['link_url'] ) ) {
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_posts
+						 SET link_meta = JSON_SET( link_meta, '$.url', CONCAT( %s, SUBSTRING( link_url, LOCATE( %s, link_url ) ) ) ),
+						     link_url = CONCAT( %s, SUBSTRING( link_url, LOCATE( %s, link_url ) ) )
+						 WHERE id IN ({$in}) AND LOCATE( %s, link_url ) > 0",
+						$opts['link_url'],
+						$arg,
+						$opts['link_url'],
+						$arg,
+						$arg
+					)
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			}
 		}
 
 		$spaces = array();

@@ -403,11 +403,18 @@ class IntegrationActivity {
 	 * @param string               $meta_key link_meta field the id was stored under.
 	 * @param int                  $value    The partner id whose cards to refresh.
 	 * @param array<string, mixed> $meta     Fields to update on each card.
+	 * @param array<string, mixed> $opts     Optional. `user_id` only that member's cards; `published_only` leave withdrawn
+	 *                                       cards alone; `link_url` + `link_arg` point every card whose link carries
+	 *                                       `?link_arg=` at the new address, keeping its marker (a per-member card whose
+	 *                                       partner address changed); `batch` (+ `after_id`) handle at most that many cards
+	 *                                       and set `$next` to carry on from when the batch was full.
+	 * @param int|null             $next     Out: last card id of a full batch, else null.
 	 * @return int Cards refreshed.
 	 *
 	 * @api
 	 */
-	public static function refresh_by_meta( string $type, string $meta_key, int $value, array $meta ): int {
+	public static function refresh_by_meta( string $type, string $meta_key, int $value, array $meta, array $opts = array(), ?int &$next = null ): int {
+		$next = null;
 		if ( '' === $type || '' === $meta_key || $value <= 0 || array() === $meta ) {
 			return 0;
 		}
@@ -417,7 +424,7 @@ class IntegrationActivity {
 			$meta = self::normalise_link_meta( $meta );
 		}
 
-		return ( new PostService() )->merge_link_meta_cards( $type, $meta_key, $value, $meta );
+		return ( new PostService() )->merge_link_meta_cards( $type, $meta_key, $value, $meta, $opts, $next );
 	}
 
 	/**
