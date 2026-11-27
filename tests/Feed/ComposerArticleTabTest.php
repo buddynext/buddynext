@@ -333,14 +333,12 @@ class ComposerArticleTabTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'bn-composer__avatar--initials', $html );
 	}
 
-	public function test_the_article_panel_has_a_polite_draft_note_left_of_write_article(): void {
+	public function test_the_article_panel_makes_no_draft_claim(): void {
 		$html = $this->feed( $this->writer() );
 
-		$this->assertMatchesRegularExpression(
-			'/class="bn-composer-article__saved" role="status" aria-live="polite"\s+data-label-now="Draft saved just now"\s+data-label-min="Draft saved %d min ago"><\/p>\s*<button[^>]*bn-composer-article__start/s',
-			$html,
-			'The note is empty until a draft is really saved, and sits before the button.'
-		);
+		// Article drafts are not autosaved here (the panel hands off to the editor), so no "Draft saved" line is shown.
+		$this->assertStringNotContainsString( 'bn-composer-article__saved', $html );
+		$this->assertMatchesRegularExpression( '/bn-composer-article__footer">\s*<button[^>]*bn-composer-article__start/s', $html );
 	}
 
 	public function test_the_composer_placeholder_uses_the_first_name_only(): void {

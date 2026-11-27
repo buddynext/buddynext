@@ -59,11 +59,7 @@ unset( $bn_art_hidden[ $bn_art_title_arg ] );
 				autocomplete="off"
 				placeholder="<?php esc_attr_e( 'Article title', 'buddynext' ); ?>">
 		</div>
-		<?php // Filled by composer.js only after the composer really saves a draft; empty (and silent) until then. ?>
 		<div class="bn-composer-article__footer">
-			<p class="bn-composer-article__saved" role="status" aria-live="polite"
-				data-label-now="<?php esc_attr_e( 'Draft saved just now', 'buddynext' ); ?>"
-				data-label-min="<?php /* translators: %d: whole minutes since the draft was saved */ echo esc_attr( __( 'Draft saved %d min ago', 'buddynext' ) ); ?>"></p>
 			<button type="submit" class="bn-btn bn-composer-article__start" data-variant="primary"><?php esc_html_e( 'Write article', 'buddynext' ); ?></button>
 		</div>
 	</form>
