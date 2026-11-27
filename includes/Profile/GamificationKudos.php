@@ -38,6 +38,58 @@ class GamificationKudos {
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
 		add_action( 'admin_post_bn_give_kudos', array( $this, 'handle_give_kudos' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
+		// WB Gamification's own routes and forms send kudos too. Its before-kudos filter is the one door they all pass
+		// through, so the same refusal holds there (a suspended or blocked member cannot reach another member).
+		add_filter( 'wb_gam_before_kudos', array( self::class, 'gate_partner_send' ), 10, 3 );
+	}
+
+	/**
+	 * Why a member may not send kudos to another member right now, or null when they may.
+	 *
+	 * One rule for every way kudos is sent: a suspended member is locked out of reaching other members, and
+	 * nobody sends kudos across a block, in either direction. A block answers like any other invalid receiver, so
+	 * it does not tell the sender that they were blocked.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int $giver    Member sending.
+	 * @param int $receiver Member receiving.
+	 * @return \WP_Error|null
+	 */
+	public static function refusal( int $giver, int $receiver ): ?\WP_Error {
+		if ( $giver <= 0 || $receiver <= 0 ) {
+			return null;
+		}
+
+		$moderation = buddynext_service( 'moderation' );
+		if ( $moderation instanceof \BuddyNext\Moderation\ModerationService && $moderation->is_suspended( $giver ) ) {
+			return \BuddyNext\Moderation\ModerationService::suspension_error( __( 'Your account is suspended and cannot send kudos.', 'buddynext' ) );
+		}
+
+		$blocks = buddynext_service( 'blocks' );
+		if ( $blocks instanceof \BuddyNext\SocialGraph\BlockService && $blocks->is_blocking_either( $giver, $receiver ) ) {
+			return new \WP_Error( 'invalid_receiver', __( 'You cannot send kudos to that member.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+
+		return null;
+	}
+
+	/**
+	 * Apply refusal() to kudos sent through WB Gamification's own routes.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param true|\WP_Error $gate     Answer so far.
+	 * @param int            $giver    Member sending.
+	 * @param int            $receiver Member receiving.
+	 * @return true|\WP_Error
+	 */
+	public static function gate_partner_send( $gate, $giver = 0, $receiver = 0 ) {
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
+		return self::refusal( (int) $giver, (int) $receiver ) ?? $gate;
 	}
 
 	/**
@@ -102,6 +154,11 @@ class GamificationKudos {
 		// its spam ceiling. When that applies the form cannot succeed, so it is not
 		// offered at all - no dead form, no notice (card 10343809008).
 		if ( $can_give && function_exists( 'wb_gam_can_send_kudos' ) && ! wb_gam_can_send_kudos( $viewer ) ) {
+			$can_give = false;
+		}
+
+		// A suspended member cannot reach other members, so the form is not offered (the suspension banner says why).
+		if ( $can_give && null !== self::refusal( $viewer, $member_id ) ) {
 			$can_give = false;
 		}
 
@@ -246,8 +303,15 @@ class GamificationKudos {
 			return;
 		}
 
+		$viewer = get_current_user_id();
+		$blocks = buddynext_service( 'blocks' );
 		echo '<ul class="bn-gam-kudos__feed" role="list">';
 		foreach ( $rows as $row ) {
+			$giver_id = (int) ( $row['giver_id'] ?? 0 );
+			// Kudos from someone the viewer blocked (or who blocked the viewer) is not shown to the viewer.
+			if ( $viewer > 0 && $giver_id > 0 && $blocks instanceof \BuddyNext\SocialGraph\BlockService && $blocks->is_blocking_either( $viewer, $giver_id ) ) {
+				continue;
+			}
 			$giver_id   = (int) ( $row['giver_id'] ?? 0 );
 			$giver_name = (string) ( $row['giver_name'] ?? __( 'Someone', 'buddynext' ) );
 			$message    = isset( $row['message'] ) ? (string) $row['message'] : '';
@@ -350,12 +414,14 @@ class GamificationKudos {
 			(string) ( $request['message'] ?? '' )
 		);
 		if ( is_wp_error( $result ) ) {
-			$codes  = array(
+			$codes = array(
 				'invalid_receiver' => 400,
 				'kudos_off'        => 403,
 			);
-			$status = $codes[ $result->get_error_code() ] ?? 429;
-			$result->add_data( array( 'status' => $status ) );
+			$data  = $result->get_error_data();
+			if ( ! is_array( $data ) || empty( $data['status'] ) ) {
+				$result->add_data( array( 'status' => $codes[ $result->get_error_code() ] ?? 429 ) );
+			}
 			return $result;
 		}
 		return new \WP_REST_Response( array( 'sent' => true ), 201 );
@@ -379,6 +445,11 @@ class GamificationKudos {
 			return new \WP_Error( 'invalid_receiver', __( 'You cannot send kudos to that member.', 'buddynext' ) );
 		}
 
+		$refused = self::refusal( $giver, $receiver );
+		if ( null !== $refused ) {
+			return $refused;
+		}
+
 		$result = wb_gam_send_kudos( $giver, $receiver, $message );
 		return is_wp_error( $result ) ? $result : true;
 	}
@@ -395,6 +466,8 @@ class GamificationKudos {
 			case 'wb_gam_kudos_self':
 			case 'wb_gam_kudos_invalid_user':
 				return __( 'You cannot send kudos to that member.', 'buddynext' );
+			case 'forbidden':
+				return __( 'Your account is suspended and cannot send kudos.', 'buddynext' );
 			case 'kudos_off':
 			case 'wb_gam_module_disabled':
 				return __( 'Kudos is turned off on this community.', 'buddynext' );
