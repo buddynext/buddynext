@@ -198,6 +198,15 @@ jobs:
         run: composer install --no-interaction --no-progress --no-dev
       - name: npm ci
         run: npm ci
+      - name: Ensure WP-CLI is installed
+        # setup-php sometimes reports "Could not setup wp-cli" and carries on, which fails
+        # the next step with "wp: command not found". Fetch the phar again, with retries.
+        run: |
+          if ! command -v wp >/dev/null 2>&1; then
+            sudo curl -fsSL --retry 5 --retry-all-errors -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+            sudo chmod +x /usr/local/bin/wp
+          fi
+          wp --info
       - name: Install WordPress
         run: |
           wp core download --path="$WP_DIR" --version=latest
