@@ -22,7 +22,7 @@ For an owner, reactions work the moment the feature is on, with no per-post setu
 
 ### React to a post or comment
 
-Open the reaction picker on any post or comment, then choose an emoji. Your reaction is recorded right away and the count next to it goes up by one.
+On a post, select the **Like** button to open the reaction picker, then choose an emoji. On a comment, open the picker and choose an emoji. Your reaction is recorded right away and the count next to it goes up by one.
 
 ### Swap your reaction
 
