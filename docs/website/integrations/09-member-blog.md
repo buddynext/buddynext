@@ -17,8 +17,8 @@ BuddyNext's side of this integration is deliberately small, and deliberately gen
 - **An Articles tab** on each member profile, listing that member's published posts - title, date, excerpt and featured image - each linking out to the post itself. The list is paged, ten posts to a page, and the tab shows a count.
 - **The tab shows only where it helps.** The Articles tab appears for members Member Blog lets write, and on any profile that has published articles. A member who cannot write sees no empty tab and no **Write** button; **Manage articles** stays.
 - **An owner route back to writing.** When you are looking at your own Articles tab, you also get **Write a new article** and **Manage articles**, plus an Edit link on each row. All of them go to Member Blog's dashboard.
-- **Drafts and pending posts, for you only.** Your own tab shows work in progress with a status badge so an unfinished draft never reads as published. Nobody else sees them, apart from people who can edit other members' posts (such as editors and administrators).
-- **An Article tab in the What's New composer.** Members Member Blog lets write get Post / Article tabs in the main composer; the Article tab opens Member Blog's editor with the typed title filled in, and links to **My drafts** and **My articles** with counts. See [Post Composer](../community/02-post-composer.md#writing-an-article).
+- **Published posts only.** The tab lists published posts, for the owner as well as for visitors. Drafts, pending and scheduled posts are not listed there; the member finds them in Member Blog.
+- **An Article tab in the What's New composer.** Members Member Blog lets write get Post / Article tabs in the main composer; the Article tab opens Member Blog's editor with the typed title filled in. See [Post Composer](../community/02-post-composer.md#writing-an-article).
 - **The Articles list follows profile visibility.** A member's articles are shown only to people who may see that member's profile: the profile's visibility setting (everyone, followers or connections) and blocks apply, on the profile tab and through the REST API alike. Someone who may not see the profile gets an empty list, not an error.
 
 The writing page inside the community is called **Write an article**, its tabs are **New article** and **My articles**, and the left rail's You group links to it with the same name.
@@ -44,7 +44,7 @@ A comment on an article and the same comment on its feed card are kept in step b
 ## Setting it up
 
 1. Install and activate **WB Member Blog**.
-2. In Member Blog's settings (the Pages tab), map its **Dashboard Page** - the front-end page where members write and manage their posts. BuddyNext reads this to build the "Write a new article" link.
+2. In Member Blog's settings (the Pages tab), map its **Post Page** - the front-end page where members write. BuddyNext reads this first to build the "Write a new article" link, and falls back to the Dashboard Page when no Post Page is set.
 3. That is all. The Articles tab appears on member profiles automatically.
 
 The **Articles** card on **BuddyNext > Integration Settings** has two switches, plus **Articles in Spaces** (see below):
@@ -62,7 +62,7 @@ There is no search switch for this integration.
 
 The tab lists the member's posts in the standard WordPress `post` type, newest first, paginated. If your site teaches BuddyNext about additional post types through the `buddynext_site_tracking_post_types` filter, those appear on the tab and in the feed together - one change, both surfaces.
 
-Visitors and other members see published posts only. You see your own drafts, pending review and scheduled posts as well, each labelled. With no posts yet, your own tab says "You have not published an article yet." with a **Write your first article** button.
+Everyone, the owner included, sees published posts only. With no posts yet, your own tab says "You have not published an article yet." with a **Write your first article** button.
 
 ## Articles in Spaces
 
