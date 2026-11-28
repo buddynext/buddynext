@@ -40,6 +40,15 @@ class WPMediaVerseSuspendedSenderTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'suspended', $this->bridge->suspended_denial_message( 'x', 'account_suspended' ) );
 	}
 
+	public function test_suspended_member_cannot_create_a_group_conversation(): void {
+		$this->assertTrue( $this->bridge->check_can_create_conversation( true, $this->sender ) );
+		$this->suspend( $this->sender );
+		$this->assertFalse( $this->bridge->check_can_create_conversation( true, $this->sender ) );
+		$this->assertFalse( $this->bridge->check_can_create_conversation( false, $this->recipient ) );
+		buddynext_service( 'moderation' )->unsuspend( $this->sender );
+		$this->assertTrue( $this->bridge->check_can_create_conversation( true, $this->sender ) );
+	}
+
 	public function test_suspended_sender_is_refused_for_group_send(): void {
 		$this->suspend( $this->sender );
 		$result = $this->bridge->moderate_dm_content( true, 'hello all', $this->sender );

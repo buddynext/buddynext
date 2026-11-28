@@ -132,6 +132,23 @@ class WPMediaVerseBridge {
 		// can't plant blocked content in a direct message — posts/comments/profile
 		// are guarded; DMs were not.
 		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 3 );
+
+		// A suspended member cannot start a group conversation either. The filter
+		// exists from WPMediaVerse 2.7.1; on older versions it is never fired.
+		add_filter( 'mvs_can_create_conversation', array( $this, 'check_can_create_conversation' ), 10, 2 );
+	}
+
+	/**
+	 * Refuse group creation by a suspended member.
+	 *
+	 * Hooked on: mvs_can_create_conversation (bool $allowed, int $creator_id).
+	 *
+	 * @param bool $allowed    Running result.
+	 * @param int  $creator_id Member creating the group.
+	 * @return bool
+	 */
+	public function check_can_create_conversation( $allowed, $creator_id = 0 ): bool {
+		return (bool) $allowed && ! $this->sender_is_suspended( (int) $creator_id );
 	}
 
 	/**
