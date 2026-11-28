@@ -244,6 +244,40 @@ class MediaClient {
 	}
 
 	/**
+	 * The AVIF and WebP copies of an image size, as WPMediaVerse's own grids find them.
+	 *
+	 * The engine owns where a variant lives and when it is safe to print (same
+	 * host as the primary, never beside a gated serve URL). It reads the media
+	 * meta the feed already prefetched, so there is no query per tile. Empty when
+	 * the engine is absent or the size has no modern copy.
+	 *
+	 * @since 1.3.0
+	 *
+	 * @param int    $media_id Media id.
+	 * @param string $size     Engine size key: large, medium, thumb or full.
+	 * @param string $url      The JPEG/PNG URL the copies stand beside.
+	 * @return array<string,string> MIME type => URL, AVIF first.
+	 */
+	public static function modern_image_sources( int $media_id, string $size, string $url ): array {
+		$helpers = self::service( 'template_helpers' );
+		if ( ! is_object( $helpers ) || '' === $url ) {
+			return array();
+		}
+		$out = array();
+		try {
+			if ( method_exists( $helpers, 'get_avif_variant_url' ) ) {
+				$out['image/avif'] = (string) $helpers->get_avif_variant_url( $media_id, $size, $url );
+			}
+			if ( method_exists( $helpers, 'get_webp_variant_url' ) ) {
+				$out['image/webp'] = (string) $helpers->get_webp_variant_url( $media_id, $size, $url );
+			}
+		} catch ( \Throwable $e ) {
+			return array();
+		}
+		return array_filter( $out );
+	}
+
+	/**
 	 * May this item be downloaded? The engine's one answer (site switch AND the
 	 * owner's per-item opt-out), so a BuddyNext control never offers what the
 	 * setting hid. Allowed when the engine cannot say. Media id 0 asks for the

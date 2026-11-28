@@ -86,6 +86,8 @@
 	display: block;
 	transition: transform 0.18s ease;
 }
+/* The AVIF/WebP wrapper adds no box, so the img sizes against the tile as before. */
+.bn-media-tile__picture { display: contents; }
 .bn-media-tile:hover,
 .bn-media-tile:focus { background: var( --bn-sunken, oklch( 97% 0.004 0 ) ); }
 .bn-media-tile:hover .bn-media-tile__img,
