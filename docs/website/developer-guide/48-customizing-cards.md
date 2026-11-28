@@ -86,7 +86,7 @@ add_filter( 'buddynext_part_notification_row_classes', static function ( array $
 | `post-cw-overlay.php` | The content-warning overlay |
 | `post-body.php` | Text, media, link preview, poll, shared-post embed |
 | `post-reaction-summary.php` | The engagement chip strip |
-| `post-actions.php` | React / Comment / Share / Save toolbar |
+| `post-actions.php` | Like / Comment / Share / Bookmark toolbar |
 | `post-comments-list.php` | The thread |
 | `comment.php` | One comment and its replies. The only comment renderer: the post page, "View more", new comments, replies and edits all use it |
 | `post-comment-form.php` | The comment composer |

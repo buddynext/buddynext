@@ -2,7 +2,7 @@
 
 The Activity Feed is the stream of posts members see when they open your community. It comes in two views: the personalized Home feed (signed-in members) and the public Explore feed (open to anyone, including logged-out visitors). Each post can be opened on its own permalink page.
 
-![BuddyNext Activity Feed - the post composer above a stream of posts with React, Comment, Share and Save actions, plus a discovery sidebar (daily streak, trending topics, people to follow, your spaces).](../images/community-activity-feed.webp)
+![BuddyNext Activity Feed - the post composer above a stream of posts with Like, Comment, Share and Bookmark actions, plus a discovery sidebar (daily streak, trending topics, people to follow, your spaces).](../images/community-activity-feed.webp)
 
 ## Why use it
 
@@ -80,8 +80,8 @@ The feed is available as an editor block, so you can place it on any page or bui
 - **Empty states are per tab.** A brand-new member who follows no one will see the For you tab fall back to a discovery-style view rather than a blank page, while the Following and Network tabs show a friendly "nothing here yet" prompt that points them toward people and spaces to follow. The Spaces tab is empty until they join a space. None of these are errors.
 - **An empty community.** On a fresh install with no posts, the feed correctly shows its empty state. Seed a few posts and follows to see the blended view.
 - **Link previews load shortly after posting.** When a member shares a link, the preview thumbnail and title are fetched in the background, so a freshly posted link may appear for a moment without its preview card before it fills in.
-- **The new-posts pill shows working posts.** Clicking **N new posts** loads the posts from the server, so React, Comment and Bookmark work on them straight away.
-- **Post action labels.** The reaction button reads **React** until you react, then shows your reaction (for example **Love**). The save button reads **Bookmark**.
+- **The new-posts pill shows working posts.** Clicking **N new posts** loads the posts from the server, so Like, Comment and Bookmark work on them straight away.
+- **Post action labels.** The reaction button reads **Like** until you react, then shows your reaction (for example **Love**) with its icon. The save button reads **Bookmark**.
 - **A card whose partner plugin is gone stays harmless.** If the plugin that created a feed card (for example a listing, event or course) is removed, the card keeps its title and a neutral line with no dead link, and its automatic sentence cannot be edited.
 - **Moderation is respected everywhere.** Posts from suspended or shadow-banned authors are hidden from the feed, Explore, and permalinks for everyone except the author and moderators, so moderators can still review them.
 
