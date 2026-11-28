@@ -1434,6 +1434,28 @@
 		return 'image' === type || 'video' === type || 'audio' === type;
 	}
 
+	// A tile whose chosen size is missing on the storage falls back to the
+	// original, once. Errors do not bubble, so listen in the capture phase, and
+	// sweep the images that already failed before this script ran.
+	function useFallback( img ) {
+		var src = img.getAttribute( 'data-bn-fallback-src' );
+		if ( ! src ) { return; }
+		img.removeAttribute( 'data-bn-fallback-src' );
+		var pic = img.parentElement && 'PICTURE' === img.parentElement.tagName ? img.parentElement : null;
+		if ( pic ) {
+			Array.prototype.forEach.call( pic.querySelectorAll( 'source' ), function ( s ) { s.remove(); } );
+		}
+		img.removeAttribute( 'srcset' );
+		img.src = src;
+	}
+	document.addEventListener( 'error', function ( e ) {
+		var t = e.target;
+		if ( t && 'IMG' === t.tagName && t.hasAttribute( 'data-bn-fallback-src' ) ) { useFallback( t ); }
+	}, true );
+	Array.prototype.forEach.call( document.querySelectorAll( 'img[data-bn-fallback-src]' ), function ( img ) {
+		if ( img.complete && 0 === img.naturalWidth && img.currentSrc ) { useFallback( img ); }
+	} );
+
 	// Downloads off: our players (tiles, this viewer, DMs) carry
 	// controlsList="nodownload", which drops Download from the browser's player
 	// menu; refuse the right-click menu on them too, so "Save audio as" is not

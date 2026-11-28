@@ -46,8 +46,8 @@ class GamificationKudos {
 	/**
 	 * Why a member may not send kudos to another member right now, or null when they may.
 	 *
-	 * One rule for every way kudos is sent: a suspended member is locked out of reaching other members, and
-	 * nobody sends kudos across a block, in either direction. A block answers like any other invalid receiver, so
+	 * One rule for every way kudos is sent: a suspended member is locked out of reaching other members, a
+	 * suspended member receives none, and nobody sends kudos across a block, in either direction. A block answers like any other invalid receiver, so
 	 * it does not tell the sender that they were blocked.
 	 *
 	 * @since 1.3.0
@@ -66,8 +66,12 @@ class GamificationKudos {
 			return \BuddyNext\Moderation\ModerationService::suspension_error( __( 'Your account is suspended and cannot send kudos.', 'buddynext' ) );
 		}
 
+		// A suspended member earns nothing while suspended, and kudos pays its receiver through a path that
+		// skips WB Gamification's earning gate, so the kudos is refused here. It answers like a block, so the
+		// sender is not told about another member's suspension.
 		$blocks = buddynext_service( 'blocks' );
-		if ( $blocks instanceof \BuddyNext\SocialGraph\BlockService && $blocks->is_blocking_either( $giver, $receiver ) ) {
+		if ( ( $moderation instanceof \BuddyNext\Moderation\ModerationService && $moderation->is_suspended( $receiver ) )
+			|| ( $blocks instanceof \BuddyNext\SocialGraph\BlockService && $blocks->is_blocking_either( $giver, $receiver ) ) ) {
 			return new \WP_Error( 'invalid_receiver', __( 'You cannot send kudos to that member.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 

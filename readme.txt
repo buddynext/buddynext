@@ -160,6 +160,9 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - A post you have reacted to shows its reaction icon next to the label again, instead of a blank gap.
 * Fix      - The notification badge and tab counts no longer include notifications the bell hides, and blocking or muting someone refreshes them at once.
 * Fix      - A member banned from a Space is no longer offered Request to join on that Space's event.
+* Fix      - A feed photo whose large size is missing on the storage now shows from its WebP copy or the original instead of a broken image.
+* Fix      - A suspended member no longer earns points from kudos, because kudos to a suspended member is refused.
+* Fix      - A suspended member cannot create a group conversation once WPMediaVerse offers its group-create filter; it does nothing on older versions.
 * Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
 * Security - Profile tabs from a partner are kept per kind of viewer (owner, signed-in member, visitor), so a login-only academy's course list is no longer shown to the wrong one when the site uses a persistent object cache.
 * Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.

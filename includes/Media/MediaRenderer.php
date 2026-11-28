@@ -325,15 +325,26 @@ class MediaRenderer {
 		// skip the heavier 2x source there.
 		// A site that picked a smaller feed image (buddynext_feed_image_variant) did
 		// so to send less, so the full original is not offered behind its back.
-		$srcset = '';
-		if ( $hires && '' !== $raw_thumb && $full !== $img_src && 'thumb_large' === MediaUrlResolver::image_variant() ) {
-			$srcset = ' srcset="' . $img_src . ' 1x, ' . $full . ' 2x"';
+		$retina = $hires && '' !== $raw_thumb && $full !== $img_src && 'thumb_large' === MediaUrlResolver::image_variant();
+		$srcset = $retina ? ' srcset="' . $img_src . ' 1x, ' . $full . ' 2x"' : '';
+
+		// The same AVIF/WebP copies MediaVerse's own grids offer, so a photo whose
+		// JPEG size is missing on the storage still shows from its modern copy.
+		$size    = '' !== $raw_thumb ? substr( MediaUrlResolver::image_variant(), 6 ) : 'full';
+		$sources = '';
+		foreach ( MediaClient::modern_image_sources( $id, $size, '' !== $raw_thumb ? $raw_thumb : (string) $d['url'] ) as $mime => $source_url ) {
+			$sources .= '<source type="' . esc_attr( $mime ) . '" srcset="' . esc_url( $source_url ) . ( $retina ? ' 1x, ' . $full . ' 2x' : '' ) . '">';
 		}
+
+		// When the chosen size fails to load, lightbox.js swaps in the original once.
+		$fallback_attr = '' !== $full && ( $full !== $img_src || '' !== $sources ) ? ' data-bn-fallback-src="' . $full . '"' : '';
+
+		$img = '<img class="bn-media-tile__img" src="' . $img_src . '"' . $srcset . $dim_attr . $fallback_attr . ' alt="' . $alt . '" loading="lazy" decoding="async">';
 
 		return '<button type="button" class="bn-media-tile bn-media-tile--image" '
 			. 'data-bn-media-id="' . $id . '" data-media-type="image" data-media-src="' . $full . '"' . $more_attr . $post_attr . ' '
 			. 'aria-label="' . ( '' !== $alt ? $alt : esc_attr__( 'View image', 'buddynext' ) ) . '">'
-			. '<img class="bn-media-tile__img" src="' . $img_src . '"' . $srcset . $dim_attr . ' alt="' . $alt . '" loading="lazy" decoding="async">'
+			. ( '' !== $sources ? '<picture class="bn-media-tile__picture">' . $sources . $img . '</picture>' : $img )
 			. '</button>';
 	}
 }
