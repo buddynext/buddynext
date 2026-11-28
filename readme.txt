@@ -162,14 +162,14 @@ Cards from your partner plugins show live facts and buttons, Eventonomy 2.0 even
 * Fix      - A member banned from a Space is no longer offered Request to join on that Space's event.
 * Fix      - A feed photo whose large size is missing on the storage now shows from its WebP copy or the original instead of a broken image.
 * Fix      - A suspended member no longer earns points from kudos, because kudos to a suspended member is refused.
-* Fix      - A suspended member cannot create a group conversation (needs WPMediaVerse 2.7.1 or later).
+* Fix      - A suspended member cannot create a group conversation once WPMediaVerse offers its group-create filter; it does nothing on older versions.
 * Security - The privacy export lists invitations by email and the uninstall keeps the owner's settings unless the delete-data option is on.
 * Security - Profile tabs from a partner are kept per kind of viewer (owner, signed-in member, visitor), so a login-only academy's course list is no longer shown to the wrong one when the site uses a persistent object cache.
 * Dev      - Filter buddynext_card_live, buddynext_card_facts and buddynext_card_actions let a bridge supply live card values, and buddynext_safeguard_check passes what is being written as a sixth argument.
 * Dev      - The release zip is built with every file compressed and the build fails on any stored PHP file, so the store upload firewall no longer blocks it.
 * Dev      - Filter buddynext_member_hold_meta_keys lets a plugin hold a sign-up back, and IntegrationActivity::refresh_cards_by_meta() is the one door that brings every card of a partner object up to date in batches.
 * Compat   - Space discussions need Jetonomy 2.1.0 or later: on an older Jetonomy they stay off, your forums and posts are kept, and Integrations says which version turns them on; a forum already linked to a Space cannot be opened up through Jetonomy's own edit there.
-* Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0 (2.7.1 for the group-conversation gate), Eventonomy 2.0.0, WP Career Board 1.8.6, Learnomy 2.4.1 and WB Gamification 1.7.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
+* Compat   - Tested with Jetonomy 2.1.0, WPMediaVerse 2.7.0, Eventonomy 2.0.0, WP Career Board 1.8.6, Learnomy 2.4.1 and WB Gamification 1.7.0; keeping suspended members off the leaderboard needs WB Gamification 1.7.0. Install BuddyNext Pro 1.3.0 together with this release.
 
 = 1.2.9 - November 2026 =
 
