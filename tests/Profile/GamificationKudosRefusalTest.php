@@ -69,4 +69,21 @@ class GamificationKudosRefusalTest extends \WP_UnitTestCase {
 		$earlier = new \WP_Error( 'x', 'earlier' );
 		$this->assertSame( $earlier, GamificationKudos::gate_partner_send( $earlier, $other, $admin ) );
 	}
+
+	/**
+	 * Kudos to a suspended member is refused on every route, so it pays them no points.
+	 *
+	 * @return void
+	 */
+	public function test_a_suspended_member_cannot_receive_kudos(): void {
+		$admin     = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$suspended = self::factory()->user->create();
+		$other     = self::factory()->user->create();
+		$this->assertIsInt( buddynext_service( 'moderation' )->suspend_user( $suspended, $admin, 'Repeated spam links', array( 'duration_days' => 7 ) ) );
+
+		$refused = GamificationKudos::refusal( $other, $suspended );
+		$this->assertWPError( $refused, 'A suspended member received kudos.' );
+		$this->assertSame( 'invalid_receiver', $refused->get_error_code(), 'The sender must not be told about another member\'s suspension.' );
+		$this->assertWPError( GamificationKudos::gate_partner_send( true, $other, $suspended ), 'The partner route let kudos reach a suspended member.' );
+	}
 }
